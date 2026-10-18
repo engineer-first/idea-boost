@@ -102,7 +102,10 @@ test.each(
     const slot = await readBounds(page, "idea-value-feasibility-map-slot");
     expect(plane.x).toBeCloseTo(planeX, 1);
     expect(plane.y).toBeCloseTo(118, 1);
-    expect(plane.width).toBeCloseTo(planeWidth, 1);
+    expect(plane.width).toBeCloseTo(
+      planeWidth + (phase === "3-2" ? 0 : 224),
+      1,
+    );
     expect(
       plane.y + plane.height,
       "上端を動かさず、マップ用領域の下端まで表示する",
@@ -276,9 +279,11 @@ test.each([
           expect(
             phaseGeometry[testId][axis] +
               phaseGeometry[testId][axis === "x" ? "width" : "height"] / 2,
-            `${phase}の横軸名の中心位置が3-2と一致`,
+            `${phase}の横軸名は拡大後も中央・同じ高さに置く`,
           ).toBeCloseTo(
-            expected[axis] + expected[axis === "x" ? "width" : "height"] / 2,
+            expected[axis] +
+              expected[axis === "x" ? "width" : "height"] / 2 +
+              (axis === "x" && phase !== "3-2" ? 112 : 0),
             0,
           );
         continue;
@@ -297,7 +302,16 @@ test.each([
         expect(
           phaseGeometry[testId][dimension],
           `${phase}の${testId}.${dimension}が3-2と一致`,
-        ).toBeCloseTo(expected[dimension], 1);
+        ).toBeCloseTo(
+          expected[dimension] +
+            (dimension === "x" &&
+            phase !== "3-2" &&
+            (testId === "high" ||
+              testId === "idea-value-feasibility-map-x-high-arrow")
+              ? 224
+              : 0),
+          1,
+        );
       }
     }
 
@@ -826,7 +840,10 @@ test.each([
 test.each([
   { phase: "3-2", open: openWorkspace },
   { phase: "3-3", open: openMapOnly },
-])("$phaseでは上部情報パネルと2軸マップの間隔を保つ", async ({ open }) => {
+])("$phaseでは上部情報パネルと2軸マップの間隔を保つ", async ({
+  phase,
+  open,
+}) => {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
   });
@@ -845,7 +862,7 @@ test.each([
 
     expect(plane.y - (context.y + context.height)).toBeGreaterThanOrEqual(16);
     expect(plane.y - (context.y + context.height)).toBeLessThanOrEqual(24);
-    expect(plane.width).toBeCloseTo(1124, 1);
+    expect(plane.width).toBeCloseTo(phase === "3-2" ? 1124 : 1348, 1);
     expect(plane.height).toBeCloseTo(639.09375, 1);
     const valueLine = await readBounds(
       page,
@@ -875,13 +892,13 @@ test.each([
     phase: "3-2",
     open: openWorkspace,
     viewport: { width: 1440, height: 1000 },
-    retryCenterRatio: 0.3,
+    retryCenterRatio: 0.31,
   },
   {
     phase: "3-3",
     open: openMapOnly,
     viewport: { width: 1440, height: 1000 },
-    retryCenterRatio: 0.3,
+    retryCenterRatio: 0.31,
   },
   {
     phase: "3-2 narrow",
@@ -1516,7 +1533,9 @@ test.each([
       ).toBeCloseTo(0, 1);
     }
     expect(sharing.mapPlane.x).toBe(mapOnly.mapPlane.x);
-    expect(sharing.mapPlane.width).toBe(mapOnly.mapPlane.width);
+    expect(mapOnly.mapPlane.width - sharing.mapPlane.width).toBe(
+      width >= 640 ? 224 : 0,
+    );
     expect(sharing.mapPlane.height).toBe(mapOnly.mapPlane.height);
     if (width >= 900) expect(sharing.mapPlane.y).toBe(mapOnly.mapPlane.y);
     expect(runtimeErrors).toEqual([]);
@@ -2059,23 +2078,81 @@ test.each([
   }
 });
 
-test("3-2から3-3へ進んでもマップの位置・サイズを維持し、3-3ではマイ付箋だけを隠す", async () => {
+test.each([
+  { width: 1280, reducedMotion: "no-preference" as const },
+  { width: 1280, reducedMotion: "reduce" as const },
+  { width: 390, reducedMotion: "no-preference" as const },
+  { width: 390, reducedMotion: "reduce" as const },
+])("$width px / $reducedMotion: 工程切り替えで右側だけを広げ、座標・高さ・付箋サイズを保つ", async ({
+  width,
+  reducedMotion,
+}) => {
   const page = await browser.newPage({
-    viewport: { width: 1280, height: 720 },
+    viewport: { width, height: 844 },
+    reducedMotion,
   });
   try {
-    await openWorkspace(page);
+    await openStory(page, "room-roomboardview--idea-map-phase-transitions");
+    const phase = page.getByRole("combobox", { name: "検証用の工程切り替え" });
+    await phase.selectOption("2");
+    const plane = page.getByTestId("idea-value-feasibility-map-plane");
     const map2 = await readBounds(page, "idea-value-feasibility-map-plane");
-    expect(await page.getByTestId("private-notes-toolbar").count()).toBe(1);
-
-    await openMapOnly(page);
-    const map3 = await readBounds(page, "idea-value-feasibility-map-plane");
-    expect(map3).toEqual(map2);
-    expect(await page.getByTestId("private-notes-toolbar").count()).toBe(0);
-    expect(await page.getByTestId("idea-map-workspace-rail").count()).toBe(1);
-    await page
-      .getByTestId("idea-value-feasibility-map-note-map-workspace-placed")
-      .waitFor();
+    const note = page.getByTestId(
+      "idea-value-feasibility-map-note-map-workspace-placed",
+    );
+    const card = note.getByTestId("note-card");
+    const before = await card.boundingBox();
+    if (!before) throw new Error("配置済み付箋がありません");
+    // 同じDOMが工程をまたいで残ることも確認する。
+    const original = await note.elementHandle();
+    for (const step of ["3", "4", "5", "2"]) {
+      const expanded = step !== "2" && width >= 640;
+      const expectedWidth = map2.width + (expanded ? 224 : 0);
+      await phase.selectOption(step);
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      await expect
+        .poll(async () => (await plane.boundingBox())?.width)
+        .toBeCloseTo(expectedWidth, 1);
+      const current = await readBounds(
+        page,
+        "idea-value-feasibility-map-plane",
+      );
+      expect(current.x).toBeCloseTo(map2.x, 1);
+      // 狭い画面の上端は工程ごとのヘッダーの高さに追従する。
+      if (width >= 640) expect(current.y).toBeCloseTo(map2.y, 1);
+      expect(current.height).toBeCloseTo(map2.height, 1);
+      expect(current.x + current.width).toBeLessThanOrEqual(width);
+      if (expanded) expect(width - current.x - current.width).toBeLessThan(24);
+      expect(
+        await note.evaluate(
+          (element, previous) => element === previous,
+          original,
+        ),
+      ).toBe(true);
+      expect(await note.getAttribute("data-map-x")).toBe("70");
+      expect(await note.getAttribute("data-map-y")).toBe("75");
+      const after = await card.boundingBox();
+      if (!after) throw new Error("工程切り替え後の付箋がありません");
+      expect(after.width).toBeCloseTo(before.width, 1);
+      expect(after.height).toBeCloseTo(before.height, 1);
+      expect(after.y - current.y).toBeCloseTo(before.y - map2.y, 1);
+      expect(after.x - before.x).toBeCloseTo(expanded ? 224 * 0.7 : 0, 1);
+      expect(await page.getByTestId("private-notes-toolbar").count()).toBe(
+        step === "2" ? 1 : 0,
+      );
+    }
+    await phase.selectOption("3");
+    await expect
+      .poll(async () => (await plane.boundingBox())?.width)
+      .toBeCloseTo(map2.width + (width >= 640 ? 224 : 0), 1);
+    await page.screenshot({
+      path: `${output}/expanded-right-${width}-${reducedMotion}.png`,
+    });
   } finally {
     await page.close();
   }

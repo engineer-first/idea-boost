@@ -314,7 +314,10 @@ describe("2軸評価画面の周辺操作", () => {
     expect(screen.getByTestId("board-tools-hud")).toContainElement(
       screen.getByTestId("canvas-zoom-controls"),
     );
-    expect(screen.getByTestId("idea-map-workspace-rail")).toHaveClass("w-56");
+    expect(screen.getByTestId("idea-map-viewport")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
     expect(screen.getByTestId("board-operation-matrix")).toHaveClass("right-3");
     expect(screen.getByTestId("board-operation-matrix")).not.toHaveClass(
       "max-[639px]:hidden",

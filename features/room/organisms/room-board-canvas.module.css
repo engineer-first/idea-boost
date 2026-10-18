@@ -1,3 +1,8 @@
+.ideaMapRail {
+  /* マップの縦位置と付箋サイズを維持する基準幅。評価以降はマップ面がここまで広がる。 */
+  width: var(--idea-map-rail-width, 14rem);
+}
+
 .ideaMapNotePosition {
   left: var(--idea-map-note-left-compact);
   bottom: var(--idea-map-note-bottom-compact);

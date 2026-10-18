@@ -93,6 +93,28 @@ function setup(
   };
 }
 
+describe("2軸マップの表示範囲", () => {
+  it("共有から評価・投票・決定へ進むと右側を広げ、戻るとマイ付箋の領域を確保する", () => {
+    const note = buildNote({ id: "placed", x: 70, y: 75 });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(2, 3),
+      notes: [note],
+    });
+    const viewport = screen.getByTestId("idea-map-viewport");
+    expect(viewport).toHaveAttribute("data-expanded", "false");
+    const placed = screen.getByTestId("idea-value-feasibility-map-note-placed");
+    for (const step of [3, 4, 5, 2]) {
+      rerender(<RoomBoardCanvas {...props} phase={buildPhaseStep(step, 3)} />);
+      expect(viewport).toHaveAttribute("data-expanded", String(step >= 3));
+      expect(screen.getByTestId("idea-value-feasibility-map-note-placed")).toBe(
+        placed,
+      );
+      expect(placed).toHaveAttribute("data-map-x", "70");
+      expect(placed).toHaveAttribute("data-map-y", "75");
+    }
+  });
+});
+
 function openPrivateNotesToolbar() {
   const toolbar = screen.getByTestId("private-notes-toolbar");
   const openButton = within(toolbar).queryByRole("button", {

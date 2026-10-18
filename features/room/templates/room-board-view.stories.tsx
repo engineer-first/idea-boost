@@ -1314,6 +1314,8 @@ export const IdeaMapPhaseTransitions: Story = {
           <option value={1}>3-1 個人</option>
           <option value={2}>3-2 共有</option>
           <option value={3}>3-3 評価</option>
+          <option value={4}>3-4 投票</option>
+          <option value={5}>3-5 決定</option>
         </select>
       </>
     );

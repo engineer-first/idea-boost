@@ -114,6 +114,7 @@ export type IdeaMapViewportProps = {
   groupHorizontalAxisEndpoint?: boolean;
   planeRef?: Ref<HTMLDivElement>;
   workspace?: boolean;
+  expanded?: boolean;
   zoom?: number;
 };
 
@@ -129,6 +130,7 @@ export function IdeaMapViewport({
   groupHorizontalAxisEndpoint = false,
   planeRef,
   workspace = false,
+  expanded = false,
   zoom = 1,
 }: IdeaMapViewportProps) {
   const horizontalAxisRef = useRef<HTMLFieldSetElement>(null);
@@ -226,6 +228,7 @@ export function IdeaMapViewport({
       className={`pointer-events-none absolute inset-0 z-10 flex items-center justify-center ${workspace ? "[container-type:size] px-4 pt-[var(--board-map-top,7rem)] pb-4" : "p-3 pt-20 sm:p-6 sm:pt-24"}`}
       data-testid="idea-map-viewport"
       data-map-workspace={workspace || undefined}
+      data-expanded={expanded}
       style={
         transforms.length === 0
           ? undefined
@@ -298,10 +301,10 @@ export function IdeaMapViewport({
                   マップ面だけをslotの下端まで伸ばし、中央寄せで生じた下側の空きを埋める。 */}
               <section
                 aria-label={labels.title}
-                className="absolute top-0 left-0 min-h-0 min-w-0 overflow-visible rounded-2xl border border-sky-200 bg-sky-50 shadow-inner [container-type:inline-size] [container-name:map-plane] [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]"
+                className={`${workspace ? styles.workspacePlane : ""} absolute top-0 left-0 min-h-0 min-w-0 overflow-visible rounded-2xl border border-sky-200 bg-sky-50 shadow-inner [container-type:inline-size] [container-name:map-plane] [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]`}
                 data-testid="idea-value-feasibility-map-plane"
                 style={{
-                  width: "100%",
+                  width: workspace ? undefined : "100%",
                   // 中央寄せで上下に分かれていた余白のうち、下半分だけを加える。
                   height: workspace ? "calc((100% + 100cqh) / 2)" : "100%",
                 }}

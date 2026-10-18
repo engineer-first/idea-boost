@@ -939,6 +939,7 @@ export function RoomBoardCanvas({
               <IdeaMapViewport
                 planeRef={ideaMapPlaneRef}
                 workspace
+                expanded={phase.kind === "step" && phase.step >= 3}
                 workspaceControls={
                   isIdeaMapWorkspaceStep
                     ? (ideaMapWorkspaceControls ?? {
@@ -1095,7 +1096,7 @@ export function RoomBoardCanvas({
         </div>
         {usesIdeaMapViewport ? (
           <div
-            className="relative z-30 w-56 shrink-0 -translate-x-3 max-[639px]:hidden"
+            className={`${styles.ideaMapRail} relative z-30 shrink-0 -translate-x-3 max-[639px]:hidden`}
             data-testid="idea-map-workspace-rail"
             aria-hidden="true"
           />
