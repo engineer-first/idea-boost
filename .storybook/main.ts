@@ -1,4 +1,5 @@
 import type { StorybookConfig } from "@storybook/nextjs-vite";
+import { nextjsRouterCompat } from "./nextjs-router-compat";
 
 const config: StorybookConfig = {
   framework: "@storybook/nextjs-vite",
@@ -15,6 +16,7 @@ const config: StorybookConfig = {
   ],
   viteFinal: (config) => ({
     ...config,
+    plugins: [...(config.plugins ?? []), nextjsRouterCompat()],
     envPrefix: ["VITE_", "STORYBOOK_", "NEXT_PUBLIC_"],
   }),
 };
