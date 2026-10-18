@@ -319,7 +319,7 @@ describe("useRoomBoardInteractions cursor input", () => {
   });
 
   it.each([
-    2, 3,
+    2, 3, 5,
   ])("3-%iの縮小表示付箋を上端・右端まで動かすと外側の辺を枠に合わせる", (step) => {
     const { result, onNoteDragEnd, onNoteDragMove, viewport } = setup({
       phase: buildPhaseStep(step, 3),
@@ -353,7 +353,7 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLDivElement>),
     );
 
-    expect(onNoteDragMove).toHaveBeenLastCalledWith("shared-1", 100, 100);
+    expect(onNoteDragMove).toHaveBeenLastCalledWith("shared-1", 87.5, 81.25);
 
     act(() =>
       result.current.onPointerEnd({
@@ -364,7 +364,7 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLDivElement>),
     );
 
-    expect(onNoteDragEnd).toHaveBeenCalledWith("shared-1", 100, 100);
+    expect(onNoteDragEnd).toHaveBeenCalledWith("shared-1", 87.5, 81.25);
   });
 
   it.each([
@@ -525,7 +525,14 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLDivElement>),
     );
 
-    expect(onPrivateNotePublish).toHaveBeenCalledWith(note.id, 100, 100);
+    const [publishedId, x, y] = onPrivateNotePublish.mock.calls[0];
+    const scale = getIdeaMapDisplayScale(2) * 0.75;
+    expect(publishedId).toBe(note.id);
+    expect(x).toBeCloseTo(100 - ((NOTE_WIDTH * scale) / 2 / 400) * 100);
+    expect(y).toBeCloseTo(
+      100 -
+        ((getNoteHeight(note.content, note.fontSize) * scale) / 2 / 200) * 100,
+    );
   });
 
   it("自分の発表順を待つ間もマイ付箋一覧内で並べ替えられる", () => {

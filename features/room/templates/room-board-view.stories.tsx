@@ -1025,7 +1025,11 @@ export const CanvasInputInteraction: Story = {
       ideaMapSizeInitialized: args.ideaMapSizeInitialized,
       getFitInsets: getBoardFitInsets,
       onNoteDragStart: (id) => setDraggingNoteId(id),
-      onNoteDragMove: () => undefined,
+      onNoteDragMove: (id, x, y) => {
+        setNotes((current) =>
+          current.map((note) => (note.id === id ? { ...note, x, y } : note)),
+        );
+      },
       onNoteDragEnd: (id, x, y, ideaMapPlaced) => {
         setNotes((current) =>
           current.map((note) =>
@@ -1341,6 +1345,64 @@ export const IdeaMapResult: Story = {
         objective: { count: index + 1, ownCount: 0, votedByMe: false },
       },
     })),
+  },
+};
+
+export const IdeaMapSharingEdges: Story = {
+  ...IdeaMapWorkspace,
+  name: "2軸マップ / 共有付箋を四隅へ移動",
+  args: {
+    ...IdeaMapWorkspace.args,
+    notes: [
+      buildNote({
+        id: "map-edge-movable",
+        authorId: ME,
+        content: "マップの端まで動かす付箋",
+        x: 50,
+        y: 60,
+        ideaMapPlaced: true,
+      }),
+    ],
+  },
+};
+
+export const IdeaMapEvaluationEdges: Story = {
+  ...IdeaMapSharingEdges,
+  name: "2軸マップ / 評価中の付箋を四隅へ移動",
+  args: {
+    ...IdeaMapSharingEdges.args,
+    phase: buildPhaseStep(3, 3),
+    sharing: null,
+    interactions: { ...INTERACTIONS, privateNotes: [] },
+  },
+};
+
+export const IdeaMapDecisionEdges: Story = {
+  ...IdeaMapEvaluationEdges,
+  name: "2軸マップ / 決定前の付箋を四隅へ移動",
+  args: { ...IdeaMapEvaluationEdges.args, phase: buildPhaseStep(5, 3) },
+};
+
+export const IdeaMapVotingEdges: Story = {
+  ...IdeaMapEvaluationEdges,
+  name: "2軸マップ / 四隅に配置済みの投票候補",
+  args: {
+    ...IdeaMapEvaluationEdges.args,
+    phase: buildPhaseStep(4, 3),
+    notes: [
+      [0, 0],
+      [0, 100],
+      [100, 0],
+      [100, 100],
+    ].map(([x, y], index) =>
+      buildNote({
+        id: `map-edge-${index}`,
+        content: `投票候補 ${index + 1}`,
+        x,
+        y,
+        ideaMapPlaced: true,
+      }),
+    ),
   },
 };
 

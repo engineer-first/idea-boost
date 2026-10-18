@@ -298,7 +298,7 @@ export function FixedIdeaMap({
             >
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0"
+                className="pointer-events-none absolute inset-0 rounded-[inherit]"
                 data-testid="idea-value-feasibility-map-plane-grid"
                 style={GRID_STYLE}
               />

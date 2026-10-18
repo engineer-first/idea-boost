@@ -1419,10 +1419,12 @@ export const TransactionMove100MapNotes: Story = {
   name: "移動transaction / map100枚・先頭3枚固定集合・ACK500ms",
   args: {
     ackDelayMs: 500,
-    // 最小ズーム時も選択した3枚をマップサイズ操作UIに覆われない位置に置き、
-    // このストーリーでは付箋ドラッグ自体の座標変換を検証する。
+    // 中心座標が表示可能範囲内にあり、最小ズーム時も操作UIに覆われない3枚で、
+    // 同一deltaの座標変換を検証する。四隅の補正は専用のedgeストーリーで扱う。
     notes: buildMovePerformanceNotes("map").map((note, index) =>
-      index < 3 ? { ...note, y: 95, stackOrder: 101 + index } : note,
+      index < 3
+        ? { ...note, x: 20 + index * 20, y: 80, stackOrder: 101 + index }
+        : note,
     ),
     phase: STEP_3_2,
     permissions: getBoardPermissions(STEP_3_2),

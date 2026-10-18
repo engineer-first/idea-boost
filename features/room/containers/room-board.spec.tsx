@@ -3410,7 +3410,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     const note = within(mappedNote).getByTestId("note-card");
 
     const surface = within(note).getByRole("button", { name: "付箋" });
-    surface.getBoundingClientRect = () => new DOMRect(150, 162.5, 200, 150);
+    surface.getBoundingClientRect = () => new DOMRect(100, 125, 200, 150);
     fireEvent.pointerDown(surface, {
       pointerId: 1,
       clientX: 200,
@@ -3439,10 +3439,10 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       .map((raw) => JSON.parse(raw))
       .find((message) => message.type === "note:drag:end");
     // 閾値を越える移動もpointerdownからの実移動量に含め、
-    // 200×250pxの可動域に対して最終的な110pxの移動を反映する。
+    // 400×400pxのマップ全体に対して最終的な110pxの移動を反映する。
     expect(end.noteId).toBe(NOTE_ID);
-    expect(end.position.x).toBeCloseTo(25 + (110 / 200) * 100);
-    expect(end.position.y).toBeCloseTo(75 - (110 / 250) * 100);
+    expect(end.position.x).toBeCloseTo(25 + (110 / 400) * 100);
+    expect(end.position.y).toBeCloseTo(75 - (110 / 400) * 100);
     expect(canvas.style.transform).toBe(cameraBefore);
   });
 
@@ -3531,10 +3531,10 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       .find((message) => message.type === "note:publish");
     expect(publish.noteId).toBe(NOTE_ID);
     expect(publish.x).toBeCloseTo(
-      ((previewPosition.left - 100) / (400 - previewSize.width)) * 100,
+      ((previewPosition.left + previewSize.width / 2 - 100) / 400) * 100,
     );
     expect(publish.y).toBeCloseTo(
-      100 - ((previewPosition.top - 100) / (400 - previewSize.height)) * 100,
+      100 - ((previewPosition.top + previewSize.height / 2 - 100) / 400) * 100,
     );
   });
 

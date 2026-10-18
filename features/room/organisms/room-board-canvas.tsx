@@ -627,6 +627,8 @@ export function RoomBoardCanvas({
             ? `idea-value-feasibility-map-note-${note.id}`
             : `board-note-${note.id}`
         }
+        data-map-x={isFixedIdeaMap ? note.x : undefined}
+        data-map-y={isFixedIdeaMap ? note.y : undefined}
         style={{
           ...(!isFixedIdeaMap ? position : {}),
           ...ideaMapPositionVariables,

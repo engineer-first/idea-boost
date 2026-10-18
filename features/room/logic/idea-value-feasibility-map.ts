@@ -206,8 +206,8 @@ export function getIdeaValueFeasibilityMapNotePosition(
 }
 
 /**
- * 固定マップ上で、付箋の左下を0〜100の移動領域へ対応させる。
- * マップ自体はレスポンシブでも、付箋サイズはカメラ倍率に影響されない。
+ * 評価値はマップ全体に対する付箋の中心座標として描画する。
+ * 表示寸法だけを使って外周で補正し、縮小前の寸法による内側余白を作らない。
  */
 export function getFixedIdeaMapNotePosition(
   point: IdeaValueFeasibilityPoint,
@@ -233,21 +233,41 @@ export function getFixedIdeaMapNotePosition(
     FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT,
     Math.max(0, noteHeight),
   );
-  const referenceWidth = NOTE_WIDTH * safeResponsiveScale;
-  const referenceHeight = displayedHeight * safeResponsiveScale;
-  // position値は倍率1のときの付箋中心を表し、表示倍率を変えてもその中心を維持する。
-  const leftOffset =
-    (feasibility * referenceWidth) / 100 -
-    (referenceWidth * (1 - safeDisplayScale)) / 2 +
+  const visibleWidth = NOTE_WIDTH * safeResponsiveScale * safeDisplayScale;
+  const visibleHeight =
+    displayedHeight * safeResponsiveScale * safeDisplayScale;
+  const transformLeft =
     NOTE_WIDTH * safeTransformOriginX * (1 - safeDisplayScale);
-  const bottomOffset =
-    (value * referenceHeight) / 100 -
-    (referenceHeight * (1 - safeDisplayScale)) / 2 +
+  const transformBottom =
     displayedHeight * (1 - safeTransformOriginY) * (1 - safeDisplayScale);
   return {
-    left: getPercentWithPixelOffset(feasibility, leftOffset),
-    bottom: getPercentWithPixelOffset(value, bottomOffset),
+    left: getContainedNoteCenterPosition(
+      feasibility,
+      visibleWidth,
+      transformLeft,
+    ),
+    bottom: getContainedNoteCenterPosition(
+      value,
+      visibleHeight,
+      transformBottom,
+    ),
   };
+}
+
+function getContainedNoteCenterPosition(
+  coordinate: number,
+  visibleSize: number,
+  transformOffset: number,
+): string {
+  const min = getPercentWithPixelOffset(0, transformOffset);
+  const max = getPercentWithPixelOffset(100, visibleSize + transformOffset);
+  if (coordinate === 0) return min;
+  if (coordinate === 100) return max;
+  const center = getPercentWithPixelOffset(
+    coordinate,
+    visibleSize / 2 + transformOffset,
+  );
+  return `clamp(${min}, ${center}, ${max})`;
 }
 
 export function getFixedIdeaMapNotePositionProfiles(
@@ -286,21 +306,18 @@ export function getFixedIdeaMapNotePointFromClientPosition(
   bounds: IdeaValueFeasibilityMapBounds,
   noteSize: FixedIdeaMapNoteSize,
   grabOffset: FixedIdeaMapNoteGrabOffset,
-  coordinateSize: FixedIdeaMapNoteSize = noteSize,
 ): IdeaValueFeasibilityPoint | null {
   const mapWidth = bounds.right - bounds.left;
   const mapHeight = bounds.bottom - bounds.top;
-  const horizontalTravel = mapWidth - coordinateSize.width;
-  const verticalTravel = mapHeight - coordinateSize.height;
   if (
-    horizontalTravel <= 0 ||
-    verticalTravel <= 0 ||
+    mapWidth <= 0 ||
+    mapHeight <= 0 ||
+    noteSize.width > mapWidth ||
+    noteSize.height > mapHeight ||
     !Number.isFinite(clientX) ||
     !Number.isFinite(clientY) ||
     !Number.isFinite(noteSize.width) ||
-    !Number.isFinite(noteSize.height) ||
-    !Number.isFinite(coordinateSize.width) ||
-    !Number.isFinite(coordinateSize.height)
+    !Number.isFinite(noteSize.height)
   ) {
     return null;
   }
@@ -316,14 +333,10 @@ export function getFixedIdeaMapNotePointFromClientPosition(
 
   return {
     feasibility: clampIdeaValueFeasibilityMapCoordinate(
-      ((left + noteSize.width / 2 - coordinateSize.width / 2 - bounds.left) /
-        horizontalTravel) *
-        100,
+      ((left + noteSize.width / 2 - bounds.left) / mapWidth) * 100,
     ),
     value: clampIdeaValueFeasibilityMapCoordinate(
-      ((bounds.bottom - top - noteSize.height / 2 - coordinateSize.height / 2) /
-        verticalTravel) *
-        100,
+      ((bounds.bottom - top - noteSize.height / 2) / mapHeight) * 100,
     ),
   };
 }

@@ -4,7 +4,6 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import {
   getIdeaMapDimensions,
   IDEA_MAP_BASE_DIMENSIONS,
-  NOTE_WIDTH,
 } from "../../contracts/board";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
@@ -1047,14 +1046,10 @@ test.each([
     const note = notes[0];
     const readLogicalPosition = async () =>
       note.evaluate((element) => {
-        const style = (element as HTMLElement).style;
-        const readPercent = (name: string) => {
-          const match = style.getPropertyValue(name).match(/(-?[\d.]+)%/);
-          return match ? Number.parseFloat(match[1]) : Number.NaN;
-        };
+        const data = (element as HTMLElement).dataset;
         return {
-          left: readPercent("--idea-map-note-left-desktop"),
-          bottom: readPercent("--idea-map-note-bottom-desktop"),
+          left: Number(data.mapX),
+          bottom: Number(data.mapY),
         };
       });
     const dragHandle = note.getByRole("button", {
@@ -1065,25 +1060,9 @@ test.each([
     const positionArea = await page
       .getByTestId("idea-map-fixed-position-area")
       .boundingBox();
-    const planeBounds = await plane.boundingBox();
-    if (!dragBounds || !positionArea || !planeBounds)
+    if (!dragBounds || !positionArea)
       throw new Error("倍率変更後の付箋を移動できません");
     const beforeDrag = await readLogicalPosition();
-    const coordinateWidth = await plane.evaluate((element, noteWidth) => {
-      const map = element as HTMLElement;
-      const responsiveScale = Number.parseFloat(
-        getComputedStyle(map).getPropertyValue("--idea-map-note-scale"),
-      );
-      const mapZoom =
-        map.clientWidth > 0
-          ? map.getBoundingClientRect().width / map.clientWidth
-          : 1;
-      return (
-        noteWidth *
-        (Number.isFinite(responsiveScale) ? responsiveScale : 1) *
-        mapZoom
-      );
-    }, NOTE_WIDTH);
     const pointerX = dragBounds.x + Math.min(20, dragBounds.width / 2);
     const pointerY = dragBounds.y + Math.min(20, dragBounds.height / 2);
     const pointerDeltaX = positionArea.width * 0.1;
@@ -1094,8 +1073,7 @@ test.each([
     });
     await page.mouse.up();
     const expectedLeft =
-      beforeDrag.left +
-      (pointerDeltaX / (planeBounds.width - coordinateWidth)) * 100;
+      beforeDrag.left + (pointerDeltaX / positionArea.width) * 100;
     await expect
       .poll(async () => (await readLogicalPosition()).left)
       .toBeGreaterThan(expectedLeft - 0.25);
@@ -1565,7 +1543,7 @@ test.each([
   }
 });
 
-test("中間幅でもレスポンシブ縮小した付箋の中心を広さ変更後に保つ", async () => {
+test("中間幅でも通常位置の中心と評価値を保ち、端の付箋を枠内に収める", async () => {
   const page = await browser.newPage({
     viewport: { width: 800, height: 900 },
   });
@@ -1573,8 +1551,15 @@ test("中間幅でもレスポンシブ縮小した付箋の中心を広さ変�
     await openWorkspace(page);
     const plane = page.getByTestId("idea-value-feasibility-map-plane");
     const note = page.getByTestId(
+      "idea-value-feasibility-map-note-map-workspace-placed",
+    );
+    const edge = page.getByTestId(
       "idea-value-feasibility-map-note-map-workspace-shared-1",
     );
+    const edgePosition = await edge.evaluate((element) => ({
+      x: (element as HTMLElement).dataset.mapX,
+      y: (element as HTMLElement).dataset.mapY,
+    }));
     const noteCard = note.getByTestId("note-card");
     const initialPlane = await plane.boundingBox();
     const initialNote = await noteCard.boundingBox();
@@ -1600,6 +1585,25 @@ test("中間幅でもレスポンシブ縮小した付箋の中心を広さ変�
       ),
     ).toBeLessThan(1);
     expect(await plane.boundingBox()).toEqual(initialPlane);
+    const area = await readBounds(page, "idea-map-fixed-position-area");
+    await expect
+      .poll(async () => {
+        const rect = await edge.getByTestId("note-card").boundingBox();
+        if (!rect) return Infinity;
+        return Math.max(
+          area.x - rect.x,
+          area.y - rect.y,
+          rect.x + rect.width - area.x - area.width,
+          rect.y + rect.height - area.y - area.height,
+        );
+      })
+      .toBeLessThanOrEqual(0.1);
+    expect(
+      await edge.evaluate((element) => ({
+        x: (element as HTMLElement).dataset.mapX,
+        y: (element as HTMLElement).dataset.mapY,
+      })),
+    ).toEqual(edgePosition);
   } finally {
     await page.close();
   }
