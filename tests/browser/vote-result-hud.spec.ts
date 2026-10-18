@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 it.each([
-  375, 640, 900, 1440,
+  360, 375, 640, 900, 1440,
 ])("%ipxで投票前・全員完了・結果の空白を予約せず主要操作の位置と行の高さを保つ", async (width) => {
   const browser = await chromium.launch();
   try {
@@ -38,6 +38,7 @@ it.each([
       },
     ]) {
       let reference: unknown;
+      let referenceHeight = 0;
       let nextReference: unknown;
       const result = scenario.stories[2];
       for (const story of scenario.stories) {
@@ -113,8 +114,34 @@ it.each([
           if (!nextReference) nextReference = nextBox;
           else expect(nextBox).toEqual(nextReference);
         }
-        if (!reference) reference = await read();
-        else await expect.poll(read).toEqual(reference);
+        if (!reference) {
+          reference = await read();
+          referenceHeight = (await hud.boundingBox())?.height ?? 0;
+        } else if (story === "idea-result-awaiting-decision") {
+          // 最終ステップは「次へ」の代わりに無効な完了ボタンを表示する。
+          // 投票前・全員完了の配置一致は上記の比較で引き続き保証する。
+          const hudBox = await hud.boundingBox();
+          const menuBox = await page
+            .getByRole("button", { name: "ルームメニューを開く" })
+            .boundingBox();
+          if (!hudBox || !menuBox) throw new Error("操作バーがありません");
+          expect(hudBox.height).toBeLessThanOrEqual(referenceHeight);
+          expect(
+            await page
+              .getByRole("button", { name: "完了して成果を表示" })
+              .isDisabled(),
+          ).toBe(true);
+          expect(await next.count()).toBe(0);
+          await page
+            .getByRole("button", { name: "ルームメニューを開く" })
+            .click();
+          await page.getByRole("button", { name: "招待", exact: true }).click();
+          expect(
+            await page
+              .getByRole("dialog", { name: "ルームに招待" })
+              .isVisible(),
+          ).toBe(true);
+        } else await expect.poll(read).toEqual(reference);
         expect(
           await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth,
@@ -130,6 +157,12 @@ it.each([
                 .getByRole("button", { name: "次のステップへ" })
                 .isDisabled(),
             ).toBe(true);
+          else if (result?.startsWith("idea"))
+            expect(
+              await page
+                .getByRole("button", { name: "完了して成果を表示" })
+                .isDisabled(),
+            ).toBe(true);
           else
             expect(
               await page
@@ -137,6 +170,38 @@ it.each([
                 .count(),
             ).toBe(0);
         }
+      }
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+it.each([
+  360, 375, 640, 900, 1440,
+])("%ipxで最終案の決定前後に完了ボタンの位置を保つ", async (width) => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width, height: 1000 } });
+    let reference: unknown;
+    for (const story of [
+      "idea-result-awaiting-decision",
+      "idea-result-decided",
+    ]) {
+      await page.goto(
+        `${origin}/iframe.html?id=room-roomboardheader--${story}&viewMode=story`,
+      );
+      const button = page.getByRole("button", { name: "完了して成果を表示" });
+      await button.waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      const box = await button.boundingBox();
+      if (!reference) {
+        reference = box;
+        expect(await button.isDisabled()).toBe(true);
+      } else {
+        expect(box).toEqual(reference);
+        await button.click();
+        expect(await page.getByRole("alertdialog").isVisible()).toBe(true);
       }
     }
   } finally {

@@ -1134,6 +1134,13 @@ describe("サーバーメッセージ → 画面反映", () => {
     });
     expect(screen.getByTestId("room-board-view-root")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "完了して成果を表示" }));
+    expect(socket.sent).toEqual([]);
+    const confirmation = screen.getByRole("alertdialog", {
+      name: "スプリントを完了しますか？",
+    });
+    fireEvent.click(
+      within(confirmation).getByRole("button", { name: "完了する" }),
+    );
     expectSent(socket, { type: "outcome:publish" });
     expect(screen.getByTestId("room-board-view-root")).toBeVisible();
     act(() =>
