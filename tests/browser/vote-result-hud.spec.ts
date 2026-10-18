@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 it.each([
-  375, 640, 900, 1440,
+  360, 375, 640, 900, 1440,
 ])("%ipxで投票前・全員完了・結果の空白を予約せず主要操作の位置と行の高さを保つ", async (width) => {
   const browser = await chromium.launch();
   try {
@@ -178,7 +178,7 @@ it.each([
 });
 
 it.each([
-  375, 640, 900, 1440,
+  360, 375, 640, 900, 1440,
 ])("%ipxで最終案の決定前後に完了ボタンの位置を保つ", async (width) => {
   const browser = await chromium.launch();
   try {

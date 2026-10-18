@@ -730,7 +730,10 @@ export function RoomBoardHeader({
                           !hasFinalDecision
                         }
                       >
-                        <Check aria-hidden="true" className="size-4" />
+                        <Check
+                          aria-hidden="true"
+                          className="size-4 max-[639px]:hidden"
+                        />
                         完了して成果を表示
                       </Button>
                     </AlertDialogTrigger>

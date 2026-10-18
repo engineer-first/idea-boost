@@ -68,11 +68,13 @@ for (const width of [1280, 375]) {
         .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
         .waitFor();
       expect(await cancel.count()).toBe(0);
-      expect(
-        await page
-          .getByRole("button", { name: "完了して成果を表示", exact: true })
-          .count(),
-      ).toBe(0);
+      const complete = page.getByRole("button", {
+        name: "完了して成果を表示",
+        exact: true,
+      });
+      // 最終ステップは採用取消後も位置を保ち、未決定のまま完了させない。
+      if (phase === "3-5") expect(await complete.isDisabled()).toBe(true);
+      else expect(await complete.count()).toBe(0);
       await page.screenshot({
         path: `${output}/${phase}-${width}-cleared.png`,
       });
@@ -93,6 +95,15 @@ for (const width of [1280, 375]) {
       });
       expect(await decision.innerText()).toContain(content);
       expect(await page.locator("[data-adopt-target]").count()).toBe(0);
+      if (phase === "3-5") {
+        expect(await complete.isEnabled()).toBe(true);
+        await complete.click();
+        await page.getByRole("alertdialog").waitFor();
+        await page
+          .getByRole("button", { name: "キャンセル", exact: true })
+          .click();
+        expect(await decision.innerText()).toContain(content);
+      }
       await page.screenshot({
         path: `${output}/${phase}-${width}-reselected.png`,
       });
