@@ -375,6 +375,10 @@ describe("useRoomBoardInteractions cursor input", () => {
     });
     const plane = document.createElement("div");
     plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
+    plane.style.setProperty(
+      "--idea-map-note-scale",
+      String(100 / (NOTE_WIDTH * getIdeaMapDisplayScale(2))),
+    );
     result.current.ideaMapPlaneRef.current = plane;
 
     act(() =>
@@ -410,6 +414,48 @@ describe("useRoomBoardInteractions cursor input", () => {
     );
 
     expect(onNoteDragEnd).toHaveBeenCalledWith("shared-1", 87.5, 81.25);
+  });
+
+  it.each([
+    0.6, 0.75,
+  ])("採用ボタンからのドラッグも表示倍率%sでマップ端へ配置する", (responsiveScale) => {
+    const { result, onNoteDragEnd, viewport } = setup({
+      phase: buildPhaseStep(5, 3),
+      withSharedDrag: true,
+      sharedNotePosition: { x: 40, y: 40 },
+      ideaMapSizeLevel: 2,
+    });
+    const scale = getIdeaMapDisplayScale(2);
+    const width = NOTE_WIDTH * scale;
+    const height =
+      getNoteHeight(buildNote().content, buildNote().fontSize) * scale;
+    const plane = document.createElement("div");
+    plane.style.setProperty("--idea-map-note-scale", String(responsiveScale));
+    plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
+    result.current.ideaMapPlaneRef.current = plane;
+    act(() =>
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 17,
+        clientX: 200 + width / 2,
+        clientY: 125 + height / 2,
+        currentTarget: {
+          getBoundingClientRect: () => new DOMRect(200, 125, width, height),
+        },
+      } as unknown as PointerEvent<HTMLButtonElement>),
+    );
+    act(() =>
+      result.current.onPointerEnd({
+        pointerId: 17,
+        clientX: 500,
+        clientY: 100,
+        target: viewport,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    expect(onNoteDragEnd).toHaveBeenCalledWith(
+      "shared-1",
+      expect.closeTo(100 - ((width * responsiveScale) / 2 / 400) * 100),
+      expect.closeTo(100 - ((height * responsiveScale) / 2 / 200) * 100),
+    );
   });
 
   it.each([

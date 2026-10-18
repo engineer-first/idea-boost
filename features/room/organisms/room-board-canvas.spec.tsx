@@ -1367,6 +1367,12 @@ describe("RoomBoardCanvas", () => {
       camera: { x: 30, y: -20, zoom: 0.75 },
       notes: [buildNote({ id: "mapped-note", x: 72, y: 28 })],
     });
+    expect(
+      screen.getByRole("application", { name: "共有キャンバス" }),
+    ).toHaveAttribute(
+      "aria-description",
+      "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。",
+    );
     expect(screen.getByTestId("idea-map-fixed-board")).toBeInTheDocument();
     expect(screen.getByTestId("board-canvas")).toHaveStyle({
       transform: "none",

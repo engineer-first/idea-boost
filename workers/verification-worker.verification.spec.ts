@@ -300,6 +300,24 @@ describe("検証用の初期状態", () => {
       ).toBeGreaterThan(top);
     });
   });
+  it("3-3の検証付箋は共有工程を終えた配置済み状態で始まる", async () => {
+    const active = await create("3-3");
+    const connection = await connectRoomAs(users[0], active.roomId);
+    try {
+      const snapshot = await connection.next();
+      expect(snapshot.type).toBe("snapshot");
+      if (snapshot.type !== "snapshot") throw new Error("snapshotがありません");
+      expect(snapshot.notes).toHaveLength(12);
+      expect(
+        snapshot.notes.every(
+          (note) => note.visibility === "shared" && note.ideaMapPlaced,
+        ),
+      ).toBe(true);
+    } finally {
+      connection.close();
+    }
+  });
+
   it.each([
     "3-2",
     "3-3",

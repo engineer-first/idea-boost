@@ -20,6 +20,55 @@ async function bounds(page: Page, testId: string) {
   return rect;
 }
 
+test.each([
+  390, 900,
+])("%i pxの採用モードでも縮小付箋をマップ右上端まで移動する", async (width) => {
+  const page = await browser.newPage({ viewport: { width, height: 900 } });
+  try {
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardview--idea-map-decision-edges&viewMode=story`,
+    );
+    await page.getByTestId("idea-map-fixed-position-area").waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    await page
+      .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
+      .click();
+    const wrapper = page.getByTestId(
+      "idea-value-feasibility-map-note-map-edge-movable",
+    );
+    const note = wrapper.getByTestId("note-card");
+    const before = await note.boundingBox();
+    if (!before) throw new Error("移動する付箋がありません");
+    const plane = await bounds(page, "idea-map-fixed-position-area");
+    await page.mouse.move(
+      before.x + before.width / 2,
+      before.y + before.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      before.x + before.width / 2 + 12,
+      before.y + before.height / 2,
+      { steps: 3 },
+    );
+    await page.mouse.move(plane.x + plane.width - 1, plane.y + 1, {
+      steps: 12,
+    });
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        const after = await note.boundingBox();
+        if (!after) return Infinity;
+        return Math.max(
+          Math.abs(after.x + after.width - plane.x - plane.width),
+          Math.abs(after.y - plane.y),
+        );
+      })
+      .toBeLessThan(0.5);
+  } finally {
+    await page.close();
+  }
+});
+
 test.each(
   [
     { phase: "3-2", story: "idea-map-sharing-edges" },

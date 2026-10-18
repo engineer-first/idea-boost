@@ -256,13 +256,8 @@ export function useRoomBoardInteractions({
         ideaMapSizeLevel,
         responsiveScale,
       );
-      const useMapPreviewSize = drag.status === "private";
-      const noteWidth = useMapPreviewSize
-        ? metrics.width * mapZoom
-        : drag.previewWidth;
-      const noteHeight = useMapPreviewSize
-        ? metrics.height * mapZoom
-        : drag.previewHeight;
+      const noteWidth = metrics.width * mapZoom;
+      const noteHeight = metrics.height * mapZoom;
       const point = getFixedIdeaMapNotePointFromClientPosition(
         clientX,
         clientY,

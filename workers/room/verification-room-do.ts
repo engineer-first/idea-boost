@@ -73,12 +73,7 @@ export class VerificationRoomDO extends RoomDO {
                 completed ||
                 target.step > 2 ||
                 (target.step === 2 && index >= 3);
-              this.seedNote(
-                phase,
-                index,
-                shared,
-                !(phase === 3 && target.step === 3),
-              );
+              this.seedNote(phase, index, shared);
             }
             if (completed || isResultStep(target)) {
               for (const user of DEV_USERS) this.seedVotes(phase, user.id);

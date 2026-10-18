@@ -198,19 +198,17 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const updatedAt = new Date().toISOString();
-    const isMapSharingStep = isPhaseStep(getPhase(ctx.sql), 3, 2);
     const stackOrder = publishNote(
       ctx.sql,
       message.noteId,
       message.x,
       message.y,
       updatedAt,
-      isMapSharingStep,
     );
     broadcastNoteInserted(ctx.sql, ctx.broadcaster, {
       ...row,
       visibility: "shared",
-      idea_map_placed: isMapSharingStep,
+      idea_map_placed: true,
       x: message.x,
       y: message.y,
       stack_order: stackOrder,

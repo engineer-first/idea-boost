@@ -879,8 +879,10 @@ export function RoomBoardCanvas({
             role="application"
             aria-label="共有キャンバス"
             aria-description={
-              isIdeaMapWorkspace
-                ? "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。"
+              isFixedIdeaMap
+                ? isIdeaMapWorkspace
+                  ? "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。"
+                  : "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。"
                 : "背景でVは選択、Hは手のひら。Spaceとドラッグで画面移動"
             }
             data-selection-count={selectionIds.length}
