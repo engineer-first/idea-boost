@@ -101,11 +101,11 @@ describe("2軸マップの表示範囲", () => {
       notes: [note],
     });
     const viewport = screen.getByTestId("idea-map-viewport");
-    expect(viewport).toHaveAttribute("data-expanded", "false");
+    expect(viewport).toHaveAttribute("data-map-expanded", "false");
     const placed = screen.getByTestId("idea-value-feasibility-map-note-placed");
     for (const step of [3, 4, 5, 2]) {
       rerender(<RoomBoardCanvas {...props} phase={buildPhaseStep(step, 3)} />);
-      expect(viewport).toHaveAttribute("data-expanded", String(step >= 3));
+      expect(viewport).toHaveAttribute("data-map-expanded", String(step >= 3));
       expect(screen.getByTestId("idea-value-feasibility-map-note-placed")).toBe(
         placed,
       );

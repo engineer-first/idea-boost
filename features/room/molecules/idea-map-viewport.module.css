@@ -6,7 +6,7 @@
 }
 
 @media (min-width: 640px) {
-  .workspace[data-expanded="true"] {
+  .workspace[data-map-expanded="true"] {
     --idea-map-expansion: var(--idea-map-rail-width, 14rem);
   }
 }

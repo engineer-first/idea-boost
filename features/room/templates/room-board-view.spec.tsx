@@ -315,7 +315,7 @@ describe("2軸評価画面の周辺操作", () => {
       screen.getByTestId("canvas-zoom-controls"),
     );
     expect(screen.getByTestId("idea-map-viewport")).toHaveAttribute(
-      "data-expanded",
+      "data-map-expanded",
       "true",
     );
     expect(screen.getByTestId("board-operation-matrix")).toHaveClass("right-3");

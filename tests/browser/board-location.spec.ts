@@ -452,9 +452,11 @@ test.each([
 });
 
 // 高さが小さいときも、展開中のタブと上の閉じる入口を下部HUDが覆わない。
-test("320×320でも現在地の直下の手順と上の開閉操作へ到達できる", async () => {
+test.each([
+  3, 4, 5,
+])("320×320の3-%iでも現在地の直下の手順と上の開閉操作へ到達できる", async (step) => {
   await page.setViewportSize({ width: 320, height: 320 });
-  await open("room-roomboardlayout--phase-3-step-3");
+  await open(`room-roomboardlayout--phase-3-step-${step}`);
   const trigger = page.getByRole("button", { name: /現在地/ });
   await trigger.click();
   for (const tab of await page.getByRole("tab").all()) await reachable(tab);
