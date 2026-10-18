@@ -85,36 +85,6 @@ function setup() {
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 describe("保存待ち中の連続移動", () => {
-  it("マップの配置後に未配置へ戻す操作を待ち行列へ保持して確定する", () => {
-    const h = setup();
-    h.apply({
-      ...snapshot,
-      phase: { kind: "step", phase: 3, step: 3 },
-      notes: [buildNote({ id: N, x: 50, y: 50, ideaMapPlaced: false })],
-    });
-    h.start();
-    act(() => h.result.current.endNoteDrag(N, 60, 50));
-    expect(h.result.current.notes[0].ideaMapPlaced).toBe(true);
-    h.start();
-    act(() => h.result.current.endNoteDrag(N, 60, 50, false));
-    expect(h.result.current.notes[0].ideaMapPlaced).toBe(false);
-    const saved = receipt(0, 50, 60);
-    saved.coordinateSpace = "map";
-    saved.before[0] = { ...saved.before[0], y: 50, ideaMapPlaced: false };
-    saved.after[0] = { ...saved.after[0], y: 50, ideaMapPlaced: true };
-    h.apply({
-      type: "note:move:result",
-      operationId: ids[0],
-      status: "accepted",
-      receipt: saved,
-    });
-    expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
-      type: "note:move:commit",
-      operationId: ids[1],
-      ideaMapPlaced: false,
-    });
-    expect(h.result.current.notes[0].ideaMapPlaced).toBe(false);
-  });
   it("3回の短い移動を即時表示し、各成功の版で順番に保存する", () => {
     const h = setup();
     h.start();

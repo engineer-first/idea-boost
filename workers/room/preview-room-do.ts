@@ -122,7 +122,6 @@ export class PreviewRoomDO extends RoomDO {
                 updated_at: now,
                 phase,
                 excluded: false,
-                idea_map_placed: true,
               };
               insertNote(this.ctx.storage.sql, note);
               noteIds.push(note.id);

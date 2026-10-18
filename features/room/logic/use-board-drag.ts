@@ -101,12 +101,7 @@ export type UseBoardDragArgs = {
     selectedNoteIds?: readonly string[],
   ) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
-  onNoteDragEnd: (
-    noteId: string,
-    x: number,
-    y: number,
-    ideaMapPlaced?: false,
-  ) => void;
+  onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
   onPrivateNoteUnpublish: (

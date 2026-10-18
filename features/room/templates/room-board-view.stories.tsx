@@ -1030,7 +1030,7 @@ export const CanvasInputInteraction: Story = {
           current.map((note) => (note.id === id ? { ...note, x, y } : note)),
         );
       },
-      onNoteDragEnd: (id, x, y, ideaMapPlaced) => {
+      onNoteDragEnd: (id, x, y) => {
         setNotes((current) =>
           current.map((note) =>
             note.id === id
@@ -1038,11 +1038,6 @@ export const CanvasInputInteraction: Story = {
                   ...note,
                   x,
                   y,
-                  ...(args.phase.kind === "step" &&
-                  args.phase.phase === 3 &&
-                  (args.phase.step === 2 || args.phase.step === 3)
-                    ? { ideaMapPlaced: ideaMapPlaced ?? true }
-                    : {}),
                 }
               : note,
           ),
@@ -1056,7 +1051,7 @@ export const CanvasInputInteraction: Story = {
         setPrivateNotes((current) => current.filter((item) => item.id !== id));
         setNotes((current) => [
           ...current,
-          { ...note, visibility: "shared", x, y, ideaMapPlaced: true },
+          { ...note, visibility: "shared", x, y },
         ]);
       },
       onPrivateNoteUnpublish: (id) => {
@@ -1239,7 +1234,6 @@ export const IdeaMapWorkspace: Story = {
         content: "最初の一歩を小さくする",
         x: 70,
         y: 75,
-        ideaMapPlaced: true,
       }),
       ...buildNotes(8).map((note, index) => ({
         ...note,
@@ -1360,7 +1354,6 @@ export const IdeaMapSharingEdges: Story = {
         content: "マップの端まで動かす付箋",
         x: 50,
         y: 60,
-        ideaMapPlaced: true,
       }),
     ],
   },
@@ -1400,7 +1393,6 @@ export const IdeaMapVotingEdges: Story = {
         content: `投票候補 ${index + 1}`,
         x,
         y,
-        ideaMapPlaced: true,
       }),
     ),
   },

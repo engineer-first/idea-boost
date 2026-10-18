@@ -328,12 +328,7 @@ export class VerificationRoomDO extends RoomDO {
     return result;
   }
 
-  private seedNote(
-    phase: number,
-    index: number,
-    shared: boolean,
-    ideaMapPlaced = true,
-  ): NoteRow {
+  private seedNote(phase: number, index: number, shared: boolean): NoteRow {
     const user = DEV_USERS[index % DEV_USERS.length];
     const now = new Date().toISOString();
     const order = this.ctx.storage.sql
@@ -358,7 +353,6 @@ export class VerificationRoomDO extends RoomDO {
       updated_at: now,
       phase,
       excluded: false,
-      idea_map_placed: ideaMapPlaced,
     };
     insertNote(this.ctx.storage.sql, note);
     return note;

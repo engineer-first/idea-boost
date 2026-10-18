@@ -23,7 +23,6 @@ export type NoteRow = {
   position_revision?: number;
   visibility_revision?: number;
   visibility: "private" | "shared";
-  idea_map_placed?: boolean;
   color: NoteColor;
   font_size: number;
   x: number;
@@ -48,7 +47,6 @@ function normalizeNoteRow(row: Record<string, unknown>): NoteRow {
         ? row.font_size
         : NOTE_DEFAULT_FONT_SIZE,
     excluded: row.excluded === true || row.excluded === 1,
-    idea_map_placed: row.idea_map_placed !== 0 && row.idea_map_placed !== false,
   };
 }
 
@@ -196,8 +194,8 @@ export function hasOnlySharedNotes(
 export function insertNote(sql: SqlStorage, note: NoteRow): void {
   sql.exec(
     `INSERT INTO notes
-       (id, author_id, content, visibility, color, x, y, stack_order, created_at, updated_at, phase, excluded, idea_map_placed)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
+       (id, author_id, content, visibility, color, x, y, stack_order, created_at, updated_at, phase, excluded)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`,
     note.id,
     note.author_id,
     note.content,
@@ -210,7 +208,6 @@ export function insertNote(sql: SqlStorage, note: NoteRow): void {
     note.updated_at,
     note.phase,
     note.excluded ? 1 : 0,
-    note.idea_map_placed === false ? 0 : 1,
   );
   sql.exec(
     `INSERT INTO note_appearances (note_id, font_size)
@@ -238,20 +235,17 @@ export function publishNote(
   x: number,
   y: number,
   updatedAt: string,
-  ideaMapPlaced = true,
 ): number {
   const stackOrder = nextStackOrder(sql);
   sql.exec(
     `UPDATE notes
-     SET visibility = 'shared', x = ?2, y = ?3, updated_at = ?4, stack_order = ?5,
-         idea_map_placed = ?6
+     SET visibility = 'shared', x = ?2, y = ?3, updated_at = ?4, stack_order = ?5
      WHERE id = ?1`,
     noteId,
     x,
     y,
     updatedAt,
     stackOrder,
-    ideaMapPlaced ? 1 : 0,
   );
   return stackOrder;
 }
@@ -345,15 +339,10 @@ export function moveNote(
   x: number,
   y: number,
   updatedAt: string,
-  markIdeaMapPlaced = false,
 ): number {
   const row = findNote(sql, noteId);
   if (!row) return 0;
-  if (
-    row.x === x &&
-    row.y === y &&
-    (!markIdeaMapPlaced || row.idea_map_placed)
-  ) {
+  if (row.x === x && row.y === y) {
     sql.exec(
       "UPDATE notes SET updated_at = ?2 WHERE id = ?1",
       noteId,
@@ -364,15 +353,13 @@ export function moveNote(
   const stackOrder = nextStackOrder(sql);
   sql.exec(
     `UPDATE notes
-     SET x = ?2, y = ?3, updated_at = ?4, stack_order = ?5,
-         idea_map_placed = CASE WHEN ?6 = 1 THEN 1 ELSE idea_map_placed END
+     SET x = ?2, y = ?3, updated_at = ?4, stack_order = ?5
      WHERE id = ?1`,
     noteId,
     x,
     y,
     updatedAt,
     stackOrder,
-    markIdeaMapPlaced ? 1 : 0,
   );
   return stackOrder;
 }
@@ -567,7 +554,6 @@ export function toProtocolNote(
     positionRevision: Number(moveVersion?.position_revision ?? 0),
     visibilityRevision: Number(moveVersion?.visibility_revision ?? 0),
     visibility: row.visibility,
-    ideaMapPlaced: row.idea_map_placed !== false,
     color: row.color,
     fontSize: row.font_size,
     x: row.x,

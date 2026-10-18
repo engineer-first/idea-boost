@@ -27,9 +27,6 @@ lint:
     enabled: true
   columnCount:
     enabled: true
-    # notes は公開状態・座標とは独立した配置状態 idea_map_placed を持つため13列。
-    # 配置状態は移動履歴・Undo・位置revisionの競合検知で使用するため維持する。
-    # 14列以上は引き続き責務分割を再検討する。
-    max: 13
+    max: 12
   duplicateRelations:
     enabled: true

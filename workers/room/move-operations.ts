@@ -451,7 +451,6 @@ function position(row: NoteRow): MoveReceipt["before"][number] {
     noteId: row.id,
     x: row.x,
     y: row.y,
-    ideaMapPlaced: row.idea_map_placed !== false,
     positionRevision: row.position_revision ?? 0,
     visibilityRevision: row.visibility_revision ?? 0,
   };
@@ -675,13 +674,7 @@ export const moveHandlers: MessageHandlers<
     if (
       !sourceReceipt.after.every((target) => {
         const row = findNote(ctx.sql, target.noteId);
-        return (
-          row &&
-          row.x === target.x &&
-          row.y === target.y &&
-          (target.ideaMapPlaced === undefined ||
-            (row.idea_map_placed !== false) === target.ideaMapPlaced)
-        );
+        return row && row.x === target.x && row.y === target.y;
       })
     ) {
       denied();
@@ -729,16 +722,11 @@ export const moveHandlers: MessageHandlers<
         const groupVersionsBefore = groupVersions(ctx.sql);
         for (const target of sourceReceipt.before)
           ctx.sql.exec(
-            "UPDATE notes SET x=?2,y=?3,updated_at=?4,idea_map_placed=CASE WHEN ?5 IS NULL THEN idea_map_placed ELSE ?5 END WHERE id=?1",
+            "UPDATE notes SET x=?2,y=?3,updated_at=?4 WHERE id=?1",
             target.noteId,
             target.x,
             target.y,
             new Date().toISOString(),
-            target.ideaMapPlaced === undefined
-              ? null
-              : target.ideaMapPlaced
-                ? 1
-                : 0,
           );
         for (const group of sourceReceipt.groupsAfter)
           ctx.sql.exec("DELETE FROM groups WHERE id=?1", group.id);
@@ -1023,26 +1011,12 @@ export const moveHandlers: MessageHandlers<
     const active = activeOperation(ctx, message.operationId);
     if (!active) return;
     const { request, rows } = active;
-    const unplacesMapNotes = message.ideaMapPlaced === false;
-    if (
-      unplacesMapNotes &&
-      (!isPhaseStep(getPhase(ctx.sql), 3, 3) ||
-        request.start.coordinateSpace !== "map" ||
-        rows.some((row) => row.idea_map_placed === false))
-    ) {
-      reject(ctx, message.operationId, undefined, true);
-      return;
-    }
     const delta = clampDelta(
       rows,
       message.delta,
       request.start.coordinateSpace === "map",
     );
-    const marksMapPlacement =
-      request.start.coordinateSpace === "map" &&
-      rows.some((row) => row.idea_map_placed === false);
-    const changed =
-      delta.x !== 0 || delta.y !== 0 || marksMapPlacement || unplacesMapNotes;
+    const changed = delta.x !== 0 || delta.y !== 0;
     // 分類は他の付箋の移動でも変わる。ドロップ時の最新分類を同じtransactionで再編する。
     const groupRevisionBefore = moveRevisions(ctx.sql).groupRevision;
     const groupsBefore = listGroups(ctx.sql);
@@ -1058,14 +1032,12 @@ export const moveHandlers: MessageHandlers<
             (a, b) => a.stack_order - b.stack_order || a.id.localeCompare(b.id),
           ))
             ctx.sql.exec(
-              "UPDATE notes SET x=?2,y=?3,stack_order=?4,updated_at=?5,idea_map_placed=CASE WHEN ?7=1 THEN 0 WHEN ?6=1 THEN 1 ELSE idea_map_placed END WHERE id=?1",
+              "UPDATE notes SET x=?2,y=?3,stack_order=?4,updated_at=?5 WHERE id=?1",
               row.id,
               row.x + delta.x,
               row.y + delta.y,
               nextStackOrder(ctx.sql),
               now,
-              request.start.coordinateSpace === "map" ? 1 : 0,
-              unplacesMapNotes ? 1 : 0,
             );
           if (isPhaseStep(getPhase(ctx.sql), 1, 3))
             saveGroups(

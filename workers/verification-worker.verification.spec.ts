@@ -300,7 +300,7 @@ describe("検証用の初期状態", () => {
       ).toBeGreaterThan(top);
     });
   });
-  it("3-3の検証付箋は共有工程を終えた配置済み状態で始まる", async () => {
+  it("3-3の検証付箋は共有済みでマップ範囲内の座標を持つ", async () => {
     const active = await create("3-3");
     const connection = await connectRoomAs(users[0], active.roomId);
     try {
@@ -310,7 +310,12 @@ describe("検証用の初期状態", () => {
       expect(snapshot.notes).toHaveLength(12);
       expect(
         snapshot.notes.every(
-          (note) => note.visibility === "shared" && note.ideaMapPlaced,
+          (note) =>
+            note.visibility === "shared" &&
+            note.x >= 0 &&
+            note.x <= 100 &&
+            note.y >= 0 &&
+            note.y <= 100,
         ),
       ).toBe(true);
     } finally {

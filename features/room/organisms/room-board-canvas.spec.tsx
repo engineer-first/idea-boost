@@ -1983,28 +1983,20 @@ describe("Step 3-2〜3-5（固定2軸マップ）", () => {
   });
 
   it("Step 3-3 はマイ付箋だけを隠し、3-2と同じマップ領域に共有付箋を表示する", () => {
-    const unplacedNote = Object.assign(
-      buildNote({ id: "unplaced-idea", x: 50, y: 50 }),
-      { ideaMapPlaced: false },
-    );
-    const placedNote = Object.assign(
-      buildNote({ id: "placed-idea", x: 75, y: 25 }),
-      { ideaMapPlaced: true },
-    );
+    const firstNote = buildNote({ id: "first-idea", x: 50, y: 50 });
+    const secondNote = buildNote({ id: "second-idea", x: 75, y: 25 });
     setup({
       phase: buildPhaseStep(3, 3),
       permissions: getBoardPermissions(buildPhaseStep(3, 3)),
-      notes: [unplacedNote, placedNote],
+      notes: [firstNote, secondNote],
     });
 
     const plane = screen.getByTestId("idea-value-feasibility-map-plane");
     expect(
-      within(plane).getByTestId("idea-value-feasibility-map-note-placed-idea"),
+      within(plane).getByTestId("idea-value-feasibility-map-note-second-idea"),
     ).toBeInTheDocument();
     expect(
-      within(plane).getByTestId(
-        "idea-value-feasibility-map-note-unplaced-idea",
-      ),
+      within(plane).getByTestId("idea-value-feasibility-map-note-first-idea"),
     ).toBeInTheDocument();
     expect(
       screen.queryByTestId("private-notes-toolbar"),
@@ -2046,15 +2038,15 @@ describe("Step 3-2〜3-5（固定2軸マップ）", () => {
   });
 
   it("マップワークスペースは外側に無限キャンバスの背景を表示しない", () => {
-    const unplacedNote = Object.assign(
-      buildNote({ id: "compact-tray-note", content: "トレイ内の付箋" }),
-      { ideaMapPlaced: false },
-    );
+    const firstNote = buildNote({
+      id: "shared-map-note",
+      content: "マップ上の付箋",
+    });
     const phase = buildPhaseStep(2, 3);
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      notes: [unplacedNote],
+      notes: [firstNote],
     });
 
     const boardScroller = screen.getByTestId("board-scroller");

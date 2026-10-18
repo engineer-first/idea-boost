@@ -1343,7 +1343,7 @@ describe("useBoardDrag", () => {
     expect(result.current.drag).toBeNull();
   });
 
-  it("マップ上の共有付箋は未配置フラグに関係なく移動できる", () => {
+  it("マップ上の共有付箋を移動できる", () => {
     const { args, result } = setup({
       notes: [
         buildNote({
@@ -1351,7 +1351,6 @@ describe("useBoardDrag", () => {
           authorId: ME,
           x: 50,
           y: 50,
-          ideaMapPlaced: false,
         }),
       ],
     });

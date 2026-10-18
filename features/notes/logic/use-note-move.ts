@@ -21,7 +21,6 @@ type Operation = {
   anchorId: string;
   before: ProtocolNote[];
   delta: { x: number; y: number };
-  ideaMapPlaced?: false;
   phaseRevision: number;
   mapRevision: number;
   space: "canvas" | "map";
@@ -39,19 +38,12 @@ function renderMoves(
   notes: ProtocolNote[],
   operations: Operation[],
 ): ProtocolNote[] {
-  const positions = new Map<
-    string,
-    { x: number; y: number; ideaMapPlaced: boolean }
-  >();
+  const positions = new Map<string, { x: number; y: number }>();
   for (const operation of operations)
     for (const note of operation.before)
       positions.set(note.id, {
         x: note.x + operation.delta.x,
         y: note.y + operation.delta.y,
-        ideaMapPlaced:
-          operation.space === "map" && operation.status === "pending"
-            ? operation.ideaMapPlaced !== false
-            : (positions.get(note.id)?.ideaMapPlaced ?? note.ideaMapPlaced),
       });
   return notes.map((note) => {
     const position = positions.get(note.id);
@@ -286,7 +278,7 @@ export function useNoteMove({
     [previewSender, publish],
   );
   const end = useCallback(
-    (noteId: string, x: number, y: number, ideaMapPlaced?: false) => {
+    (noteId: string, x: number, y: number) => {
       move(noteId, x, y);
       const queue = operationsRef.current;
       const current = queue.at(-1);
@@ -300,7 +292,6 @@ export function useNoteMove({
       const next: Operation = {
         ...current,
         status: "pending",
-        ...(ideaMapPlaced === false ? { ideaMapPlaced: false } : {}),
       };
       publish([...queue.slice(0, -1), next], true);
       if (queue.length === 1)
@@ -308,7 +299,6 @@ export function useNoteMove({
           type: "note:move:commit",
           operationId: current.id,
           delta: current.delta,
-          ...(next.ideaMapPlaced === false ? { ideaMapPlaced: false } : {}),
         });
     },
     [move, previewSender, publish, send],
@@ -482,7 +472,6 @@ export function useNoteMove({
                     x: position.x,
                     y: position.y,
                     positionRevision: position.positionRevision,
-                    ideaMapPlaced: position.ideaMapPlaced ?? note.ideaMapPlaced,
                   }
                 : note;
             }),
@@ -517,7 +506,6 @@ export function useNoteMove({
             type: "note:move:commit",
             operationId: next.id,
             delta: next.delta,
-            ...(next.ideaMapPlaced === false ? { ideaMapPlaced: false } : {}),
           });
         else previewSender(next);
       }

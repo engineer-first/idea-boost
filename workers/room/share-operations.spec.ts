@@ -160,8 +160,8 @@ describe("share commit", () => {
 
   it.each([
     1, 2,
-  ] as const)("フェーズ%iの同一座標での共有は配置状態と位置リビジョンを保つ", (phase) =>
-    setup(`share-placement-phase-${phase}`, (ctx, responses) => {
+  ] as const)("フェーズ%iの同一座標での共有は座標と位置リビジョンを保つ", (phase) =>
+    setup(`share-same-position-phase-${phase}`, (ctx, responses) => {
       savePhase(ctx.sql, { kind: "step", phase, step: 2 });
       ctx.sql.exec(
         "UPDATE notes SET visibility='private', phase=?2 WHERE id=?1",
@@ -189,18 +189,19 @@ describe("share commit", () => {
         status: "committed",
       });
       expect(findNote(ctx.sql, N1)).toMatchObject({
-        idea_map_placed: true,
+        x: row.x,
+        y: row.y,
         position_revision: row.position_revision,
       });
       expect(messages).toContainEqual(
         expect.objectContaining({
           type: "note:inserted",
-          note: expect.objectContaining({ id: N1, ideaMapPlaced: true }),
+          note: expect.objectContaining({ id: N1, visibility: "shared" }),
         }),
       );
     }));
 
-  it("Step 3-2の共有はマップ座標で公開済み配置として確定する", () =>
+  it("Step 3-2の共有はマップ座標で公開を確定する", () =>
     setup("share-phase-3-step-2-map-coordinates", (ctx, responses) => {
       savePhase(ctx.sql, { kind: "step", phase: 3, step: 2 });
       ctx.sql.exec(
@@ -231,7 +232,8 @@ describe("share commit", () => {
       });
       expect(findNote(ctx.sql, N1)).toMatchObject({
         visibility: "shared",
-        idea_map_placed: true,
+        x: 72,
+        y: 31,
       });
     }));
 

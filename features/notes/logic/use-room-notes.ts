@@ -142,12 +142,7 @@ export type UseRoomNotesResult = {
   // ドラッグ中: 即時ローカル反映 + note:drag をスロットル送信。
   moveNote: (noteId: string, x: number, y: number) => void;
   // ドロップ確定: note:move を送信（ドラッグ中の座標はサーバーに残らない）。
-  endNoteDrag: (
-    noteId: string,
-    x: number,
-    y: number,
-    ideaMapPlaced?: false,
-  ) => void;
+  endNoteDrag: (noteId: string, x: number, y: number) => void;
   cancelNoteDrag: (noteId?: string) => void;
   excludeNote: (noteId: string) => void;
   restoreNote: (noteId: string) => void;
@@ -924,9 +919,9 @@ export function useRoomNotes({
   );
 
   const endNoteDrag = useCallback(
-    (noteId: string, x: number, y: number, ideaMapPlaced?: false) => {
+    (noteId: string, x: number, y: number) => {
       if (transactionMove.owns(noteId)) {
-        transactionMove.end(noteId, x, y, ideaMapPlaced);
+        transactionMove.end(noteId, x, y);
         return;
       }
       const operation = noteDragOperationRef.current;

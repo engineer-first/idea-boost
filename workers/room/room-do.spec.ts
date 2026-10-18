@@ -2420,8 +2420,8 @@ describe("RoomDO phase:next", () => {
     await stub.setPhase(buildPhaseStep(2, 3), USER_A);
 
     const noteIds = {
-      placed: crypto.randomUUID(),
-      unplaced: crypto.randomUUID(),
+      first: crypto.randomUUID(),
+      second: crypto.randomUUID(),
     };
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -2430,13 +2430,13 @@ describe("RoomDO phase:next", () => {
       );
       state.storage.sql.exec(
         `INSERT INTO notes
-           (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at, idea_map_placed)
-         VALUES (?1, ?2, '配置済み', 'shared', 'yellow', 72, 28, 3, ?3, ?3, 1),
-                (?4, ?2, '共有中', 'shared', 'yellow', 40, 60, 3, ?3, ?3, 0)`,
-        noteIds.placed,
+           (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at)
+         VALUES (?1, ?2, 'アイデアA', 'shared', 'yellow', 72, 28, 3, ?3, ?3),
+                (?4, ?2, '共有中', 'shared', 'yellow', 40, 60, 3, ?3, ?3)`,
+        noteIds.first,
         USER_A,
         now,
-        noteIds.unplaced,
+        noteIds.second,
       );
     });
 
@@ -2475,16 +2475,14 @@ describe("RoomDO phase:next", () => {
       ideaMapSizeInitialized: true,
       notes: expect.arrayContaining([
         expect.objectContaining({
-          id: noteIds.placed,
+          id: noteIds.first,
           x: 72,
           y: 28,
-          ideaMapPlaced: true,
         }),
         expect.objectContaining({
-          id: noteIds.unplaced,
+          id: noteIds.second,
           x: 40,
           y: 60,
-          ideaMapPlaced: false,
         }),
       ]),
     });
@@ -3932,7 +3930,6 @@ describe("RoomDO phase:next", () => {
         id: created.note.id,
         x: 16,
         y: 12,
-        ideaMapPlaced: true,
       },
     });
 
@@ -3950,7 +3947,6 @@ describe("RoomDO phase:next", () => {
           id: created.note.id,
           x: 16,
           y: 12,
-          ideaMapPlaced: true,
         }),
       ],
     });
@@ -3972,17 +3968,12 @@ describe("RoomDO phase:next", () => {
       }),
     );
     expect(await nextJson(ws)).toMatchObject({ type: "note:updated" });
-    const placed = await runInRoomDO(
-      roomName,
-      (_instance, state) =>
-        state.storage.sql
-          .exec(
-            "SELECT idea_map_placed FROM notes WHERE id = ?1",
-            created.note.id,
-          )
-          .one().idea_map_placed,
+    const savedPosition = await runInRoomDO(roomName, (_instance, state) =>
+      state.storage.sql
+        .exec("SELECT x, y FROM notes WHERE id = ?1", created.note.id)
+        .one(),
     );
-    expect(placed).toBe(1);
+    expect(savedPosition).toMatchObject({ x: 24, y: 80 });
 
     ws.send(
       JSON.stringify({

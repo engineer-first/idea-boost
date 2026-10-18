@@ -59,12 +59,7 @@ export type UseRoomBoardInteractionsArgs = {
     selectedNoteIds?: readonly string[],
   ) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
-  onNoteDragEnd: (
-    noteId: string,
-    x: number,
-    y: number,
-    ideaMapPlaced?: false,
-  ) => void;
+  onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
   onPrivateNoteUnpublish: (
@@ -169,8 +164,6 @@ export function useRoomBoardInteractions({
   const boardRootRef = useRef<HTMLDivElement>(null);
   const boardScrollerRef = useRef<HTMLDivElement>(null);
   const privateToolbarRef = useRef<HTMLDivElement>(null);
-  const isIdeaMapWorkspaceStep =
-    isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" &&
@@ -360,9 +353,7 @@ export function useRoomBoardInteractions({
   ]);
 
   const dragGhost =
-    drag?.status === "shared" &&
-    (!notes.some((note) => note.id === drag.note.id) ||
-      (isIdeaMapWorkspaceStep && drag.note.ideaMapPlaced === false))
+    drag?.status === "shared" && !notes.some((note) => note.id === drag.note.id)
       ? { note: drag.note, x: drag.x, y: drag.y }
       : null;
   const dragPreview =

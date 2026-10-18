@@ -15,7 +15,6 @@ import { useRoomBoardInteractions } from "./use-room-board-interactions";
 function setup({
   phase = buildPhaseStep(2),
   withSharedDrag = false,
-  sharedNotePlaced = true,
   movePending = false,
   moveBlocked = movePending,
   isDecided = false,
@@ -29,7 +28,6 @@ function setup({
 }: {
   phase?: RoomPhase;
   withSharedDrag?: boolean;
-  sharedNotePlaced?: boolean;
   movePending?: boolean;
   moveBlocked?: boolean;
   isDecided?: boolean;
@@ -54,7 +52,6 @@ function setup({
         buildNote({
           id: "shared-1",
           authorId: "11111111-1111-4111-8111-111111111111",
-          ideaMapPlaced: sharedNotePlaced,
           ...sharedNotePosition,
         }),
       ]
@@ -112,11 +109,10 @@ function setup({
 }
 
 describe("useRoomBoardInteractions cursor input", () => {
-  it("3-5では配置状態によらずdevelopと同じ共有付箋だけをドラッグし、プレビューを重複させない", () => {
+  it("3-5では共有付箋をドラッグし、プレビューを重複させない", () => {
     const { result } = setup({
       phase: buildPhaseStep(5, 3),
       withSharedDrag: true,
-      sharedNotePlaced: false,
     });
     const plane = document.createElement("div");
     plane.getBoundingClientRect = () => new DOMRect(0, 0, 1600, 900);

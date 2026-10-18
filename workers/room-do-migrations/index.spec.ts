@@ -238,36 +238,26 @@ describe("ROOM_DO_MIGRATIONS", () => {
     });
   });
 
-  it("既存付箋のマップ配置状態を保存し、旧付箋は配置済みとして扱う", async () => {
-    await runInRoomDO("mig-idea-map-placement", (_instance, state) => {
+  it("付箋は配置状態を持たず12列で保存し、座標変更のrevisionを維持する", async () => {
+    await runInRoomDO("mig-note-coordinates", (_instance, state) => {
+      const columns = state.storage.sql
+        .exec("PRAGMA table_info(notes)")
+        .toArray();
+      expect(columns).toHaveLength(12);
       const now = new Date().toISOString();
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, color, x, y, created_at, updated_at)
-         VALUES ('map-placement-note', ?1, '既存付箋', 'yellow', 25, 75, ?2, ?2)`,
+         VALUES ('map-note', ?1, '共有付箋', 'yellow', 25, 75, ?2, ?2)`,
         USER_A,
         now,
       );
-
-      expect(
-        state.storage.sql
-          .exec(
-            "SELECT idea_map_placed FROM notes WHERE id = 'map-placement-note'",
-          )
-          .one().idea_map_placed,
-      ).toBe(1);
       state.storage.sql.exec(
-        "UPDATE notes SET idea_map_placed = 0 WHERE id = 'map-placement-note'",
+        "UPDATE notes SET x = 50, y = 50 WHERE id = 'map-note'",
       );
-      expect(
-        findNote(state.storage.sql, "map-placement-note")?.position_revision,
-      ).toBe(1);
-      state.storage.sql.exec(
-        "UPDATE notes SET x = 50, y = 50, idea_map_placed = 1 WHERE id = 'map-placement-note'",
+      expect(findNote(state.storage.sql, "map-note")?.position_revision).toBe(
+        1,
       );
-      expect(
-        findNote(state.storage.sql, "map-placement-note")?.position_revision,
-      ).toBe(2);
     });
   });
 

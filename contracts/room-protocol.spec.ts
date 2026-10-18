@@ -257,17 +257,10 @@ describe("NoteSchema", () => {
     );
   });
 
-  it("2軸マップの未配置状態を受け入れ、既存付箋は配置済みとして補完する", () => {
+  it("共有付箋は座標で表現し、配置状態フィールドを返さない", () => {
     expect(
-      NoteSchema.parse({ ...note, visibility: "shared" }).ideaMapPlaced,
-    ).toBe(true);
-    expect(
-      NoteSchema.parse({
-        ...note,
-        visibility: "shared",
-        ideaMapPlaced: false,
-      }).ideaMapPlaced,
-    ).toBe(false);
+      NoteSchema.parse({ ...note, visibility: "shared" }),
+    ).not.toHaveProperty("ideaMapPlaced");
   });
 
   it("文字サイズを付箋ごとに受け入れ、旧形式は14pxとして補完する", () => {
@@ -1465,19 +1458,18 @@ describe("共有進行の境界", () => {
   });
 });
 
-describe("2軸マップの未配置操作契約", () => {
+describe("2軸マップの移動操作契約", () => {
   const commit = {
     type: "note:move:commit",
     operationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     delta: { x: 0, y: 0 },
   };
 
-  it("未配置へ戻す操作を表現し、配置済み指定はクライアントから受け付けない", () => {
+  it("座標の移動を受け入れ、未配置にする要求は拒否する", () => {
+    expect(ClientMessageSchema.parse(commit)).toEqual(commit);
     expect(
-      ClientMessageSchema.parse({ ...commit, ideaMapPlaced: false }),
-    ).toEqual({ ...commit, ideaMapPlaced: false });
-    expect(
-      ClientMessageSchema.safeParse({ ...commit, ideaMapPlaced: true }).success,
+      ClientMessageSchema.safeParse({ ...commit, ideaMapPlaced: false })
+        .success,
     ).toBe(false);
   });
 });

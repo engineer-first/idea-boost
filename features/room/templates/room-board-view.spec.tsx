@@ -295,7 +295,7 @@ describe("2軸評価画面の周辺操作", () => {
         onUndo: vi.fn(),
         onRedo: vi.fn(),
       },
-      notes: [buildNote({ id: "unplaced-idea", ideaMapPlaced: false })],
+      notes: [buildNote({ id: "shared-idea" })],
     });
 
     const phaseHud = screen.getByTestId("phase-loop-hud");
