@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NOTE_WIDTH } from "@/contracts/board";
 import {
-  getFittedIdeaMapAxisLabelFontSize,
   getFixedIdeaMapNotePointFromClientPosition,
   getFixedIdeaMapNotePosition,
   getIdeaMapAxisLabelFontSize,
@@ -77,14 +76,6 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     [15, 87],
   ])("マップの広さ%iで軸ラベルを適切なサイズへ拡縮する", (sizeLevel, expected) => {
     expect(getIdeaMapAxisLabelFontSize(sizeLevel)).toBe(expected);
-  });
-
-  it("狭い横軸では左右の矢印の間に収まるサイズへ縮め、余白があれば元のサイズを保つ", () => {
-    expect(getFittedIdeaMapAxisLabelFontSize(70, 480, 16, 350)).toBeCloseTo(
-      50.5,
-      0,
-    );
-    expect(getFittedIdeaMapAxisLabelFontSize(70, 480, 16, 600)).toBe(70);
   });
 
   it("固定マップは付箋の表示寸法に合わせて移動範囲を端まで使う", () => {

@@ -7,11 +7,7 @@ import {
   useLayoutEffect,
   useRef,
 } from "react";
-import {
-  getFittedIdeaMapAxisLabelFontSize,
-  getIdeaMapAxisLabelFontSize,
-  IDEA_VALUE_FEASIBILITY_MAP_LABELS,
-} from "../logic/idea-value-feasibility-map";
+import { IDEA_VALUE_FEASIBILITY_MAP_LABELS } from "../logic/idea-value-feasibility-map";
 import styles from "./fixed-idea-map.module.css";
 
 const GRID_STYLE = {
@@ -118,7 +114,6 @@ export type FixedIdeaMapProps = {
   workspaceHorizontalAxisLayout?: boolean;
   positionAreaRef?: Ref<HTMLDivElement>;
   workspace?: boolean;
-  sizeLevel?: number;
   zoom?: number;
 };
 
@@ -134,14 +129,11 @@ export function FixedIdeaMap({
   workspaceHorizontalAxisLayout = false,
   positionAreaRef,
   workspace = false,
-  sizeLevel = 0,
   zoom = 1,
 }: FixedIdeaMapProps) {
   const horizontalAxisRef = useRef<HTMLFieldSetElement>(null);
-  const horizontalAxisLabelRef = useRef<HTMLSpanElement>(null);
   const horizontalEndpointRef = useRef<HTMLDivElement>(null);
   const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
-  const axisLabelFontSize = getIdeaMapAxisLabelFontSize(sizeLevel);
   const transforms = [
     workspace ? "translateY(var(--board-map-shift-y, 0px))" : null,
     zoom === 1 ? null : `scale(${zoom})`,
@@ -149,14 +141,12 @@ export function FixedIdeaMap({
 
   useLayoutEffect(() => {
     const axis = horizontalAxisRef.current;
-    const axisLabel = horizontalAxisLabelRef.current;
     const endpoint = horizontalEndpointRef.current;
     const frame = axis?.closest<HTMLElement>('[data-testid="board-frame"]');
     if (
       !workspace ||
       !workspaceHorizontalAxisLayout ||
       !axis ||
-      !axisLabel ||
       !endpoint ||
       !frame
     )
@@ -199,45 +189,6 @@ export function FixedIdeaMap({
       if (offset === 0) endpoint.style.removeProperty(offsetProperty);
       else if (offset !== appliedOffset)
         endpoint.style.setProperty(offsetProperty, `${offset}px`);
-
-      const labelBounds = axisLabel.getBoundingClientRect();
-      const lowArrow = axis.querySelector<SVGPathElement>(
-        '[data-testid="idea-value-feasibility-map-x-low-arrow"]',
-      );
-      const highArrow = axis.querySelector<SVGPathElement>(
-        '[data-testid="idea-value-feasibility-map-x-high-arrow"]',
-      );
-      const lowArrowBounds = lowArrow?.getBoundingClientRect();
-      const highArrowBounds = highArrow?.getBoundingClientRect();
-      const axisBounds = axis.getBoundingClientRect();
-      if (
-        lowArrowBounds &&
-        highArrowBounds &&
-        axisBounds.width > 0 &&
-        labelBounds.width > 0
-      ) {
-        const titleCenter = axisBounds.left + axisBounds.width / 2;
-        const leftSpace = titleCenter - (lowArrowBounds.right + 14 * zoom);
-        const rightSpace = highArrowBounds.left - 14 * zoom - titleCenter;
-        const availableWidth = (Math.min(leftSpace, rightSpace) * 2) / zoom;
-        const style = getComputedStyle(axisLabel);
-        const padding =
-          Number.parseFloat(style.paddingLeft) +
-          Number.parseFloat(style.paddingRight);
-        const currentFontSize = Number.parseFloat(style.fontSize);
-        const baseLabelWidth =
-          (labelBounds.width / zoom - padding / zoom) *
-            (axisLabelFontSize / currentFontSize) +
-          padding / zoom;
-        const fittedFontSize = getFittedIdeaMapAxisLabelFontSize(
-          axisLabelFontSize,
-          baseLabelWidth,
-          padding / zoom,
-          availableWidth,
-        );
-        axisLabel.style.fontSize = `${fittedFontSize}px`;
-        axisLabel.style.lineHeight = `${fittedFontSize}px`;
-      }
     };
     updateOffset();
     const resizeObserver =
@@ -248,7 +199,6 @@ export function FixedIdeaMap({
     resizeObserver?.observe(axis);
     if (offsetAnchor) resizeObserver?.observe(offsetAnchor);
     if (zoomHud) resizeObserver?.observe(zoomHud);
-    resizeObserver?.observe(axisLabel);
 
     // ヘッダーはマップをCSS変数で移動する。transformだけの変化は
     // ResizeObserverでは通知されないため、位置確定も同じ計算へ反映する。
@@ -267,15 +217,8 @@ export function FixedIdeaMap({
       layoutObserver?.disconnect();
       window.removeEventListener("resize", updateOffset);
       endpoint.style.removeProperty(offsetProperty);
-      axisLabel.style.removeProperty("font-size");
-      axisLabel.style.removeProperty("line-height");
     };
-  }, [axisLabelFontSize, workspace, workspaceHorizontalAxisLayout, zoom]);
-
-  const axisLabelStyle: CSSProperties = {
-    fontSize: `${axisLabelFontSize}px`,
-    lineHeight: `${axisLabelFontSize}px`,
-  };
+  }, [workspace, workspaceHorizontalAxisLayout, zoom]);
 
   return (
     <section
@@ -324,7 +267,7 @@ export function FixedIdeaMap({
             <span
               className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-background px-2 py-2 text-xl font-bold tracking-wide text-foreground sm:text-2xl ${workspace ? "" : "rounded-full border border-border shadow-sm sm:px-3"}`}
               data-testid="idea-value-feasibility-map-y-axis-label"
-              style={{ ...axisLabelStyle, writingMode: "vertical-rl" }}
+              style={{ writingMode: "vertical-rl" }}
             >
               {labels.value}
             </span>
@@ -466,10 +409,8 @@ export function FixedIdeaMap({
             </>
           )}
           <span
-            ref={horizontalAxisLabelRef}
             className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-background px-3 py-1 font-bold tracking-wide text-foreground ${workspace ? `top-3 text-base sm:text-lg ${workspaceHorizontalAxisLayout ? styles.workspaceInlineFeasibilityLabel : ""}` : "top-7 rounded-full border border-border text-lg shadow-sm sm:text-2xl"}`}
             data-testid="idea-value-feasibility-map-x-axis-label"
-            style={axisLabelStyle}
           >
             {labels.feasibility}
           </span>

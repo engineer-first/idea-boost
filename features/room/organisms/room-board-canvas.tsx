@@ -931,7 +931,6 @@ export function RoomBoardCanvas({
               <FixedIdeaMap
                 positionAreaRef={ideaMapPlaneRef}
                 workspace
-                sizeLevel={ideaMapSizeLevel}
                 workspaceControls={
                   isIdeaMapWorkspace
                     ? (ideaMapWorkspaceControls ?? {

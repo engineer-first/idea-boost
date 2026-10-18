@@ -44,36 +44,6 @@ export function getIdeaMapAxisLabelFontSize(sizeLevel: number): number {
 }
 
 /**
- * 横軸タイトルが左右の端点の間に収まる最大の文字サイズを返す。
- * labelWidth は基準fontSizeでのラベル全体（padding込み）の実測幅。
- */
-export function getFittedIdeaMapAxisLabelFontSize(
-  fontSize: number,
-  labelWidth: number,
-  horizontalPadding: number,
-  availableWidth: number,
-): number {
-  if (
-    !Number.isFinite(fontSize) ||
-    !Number.isFinite(labelWidth) ||
-    !Number.isFinite(horizontalPadding) ||
-    !Number.isFinite(availableWidth) ||
-    fontSize <= 0 ||
-    labelWidth <= 0 ||
-    availableWidth <= 0
-  )
-    return fontSize;
-
-  const padding = Math.max(0, horizontalPadding);
-  const textWidth = Math.max(0, labelWidth - padding);
-  if (textWidth === 0) return Math.min(fontSize, availableWidth);
-  return Math.min(
-    fontSize,
-    Math.max(0, ((availableWidth - padding) / textWidth) * fontSize),
-  );
-}
-
-/**
  * 固定マップ内の付箋表示倍率。付箋ごとの表示中心を保ったまま大きさを変える。
  */
 export function getIdeaMapDisplayScale(sizeLevel: number): number {

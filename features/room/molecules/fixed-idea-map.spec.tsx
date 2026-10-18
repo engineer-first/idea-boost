@@ -60,17 +60,6 @@ describe("FixedIdeaMap", () => {
     ).toHaveTextContent("実現のしやすさ");
   });
 
-  it("マップの広さに合わせて固定マップの両軸ラベルも拡縮する", () => {
-    render(<FixedIdeaMap workspace sizeLevel={15} />);
-
-    expect(
-      screen.getByTestId("idea-value-feasibility-map-y-axis-label"),
-    ).toHaveStyle({ fontSize: "87px", lineHeight: "87px" });
-    expect(
-      screen.getByTestId("idea-value-feasibility-map-x-axis-label"),
-    ).toHaveStyle({ fontSize: "87px", lineHeight: "87px" });
-  });
-
   it("ワークスペースでは16:9の比率を保って利用領域に収める", () => {
     render(<FixedIdeaMap workspace />);
 

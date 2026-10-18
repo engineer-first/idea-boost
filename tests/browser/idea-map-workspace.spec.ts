@@ -758,9 +758,15 @@ test.each([
       plane.y + plane.height / 2,
       1,
     );
-    const axisGap = feasibilityAxis.y - (plane.y + plane.height);
-    expect(axisGap).toBeGreaterThanOrEqual(16);
-    expect(axisGap).toBeLessThanOrEqual(24);
+    const feasibilityLine = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-scale-bar",
+    );
+    expect(feasibilityAxis.y).toBeGreaterThan(plane.y + plane.height);
+    expect(feasibilityAxis.y + feasibilityAxis.height / 2).toBeCloseTo(
+      feasibilityLine.y + feasibilityLine.height / 2,
+      0,
+    );
   } finally {
     await page.close();
   }
