@@ -55,6 +55,99 @@ async function readBounds(page: Page, testId: string) {
   return bounds;
 }
 
+test.each(
+  [
+    { phase: "3-2", open: openWorkspace },
+    { phase: "3-3", open: openMapOnly },
+    { phase: "3-4", open: openVotingMap },
+    { phase: "3-5", open: openResultMap },
+  ].flatMap((phase) =>
+    [
+      {
+        width: 1280,
+        height: 720,
+        planeX: 77.40625,
+        planeWidth: 961.1875,
+        originalHeight: 534,
+      },
+      {
+        width: 1440,
+        height: 900,
+        planeX: 76,
+        planeWidth: 1124,
+        originalHeight: 624.4375,
+      },
+      {
+        width: 1280,
+        height: 1000,
+        planeX: 76,
+        planeWidth: 964,
+        originalHeight: 535.546875,
+      },
+    ].map((viewport) => ({ ...phase, ...viewport })),
+  ),
+)("$phaseで上端・横幅・操作UIを維持してマップ下端の余白を埋める（$width×$height）", async ({
+  phase,
+  open,
+  width,
+  height,
+  planeX,
+  planeWidth,
+  originalHeight,
+}) => {
+  const page = await browser.newPage({ viewport: { width, height } });
+  try {
+    await open(page);
+    const plane = await readBounds(page, "idea-value-feasibility-map-plane");
+    const slot = await readBounds(page, "idea-value-feasibility-map-slot");
+    expect(plane.x).toBeCloseTo(planeX, 1);
+    expect(plane.y).toBeCloseTo(118, 1);
+    expect(plane.width).toBeCloseTo(planeWidth, 1);
+    expect(
+      plane.y + plane.height,
+      "上端を動かさず、マップ用領域の下端まで表示する",
+    ).toBeCloseTo(slot.y + slot.height, 1);
+    const title = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-axis-label",
+    );
+    const axisGap = title.y - plane.y - plane.height;
+    expect(axisGap).toBeGreaterThanOrEqual(16);
+    expect(axisGap).toBeLessThanOrEqual(26);
+    expect(title.y + title.height).toBeLessThan(height);
+
+    if (phase === "3-2" || phase === "3-3") {
+      for (const testId of ["phase-loop-hud", "idea-map-size-controls-hud"]) {
+        const control = await readBounds(page, testId);
+        expect(
+          control.y + control.height,
+          "操作UIは下端の拡張に追従させず、従来の位置を維持する",
+        ).toBeCloseTo(plane.y + originalHeight - 21, 1);
+      }
+    }
+    const zoom = await readBounds(page, "canvas-zoom-hud");
+    expect(zoom.y + zoom.height).toBeCloseTo(height - 12, 1);
+    const notes = page
+      .getByTestId("idea-map-fixed-position-area")
+      .getByTestId("note-card");
+    const first = await notes.first().boundingBox();
+    if (!first) throw new Error("マップ上の付箋がありません");
+    expect(first.width).toBeCloseTo(136.577, 1);
+    expect(first.height).toBeCloseTo(102.433, 1);
+    await page.screenshot({
+      path: `${output}/expanded-bottom-${phase}-${width}x${height}.png`,
+    });
+    await page.reload();
+    await page.getByTestId("idea-map-fixed-position-area").waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    await expect
+      .poll(() => readBounds(page, "idea-value-feasibility-map-plane"))
+      .toEqual(plane);
+  } finally {
+    await page.close();
+  }
+});
+
 test.each([
   { width: 768, height: 844 },
   { width: 900, height: 720 },
@@ -617,7 +710,8 @@ test.each([
     if (!high || !low) throw new Error("縦軸の目盛りがありません");
 
     expect(plane.height).toBeGreaterThanOrEqual(viewport.height * 0.55);
-    expect(plane.width / plane.height).toBeCloseTo(9 / 5, 1);
+    const slot = await readBounds(page, "idea-value-feasibility-map-slot");
+    expect(plane.y + plane.height).toBeCloseTo(slot.y + slot.height, 1);
     expect(low.y - high.y).toBeGreaterThan(plane.height * 0.7);
     expect(plane.y).toBeGreaterThan(controls.y + controls.height);
     expect(
@@ -671,7 +765,7 @@ test.each([
     x: 56,
     y: 440.171875,
     widthPx: 318,
-    heightPx: 176.65625,
+    heightPx: 187.765625,
   },
   {
     width: 768,
@@ -679,7 +773,7 @@ test.each([
     x: 76,
     y: 379.4375,
     widthPx: 452,
-    heightPx: 251.109375,
+    heightPx: 265.765625,
   },
   {
     width: 900,
@@ -687,7 +781,7 @@ test.each([
     x: 76,
     y: 118,
     widthPx: 584,
-    heightPx: 324.4375,
+    heightPx: 339.09375,
   },
   {
     width: 901,
@@ -695,7 +789,7 @@ test.each([
     x: 76,
     y: 118,
     widthPx: 585,
-    heightPx: 325,
+    heightPx: 339.65625,
   },
   {
     width: 1280,
@@ -711,7 +805,7 @@ test.each([
     x: 76,
     y: 118,
     widthPx: 1124,
-    heightPx: 624.4375,
+    heightPx: 639.09375,
   },
 ])("$width×$heightでも2軸マップ本体の位置とサイズを維持する", async (expected) => {
   const page = await browser.newPage({
@@ -752,9 +846,14 @@ test.each([
     expect(plane.y - (context.y + context.height)).toBeGreaterThanOrEqual(16);
     expect(plane.y - (context.y + context.height)).toBeLessThanOrEqual(24);
     expect(plane.width).toBeCloseTo(1124, 1);
-    expect(plane.height).toBeCloseTo(624.4375, 1);
+    expect(plane.height).toBeCloseTo(639.09375, 1);
+    const valueLine = await readBounds(
+      page,
+      "idea-value-feasibility-map-y-scale-bar",
+    );
+    // マップの下端だけを伸ばし、縦軸のデザイン・配置基準は維持する。
     expect(valueAxis.y + valueAxis.height / 2).toBeCloseTo(
-      plane.y + plane.height / 2,
+      valueLine.y + valueLine.height / 2,
       1,
     );
     const feasibilityLine = await readBounds(
@@ -816,8 +915,12 @@ test.each([
     expect(mapSize.x + mapSize.width).toBeLessThanOrEqual(
       plane.x + plane.width,
     );
-    expect(planeBottom - mapSizeBottom).toBeGreaterThanOrEqual(16);
-    expect(planeBottom - mapSizeBottom).toBeLessThanOrEqual(24);
+    const controls = await readBounds(page, "idea-map-workspace-controls");
+    const controlsBottom = controls.y + controls.height;
+    // 下端を伸ばしても、操作UIは元の枠内の余白と表示位置を維持する。
+    expect(controlsBottom - mapSizeBottom).toBeGreaterThanOrEqual(16);
+    expect(controlsBottom - mapSizeBottom).toBeLessThanOrEqual(24);
+    expect(planeBottom).toBeGreaterThanOrEqual(controlsBottom);
     expect(retry.y + retry.height).toBeCloseTo(mapSizeBottom, 0);
     expect(retry.x).toBeGreaterThanOrEqual(plane.x);
     expect(retry.x + retry.width).toBeLessThanOrEqual(plane.x + plane.width);
@@ -1934,7 +2037,8 @@ test.each([
     const before = await plane.boundingBox();
     if (!before) throw new Error("評価マップがありません");
     expect(before.width).toBeGreaterThan(width * 0.65);
-    expect(before.width / before.height).toBeCloseTo(9 / 5, 1);
+    const slot = await readBounds(page, "idea-value-feasibility-map-slot");
+    expect(before.y + before.height).toBeCloseTo(slot.y + slot.height, 1);
     await page
       .getByRole("button", { name: "マイ付箋を閉じる", exact: true })
       .click();

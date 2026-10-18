@@ -935,7 +935,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByDisplayValue("最初の付箋")).toBeInTheDocument();
   });
 
-  it("snapshotの2軸マップを固定比率で描画し、広さ変更をRoomDOへ送る", () => {
+  it("snapshotの2軸マップを描画し、広さ変更をRoomDOへ送る", () => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(3, 3),
       ideaMapSizeLevel: 2,
@@ -944,7 +944,7 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     expect(screen.getByTestId("idea-map-layout")).toBeInTheDocument();
     const map = screen.getByTestId("idea-value-feasibility-map-plane");
-    expect(map.style.aspectRatio).toBe("9 / 5");
+    expect(map).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
     expectSent(socket, { type: "idea-map:resize", sizeLevel: 3 });
   });
@@ -3358,7 +3358,9 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     const world = screen.getByTestId("board-canvas");
     expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
     expect(screen.getByTestId("idea-map-workspace-rail")).toBeInTheDocument();
-    expect(plane).toHaveStyle({ aspectRatio: "9 / 5" });
+    expect(plane).toContainElement(
+      screen.getByTestId("idea-map-fixed-position-area"),
+    );
     expect(world).toHaveStyle({ transform: "none" });
     expect(
       socket.sent

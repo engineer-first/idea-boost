@@ -207,7 +207,11 @@ test.each(
             y: bounds.y + bounds.height / 2,
           };
           if (axis === "y") {
-            expect(center.y).toBeCloseTo(plane.y + plane.height / 2, 0);
+            const line = await page
+              .getByTestId("idea-value-feasibility-map-y-scale-bar")
+              .boundingBox();
+            if (!line) throw new Error("縦軸の線がありません");
+            expect(center.y).toBeCloseTo(line.y + line.height / 2, 0);
             expect(bounds.x + bounds.width).toBeLessThan(plane.x);
           } else {
             expect(center.x).toBeCloseTo(plane.x + plane.width / 2, 0);

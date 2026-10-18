@@ -282,10 +282,8 @@ export function FixedIdeaMap({
             className="relative flex h-full min-h-0 min-w-0 flex-1 items-center justify-center [container-type:size]"
             data-testid="idea-value-feasibility-map-slot"
           >
-            <section
-              aria-label={labels.title}
-              className="relative min-h-0 min-w-0 overflow-visible rounded-2xl border border-sky-200 bg-sky-50 shadow-inner [container-type:inline-size] [container-name:map-plane] [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]"
-              data-testid="idea-value-feasibility-map-plane"
+            <div
+              className="relative min-h-0 min-w-0"
               style={
                 workspace
                   ? {
@@ -296,43 +294,56 @@ export function FixedIdeaMap({
                   : { width: "100%", height: "100%" }
               }
             >
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 rounded-[inherit]"
-                data-testid="idea-value-feasibility-map-plane-grid"
-                style={GRID_STYLE}
-              />
-              {workspace ? (
-                <>
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-sky-300"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-sky-300"
-                  />
-                </>
-              ) : null}
-              <div
-                className="pointer-events-none absolute inset-0"
-                data-testid="idea-map-note-layer"
+              {/* 従来の表示枠は上端・横幅・操作UIの基準として残す。
+                  マップ面だけをslotの下端まで伸ばし、中央寄せで生じた下側の空きを埋める。 */}
+              <section
+                aria-label={labels.title}
+                className="absolute top-0 left-0 min-h-0 min-w-0 overflow-visible rounded-2xl border border-sky-200 bg-sky-50 shadow-inner [container-type:inline-size] [container-name:map-plane] [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]"
+                data-testid="idea-value-feasibility-map-plane"
+                style={{
+                  width: "100%",
+                  // 中央寄せで上下に分かれていた余白のうち、下半分だけを加える。
+                  height: workspace ? "calc((100% + 100cqh) / 2)" : "100%",
+                }}
               >
                 <div
-                  ref={positionAreaRef}
-                  className="pointer-events-auto absolute inset-0"
-                  data-canvas-background="true"
-                  data-coordinate-range="0-100"
-                  data-testid="idea-map-fixed-position-area"
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-[inherit]"
+                  data-testid="idea-value-feasibility-map-plane-grid"
+                  style={GRID_STYLE}
+                />
+                {workspace ? (
+                  <>
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-sky-300"
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-sky-300"
+                    />
+                  </>
+                ) : null}
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  data-testid="idea-map-note-layer"
                 >
-                  {children}
-                  {overlay ? (
-                    <div className="pointer-events-none absolute inset-0 z-[2147483647]">
-                      {overlay}
-                    </div>
-                  ) : null}
+                  <div
+                    ref={positionAreaRef}
+                    className="pointer-events-auto absolute inset-0"
+                    data-canvas-background="true"
+                    data-coordinate-range="0-100"
+                    data-testid="idea-map-fixed-position-area"
+                  >
+                    {children}
+                    {overlay ? (
+                      <div className="pointer-events-none absolute inset-0 z-[2147483647]">
+                        {overlay}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
+              </section>
               {workspace && workspaceControls ? (
                 <div
                   className={styles.workspaceControls}
@@ -368,7 +379,7 @@ export function FixedIdeaMap({
                   </div>
                 </div>
               ) : null}
-            </section>
+            </div>
           </div>
         </div>
 

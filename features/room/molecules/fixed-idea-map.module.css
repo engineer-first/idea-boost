@@ -95,7 +95,10 @@
   position: absolute;
   z-index: 30;
   pointer-events: none;
-  inset: 0;
+  container-type: inline-size;
+  container-name: map-plane;
+  /* 枠線1pxを除いた従来の内寸を操作UIの配置基準にする。 */
+  inset: 1px;
 }
 
 .workspacePhaseLoopHud,

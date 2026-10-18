@@ -1456,7 +1456,6 @@ describe("RoomBoardCanvas", () => {
     const noteLayer = screen.getByTestId("idea-map-note-layer");
     const planeStyle = plane.getAttribute("style");
 
-    expect(planeStyle).toContain("aspect-ratio: 9 / 5");
     expect(screen.getByTestId("idea-map-fixed-board")).toHaveAttribute(
       "data-map-workspace",
       "true",

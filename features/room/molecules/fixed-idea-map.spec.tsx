@@ -59,18 +59,4 @@ describe("FixedIdeaMap", () => {
       screen.getByTestId("idea-value-feasibility-map-x-axis-label"),
     ).toHaveTextContent("実現のしやすさ");
   });
-
-  it("ワークスペースでは16:9の比率を保って利用領域に収める", () => {
-    render(<FixedIdeaMap workspace />);
-
-    const map = screen.getByTestId("idea-value-feasibility-map-plane");
-    expect(map.style.aspectRatio).toBe("9 / 5");
-    expect(map).toHaveAttribute(
-      "style",
-      expect.stringContaining("aspect-ratio: 9 / 5"),
-    );
-    expect(screen.getByTestId("idea-map-layout")).toHaveClass(
-      "h-[min(100%,calc(55.5556cqw+3rem))]",
-    );
-  });
 });

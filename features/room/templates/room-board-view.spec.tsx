@@ -314,9 +314,6 @@ describe("2軸評価画面の周辺操作", () => {
     expect(screen.getByTestId("board-tools-hud")).toContainElement(
       screen.getByTestId("canvas-zoom-controls"),
     );
-    expect(
-      screen.getByTestId("idea-value-feasibility-map-plane").style.aspectRatio,
-    ).toBe("9 / 5");
     expect(screen.getByTestId("idea-map-workspace-rail")).toHaveClass("w-56");
     expect(screen.getByTestId("board-operation-matrix")).toHaveClass("right-3");
     expect(screen.getByTestId("board-operation-matrix")).not.toHaveClass(
