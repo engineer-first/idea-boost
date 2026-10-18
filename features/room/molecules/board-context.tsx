@@ -36,7 +36,7 @@ export function BoardContext({
   hmwReference,
 }: BoardContextProps) {
   const phaseKey = phase.kind === "step" ? String(phase.phase) : "lobby";
-  const isMapWorkspace = isIdeaMapViewportStep(phase);
+  const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
   const defaultInitialId =
     phase.kind === "step"
       ? phase.phase === 3
@@ -80,8 +80,8 @@ export function BoardContext({
       <BoardLocation phase={phase} outcomePublished={outcomePublished} />
       {disclosures.length > 0 ? (
         <div
-          className={`${styles.references} board-hud pointer-events-auto pt-2 ${isMapWorkspace ? "grid w-full grid-cols-2 items-stretch gap-2 max-[639px]:grid-cols-1" : "w-[200px] space-y-2"}`}
-          data-layout={isMapWorkspace ? "map-workspace" : "stacked"}
+          className={`${styles.references} board-hud pointer-events-auto pt-2 ${usesIdeaMapViewport ? "grid w-full grid-cols-2 items-stretch gap-2 max-[639px]:grid-cols-1" : "w-[200px] space-y-2"}`}
+          data-layout={usesIdeaMapViewport ? "map-workspace" : "stacked"}
           data-testid="board-context-references"
         >
           {disclosures.map((disclosure) => {
@@ -152,12 +152,12 @@ export function BoardContext({
               <button
                 id={triggerId}
                 type="button"
-                aria-label={isMapWorkspace ? disclosure.label : undefined}
+                aria-label={usesIdeaMapViewport ? disclosure.label : undefined}
                 aria-expanded={isOpen}
                 aria-controls={contentId}
                 className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-2 py-1.5 text-left text-xs font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 onClick={
-                  isMapWorkspace
+                  usesIdeaMapViewport
                     ? undefined
                     : () =>
                         setOpenState({
@@ -174,7 +174,7 @@ export function BoardContext({
                 ) : null}
                 <span className="flex min-w-0 flex-1 items-center gap-1">
                   <span className="shrink-0">{disclosure.label}</span>
-                  {isMapWorkspace ? (
+                  {usesIdeaMapViewport ? (
                     <span
                       className="min-w-0 truncate font-normal text-muted-foreground"
                       title={disclosure.content ?? undefined}
@@ -193,7 +193,9 @@ export function BoardContext({
             return (
               <section
                 key={disclosure.id}
-                className={isMapWorkspace ? "relative min-w-0" : "w-[200px]"}
+                className={
+                  usesIdeaMapViewport ? "relative min-w-0" : "w-[200px]"
+                }
                 data-testid={
                   disclosure.id === "hmw" || disclosure.id === "issue"
                     ? `board-reference-${disclosure.id}`
@@ -201,7 +203,7 @@ export function BoardContext({
                 }
                 data-open={isOpen}
               >
-                {isMapWorkspace ? (
+                {usesIdeaMapViewport ? (
                   <Popover
                     open={isOpen}
                     onOpenChange={(open) =>

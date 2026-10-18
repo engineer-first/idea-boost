@@ -1078,8 +1078,8 @@ describe("RoomBoardCanvas", () => {
         top: 240,
         width: 100,
         height: 75,
-        noteScale: 0.5,
-        noteHeight: 150,
+        noteDisplayScale: 0.5,
+        unscaledNoteHeight: 150,
       },
     });
 

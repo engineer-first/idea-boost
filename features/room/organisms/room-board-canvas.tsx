@@ -120,8 +120,8 @@ export type RoomBoardCanvasProps = {
     top: number;
     width: number;
     height: number;
-    noteScale?: number;
-    noteHeight?: number;
+    noteDisplayScale?: number;
+    unscaledNoteHeight?: number;
   } | null;
   isReturnDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
@@ -301,7 +301,7 @@ export function RoomBoardCanvas({
     phase.kind === "step" &&
     phase.phase === 3 &&
     (phase.step >= 2 || notes.length > 0);
-  const isIdeaMapWorkspace =
+  const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
   const ideaMapNoteDisplayScale = getIdeaMapNoteDisplayScale(ideaMapSizeLevel);
@@ -561,7 +561,7 @@ export function RoomBoardCanvas({
       moveHistory={moveHistory}
       showNavigationControls
       interactionTool={interactionTool}
-      onToolChange={isIdeaMapWorkspace ? undefined : onToolChange}
+      onToolChange={isIdeaMapWorkspaceStep ? undefined : onToolChange}
       toolDisabled={toolDisabled}
       zoom={canvasZoom}
       onZoomOut={zoomOut}
@@ -575,11 +575,11 @@ export function RoomBoardCanvas({
     const ideaMapNoteMetrics = usesIdeaMapViewport
       ? getIdeaMapNoteDisplayMetrics(note, ideaMapSizeLevel)
       : null;
-    const ideaMapPositionProfiles = ideaMapNoteMetrics
+    const ideaMapResponsivePositions = ideaMapNoteMetrics
       ? getIdeaMapViewportNoteResponsivePositions(
           { value: note.y, feasibility: note.x },
-          ideaMapNoteMetrics.noteHeight,
-          ideaMapNoteMetrics.scale,
+          ideaMapNoteMetrics.unscaledHeight,
+          ideaMapNoteMetrics.displayScale,
         )
       : null;
     const position = usesIdeaMapViewport
@@ -591,17 +591,19 @@ export function RoomBoardCanvas({
             mapNoteGeometry,
           )
         : { left: note.x, top: note.y };
-    const ideaMapPositionVariables = ideaMapPositionProfiles
+    const ideaMapPositionVariables = ideaMapResponsivePositions
       ? ({
-          "--idea-map-note-left-compact": ideaMapPositionProfiles.compact.left,
+          "--idea-map-note-left-compact":
+            ideaMapResponsivePositions.compact.left,
           "--idea-map-note-bottom-compact":
-            ideaMapPositionProfiles.compact.bottom,
-          "--idea-map-note-left-tablet": ideaMapPositionProfiles.tablet.left,
+            ideaMapResponsivePositions.compact.bottom,
+          "--idea-map-note-left-tablet": ideaMapResponsivePositions.tablet.left,
           "--idea-map-note-bottom-tablet":
-            ideaMapPositionProfiles.tablet.bottom,
-          "--idea-map-note-left-desktop": ideaMapPositionProfiles.desktop.left,
+            ideaMapResponsivePositions.tablet.bottom,
+          "--idea-map-note-left-desktop":
+            ideaMapResponsivePositions.desktop.left,
           "--idea-map-note-bottom-desktop":
-            ideaMapPositionProfiles.desktop.bottom,
+            ideaMapResponsivePositions.desktop.bottom,
         } as CSSProperties)
       : {};
     const isAdoptTarget =
@@ -639,7 +641,7 @@ export function RoomBoardCanvas({
               : note.stackOrder,
           ...(usesIdeaMapViewport
             ? {
-                transform: `scale(${ideaMapNoteMetrics?.scale ?? ideaMapNoteDisplayScale})`,
+                transform: `scale(${ideaMapNoteMetrics?.displayScale ?? ideaMapNoteDisplayScale})`,
                 transformOrigin:
                   "var(--idea-map-note-transform-origin, 50% 50%)",
               }
@@ -648,7 +650,7 @@ export function RoomBoardCanvas({
       >
         {renderNoteCard(
           note,
-          ideaMapNoteMetrics?.noteHeight,
+          ideaMapNoteMetrics?.unscaledHeight,
           usesIdeaMapViewport ? "responsive-map" : 1,
         )}
         {isAdoptTarget ? (
@@ -742,18 +744,18 @@ export function RoomBoardCanvas({
       dragGhost.note,
       ideaMapSizeLevel,
     );
-    const positionProfiles = getIdeaMapViewportNoteResponsivePositions(
+    const responsivePositions = getIdeaMapViewportNoteResponsivePositions(
       { value: dragGhost.y, feasibility: dragGhost.x },
-      ghostMetrics.noteHeight,
-      ghostMetrics.scale,
+      ghostMetrics.unscaledHeight,
+      ghostMetrics.displayScale,
     );
     const positionVariables = {
-      "--idea-map-note-left-compact": positionProfiles.compact.left,
-      "--idea-map-note-bottom-compact": positionProfiles.compact.bottom,
-      "--idea-map-note-left-tablet": positionProfiles.tablet.left,
-      "--idea-map-note-bottom-tablet": positionProfiles.tablet.bottom,
-      "--idea-map-note-left-desktop": positionProfiles.desktop.left,
-      "--idea-map-note-bottom-desktop": positionProfiles.desktop.bottom,
+      "--idea-map-note-left-compact": responsivePositions.compact.left,
+      "--idea-map-note-bottom-compact": responsivePositions.compact.bottom,
+      "--idea-map-note-left-tablet": responsivePositions.tablet.left,
+      "--idea-map-note-bottom-tablet": responsivePositions.tablet.bottom,
+      "--idea-map-note-left-desktop": responsivePositions.desktop.left,
+      "--idea-map-note-bottom-desktop": responsivePositions.desktop.bottom,
     } as CSSProperties;
 
     return (
@@ -763,7 +765,7 @@ export function RoomBoardCanvas({
         style={{
           ...positionVariables,
           zIndex: TEMPORARY_FRONT_Z_INDEX,
-          transform: `scale(${ghostMetrics.scale})`,
+          transform: `scale(${ghostMetrics.displayScale})`,
           transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
         }}
       >
@@ -771,7 +773,7 @@ export function RoomBoardCanvas({
           noteId={dragGhost.note.id}
           isLifted
           color={dragGhost.note.color}
-          height={ghostMetrics.noteHeight}
+          height={ghostMetrics.unscaledHeight}
           className="pointer-events-none relative"
           style={{
             transform: "scale(var(--idea-map-note-scale, 1))",
@@ -820,7 +822,7 @@ export function RoomBoardCanvas({
               <NoteFontSizeControls
                 fontSize={
                   selectedNote?.fontSize ??
-                  (isIdeaMapWorkspace ? NOTE_DEFAULT_FONT_SIZE : null)
+                  (isIdeaMapWorkspaceStep ? NOTE_DEFAULT_FONT_SIZE : null)
                 }
                 disabled={
                   isDisconnected ||
@@ -861,7 +863,7 @@ export function RoomBoardCanvas({
             ref={boardScrollerRef}
             // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
             className={`relative h-full ${usesIdeaMapViewport ? "overflow-visible bg-background" : "overflow-clip bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
-              isIdeaMapWorkspace
+              isIdeaMapWorkspaceStep
                 ? "cursor-default"
                 : isAdoptMode
                   ? "cursor-crosshair"
@@ -880,7 +882,7 @@ export function RoomBoardCanvas({
             aria-label="共有キャンバス"
             aria-description={
               usesIdeaMapViewport
-                ? isIdeaMapWorkspace
+                ? isIdeaMapWorkspaceStep
                   ? "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。"
                   : "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。"
                 : "背景でVは選択、Hは手のひら。Spaceとドラッグで画面移動"
@@ -938,7 +940,7 @@ export function RoomBoardCanvas({
                 planeRef={ideaMapPlaneRef}
                 workspace
                 workspaceControls={
-                  isIdeaMapWorkspace
+                  isIdeaMapWorkspaceStep
                     ? (ideaMapWorkspaceControls ?? {
                         phaseLoop: null,
                         mapSize: (
@@ -1110,22 +1112,22 @@ export function RoomBoardCanvas({
                   left: dragPreview.left,
                   top: dragPreview.top,
                   width:
-                    dragPreview.noteScale === undefined
+                    dragPreview.noteDisplayScale === undefined
                       ? dragPreview.width
                       : NOTE_WIDTH,
-                  height: dragPreview.noteHeight ?? dragPreview.height,
-                  ...(dragPreview.noteScale === undefined
+                  height: dragPreview.unscaledNoteHeight ?? dragPreview.height,
+                  ...(dragPreview.noteDisplayScale === undefined
                     ? {}
                     : {
-                        transform: `scale(${dragPreview.noteScale})`,
+                        transform: `scale(${dragPreview.noteDisplayScale})`,
                         transformOrigin: "top left",
                       }),
                 }}
               >
                 <p
-                  className={`min-h-0 flex-1 overflow-hidden p-2 text-slate-900 ${dragPreview.noteScale === undefined ? "text-sm" : ""}`}
+                  className={`min-h-0 flex-1 overflow-hidden p-2 text-slate-900 ${dragPreview.noteDisplayScale === undefined ? "text-sm" : ""}`}
                   style={
-                    dragPreview.noteScale === undefined
+                    dragPreview.noteDisplayScale === undefined
                       ? undefined
                       : {
                           fontSize: `${dragPreview.note.fontSize}px`,
@@ -1149,7 +1151,7 @@ export function RoomBoardCanvas({
         </div>
         {permissions.showPrivateToolbar ? (
           <div
-            className={`${privateNotesContainerClassName} ${isIdeaMapWorkspace ? "min-[640px]:w-56" : ""}`}
+            className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
             data-testid={
               isPersonalNoteEntryPhase
                 ? "private-notes-workspace"
@@ -1203,7 +1205,7 @@ export function RoomBoardCanvas({
               className={
                 isPersonalNoteEntryPhase
                   ? "pointer-events-auto h-full w-full"
-                  : `pointer-events-auto max-h-full ${isIdeaMapWorkspace ? "min-[640px]:w-56" : ""}`
+                  : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
               }
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}

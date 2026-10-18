@@ -1360,7 +1360,7 @@ export function RoomBoardView({
   } = interactions;
 
   const hasMoveHistory = moveHistory !== undefined;
-  const isIdeaMapWorkspace =
+  const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   // モバイルで画面下に積むHUDの実高を記録する。固定マップ上の操作UIは画面下を占有しない。
   useEffect(() => {
@@ -1386,7 +1386,7 @@ export function RoomBoardView({
     const update = () => {
       for (const [testId, property] of surfaces) {
         if (
-          isIdeaMapWorkspace &&
+          isIdeaMapWorkspaceStep &&
           (testId === "phase-loop-hud" ||
             testId === "idea-map-size-controls-hud")
         ) {
@@ -1473,7 +1473,7 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, phase, isIdeaMapWorkspace]);
+  }, [boardRootRef, phase, isIdeaMapWorkspaceStep]);
 
   const handleNoteSelect = (
     noteId: string | null,
@@ -1903,7 +1903,7 @@ export function RoomBoardView({
           onTimerExtend={onTimerExtend}
           onTimerStop={onTimerStop}
         >
-          {!isIdeaMapWorkspace ? (
+          {!isIdeaMapWorkspaceStep ? (
             <BoardHelpPanel
               {...help}
               disabled={isDisconnected || boardInteractionBlocked}
@@ -1995,7 +1995,7 @@ export function RoomBoardView({
           ideaMapSizeLevel={ideaMapSizeLevel}
           ideaMapSizeInitialized={ideaMapSizeInitialized}
           ideaMapWorkspaceControls={
-            isIdeaMapWorkspace
+            isIdeaMapWorkspaceStep
               ? {
                   phaseLoop: phaseLoopControls,
                   mapSize: (
@@ -2125,7 +2125,7 @@ export function RoomBoardView({
           </div>
         ) : null}
 
-        {!isIdeaMapWorkspace ? (
+        {!isIdeaMapWorkspaceStep ? (
           <div
             className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
             data-testid="phase-loop-hud"

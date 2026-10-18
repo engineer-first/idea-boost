@@ -84,7 +84,7 @@ export type UseBoardDragArgs = {
   // 配置先が座標系に応じた上限を渡す。
   clampCoordinate?: (coordinate: number) => number;
   // 固定2軸マップは実表示寸法と掴み位置を使い、付箋全体を枠内へ収めてから座標化する。
-  positionFromClient?: (
+  notePositionFromClient?: (
     clientX: number,
     clientY: number,
     drag: BoardDrag,
@@ -187,7 +187,7 @@ export function useBoardDrag({
   privateToolbarRef,
   preservePrivateGrabOffset = true,
   clampCoordinate = clampCanvasCoordinate,
-  positionFromClient,
+  notePositionFromClient,
   canMoveSharedNotes = true,
   canPublish = true,
   canReturnToPrivate = canPublish,
@@ -646,12 +646,12 @@ export function useBoardDrag({
       // 固定マップではマップ平面自身が有効範囲を判定する。
       // HUDはドラッグ開始や通常のボード操作を遮るが、ドラッグ中にその上を
       // 通過しただけで座標更新まで止めない。
-      const mappedPosition = positionFromClient?.(
+      const mappedPosition = notePositionFromClient?.(
         event.clientX,
         event.clientY,
         current,
       );
-      const position = positionFromClient
+      const position = notePositionFromClient
         ? mappedPosition
         : boardPositionFromPointer(event.clientX, event.clientY);
       if (!position) {
@@ -723,7 +723,7 @@ export function useBoardDrag({
       onNoteDragStart,
       onPublishBlocked,
       lockPrivateMapDrag,
-      positionFromClient,
+      notePositionFromClient,
       preservePrivateGrabOffset,
       updateDrag,
     ],
@@ -756,8 +756,8 @@ export function useBoardDrag({
       ) {
         const point = boardPositionFromPointer(event.clientX, event.clientY);
         const position = point
-          ? positionFromClient
-            ? positionFromClient(event.clientX, event.clientY, current)
+          ? notePositionFromClient
+            ? notePositionFromClient(event.clientX, event.clientY, current)
             : getPositionFromPointer({
                 pointerPosition: point,
                 drag: current,
@@ -787,12 +787,12 @@ export function useBoardDrag({
         if (canMoveSharedNotes) {
           // 固定マップでは平面の外なら変換が null を返すため、HUD上に
           // ポインターがあっても最終位置をマップ基準で確定できる。
-          const mappedPosition = positionFromClient?.(
+          const mappedPosition = notePositionFromClient?.(
             event.clientX,
             event.clientY,
             current,
           );
-          const position = positionFromClient
+          const position = notePositionFromClient
             ? mappedPosition
             : (() => {
                 const pointerPosition = boardPositionFromPointer(
@@ -866,7 +866,7 @@ export function useBoardDrag({
       lockPrivateMapDrag,
       canPublish,
       canReturnToPrivate,
-      positionFromClient,
+      notePositionFromClient,
       preservePrivateGrabOffset,
       stopPrivateListAutoScroll,
       updateDrag,

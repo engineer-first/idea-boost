@@ -1033,8 +1033,8 @@ describe("useBoardDrag", () => {
   });
 
   it("固定マップのドラッグは重なったHUD上でもマップ座標を更新する", () => {
-    const positionFromClient = vi.fn(() => ({ x: 40, y: 60 }));
-    const { args, result } = setup({ positionFromClient });
+    const notePositionFromClient = vi.fn(() => ({ x: 40, y: 60 }));
+    const { args, result } = setup({ notePositionFromClient });
     const overlay = document.createElement("div");
     overlay.innerHTML =
       "<div data-board-fit-edge><button>全体表示</button></div>";
@@ -1060,7 +1060,7 @@ describe("useBoardDrag", () => {
         result.current.handlePointerMove(pointerEvent(4, 300, 200));
       });
 
-      expect(positionFromClient).toHaveBeenCalledWith(
+      expect(notePositionFromClient).toHaveBeenCalledWith(
         300,
         200,
         expect.objectContaining({ status: "shared" }),
@@ -1075,8 +1075,8 @@ describe("useBoardDrag", () => {
   });
 
   it("固定マップの共有付箋はHUD上で離しても最終ポインター位置を保存する", () => {
-    const positionFromClient = vi.fn(() => ({ x: 40, y: 60 }));
-    const { args, result } = setup({ positionFromClient });
+    const notePositionFromClient = vi.fn(() => ({ x: 40, y: 60 }));
+    const { args, result } = setup({ notePositionFromClient });
     const overlay = document.createElement("div");
     overlay.innerHTML =
       "<div data-board-fit-edge><button>全体表示</button></div>";
@@ -1099,7 +1099,7 @@ describe("useBoardDrag", () => {
         result.current.handlePointerMove(pointerEvent(5, 300, 200));
       });
       pointerOverHud = true;
-      positionFromClient.mockReturnValue({ x: 55, y: 65 });
+      notePositionFromClient.mockReturnValue({ x: 55, y: 65 });
       act(() => {
         result.current.handlePointerEnd(pointerEvent(5, 330, 200));
       });

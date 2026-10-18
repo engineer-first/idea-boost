@@ -51,10 +51,11 @@ export function getIdeaMapNoteDisplayScale(sizeLevel: number): number {
 }
 
 export type IdeaMapNoteDisplayMetrics = {
-  height: number;
-  noteHeight: number;
-  scale: number;
-  width: number;
+  displayHeight: number;
+  displayWidth: number;
+  // マップの広さに応じた倍率。レスポンシブ倍率は含まない。
+  displayScale: number;
+  unscaledHeight: number;
 };
 
 export function getIdeaMapNoteDisplayMetrics(
@@ -73,10 +74,10 @@ export function getIdeaMapNoteDisplayMetrics(
   const scale = getIdeaMapNoteDisplayScale(sizeLevel);
   const visibleScale = scale * safeResponsiveScale;
   return {
-    height: noteHeight * visibleScale,
-    noteHeight,
-    scale,
-    width: NOTE_WIDTH * visibleScale,
+    displayHeight: noteHeight * visibleScale,
+    displayWidth: NOTE_WIDTH * visibleScale,
+    displayScale: scale,
+    unscaledHeight: noteHeight,
   };
 }
 
@@ -241,12 +242,12 @@ export function getIdeaMapViewportNotePosition(
   const transformBottom =
     displayedHeight * (1 - safeTransformOriginY) * (1 - safeDisplayScale);
   return {
-    left: getContainedNoteCenterPosition(
+    left: getContainedNotePositionFromCenter(
       feasibility,
       visibleWidth,
       transformLeft,
     ),
-    bottom: getContainedNoteCenterPosition(
+    bottom: getContainedNotePositionFromCenter(
       value,
       visibleHeight,
       transformBottom,
@@ -254,7 +255,7 @@ export function getIdeaMapViewportNotePosition(
   };
 }
 
-function getContainedNoteCenterPosition(
+function getContainedNotePositionFromCenter(
   coordinate: number,
   visibleSize: number,
   transformOffset: number,

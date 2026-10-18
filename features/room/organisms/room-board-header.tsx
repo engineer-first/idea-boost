@@ -66,7 +66,7 @@ import { SharingPresenter } from "../molecules/sharing-presenter";
 import { StepGuide } from "../molecules/step-guide";
 import { RoomTimer } from "./room-timer";
 
-const MAP_WORKSPACE_CONTEXT_GAP = 18;
+const IDEA_MAP_CONTEXT_GAP = 18;
 
 export type RoomBoardHeaderProps = {
   children?: ReactNode;
@@ -191,7 +191,8 @@ export function RoomBoardHeader({
   onTimerStop,
 }: RoomBoardHeaderProps) {
   const controlsAreaRef = useRef<HTMLDivElement>(null);
-  const isMapWorkspace = isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  const isIdeaMapWorkspaceStep =
+    isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
   useEffect(() => {
     const area = controlsAreaRef.current;
@@ -202,7 +203,7 @@ export function RoomBoardHeader({
       '[data-testid="room-board-view-root"]',
     );
     if (!area || !header) return;
-    function updateGuideTop(): void {
+    function updateBoardLayoutOffsets(): void {
       const notice =
         connectionStatus === "open"
           ? null
@@ -218,7 +219,7 @@ export function RoomBoardHeader({
         const guide = header.querySelector<HTMLElement>(
           '[data-testid="step-guide"]',
         );
-        const helpToggle = isMapWorkspace
+        const helpToggle = isIdeaMapWorkspaceStep
           ? header
               .querySelector<HTMLElement>('[data-testid="board-help-panel"]')
               ?.querySelector<HTMLElement>("[data-help-toggle]")
@@ -257,7 +258,7 @@ export function RoomBoardHeader({
               : compactGuideBottom - boardTop + 24;
         // 投票完了表示用のモバイル余白は周辺UIに残し、マップ位置には足さない。
         const votingStatusPadding =
-          !isMapWorkspace && window.innerWidth <= 639 && area
+          !isIdeaMapWorkspaceStep && window.innerWidth <= 639 && area
             ? Number.parseFloat(getComputedStyle(area).paddingBottom) || 0
             : 0;
         board.style.setProperty(
@@ -277,8 +278,7 @@ export function RoomBoardHeader({
                 board.style.getPropertyValue("--board-map-shift-y"),
               ) || 0;
             const targetTop =
-              context.getBoundingClientRect().bottom +
-              MAP_WORKSPACE_CONTEXT_GAP;
+              context.getBoundingClientRect().bottom + IDEA_MAP_CONTEXT_GAP;
             const correction = targetTop - mapPlane.getBoundingClientRect().top;
             board.style.setProperty(
               "--board-map-shift-y",
@@ -330,21 +330,21 @@ export function RoomBoardHeader({
         );
       }
     }
-    updateGuideTop();
+    updateBoardLayoutOffsets();
     const observer =
       typeof ResizeObserver === "undefined"
         ? null
-        : new ResizeObserver(updateGuideTop);
+        : new ResizeObserver(updateBoardLayoutOffsets);
     observer?.observe(area);
     if (usesIdeaMapViewport) observer?.observe(header);
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
     if (location?.parentElement) observer?.observe(location.parentElement);
-    window.addEventListener("resize", updateGuideTop);
+    window.addEventListener("resize", updateBoardLayoutOffsets);
     return () => {
       observer?.disconnect();
-      window.removeEventListener("resize", updateGuideTop);
+      window.removeEventListener("resize", updateBoardLayoutOffsets);
       header.style.removeProperty("--board-connection-guide-top");
       header.style.removeProperty("--board-location-top");
       header.style.removeProperty("--board-location-height");
@@ -353,7 +353,7 @@ export function RoomBoardHeader({
       board?.style.removeProperty("--board-map-shift-y");
       board?.style.removeProperty("--board-map-tray-top");
     };
-  }, [connectionStatus, isMapWorkspace, usesIdeaMapViewport]);
+  }, [connectionStatus, isIdeaMapWorkspaceStep, usesIdeaMapViewport]);
   const activeSharing =
     phase.kind === "step" && phase.step === 2 ? sharing : null;
   const transitioning = activeSharing?.startsAt != null;
@@ -478,7 +478,7 @@ export function RoomBoardHeader({
       <StepGuide
         key={`${inviteCode}:${currentUserId}`}
         sessionKey={`${inviteCode}:${currentUserId}`}
-        placement={isMapWorkspace ? "floating" : undefined}
+        placement={isIdeaMapWorkspaceStep ? "floating" : undefined}
         phaseKey={
           phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
         }
@@ -494,7 +494,7 @@ export function RoomBoardHeader({
     <TooltipProvider delayDuration={300}>
       <div
         data-testid="board-header-row"
-        data-map-workspace={isMapWorkspace || undefined}
+        data-map-workspace={isIdeaMapWorkspaceStep || undefined}
         className={`pointer-events-none absolute inset-x-3 top-3 bottom-[7.5rem] z-40 max-[639px]:z-[41] has-[[data-location-open=true]]:z-[60] grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${isPhaseThreePrivateNoteEntry ? "min-[640px]:bottom-3" : ""} ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[16rem]" : "max-[639px]:bottom-[11rem]"}`}
       >
         <div
@@ -514,7 +514,8 @@ export function RoomBoardHeader({
             />
           </div>
           {stepGuide}
-          {!isMapWorkspace || (children !== null && children !== undefined) ? (
+          {!isIdeaMapWorkspaceStep ||
+          (children !== null && children !== undefined) ? (
             <div
               className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:col-start-2 max-[639px]:row-start-2 max-[639px]:max-h-[140px] max-[639px]:has-[[data-open=true]]:min-h-[140px] max-[639px]:has-[[data-open=false]]:min-h-9"
               data-testid="board-help-slot"

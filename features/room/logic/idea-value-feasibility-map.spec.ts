@@ -35,16 +35,19 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
       4,
       responsiveScale,
     );
-    expect(baseMetrics.scale).toBe(1);
-    expect(smallerMetrics.scale).toBe(getIdeaMapNoteDisplayScale(4));
+    expect(baseMetrics.displayScale).toBe(1);
+    expect(smallerMetrics.displayScale).toBe(getIdeaMapNoteDisplayScale(4));
 
     for (const metrics of [baseMetrics, smallerMetrics]) {
-      const grabOffset = { x: metrics.width * 0.35, y: metrics.height * 0.3 };
+      const grabOffset = {
+        x: metrics.displayWidth * 0.35,
+        y: metrics.displayHeight * 0.3,
+      };
       const point = getIdeaMapViewportNotePointFromClientPosition(
-        250 - metrics.width / 2 + grabOffset.x,
-        150 - metrics.height / 2 + grabOffset.y,
+        250 - metrics.displayWidth / 2 + grabOffset.x,
+        150 - metrics.displayHeight / 2 + grabOffset.y,
         { left: 0, top: 0, right: 1000, bottom: 600 },
-        metrics,
+        { width: metrics.displayWidth, height: metrics.displayHeight },
         grabOffset,
       );
       expect(point?.feasibility).toBeCloseTo(25, 10);

@@ -563,8 +563,8 @@ describe("useRoomBoardInteractions cursor input", () => {
       expect(preview.height).toBeCloseTo(displayedHeight);
       expect(preview.left).toBeCloseTo(500 - (50 / 200) * preview.width);
       expect(preview.top).toBeCloseTo(400 - (40 / 150) * preview.height);
-      expect(preview.noteScale).toBeCloseTo(scale);
-      expect(preview.noteHeight).toBe(
+      expect(preview.noteDisplayScale).toBeCloseTo(scale);
+      expect(preview.unscaledNoteHeight).toBe(
         getNoteHeight(note.content, note.fontSize),
       );
     } finally {

@@ -93,8 +93,8 @@ export type RoomBoardInteractions = {
     top: number;
     width: number;
     height: number;
-    noteScale?: number;
-    noteHeight?: number;
+    noteDisplayScale?: number;
+    unscaledNoteHeight?: number;
   } | null;
   isReturnDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
@@ -169,7 +169,7 @@ export function useRoomBoardInteractions({
   const boardRootRef = useRef<HTMLDivElement>(null);
   const boardScrollerRef = useRef<HTMLDivElement>(null);
   const privateToolbarRef = useRef<HTMLDivElement>(null);
-  const isIdeaMapWorkspace =
+  const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
   const isIdeaValueFeasibilityMapVisible =
@@ -235,7 +235,7 @@ export function useRoomBoardInteractions({
     geometry: usesIdeaMapViewport ? undefined : mapNoteGeometry,
     fallbackPointFromClient: worldPointFromClient,
   });
-  const positionFromClient = useCallback(
+  const notePositionFromClient = useCallback(
     (clientX: number, clientY: number, drag: BoardDrag): CanvasPoint | null => {
       if (!usesIdeaMapViewport) return null;
       const plane = ideaMapPlaneRef.current;
@@ -256,8 +256,8 @@ export function useRoomBoardInteractions({
         ideaMapSizeLevel,
         responsiveScale,
       );
-      const noteWidth = metrics.width * mapZoom;
-      const noteHeight = metrics.height * mapZoom;
+      const noteWidth = metrics.displayWidth * mapZoom;
+      const noteHeight = metrics.displayHeight * mapZoom;
       const point = getIdeaMapViewportNotePointFromClientPosition(
         clientX,
         clientY,
@@ -321,7 +321,9 @@ export function useRoomBoardInteractions({
     clampCoordinate: isIdeaValueFeasibilityMappingStep
       ? clampIdeaValueFeasibilityMapCoordinate
       : undefined,
-    positionFromClient: usesIdeaMapViewport ? positionFromClient : undefined,
+    notePositionFromClient: usesIdeaMapViewport
+      ? notePositionFromClient
+      : undefined,
     canMoveSharedNotes,
     canPublish,
     canReturnToPrivate,
@@ -360,7 +362,7 @@ export function useRoomBoardInteractions({
   const dragGhost =
     drag?.status === "shared" &&
     (!notes.some((note) => note.id === drag.note.id) ||
-      (isIdeaMapWorkspace && drag.note.ideaMapPlaced === false))
+      (isIdeaMapWorkspaceStep && drag.note.ideaMapPlaced === false))
       ? { note: drag.note, x: drag.x, y: drag.y }
       : null;
   const dragPreview =
@@ -399,10 +401,10 @@ export function useRoomBoardInteractions({
                 ? parsedResponsiveScale
                 : 1;
             const {
-              height,
-              noteHeight,
-              scale: mapScale,
-              width,
+              displayHeight,
+              unscaledHeight,
+              displayScale,
+              displayWidth,
             } = getIdeaMapNoteDisplayMetrics(
               drag.note,
               ideaMapSizeLevel,
@@ -417,12 +419,12 @@ export function useRoomBoardInteractions({
 
             return {
               ...preview,
-              left: drag.clientX - horizontalGrabRatio * width,
-              top: drag.clientY - verticalGrabRatio * height,
-              width,
-              height,
-              noteScale: mapScale * responsiveScale,
-              noteHeight,
+              left: drag.clientX - horizontalGrabRatio * displayWidth,
+              top: drag.clientY - verticalGrabRatio * displayHeight,
+              width: displayWidth,
+              height: displayHeight,
+              noteDisplayScale: displayScale * responsiveScale,
+              unscaledNoteHeight: unscaledHeight,
             };
           }
           if (!toolbarBounds || !isPointerOverToolbar) return preview;
