@@ -13,6 +13,8 @@ import { useRoomBoardInteractions } from "./use-room-board-interactions";
 function setup({
   phase = buildPhaseStep(2),
   withSharedDrag = false,
+  movePending = false,
+  moveBlocked = movePending,
   isDecided = false,
   withPrivateNote = false,
   privateNotes,
@@ -23,6 +25,8 @@ function setup({
 }: {
   phase?: RoomPhase;
   withSharedDrag?: boolean;
+  movePending?: boolean;
+  moveBlocked?: boolean;
   isDecided?: boolean;
   withPrivateNote?: boolean;
   privateNotes?: ReturnType<typeof buildNote>[];
@@ -51,6 +55,8 @@ function setup({
     ({ sharing }: { sharing?: SharingState | null }) =>
       useRoomBoardInteractions({
         notes,
+        movePending,
+        moveBlocked,
         privateNotes: withPrivateNote
           ? (privateNotes ?? [
               buildNote({ id: "private-1", visibility: "private" }),
@@ -96,6 +102,26 @@ function setup({
 }
 
 describe("useRoomBoardInteractions cursor input", () => {
+  it.each([
+    false,
+    true,
+  ])("保存待ち中も共有移動を開始でき、逆操作や共有待ちは止める blocked=%s", (moveBlocked) => {
+    const { result, onNoteDragStart } = setup({
+      withSharedDrag: true,
+      movePending: true,
+      moveBlocked,
+    });
+    act(() =>
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+        currentTarget: document.createElement("button"),
+      } as unknown as PointerEvent<HTMLButtonElement>),
+    );
+    expect(onNoteDragStart).toHaveBeenCalledTimes(moveBlocked ? 0 : 1);
+  });
+
   it("マイ付箋から素早く出したpreviewは押下した場所をポインターに合わせる", () => {
     const { result } = setup({ withPrivateNote: true });
     act(() =>

@@ -39,6 +39,7 @@ export type UseRoomBoardInteractionsArgs = {
   notes: Note[];
   selectedNoteIds?: readonly string[];
   movePending?: boolean;
+  moveBlocked?: boolean;
   onPendingMoveInterrupt?: () => void;
   privateNotes: Note[];
   currentUserId: string;
@@ -135,6 +136,7 @@ export function useRoomBoardInteractions({
   notes,
   selectedNoteIds,
   movePending = false,
+  moveBlocked = movePending,
   onPendingMoveInterrupt,
   privateNotes,
   currentUserId,
@@ -214,12 +216,13 @@ export function useRoomBoardInteractions({
   });
   // 通常ボードは工程ごとの権限に従う。2軸マップでは付箋が収まる高さも必要。
   const canMoveSharedNotes =
-    !movePending &&
+    !moveBlocked &&
     getBoardPermissions(phase, isDecided).canMoveNote &&
     (!isIdeaValueFeasibilityMappingStep ||
       mapNoteGeometry.height > mapNoteGeometry.maxNoteHeight);
   const canPublish = canPublishNoteInTurn(phase, sharing, currentUserId);
   const canReturnToPrivate =
+    !movePending &&
     isPublishAllowedStep(phase) &&
     canReturnNoteToPrivateInTurn(phase, sharing, currentUserId);
   const isIdeaMapCursorSurface =

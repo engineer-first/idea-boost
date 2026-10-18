@@ -21,6 +21,7 @@ type Operation = {
   before: ProtocolNote[];
   delta: { x: number; y: number };
   phaseRevision: number;
+  mapRevision: number;
   space: "canvas" | "map";
   status: "preview" | "pending";
 };
@@ -31,21 +32,64 @@ type Capability = {
   mapRevision: number;
   space: "canvas" | "map";
 };
+// 表示だけに未確定の移動を重ねる。確定notes・分類・履歴は変更しない。
+function renderMoves(
+  notes: ProtocolNote[],
+  operations: Operation[],
+): ProtocolNote[] {
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const operation of operations)
+    for (const note of operation.before)
+      positions.set(note.id, {
+        x: note.x + operation.delta.x,
+        y: note.y + operation.delta.y,
+      });
+  return notes.map((note) => {
+    const position = positions.get(note.id);
+    return position ? { ...note, ...position } : note;
+  });
+}
+
+// 本人の先行操作で更新された版だけを後続へ引き継ぐ。掴んだ座標は保つ。
+function advanceVersions(
+  operations: Operation[],
+  before: MoveReceipt["before"],
+  after: MoveReceipt["after"],
+): Operation[] {
+  return operations.map((operation) => ({
+    ...operation,
+    before: operation.before.map((note) => {
+      const previous = before.find((target) => target.noteId === note.id);
+      const saved = after.find((target) => target.noteId === note.id);
+      return previous &&
+        saved &&
+        (note.positionRevision ?? 0) === previous.positionRevision &&
+        (note.visibilityRevision ?? 0) === previous.visibilityRevision
+        ? {
+            ...note,
+            positionRevision: saved.positionRevision,
+            visibilityRevision: saved.visibilityRevision,
+          }
+        : note;
+    }),
+  }));
+}
+
 export type MoveFeedback = { operationId: string; message: string };
 export function useNoteMove({
   notes,
+  getNotes,
   send,
   createId,
   updateNotes,
 }: {
   notes: ProtocolNote[];
+  getNotes: () => ProtocolNote[];
   send: (message: ClientMessage) => void;
   createId: () => string;
-  updateNotes: (update: (notes: ProtocolNote[]) => ProtocolNote[]) => unknown;
+  updateNotes: (update: (notes: ProtocolNote[]) => ProtocolNote[]) => void;
 }) {
   const peerMoves = usePeerNoteMoves(notes);
-  const notesRef = useRef(notes);
-  notesRef.current = notes;
   const capability = useRef<Capability>({
     enabled: false,
     phaseRevision: 0,
@@ -53,8 +97,8 @@ export function useNoteMove({
     mapRevision: 0,
     space: "canvas",
   });
-  const operationRef = useRef<Operation | null>(null);
-  const [operation, setOperation] = useState<Operation | null>(null);
+  const operationsRef = useRef<Operation[]>([]);
+  const [operations, setOperations] = useState<Operation[]>([]);
   const [feedback, setFeedback] = useState<MoveFeedback | null>(null);
   const [receipt, setReceipt] = useState<MoveReceipt | null>(null);
   const frameRef = useRef<number | null>(null);
@@ -71,37 +115,70 @@ export function useNoteMove({
       ),
     [send],
   );
-  const publish = useCallback((next: Operation | null, immediate = false) => {
-    operationRef.current = next;
+  const publish = useCallback((next: Operation[], immediate = false) => {
+    operationsRef.current = next;
     if (immediate) {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
-      setOperation(next ? { ...next } : null);
+      setOperations(next);
     } else if (frameRef.current === null)
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = null;
-        const current = operationRef.current;
-        setOperation(current ? { ...current } : null);
+        setOperations(operationsRef.current);
       });
   }, []);
+  const sendStart = useCallback(
+    (operation: Operation) => {
+      send({
+        type: "note:move:start",
+        operationId: operation.id,
+        expectedPhaseRevision: operation.phaseRevision,
+        expectedGroupRevision: capability.current.groupRevision,
+        expectedMapRevision: operation.mapRevision,
+        coordinateSpace: operation.space,
+        targets: operation.before.map((note) => ({
+          noteId: note.id,
+          positionRevision: note.positionRevision ?? 0,
+          visibilityRevision: note.visibilityRevision ?? 0,
+        })),
+      });
+    },
+    [send],
+  );
   const cancel = useCallback(
     (noteId?: string) => {
-      const current = operationRef.current;
-      if (!current || (noteId && noteId !== current.anchorId)) return;
-      // pointerup後は取消ではなく結果照会。連打やEscapeで別の操作を開始しない。
-      if (current.status === "pending") {
-        send({ type: "note:move:status", operationId: current.id });
+      const queue = operationsRef.current;
+      const head = queue[0];
+      if (
+        !head ||
+        (noteId && !queue.some((operation) => operation.anchorId === noteId))
+      )
+        return;
+      const last = queue.at(-1);
+      previewSender.cancel();
+      // 対象付きの取消は今掴んでいる1操作だけ。Escape等は未送信分をすべて破棄する。
+      if (
+        noteId &&
+        last?.status === "preview" &&
+        last.anchorId === noteId &&
+        queue.length > 1
+      ) {
+        publish(queue.slice(0, -1), true);
         return;
       }
-      previewSender.cancel();
-      send({ type: "note:move:cancel", operationId: current.id });
-      publish(null, true);
+      if (head.status === "pending") {
+        publish([head], true);
+        send({ type: "note:move:status", operationId: head.id });
+      } else {
+        send({ type: "note:move:cancel", operationId: head.id });
+        publish([], true);
+      }
     },
     [send, previewSender, publish],
   );
   useEffect(() => {
     const timer = setInterval(() => {
-      const current = operationRef.current;
+      const current = operationsRef.current[0];
       if (!current) return;
       if (current.status === "pending")
         send({ type: "note:move:status", operationId: current.id });
@@ -116,14 +193,14 @@ export function useNoteMove({
       clearInterval(timer);
       previewSender.cancel();
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-      const current = operationRef.current;
+      const current = operationsRef.current[0];
       if (current?.status === "preview")
         send({ type: "note:move:cancel", operationId: current.id });
     };
   }, [send, previewSender]);
   const start = useCallback(
     (noteId: string, selectedIds: readonly string[] = [noteId]) => {
-      if (operationRef.current) return;
+      if (operationsRef.current.at(-1)?.status === "preview") return;
       if (!capability.current.enabled) {
         setFeedback({
           operationId: "unsupported",
@@ -134,8 +211,10 @@ export function useNoteMove({
       const ids = selectedIds.includes(noteId)
         ? [...new Set(selectedIds)]
         : [noteId];
+      // 確定通知と次の入力が同じ描画にまとまっても、受信済みの版を使う。
+      const displayed = renderMoves(getNotes(), operationsRef.current);
       const before = ids.flatMap((id) => {
-        const note = notesRef.current.find((note) => note.id === id);
+        const note = displayed.find((note) => note.id === id);
         return note ? [note] : [];
       });
       if (
@@ -150,30 +229,21 @@ export function useNoteMove({
         before,
         delta: { x: 0, y: 0 },
         phaseRevision: cap.phaseRevision,
+        mapRevision: cap.mapRevision,
         space: cap.space,
         status: "preview",
       };
-      publish(next, true);
+      const queue = operationsRef.current;
+      publish([...queue, next], true);
       setFeedback(null);
-      send({
-        type: "note:move:start",
-        operationId: next.id,
-        expectedPhaseRevision: cap.phaseRevision,
-        expectedGroupRevision: cap.groupRevision,
-        expectedMapRevision: cap.mapRevision,
-        coordinateSpace: cap.space,
-        targets: before.map((note) => ({
-          noteId: note.id,
-          positionRevision: note.positionRevision ?? 0,
-          visibilityRevision: note.visibilityRevision ?? 0,
-        })),
-      });
+      if (queue.length === 0) sendStart(next);
     },
-    [send, createId, publish],
+    [createId, getNotes, publish, sendStart],
   );
   const move = useCallback(
     (noteId: string, x: number, y: number) => {
-      const current = operationRef.current;
+      const queue = operationsRef.current;
+      const current = queue.at(-1);
       if (
         !current ||
         current.anchorId !== noteId ||
@@ -201,15 +271,16 @@ export function useNoteMove({
         ),
       };
       const next = { ...current, delta };
-      publish(next);
-      previewSender(next);
+      publish([...queue.slice(0, -1), next]);
+      if (queue.length === 1) previewSender(next);
     },
     [previewSender, publish],
   );
   const end = useCallback(
     (noteId: string, x: number, y: number) => {
       move(noteId, x, y);
-      const current = operationRef.current;
+      const queue = operationsRef.current;
+      const current = queue.at(-1);
       if (
         !current ||
         current.anchorId !== noteId ||
@@ -218,31 +289,32 @@ export function useNoteMove({
         return;
       previewSender.cancel();
       const next: Operation = { ...current, status: "pending" };
-      publish(next, true);
-      send({
-        type: "note:move:commit",
-        operationId: current.id,
-        delta: current.delta,
-      });
+      publish([...queue.slice(0, -1), next], true);
+      if (queue.length === 1)
+        send({
+          type: "note:move:commit",
+          operationId: current.id,
+          delta: current.delta,
+        });
     },
     [move, previewSender, publish, send],
   );
   const applyMessage = useCallback(
     (message: ServerMessage) => {
       peerMoves.applyMessage(message);
-      const activePreview = operationRef.current;
-      if (
-        activePreview?.status === "preview" &&
+      const mapChanged =
         (message.type === "idea-map:state" ||
           message.type === "phase:updated") &&
         message.mapRevision !== undefined &&
-        message.mapRevision !== capability.current.mapRevision
-      ) {
+        message.mapRevision !== capability.current.mapRevision;
+      if (mapChanged) {
+        const id = operationsRef.current.at(-1)?.id;
         cancel();
-        setFeedback({
-          operationId: activePreview.id,
-          message: "盤面の広さが変更されました。もう一度操作してください。",
-        });
+        if (id)
+          setFeedback({
+            operationId: id,
+            message: "盤面の広さが変更されました。もう一度操作してください。",
+          });
       }
       if (message.type === "snapshot") {
         capability.current = {
@@ -255,10 +327,7 @@ export function useNoteMove({
               ? "map"
               : "canvas",
         };
-        const current = operationRef.current;
-        if (current?.status === "pending")
-          send({ type: "note:move:status", operationId: current.id });
-        else if (current) cancel();
+        cancel();
       }
       if (message.type === "notes:moved")
         capability.current.groupRevision = message.groupRevision;
@@ -286,34 +355,70 @@ export function useNoteMove({
       if (
         message.type === "phase:updated" ||
         message.type === "outcome:published" ||
+        (message.type === "timer:updated" &&
+          message.timer.status !== "running") ||
         (message.type === "decision:updated" && message.decision !== null)
       ) {
-        const current = operationRef.current;
-        if (current?.status === "preview") cancel();
-        else if (current) {
-          send({ type: "note:move:status", operationId: current.id });
-          publish({ ...current, delta: { x: 0, y: 0 } }, true);
-        }
+        cancel();
+        const head = operationsRef.current[0];
+        if (head) publish([{ ...head, delta: { x: 0, y: 0 } }], true);
       }
-      const current = operationRef.current;
-      if (
-        current?.status === "preview" &&
-        ((message.type === "note:deleted" &&
-          current.before.some((note) => note.id === message.noteId)) ||
-          (message.type === "note:updated" &&
-            current.before.some(
-              (note) =>
-                note.id === message.note.id &&
-                (note.positionRevision !== message.note.positionRevision ||
-                  note.visibilityRevision !== message.note.visibilityRevision),
-            )))
-      ) {
+      const head = operationsRef.current[0];
+      const ownBatch =
+        message.type === "notes:moved" && head?.id === message.operationId;
+      if (ownBatch && head) {
+        publish([
+          head,
+          ...advanceVersions(
+            operationsRef.current.slice(1),
+            head.before.map((note) => ({
+              noteId: note.id,
+              x: note.x,
+              y: note.y,
+              positionRevision: note.positionRevision ?? 0,
+              visibilityRevision: note.visibilityRevision ?? 0,
+            })),
+            message.notes.map((note) => ({
+              noteId: note.id,
+              x: note.x,
+              y: note.y,
+              positionRevision: note.positionRevision ?? 0,
+              visibilityRevision: note.visibilityRevision ?? 0,
+            })),
+          ),
+        ]);
+      }
+      const changedNotes =
+        message.type === "note:updated"
+          ? [message.note]
+          : message.type === "notes:moved" && !ownBatch
+            ? message.notes
+            : [];
+      const conflict = operationsRef.current.find(
+        (operation, index) =>
+          !(index === 0 && operation.status === "pending") &&
+          operation.before.some(
+            (note) =>
+              (message.type === "note:deleted" && message.noteId === note.id) ||
+              changedNotes.some(
+                (changed) =>
+                  changed.id === note.id &&
+                  (changed.visibility !== "shared" ||
+                    (changed.positionRevision ?? 0) !==
+                      (note.positionRevision ?? 0) ||
+                    (changed.visibilityRevision ?? 0) !==
+                      (note.visibilityRevision ?? 0)),
+              ),
+          ),
+      );
+      if (conflict) {
         cancel();
         setFeedback({
-          operationId: current.id,
+          operationId: conflict.id,
           message: "移動対象が変更されました。もう一度操作してください。",
         });
       }
+      const current = operationsRef.current[0];
       if (
         current &&
         message.type === "error" &&
@@ -325,7 +430,7 @@ export function useNoteMove({
           return;
         }
         previewSender.cancel();
-        publish(null, true);
+        publish([], true);
         setFeedback({ operationId: current.id, message: message.message });
         return;
       }
@@ -374,37 +479,57 @@ export function useNoteMove({
             message.reason ??
             "移動を確認できませんでした。もう一度操作してください。",
         });
-      publish(null, true);
+      const waiting =
+        message.status === "accepted" &&
+        message.receipt &&
+        capability.current.phaseRevision === message.receipt.phaseRevision
+          ? advanceVersions(
+              operationsRef.current.slice(1),
+              message.receipt.before,
+              message.receipt.after,
+            )
+          : [];
+      publish(waiting, true);
+      const next = waiting[0];
+      if (next) {
+        sendStart(next);
+        if (next.status === "pending")
+          send({
+            type: "note:move:commit",
+            operationId: next.id,
+            delta: next.delta,
+          });
+        else previewSender(next);
+      }
     },
-    [send, cancel, publish, updateNotes, previewSender, peerMoves.applyMessage],
+    [
+      send,
+      cancel,
+      publish,
+      updateNotes,
+      previewSender,
+      peerMoves.applyMessage,
+      sendStart,
+    ],
   );
-  const renderedNotes = useMemo(() => {
-    if (!operation) return peerMoves.notes;
-    const origins = new Map(operation.before.map((note) => [note.id, note]));
-    return peerMoves.notes.map((note) => {
-      const origin = origins.get(note.id);
-      return origin
-        ? {
-            ...note,
-            x: origin.x + operation.delta.x,
-            y: origin.y + operation.delta.y,
-          }
-        : note;
-    });
-  }, [peerMoves.notes, operation]);
+  const renderedNotes = useMemo(
+    () => renderMoves(peerMoves.notes, operations),
+    [peerMoves.notes, operations],
+  );
   const enabled = useCallback(() => capability.current.enabled, []);
   const owns = useCallback(
     (id?: string) =>
-      Boolean(
-        operationRef.current && (!id || operationRef.current.anchorId === id),
+      operationsRef.current.some(
+        (operation) => !id || operation.anchorId === id,
       ),
     [],
   );
+  const last = operations.at(-1);
   return {
     notes: renderedNotes,
-    draggingNoteId: operation?.status === "preview" ? operation.anchorId : null,
-    frontNoteId: operation?.anchorId ?? null,
-    pending: operation?.status === "pending",
+    draggingNoteId: last?.status === "preview" ? last.anchorId : null,
+    frontNoteId: last?.anchorId ?? null,
+    pending: operations.some((operation) => operation.status === "pending"),
     feedback,
     receipt,
     enabled,
