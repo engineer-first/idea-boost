@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { VerificationConsole } from "@/features/verification";
-import { worker } from "./browser";
+import { startMockWorker, worker } from "./browser";
 import { verificationHandlers } from "./verification";
 
 const meta = {
@@ -10,7 +10,7 @@ const meta = {
   parameters: { layout: "fullscreen" },
   beforeEach: async () => {
     worker.use(...verificationHandlers());
-    await worker.start({ quiet: true, onUnhandledFrame: "bypass" });
+    await startMockWorker({ quiet: true, onUnhandledFrame: "bypass" });
     return () => worker.resetHandlers();
   },
 } satisfies Meta<typeof VerificationConsole>;
