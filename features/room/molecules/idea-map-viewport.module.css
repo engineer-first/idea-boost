@@ -1,12 +1,12 @@
 /* レイアウトの基準枠は固定し、マップ面と横軸だけを右へ広げる。
    0〜100の評価座標がそのまま表示に追従するので、サーバーの付箋座標は変更しない。
    工程切り替え時だけ小さな領域のwidthを補間し、付箋・グリッド・操作UIを同時に動かす。 */
-[data-map-workspace] {
+.workspace {
   --idea-map-expansion: 0px;
 }
 
 @media (min-width: 640px) {
-  [data-map-workspace][data-expanded="true"] {
+  .workspace[data-expanded="true"] {
     --idea-map-expansion: var(--idea-map-rail-width, 14rem);
   }
 }

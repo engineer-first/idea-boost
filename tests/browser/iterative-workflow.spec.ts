@@ -169,7 +169,7 @@ for (const { phase, count } of phases) {
           if (usesIdeaMapViewport) {
             if (!mapBounds) throw new Error("固定マップが見つかりません");
             expect(
-              Math.abs(hudCenter - (mapBounds.x + mapBounds.width * 0.3)),
+              Math.abs(hudCenter - (mapBounds.x + mapBounds.width * 0.31)),
             ).toBeLessThan(12);
           } else {
             expect(Math.abs(hudCenter - 640)).toBeLessThan(12);

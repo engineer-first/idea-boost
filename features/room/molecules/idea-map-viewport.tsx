@@ -225,7 +225,7 @@ export function IdeaMapViewport({
   return (
     <section
       aria-label={labels.ariaLabel}
-      className={`pointer-events-none absolute inset-0 z-10 flex items-center justify-center ${workspace ? "[container-type:size] px-4 pt-[var(--board-map-top,7rem)] pb-4" : "p-3 pt-20 sm:p-6 sm:pt-24"}`}
+      className={`${workspace ? styles.workspace : ""} pointer-events-none absolute inset-0 z-10 flex items-center justify-center ${workspace ? "[container-type:size] px-4 pt-[var(--board-map-top,7rem)] pb-4" : "p-3 pt-20 sm:p-6 sm:pt-24"}`}
       data-testid="idea-map-viewport"
       data-map-workspace={workspace || undefined}
       data-expanded={expanded}
