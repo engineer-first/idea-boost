@@ -327,3 +327,7 @@ Cloudflare公式の[移行ガイド](https://developers.cloudflare.com/workers/t
 更新が終了した `@cloudflare/vitest-pool-workers` を `@cloudflare/vitest-plugin` へ移行した。
 AGENTSとテスト方針のパッケージ名も実装と揃え、Worker / Durable Objectを実ランタイムで検証する方針は維持した。
 `npm run check:agent-harness` で共有スキルの正本・symlink・文書リンクが成功することを確認した。
+
+Next.js 16.4の `next dev` が追加する管理ブロックは、既存AGENTSの同梱ガイド参照と重複するため、
+公式の `agentRules: false` で生成を無効にした。手書きの日本語の作業別ルールを正本として維持する。
+`scripts/next-config.spec.ts` で無効化設定のred→greenを確認した。
