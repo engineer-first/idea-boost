@@ -45,6 +45,8 @@ type ScheduledFrame =
 type UseCanvasCameraArgs = {
   viewportRef: RefObject<HTMLDivElement | null>;
   notes: Note[];
+  // 固定2軸マップ表示中はボードの視野を動かさない。
+  navigationDisabled?: boolean;
   selectedNoteIds?: readonly string[];
   isViewportEnabled?: boolean;
   // 画面サイズで配置されたマップでは、0〜100の付箋座標をpxとしてフィットしない。
@@ -170,6 +172,7 @@ function fitIdeaMapCamera(
 export function useCanvasCamera({
   viewportRef,
   notes,
+  navigationDisabled = false,
   selectedNoteIds,
   isViewportEnabled = true,
   fitViewport = false,
@@ -263,7 +266,13 @@ export function useCanvasCamera({
   const fitToNotes = useCallback(
     (insets?: CanvasFitInsets): boolean => {
       const element = viewportRef.current;
-      if (!element || gestureBlockedRef.current || panRef.current) return false;
+      if (
+        !element ||
+        navigationDisabled ||
+        gestureBlockedRef.current ||
+        panRef.current
+      )
+        return false;
       const size = viewportSize(element);
       if (!size) return false;
       const safeInsets = insets ?? getFitInsetsRef.current?.(element);
@@ -290,7 +299,13 @@ export function useCanvasCamera({
       setCameraImmediately(next);
       return true;
     },
-    [baseZoom, fitViewport, setCameraImmediately, viewportRef],
+    [
+      baseZoom,
+      fitViewport,
+      navigationDisabled,
+      setCameraImmediately,
+      viewportRef,
+    ],
   );
 
   const fitToSelection = useCallback((): boolean => {
@@ -323,6 +338,7 @@ export function useCanvasCamera({
       const element = viewportRef.current;
       if (
         !element ||
+        navigationDisabled ||
         !Number.isFinite(requestedZoom) ||
         gestureBlockedRef.current ||
         panRef.current
@@ -341,7 +357,7 @@ export function useCanvasCamera({
         zoomAtScreenPoint(cameraRef.current, requestedZoom, anchor, baseZoom),
       );
     },
-    [baseZoom, scheduleCamera, viewportRef],
+    [baseZoom, navigationDisabled, scheduleCamera, viewportRef],
   );
 
   const endPan = useCallback(() => {
@@ -355,12 +371,19 @@ export function useCanvasCamera({
     }
   }, [viewportRef]);
 
+  useEffect(() => {
+    if (!navigationDisabled) return;
+    spacePressedRef.current = false;
+    endPan();
+  }, [endPan, navigationDisabled]);
+
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;
       if (!panRef.current) suppressClickRef.current = false;
       if (
         panRef.current ||
+        navigationDisabled ||
         gestureBlockedRef.current ||
         isEditableTarget(target) ||
         target.closest("[data-board-native-control]")
@@ -397,7 +420,7 @@ export function useCanvasCamera({
       suppressClickRef.current = true;
       setIsPanning(true);
     },
-    [],
+    [navigationDisabled],
   );
 
   const handlePointerMove = useCallback(
@@ -429,6 +452,7 @@ export function useCanvasCamera({
   const handleWheel = useCallback(
     (event: WheelEvent) => {
       if (
+        navigationDisabled ||
         gestureBlockedRef.current ||
         panRef.current ||
         isEditableTarget(event.target)
@@ -468,11 +492,12 @@ export function useCanvasCamera({
         y: cameraRef.current.y - (event.shiftKey ? 0 : event.deltaY),
       });
     },
-    [getViewportPoint, scheduleCamera, zoomTo, viewportRef],
+    [getViewportPoint, navigationDisabled, scheduleCamera, zoomTo, viewportRef],
   );
 
   useEffect(() => {
     if (
+      navigationDisabled ||
       !isViewportEnabled ||
       !fitViewport ||
       !ideaMapSizeInitialized ||
@@ -482,12 +507,12 @@ export function useCanvasCamera({
     }
     const element = viewportRef.current;
     const size = element ? viewportSize(element) : null;
-    if (size) {
+    if (size && element) {
       const next = fitIdeaMapCamera(
         size,
         ideaMapSizeLevelRef.current,
-        element ? renderedNotesBounds(element, cameraRef.current) : null,
-        element ? getFitInsetsRef.current?.(element) : undefined,
+        renderedNotesBounds(element, cameraRef.current),
+        getFitInsetsRef.current?.(element),
       );
       if (next) {
         setCameraImmediately(next);
@@ -497,6 +522,7 @@ export function useCanvasCamera({
   }, [
     fitViewport,
     ideaMapSizeInitialized,
+    navigationDisabled,
     isViewportEnabled,
     setCameraImmediately,
     viewportRef,
@@ -515,6 +541,7 @@ export function useCanvasCamera({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
+        navigationDisabled ||
         event.isComposing ||
         event.keyCode === 229 ||
         isEditableTarget(event.target) ||
@@ -645,13 +672,14 @@ export function useCanvasCamera({
     fitToSelection,
     fitViewport,
     isViewportEnabled,
+    navigationDisabled,
     scheduleCamera,
     viewportRef,
     zoomTo,
   ]);
 
   useEffect(() => {
-    if (!isViewportEnabled || fitViewport) return;
+    if (!isViewportEnabled || fitViewport || navigationDisabled) return;
     const element = viewportRef.current;
     if (!element) return;
     const size = viewportSize(element);
@@ -680,6 +708,7 @@ export function useCanvasCamera({
     baseZoom,
     fitViewport,
     isViewportEnabled,
+    navigationDisabled,
     notes,
     setCameraImmediately,
     viewportRef,

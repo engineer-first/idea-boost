@@ -1390,6 +1390,28 @@ describe("transaction move", () => {
     act(() => vi.advanceTimersByTime(2_000));
     expect(send).toHaveBeenCalledTimes(2);
   });
+  it("3-2の共有付箋の移動開始はマップ座標を指定する", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage(),
+        phase: { kind: "step", phase: 3, step: 2 },
+        moveProtocolVersion: 1,
+      } as ServerMessage),
+    );
+
+    act(() => result.current.startNoteDrag(NOTE_ID));
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "note:move:start",
+        coordinateSpace: "map",
+      }),
+    );
+  });
   it("分類の版通知で別の付箋のpreviewを取り消さず次の移動には最新の版を使う", () => {
     const send = vi.fn();
     const { result } = renderHook(() => useRoomNotes({ send }));
@@ -1462,6 +1484,7 @@ describe("transaction move", () => {
       delta: { x: 5, y: 20 },
     });
   });
+
   it("cancelで最新確定位置へ戻り遅延start ACKでcommitしない", () => {
     const send = vi.fn();
     const { result } = renderHook(() =>
@@ -1712,7 +1735,7 @@ it("成功receiptを伏せた新操作が古い成功receiptを最後の逆操�
   expect(result.current.lastMoveReceipt).toBe(null);
   expect(result.current.moveFeedback).toBe(null);
 });
-it("旧serverで固定複数集合を開始せず新旧commitも送らない", () => {
+it("moveProtocolVersion省略時は複数付箋の移動を開始せず、要求を送信しない", () => {
   const send = vi.fn();
   const { result } = renderHook(() => useRoomNotes({ send }));
   act(() =>

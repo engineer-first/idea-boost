@@ -23,13 +23,13 @@ describe("IDEA_VALUE_FEASIBILITY_MAP_RANGE", () => {
 });
 
 describe("idea map size", () => {
-  it("付箋総数から初期サイズ段階を決め、上限を守る", () => {
-    expect(getInitialIdeaMapSizeLevel(0)).toBe(0);
-    expect(getInitialIdeaMapSizeLevel(12)).toBe(0);
-    expect(getInitialIdeaMapSizeLevel(13)).toBe(1);
-    expect(getInitialIdeaMapSizeLevel(18)).toBe(3);
-    expect(getInitialIdeaMapSizeLevel(56)).toBe(9);
-    expect(getInitialIdeaMapSizeLevel(Number.NaN)).toBe(0);
+  it("付箋数に応じた容量段階に余裕4段階を加え、初期サイズの上限を15段階とする", () => {
+    expect(getInitialIdeaMapSizeLevel(0)).toBe(4);
+    expect(getInitialIdeaMapSizeLevel(12)).toBe(4);
+    expect(getInitialIdeaMapSizeLevel(13)).toBe(5);
+    expect(getInitialIdeaMapSizeLevel(18)).toBe(7);
+    expect(getInitialIdeaMapSizeLevel(56)).toBe(13);
+    expect(getInitialIdeaMapSizeLevel(Number.NaN)).toBe(4);
     expect(getInitialIdeaMapSizeLevel(1_000_000)).toBe(
       IDEA_MAP_SIZE_LEVEL_RANGE.max,
     );
@@ -73,7 +73,7 @@ describe("note typography", () => {
     expect(NOTE_DEFAULT_FONT_SIZE).toBe(14);
   });
 
-  it("短文は従来高を維持し、長文は文字サイズを保ったまま全文ぶん縦へ伸ばす", () => {
+  it("短文は最小高さを使い、長文は文字サイズを保ったまま全文ぶん縦へ伸ばす", () => {
     expect(getNoteHeight("短文", 24)).toBe(NOTE_HEIGHT);
 
     const mediumAt14 = getNoteHeight("あ".repeat(240), 14);

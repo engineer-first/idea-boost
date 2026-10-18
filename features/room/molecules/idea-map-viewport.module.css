@@ -1,0 +1,206 @@
+/* レイアウトの基準枠は固定し、マップ面と横軸だけを右へ広げる。
+   0〜100の評価座標がそのまま表示に追従するので、サーバーの付箋座標は変更しない。
+   工程切り替え時だけ小さな領域のwidthを補間し、付箋・グリッド・操作UIを同時に動かす。 */
+.workspace {
+  --idea-map-expansion: 0px;
+}
+
+@media (min-width: 640px) {
+  .workspace[data-map-expanded="true"] {
+    --idea-map-expansion: var(--idea-map-rail-width, 14rem);
+  }
+}
+
+.workspacePlane {
+  width: calc(100% + var(--idea-map-expansion));
+}
+
+.workspaceFeasibilityAxis {
+  width: calc(100% - 2.5rem + var(--idea-map-expansion));
+}
+
+.workspacePlane,
+.workspaceFeasibilityAxis,
+.workspaceControls {
+  transition: width 360ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 640px) {
+  .workspaceFeasibilityAxis {
+    width: calc(100% - 3.75rem + var(--idea-map-expansion));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspacePlane,
+  .workspaceFeasibilityAxis,
+  .workspaceControls {
+    transition: none;
+  }
+}
+
+.axisStroke {
+  display: block;
+  overflow: visible;
+}
+
+.verticalAxisTrack {
+  position: absolute;
+  top: 2.25rem;
+  left: 50%;
+  width: 1rem;
+  height: calc(100% - 4.5rem);
+  transform: translateX(-50%);
+}
+
+.horizontalAxisTrack {
+  position: absolute;
+  top: 13px;
+  right: 2rem;
+  left: var(--horizontal-axis-start, 1rem);
+  height: 1rem;
+  width: calc(100% - var(--horizontal-axis-start, 1rem) - 2rem);
+  transform: translateY(-50%);
+}
+
+.workspaceUngroupedAxisTrack {
+  --horizontal-axis-start: 2rem;
+}
+
+@media (min-width: 1120px) and (max-height: 820px) {
+  .workspaceCompactValueLow {
+    bottom: 1.75rem;
+    left: calc(50% - 1.5rem);
+  }
+
+  .workspaceCompactFeasibilityLow {
+    top: -1.25rem;
+    left: 1.5rem;
+  }
+
+  .workspaceCompactFeasibilityHigh {
+    top: -1.25rem;
+  }
+
+  .workspaceUngroupedAxisTrack {
+    --horizontal-axis-start: 3.5rem;
+
+    top: -8px;
+  }
+}
+
+.horizontalLowEndpointGroup {
+  top: 1px;
+  right: 2rem;
+  left: calc(1rem - 0.5rem + var(--horizontal-low-endpoint-offset, 0px));
+  height: 1.5rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.horizontalLowEndpointTrack {
+  min-width: 0;
+  height: 1rem;
+  flex: 1;
+}
+
+.workspaceFeasibilityAxis {
+  top: 11.5px;
+}
+
+@media (max-width: 420px) {
+  .workspaceFeasibilityAxis {
+    top: 10.5px;
+  }
+}
+
+@container (min-width: 32rem) {
+  .workspaceInlineFeasibilityLabel {
+    /* 縦軸と同様、背景と左右のpaddingで軸線を区切る。 */
+    top: 13px;
+    z-index: 1;
+    padding-block: 0;
+    padding-inline: 0.5rem;
+    line-height: 1.25;
+    transform: translateY(-50%);
+  }
+}
+
+@media (min-width: 640px) {
+  .horizontalLowEndpointGroup {
+    left: calc(1rem - 0.625rem + var(--horizontal-low-endpoint-offset, 0px));
+  }
+}
+
+.workspaceControls {
+  position: absolute;
+  z-index: 30;
+  pointer-events: none;
+  container-type: inline-size;
+  container-name: map-plane;
+  /* 枠線1pxを除いた従来の内寸を操作UIの配置基準にする。 */
+  inset: 1px;
+  width: calc(100% - 2px + var(--idea-map-expansion));
+}
+
+.workspacePhaseLoopHud,
+.workspaceMapSizeHud {
+  position: absolute;
+  bottom: var(--workspace-controls-bottom, 20px);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.workspacePhaseLoopHud {
+  left: min(31%, calc(50% - 11.5rem));
+  transform: translateX(-50%);
+}
+
+.workspaceMapSizeHud {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.workspaceControlsContent {
+  pointer-events: auto;
+  transform-origin: center;
+  transform: scale(var(--workspace-controls-zoom, 1));
+}
+
+@container map-plane (max-width: 25rem) {
+  .workspacePhaseLoopHud {
+    left: 26%;
+    bottom: 20px;
+  }
+
+  .workspaceMapSizeHud {
+    left: 70%;
+  }
+
+  .workspaceMapSizeHud [data-map-size-label] {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .workspacePhaseLoopHud {
+    left: 7.5%;
+    bottom: 0;
+    transform: translateX(-50%);
+  }
+
+  .workspacePhaseLoopHud .workspaceControlsContent {
+    transform: scale(calc(var(--workspace-controls-zoom, 1) * 0.85));
+  }
+
+  .workspaceMapSizeHud {
+    left: 7.5%;
+    bottom: 52px;
+    transform: translateX(-50%);
+  }
+
+  .workspaceMapSizeHud .workspaceControlsContent {
+    transform: scale(calc(var(--workspace-controls-zoom, 1) * 0.75));
+  }
+}

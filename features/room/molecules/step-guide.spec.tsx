@@ -98,6 +98,23 @@ describe("工程ガイド", () => {
     fireEvent.keyDown(detail, { key: "Escape" });
     expect(screen.getByRole("button", { name: "進め方" })).toHaveFocus();
   });
+  it("詳細にフォーカス中なら、別のPopoverが処理済みにしたEscapeでも畳む", () => {
+    setup({ initialState: "compact" });
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+    const detail = screen.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    const escapeEvent = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    escapeEvent.preventDefault();
+    fireEvent(document, escapeEvent);
+    expect(frame()).toHaveAttribute("data-state", "compact");
+    expect(screen.getByRole("button", { name: "進め方" })).toHaveFocus();
+    expect(detail).toHaveAttribute("aria-hidden", "true");
+  });
   it("初回案内はフォーカスを奪わず、5秒後に同じ枠のボタンへ畳む", () => {
     vi.useFakeTimers();
     setup();
@@ -246,7 +263,7 @@ describe("工程ガイド", () => {
       expect(detail.getByText(text)).toBeVisible();
     }
   });
-  it("図のない工程では従来の具体例を表示する", () => {
+  it("図のない工程では詳細に文章の具体例を表示する", () => {
     setup({
       guide: { ...guide, visualExample: undefined },
       initialState: "detail",

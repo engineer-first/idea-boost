@@ -8,6 +8,7 @@ import { type StepGuideState, useStepGuide } from "../logic/use-step-guide";
 import styles from "./step-guide.module.css";
 
 export type StepGuideProps = {
+  placement?: "floating" | "inline";
   guide: FacilitationGuideContent;
   phaseKey: string;
   sessionKey: string;
@@ -17,7 +18,12 @@ export type StepGuideProps = {
   timer?: TimerState;
 };
 
-export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
+export function StepGuide({
+  guide,
+  isHost,
+  placement = "floating",
+  ...options
+}: StepGuideProps) {
   const { state, isBoundary, setState, setHovered, setFocused } =
     useStepGuide(options);
   const boundaryText =
@@ -65,7 +71,11 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
       setState("compact");
     }
     function handleEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (event.key !== "Escape") return;
+      const guideOwnsFocus =
+        document.activeElement instanceof Node &&
+        root.current?.contains(document.activeElement);
+      if (event.defaultPrevented && !guideOwnsFocus) return;
       event.preventDefault();
       restoreFocus.current = true;
       setState("compact");
@@ -86,6 +96,7 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
       aria-label="進め方"
       data-testid="step-guide"
       data-state={state}
+      data-placement={placement}
       className={`${styles.guide} pointer-events-auto border border-primary/20 bg-background text-foreground shadow-lg shadow-black/5`}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}

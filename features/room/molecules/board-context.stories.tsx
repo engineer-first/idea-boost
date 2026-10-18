@@ -62,6 +62,14 @@ export const AfterWriting: Story = {
   },
 };
 
+export const IdeaVoting: Story = {
+  args: { phase: buildPhaseStep(4, 3), initialDisclosureId: null },
+};
+
+export const IdeaResult: Story = {
+  args: { phase: buildPhaseStep(5, 3), initialDisclosureId: null },
+};
+
 export const MissingSource: Story = {
   args: { issueReference: null, hmwReference: null },
 };

@@ -5,6 +5,7 @@ import {
   CANVAS_COORDINATE_LIMIT,
   DRAG_BROADCAST_THROTTLE_MS,
 } from "@/contracts/board";
+import { isPhaseStep } from "@/contracts/phase";
 import type {
   ClientMessage,
   MoveReceipt,
@@ -288,7 +289,10 @@ export function useNoteMove({
       )
         return;
       previewSender.cancel();
-      const next: Operation = { ...current, status: "pending" };
+      const next: Operation = {
+        ...current,
+        status: "pending",
+      };
       publish([...queue.slice(0, -1), next], true);
       if (queue.length === 1)
         send({
@@ -323,7 +327,9 @@ export function useNoteMove({
           groupRevision: message.groupRevision ?? 0,
           mapRevision: message.mapRevision ?? 0,
           space:
-            message.phase.kind === "step" && message.phase.phase === 3
+            isPhaseStep(message.phase, 3, 2) ||
+            isPhaseStep(message.phase, 3, 3) ||
+            isPhaseStep(message.phase, 3, 5)
               ? "map"
               : "canvas",
         };
@@ -348,7 +354,9 @@ export function useNoteMove({
       if (message.type === "phase:updated") {
         capability.current.phaseRevision = message.phaseRevision;
         capability.current.space =
-          message.phase.kind === "step" && message.phase.phase === 3
+          isPhaseStep(message.phase, 3, 2) ||
+          isPhaseStep(message.phase, 3, 3) ||
+          isPhaseStep(message.phase, 3, 5)
             ? "map"
             : "canvas";
       }

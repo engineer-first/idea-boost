@@ -1005,6 +1005,9 @@ export const CanvasInputInteraction: Story = {
   },
   render: function Render(args) {
     const [notes, setNotes] = useState(args.notes);
+    const [ideaMapSizeLevel, setIdeaMapSizeLevel] = useState(
+      args.ideaMapSizeLevel ?? 0,
+    );
     const [adoptionCount, setAdoptionCount] = useState(0);
     const [privateNotes, setPrivateNotes] = useState(
       args.interactions.privateNotes,
@@ -1018,14 +1021,26 @@ export const CanvasInputInteraction: Story = {
       phase: args.phase,
       isDecided: args.decision !== null,
       sharing: args.sharing,
-      ideaMapSizeLevel: args.ideaMapSizeLevel,
+      ideaMapSizeLevel,
       ideaMapSizeInitialized: args.ideaMapSizeInitialized,
       getFitInsets: getBoardFitInsets,
       onNoteDragStart: (id) => setDraggingNoteId(id),
-      onNoteDragMove: () => undefined,
-      onNoteDragEnd: (id, x, y) => {
+      onNoteDragMove: (id, x, y) => {
         setNotes((current) =>
           current.map((note) => (note.id === id ? { ...note, x, y } : note)),
+        );
+      },
+      onNoteDragEnd: (id, x, y) => {
+        setNotes((current) =>
+          current.map((note) =>
+            note.id === id
+              ? {
+                  ...note,
+                  x,
+                  y,
+                }
+              : note,
+          ),
         );
         setDraggingNoteId(null);
       },
@@ -1056,6 +1071,8 @@ export const CanvasInputInteraction: Story = {
       <>
         <RoomBoardView
           {...args}
+          ideaMapSizeLevel={ideaMapSizeLevel}
+          onIdeaMapResize={setIdeaMapSizeLevel}
           notes={notes}
           interactions={interactions}
           help={help}
@@ -1186,6 +1203,200 @@ export const CanvasInputInteraction: Story = {
         </output>
       </>
     );
+  },
+};
+
+export const IdeaMapWorkspace: Story = {
+  ...CanvasInputInteraction,
+  name: "3-2 共有 / 2軸マップとマイ付箋",
+  args: {
+    phase: buildPhaseStep(2, 3),
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+    moveHistory: {
+      undo: { label: "戻せる移動はありません", reason: null, disabled: true },
+      redo: {
+        label: "やり直せる移動はありません",
+        reason: null,
+        disabled: true,
+      },
+      pending: false,
+      onUndo: fn(),
+      onRedo: fn(),
+    },
+    decidedHmw: GUIDE_QUESTION,
+    hmwDecidedIssue: GUIDE_ISSUE,
+    issueReference: buildCarryover({ phase: 1, content: GUIDE_ISSUE }),
+    hmwReference: buildCarryover({ phase: 2, content: GUIDE_QUESTION }),
+    notes: [
+      buildNote({
+        id: "map-workspace-placed",
+        authorId: ME,
+        content: "最初の一歩を小さくする",
+        x: 70,
+        y: 75,
+      }),
+      ...buildNotes(8).map((note, index) => ({
+        ...note,
+        id: `map-workspace-shared-${index + 1}`,
+        authorId: ME,
+        content: CANVAS_HUD_CONTENTS[index % CANVAS_HUD_CONTENTS.length],
+        x: 10 + ((index * 29) % 80),
+        y: 12 + ((index * 37) % 76),
+      })),
+    ],
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: buildNotes(12).map((note, index) => ({
+        ...note,
+        id: `map-workspace-private-${index + 1}`,
+        authorId: ME,
+        visibility: "private" as const,
+        content: CANVAS_HUD_CONTENTS[index % CANVAS_HUD_CONTENTS.length],
+      })),
+    },
+    isHost: true,
+    ideaMapSizeLevel: 4,
+    ideaMapSizeInitialized: true,
+    initialGuideState: "compact",
+  },
+};
+
+export const IdeaMapOnly: Story = {
+  ...IdeaMapWorkspace,
+  name: "3-3 評価 / マップのみ",
+  args: {
+    ...IdeaMapWorkspace.args,
+    phase: buildPhaseStep(3, 3),
+    sharing: null,
+    interactions: { ...INTERACTIONS, privateNotes: [] },
+  },
+};
+
+export const IdeaMapPhaseTransitions: Story = {
+  ...IdeaMapWorkspace,
+  name: "2軸マップ / 再読み込みしない工程切り替え",
+  render: function Render(args) {
+    const [step, setStep] = useState(1);
+    const [timer, setTimer] = useState(args.timer);
+    const phase = buildPhaseStep(step, 3);
+    const help = useBoardHelp(phase);
+    return (
+      <>
+        <RoomBoardView
+          {...args}
+          phase={phase}
+          help={help}
+          timer={timer}
+          onTimerPause={() => {
+            if (timer.status !== "running") return;
+            setTimer({
+              status: "paused",
+              remainingMs: Math.max(0, timer.endsAt - Date.now()),
+              durationMs: timer.durationMs,
+            });
+          }}
+          onTimerResume={() => {
+            if (timer.status !== "paused") return;
+            setTimer({
+              status: "running",
+              endsAt: Date.now() + timer.remainingMs,
+              durationMs: timer.durationMs,
+            });
+          }}
+          interactions={{ ...args.interactions, notes: args.notes }}
+        />
+        <select
+          aria-label="検証用の工程切り替え"
+          className="fixed right-3 bottom-24 z-50 border bg-background"
+          value={step}
+          onChange={(event) => setStep(Number(event.target.value))}
+        >
+          <option value={1}>3-1 個人</option>
+          <option value={2}>3-2 共有</option>
+          <option value={3}>3-3 評価</option>
+          <option value={4}>3-4 投票</option>
+          <option value={5}>3-5 決定</option>
+        </select>
+      </>
+    );
+  },
+};
+
+export const IdeaMapVoting: Story = {
+  ...IdeaMapOnly,
+  name: "3-4 投票 / 評価と同じマップ",
+  args: { ...IdeaMapOnly.args, phase: buildPhaseStep(4, 3) },
+};
+
+export const IdeaMapResult: Story = {
+  ...IdeaMapOnly,
+  name: "3-5 決定 / 評価と同じマップ",
+  args: {
+    ...IdeaMapOnly.args,
+    phase: buildPhaseStep(5, 3),
+    notes: IdeaMapOnly.args?.notes?.map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: { count: index % 2, ownCount: 0, votedByMe: false },
+        objective: { count: index + 1, ownCount: 0, votedByMe: false },
+      },
+    })),
+  },
+};
+
+export const IdeaMapSharingEdges: Story = {
+  ...IdeaMapWorkspace,
+  name: "2軸マップ / 共有付箋を四隅へ移動",
+  args: {
+    ...IdeaMapWorkspace.args,
+    notes: [
+      buildNote({
+        id: "map-edge-movable",
+        authorId: ME,
+        content: "マップの端まで動かす付箋",
+        x: 50,
+        y: 60,
+      }),
+    ],
+  },
+};
+
+export const IdeaMapEvaluationEdges: Story = {
+  ...IdeaMapSharingEdges,
+  name: "2軸マップ / 評価中の付箋を四隅へ移動",
+  args: {
+    ...IdeaMapSharingEdges.args,
+    phase: buildPhaseStep(3, 3),
+    sharing: null,
+    interactions: { ...INTERACTIONS, privateNotes: [] },
+  },
+};
+
+export const IdeaMapDecisionEdges: Story = {
+  ...IdeaMapEvaluationEdges,
+  name: "2軸マップ / 決定前の付箋を四隅へ移動",
+  args: { ...IdeaMapEvaluationEdges.args, phase: buildPhaseStep(5, 3) },
+};
+
+export const IdeaMapVotingEdges: Story = {
+  ...IdeaMapEvaluationEdges,
+  name: "2軸マップ / 四隅に配置済みの投票候補",
+  args: {
+    ...IdeaMapEvaluationEdges.args,
+    phase: buildPhaseStep(4, 3),
+    notes: [
+      [0, 0],
+      [0, 100],
+      [100, 0],
+      [100, 100],
+    ].map(([x, y], index) =>
+      buildNote({
+        id: `map-edge-${index}`,
+        content: `投票候補 ${index + 1}`,
+        x,
+        y,
+      }),
+    ),
   },
 };
 

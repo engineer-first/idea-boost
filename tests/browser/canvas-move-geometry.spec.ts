@@ -29,7 +29,7 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardcanvas--transaction-move-100-map-notes&viewMode=story&args=ackDelayMs:0`,
     );
-    await page.getByTestId("idea-value-feasibility-map").waitFor();
+    await page.getByTestId("idea-value-feasibility-map-plane").waitFor();
     await page.evaluate(() => document.fonts.ready);
     await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
     for (let i = 0; i < 7; i++)
@@ -38,7 +38,7 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
         .click();
     await page.waitForFunction(() =>
       document
-        .querySelector<HTMLElement>('[data-testid="board-canvas"]')
+        .querySelector<HTMLElement>('[data-testid="idea-map-viewport"]')
         ?.style.transform.includes("scale(0.209715"),
     );
     const note = page
@@ -49,21 +49,23 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
       .boundingBox();
     if (!box) throw new Error("fixture note missing");
     const before = await centers(page);
-    const camera = await page.getByTestId("board-canvas").getAttribute("style");
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.9);
+    const camera = await page
+      .getByTestId("idea-map-viewport")
+      .getAttribute("style");
+    const dragStart = {
+      x: box.x + box.width * 0.05,
+      y: box.y + box.height * 0.1,
+    };
+    await page.mouse.move(dragStart.x, dragStart.y);
     await page.mouse.down();
-    await page.mouse.move(
-      box.x + box.width / 2 + 24,
-      box.y + box.height * 0.9,
-      { steps: 4 },
-    );
+    await page.mouse.move(dragStart.x + 24, dragStart.y, { steps: 4 });
     await expect
       .poll(async () => (await centers(page))[1].x - before[1].x)
       .toBeGreaterThan(10);
     const preview = await centers(page);
-    expect(await page.getByTestId("board-canvas").getAttribute("style")).toBe(
-      camera,
-    );
+    expect(
+      await page.getByTestId("idea-map-viewport").getAttribute("style"),
+    ).toBe(camera);
     for (const [index, center] of preview.entries()) {
       expect(center.x - before[index].x).toBeCloseTo(
         preview[0].x - before[0].x,

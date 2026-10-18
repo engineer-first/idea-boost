@@ -16,13 +16,36 @@ describe("IdeaMapSizeControls", () => {
         onResize={onResize}
       />,
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "マップの広さについて" }),
+    const help = screen.getByRole("button", { name: "マップの広さについて" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(help);
+    const explanation = screen.getByRole("dialog", {
+      name: "マップの広さについて",
+    });
+    expect(explanation).toHaveTextContent("全員に反映");
+    expect(explanation).toHaveTextContent(
+      "付箋の配置位置と評価値は変わりません",
     );
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(
-      screen.getByRole("group", { name: "2軸マップの広さ操作" }),
-    ).toBeInTheDocument();
+    expect(explanation).toHaveTextContent("個人用ズーム");
+    expect(explanation).toHaveTextContent("付箋は小さく");
+    expect(explanation).toHaveTextContent("価値");
+    fireEvent.keyDown(explanation, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onResize).not.toHaveBeenCalled();
+  });
+
+  it("ホスト以外の参加者も広さを変更できる", () => {
+    const onResize = vi.fn();
+    render(
+      <IdeaMapSizeControls
+        sizeLevel={2}
+        initialized
+        isHost={false}
+        isDisconnected={false}
+        isDragging={false}
+        onResize={onResize}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
     expect(onResize).toHaveBeenCalledWith(3);
   });

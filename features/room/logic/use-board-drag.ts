@@ -83,6 +83,12 @@ export type UseBoardDragArgs = {
   // 通常キャンバスは広い連続座標、2軸マップは0〜100の連続座標とするため、
   // 配置先が座標系に応じた上限を渡す。
   clampCoordinate?: (coordinate: number) => number;
+  // 固定2軸マップは実表示寸法と掴み位置を使い、付箋全体を枠内へ収めてから座標化する。
+  notePositionFromClient?: (
+    clientX: number,
+    clientY: number,
+    drag: BoardDrag,
+  ) => CanvasPoint | null;
   // 共有済み付箋の移動を許可するか。公開（publish）の可否とは別に、
   // フェーズごとの既存付箋の移動権限を指定する。
   canMoveSharedNotes?: boolean;
@@ -176,6 +182,7 @@ export function useBoardDrag({
   privateToolbarRef,
   preservePrivateGrabOffset = true,
   clampCoordinate = clampCanvasCoordinate,
+  notePositionFromClient,
   canMoveSharedNotes = true,
   canPublish = true,
   canReturnToPrivate = canPublish,
@@ -481,6 +488,8 @@ export function useBoardDrag({
       const rect = event.currentTarget?.getBoundingClientRect?.();
       const selected = requestedIds ?? selectedNoteIds;
       const targetIds = selected?.includes(noteId) ? [...selected] : [noteId];
+      const pointerClientX = origin?.clientX ?? event.clientX;
+      const pointerClientY = origin?.clientY ?? event.clientY;
       updateDrag({
         note,
         targetIds,
@@ -493,12 +502,10 @@ export function useBoardDrag({
         grabOffsetY: pointerPosition ? pointerPosition.y - note.y : 0,
         clientX: event.clientX,
         clientY: event.clientY,
-        previewOffsetX: rect
-          ? (origin?.clientX ?? event.clientX) - rect.left
-          : 0,
-        previewOffsetY: rect
-          ? (origin?.clientY ?? event.clientY) - rect.top
-          : 0,
+        // NoteCard がドラッグ閾値を超えた時点で callback するため、
+        // 見た目の掴み位置は閾値超過後ではなく最初のpointerdown位置を使う。
+        previewOffsetX: rect ? pointerClientX - rect.left : 0,
+        previewOffsetY: rect ? pointerClientY - rect.top : 0,
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
@@ -631,7 +638,17 @@ export function useBoardDrag({
       }
 
       stopPrivateListAutoScroll();
-      const position = boardPositionFromPointer(event.clientX, event.clientY);
+      // 固定マップではマップ平面自身が有効範囲を判定する。
+      // HUDはドラッグ開始や通常のボード操作を遮るが、ドラッグ中にその上を
+      // 通過しただけで座標更新まで止めない。
+      const mappedPosition = notePositionFromClient?.(
+        event.clientX,
+        event.clientY,
+        current,
+      );
+      const position = notePositionFromClient
+        ? mappedPosition
+        : boardPositionFromPointer(event.clientX, event.clientY);
       if (!position) {
         if (current.status === "returning") {
           // ボードにもトレイにもいない間は、戻し先の候補を外す。
@@ -639,15 +656,24 @@ export function useBoardDrag({
           updateDrag({ ...currentAtPointer, privateDropIndex: null });
         } else if (current.status === "private") {
           updateDrag({ ...currentAtPointer, privateDropIndex: null });
+        } else {
+          // 盤面外では座標を変えず、トレイへのドロップ候補表示だけ追従する。
+          updateDrag(currentAtPointer);
         }
         return;
       }
-      const nextPosition = getPositionFromPointer({
-        pointerPosition: position,
-        drag: current,
-        preservePrivateGrabOffset,
-        clampCoordinate,
-      });
+      const nextPosition =
+        mappedPosition ??
+        getPositionFromPointer({
+          pointerPosition: position,
+          drag: current,
+          preservePrivateGrabOffset,
+          clampCoordinate,
+        });
+      if (!nextPosition) {
+        updateDrag(currentAtPointer);
+        return;
+      }
       if (current.status === "returning") {
         // トレイからボードへ戻ったので、共有付箋のドラッグを再開する。
         onNoteDragStart(current.note.id);
@@ -692,6 +718,7 @@ export function useBoardDrag({
       onNoteDragStart,
       onPublishBlocked,
       lockPrivateMapDrag,
+      notePositionFromClient,
       preservePrivateGrabOffset,
       updateDrag,
     ],
@@ -723,13 +750,17 @@ export function useBoardDrag({
         !isPointerInPrivateDropArea(event.clientX, event.clientY)
       ) {
         const point = boardPositionFromPointer(event.clientX, event.clientY);
-        if (canPublish && point && privateToolbarRef.current) {
-          const position = getPositionFromPointer({
-            pointerPosition: point,
-            drag: current,
-            preservePrivateGrabOffset,
-            clampCoordinate,
-          });
+        const position = point
+          ? notePositionFromClient
+            ? notePositionFromClient(event.clientX, event.clientY, current)
+            : getPositionFromPointer({
+                pointerPosition: point,
+                drag: current,
+                preservePrivateGrabOffset,
+                clampCoordinate,
+              })
+          : null;
+        if (canPublish && position && privateToolbarRef.current) {
           onPrivateNotePublish(current.note.id, position.x, position.y);
         }
         updateDrag(null);
@@ -749,19 +780,34 @@ export function useBoardDrag({
       }
       if (current.status === "shared") {
         if (canMoveSharedNotes) {
-          const pointerPosition = boardPositionFromPointer(
+          // 固定マップでは平面の外なら変換が null を返すため、HUD上に
+          // ポインターがあっても最終位置をマップ基準で確定できる。
+          const mappedPosition = notePositionFromClient?.(
             event.clientX,
             event.clientY,
+            current,
           );
-          const position = pointerPosition
-            ? getPositionFromPointer({
-                pointerPosition,
-                drag: current,
-                preservePrivateGrabOffset,
-                clampCoordinate,
-              })
-            : { x: current.x, y: current.y };
-          onNoteDragEnd(current.note.id, position.x, position.y);
+          const position = notePositionFromClient
+            ? mappedPosition
+            : (() => {
+                const pointerPosition = boardPositionFromPointer(
+                  event.clientX,
+                  event.clientY,
+                );
+                return pointerPosition
+                  ? getPositionFromPointer({
+                      pointerPosition,
+                      drag: current,
+                      preservePrivateGrabOffset,
+                      clampCoordinate,
+                    })
+                  : null;
+              })();
+          onNoteDragEnd(
+            current.note.id,
+            position?.x ?? current.x,
+            position?.y ?? current.y,
+          );
         }
       } else {
         const privateDropIndex = isReturningDropTarget
@@ -815,6 +861,7 @@ export function useBoardDrag({
       lockPrivateMapDrag,
       canPublish,
       canReturnToPrivate,
+      notePositionFromClient,
       preservePrivateGrabOffset,
       stopPrivateListAutoScroll,
       updateDrag,
@@ -906,7 +953,6 @@ export function useBoardDrag({
     const current = dragRef.current;
     return current === null || current.pointerId === pointerId;
   }, []);
-
   return {
     drag,
     renderedNotes,

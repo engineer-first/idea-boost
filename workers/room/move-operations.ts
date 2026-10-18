@@ -455,6 +455,15 @@ function position(row: NoteRow): MoveReceipt["before"][number] {
     visibilityRevision: row.visibility_revision ?? 0,
   };
 }
+
+function usesIdeaMapCoordinates(phase: ReturnType<typeof getPhase>): boolean {
+  return (
+    isPhaseStep(phase, 3, 2) ||
+    isPhaseStep(phase, 3, 3) ||
+    isPhaseStep(phase, 3, 5)
+  );
+}
+
 function validate(ctx: HandlerCtx, request: StoredRequest): NoteRow[] | null {
   const { start } = request;
   const phase = getPhase(ctx.sql);
@@ -464,7 +473,7 @@ function validate(ctx: HandlerCtx, request: StoredRequest): NoteRow[] | null {
     phase.kind !== "step" ||
     start.expectedPhaseRevision !== getPhaseRevision(ctx.sql) ||
     start.expectedMapRevision !== revisions.mapRevision ||
-    start.coordinateSpace !== (phase.phase === 3 ? "map" : "canvas")
+    start.coordinateSpace !== (usesIdeaMapCoordinates(phase) ? "map" : "canvas")
   )
     return null;
   const rows: NoteRow[] = [];
@@ -629,7 +638,7 @@ export const moveHandlers: MessageHandlers<
       sourceReceipt.phaseRevision !== getPhaseRevision(ctx.sql) ||
       sourceReceipt.mapRevision !== revisions.mapRevision ||
       sourceReceipt.coordinateSpace !==
-        (phase.phase === 3 ? "map" : "canvas") ||
+        (usesIdeaMapCoordinates(phase) ? "map" : "canvas") ||
       !Object.entries(expected.groups).every(
         ([id, revision]) => (currentGroupVersions[id] ?? 0) === revision,
       ) ||
@@ -938,9 +947,11 @@ export const moveHandlers: MessageHandlers<
         sequence,
         leaseMs: MOVE_LEASE_MS,
         positions: active.rows.map((row) => ({
-          ...position(row),
+          noteId: row.id,
           x: row.x + delta.x,
           y: row.y + delta.y,
+          positionRevision: row.position_revision ?? 0,
+          visibilityRevision: row.visibility_revision ?? 0,
         })),
       },
       active.rows.map((row) => toProtocolNote(ctx.sql, row, ctx.userId)),

@@ -124,6 +124,119 @@ function peer(ctx: HandlerCtx, userId = B) {
   return messages;
 }
 describe("share commit", () => {
+  it.each([
+    { x: -1, y: 50 },
+    { x: 101, y: 50 },
+    { x: 50, y: -1 },
+    { x: 50, y: 101 },
+  ])("3-2でマップ範囲外の公開座標$x,$yを拒否する", ({ x, y }) =>
+    setup(`share-map-coordinate-boundary-${x}-${y}`, (ctx, responses) => {
+      savePhase(ctx.sql, { kind: "step", phase: 3, step: 2 });
+      ctx.sql.exec(
+        "UPDATE notes SET visibility='private',phase=3 WHERE id=?1",
+        N1,
+      );
+      const row = findNote(ctx.sql, N1);
+      const phaseRevision = Number(
+        ctx.sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
+          .phase_revision,
+      );
+      noteHandlers["note:publish"](ctx, {
+        type: "note:publish",
+        operationId: OP,
+        noteId: N1,
+        x,
+        y,
+        expectedPhaseRevision: phaseRevision,
+        expectedPositionRevision: row?.position_revision ?? 0,
+        expectedVisibilityRevision: row?.visibility_revision ?? 0,
+      });
+      expect(responses.at(-1)).toMatchObject({
+        type: "note:share:result",
+        status: "rejected",
+      });
+      expect(findNote(ctx.sql, N1)?.visibility).toBe("private");
+    }));
+
+  it.each([
+    1, 2,
+  ] as const)("フェーズ%iの同一座標での共有は座標と位置リビジョンを保つ", (phase) =>
+    setup(`share-same-position-phase-${phase}`, (ctx, responses) => {
+      savePhase(ctx.sql, { kind: "step", phase, step: 2 });
+      ctx.sql.exec(
+        "UPDATE notes SET visibility='private', phase=?2 WHERE id=?1",
+        N1,
+        phase,
+      );
+      const row = findNote(ctx.sql, N1);
+      if (!row) throw new Error("付箋がありません");
+      const messages = peer(ctx);
+      noteHandlers["note:publish"](ctx, {
+        type: "note:publish",
+        operationId: OP,
+        noteId: N1,
+        x: row.x,
+        y: row.y,
+        expectedPhaseRevision: Number(
+          ctx.sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
+            .phase_revision,
+        ),
+        expectedPositionRevision: row.position_revision ?? 0,
+        expectedVisibilityRevision: row.visibility_revision ?? 0,
+      });
+      expect(responses.at(-1)).toMatchObject({
+        type: "note:share:result",
+        status: "committed",
+      });
+      expect(findNote(ctx.sql, N1)).toMatchObject({
+        x: row.x,
+        y: row.y,
+        position_revision: row.position_revision,
+      });
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: "note:inserted",
+          note: expect.objectContaining({ id: N1, visibility: "shared" }),
+        }),
+      );
+    }));
+
+  it("Step 3-2の共有はマップ座標で公開を確定する", () =>
+    setup("share-phase-3-step-2-map-coordinates", (ctx, responses) => {
+      savePhase(ctx.sql, { kind: "step", phase: 3, step: 2 });
+      ctx.sql.exec(
+        "UPDATE notes SET visibility='private',phase=3 WHERE id=?1",
+        N1,
+      );
+      const row = findNote(ctx.sql, N1);
+      const phaseRevision = Number(
+        ctx.sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
+          .phase_revision,
+      );
+
+      noteHandlers["note:publish"](ctx, {
+        type: "note:publish",
+        operationId: OP,
+        noteId: N1,
+        x: 72,
+        y: 31,
+        expectedPhaseRevision: phaseRevision,
+        expectedPositionRevision: row?.position_revision ?? 0,
+        expectedVisibilityRevision: row?.visibility_revision ?? 0,
+      });
+
+      expect(responses.at(-1)).toMatchObject({
+        type: "note:share:result",
+        status: "committed",
+        receipt: { after: { visibility: "shared", x: 72, y: 31 } },
+      });
+      expect(findNote(ctx.sql, N1)).toMatchObject({
+        visibility: "shared",
+        x: 72,
+        y: 31,
+      });
+    }));
+
   it("非author・古い版・他工程は公開せず、作者の有効確定のみ他者へ初回配信する", () =>
     setup("share-private-boundary", (ctx) => {
       const messages = peer(ctx);

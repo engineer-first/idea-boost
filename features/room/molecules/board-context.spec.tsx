@@ -158,6 +158,27 @@ describe("現在地と補足情報", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("キャンバス内の付箋操作では開いた参照ポップオーバーを閉じない", () => {
+    render(
+      <>
+        <BoardContext
+          phase={buildPhaseStep(3, 3)}
+          hmwDecidedIssue="決定した課題"
+          decidedHmw="決定した問い"
+        />
+        <div data-testid="board-scroller">
+          <button type="button">付箋</button>
+        </div>
+      </>,
+    );
+    const issue = screen.getByRole("button", { name: "決定した課題" });
+    fireEvent.click(issue);
+    const note = screen.getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(note);
+    fireEvent.click(note);
+    expect(issue).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("参照欄の開閉を保持し、ステップ変更時は現在地を畳む", () => {
     const props = {
       phase: buildPhaseStep(1, 2),
@@ -223,6 +244,83 @@ describe("現在地と補足情報", () => {
       screen.queryByText("どうすれば解決できるだろうか？"),
     ).not.toBeVisible();
     expect(screen.getByText("解決したい課題")).toBeVisible();
+  });
+
+  it.each([
+    2, 3, 4, 5,
+  ])("3-%iでは問いと課題をマップ用レイアウトにする", (step) => {
+    render(
+      <BoardContext
+        initialDisclosureId={null}
+        phase={buildPhaseStep(step, 3)}
+        hmwDecidedIssue="決定した課題"
+        decidedHmw="決定した問い"
+      />,
+    );
+
+    const references = screen.getByTestId("board-context-references");
+    expect(references).toHaveAttribute("data-layout", "map-workspace");
+    const question = screen.getByRole("button", { name: "決定した問い" });
+    const issue = screen.getByRole("button", { name: "決定した課題" });
+    expect(references).toContainElement(question);
+    expect(references).toContainElement(issue);
+    expect(question).toHaveAttribute("aria-expanded", "false");
+    expect(issue).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(question);
+    expect(question).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(issue);
+    expect(question).toHaveAttribute("aria-expanded", "false");
+    expect(issue).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("3-1では問いと課題を縦積みのレイアウトで表示する", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(1, 3)}
+        hmwDecidedIssue="決定した課題"
+        decidedHmw="決定した問い"
+      />,
+    );
+
+    expect(screen.getByTestId("board-context-references")).toHaveAttribute(
+      "data-layout",
+      "stacked",
+    );
+  });
+
+  it.each([
+    2, 3, 4, 5,
+  ])("3-%iの展開した付箋をレイアウト外に表示する", (step) => {
+    render(
+      <BoardContext
+        initialDisclosureId={null}
+        phase={buildPhaseStep(step, 3)}
+        hmwDecidedIssue="決定した課題"
+        decidedHmw="決定した問い"
+      />,
+    );
+
+    const hud = screen.getByTestId("board-context-hud");
+    for (const id of ["hmw", "issue"] as const) {
+      const trigger = screen.getByRole("button", {
+        name: id === "hmw" ? "決定した問い" : "決定した課題",
+      });
+      fireEvent.click(trigger);
+
+      const content = screen.getByTestId(`board-reference-${id}-content`);
+      const popover = screen.getByTestId(`board-reference-${id}-popover`);
+      const note = popover.querySelector<HTMLElement>(
+        '[data-slot="sticky-note"]',
+      );
+      expect(popover).toBeInTheDocument();
+      expect(hud).not.toContainElement(popover);
+      expect(popover).toContainElement(content);
+      expect(note).not.toBeNull();
+      expect(note).toHaveStyle({ width: "200px" });
+      expect(content).toBeVisible();
+      fireEvent.click(trigger);
+    }
   });
 });
 

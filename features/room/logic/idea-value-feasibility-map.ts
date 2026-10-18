@@ -1,9 +1,12 @@
 import {
   getIdeaMapDimensions,
+  getNoteHeight,
+  IDEA_MAP_BASE_DIMENSIONS,
   IDEA_VALUE_FEASIBILITY_MAP_RANGE,
   NOTE_HEIGHT,
   NOTE_WIDTH,
 } from "@/contracts/board";
+import type { RoomPhase } from "@/contracts/phase";
 
 export { IDEA_VALUE_FEASIBILITY_MAP_RANGE } from "@/contracts/board";
 
@@ -13,12 +16,69 @@ export const IDEA_VALUE_FEASIBILITY_MAP_HEIGHT = 900;
 export const IDEA_MAP_AXIS_SIZE = 64;
 export const IDEA_MAP_GRID_GAP = 12;
 const IDEA_MAP_PLANE_INSET = IDEA_MAP_AXIS_SIZE + IDEA_MAP_GRID_GAP + 2;
+export const IDEA_MAP_VIEWPORT_NOTE_HEIGHT_LIMIT = 220;
+const AXIS_LABEL_BASE_FONT_SIZE = 48;
+const AXIS_LABEL_MIN_FONT_SIZE = 42;
+const AXIS_LABEL_MAX_FONT_SIZE = 87;
+
+export function isIdeaMapViewportStep(phase: RoomPhase): boolean {
+  return phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+}
 
 export function getIdeaValueFeasibilityMapDimensions(level: number): {
   width: number;
   height: number;
 } {
   return getIdeaMapDimensions(level);
+}
+
+export function getIdeaMapAxisLabelFontSize(sizeLevel: number): number {
+  const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
+  const mapScale = dimensions.width / IDEA_MAP_BASE_DIMENSIONS.width;
+  return Math.round(
+    Math.min(
+      AXIS_LABEL_MAX_FONT_SIZE,
+      Math.max(AXIS_LABEL_MIN_FONT_SIZE, AXIS_LABEL_BASE_FONT_SIZE * mapScale),
+    ),
+  );
+}
+
+/**
+ * 固定マップ内の付箋表示倍率。付箋ごとの表示中心を保ったまま大きさを変える。
+ */
+export function getIdeaMapNoteDisplayScale(sizeLevel: number): number {
+  return IDEA_MAP_BASE_DIMENSIONS.width / getIdeaMapDimensions(sizeLevel).width;
+}
+
+export type IdeaMapNoteDisplayMetrics = {
+  displayHeight: number;
+  displayWidth: number;
+  // マップの広さに応じた倍率。レスポンシブ倍率は含まない。
+  displayScale: number;
+  unscaledHeight: number;
+};
+
+export function getIdeaMapNoteDisplayMetrics(
+  note: { content: string; fontSize: number },
+  sizeLevel: number,
+  responsiveScale = 1,
+): IdeaMapNoteDisplayMetrics {
+  const safeResponsiveScale =
+    Number.isFinite(responsiveScale) && responsiveScale > 0
+      ? responsiveScale
+      : 1;
+  const noteHeight = Math.min(
+    IDEA_MAP_VIEWPORT_NOTE_HEIGHT_LIMIT,
+    getNoteHeight(note.content, note.fontSize),
+  );
+  const scale = getIdeaMapNoteDisplayScale(sizeLevel);
+  const visibleScale = scale * safeResponsiveScale;
+  return {
+    displayHeight: noteHeight * visibleScale,
+    displayWidth: NOTE_WIDTH * visibleScale,
+    displayScale: scale,
+    unscaledHeight: noteHeight,
+  };
 }
 
 // アイデアを価値と実現のしやすさで位置付ける2軸マップの固定表示内容。
@@ -35,9 +95,12 @@ export const IDEA_VALUE_FEASIBILITY_MAP_LABELS = {
 } as const;
 
 export const IDEA_MAP_SIZE_HELP = {
-  scope: "マップの広さと付箋の位置は全員に反映されます。",
-  camera: "表示倍率は自分だけの見え方です。左下の表示操作で調整できます。",
-  direction: "上ほど価値が高く、右ほど実現しやすいアイデアです。",
+  scope:
+    "表示範囲は全員に反映されますが、付箋の配置位置と評価値は変わりません。",
+  camera:
+    "個人用ズームは表示範囲と独立しており、自分だけの見え方を調整します。",
+  direction:
+    "＋で表示範囲を広げると付箋は小さく、－で狭めると大きく見えます。付箋の中心位置は変わりません。上ほど価値が高く、右ほど実現しやすいアイデアです。",
 } as const;
 
 export type IdeaValueFeasibilityPoint = {
@@ -55,6 +118,29 @@ export type IdeaValueFeasibilityMapBounds = {
   top: number;
   right: number;
   bottom: number;
+};
+
+export type IdeaMapViewportNoteSize = {
+  width: number;
+  height: number;
+};
+
+export type IdeaMapViewportNoteGrabOffset = {
+  x: number;
+  y: number;
+};
+
+export type IdeaMapViewportNotePositionOptions = {
+  displayScale?: number;
+  responsiveScale?: number;
+  transformOriginX?: number;
+  transformOriginY?: number;
+};
+
+export type IdeaMapViewportNoteResponsivePositions = {
+  compact: IdeaValueFeasibilityMapPosition;
+  desktop: IdeaValueFeasibilityMapPosition;
+  tablet: IdeaValueFeasibilityMapPosition;
 };
 
 export function clampIdeaValueFeasibilityMapCoordinate(
@@ -118,6 +204,152 @@ export function getIdeaValueFeasibilityMapNotePosition(
     left: `${(feasibility * width) / 100}px`,
     bottom: `${(value * height) / 100 + (geometry.maxNoteHeight - Math.min(noteHeight, geometry.noteHeightLimit)) / 2}px`,
   };
+}
+
+/**
+ * 評価値はマップ全体に対する付箋の中心座標として描画する。
+ * 表示寸法だけを使って外周で補正し、縮小前の寸法による内側余白を作らない。
+ */
+export function getIdeaMapViewportNotePosition(
+  point: IdeaValueFeasibilityPoint,
+  noteHeight: number,
+  {
+    displayScale = 1,
+    responsiveScale = 1,
+    transformOriginX = 0.5,
+    transformOriginY = 0.5,
+  }: IdeaMapViewportNotePositionOptions = {},
+): IdeaValueFeasibilityMapPosition {
+  const feasibility = clampIdeaValueFeasibilityMapCoordinate(point.feasibility);
+  const value = clampIdeaValueFeasibilityMapCoordinate(point.value);
+  const safeDisplayScale =
+    Number.isFinite(displayScale) && displayScale > 0 ? displayScale : 1;
+  const safeResponsiveScale =
+    Number.isFinite(responsiveScale) && responsiveScale > 0
+      ? responsiveScale
+      : 1;
+  const safeTransformOriginX = clampScaleFraction(transformOriginX, 0.5);
+  const safeTransformOriginY = clampScaleFraction(transformOriginY, 0.5);
+  const displayedHeight = Math.min(
+    IDEA_MAP_VIEWPORT_NOTE_HEIGHT_LIMIT,
+    Math.max(0, noteHeight),
+  );
+  const visibleWidth = NOTE_WIDTH * safeResponsiveScale * safeDisplayScale;
+  const visibleHeight =
+    displayedHeight * safeResponsiveScale * safeDisplayScale;
+  const transformLeft =
+    NOTE_WIDTH * safeTransformOriginX * (1 - safeDisplayScale);
+  const transformBottom =
+    displayedHeight * (1 - safeTransformOriginY) * (1 - safeDisplayScale);
+  return {
+    left: getContainedNotePositionFromCenter(
+      feasibility,
+      visibleWidth,
+      transformLeft,
+    ),
+    bottom: getContainedNotePositionFromCenter(
+      value,
+      visibleHeight,
+      transformBottom,
+    ),
+  };
+}
+
+function getContainedNotePositionFromCenter(
+  coordinate: number,
+  visibleSize: number,
+  transformOffset: number,
+): string {
+  const min = getPercentWithPixelOffset(0, transformOffset);
+  const max = getPercentWithPixelOffset(100, visibleSize + transformOffset);
+  if (coordinate === 0) return min;
+  if (coordinate === 100) return max;
+  const center = getPercentWithPixelOffset(
+    coordinate,
+    visibleSize / 2 + transformOffset,
+  );
+  return `clamp(${min}, ${center}, ${max})`;
+}
+
+export function getIdeaMapViewportNoteResponsivePositions(
+  point: IdeaValueFeasibilityPoint,
+  noteHeight: number,
+  displayScale: number,
+): IdeaMapViewportNoteResponsivePositions {
+  return {
+    compact: getIdeaMapViewportNotePosition(point, noteHeight, {
+      displayScale,
+      responsiveScale: 0.6,
+      transformOriginX: 0.3,
+      transformOriginY: 0.7,
+    }),
+    tablet: getIdeaMapViewportNotePosition(point, noteHeight, {
+      displayScale,
+      responsiveScale: 0.75,
+      transformOriginX: 0.375,
+      transformOriginY: 0.625,
+    }),
+    desktop: getIdeaMapViewportNotePosition(point, noteHeight, {
+      displayScale,
+      responsiveScale: 1,
+      transformOriginX: 0.5,
+      transformOriginY: 0.5,
+    }),
+  };
+}
+
+/**
+ * レンダリング済みの付箋寸法とつかみ位置を使い、付箋全体がマップ内に収まる座標を返す。
+ */
+export function getIdeaMapViewportNotePointFromClientPosition(
+  clientX: number,
+  clientY: number,
+  bounds: IdeaValueFeasibilityMapBounds,
+  noteSize: IdeaMapViewportNoteSize,
+  grabOffset: IdeaMapViewportNoteGrabOffset,
+): IdeaValueFeasibilityPoint | null {
+  const mapWidth = bounds.right - bounds.left;
+  const mapHeight = bounds.bottom - bounds.top;
+  if (
+    mapWidth <= 0 ||
+    mapHeight <= 0 ||
+    noteSize.width > mapWidth ||
+    noteSize.height > mapHeight ||
+    !Number.isFinite(clientX) ||
+    !Number.isFinite(clientY) ||
+    !Number.isFinite(noteSize.width) ||
+    !Number.isFinite(noteSize.height)
+  ) {
+    return null;
+  }
+
+  const left = Math.min(
+    bounds.right - noteSize.width,
+    Math.max(bounds.left, clientX - grabOffset.x),
+  );
+  const top = Math.min(
+    bounds.bottom - noteSize.height,
+    Math.max(bounds.top, clientY - grabOffset.y),
+  );
+
+  return {
+    feasibility: clampIdeaValueFeasibilityMapCoordinate(
+      ((left + noteSize.width / 2 - bounds.left) / mapWidth) * 100,
+    ),
+    value: clampIdeaValueFeasibilityMapCoordinate(
+      ((bounds.bottom - top - noteSize.height / 2) / mapHeight) * 100,
+    ),
+  };
+}
+
+function clampScaleFraction(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(1, Math.max(0, value));
+}
+
+function getPercentWithPixelOffset(percent: number, offset: number): string {
+  if (offset === 0) return `${percent}%`;
+  return `calc(${percent}% ${offset > 0 ? "-" : "+"} ${Math.abs(offset)}px)`;
 }
 export function getIdeaMapNotePointFromClientPosition(
   clientX: number,

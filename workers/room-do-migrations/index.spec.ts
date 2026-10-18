@@ -238,6 +238,29 @@ describe("ROOM_DO_MIGRATIONS", () => {
     });
   });
 
+  it("付箋は配置状態を持たず12列で保存し、座標変更のrevisionを維持する", async () => {
+    await runInRoomDO("mig-note-coordinates", (_instance, state) => {
+      const columns = state.storage.sql
+        .exec("PRAGMA table_info(notes)")
+        .toArray();
+      expect(columns).toHaveLength(12);
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, color, x, y, created_at, updated_at)
+         VALUES ('map-note', ?1, '共有付箋', 'yellow', 25, 75, ?2, ?2)`,
+        USER_A,
+        now,
+      );
+      state.storage.sql.exec(
+        "UPDATE notes SET x = 50, y = 50 WHERE id = 'map-note'",
+      );
+      expect(findNote(state.storage.sql, "map-note")?.position_revision).toBe(
+        1,
+      );
+    });
+  });
+
   it("timer_state は id=1 以外と状態に不整合な列を拒否する", async () => {
     await runInRoomDO("mig-timer-constraints", (_instance, state) => {
       expect(() =>

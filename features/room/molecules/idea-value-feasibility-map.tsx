@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import { IDEA_MAP_BASE_DIMENSIONS } from "@/contracts/board";
 import {
+  getIdeaMapAxisLabelFontSize,
   getIdeaValueFeasibilityMapDimensions,
   IDEA_MAP_AXIS_SIZE,
   IDEA_MAP_GRID_GAP,
@@ -14,9 +15,6 @@ const MAP_GRID_STYLE = {
   backgroundSize: "10% 10%",
 } satisfies CSSProperties;
 
-const AXIS_LABEL_BASE_FONT_SIZE = 48;
-const AXIS_LABEL_MIN_FONT_SIZE = 42;
-const AXIS_LABEL_MAX_FONT_SIZE = 87;
 const AXIS_LABEL_X_OFFSET_TOP = 24;
 const AXIS_LABEL_X_ROW_BASE_HEIGHT = IDEA_MAP_AXIS_SIZE;
 
@@ -37,13 +35,7 @@ export function IdeaValueFeasibilityMap({
 }: IdeaValueFeasibilityMapProps) {
   const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
   const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
-  const mapScale = dimensions.width / IDEA_MAP_BASE_DIMENSIONS.width;
-  const axisLabelFontSize = Math.round(
-    Math.min(
-      AXIS_LABEL_MAX_FONT_SIZE,
-      Math.max(AXIS_LABEL_MIN_FONT_SIZE, AXIS_LABEL_BASE_FONT_SIZE * mapScale),
-    ),
-  );
+  const axisLabelFontSize = getIdeaMapAxisLabelFontSize(sizeLevel);
   const axisLabelStyle = {
     fontSize: axisLabelFontSize,
     lineHeight: `${axisLabelFontSize}px`,

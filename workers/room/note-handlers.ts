@@ -492,13 +492,17 @@ export const noteHandlers: MessageHandlers<
       message.y,
       updatedAt,
     );
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      x: message.x,
-      y: message.y,
-      stack_order: stackOrder,
-      updated_at: updatedAt,
-    });
+    broadcastNoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      findNote(ctx.sql, message.noteId) ?? {
+        ...row,
+        x: message.x,
+        y: message.y,
+        stack_order: stackOrder,
+        updated_at: updatedAt,
+      },
+    );
     if (positionChanged) {
       autoReorganizeAtGroupingStep(ctx);
     }
@@ -636,13 +640,17 @@ export const noteHandlers: MessageHandlers<
       message.y,
       updatedAt,
     );
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      x: message.x,
-      y: message.y,
-      stack_order: stackOrder,
-      updated_at: updatedAt,
-    });
+    broadcastNoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      findNote(ctx.sql, message.noteId) ?? {
+        ...row,
+        x: message.x,
+        y: message.y,
+        stack_order: stackOrder,
+        updated_at: updatedAt,
+      },
+    );
   },
 
   "note:drag:end": (ctx, message) => {
@@ -688,15 +696,17 @@ export const noteHandlers: MessageHandlers<
         updatedAt,
       );
     }
-    const current = message.position
-      ? {
-          ...row,
-          x: message.position.x,
-          y: message.position.y,
-          stack_order: stackOrder,
-          updated_at: updatedAt,
-        }
-      : (findNote(ctx.sql, message.noteId) ?? row);
+    const current =
+      findNote(ctx.sql, message.noteId) ??
+      (message.position
+        ? {
+            ...row,
+            x: message.position.x,
+            y: message.position.y,
+            stack_order: stackOrder,
+            updated_at: updatedAt,
+          }
+        : row);
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, current);
     if (isIdeaMapVisiblePhase(phase)) {
       broadcastIdeaMapState(ctx.sql, ctx.broadcaster);

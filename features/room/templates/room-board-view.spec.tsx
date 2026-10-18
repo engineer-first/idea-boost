@@ -202,6 +202,147 @@ function openRoomMenu() {
   fireEvent.click(screen.getByRole("button", { name: "ルームメニューを開く" }));
 }
 
+describe("2軸評価画面の周辺操作", () => {
+  it.each([
+    2, 3,
+  ])("3-%iでは考えるヒントを表示せず、問い・課題とマップを維持する", (step) => {
+    setup({
+      phase: buildPhaseStep(step, 3),
+      hmwDecidedIssue: "決定した課題",
+      decidedHmw: "決定した問い",
+    });
+
+    expect(screen.queryByTestId("board-help-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("board-help-slot")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-context-column")).toContainElement(
+      screen.getByTestId("board-reference-hmw"),
+    );
+    expect(screen.getByTestId("board-context-column")).toContainElement(
+      screen.getByTestId("board-reference-issue"),
+    );
+    expect(
+      screen.getByTestId("idea-value-feasibility-map-plane"),
+    ).toBeInTheDocument();
+  });
+
+  it("3-1では考えるヒントを表示する", () => {
+    setup({ phase: buildPhaseStep(1, 3) });
+
+    expect(screen.getByTestId("board-help-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("board-help-slot")).toBeInTheDocument();
+  });
+
+  it("3-2でもマップの広さ操作を表示する", () => {
+    const onIdeaMapResize = vi.fn();
+    setup({
+      phase: buildPhaseStep(2, 3),
+      isHost: true,
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+      onIdeaMapResize,
+    });
+
+    const mapSizeHud = screen.getByTestId("idea-map-size-controls-hud");
+    expect(mapSizeHud).toContainElement(
+      screen.getByRole("group", { name: "2軸マップの広さ操作" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
+    expect(onIdeaMapResize).toHaveBeenCalledWith(3);
+  });
+
+  it.each([2, 3])("3-%iで付箋をドラッグ中は広さ変更を送らない", (step) => {
+    const interactions = buildInteractions([], []);
+    const onIdeaMapResize = vi.fn();
+    setup({
+      phase: buildPhaseStep(step, 3),
+      ideaMapSizeLevel: 4,
+      ideaMapSizeInitialized: true,
+      interactions: { ...interactions, isNoteDragging: true },
+      onIdeaMapResize,
+    });
+
+    const increase = screen.getByRole("button", { name: "マップを広くする" });
+    const decrease = screen.getByRole("button", { name: "マップを狭くする" });
+    expect(increase).toBeDisabled();
+    expect(decrease).toBeDisabled();
+    fireEvent.click(increase);
+    fireEvent.click(decrease);
+    expect(onIdeaMapResize).not.toHaveBeenCalled();
+  });
+
+  it("3-3の周辺操作を左右と下部にまとめ、広さ操作からマップを変更できる", () => {
+    const onIdeaMapResize = vi.fn();
+    setup({
+      phase: buildPhaseStep(3, 3),
+      isHost: true,
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+      onIdeaMapResize,
+      hmwDecidedIssue: "決定した課題",
+      decidedHmw: "決定した問い",
+      moveHistory: {
+        undo: {
+          label: "戻せる移動はありません",
+          reason: null,
+          disabled: true,
+        },
+        redo: {
+          label: "やり直せる移動はありません",
+          reason: null,
+          disabled: true,
+        },
+        pending: false,
+        onUndo: vi.fn(),
+        onRedo: vi.fn(),
+      },
+      notes: [buildNote({ id: "shared-idea" })],
+    });
+
+    const phaseHud = screen.getByTestId("phase-loop-hud");
+    expect(
+      within(phaseHud).getByRole("button", { name: "もう一度付箋を書く" }),
+    ).toBeInTheDocument();
+    const mapSizeHud = screen.getByTestId("idea-map-size-controls-hud");
+    expect(mapSizeHud).toContainElement(
+      screen.getByRole("group", { name: "2軸マップの広さ操作" }),
+    );
+    expect(mapSizeHud).not.toContainElement(
+      screen.getByTestId("idea-value-feasibility-map-plane"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
+    expect(onIdeaMapResize).toHaveBeenCalledWith(3);
+    expect(screen.getByTestId("board-tools-hud")).toContainElement(
+      screen.getByTestId("canvas-zoom-controls"),
+    );
+    expect(screen.getByTestId("idea-map-viewport")).toHaveAttribute(
+      "data-map-expanded",
+      "true",
+    );
+    expect(screen.getByTestId("board-operation-matrix")).toHaveClass("right-3");
+    expect(screen.getByTestId("board-operation-matrix")).not.toHaveClass(
+      "max-[639px]:hidden",
+    );
+    expect(screen.getByTestId("board-context-column")).toContainElement(
+      screen.getByTestId("board-reference-hmw"),
+    );
+    expect(screen.getByTestId("board-context-column")).toContainElement(
+      screen.getByTestId("board-reference-issue"),
+    );
+    expect(screen.queryByTestId("board-help-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("board-help-slot")).not.toBeInTheDocument();
+    expect(screen.getByTestId("idea-map-workspace-rail")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("private-notes-toolbar"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("idea-map-unplaced-tray"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("idea-map-workspace-rail")).not.toContainElement(
+      phaseHud,
+    );
+  });
+});
+
 describe("問いの投票シールと付箋移動の排他", () => {
   function beginNoteMove(surface: HTMLElement, pointerId = 502): void {
     fireEvent.pointerDown(surface, {
@@ -2335,7 +2476,7 @@ describe("RoomBoardView", () => {
     notify.mockRestore();
   });
 
-  it("自分のシールを投票パレットへ戻すと、既存のシール削除経路を呼ぶ", () => {
+  it("自分のシールを投票パレットへ戻すと、そのシールIDで削除を1回要求する", () => {
     const onNoteVoteStickerRemove = vi.fn();
     const stickerId = "33333333-3333-4333-8333-333333333333";
     const notes = [

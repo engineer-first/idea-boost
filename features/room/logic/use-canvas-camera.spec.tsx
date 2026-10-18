@@ -5,7 +5,45 @@ import { buildNotes } from "@/contracts/room-protocol.fixture";
 import { useCanvasCamera } from "./use-canvas-camera";
 
 describe("useCanvasCamera", () => {
-  it("通常ボードは旧75%を100%の基準にし、倍率指定・リセットで視野の中心を保つ", () => {
+  it("固定マップ表示中はパン・ズーム・自動フィットを行わない", () => {
+    const viewport = document.createElement("div");
+    const { result } = renderHook(() =>
+      useCanvasCamera({
+        viewportRef: { current: viewport },
+        notes: buildNotes(1),
+        fitViewport: true,
+        navigationDisabled: true,
+      }),
+    );
+    const initialCamera = result.current.cameraRef.current;
+    const preventDefault = vi.fn();
+    const event = {
+      target: viewport,
+      currentTarget: viewport,
+      button: 0,
+      buttons: 1,
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 10,
+      clientY: 20,
+      preventDefault,
+      stopPropagation: vi.fn(),
+    } as unknown as PointerEvent<HTMLDivElement>;
+
+    act(() => result.current.handlePointerDown(event));
+    act(() => result.current.handlePointerMove({ ...event, clientX: 80 }));
+    act(() =>
+      result.current.handleWheel(new WheelEvent("wheel", { deltaY: 80 })),
+    );
+    act(() => result.current.zoomIn());
+
+    expect(result.current.cameraRef.current).toEqual(initialCamera);
+    expect(result.current.isPanning).toBe(false);
+    expect(result.current.fitToNotes()).toBe(false);
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("通常ボードはカメラ倍率0.75を表示倍率100%とし、倍率指定・リセットで視野の中心を保つ", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
     const { result } = renderHook(() =>
@@ -22,7 +60,7 @@ describe("useCanvasCamera", () => {
     expect(result.current.worldPointFromClient(640, 360)).toEqual(center);
   });
 
-  it("初期フィットは新100%を超えて拡大せず、選択フィットは指定した付箋だけを収める", () => {
+  it("初期フィットより選択フィットで拡大でき、表示倍率を1%〜400%に制限する", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
     const notes = buildNotes(2).map((note, i) => ({
@@ -303,6 +341,27 @@ describe("useCanvasCamera", () => {
     expect(result.current.camera.zoom).toBeCloseTo(0.545);
     expect(result.current.camera.x).toBeCloseTo(227.5);
     expect(result.current.camera.y).toBeCloseTo(182);
+  });
+
+  it("通常のカメラ付きマップでは初期表示と全体フィットで周辺UIの余白を確保する", () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1454, 900);
+    const { result } = renderHook(() =>
+      useCanvasCamera({
+        viewportRef: { current: viewport },
+        notes: buildNotes(1),
+        fitViewport: true,
+        getFitInsets: () => ({ top: 350, right: 0, bottom: 100, left: 0 }),
+      }),
+    );
+
+    expect(result.current.camera.zoom).toBeCloseTo(
+      (900 - 350 - 100 - 128) / 900,
+    );
+    act(() => result.current.fitToNotes());
+    expect(result.current.camera.zoom).toBeCloseTo(
+      (900 - 350 - 100 - 128) / 900,
+    );
   });
 
   it("初期表示後にユーザーが付箋を動かした場合、最初の共有付箋でカメラを自動移動しない", () => {

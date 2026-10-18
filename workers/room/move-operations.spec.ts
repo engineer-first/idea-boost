@@ -699,9 +699,7 @@ describe("問いの投票中の移動の認可", () => {
       expect(responses.at(-1)).not.toHaveProperty("receipt");
     }));
 
-  it.each([
-    1, 3,
-  ] as const)("フェーズ%iの投票中は移動を引き続き拒否する", (phase) =>
+  it.each([1, 3] as const)("フェーズ%iの投票中は移動開始を拒否する", (phase) =>
     setup(`move-other-voting-phase-${phase}`, (ctx, responses) => {
       savePhase(ctx.sql, { kind: "step", phase, step: 4 });
       ctx.sql.exec("UPDATE notes SET phase=?1", phase);
@@ -759,7 +757,7 @@ describe("移動の失効と互換lock", () => {
       expect(findNote(ctx.sql, N1)?.x).toBe(100);
       expect(responses.at(-1)).toMatchObject({ status: "cancelled" });
     }));
-  it("旧note:moveと旧drag:startが新集合lockを迂回しない", () =>
+  it("note:moveとnote:drag:startは集合移動のロック中に拒否され、付箋の座標を変えない", () =>
     setup("move-legacy-lock", (ctx, responses) => {
       start(ctx);
       noteHandlers["note:move"](ctx, {
@@ -783,7 +781,7 @@ describe("移動の失効と互換lock", () => {
       });
       expect(findNote(ctx.sql, N1)?.x).toBe(100);
     }));
-  it("旧clientのhalf-open lockは期限後に新moveを永久阻害しない", () =>
+  it("接続に残る期限切れのactiveDragがあっても集合移動を開始できる", () =>
     setup("move-legacy-expire", (ctx, responses) => {
       ctx.ws.serializeAttachment({
         userId: A,
@@ -899,9 +897,11 @@ describe("move recovery entry", () => {
       presenceHandlers["cursor:update"](ctx, cursor);
       expect(sent).toHaveLength(0);
     }));
-  it("map start/cancelで全lock表示とpeer drag解除を配信する", () =>
-    setup("move-map-presence", (ctx) => {
-      savePhase(ctx.sql, { kind: "step", phase: 3, step: 3 });
+  it.each([
+    2, 3,
+  ])("3-%iのmap start/cancelで全lock表示とpeer drag解除を配信する", (step) =>
+    setup(`move-map-presence-step-${step}`, (ctx) => {
+      savePhase(ctx.sql, { kind: "step", phase: 3, step });
       ctx.sql.exec("UPDATE notes SET phase=3,x=10,y=20");
       const sent: ServerMessage[] = [];
       ctx.ws.send = (data) =>
@@ -1069,6 +1069,19 @@ function inverse(
     moveHandlers["note:move:inverse"](ctx, message);
 }
 describe("atomic inverse", () => {
+  it("未配置に戻す移動要求をWS境界で拒否する", () => {
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "note:move:commit",
+          operationId: OP,
+          delta: { x: 0, y: 0 },
+          ideaMapPlaced: false,
+        }),
+      ),
+    ).toBeNull();
+  });
+
   it.each([
     "idle",
     "paused",

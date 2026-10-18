@@ -11,6 +11,40 @@ import { useCanvasCamera } from "../logic/use-canvas-camera";
 import { CanvasZoomControls } from "./canvas-zoom-controls";
 
 describe("CanvasZoomControls", () => {
+  it("固定マップでは視野操作を隠し、移動履歴だけを残す", () => {
+    const moveHistory = {
+      undo: { label: "付箋の移動", reason: null, disabled: false },
+      redo: { label: "付箋の移動", reason: null, disabled: false },
+      pending: false,
+      onUndo: vi.fn(),
+      onRedo: vi.fn(),
+    };
+    render(
+      <CanvasZoomControls
+        moveHistory={moveHistory}
+        showNavigationControls={false}
+        zoom={0.11}
+        onZoomOut={vi.fn()}
+        onResetZoom={vi.fn()}
+        onZoomIn={vi.fn()}
+        onFitToNotes={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "移動を元に戻す" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "キャンバスを拡大" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "手のひらツール" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("canvas-operation-help"),
+    ).not.toBeInTheDocument();
+  });
+
   it("統合した移動履歴のクリックを通知し、反映中は両操作を止める", () => {
     const moveHistory = {
       undo: { label: "2枚の付箋の移動", reason: null, disabled: false },

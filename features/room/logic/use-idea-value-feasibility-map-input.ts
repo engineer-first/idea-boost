@@ -49,6 +49,7 @@ export function useIdeaValueFeasibilityMapInput({
         : getIdeaValueFeasibilityMapPointFromClientPosition(
             clientX,
             clientY,
+            // IdeaMapViewportの内部レイヤーを拡縮するため、この参照のrectも表示倍率を含む。
             plane.getBoundingClientRect(),
             // つかみ位置補正後の最終座標だけをuseBoardDragで0〜100に制限する。
             false,
