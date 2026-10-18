@@ -46,7 +46,6 @@ import type { Member, PhaseProgressState } from "../logic/room-reducer";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
-import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
@@ -70,9 +69,6 @@ export type RoomBoardHeaderProps = {
   phaseRevision?: number;
   rollbackTarget?: RoomPhase | null;
   onRollbackPhase?: () => void;
-  bulkExclusionTargetCount?: number;
-  canManageCandidates?: boolean;
-  onBulkCandidateExclude?: () => void;
   sharing?: SharingState | null;
   onSharingStart?: (durationMs: number) => void;
   onSharingAdvance?: (outcome: "done" | "passed") => void;
@@ -132,9 +128,6 @@ export function RoomBoardHeader({
   phaseRevision = 0,
   rollbackTarget = null,
   onRollbackPhase,
-  bulkExclusionTargetCount = 0,
-  canManageCandidates = false,
-  onBulkCandidateExclude = () => undefined,
   sharing = null,
   onSharingStart,
   onSharingAdvance,
@@ -935,14 +928,6 @@ export function RoomBoardHeader({
                       target={rollbackTarget}
                       disabled={isDisconnected || isTransferring || isLeaving}
                       onConfirm={onRollbackPhase}
-                    />
-                  ) : null}
-                  {canManageCandidates ? (
-                    <BulkCandidateExclusion
-                      key={hostRevision}
-                      targetCount={bulkExclusionTargetCount}
-                      disabled={isDisconnected || isTransferring}
-                      onConfirm={onBulkCandidateExclude}
                     />
                   ) : null}
                   <Button

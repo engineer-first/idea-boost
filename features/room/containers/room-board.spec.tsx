@@ -1302,28 +1302,12 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByRole("button", { name: "候補に戻す" })).toBeVisible();
   });
 
-  it("確認後に一括候補外を送り、サーバー確定の実件数とoperation IDでUndoする", () => {
+  it("一括候補外の通知を受け取り、サーバー確定の実件数とoperation IDでUndoする", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "ルームメニューを開く" }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "投票なしをまとめて候補から外す（1件）",
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "1件を候補から外す" }));
-    expect(socket.sent.map((item) => JSON.parse(item))).toContainEqual(
-      expect.objectContaining({ type: "note:bulk-exclude" }),
-    );
-    const operationId = JSON.parse(
-      socket.sent.find(
-        (item) => JSON.parse(item).type === "note:bulk-exclude",
-      ) ?? "{}",
-    ).operationId;
+    const operationId = "33333333-3333-4333-8333-333333333333";
     act(() =>
       socket.simulateServerMessage({
         type: "note:bulk-excluded",
@@ -3594,6 +3578,46 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
 });
 
 describe("候補Undoの結果工程内の寿命", () => {
+  it.each([
+    [1, 5, 2, 1],
+    [2, 4, 3, 1],
+    [3, 5, 3, 4],
+  ] as const)("%i-%iから%i-%iへ移ると自動除外通知とUndoを破棄する", (phase, step, nextPhase, nextStep) => {
+    notifyMocks.automaticallyExcludedCandidates.mockReturnValue(
+      "result-only-toast",
+    );
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(step, phase),
+    });
+    const operationId = "33333333-3333-4333-8333-333333333333";
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:bulk-excluded",
+        operationId,
+        count: 1,
+        source: "phase-transition",
+      }),
+    );
+    const undo =
+      notifyMocks.automaticallyExcludedCandidates.mock.calls.at(-1)?.[1];
+    expect(undo).toBeTypeOf("function");
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(nextStep, nextPhase),
+        phaseRevision: 1,
+        timer: { status: "idle" },
+      }),
+    );
+    expect(notifyMocks.dismissCandidateNotice).toHaveBeenCalledWith(
+      "result-only-toast",
+    );
+    if (typeof undo !== "function") throw new Error("Undoがありません");
+    act(() => undo());
+    expect(
+      socket.sent.map((payload) => JSON.parse(payload).type),
+    ).not.toContain("note:bulk-restore");
+  });
   it.each([
     true,
     false,

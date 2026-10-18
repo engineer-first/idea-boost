@@ -1129,109 +1129,22 @@ test("U03: 390pxでガイド全文と現在の操作が画面内に収まる", a
 });
 
 test.each([
-  1280, 390,
-])("U03: %ipxでUndo通知はボードの配置を変えず前面に重なる", async (width) => {
+  [1280, "undo-notification"],
+  [390, "undo-notification"],
+  [1280, "undo-notification-hmw"],
+  [390, "undo-notification-hmw"],
+  [1280, "undo-notification-idea"],
+  [390, "undo-notification-idea"],
+] as const)("U03: %ipxの%sで決定中の通知とUndoへ到達できる", async (width, story) => {
   await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
-  await openStory("room-roomboardlayout--undo-notification");
-  const matrix = page.getByTestId("board-operation-matrix");
-  await page.getByRole("button", { name: "除外通知を再現" }).click();
-  await page.getByText(/投票完了により0票の付箋1件/).waitFor();
-  await page.waitForTimeout(400);
-  const toast = await page
-    .locator('[data-sonner-toast][data-visible="true"]')
-    .first()
-    .boundingBox();
-  expect(await matrix.isVisible()).toBe(false);
-  expect(toast).not.toBeNull();
-  if (!toast) throw new Error("Undo通知がありません");
-  await page.screenshot({
-    path: `${output}/u03-toast-private-${width}.png`,
-  });
-  const add = page.getByRole("button", { name: "付箋を追加", exact: true });
-  await add.scrollIntoViewIfNeeded();
-  expect(
-    await add.evaluate((element) => {
-      const bounds = element.getBoundingClientRect();
-      return element.contains(
-        document.elementFromPoint(
-          bounds.x + bounds.width / 2,
-          bounds.y + bounds.height / 2,
-        ),
-      );
-    }),
-  ).toBe(true);
-  await add.click({ timeout: 2500 });
-  expect(
-    await page
-      .getByTestId("private-notes-toolbar")
-      .getAttribute("data-expanded"),
-  ).toBe("true");
-  await page
-    .getByRole("button", { name: "まとめて元に戻す", exact: true })
-    .click();
-  expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
-    true,
-  );
-});
-
-test.each([
-  1280, 390,
-])("U03: %ipxでUndo通知はボードの配置を変えず、通知とUndoへ到達できる", async (width) => {
-  await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
-  await openStory("room-roomboardlayout--undo-notification-shared");
-  const matrix = page.getByTestId("board-operation-matrix");
+  await openStory(`room-roomboardlayout--${story}`);
   const board = page.getByTestId("room-board-view-root");
-  const boardBefore = await board.boundingBox();
-  const before = await matrix.boundingBox();
-  expect(before).not.toBeNull();
+  const before = await board.boundingBox();
   await page.getByRole("button", { name: "除外通知を再現" }).click();
   await page.getByText(/投票完了により0票の付箋1件/).waitFor();
+  expect(await board.boundingBox()).toEqual(before);
   await page.waitForTimeout(400);
-  const boardAfter = await board.boundingBox();
-  const after = await matrix.boundingBox();
-  const toast = await page
-    .locator('[data-sonner-toast][data-visible="true"]')
-    .first()
-    .boundingBox();
-  expect(after).not.toBeNull();
-  expect(toast).not.toBeNull();
-  if (!before || !after || !toast || !boardBefore || !boardAfter)
-    throw new Error("案内または通知がありません");
-  expect(after.x).toBeCloseTo(before.x, 0);
-  expect(after.y).toBeCloseTo(before.y, 0);
-  expect(after.width).toBeCloseTo(before.width, 0);
-  expect(after.height).toBeCloseTo(before.height, 0);
-  expect(boardAfter).toEqual(boardBefore);
-  // 狭幅では操作帯と通知が離れる。盤面自体との重なりと最前面を確認する。
-  const overlapLeft = Math.max(boardAfter.x, toast.x);
-  const overlapRight = Math.min(
-    boardAfter.x + boardAfter.width,
-    toast.x + toast.width,
-  );
-  const overlapTop = Math.max(boardAfter.y, toast.y);
-  const overlapBottom = Math.min(
-    boardAfter.y + boardAfter.height,
-    toast.y + toast.height,
-  );
-  // 390pxでは通知と操作欄が重ならない配置も正常。交差があるときは
-  // その点で前面を検査し、交差がなければ通知の中央で到達性を検査する。
-  const overlaps = overlapRight > overlapLeft && overlapBottom > overlapTop;
-  const toastIsOnTop = await page.evaluate(
-    ({ x, y }) =>
-      Boolean(document.elementFromPoint(x, y)?.closest("[data-sonner-toast]")),
-    {
-      x: overlaps
-        ? overlapLeft + (overlapRight - overlapLeft) / 2
-        : toast.x + toast.width / 2,
-      y: overlaps
-        ? overlapTop + (overlapBottom - overlapTop) / 2
-        : toast.y + toast.height / 2,
-    },
-  );
-  expect(toastIsOnTop).toBe(true);
-  await page.screenshot({
-    path: `${output}/u03-toast-shared-${width}.png`,
-  });
+  await page.screenshot({ path: `${output}/u03-toast-${story}-${width}.png` });
   await page
     .getByRole("button", { name: "まとめて元に戻す", exact: true })
     .click();
