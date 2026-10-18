@@ -858,7 +858,7 @@ export function RoomBoardCanvas({
           <div
             ref={boardScrollerRef}
             // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
-            className={`relative h-full overflow-clip ${isFixedIdeaMap ? "bg-background" : "bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
+            className={`relative h-full ${isFixedIdeaMap ? "overflow-visible bg-background" : "overflow-clip bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
               isIdeaMapWorkspace
                 ? "cursor-default"
                 : isAdoptMode
@@ -931,6 +931,7 @@ export function RoomBoardCanvas({
               <FixedIdeaMap
                 positionAreaRef={ideaMapPlaneRef}
                 workspace
+                sizeLevel={ideaMapSizeLevel}
                 workspaceControls={
                   isIdeaMapWorkspace
                     ? (ideaMapWorkspaceControls ?? {
@@ -956,6 +957,7 @@ export function RoomBoardCanvas({
                     cursor={cursor}
                     isIdle={cursor.isIdle}
                     labelOffset={getCursorLabelOffset(cursor.userId)}
+                    className="z-[2147483647]"
                     style={{
                       left: `${cursor.x}%`,
                       bottom: `${cursor.y}%`,
@@ -994,6 +996,7 @@ export function RoomBoardCanvas({
                       cursor={cursor}
                       isIdle={cursor.isIdle}
                       labelOffset={getCursorLabelOffset(cursor.userId)}
+                      className="z-[2147483647]"
                       style={{
                         left: `${cursor.x}%`,
                         bottom: `${cursor.y}%`,

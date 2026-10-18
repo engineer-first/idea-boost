@@ -126,6 +126,34 @@ function setup(overrides: Partial<Parameters<typeof useBoardDrag>[0]> = {}) {
 }
 
 describe("useBoardDrag", () => {
+  it("共有付箋のドラッグ開始時は閾値超過後の座標ではなく掴み始めの位置を保つ", () => {
+    const rect = {
+      left: 190,
+      top: 480,
+      right: 340,
+      bottom: 590,
+      width: 150,
+      height: 110,
+    };
+    const event = {
+      ...pointerEvent(1, 222, 514),
+      currentTarget: { getBoundingClientRect: () => rect },
+    } as ReactPointerEvent<HTMLButtonElement>;
+    const { result } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart("shared-1", event, {
+        clientX: 210,
+        clientY: 502,
+      });
+    });
+
+    expect(result.current.drag?.previewOffsetX).toBe(20);
+    expect(result.current.drag?.previewOffsetY).toBe(22);
+    expect(result.current.drag?.clientX).toBe(222);
+    expect(result.current.drag?.clientY).toBe(514);
+  });
+
   it.each([
     "private",
     "returning",
@@ -932,6 +960,86 @@ describe("useBoardDrag", () => {
       expect(result.current.renderedNotes.map((note) => note.id)).toContain(
         "shared-1",
       );
+    } finally {
+      if (descriptor)
+        Object.defineProperty(document, "elementFromPoint", descriptor);
+      else Reflect.deleteProperty(document, "elementFromPoint");
+    }
+  });
+
+  it("固定マップのドラッグは重なったHUD上でもマップ座標を更新する", () => {
+    const positionFromClient = vi.fn(() => ({ x: 40, y: 60 }));
+    const { args, result } = setup({ positionFromClient });
+    const overlay = document.createElement("div");
+    overlay.innerHTML =
+      "<div data-board-fit-edge><button>全体表示</button></div>";
+    let pointerOverHud = false;
+    const descriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "elementFromPoint",
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => (pointerOverHud ? overlay.querySelector("button") : null),
+    });
+
+    try {
+      act(() => {
+        result.current.handleSharedNoteDragStart(
+          "shared-1",
+          pointerEvent(4, 100, 100),
+        );
+      });
+      pointerOverHud = true;
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(4, 300, 200));
+      });
+
+      expect(positionFromClient).toHaveBeenCalledWith(
+        300,
+        200,
+        expect.objectContaining({ status: "shared" }),
+      );
+      expect(result.current.drag).toMatchObject({ x: 40, y: 60 });
+      expect(args.onNoteDragMove).toHaveBeenCalledWith("shared-1", 40, 60);
+    } finally {
+      if (descriptor)
+        Object.defineProperty(document, "elementFromPoint", descriptor);
+      else Reflect.deleteProperty(document, "elementFromPoint");
+    }
+  });
+
+  it("固定マップの共有付箋はHUD上で離しても最終ポインター位置を保存する", () => {
+    const positionFromClient = vi.fn(() => ({ x: 40, y: 60 }));
+    const { args, result } = setup({ positionFromClient });
+    const overlay = document.createElement("div");
+    overlay.innerHTML =
+      "<div data-board-fit-edge><button>全体表示</button></div>";
+    let pointerOverHud = false;
+    const descriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "elementFromPoint",
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => (pointerOverHud ? overlay.querySelector("button") : null),
+    });
+
+    try {
+      act(() => {
+        result.current.handleSharedNoteDragStart(
+          "shared-1",
+          pointerEvent(5, 100, 100),
+        );
+        result.current.handlePointerMove(pointerEvent(5, 300, 200));
+      });
+      pointerOverHud = true;
+      positionFromClient.mockReturnValue({ x: 55, y: 65 });
+      act(() => {
+        result.current.handlePointerEnd(pointerEvent(5, 330, 200));
+      });
+
+      expect(args.onNoteDragEnd).toHaveBeenCalledWith("shared-1", 55, 65);
     } finally {
       if (descriptor)
         Object.defineProperty(document, "elementFromPoint", descriptor);

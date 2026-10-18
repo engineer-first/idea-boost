@@ -243,7 +243,7 @@ export function RoomBoardHeader({
             ? Math.max(controlsBottom, locationBottom) - boardTop + 50
             : window.innerWidth <= 639
               ? Math.max(
-                  compactGuideBottom,
+                  ...(isFixedIdeaMap ? [] : [compactGuideBottom]),
                   locationBottom,
                   controlsBottom,
                   helpRowBottom,

@@ -127,6 +127,16 @@
     flex-shrink: 0;
     transform: none;
   }
+  [data-testid="board-header-row"]
+    [data-testid="board-context-column"]
+    > .guide[data-placement="floating"][data-state="compact"] {
+    position: absolute;
+    top: calc(var(--board-location-height, 80px) + 96px);
+    left: 0;
+    grid-column: auto;
+    grid-row: auto;
+    margin: 0;
+  }
   .compact {
     gap: 4px;
     font-size: 12px;

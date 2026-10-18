@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { NOTE_WIDTH } from "@/contracts/board";
 import {
+  getFittedIdeaMapAxisLabelFontSize,
   getFixedIdeaMapNotePointFromClientPosition,
   getFixedIdeaMapNotePosition,
+  getIdeaMapAxisLabelFontSize,
   getIdeaMapDisplayScale,
+  getIdeaMapNoteDisplayMetrics,
   getIdeaMapNoteGeometry,
   getIdeaMapNotePointFromClientPosition,
   getIdeaValueFeasibilityMapDimensions,
@@ -12,6 +16,77 @@ import {
 } from "./idea-value-feasibility-map";
 
 describe("getIdeaValueFeasibilityMapPosition", () => {
+  it("固定マップの親倍率とレスポンシブ倍率を分け、広さ変更後も付箋の中心を保つ", () => {
+    const note = { content: "付箋", fontSize: 14 };
+    const responsiveScale = 0.6;
+    const baseMetrics = getIdeaMapNoteDisplayMetrics(note, 0, responsiveScale);
+    const smallerMetrics = getIdeaMapNoteDisplayMetrics(
+      note,
+      4,
+      responsiveScale,
+    );
+    expect(baseMetrics.scale).toBe(1);
+    expect(smallerMetrics.scale).toBe(getIdeaMapDisplayScale(4));
+
+    const point = { feasibility: 25, value: 75 };
+    const noteHeight = baseMetrics.noteHeight;
+    const plane = { width: 1000, height: 600 };
+    const getCenter = (displayScale: number) => {
+      const position = getFixedIdeaMapNotePosition(point, noteHeight, {
+        displayScale,
+        responsiveScale,
+        transformOriginX: 0.5,
+        transformOriginY: 0.5,
+      });
+      const readCoordinate = (value: string, size: number) => {
+        const [percent, offset = "0"] = value
+          .replace(/^calc\(|\)$/g, "")
+          .split(" - ");
+        return (
+          (Number.parseFloat(percent) * size) / 100 - Number.parseFloat(offset)
+        );
+      };
+      const left = readCoordinate(position.left, plane.width);
+      const bottom = readCoordinate(position.bottom, plane.height);
+      return {
+        x:
+          left +
+          (1 - displayScale) * 0.5 * NOTE_WIDTH +
+          (displayScale * responsiveScale * NOTE_WIDTH) / 2,
+        y:
+          bottom +
+          (1 - displayScale) * 0.5 * noteHeight +
+          (displayScale * responsiveScale * noteHeight) / 2,
+      };
+    };
+
+    expect(getCenter(getIdeaMapDisplayScale(4)).x).toBeCloseTo(
+      getCenter(1).x,
+      5,
+    );
+    expect(getCenter(getIdeaMapDisplayScale(4)).y).toBeCloseTo(
+      getCenter(1).y,
+      5,
+    );
+  });
+
+  it.each([
+    [0, 48],
+    [2, 58],
+    [4, 70],
+    [15, 87],
+  ])("マップの広さ%iで軸ラベルを適切なサイズへ拡縮する", (sizeLevel, expected) => {
+    expect(getIdeaMapAxisLabelFontSize(sizeLevel)).toBe(expected);
+  });
+
+  it("狭い横軸では左右の矢印の間に収まるサイズへ縮め、余白があれば元のサイズを保つ", () => {
+    expect(getFittedIdeaMapAxisLabelFontSize(70, 480, 16, 350)).toBeCloseTo(
+      50.5,
+      0,
+    );
+    expect(getFittedIdeaMapAxisLabelFontSize(70, 480, 16, 600)).toBe(70);
+  });
+
   it("固定マップは付箋の表示寸法に合わせて移動範囲を端まで使う", () => {
     expect(
       getFixedIdeaMapNotePosition({ feasibility: 0, value: 100 }, 150),
@@ -64,6 +139,19 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     ).toEqual({ feasibility: 50, value: 0 });
   });
 
+  it("表示サイズが変わっても、マップ内の中心位置から同じ評価値へ戻す", () => {
+    expect(
+      getFixedIdeaMapNotePointFromClientPosition(
+        300,
+        200,
+        { left: 100, top: 100, right: 500, bottom: 300 },
+        { width: 50, height: 25 },
+        { x: 25, y: 12.5 },
+        { width: 100, height: 50 },
+      ),
+    ).toEqual({ feasibility: 50, value: 50 });
+  });
+
   it("縮小表示した付箋は表示倍率と各viewportのtransform originを反映する", () => {
     expect(
       getFixedIdeaMapNotePosition({ feasibility: 100, value: 100 }, 150, {
@@ -73,8 +161,8 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
         transformOriginY: 0.7,
       }),
     ).toEqual({
-      left: "calc(100% - 90px)",
-      bottom: "calc(100% - 67.5px)",
+      left: "calc(100% - 120px)",
+      bottom: "calc(100% - 90px)",
     });
   });
 

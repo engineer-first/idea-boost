@@ -158,6 +158,27 @@ describe("現在地と補足情報", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("キャンバス内の付箋操作では開いた参照ポップオーバーを閉じない", () => {
+    render(
+      <>
+        <BoardContext
+          phase={buildPhaseStep(3, 3)}
+          hmwDecidedIssue="決定した課題"
+          decidedHmw="決定した問い"
+        />
+        <div data-testid="board-scroller">
+          <button type="button">付箋</button>
+        </div>
+      </>,
+    );
+    const issue = screen.getByRole("button", { name: "決定した課題" });
+    fireEvent.click(issue);
+    const note = screen.getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(note);
+    fireEvent.click(note);
+    expect(issue).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("参照欄の開閉を保持し、ステップ変更時は現在地を畳む", () => {
     const props = {
       phase: buildPhaseStep(1, 2),

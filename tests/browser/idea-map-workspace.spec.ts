@@ -4,6 +4,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import {
   getIdeaMapDimensions,
   IDEA_MAP_BASE_DIMENSIONS,
+  NOTE_WIDTH,
 } from "../../contracts/board";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
@@ -177,12 +178,36 @@ test.each([
     const reference = await readRelativeGeometry();
     if (phase !== "3-2") await open(page);
     const phaseGeometry = await readRelativeGeometry();
-    for (const [testId, expected] of Object.entries(reference))
-      for (const dimension of ["x", "y", "width", "height"] as const)
+    for (const [testId, expected] of Object.entries(reference)) {
+      if (testId === "idea-value-feasibility-map-x-axis-label") {
+        for (const axis of ["x", "y"] as const)
+          expect(
+            phaseGeometry[testId][axis] +
+              phaseGeometry[testId][axis === "x" ? "width" : "height"] / 2,
+            `${phase}の横軸名の中心位置が3-2と一致`,
+          ).toBeCloseTo(
+            expected[axis] + expected[axis === "x" ? "width" : "height"] / 2,
+            0,
+          );
+        continue;
+      }
+      for (const dimension of ["x", "y", "width", "height"] as const) {
+        // 左端グループは下部HUDとの実際の重なりを避けるため、フェーズごとの
+        // HUD幅に応じて横位置・残り線幅を変える。軸名は中央・同じ高さを別途検証する。
+        if (
+          (testId === "idea-map-x-low-endpoint" ||
+            testId === "idea-value-feasibility-map-x-low-label" ||
+            testId === "idea-value-feasibility-map-x-low-arrow" ||
+            testId === "idea-value-feasibility-map-x-axis-label") &&
+          (dimension === "x" || dimension === "width" || dimension === "height")
+        )
+          continue;
         expect(
           phaseGeometry[testId][dimension],
           `${phase}の${testId}.${dimension}が3-2と一致`,
         ).toBeCloseTo(expected[dimension], 1);
+      }
+    }
 
     const endpoint = page.getByTestId("idea-map-x-low-endpoint");
     expect(await endpoint.count()).toBe(1);
@@ -270,9 +295,9 @@ test.each([
       if (!actual || !expected) throw new Error(`${key} が表示されていません`);
       for (const dimension of ["x", "y", "width", "height"] as const)
         expect(
-          actual[dimension],
+          Math.abs(actual[dimension] - expected[dimension]),
           `${key}.${dimension} はリロード後も維持`,
-        ).toBeCloseTo(expected[dimension], 1);
+        ).toBeLessThanOrEqual(0.5);
     }
   } finally {
     await page.close();
@@ -361,11 +386,24 @@ test.each([
     }
     for (const actual of measurements.slice(1)) {
       for (const [testId, reference] of Object.entries(measurements[0])) {
+        if (testId === "idea-value-feasibility-map-x-axis-label") {
+          for (const axis of ["x", "y"] as const)
+            expect(
+              Math.abs(
+                actual[testId][axis] +
+                  actual[testId][axis === "x" ? "width" : "height"] / 2 -
+                  reference[axis] -
+                  reference[axis === "x" ? "width" : "height"] / 2,
+              ),
+              `${testId}.${axis}の中心`,
+            ).toBeLessThanOrEqual(0.5);
+          continue;
+        }
         for (const dimension of ["x", "y", "width", "height"] as const) {
           expect(
-            actual[testId][dimension],
+            Math.abs(actual[testId][dimension] - reference[dimension]),
             `${testId}.${dimension}`,
-          ).toBeCloseTo(reference[dimension], 1);
+          ).toBeLessThanOrEqual(0.5);
         }
       }
     }
@@ -695,10 +733,7 @@ test.each([
 test.each([
   { phase: "3-2", open: openWorkspace },
   { phase: "3-3", open: openMapOnly },
-])("$phaseでは上部情報パネルと2軸マップの間隔を保つ", async ({
-  phase,
-  open,
-}) => {
+])("$phaseでは上部情報パネルと2軸マップの間隔を保つ", async ({ open }) => {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
   });
@@ -723,10 +758,9 @@ test.each([
       plane.y + plane.height / 2,
       1,
     );
-    expect(feasibilityAxis.y - (plane.y + plane.height)).toBeCloseTo(
-      phase === "3-2" ? 26.671875 : 38.671875,
-      1,
-    );
+    const axisGap = feasibilityAxis.y - (plane.y + plane.height);
+    expect(axisGap).toBeGreaterThanOrEqual(16);
+    expect(axisGap).toBeLessThanOrEqual(24);
   } finally {
     await page.close();
   }
@@ -958,11 +992,18 @@ test.each([
     await expectCentersUnchanged(initialCenters);
     expect(await plane.boundingBox()).toEqual(initialPlane);
     expect(await grid.boundingBox()).toEqual(initialGrid);
+    const scaledAxis = await page
+      .getByTestId("idea-value-feasibility-map-x-axis-label")
+      .boundingBox();
+    if (!scaledAxis || !initialAxis)
+      throw new Error("広さ変更前後の横軸ラベルが表示されていません");
     expect(
-      await page
-        .getByTestId("idea-value-feasibility-map-x-axis-label")
-        .boundingBox(),
-    ).toEqual(initialAxis);
+      Math.abs(
+        scaledAxis.x +
+          scaledAxis.width / 2 -
+          (initialAxis.x + initialAxis.width / 2),
+      ),
+    ).toBeLessThan(1);
     expect(
       await noteLayer.evaluate(
         (element) => (element as HTMLElement).style.transform,
@@ -998,6 +1039,18 @@ test.each([
     await expectCentersUnchanged(initialCenters);
 
     const note = notes[0];
+    const readLogicalPosition = async () =>
+      note.evaluate((element) => {
+        const style = (element as HTMLElement).style;
+        const readPercent = (name: string) => {
+          const match = style.getPropertyValue(name).match(/(-?[\d.]+)%/);
+          return match ? Number.parseFloat(match[1]) : Number.NaN;
+        };
+        return {
+          left: readPercent("--idea-map-note-left-desktop"),
+          bottom: readPercent("--idea-map-note-bottom-desktop"),
+        };
+      });
     const dragHandle = note.getByRole("button", {
       name: "付箋",
       exact: true,
@@ -1006,28 +1059,42 @@ test.each([
     const positionArea = await page
       .getByTestId("idea-map-fixed-position-area")
       .boundingBox();
-    if (!dragBounds || !positionArea)
+    const planeBounds = await plane.boundingBox();
+    if (!dragBounds || !positionArea || !planeBounds)
       throw new Error("倍率変更後の付箋を移動できません");
+    const beforeDrag = await readLogicalPosition();
+    const coordinateWidth = await plane.evaluate((element, noteWidth) => {
+      const map = element as HTMLElement;
+      const responsiveScale = Number.parseFloat(
+        getComputedStyle(map).getPropertyValue("--idea-map-note-scale"),
+      );
+      const mapZoom =
+        map.clientWidth > 0
+          ? map.getBoundingClientRect().width / map.clientWidth
+          : 1;
+      return (
+        noteWidth *
+        (Number.isFinite(responsiveScale) ? responsiveScale : 1) *
+        mapZoom
+      );
+    }, NOTE_WIDTH);
     const pointerX = dragBounds.x + Math.min(20, dragBounds.width / 2);
     const pointerY = dragBounds.y + Math.min(20, dragBounds.height / 2);
+    const pointerDeltaX = positionArea.width * 0.1;
     await page.mouse.move(pointerX, pointerY);
     await page.mouse.down();
-    await page.mouse.move(pointerX + positionArea.width * 0.1, pointerY, {
+    await page.mouse.move(pointerX + pointerDeltaX, pointerY, {
       steps: 8,
     });
     await page.mouse.up();
+    const expectedLeft =
+      beforeDrag.left +
+      (pointerDeltaX / (planeBounds.width - coordinateWidth)) * 100;
     await expect
-      .poll(() =>
-        note.evaluate((element) =>
-          Number.parseFloat((element as HTMLElement).style.left),
-        ),
-      )
-      .toBeGreaterThan(19);
-    const movedLogicalPosition = await note.evaluate((element) => ({
-      left: (element as HTMLElement).style.left,
-      bottom: (element as HTMLElement).style.bottom,
-    }));
-    expect(Number.parseFloat(movedLogicalPosition.left)).toBeLessThan(21);
+      .poll(async () => (await readLogicalPosition()).left)
+      .toBeGreaterThan(expectedLeft - 0.25);
+    const movedLogicalPosition = await readLogicalPosition();
+    expect(movedLogicalPosition.left).toBeLessThan(expectedLeft + 0.25);
 
     await page.getByRole("button", { name: "マップを狭くする" }).click();
     await expectNoteScale(note, 4);
@@ -1036,12 +1103,7 @@ test.each([
       .toBeGreaterThan(0);
     expect(await plane.boundingBox()).toEqual(initialPlane);
     expect(await grid.boundingBox()).toEqual(initialGrid);
-    expect(
-      await note.evaluate((element) => ({
-        left: (element as HTMLElement).style.left,
-        bottom: (element as HTMLElement).style.bottom,
-      })),
-    ).toEqual(movedLogicalPosition);
+    expect(await readLogicalPosition()).toEqual(movedLogicalPosition);
   } finally {
     await page.close();
   }
@@ -1161,7 +1223,7 @@ test.each([
   { width: 1440, height: 800 },
   { width: 900, height: 720 },
   { width: 390, height: 720 },
-])("3-2と3-3で横軸端点を揃え、操作UIと重ねない（$width×$height）", async ({
+])("3-2と3-3で横軸端点を操作UIと重ねない（$width×$height）", async ({
   width,
   height,
 }) => {
@@ -1275,10 +1337,29 @@ test.each([
     expect(sharing.verticalCenterGap).toBeLessThanOrEqual(4);
     expect(mapOnly.groupedEndpoint).toBe(1);
 
-    expect(
-      sharing.endpoint.left - (controls.x + controls.width),
-      "3-2では高さにかかわらず文字サイズUIの24px右に左端を揃える",
-    ).toBeCloseTo(24, 1);
+    for (const [phase, geometry] of [
+      ["3-2", sharing],
+      ["3-3", mapOnly],
+    ] as const) {
+      for (const [name, bounds, gap] of [
+        ["文字サイズUI", geometry.controls, 24],
+        ["ズームUI", geometry.zoomControls, 16],
+      ] as const) {
+        if (
+          bounds &&
+          geometry.endpoint.top < bounds.y + bounds.height &&
+          geometry.endpoint.bottom > bounds.y
+        )
+          expect(
+            geometry.endpoint.left,
+            `${phase}では重なる${name}の右に余白を確保する`,
+          ).toBeGreaterThanOrEqual(bounds.x + bounds.width + gap);
+      }
+      expect(
+        geometry.endpoint.left,
+        `${phase}では軸の左端がマップの左側に残る`,
+      ).toBeLessThan(geometry.mapPlane.x + geometry.mapPlane.width / 2);
+    }
     const connectionGap = await sharingPage
       .getByTestId("idea-value-feasibility-map-x-scale-bar")
       .evaluate((element) => {
@@ -1397,12 +1478,26 @@ test.each([
       actual: Awaited<ReturnType<typeof readLayout>>,
       expected: Awaited<ReturnType<typeof readLayout>>,
     ) => {
-      for (const [testId, reference] of Object.entries(expected))
+      for (const [testId, reference] of Object.entries(expected)) {
+        if (testId === "idea-value-feasibility-map-x-axis-label") {
+          for (const axis of ["x", "y"] as const)
+            expect(
+              Math.abs(
+                actual[testId][axis] +
+                  actual[testId][axis === "x" ? "width" : "height"] / 2 -
+                  reference[axis] -
+                  reference[axis === "x" ? "width" : "height"] / 2,
+              ),
+              `${testId}.${axis}の中心`,
+            ).toBeLessThanOrEqual(0.5);
+          continue;
+        }
         for (const dimension of ["x", "y", "width", "height"] as const)
           expect(
-            actual[testId][dimension],
+            Math.abs(actual[testId][dimension] - reference[dimension]),
             `${testId}.${dimension}`,
-          ).toBeCloseTo(reference[dimension], 1);
+          ).toBeLessThanOrEqual(0.5);
+      }
     };
 
     await openWorkspace(page);

@@ -6,7 +6,7 @@ import type {
   RefObject,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { getNoteHeight } from "@/contracts/board";
+import { getNoteHeight, NOTE_WIDTH } from "@/contracts/board";
 import {
   isPhaseStep,
   isPublishAllowedStep,
@@ -280,6 +280,10 @@ export function useRoomBoardInteractions({
               ? (drag.previewOffsetY / drag.previewHeight) * noteHeight
               : 0,
         },
+        {
+          width: NOTE_WIDTH * responsiveScale * mapZoom,
+          height: metrics.noteHeight * responsiveScale * mapZoom,
+        },
       );
       return point ? { x: point.feasibility, y: point.value } : null;
     },
@@ -402,7 +406,7 @@ export function useRoomBoardInteractions({
             const {
               height,
               noteHeight,
-              scale: noteScale,
+              scale: mapScale,
               width,
             } = getIdeaMapNoteDisplayMetrics(
               drag.note,
@@ -422,7 +426,7 @@ export function useRoomBoardInteractions({
               top: drag.clientY - verticalGrabRatio * height,
               width,
               height,
-              noteScale,
+              noteScale: mapScale * responsiveScale,
               noteHeight,
             };
           }

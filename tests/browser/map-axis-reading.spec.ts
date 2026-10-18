@@ -12,7 +12,7 @@ test("初期82%でも軸名が14px以上相当で読め、平面や目盛りに�
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardcanvas--idea-map-initial-axes&viewMode=story`,
     );
-    const map = page.getByTestId("idea-value-feasibility-map");
+    const map = page.getByTestId("idea-map-fixed-board");
     await map.waitFor();
     await page.evaluate(() => document.fonts.ready);
     const bounds = await map.boundingBox();
@@ -39,7 +39,13 @@ test("初期82%でも軸名が14px以上相当で読め、平面や目盛りに�
         const bar = await page
           .getByTestId("idea-value-feasibility-map-x-scale-bar")
           .boundingBox();
-        expect(rect.y).toBeGreaterThan((bar?.y ?? 0) + (bar?.height ?? 0));
+        if (!bar) throw new Error("横軸の線がありません");
+        expect(rect.y + rect.height / 2).toBeCloseTo(bar.y + bar.height / 2, 0);
+        expect(
+          await label.evaluate(
+            (element) => getComputedStyle(element).backgroundColor,
+          ),
+        ).not.toBe("rgba(0, 0, 0, 0)");
       }
     }
   } finally {
@@ -64,9 +70,11 @@ test.each([
     await label.waitFor();
     await page.evaluate(() => document.fonts.ready);
     expect(await label.innerText()).toBe("実現のしやすさ");
-    expect(await label.evaluate((e) => getComputedStyle(e).fontSize)).toBe(
-      `${fontSize}px`,
+    const initialFontSize = await label.evaluate((e) =>
+      Number.parseFloat(getComputedStyle(e).fontSize),
     );
+    expect(initialFontSize).toBeLessThanOrEqual(fontSize);
+    expect(initialFontSize).toBeGreaterThanOrEqual(14);
     expect(
       await page
         .getByRole("region", { name: "価値と実現のしやすさの2軸マップ" })
@@ -78,7 +86,7 @@ test.each([
         .count(),
     ).toBe(1);
 
-    // 本人の表示操作のみで縮小し、共有のマップ寸法・文字サイズは変えない。
+    // 個人用ズームは軸も含めて縮小する。狭い画面では12px相当を確保する。
     await page
       .getByRole("button", { name: "ズームを100%に戻す", exact: true })
       .click();
@@ -133,7 +141,12 @@ test.each([
         e.offsetWidth
       );
     });
-    expect(effectiveFontSize).toBeGreaterThanOrEqual(24);
+    const mapZoom = await page
+      .getByTestId("idea-value-feasibility-map-plane")
+      .evaluate((element) => {
+        const map = element as HTMLElement;
+        return map.getBoundingClientRect().width / map.offsetWidth;
+      });
     expect(rect.x).toBeGreaterThanOrEqual(0);
     expect(rect.x + rect.width).toBeLessThanOrEqual(width);
     expect(rect.y).toBeGreaterThan(plane.y + plane.height);
@@ -141,9 +154,12 @@ test.each([
     expect(await label.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
       true,
     );
-    expect(await label.evaluate((e) => getComputedStyle(e).fontSize)).toBe(
-      `${fontSize}px`,
+    const finalFontSize = Number.parseFloat(
+      await label.evaluate((e) => getComputedStyle(e).fontSize),
     );
+    expect(effectiveFontSize).toBeCloseTo(finalFontSize * mapZoom, 1);
+    expect(finalFontSize).toBeLessThanOrEqual(fontSize);
+    expect(finalFontSize).toBeGreaterThanOrEqual(14);
   } finally {
     await browser.close();
   }

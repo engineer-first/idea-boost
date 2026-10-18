@@ -71,7 +71,11 @@ export function StepGuide({
       setState("compact");
     }
     function handleEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (event.key !== "Escape") return;
+      const guideOwnsFocus =
+        document.activeElement instanceof Node &&
+        root.current?.contains(document.activeElement);
+      if (event.defaultPrevented && !guideOwnsFocus) return;
       event.preventDefault();
       restoreFocus.current = true;
       setState("compact");

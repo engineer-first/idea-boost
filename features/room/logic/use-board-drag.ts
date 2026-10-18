@@ -492,6 +492,8 @@ export function useBoardDrag({
       const rect = event.currentTarget?.getBoundingClientRect?.();
       const selected = requestedIds ?? selectedNoteIds;
       const targetIds = selected?.includes(noteId) ? [...selected] : [noteId];
+      const pointerClientX = origin?.clientX ?? event.clientX;
+      const pointerClientY = origin?.clientY ?? event.clientY;
       updateDrag({
         note,
         targetIds,
@@ -504,8 +506,10 @@ export function useBoardDrag({
         grabOffsetY: pointerPosition ? pointerPosition.y - note.y : 0,
         clientX: event.clientX,
         clientY: event.clientY,
-        previewOffsetX: rect ? event.clientX - rect.left : 0,
-        previewOffsetY: rect ? event.clientY - rect.top : 0,
+        // NoteCard がドラッグ閾値を超えた時点で callback するため、
+        // 見た目の掴み位置は閾値超過後ではなく最初のpointerdown位置を使う。
+        previewOffsetX: rect ? pointerClientX - rect.left : 0,
+        previewOffsetY: rect ? pointerClientY - rect.top : 0,
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
@@ -630,7 +634,17 @@ export function useBoardDrag({
       }
 
       stopPrivateListAutoScroll();
-      const position = boardPositionFromPointer(event.clientX, event.clientY);
+      // 固定マップではマップ平面自身が有効範囲を判定する。
+      // HUDはドラッグ開始や通常のボード操作を遮るが、ドラッグ中にその上を
+      // 通過しただけで座標更新まで止めない。
+      const mappedPosition = positionFromClient?.(
+        event.clientX,
+        event.clientY,
+        current,
+      );
+      const position = positionFromClient
+        ? mappedPosition
+        : boardPositionFromPointer(event.clientX, event.clientY);
       if (!position) {
         if (current.status === "returning") {
           // ボードにもトレイにもいない間は、戻し先の候補を外す。
@@ -644,14 +658,14 @@ export function useBoardDrag({
         }
         return;
       }
-      const nextPosition = positionFromClient
-        ? positionFromClient(event.clientX, event.clientY, current)
-        : getPositionFromPointer({
-            pointerPosition: position,
-            drag: current,
-            preservePrivateGrabOffset,
-            clampCoordinate,
-          });
+      const nextPosition =
+        mappedPosition ??
+        getPositionFromPointer({
+          pointerPosition: position,
+          drag: current,
+          preservePrivateGrabOffset,
+          clampCoordinate,
+        });
       if (!nextPosition) {
         updateDrag(currentAtPointer);
         return;
@@ -758,20 +772,29 @@ export function useBoardDrag({
       }
       if (current.status === "shared") {
         if (canMoveSharedNotes) {
-          const pointerPosition = boardPositionFromPointer(
+          // 固定マップでは平面の外なら変換が null を返すため、HUD上に
+          // ポインターがあっても最終位置をマップ基準で確定できる。
+          const mappedPosition = positionFromClient?.(
             event.clientX,
             event.clientY,
+            current,
           );
-          const position = pointerPosition
-            ? positionFromClient
-              ? positionFromClient(event.clientX, event.clientY, current)
-              : getPositionFromPointer({
-                  pointerPosition,
-                  drag: current,
-                  preservePrivateGrabOffset,
-                  clampCoordinate,
-                })
-            : { x: current.x, y: current.y };
+          const position = positionFromClient
+            ? mappedPosition
+            : (() => {
+                const pointerPosition = boardPositionFromPointer(
+                  event.clientX,
+                  event.clientY,
+                );
+                return pointerPosition
+                  ? getPositionFromPointer({
+                      pointerPosition,
+                      drag: current,
+                      preservePrivateGrabOffset,
+                      clampCoordinate,
+                    })
+                  : null;
+              })();
           onNoteDragEnd(
             current.note.id,
             position?.x ?? current.x,

@@ -112,7 +112,7 @@ function hexColorToRgb(hexColor: string): string {
 describe("RoomBoardCanvas", () => {
   it.each([
     2, 3, 4, 5,
-  ])("3-%iの横軸左端を共通アンカーから配置し、再描画でも移動しない", (step) => {
+  ])("3-%iの横軸左端は重なる操作UIだけを避け、再描画でも移動しない", (step) => {
     const rect = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockImplementation(function (this: HTMLElement) {
@@ -144,16 +144,16 @@ describe("RoomBoardCanvas", () => {
         screen.getByTestId("idea-map-axis-low-anchor"),
       ).toBeInTheDocument();
       const endpoint = screen.getByTestId("idea-map-x-low-endpoint");
-      expect(endpoint.getBoundingClientRect().left).toBe(158);
+      expect(endpoint.getBoundingClientRect().left).toBe(82);
       rerender();
       fireEvent.resize(window);
-      expect(endpoint.getBoundingClientRect().left).toBe(158);
+      expect(endpoint.getBoundingClientRect().left).toBe(82);
     } finally {
       rect.mockRestore();
     }
   });
 
-  it("3-2の横軸左端はズームUIの幅やマップの高さが変わっても文字サイズUIの右にとどまる", async () => {
+  it("3-2の横軸左端は実際に重なる文字サイズ・ズームUIを避ける", async () => {
     let measurable = true;
     let zoomControlWidth = 280;
     const rect = vi
@@ -196,11 +196,11 @@ describe("RoomBoardCanvas", () => {
       );
       const endpoint = screen.getByTestId("idea-map-x-low-endpoint");
       const positionedLeft = endpoint.getBoundingClientRect().left;
-      expect(positionedLeft).toBe(158);
+      expect(positionedLeft).toBe(309);
 
       zoomControlWidth = 360;
       fireEvent.resize(window);
-      expect(endpoint.getBoundingClientRect().left).toBe(positionedLeft);
+      expect(endpoint.getBoundingClientRect().left).toBe(389);
 
       // 計測不可になってから戻っても、以前のref値を二重に差し引かない。
       measurable = false;
@@ -208,14 +208,14 @@ describe("RoomBoardCanvas", () => {
       measurable = true;
       fireEvent.resize(window);
       fireEvent.resize(window);
-      expect(endpoint.getBoundingClientRect().left).toBe(positionedLeft);
+      expect(endpoint.getBoundingClientRect().left).toBe(389);
 
       // ヘッダーのeffectは、子のlayout effectより後にこのCSS変数を確定する。
       screen
         .getByTestId("room-board-view-root")
         .style.setProperty("--board-map-shift-y", "-153px");
       await waitFor(() => {
-        expect(endpoint.getBoundingClientRect().left).toBe(positionedLeft);
+        expect(endpoint.getBoundingClientRect().left).toBe(389);
       });
     } finally {
       rect.mockRestore();

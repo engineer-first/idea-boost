@@ -219,6 +219,17 @@ export function BoardContext({
                       align="start"
                       sideOffset={8}
                       collisionPadding={8}
+                      onInteractOutside={(event) => {
+                        const originalTarget =
+                          event.detail.originalEvent.target;
+                        if (
+                          originalTarget instanceof Element &&
+                          originalTarget.closest(
+                            '[data-testid="board-scroller"], [data-testid="board-location-card"]',
+                          )
+                        )
+                          event.preventDefault();
+                      }}
                       className="z-[60] w-[216px] max-w-[calc(100vw-1rem)] border-0 bg-transparent p-2 shadow-none"
                       data-testid={`board-reference-${disclosure.id}-popover`}
                     >

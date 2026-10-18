@@ -1419,7 +1419,11 @@ export const TransactionMove100MapNotes: Story = {
   name: "移動transaction / map100枚・先頭3枚固定集合・ACK500ms",
   args: {
     ackDelayMs: 500,
-    notes: buildMovePerformanceNotes("map"),
+    // 最小ズーム時も選択した3枚をマップサイズ操作UIに覆われない位置に置き、
+    // このストーリーでは付箋ドラッグ自体の座標変換を検証する。
+    notes: buildMovePerformanceNotes("map").map((note, index) =>
+      index < 3 ? { ...note, y: 95, stackOrder: 101 + index } : note,
+    ),
     phase: STEP_3_2,
     permissions: getBoardPermissions(STEP_3_2),
   },

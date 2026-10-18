@@ -3438,10 +3438,11 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     const end = socket.sent
       .map((raw) => JSON.parse(raw))
       .find((message) => message.type === "note:drag:end");
-    // ドラッグ開始の閾値を越えた後、200×250pxの可動域を100px移動する。
+    // 閾値を越える移動もpointerdownからの実移動量に含め、
+    // 200×250pxの可動域に対して最終的な110pxの移動を反映する。
     expect(end.noteId).toBe(NOTE_ID);
-    expect(end.position.x).toBeCloseTo(25 + (100 / 200) * 100);
-    expect(end.position.y).toBeCloseTo(75 - (100 / 250) * 100);
+    expect(end.position.x).toBeCloseTo(25 + (110 / 200) * 100);
+    expect(end.position.y).toBeCloseTo(75 - (110 / 250) * 100);
     expect(canvas.style.transform).toBe(cameraBefore);
   });
 

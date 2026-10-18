@@ -50,7 +50,9 @@ test.each([
     )
     .toBe("1");
   expect(await explanation.innerText()).toContain("全員に反映");
-  expect(await explanation.innerText()).toContain("表示倍率は自分だけ");
+  expect(await explanation.innerText()).toContain(
+    "個人用ズームは表示範囲と独立しており、自分だけの見え方を調整します。",
+  );
   const bounds = await explanation.boundingBox();
   if (!bounds) throw new Error("広さの説明が見つかりません");
   expect(bounds.x).toBeGreaterThanOrEqual(0);
@@ -61,21 +63,46 @@ test.each([
   await expect
     .poll(() => help.evaluate((element) => element === document.activeElement))
     .toBe(true);
-  const map = page.getByTestId("idea-value-feasibility-map");
-  const previousWidth = await map.evaluate((element) => element.style.width);
+  const map = page.getByTestId("idea-value-feasibility-map-plane");
+  const note = page
+    .getByTestId("idea-value-feasibility-map-note-note-1")
+    .getByTestId("note-card");
+  const initialMapBounds = await map.boundingBox();
+  const initialNoteBounds = await note.boundingBox();
+  if (!initialMapBounds || !initialNoteBounds)
+    throw new Error("2軸マップまたは付箋が見つかりません");
+  const initialCenter = {
+    x: initialNoteBounds.x + initialNoteBounds.width / 2,
+    y: initialNoteBounds.y + initialNoteBounds.height / 2,
+  };
   const camera = await page.getByTestId("board-canvas").getAttribute("style");
   await page.getByRole("button", { name: "マップを広くする" }).click();
   await expect
-    .poll(() => map.evaluate((element) => element.style.width))
-    .not.toBe(previousWidth);
+    .poll(async () => (await note.boundingBox())?.width ?? 0)
+    .toBeLessThan(initialNoteBounds.width - 1);
+  const smallerNoteBounds = await note.boundingBox();
+  if (!smallerNoteBounds) throw new Error("縮小後の付箋が見つかりません");
+  expect(await map.boundingBox()).toEqual(initialMapBounds);
+  expect(smallerNoteBounds.x + smallerNoteBounds.width / 2).toBeCloseTo(
+    initialCenter.x,
+    0,
+  );
+  expect(smallerNoteBounds.y + smallerNoteBounds.height / 2).toBeCloseTo(
+    initialCenter.y,
+    0,
+  );
   expect(await page.getByTestId("board-canvas").getAttribute("style")).toBe(
     camera,
   );
   await page.getByRole("button", { name: "マップを狭くする" }).focus();
   await page.keyboard.press("Enter");
   await expect
-    .poll(() => map.evaluate((element) => element.style.width))
-    .toBe(previousWidth);
+    .poll(async () => (await note.boundingBox())?.width ?? 0)
+    .toBeCloseTo(initialNoteBounds.width, 0);
+  expect(await map.boundingBox()).toEqual(initialMapBounds);
+  expect(await page.getByTestId("board-canvas").getAttribute("style")).toBe(
+    camera,
+  );
 });
 
 test.each([
@@ -118,7 +145,7 @@ test.each([
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardcanvas--participant-idea-map&viewMode=story`,
   );
-  await page.getByTestId("idea-value-feasibility-map").waitFor();
+  await page.getByTestId("idea-value-feasibility-map-plane").waitFor();
   expect(await page.getByTestId("idea-map-size-controls-hud").count()).toBe(1);
   expect(
     await page.getByRole("group", { name: "2軸マップの広さ操作" }).count(),

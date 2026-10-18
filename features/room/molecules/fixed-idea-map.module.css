@@ -64,7 +64,13 @@
 }
 
 .workspaceFeasibilityAxis {
-  top: -12px;
+  top: 11.5px;
+}
+
+@media (max-width: 420px) {
+  .workspaceFeasibilityAxis {
+    top: 10.5px;
+  }
 }
 
 @container (min-width: 32rem) {
@@ -95,7 +101,7 @@
 .workspacePhaseLoopHud,
 .workspaceMapSizeHud {
   position: absolute;
-  bottom: 20px;
+  bottom: var(--workspace-controls-bottom, 20px);
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -114,11 +120,13 @@
 .workspaceControlsContent {
   pointer-events: auto;
   transform-origin: center;
+  transform: scale(var(--workspace-controls-zoom, 1));
 }
 
 @container map-plane (max-width: 25rem) {
   .workspacePhaseLoopHud {
     left: 26%;
+    bottom: 20px;
   }
 
   .workspaceMapSizeHud {
@@ -127,5 +135,27 @@
 
   .workspaceMapSizeHud [data-map-size-label] {
     display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .workspacePhaseLoopHud {
+    left: 7.5%;
+    bottom: 0;
+    transform: translateX(-50%);
+  }
+
+  .workspacePhaseLoopHud .workspaceControlsContent {
+    transform: scale(calc(var(--workspace-controls-zoom, 1) * 0.85));
+  }
+
+  .workspaceMapSizeHud {
+    left: 7.5%;
+    bottom: 52px;
+    transform: translateX(-50%);
+  }
+
+  .workspaceMapSizeHud .workspaceControlsContent {
+    transform: scale(calc(var(--workspace-controls-zoom, 1) * 0.75));
   }
 }

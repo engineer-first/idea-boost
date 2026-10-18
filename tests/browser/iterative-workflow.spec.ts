@@ -159,8 +159,30 @@ for (const { phase, count } of phases) {
           );
           const left = Math.min(...boxes.map((box) => box.left));
           const right = Math.max(...boxes.map((box) => box.right));
-          expect(Math.abs((left + right) / 2 - 640)).toBeLessThan(12);
-          expect(Math.min(...boxes.map((box) => box.top))).toBeGreaterThan(600);
+          const hudCenter = (left + right) / 2;
+          const isFixedIdeaMap = phase === 3 && step <= 3;
+          const mapBounds = isFixedIdeaMap
+            ? await page
+                .getByTestId("idea-value-feasibility-map-plane")
+                .boundingBox()
+            : null;
+          if (isFixedIdeaMap) {
+            if (!mapBounds) throw new Error("固定マップが見つかりません");
+            expect(
+              Math.abs(hudCenter - (mapBounds.x + mapBounds.width * 0.3)),
+            ).toBeLessThan(12);
+          } else {
+            expect(Math.abs(hudCenter - 640)).toBeLessThan(12);
+          }
+          const top = Math.min(...boxes.map((box) => box.top));
+          if (mapBounds) {
+            expect(top).toBeGreaterThanOrEqual(mapBounds.y);
+            expect(
+              Math.max(...boxes.map((box) => box.bottom)),
+            ).toBeLessThanOrEqual(mapBounds.y + mapBounds.height);
+          } else {
+            expect(top).toBeGreaterThan(600);
+          }
           expect(right - left).toBeLessThan(560);
         }
         expect(
@@ -191,14 +213,14 @@ test("決定内容をキーボードで開閉し、フォーカスを保つ", as
     name: "決定した問い",
     exact: true,
   });
-  await toggle.focus();
-  await page.keyboard.press("Enter");
   expect(await toggle.getAttribute("aria-expanded")).toBe("false");
+  await toggle.focus();
   await page.keyboard.press("Enter");
   expect(await toggle.getAttribute("aria-expanded")).toBe("true");
   await expect
     .poll(() => page.getByTestId("board-reference-hmw-content").isVisible())
     .toBe(true);
+  await toggle.focus();
   await page.keyboard.press("Space");
   expect(await toggle.getAttribute("aria-expanded")).toBe("false");
   expect(

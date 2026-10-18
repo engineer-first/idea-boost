@@ -192,16 +192,10 @@ test("2軸マップでも長文を全体表示し、先頭の本文へ通常poin
   await expect
     .poll(async () => (await card.boundingBox())?.width)
     .toBeCloseTo(200, 0);
-  const expanded = await card.boundingBox();
-  if (!expanded) throw new Error("マップの付箋が見つかりません");
-  await page.mouse.move(
-    viewport.x + viewport.width / 2,
-    viewport.y + viewport.height / 2,
-  );
-  await page.mouse.wheel(0, expanded.y - (viewport.y + 180));
-  await expect
-    .poll(async () => (await card.boundingBox())?.y)
-    .toBeCloseTo(viewport.y + 180, 0);
+  if (!(await card.boundingBox()))
+    throw new Error("マップの付箋が見つかりません");
+  // 固定2軸マップはボードカメラのwheel pan対象ではない。
+  // マップ内の表示位置は維持したまま、実際に見えている本文へpointerが届くことを確認する。
   const readable = await card.boundingBox();
   if (!readable) throw new Error("マップの付箋先頭が見つかりません");
   const point = { x: readable.x + readable.width / 2, y: readable.y + 20 };
