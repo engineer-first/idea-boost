@@ -330,4 +330,4 @@ AGENTSとテスト方針のパッケージ名も実装と揃え、Worker / Durab
 
 Next.js 16.4の `next dev` が追加する管理ブロックは、既存AGENTSの同梱ガイド参照と重複するため、
 公式の `agentRules: false` で生成を無効にした。手書きの日本語の作業別ルールを正本として維持する。
-`scripts/next-config.spec.ts` で無効化設定のred→greenを確認した。
+型検査・ビルドと、実Nextを起動するブラウザ検証後に管理ブロックが追加されないことを確認した。

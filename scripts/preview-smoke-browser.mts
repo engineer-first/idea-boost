@@ -91,16 +91,20 @@ async function editNote(
   const editor = card.locator("textarea:not([readonly])");
   await editor.fill(content);
   await editor.press("Tab");
-  await page
-    .getByTestId("board-canvas")
-    .click({ position: { x: 400, y: 420 } });
+  await page.getByRole("button", { name: "ルームメニューを開く" }).focus();
 }
 async function publishNote(
   page: Page,
   id: string,
   dropX: number,
 ): Promise<void> {
+  // 発表者が切り替わった直後はカウントダウン中で、まだ共有できない。
   await openPrivateNotes(page);
+  await page
+    .getByText("あなたの番です。付箋をボードへドラッグして共有できます。", {
+      exact: true,
+    })
+    .waitFor();
   const box = await privateCard(page, id).boundingBox();
   assert.ok(box, "共有する付箋の表示位置が必要です。");
   const x = box.x + box.width * 0.4;
@@ -131,10 +135,12 @@ async function advancePhase(
   await owner
     .getByRole("button", { name: "次のステップへ", exact: true })
     .click();
-  await owner
-    .getByRole("alertdialog", { name: "次のステップへ進みますか？" })
-    .getByRole("button", { name: "移行する", exact: true })
-    .click();
+  // 全員完了済みの通常移行は即時。投票への移行だけ確認を挟む。
+  if (step === 4)
+    await owner
+      .getByRole("alertdialog", { name: "次のステップへ進みますか？" })
+      .getByRole("button", { name: "次へ進む", exact: true })
+      .click();
   await Promise.all(traces.map((trace) => waitForPhase(trace, step)));
 }
 async function waitForRoom(page: Page, roomUrl: string): Promise<void> {
@@ -222,7 +228,11 @@ export async function smokePreviewBrowserCollaboration(
     await owner.getByRole("button", { name: /^1-1 / }).click();
     await owner.waitForURL(/\/rooms\/[a-f0-9-]+$/);
     const roomUrl = owner.url();
-    await owner.getByTestId("board-canvas").waitFor();
+    // 個人入力では共有キャンバスを隠し、マイ付箋を全面に表示する。
+    await owner.getByTestId("private-notes-workspace").waitFor();
+    await owner.getByRole("button", { name: /^タイマー 未開始/ }).click();
+    await owner.getByRole("button", { name: "開始", exact: true }).click();
+    await owner.keyboard.press("Escape");
     await poll(() => snapshots(ownerTrace).length > 0, "作成者のWS snapshot");
     const ownerSnapshot = snapshots(ownerTrace)[0];
     assert.equal(ownerSnapshot.notes?.length, 12);
@@ -232,16 +242,18 @@ export async function smokePreviewBrowserCollaboration(
           note.authorId === sessions[0].sub && note.visibility === "private",
       ),
     );
+    await owner.getByRole("button", { name: "ルームメニューを開く" }).click();
     await owner.getByRole("button", { name: "招待", exact: true }).click();
     const inviteUrl = await owner
       .getByRole("button", { name: "招待URLをコピー" })
       .innerText();
     assert.equal(new URL(inviteUrl).origin, input.origin);
     await owner.keyboard.press("Escape");
+    await owner.keyboard.press("Escape");
     await member.goto(inviteUrl);
     await member.getByRole("button", { name: "参加する", exact: true }).click();
     await waitForRoom(member, roomUrl);
-    await member.getByTestId("board-canvas").waitFor();
+    await member.getByTestId("private-notes-workspace").waitFor();
     await poll(() => snapshots(memberTrace).length > 0, "参加者のWS snapshot");
     assert.equal(
       snapshots(memberTrace)[0].notes?.length,
@@ -286,7 +298,7 @@ export async function smokePreviewBrowserCollaboration(
       "2本人の編集内容をサーバーが受理する",
     );
     await member.reload();
-    await member.getByTestId("board-canvas").waitFor();
+    await member.getByTestId("private-notes-workspace").waitFor();
     await poll(
       () =>
         snapshots(memberTrace).some((frame) =>
@@ -309,15 +321,12 @@ export async function smokePreviewBrowserCollaboration(
       "separate sessions; invite/join; empty drafts; private add/edit; reentry",
     );
 
+    for (const page of [owner, member])
+      await page.getByRole("button", { name: "完了", exact: true }).click();
     await advancePhase(owner, [ownerTrace, memberTrace], 2);
-    await owner
-      .getByRole("button", { name: "次の人へ", exact: true })
-      .waitFor();
+    await owner.getByTestId("sharing-advance").waitFor();
     await poll(
-      () =>
-        owner
-          .getByRole("button", { name: "次の人へ", exact: true })
-          .isEnabled(),
+      () => owner.getByTestId("sharing-advance").isEnabled(),
       "作成者の共有ターン",
     );
     await publishNote(owner, ownerNoteId, 430);
@@ -325,12 +334,9 @@ export async function smokePreviewBrowserCollaboration(
       () => memberTrace.received.some((raw) => raw.includes(ownerPrivateText)),
       "共有後の作成者本文を参加者へ配信する",
     );
-    await owner.getByRole("button", { name: "次の人へ", exact: true }).click();
+    await owner.getByTestId("sharing-advance").click();
     await poll(
-      () =>
-        member
-          .getByRole("button", { name: "次の人へ", exact: true })
-          .isEnabled(),
+      () => member.getByTestId("sharing-advance").isEnabled(),
       "参加者の共有ターン",
     );
     await publishNote(member, memberNoteId, 760);
@@ -338,11 +344,20 @@ export async function smokePreviewBrowserCollaboration(
       () => ownerTrace.received.some((raw) => raw.includes(memberPrivateText)),
       "共有後の参加者本文を作成者へ配信する",
     );
-    await member.getByRole("button", { name: "次の人へ", exact: true }).click();
+    await member.getByTestId("sharing-advance").click();
 
-    await advancePhase(owner, [ownerTrace, memberTrace], 3);
+    // 最後の発表者の完了操作で整理ステップへ自動で進む。
+    await Promise.all(
+      [ownerTrace, memberTrace].map((trace) => waitForPhase(trace, 3)),
+    );
     await capture(owner, "owner-shared-notes");
+    await capture(member, "participant-shared-notes");
+    for (const page of [owner, member])
+      await page.getByRole("button", { name: "完了", exact: true }).click();
     await advancePhase(owner, [ownerTrace, memberTrace], 4);
+    await owner.getByRole("button", { name: /^タイマー 未開始/ }).click();
+    await owner.getByRole("button", { name: "開始", exact: true }).click();
+    await owner.keyboard.press("Escape");
     completed("two participants shared notes; phase 1-2 to 1-4 synchronized");
     for (const page of [owner, member]) {
       const target = page
