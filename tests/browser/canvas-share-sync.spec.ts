@@ -49,6 +49,40 @@ async function startDrag(page: Page, card: Locator): Promise<void> {
   await page.mouse.move(x - 12, y, { steps: 2 });
 }
 
+async function releaseWithoutMove(
+  page: Page,
+  card: Locator,
+  destination: { x: number; y: number },
+): Promise<void> {
+  const rect = await card.boundingBox();
+  if (!rect) throw new Error("付箋の表示位置がありません。");
+  const x = rect.x + rect.width * 0.4;
+  const y = rect.y + rect.height * 0.4;
+  await page.mouse.move(x, y);
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await Promise.all([
+      cdp.send("Input.dispatchMouseEvent", {
+        type: "mousePressed",
+        x,
+        y,
+        button: "left",
+        buttons: 1,
+        clickCount: 1,
+      }),
+      cdp.send("Input.dispatchMouseEvent", {
+        type: "mouseReleased",
+        ...destination,
+        button: "left",
+        buttons: 0,
+        clickCount: 1,
+      }),
+    ]);
+  } finally {
+    await cdp.detach();
+  }
+}
+
 // 実RoomDO/別認証接続で、公開前の本文・枚数・previewの非配信を観測する。
 // Storybookのfake transportは、この保証の代わりにしない。
 describe.skipIf(!app)("共有境界の二者同期", () => {
@@ -246,6 +280,21 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
       await peer.reload();
       await peer.getByTestId("board-canvas").waitFor();
       expect(await peerCard.count()).toBe(0);
+      // 途中moveが1回も届かない出し入れも、有効な最終dropだけを確定する。
+      await releaseWithoutMove(
+        actor,
+        toolbar.locator(`[data-note-id="${id}"]`),
+        { x: 820, y: 360 },
+      );
+      await expect.poll(publishCount, { timeout: 5_000 }).toBe(2);
+      await peerCard.waitFor();
+      await boardCard.waitFor();
+      await releaseWithoutMove(actor, boardCard, returnPoint);
+      await expect.poll(unpublishCount, { timeout: 5_000 }).toBe(2);
+      await expect.poll(() => peerCard.count(), { timeout: 5_000 }).toBe(0);
+      await expect
+        .poll(() => toolbar.locator(`[data-note-id="${id}"]`).count())
+        .toBe(1);
     } finally {
       await browser.close();
     }

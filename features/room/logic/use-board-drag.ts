@@ -472,7 +472,8 @@ export function useBoardDrag({
       const note = notes.find((n) => n.id === noteId);
       if (!note) return;
       hasNotifiedBlockedRef.current = false;
-      boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
+      if (event.type !== "pointerup")
+        boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const pointerPosition = boardPositionFromPointer(
         origin?.clientX ?? event.clientX,
         origin?.clientY ?? event.clientY,
@@ -527,7 +528,8 @@ export function useBoardDrag({
       const note = renderedPrivateNotes.find((n) => n.id === noteId);
       if (!note || note.excluded) return;
       hasNotifiedBlockedRef.current = false;
-      boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
+      if (event.type !== "pointerup")
+        boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const rect = event.currentTarget?.getBoundingClientRect?.();
       // 閾値を越えた最初のmoveはカードの外まで進むことがある。掴み位置は押下時で固定する。
       const originX = origin?.clientX ?? event.clientX;
@@ -697,7 +699,7 @@ export function useBoardDrag({
 
   const handlePointerEnd = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      const current = dragRef.current;
+      let current = dragRef.current;
       if (!current || current.pointerId !== event.pointerId) return;
       if (
         (current.status === "private" || current.status === "returning") &&
@@ -710,6 +712,10 @@ export function useBoardDrag({
         boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
         return;
       }
+      // 最終moveが届かなくても、解放位置で共有境界と挿入先を更新してから確定する。
+      handlePointerMove(event);
+      current = dragRef.current;
+      if (!current) return;
       stopPrivateListAutoScroll();
       hasNotifiedBlockedRef.current = false;
       if (
@@ -793,6 +799,7 @@ export function useBoardDrag({
       boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
     },
     [
+      handlePointerMove,
       boardPositionFromPointer,
       boardScrollerRef,
       canMoveSharedNotes,

@@ -1241,6 +1241,82 @@ describe("NoteCard", () => {
 
   describe("ドラッグ", () => {
     it.each([
+      false,
+      true,
+    ])("途中moveが届かなくても解放位置で移動を開始し、編集にしない selected=%s", (isSelected) => {
+      const { props } = setup({ isSelected });
+      const surface = getNoteSurface();
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        buttons: 1,
+        clientX: 50,
+        clientY: 50,
+      });
+      fireEvent.pointerUp(surface, {
+        pointerId: 1,
+        buttons: 0,
+        clientX: 120,
+        clientY: 80,
+      });
+      expect(props.onDragStart).toHaveBeenCalledExactlyOnceWith(
+        "note-1",
+        expect.objectContaining({
+          type: "pointerup",
+          clientX: 120,
+          clientY: 80,
+        }),
+        { clientX: 50, clientY: 50 },
+      );
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+      expect(props.onSelect).not.toHaveBeenCalledWith(
+        "note-1",
+        expect.objectContaining({ bringToFront: true }),
+      );
+    });
+    it("閾値内のmoveの後に離した座標が遠ければドラッグとして扱う", () => {
+      const { props } = setup({ isSelected: true });
+      const surface = getNoteSurface();
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        buttons: 1,
+        clientX: 50,
+        clientY: 50,
+      });
+      fireEvent.pointerMove(surface, {
+        pointerId: 1,
+        buttons: 1,
+        clientX: 52,
+        clientY: 51,
+      });
+      fireEvent.pointerUp(surface, {
+        pointerId: 1,
+        buttons: 0,
+        clientX: 120,
+        clientY: 80,
+      });
+      expect(props.onDragStart).toHaveBeenCalledOnce();
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    });
+    it("移動禁止なら解放時の大きな移動も選択や編集へ化けない", () => {
+      const { props } = setup({ isSelected: true, canMoveNote: false });
+      const surface = getNoteSurface();
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        buttons: 1,
+        clientX: 50,
+        clientY: 50,
+      });
+      fireEvent.pointerUp(surface, {
+        pointerId: 1,
+        buttons: 0,
+        clientX: 120,
+        clientY: 80,
+      });
+      expect(props.onDragStart).not.toHaveBeenCalled();
+      expect(props.onSelect).not.toHaveBeenCalled();
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    });
+    it.each([
       { clientX: 52, buttons: 0 },
       { clientX: 80, buttons: 0 },
       { clientX: 80, buttons: 2 },
@@ -1626,7 +1702,11 @@ describe("#522 focus・pointerの境界", () => {
     fireEvent.pointerUp(getNoteSurface(), { pointerId: 2 });
     expect(props.onDragStart).not.toHaveBeenCalled();
     expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
-    fireEvent.pointerUp(getNoteSurface(), { pointerId: 1 });
+    fireEvent.pointerUp(getNoteSurface(), {
+      pointerId: 1,
+      clientX: 10,
+      clientY: 10,
+    });
     expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
   });
   it("AT-004: pointercancelの後のupでは編集しない", () => {

@@ -7,7 +7,9 @@ const evidence = process.env.MOVE_QUEUE_EVIDENCE_DIR;
 
 async function position(note: Locator): Promise<{ x: number; y: number }> {
   return note.evaluate((element) => {
-    const placed = element.closest<HTMLElement>('[data-testid^="board-note-"]');
+    const placed = element.closest<HTMLElement>(
+      '[data-testid^="board-note-"], [data-testid^="idea-value-feasibility-map-note-"]',
+    );
     if (!placed) throw new Error("配置要素がありません。");
     return {
       x: Number.parseFloat(getComputedStyle(placed).left),
@@ -16,7 +18,7 @@ async function position(note: Locator): Promise<{ x: number; y: number }> {
   });
 }
 
-async function prepare(page: Page): Promise<void> {
+async function prepare(page: Page, checkpoint: string): Promise<void> {
   await page.goto(`${app}/login?next=%2Fdev%2Fverify`);
   await page
     .getByLabel("メールアドレス", { exact: true })
@@ -32,7 +34,7 @@ async function prepare(page: Page): Promise<void> {
         r.url().endsWith("/api/verification/rooms") &&
         r.request().method() === "POST",
     ),
-    page.getByRole("button", { name: /^1-2 / }).click(),
+    page.getByRole("button", { name: new RegExp(`^${checkpoint} `) }).click(),
   ]);
   const { roomId } = (await response.json()) as { roomId: string };
   await page.goto(`${app}/rooms/${roomId}`);
@@ -50,7 +52,17 @@ async function prepare(page: Page): Promise<void> {
 
 // 実RoomDOへの保存応答だけを遅らせ、入力・描画・保存・履歴の接続を検証する。
 describe.skipIf(!app)("短い連続ドラッグの保存待ち", () => {
-  test("250msの受信遅延下でも16回すべて追従・保存し、1操作ずつUndo/Redoできる", async () => {
+  test.each([
+    { checkpoint: "1-2", input: "move", delay: 250 },
+    { checkpoint: "1-2", input: "up-only", delay: 0 },
+    { checkpoint: "1-2", input: "up-only", delay: 250 },
+    { checkpoint: "1-2", input: "small-move", delay: 250 },
+    { checkpoint: "3-2", input: "up-only", delay: 250 },
+  ])("$checkpoint / $input / 受信遅延$delay msでも16回追従・保存しUndo/Redoできる", async ({
+    checkpoint,
+    input,
+    delay,
+  }) => {
     const browser = await chromium.launch();
     try {
       const context = await browser.newContext({
@@ -91,15 +103,15 @@ describe.skipIf(!app)("短い連続ドラッグの保存待ち", () => {
                 failures.push(message);
             }
             socket.send(payload);
-          }, 250);
+          }, delay);
           timers.add(timer);
         });
       });
       try {
-        await prepare(page);
-        // authorが別の共有付箋でも同じ操作を保証する（#719）。
+        await prepare(page, checkpoint);
+        // 通常ボードは他者の付箋、mapは本人の付箋を使う（#719と再click編集の境界）。
         const note = page.locator(
-          '[data-testid="note-card"][data-note-id="d1000000-0000-4000-8000-000000000104"]',
+          `[data-testid="note-card"][data-note-id="d1000000-0000-4000-8000-${checkpoint === "3-2" ? "000000000306" : "000000000104"}"]`,
         );
         const positions = [await position(note)];
         const cdp = await context.newCDPSession(page);
@@ -110,7 +122,7 @@ describe.skipIf(!app)("短い連続ドラッグの保存待ち", () => {
           const y = box.y + box.height / 2;
           const dx = i % 2 ? -45 : 45;
           await page.mouse.move(x, y);
-          // 同一frameに近いdown/move/upも含める。CDPへ投入する順序は保つ。
+          // 途中moveなし／閾値内のみ／通常moveを、DOM合成でなくnative入力で比較する。
           await Promise.all([
             cdp.send("Input.dispatchMouseEvent", {
               type: "mousePressed",
@@ -120,13 +132,17 @@ describe.skipIf(!app)("短い連続ドラッグの保存待ち", () => {
               buttons: 1,
               clickCount: 1,
             }),
-            cdp.send("Input.dispatchMouseEvent", {
-              type: "mouseMoved",
-              x: x + dx,
-              y: y + 5,
-              button: "left",
-              buttons: 1,
-            }),
+            ...(input === "up-only"
+              ? []
+              : [
+                  cdp.send("Input.dispatchMouseEvent", {
+                    type: "mouseMoved",
+                    x: x + (input === "small-move" ? 2 : dx),
+                    y: y + (input === "small-move" ? 1 : 5),
+                    button: "left",
+                    buttons: 1,
+                  }),
+                ]),
             cdp.send("Input.dispatchMouseEvent", {
               type: "mouseReleased",
               x: x + dx,

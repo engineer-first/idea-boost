@@ -11,6 +11,8 @@
 
 [共有・戻しの性能比較（2026-10-05）](canvas-share-performance-2026-10-05.md)は、#524の固定条件・欠測・traceを残す。
 
+[瞬間的なドラッグの入力調査（2026-10-18）](canvas-drag-input-2026-10-18.md)は、途中moveが届かない再現条件とtldrawの入力終了処理の比較を残す。
+
 スプリント期間はMilestone、一度限りのProject移行はGit履歴を参照する。Issue自動化の未実装候補は[Issue #393](https://github.com/engineer-first/idea-boost/issues/393)へ移した。完了済みの運用作業や進捗の複製をarchiveへ増やさない。
 
 公開HTMLの判断資料は冒頭と[目次](../site/index.html)で過去資料と表示する。

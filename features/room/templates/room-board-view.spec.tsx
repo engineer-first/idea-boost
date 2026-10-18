@@ -4011,7 +4011,8 @@ describe("AT-002: private pressedの単一pointer所有", () => {
   ])("%sでprivate所有を解放し取消後の古いmove/upでdragを再開しない", (ending) => {
     const { interactions, hand, surface, props, rerender } = pressPrivate();
     expect(hand).toBeDisabled();
-    if (ending === "up") fireEvent.pointerUp(surface, { pointerId: 71 });
+    if (ending === "up")
+      fireEvent.pointerUp(surface, { pointerId: 71, clientX: 20, clientY: 20 });
     else if (ending === "cancel")
       fireEvent.pointerCancel(surface, { pointerId: 71 });
     else if (ending === "lost") {

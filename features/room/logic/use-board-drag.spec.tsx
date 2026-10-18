@@ -127,6 +127,71 @@ function setup(overrides: Partial<Parameters<typeof useBoardDrag>[0]> = {}) {
 
 describe("useBoardDrag", () => {
   it.each([
+    "shared",
+    "private",
+  ] as const)("解放時に初めて認識した%s移動はcaptureを取り直さず終了する", (kind) => {
+    const { args, result } = setup();
+    const up = { ...pointerEvent(1, 250, 180), type: "pointerup" };
+    act(() => {
+      if (kind === "shared")
+        result.current.handleSharedNoteDragStart("shared-1", up, {
+          clientX: 100,
+          clientY: 100,
+        });
+      else
+        result.current.handlePrivateDragStart("private-1", up, {
+          clientX: 300,
+          clientY: 560,
+        });
+      result.current.handlePointerEnd(up);
+    });
+    expect(
+      args.boardScrollerRef.current?.setPointerCapture,
+    ).not.toHaveBeenCalled();
+    if (kind === "shared")
+      expect(args.onNoteDragEnd).toHaveBeenCalledExactlyOnceWith(
+        "shared-1",
+        250,
+        180,
+      );
+    else expect(args.onPrivateNotePublish).toHaveBeenCalledOnce();
+    expect(result.current.drag).toBeNull();
+  });
+  it("最後のupだけがマイ付箋内なら、その位置へ戻す", () => {
+    const { args, result } = setup();
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerEnd(pointerEvent(1, 400, 560));
+    });
+    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledExactlyOnceWith(
+      "shared-1",
+      0,
+    );
+    expect(args.onNoteDragEnd).not.toHaveBeenCalled();
+    expect(result.current.drag).toBeNull();
+  });
+  it("最後のupだけで戻し候補からボードへ出たら、その座標で移動を確定する", () => {
+    const { args, result } = setup();
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 400, 560));
+      result.current.handlePointerEnd(pointerEvent(1, 250, 180));
+    });
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(args.onNoteDragEnd).toHaveBeenCalledExactlyOnceWith(
+      "shared-1",
+      250,
+      180,
+    );
+    expect(result.current.drag).toBeNull();
+  });
+  it.each([
     "private",
     "returning",
   ])("AT-016: %s preview中のpanel閉鎖は残るDOM/refでも取消する", async (kind) => {
