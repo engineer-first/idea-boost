@@ -21,6 +21,10 @@ type Frame = {
     authorId: string;
     visibility: string;
     content: string;
+    dotVotes?: {
+      subjective: { count: number };
+      objective: { count: number };
+    };
   }>;
 };
 function completed(check: string): void {
@@ -448,6 +452,21 @@ export async function smokePreviewBrowserCollaboration(
         ),
       "再参加後も共有済み本文と進行を保持する",
     );
+    await poll(
+      () =>
+        snapshots({
+          ...memberTrace,
+          received: memberTrace.connections.slice(reentryConnection).flat(),
+        }).some((frame) =>
+          frame.notes?.some(
+            (note) =>
+              note.id === ownerNoteId &&
+              note.dotVotes?.subjective.count === 2 &&
+              note.dotVotes?.objective.count === 6,
+          ),
+        ),
+      "再参加後のsnapshotに2人の主観2票・客観6票が保存されている",
+    );
     const reenteredNote = member
       .getByTestId("board-canvas")
       .locator(`[data-note-id="${memberNoteId}"]`);
@@ -463,6 +482,10 @@ export async function smokePreviewBrowserCollaboration(
         page.getByRole("button", { name: /現在地：.*課題決定/ }).waitFor(),
       ),
     );
+    await owner.getByRole("button", { name: /^タイマー 未開始/ }).click();
+    await owner.getByRole("button", { name: "開始", exact: true }).click();
+    await owner.keyboard.press("Escape");
+    await member.getByTestId("timer-work-hint").waitFor({ state: "hidden" });
     await capture(owner, "result-owner-synchronized");
     await capture(member, "result-participant-synchronized");
     console.log(
@@ -480,7 +503,7 @@ export async function smokePreviewBrowserCollaboration(
           "UI add/edit/share",
           "two voters",
           "phase sync",
-          "reentry retains notes",
+          "reentry retains notes and both voters' results",
         ],
       }),
     );
