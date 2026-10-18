@@ -706,6 +706,13 @@ export function NoteCard({
         event.currentTarget.releasePointerCapture(event.pointerId);
       return;
     }
+    beginPointerDrag(event, origin);
+  }
+
+  function beginPointerDrag(
+    event: React.PointerEvent<HTMLButtonElement>,
+    origin: PointerOrigin,
+  ) {
     if (origin.didDrag) return;
     const distance = Math.hypot(
       event.clientX - origin.startClientX,
@@ -714,19 +721,22 @@ export function NoteCard({
     if (distance < DRAG_THRESHOLD_PX) return;
     // 移動が禁止でもdrag相当の動きをclick/editへ配送しない。
     origin.didDrag = true;
-    if (!canMoveNote) return;
+    if (disabled || interactionTool === "hand" || !canMoveNote) return;
     if (!isSelected) onSelect(note.id, { bringToFront: false });
+    pointerOriginRef.current = null;
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     onDragStart(note.id, event, {
       clientX: origin.startClientX,
       clientY: origin.startClientY,
     });
-    pointerOriginRef.current = null;
   }
 
   function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
     const origin = pointerOriginRef.current;
     if (!origin || origin.pointerId !== event.pointerId) return;
+    // 途中moveが省略・集約されても、離した位置を最後の入力として扱う。
+    // 開始はこの場で同期し、同じupのbubbleで親が最終座標を確定する。
+    beginPointerDrag(event, origin);
     pointerOriginRef.current = null;
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);

@@ -472,7 +472,8 @@ export function useBoardDrag({
       const note = notes.find((n) => n.id === noteId);
       if (!note) return;
       hasNotifiedBlockedRef.current = false;
-      boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
+      if (event.type !== "pointerup")
+        boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const pointerPosition = boardPositionFromPointer(
         origin?.clientX ?? event.clientX,
         origin?.clientY ?? event.clientY,
@@ -492,8 +493,12 @@ export function useBoardDrag({
         grabOffsetY: pointerPosition ? pointerPosition.y - note.y : 0,
         clientX: event.clientX,
         clientY: event.clientY,
-        previewOffsetX: rect ? event.clientX - rect.left : 0,
-        previewOffsetY: rect ? event.clientY - rect.top : 0,
+        previewOffsetX: rect
+          ? (origin?.clientX ?? event.clientX) - rect.left
+          : 0,
+        previewOffsetY: rect
+          ? (origin?.clientY ?? event.clientY) - rect.top
+          : 0,
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
@@ -512,20 +517,28 @@ export function useBoardDrag({
   );
 
   const handlePrivateDragStart = useCallback(
-    (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
+    (
+      noteId: string,
+      event: ReactPointerEvent<HTMLButtonElement>,
+      origin?: { clientX: number; clientY: number },
+    ) => {
       if (dragRef.current || !isPrivatePanelExpanded(privateToolbarRef.current))
         return;
       // RoomDO の応答前でも、楽観表示中の付箋をそのまま掴み直せるようにする。
       const note = renderedPrivateNotes.find((n) => n.id === noteId);
       if (!note || note.excluded) return;
       hasNotifiedBlockedRef.current = false;
-      boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
+      if (event.type !== "pointerup")
+        boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const rect = event.currentTarget?.getBoundingClientRect?.();
+      // 閾値を越えた最初のmoveはカードの外まで進むことがある。掴み位置は押下時で固定する。
+      const originX = origin?.clientX ?? event.clientX;
+      const originY = origin?.clientY ?? event.clientY;
       const grabOffsetX = rect?.width
-        ? ((event.clientX - rect.left) / rect.width) * NOTE_WIDTH
+        ? ((originX - rect.left) / rect.width) * NOTE_WIDTH
         : 0;
       const grabOffsetY = rect?.height
-        ? ((event.clientY - rect.top) / rect.height) *
+        ? ((originY - rect.top) / rect.height) *
           getNoteHeight(note.content, note.fontSize)
         : 0;
       updateDrag({
@@ -542,8 +555,8 @@ export function useBoardDrag({
         grabOffsetY,
         clientX: event.clientX,
         clientY: event.clientY,
-        previewOffsetX: rect ? event.clientX - rect.left : 0,
-        previewOffsetY: rect ? event.clientY - rect.top : 0,
+        previewOffsetX: rect ? originX - rect.left : 0,
+        previewOffsetY: rect ? originY - rect.top : 0,
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
@@ -686,7 +699,7 @@ export function useBoardDrag({
 
   const handlePointerEnd = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      const current = dragRef.current;
+      let current = dragRef.current;
       if (!current || current.pointerId !== event.pointerId) return;
       if (
         (current.status === "private" || current.status === "returning") &&
@@ -699,6 +712,10 @@ export function useBoardDrag({
         boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
         return;
       }
+      // 最終moveが届かなくても、解放位置で共有境界と挿入先を更新してから確定する。
+      handlePointerMove(event);
+      current = dragRef.current;
+      if (!current) return;
       stopPrivateListAutoScroll();
       hasNotifiedBlockedRef.current = false;
       if (
@@ -782,6 +799,7 @@ export function useBoardDrag({
       boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
     },
     [
+      handlePointerMove,
       boardPositionFromPointer,
       boardScrollerRef,
       canMoveSharedNotes,

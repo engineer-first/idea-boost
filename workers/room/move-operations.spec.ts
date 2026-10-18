@@ -141,6 +141,61 @@ function peer(ctx: HandlerCtx, userId = B) {
   return messages;
 }
 describe("move transaction", () => {
+  it("別の付箋の分類変更で進行中の移動を取り消さず、最新の分類から確定する", () =>
+    setup("move-concurrent-groups", (ctx, responses) => {
+      ctx.sql.exec(
+        "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'分類',?2,'now','now')",
+        OP2,
+        JSON.stringify([N1, N2]),
+      );
+      let attachment: SocketAttachment = {
+        userId: B,
+        sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+      };
+      const otherSocket = {
+        readyState: 1,
+        send: () => {},
+        deserializeAttachment: () => attachment,
+        serializeAttachment: (next: SocketAttachment) => {
+          attachment = next;
+        },
+      } as unknown as WebSocket;
+      ctx.broadcaster = new RoomBroadcaster({
+        getWebSockets: () => [ctx.ws, otherSocket],
+      });
+      const other = { ...ctx, userId: B, ws: otherSocket };
+      start(ctx, OP, [N1]);
+      start(other, OP2, [N2]);
+      expect(responses.at(-1)).toMatchObject({ status: "active" });
+      moveHandlers["note:move:commit"](ctx, {
+        type: "note:move:commit",
+        operationId: OP,
+        delta: { x: 600, y: 0 },
+      });
+      expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+      const groupRevision = Number(
+        ctx.sql.exec("SELECT group_revision FROM room_state WHERE id=1").one()
+          .group_revision,
+      );
+      moveHandlers["note:move:preview"](other, {
+        type: "note:move:preview",
+        operationId: OP2,
+        delta: { x: 0, y: 300 },
+      });
+      moveHandlers["note:move:commit"](other, {
+        type: "note:move:commit",
+        operationId: OP2,
+        delta: { x: 0, y: 300 },
+      });
+      expect(responses.at(-1)).toMatchObject({
+        status: "accepted",
+        receipt: { groupRevisionBefore: groupRevision },
+      });
+      expect(findNote(ctx.sql, N1)).toMatchObject({ x: 700, y: 100 });
+      expect(findNote(ctx.sql, N2)).toMatchObject({ x: 140, y: 400 });
+      expect(listGroups(ctx.sql)).toEqual([]);
+    }));
+
   it.each([
     1, 2, 3,
   ] as const)("フェーズ%iの採用後も非作者が採用済み・候補外を移動してUndoできる", (phase) =>
@@ -278,7 +333,6 @@ describe("move transaction", () => {
     "lock",
     "position",
     "visibility",
-    "group",
     "map",
     "closed",
   ])("peer previewを%s失効で全件解除する", (reason) =>
@@ -310,12 +364,6 @@ describe("move transaction", () => {
         ctx.sql.exec("UPDATE notes SET x=x+1 WHERE id=?1", N2);
       if (reason === "visibility")
         ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
-      if (reason === "group")
-        ctx.sql.exec(
-          "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'peer group',?2,'now','now')",
-          OP2,
-          JSON.stringify([N1, N2]),
-        );
       if (reason === "map")
         ctx.sql.exec(
           "UPDATE room_state SET map_revision=map_revision+1 WHERE id=1",
@@ -682,7 +730,6 @@ describe("移動の失効と互換lock", () => {
   it.each([
     "delete",
     "visibility",
-    "group",
     "map",
   ] as const)("%s変更でcommitを全拒否する", (change) =>
     setup(`move-invalid-${change}`, (ctx, responses) => {
@@ -693,12 +740,6 @@ describe("移動の失効と互換lock", () => {
         ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
         ctx.sql.exec("UPDATE notes SET visibility='shared' WHERE id=?1", N2);
       }
-      if (change === "group")
-        ctx.sql.exec(
-          "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'変更',?2,'now','now')",
-          OP2,
-          JSON.stringify([N1, N2]),
-        );
       if (change === "map")
         ctx.sql.exec(
           "UPDATE room_state SET idea_map_size_level=idea_map_size_level+1 WHERE id=1",
@@ -1219,7 +1260,7 @@ it("unrelated group edits do not invalidate inverse; group ABA on affected IDs d
     inverse(ctx, responses);
     expect(responses.at(-1)).toMatchObject({ status: "accepted" });
   }));
-it("restores vanished group ID/name/membership and guards affected outsider lock", () =>
+it("ドラッグ中に更新された分類名を確定時に記録し、Undoでも最新の名前と所属を復元する", () =>
   setup("inverse-group-restore", (ctx, responses) => {
     ctx.sql.exec(
       "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'original group',?2,'now','now')",
@@ -1227,6 +1268,7 @@ it("restores vanished group ID/name/membership and guards affected outsider lock
       JSON.stringify([N1, N2]),
     );
     start(ctx, OP, [N1]);
+    ctx.sql.exec("UPDATE groups SET name='更新後の分類名' WHERE id=?1", OP2);
     moveHandlers["note:move:commit"](ctx, {
       type: "note:move:commit",
       operationId: OP,
@@ -1240,7 +1282,7 @@ it("restores vanished group ID/name/membership and guards affected outsider lock
     expect(
       ctx.sql.exec("SELECT name,note_ids FROM groups WHERE id=?1", OP2).one(),
     ).toMatchObject({
-      name: "original group",
+      name: "更新後の分類名",
       note_ids: JSON.stringify([N1, N2]),
     });
   }));

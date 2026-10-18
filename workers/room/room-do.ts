@@ -228,6 +228,9 @@ export class RoomDO extends DurableObject {
   private readonly completed: CompletedRoomStorage;
   // ディレクトリに公開済みの同一roomIdがある事実のみ。操作権は毎回AccountDOで確認する。
   private directoryRoomId?: string;
+  // 外部I/Oで受信順が逆転しないよう接続ごとに処理を連ねる。
+  // 未完了のイベントだけを保持し、共有状態・移動結果は従来どおりSQLが持つ。
+  private readonly socketMessages = new WeakMap<WebSocket, Promise<void>>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -1253,6 +1256,23 @@ export class RoomDO extends DurableObject {
   }
 
   override async webSocketMessage(
+    ws: WebSocket,
+    raw: ArrayBuffer | string,
+  ): Promise<void> {
+    const previous = this.socketMessages.get(ws) ?? Promise.resolve();
+    const current = previous.then(() => this.processSocketMessage(ws, raw));
+    // 失敗した要求は呼び出し元へ返し、後続要求の処理は継続する。
+    const settled = current.catch(() => {});
+    this.socketMessages.set(ws, settled);
+    try {
+      await current;
+    } finally {
+      if (this.socketMessages.get(ws) === settled)
+        this.socketMessages.delete(ws);
+    }
+  }
+
+  private async processSocketMessage(
     ws: WebSocket,
     raw: ArrayBuffer | string,
   ): Promise<void> {
