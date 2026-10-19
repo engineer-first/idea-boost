@@ -76,3 +76,7 @@ export const OneVoteReturned: Story = {
     feedback: { state: "confirmed", message: "投票を1票取り消しました。" },
   },
 };
+
+export const TimerStopped: Story = {
+  args: { interactionBlocked: true },
+};

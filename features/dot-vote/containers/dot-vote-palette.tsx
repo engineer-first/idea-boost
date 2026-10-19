@@ -7,6 +7,7 @@ export type DotVotePaletteProps = {
   pendingOperationCount: number;
   feedback: DotVoteFeedback | null;
   disabled: boolean;
+  interactionBlocked?: boolean;
   selectedKind: DotVoteKind | null;
   isReturnDropTarget?: boolean;
   onStickerSelect: (
@@ -26,6 +27,7 @@ export function DotVotePalette({
   pendingOperationCount,
   feedback,
   disabled,
+  interactionBlocked = false,
   selectedKind,
   isReturnDropTarget = false,
   onStickerSelect,
@@ -37,6 +39,7 @@ export function DotVotePalette({
       pendingOperationCount={pendingOperationCount}
       feedback={feedback}
       disabled={disabled}
+      interactionBlocked={interactionBlocked}
       selectedKind={selectedKind}
       isReturnDropTarget={isReturnDropTarget}
       onStickerSelect={onStickerSelect}

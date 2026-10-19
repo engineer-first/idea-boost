@@ -1842,18 +1842,27 @@ describe("RoomBoardView", () => {
     expect(onAddPrivateNote).toHaveBeenCalledTimes(1);
   });
 
-  it("タイマー停止中は投票パレットを無効にする", () => {
-    setup({
-      phase: buildPhaseStep(4),
-      timer: { status: "idle" },
-    });
+  it.each(["idle", "paused", "ended"] as const)(
+    "タイマーが%sのときは接続待ちを表示せず投票操作を無効にする",
+    (status) => {
+      setup({
+        phase: buildPhaseStep(4),
+        timer:
+          status === "idle"
+            ? { status }
+            : status === "paused"
+              ? { status, remainingMs: 30_000, durationMs: 60_000 }
+              : { status, durationMs: 60_000 },
+      });
 
-    expect(
-      screen.getByRole("button", {
-        name: /主観シール 残り/,
-      }),
-    ).toBeDisabled();
-  });
+      const palette = screen.getByRole("region", { name: "投票パレット" });
+      expect(within(palette).queryByText(/再接続/)).not.toBeInTheDocument();
+      expect(within(palette).queryByText("接続待ち")).not.toBeInTheDocument();
+      for (const button of within(palette).getAllByRole("button")) {
+        expect(button).toBeDisabled();
+      }
+    },
+  );
 
   it("投票シールのドラッグ中にタイマーが停止したら、ドラッグを解除して投票しない", () => {
     const onNoteVote = vi.fn();

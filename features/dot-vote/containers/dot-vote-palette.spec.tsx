@@ -343,24 +343,86 @@ describe("DotVotePalette", () => {
     expect(screen.getByRole("status")).not.toHaveClass("sr-only");
   });
 
-  it("通信切断中は古い成功表示や使い切りより接続待ちを示す", () => {
-    render(
-      <DotVotePalette
-        voteRemaining={{ subjective: 0, objective: 3 }}
-        pendingOperationCount={1}
-        feedback={{ state: "confirmed", message: "投票を反映しました。" }}
-        disabled
-        selectedKind={null}
-        onStickerSelect={vi.fn()}
-        onStickerDragStart={vi.fn()}
-      />,
-    );
-    expect(screen.getByRole("status")).toHaveTextContent("再接続");
-    expect(screen.getByRole("status")).not.toHaveTextContent(
-      "投票を反映しました。",
-    );
-    expect(screen.queryByText("使い切りました")).not.toBeInTheDocument();
-    for (const button of screen.getAllByRole("button"))
-      expect(button).toBeDisabled();
+  it("タイマー停止中はクリックとドラッグを通知せず、再開後に選べる", () => {
+    const props: DotVotePaletteProps = {
+      voteRemaining: { subjective: 1, objective: 3 },
+      pendingOperationCount: 0,
+      feedback: null,
+      disabled: false,
+      interactionBlocked: true,
+      selectedKind: "subjective",
+      onStickerSelect: vi.fn(),
+      onStickerDragStart: vi.fn(),
+    };
+    const { rerender } = render(<DotVotePalette {...props} />);
+    const button = screen.getByRole("button", { name: "主観シール 残り1票" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    fireEvent.pointerDown(button, { pointerId: 1 });
+    expect(props.onStickerSelect).not.toHaveBeenCalled();
+    expect(props.onStickerDragStart).not.toHaveBeenCalled();
+
+    rerender(<DotVotePalette {...props} interactionBlocked={false} />);
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    fireEvent.pointerDown(button, { pointerId: 1 });
+    expect(props.onStickerSelect).toHaveBeenCalledOnce();
+    expect(props.onStickerDragStart).toHaveBeenCalledOnce();
+  });
+
+  it.each([false, true])(
+    "通信切断中は操作制限が%sでも古い成功表示や使い切りより接続待ちを示す",
+    (interactionBlocked) => {
+      render(
+        <DotVotePalette
+          voteRemaining={{ subjective: 0, objective: 3 }}
+          pendingOperationCount={1}
+          feedback={{ state: "confirmed", message: "投票を反映しました。" }}
+          disabled
+          interactionBlocked={interactionBlocked}
+          selectedKind={null}
+          onStickerSelect={vi.fn()}
+          onStickerDragStart={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole("status")).toHaveTextContent("再接続");
+      expect(screen.getByRole("status")).not.toHaveTextContent(
+        "投票を反映しました。",
+      );
+      expect(screen.queryByText("使い切りました")).not.toBeInTheDocument();
+      for (const button of screen.getAllByRole("button"))
+        expect(button).toBeDisabled();
+    },
+  );
+
+  it("タイマー停止中も残票ゼロの種類は使い切りを示し、再開しても選べない", () => {
+    const props: DotVotePaletteProps = {
+      voteRemaining: { subjective: 0, objective: 3 },
+      pendingOperationCount: 0,
+      feedback: null,
+      disabled: false,
+      interactionBlocked: true,
+      selectedKind: null,
+      onStickerSelect: vi.fn(),
+      onStickerDragStart: vi.fn(),
+    };
+    const { rerender } = render(<DotVotePalette {...props} />);
+    const subjective = screen.getByRole("button", {
+      name: "主観シール 残り0票",
+    });
+    expect(within(subjective).getByText("使い切りました")).toBeVisible();
+    expect(screen.queryByText("接続待ち")).not.toBeInTheDocument();
+    expect(subjective).toBeDisabled();
+
+    rerender(<DotVotePalette {...props} interactionBlocked={false} />);
+    expect(subjective).toBeDisabled();
+    fireEvent.click(subjective);
+    fireEvent.pointerDown(subjective, { pointerId: 1 });
+    expect(props.onStickerSelect).not.toHaveBeenCalled();
+    expect(props.onStickerDragStart).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+    ).toBeEnabled();
   });
 });

@@ -17,6 +17,7 @@ type DotVotePaletteViewProps = {
   pendingOperationCount: number;
   feedback: DotVoteFeedback | null;
   disabled: boolean;
+  interactionBlocked?: boolean;
   selectedKind: DotVoteKind | null;
   isReturnDropTarget: boolean;
   onStickerSelect: (
@@ -33,10 +34,13 @@ const DOT_VOTE_KINDS: readonly DotVoteKind[] = ["subjective", "objective"];
 
 const DOT_VOTE_BUTTON_TONE = {
   subjective:
-    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 hover:text-rose-950 focus-visible:border-rose-600 focus-visible:ring-rose-600/50 active:bg-rose-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100",
+    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 hover:text-rose-950 focus-visible:border-rose-600 focus-visible:ring-rose-600/50 active:bg-rose-200 disabled:opacity-100",
   objective:
-    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 hover:text-blue-950 focus-visible:border-blue-600 focus-visible:ring-blue-600/50 active:bg-blue-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100",
+    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 hover:text-blue-950 focus-visible:border-blue-600 focus-visible:ring-blue-600/50 active:bg-blue-200 disabled:opacity-100",
 } satisfies Record<DotVoteKind, string>;
+
+const DOT_VOTE_UNAVAILABLE_TONE =
+  "disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500";
 
 const DOT_VOTE_SELECTED_TONE = {
   subjective: "ring-2 ring-rose-700/75 ring-offset-2 ring-offset-white",
@@ -48,6 +52,7 @@ export function DotVotePaletteView({
   pendingOperationCount,
   feedback,
   disabled,
+  interactionBlocked = false,
   selectedKind,
   isReturnDropTarget,
   onStickerSelect,
@@ -55,7 +60,10 @@ export function DotVotePaletteView({
 }: DotVotePaletteViewProps) {
   const paletteId = useId();
   const activeSelectedKind =
-    selectedKind !== null && voteRemaining[selectedKind] > 0 && !disabled
+    selectedKind !== null &&
+    voteRemaining[selectedKind] > 0 &&
+    !disabled &&
+    !interactionBlocked
       ? selectedKind
       : null;
   const status = disabled
@@ -129,18 +137,22 @@ export function DotVotePaletteView({
               aria-label={dotVoteRemainingLabel(kind, voteRemaining[kind])}
               aria-pressed={isSelected}
               aria-describedby={`${paletteId}-${kind}-state`}
-              disabled={disabled || voteRemaining[kind] <= 0}
+              disabled={
+                disabled || interactionBlocked || voteRemaining[kind] <= 0
+              }
               size="sm"
               variant="outline"
-              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "min-h-20 border-dashed" : "min-h-24"} ${DOT_VOTE_BUTTON_TONE[kind]} ${
+              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "min-h-20 border-dashed" : "min-h-24"} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
                 isSelected ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
-                if (disabled || voteRemaining[kind] <= 0) return;
+                if (disabled || interactionBlocked || voteRemaining[kind] <= 0)
+                  return;
                 onStickerSelect(kind, event);
               }}
               onPointerDown={(event) => {
-                if (disabled || voteRemaining[kind] <= 0) return;
+                if (disabled || interactionBlocked || voteRemaining[kind] <= 0)
+                  return;
                 onStickerDragStart?.(kind, event);
               }}
             >
