@@ -141,6 +141,45 @@ function peer(ctx: HandlerCtx, userId = B) {
   return messages;
 }
 describe("move transaction", () => {
+  it("1-5でグループの一部を離しても所属・名前・版を保ち、移動をUndoできる", () =>
+    setup("move-result-preserves-group", (ctx, responses) => {
+      saveGroups(ctx.storage, [{ id: OP2, name: "課題A", noteIds: [N1, N2] }]);
+      savePhase(ctx.sql, { kind: "step", phase: 1, step: 5 });
+      const before = listGroups(ctx.sql);
+      const messages = peer(ctx);
+      start(ctx, OP, [N1]);
+      commit(ctx);
+      expect(findNote(ctx.sql, N1)?.x).toBe(400);
+      expect(listGroups(ctx.sql)).toEqual(before);
+      expect(responses.at(-1)).toMatchObject({
+        status: "accepted",
+        receipt: { groupsBefore: [], groupsAfter: [] },
+      });
+      expect(
+        messages.find((message) => message.type === "notes:moved"),
+      ).toMatchObject({
+        groups: before,
+      });
+      moveHandlers["note:move:inverse"](ctx, {
+        type: "note:move:inverse",
+        operationId: "77777777-7777-4777-8777-777777777777",
+        sourceOperationId: OP,
+        expectedTargets: [N1].map((noteId) => ({
+          noteId,
+          positionRevision: findNote(ctx.sql, noteId)?.position_revision ?? 0,
+          visibilityRevision:
+            findNote(ctx.sql, noteId)?.visibility_revision ?? 0,
+        })),
+        expectedGroupRevision: Number(
+          ctx.sql.exec("SELECT group_revision FROM room_state WHERE id=1").one()
+            .group_revision,
+        ),
+      });
+      expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+      expect(findNote(ctx.sql, N1)?.x).toBe(100);
+      expect(listGroups(ctx.sql)).toEqual(before);
+    }));
+
   it("別の付箋の分類変更で進行中の移動を取り消さず、最新の分類から確定する", () =>
     setup("move-concurrent-groups", (ctx, responses) => {
       ctx.sql.exec(

@@ -245,6 +245,20 @@ export const Grouped: Story = {
   },
 };
 
+// 分類後に所属付箋を離して配置しても、保存したグループ名と所属を表示する。
+export const ResultWithSeparatedGroupMembers: Story = {
+  args: {
+    phase: buildPhaseStep(5),
+    permissions: getBoardPermissions(buildPhaseStep(5)),
+    notes: [
+      buildNote({ id: "note-1", content: "課題Aの付箋1", x: 100, y: 100 }),
+      buildNote({ id: "note-2", content: "課題Aの付箋2", x: 700, y: 100 }),
+      buildNote({ id: "note-3", content: "無所属の付箋", x: 950, y: 100 }),
+    ],
+    groups: [{ id: "g1", name: "課題A", noteIds: ["note-1", "note-2"] }],
+  },
+};
+
 // Step 1-2 では永続グループが存在しても枠を表示しない。
 export const GroupsHiddenBeforeGrouping: Story = {
   args: {

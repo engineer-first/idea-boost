@@ -281,6 +281,72 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
     }
   }, 90_000);
 
+  test("1-5で所属付箋を離してもグループ枠が追従し、他者・再接続・Undoでも所属を保つ", async () => {
+    const browser = await chromium.launch();
+    try {
+      const actor = await browser.newPage({
+        viewport: { width: 1440, height: 900 },
+        ...(evidence
+          ? {
+              recordVideo: {
+                dir: evidence,
+                size: { width: 1440, height: 900 },
+              },
+            }
+          : {}),
+      });
+      const peer = await browser.newPage({
+        viewport: { width: 1440, height: 900 },
+      });
+      await login(actor, "owner@example.test");
+      await login(peer, "member@example.test");
+      await prepare(actor, peer, "1-5");
+      const note = actor
+        .getByTestId("board-canvas")
+        .getByTestId("note-card")
+        .filter({ hasText: "空きコマに一緒に勉強する仲間" });
+      const frame = (page: Page) =>
+        page
+          .getByTestId("note-group-card")
+          .filter({ hasText: "学び合う相手探し" });
+      const bounds = (page: Page) =>
+        frame(page).evaluate((element) => ({
+          x: Number.parseFloat((element as HTMLElement).style.left),
+          width: Number.parseFloat((element as HTMLElement).style.width),
+        }));
+      const initial = await bounds(actor);
+      const before = await position(note);
+      if (evidence)
+        await actor.screenshot({ path: `${evidence}/group-before-move.png` });
+      await drag(actor, note, -220, -100);
+      await expect.poll(() => undo(actor).isEnabled()).toBe(true);
+      const moved = await position(note);
+      expect(moved.x).toBeLessThan(before.x);
+      if (evidence)
+        await actor.screenshot({ path: `${evidence}/group-after-move.png` });
+      await expect
+        .poll(async () => (await bounds(actor)).x)
+        .toBeLessThan(initial.x);
+      await expect.poll(() => bounds(peer)).toEqual(await bounds(actor));
+      const after = await bounds(actor);
+      expect(after.width).toBeGreaterThan(initial.width);
+      await peer.reload();
+      await expect.poll(() => bounds(peer)).toEqual(after);
+      await undo(actor).click();
+      await expect.poll(() => position(note)).toEqual(before);
+      await expect.poll(() => bounds(actor)).toEqual(initial);
+      await expect.poll(() => bounds(peer)).toEqual(initial);
+      await redo(actor).click();
+      await expect.poll(() => bounds(actor)).toEqual(after);
+      await expect.poll(() => bounds(peer)).toEqual(after);
+      if (evidence)
+        await actor.screenshot({ path: `${evidence}/group-after-redo.png` });
+      await actor.context().close();
+    } finally {
+      await browser.close();
+    }
+  }, 90_000);
+
   test("AT-031: 分類の消滅後に名前と非移動メンバーを復元する", async () => {
     const browser = await chromium.launch();
     try {
