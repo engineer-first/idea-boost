@@ -2116,7 +2116,8 @@ export function RoomBoardView({
               voteRemaining={voteRemaining}
               pendingOperationCount={pendingVoteOperations.length}
               feedback={voteFeedback}
-              disabled={isDisconnected || boardInteractionBlocked}
+              disabled={isDisconnected}
+              interactionBlocked={boardInteractionBlocked}
               selectedKind={selectedVoteKind}
               isReturnDropTarget={isVoteStickerReturnDropTarget}
               onStickerSelect={handlePaletteStickerSelect}

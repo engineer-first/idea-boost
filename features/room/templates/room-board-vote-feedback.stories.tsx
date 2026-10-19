@@ -56,3 +56,7 @@ export const AllPending: Story = {
 export const Exhausted: Story = {
   args: { notes: notesWithOwnVotes(1, 3) },
 };
+
+export const TimerIdle: Story = {
+  args: { notes: notesWithOwnVotes(0, 0), timer: { status: "idle" } },
+};

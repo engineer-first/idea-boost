@@ -343,6 +343,34 @@ describe("DotVotePalette", () => {
     expect(screen.getByRole("status")).not.toHaveClass("sr-only");
   });
 
+  it("タイマー停止中はクリックとドラッグを通知せず、再開後に選べる", () => {
+    const props: DotVotePaletteProps = {
+      voteRemaining: { subjective: 1, objective: 3 },
+      pendingOperationCount: 0,
+      feedback: null,
+      disabled: false,
+      interactionBlocked: true,
+      selectedKind: "subjective",
+      onStickerSelect: vi.fn(),
+      onStickerDragStart: vi.fn(),
+    };
+    const { rerender } = render(<DotVotePalette {...props} />);
+    const button = screen.getByRole("button", { name: "主観シール 残り1票" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    fireEvent.pointerDown(button, { pointerId: 1 });
+    expect(props.onStickerSelect).not.toHaveBeenCalled();
+    expect(props.onStickerDragStart).not.toHaveBeenCalled();
+
+    rerender(<DotVotePalette {...props} interactionBlocked={false} />);
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    fireEvent.pointerDown(button, { pointerId: 1 });
+    expect(props.onStickerSelect).toHaveBeenCalledOnce();
+    expect(props.onStickerDragStart).toHaveBeenCalledOnce();
+  });
+
   it("通信切断中は古い成功表示や使い切りより接続待ちを示す", () => {
     render(
       <DotVotePalette
