@@ -72,13 +72,25 @@ def demo_section(index, demo):
     return "\n\n".join(parts)
 
 
+def pbi_sections():
+    guide = Path(__file__).resolve().parents[4] / "docs/team/issue-writing.md"
+    match = re.search(
+        r"<!-- issue-writing-contract:start -->\s*```json\s*([\s\S]*?)```",
+        guide.read_text(encoding="utf-8"),
+    )
+    if not match:
+        raise ValueError("Issue writing contract is missing")
+    return json.loads(match[1])["types"]["PBI"]["sections"]
+
+
 def pbi_body(spec):
     pbi = spec["pbi"]
+    why, behavior = pbi_sections()
     parts = [
         pbi["story"],
-        "## Why",
+        f"## {why}",
         pbi.get("why") or "未確認：背景を確認して追記する。",
-        "## 期待する振る舞い",
+        f"## {behavior}",
         bullet_list(pbi.get("acceptance")),
     ]
     if spec.get("demo_overview") or spec.get("demo_goals"):

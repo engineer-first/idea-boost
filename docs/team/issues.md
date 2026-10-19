@@ -4,6 +4,8 @@
 
 記述の責務・粒度・良い例と悪い例は[Issue記述ルール](issue-writing.md)を正本とする。PBIは冒頭の見出しなしユーザーストーリー、Why、期待する振る舞い、TaskはWhy、How、作業完了条件で書く。タイトルはIssueのタイトル欄だけに置く。
 
+入口共通の[作成後形式検査](issue-writing.md#入口を問わない作成後検査)は不足をコメントで案内する。本文・Type・Project状態・Milestoneは自動変更せず、起票や作業をブロックしない。形式合格だけで着手可能・完了にしない。
+
 ## Issue Type
 
 Issue は GitHub の Issue Type で分類する。タイトル接頭辞やラベルで代用しない。
