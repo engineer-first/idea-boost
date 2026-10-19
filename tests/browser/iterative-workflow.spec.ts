@@ -376,14 +376,19 @@ test.each([true, false])(
 );
 
 test.each(phases)(
-  "フェーズ$phaseで最初の投票へ進む確認に終了する範囲と下書きを示す",
+  "フェーズ $phase : 最初の投票へ進む確認が必要な場合に終了する範囲と下書きを示す",
   async ({ phase, count }) => {
-    await openStory(`room-roomboardlayout--phase-${phase}-step-${count - 2}`);
+    await openStory(
+      `room-roomboardlayout--phase-${phase}-step-${count - 2}${phase === 2 ? "" : "-with-not-ready-member"}`,
+    );
     await page
       .getByRole("button", { name: "次のステップへ", exact: true })
       .press("Enter");
     const dialog = page.getByRole("alertdialog", {
-      name: "次のステップへ進みますか？",
+      name:
+        phase === 2
+          ? "次のステップへ進みますか？"
+          : "完了していないメンバーがいます",
     });
     await dialog.waitFor();
     expect(await page.getByRole("alertdialog").count()).toBe(1);

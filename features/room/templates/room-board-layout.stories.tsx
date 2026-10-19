@@ -66,7 +66,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function step(phase: 1 | 2 | 3, value: number): Story {
+function step(
+  phase: 1 | 2 | 3,
+  value: number,
+  options: { hasNotReadyMember?: boolean } = {},
+): Story {
   const members = buildMembers(12, boardMeta.args.currentUserId);
   return {
     name: `${phase}-${value}`,
@@ -95,7 +99,14 @@ function step(phase: 1 | 2 | 3, value: number): Story {
           : null,
       decidedHmw: phase === 3 ? LONG_QUESTION : null,
       members,
-      progress: allReadyProgress(members),
+      progress: options.hasNotReadyMember
+        ? {
+            ...allReadyProgress(members),
+            readyUserIds: members.slice(0, -1).map(({ userId }) => userId),
+            notReadyUserIds: members.slice(-1).map(({ userId }) => userId),
+            allReady: false,
+          }
+        : allReadyProgress(members),
       interactions: {
         ...boardMeta.args.interactions,
         privateNotes: PRIVATE_NOTES,
@@ -112,6 +123,10 @@ function step(phase: 1 | 2 | 3, value: number): Story {
 export const Phase1Step1: Story = step(1, 1);
 export const Phase1Step2: Story = step(1, 2);
 export const Phase1Step3: Story = step(1, 3);
+export const Phase1Step3WithNotReadyMember: Story = {
+  ...step(1, 3, { hasNotReadyMember: true }),
+  name: "1-3 未完了メンバーあり",
+};
 export const Phase1Step4: Story = step(1, 4);
 export const Phase1Step5: Story = step(1, 5);
 export const Phase2Step1: Story = step(2, 1);
@@ -134,6 +149,10 @@ export const Phase3Step2: Story = {
   },
 };
 export const Phase3Step3: Story = step(3, 3);
+export const Phase3Step3WithNotReadyMember: Story = {
+  ...step(3, 3, { hasNotReadyMember: true }),
+  name: "3-3 未完了メンバーあり",
+};
 export const Phase3Step4: Story = step(3, 4);
 export const Phase3Step5: Story = step(3, 5);
 export const ReferenceAndNotes: Story = {
