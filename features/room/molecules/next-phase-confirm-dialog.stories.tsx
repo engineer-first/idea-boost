@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { NextPhaseConfirmDialog } from "./next-phase-confirm-dialog";
 
@@ -21,6 +21,20 @@ type Story = StoryObj<typeof meta>;
 
 // トリガーボタンだけが見えている状態。
 export const Default: Story = {};
+
+// 全員完了してから押す場合はダイアログを開かず、そのまま進む。
+export const AllReady: Story = {
+  args: { requireConfirmation: false },
+  play: async ({ canvasElement, args }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "次のステップへ" }),
+    );
+    await expect(args.onConfirm).toHaveBeenCalledOnce();
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole("alertdialog"),
+    ).not.toBeInTheDocument();
+  },
+};
 
 // 未接続・移行処理中・最終フェーズでは操作できない。
 export const Disabled: Story = {

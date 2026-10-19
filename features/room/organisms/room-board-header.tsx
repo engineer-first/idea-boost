@@ -426,10 +426,11 @@ export function RoomBoardHeader({
     progress.notReadyUserIds.includes(member.userId),
   );
   const requireProgressConfirmation =
-    ((isManualProgressStep || isCurrentVotingStep) && !progress.allReady) ||
-    (phase.kind === "step" &&
-      phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1) ||
-    isResultStep(phase);
+    isManualProgressStep || isCurrentVotingStep
+      ? !progress.allReady
+      : (phase.kind === "step" &&
+          phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1) ||
+        isResultStep(phase);
   const showVotingCompletion =
     isCurrentVotingStep &&
     members.length > 0 &&

@@ -68,6 +68,28 @@ function openRoomMenu() {
 }
 
 describe("RoomBoardHeader", () => {
+  it.each(
+    [true, false].flatMap((isHost) =>
+      [1, 3, 4].map((step) => ({ isHost, step })),
+    ),
+  )(
+    "step=$step / isHost=$isHost : 最初から全員完了ならワンクリックで進み、確認ダイアログを開かない",
+    ({ isHost, step }) => {
+      const members = buildMembers(3, ME);
+      const props = setup({
+        isHost,
+        phase: buildPhaseStep(step),
+        members,
+        progress: allReadyProgress(members),
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+
+      expect(props.onNextPhase).toHaveBeenCalledExactlyOnceWith(undefined);
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+    },
+  );
+
   it.each([true, false])(
     "isHost=%sで確認中に全員が完了してもダイアログを維持し、最新の完了状態で進む",
     (isHost) => {
@@ -95,7 +117,9 @@ describe("RoomBoardHeader", () => {
         />,
       );
 
-      expect(screen.getByRole("alertdialog")).toBeVisible();
+      expect(
+        screen.getByRole("alertdialog", { name: "全員が完了しました" }),
+      ).toBeVisible();
       expect(
         screen.queryByRole("group", { name: "未完了のメンバー" }),
       ).toBeNull();
