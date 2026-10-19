@@ -19,6 +19,7 @@ import { syncRoomAlarm } from "./alarms";
 import { isRoomClosed } from "./completed-rooms";
 import { getDecision } from "./decisions";
 import { clearUsedNoteDragIds } from "./drag-operations";
+import { finalizeGrouping } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
@@ -715,6 +716,9 @@ export const phaseHandlers: MessageHandlers<
         return false;
       }
       captureRollbackCheckpoint(ctx.sql, current);
+      if (current.phase === 1 && current.step === 3) {
+        finalizeGrouping(ctx.storage);
+      }
       recordProgressTransition(ctx.sql, current, next, "next");
       discardedEmptySharedNotes = discardEmptySharedNotes(
         ctx.sql,

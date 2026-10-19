@@ -281,6 +281,78 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
     }
   }, 90_000);
 
+  test("1-3で名前未入力のグループを作り完了すると、1-4と再読込後にも枠が残る", async () => {
+    const browser = await chromium.launch();
+    try {
+      const actor = await browser.newPage({
+        viewport: { width: 1440, height: 900 },
+        ...(evidence
+          ? {
+              recordVideo: {
+                dir: evidence,
+                size: { width: 1440, height: 900 },
+              },
+            }
+          : {}),
+      });
+      const peer = await browser.newPage({
+        viewport: { width: 1440, height: 900 },
+      });
+      await login(actor, "owner@example.test");
+      await login(peer, "member@example.test");
+      await prepare(actor, peer, "1-3");
+      const note = actor
+        .getByTestId("board-canvas")
+        .getByTestId("note-card")
+        .filter({ hasText: "初対面の人を勉強会に誘いにくい" });
+      await drag(actor, note, -50, 0);
+      const unnamed = (page: Page) =>
+        page
+          .getByTestId("group-name-display")
+          .filter({ hasText: /^グループ$/ });
+      await expect.poll(() => unnamed(actor).count()).toBe(1);
+      await expect.poll(() => unnamed(peer).count()).toBe(1);
+      if (evidence)
+        await actor.screenshot({
+          path: `${evidence}/unnamed-1-3.png`,
+          animations: "disabled",
+        });
+      await actor.getByRole("button", { name: "完了", exact: true }).click();
+      await peer.getByRole("button", { name: "完了", exact: true }).click();
+      await actor
+        .getByRole("button", { name: "次のステップへ", exact: true })
+        .click();
+      await actor
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "次へ進む", exact: true })
+        .click();
+      for (const page of [actor, peer])
+        await expect
+          .poll(() => page.getByTestId("board-location-step").innerText())
+          .toBe("投票");
+      for (const page of [actor, peer])
+        await expect
+          .poll(() =>
+            page
+              .getByTestId("room-board-view-root")
+              .getAttribute("data-connection-status"),
+          )
+          .toBe("open");
+      if (evidence)
+        await actor.screenshot({
+          path: `${evidence}/unnamed-1-4.png`,
+          animations: "disabled",
+        });
+      await expect.poll(() => unnamed(actor).count()).toBe(1);
+      await expect.poll(() => unnamed(peer).count()).toBe(1);
+      await actor.reload();
+      await expect.poll(() => unnamed(actor).count()).toBe(1);
+      await actor.context().close();
+    } finally {
+      await browser.close();
+    }
+  }, 90_000);
+
   test("1-5で所属付箋を離してもグループ枠が追従し、他者・再接続・Undoでも所属を保つ", async () => {
     const browser = await chromium.launch();
     try {

@@ -743,3 +743,56 @@ it.each([
     room.close();
   },
 );
+
+it.each(["グループ", "学び合い"])(
+  "1-3のまとまり（%s）は1-4への進行と再接続後も所属を保持する",
+  async (name) => {
+    const current: RoomPhase = { kind: "step", phase: 1, step: 3 };
+    const room = await setup(current);
+    try {
+      if (name !== "グループ") {
+        await runInRoomDO(room.roomId, (_room, state) => {
+          state.storage.sql.exec(
+            "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES(?,?,?,'now','now')",
+            draftId,
+            name,
+            JSON.stringify([candidateId, excludedId]),
+          );
+        });
+      }
+      await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
+      send(room.a, transition("phase:next", current));
+      for (const socket of [room.a, room.b]) {
+        expect(await until(socket, "snapshot")).toMatchObject({
+          groups: [
+            expect.objectContaining({
+              name,
+              noteIds: expect.arrayContaining([candidateId, excludedId]),
+            }),
+          ],
+        });
+        expect(await until(socket, "phase:updated")).toMatchObject({
+          phase: { kind: "step", phase: 1, step: 4 },
+        });
+      }
+      const reconnect = await connectRoomAs(member, room.roomId);
+      const snapshot = await reconnect.next();
+      expect(snapshot).toMatchObject({
+        groups: [
+          expect.objectContaining({
+            name,
+            noteIds: expect.arrayContaining([candidateId, excludedId]),
+          }),
+        ],
+      });
+      if (snapshot.type === "snapshot") {
+        expect(snapshot.groups?.[0].noteIds).toHaveLength(2);
+        expect(snapshot.groups?.[0].noteIds).not.toContain(draftId);
+        if (name !== "グループ") expect(snapshot.groups?.[0].id).toBe(draftId);
+      }
+      reconnect.close();
+    } finally {
+      room.close();
+    }
+  },
+);
