@@ -33,6 +33,21 @@ class PlanningIssueSpecTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "pbi.why"):
             planning.validate_spec(spec)
 
+    def test_demo_is_optional_representative_confirmation_in_one_experience_section(self):
+        spec = self.spec()
+        spec["pbi"]["acceptance"] = ["参加者が次の案を書き続けられる"]
+        spec["demo_overview"] = "2人で付箋の追加を確認する"
+        spec["demo_goals"][0]["checks"] = ["追加後すぐ入力できる"]
+        spec["demo_goals"][0]["risks"] = ["対象は個人作業中"]
+        body = planning.pbi_body(spec)
+        self.assertEqual(body.count("## ユーザーに提供する体験"), 1)
+        self.assertNotIn("## 期待する振る舞い", body)
+        self.assertNotIn("## デモ確認内容", body)
+        self.assertNotIn("確認観点:", body)
+        for value in ["参加者が次の案を書き続けられる", "2人で付箋の追加を確認する",
+                      "画面で結果を確認できる。", "追加後すぐ入力できる", "対象は個人作業中"]:
+            self.assertIn(value, body)
+
     def test_pbi_id_is_optional_for_the_existing_auto_numbering_route(self):
         planning.validate_spec(self.spec())
 
@@ -105,7 +120,7 @@ class PlanningIssueSpecTests(unittest.TestCase):
         body = planning.pbi_body(spec)
         self.assertTrue(body.startswith(spec["pbi"]["story"] + "\n\n## Why"))
         self.assertIn(spec["pbi"]["why"], body)
-        self.assertIn("## 期待する振る舞い\n\n- 追加後すぐ本文を書ける", body)
+        self.assertIn("## ユーザーに提供する体験\n\n- 追加後すぐ本文を書ける", body)
         self.assertNotIn("## 受け入れ条件", body)
 
     def test_why_rejects_invalid_values_but_legacy_spec_is_accepted(self):

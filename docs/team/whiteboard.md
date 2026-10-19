@@ -10,7 +10,7 @@
 | GitHub Issues / Projects | Issue 内容、状態、担当者、PR との紐づき                  |
 | Markdown                 | 運用ルールと参照先                                       |
 
-Issue Type・フォーム・Project 状態の定義は[Issue と GitHub Project の運用](issues.md)を参照してください。PBI の目的・受け入れ条件・デモ確認内容、技術メモは Issue に記録し、Markdown や付箋に複製しません。
+Issue Type・フォーム・Project 状態の定義は[Issue と GitHub Project の運用](issues.md)を参照してください。PBIのWhy・ユーザーに提供する体験と必要な技術メモはIssueに記録し、Markdown や付箋に複製しません。
 
 ## 付箋の書き方
 

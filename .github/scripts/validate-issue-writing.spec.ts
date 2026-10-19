@@ -38,6 +38,25 @@ describe("入口共通のIssue形式検査", () => {
       }
     }
   });
+  it("PBIの体験見出しとGUIを揃え、任意の補足として受け付ける", () => {
+    const form = parse(
+      readFileSync(".github/ISSUE_TEMPLATE/01-pbi.yml", "utf8"),
+    );
+    const experience = form.body.find(
+      (field: { id: string }) => field.id === "acceptance",
+    );
+    expect(experience.attributes.label).toBe("ユーザーに提供する体験");
+    expect(experience.validations.required).toBe(false);
+    expect(
+      checkIssueWriting(
+        {
+          ...pbi,
+          body: pbi.body.replace("期待する振る舞い", "ユーザーに提供する体験"),
+        },
+        contract(),
+      ),
+    ).toEqual([]);
+  });
   it("PBIとTaskの標準本文を受け付ける", () => {
     expect(checkIssueWriting(pbi, contract())).toEqual([]);
     expect(checkIssueWriting(task, contract())).toEqual([]);

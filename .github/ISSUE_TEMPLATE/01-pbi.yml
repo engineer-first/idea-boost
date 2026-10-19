@@ -15,7 +15,7 @@ body:
   - type: textarea
     id: acceptance
     attributes:
-      label: 期待する振る舞い
+      label: ユーザーに提供する体験
       description: 必要な場合だけ、ユーザーに提供する体験を少数の結果で補足してください。Whyで伝われば省略できます。詳細な仕様やテストケースは不要です。
     validations:
       required: false
@@ -24,6 +24,6 @@ body:
     attributes:
       label: 補足
       description: 関連Issue・PR、重要な対象外や未確認だけ必要に応じて添えてください。実績と今後の要望を区別します。
-      placeholder: "根拠：#番号で確認した変更／仮案：確認したい背景／未確認：残る期待する振る舞い"
+      placeholder: "根拠：#番号で確認した変更／仮案：確認したい背景／未確認：残るユーザーに提供する体験"
     validations:
       required: false
