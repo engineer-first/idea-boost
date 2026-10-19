@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { NextPhaseConfirmDialog } from "./next-phase-confirm-dialog";
@@ -118,3 +118,26 @@ it.each([3, 5])(
     expect(screen.getByRole("alertdialog")).toHaveTextContent(/下書き.*破棄/);
   },
 );
+
+it("確認中に全員完了してキャンセルしても進行ボタンへフォーカスを戻す", async () => {
+  const props = {
+    phase: buildPhaseStep(1),
+    disabled: false,
+    onConfirm: vi.fn(),
+  };
+  const { rerender } = render(
+    <NextPhaseConfirmDialog {...props} requireConfirmation />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+  rerender(<NextPhaseConfirmDialog {...props} requireConfirmation={false} />);
+  fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "次のステップへ" }),
+    ).toHaveFocus(),
+  );
+  expect(props.onConfirm).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+  expect(props.onConfirm).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});

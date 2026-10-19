@@ -52,13 +52,17 @@ export function NextPhaseConfirmDialog({
       type="button"
       className="h-10 px-4 max-[900px]:px-2 max-[900px]:text-xs"
       disabled={disabled}
-      onClick={requireConfirmation ? undefined : onConfirm}
+      onClick={(event) => {
+        if (!requireConfirmation) {
+          event.preventDefault();
+          onConfirm();
+        }
+      }}
     >
       次のステップへ
     </Button>
   );
-  // 確認中に全員が完了しても、利用者が閉じるまでダイアログを維持する。
-  if (!requireConfirmation && !open) return trigger;
+  // 全員完了後も構造を維持し、閉じたときにトリガーへフォーカスを戻す。
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
