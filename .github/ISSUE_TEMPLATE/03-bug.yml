@@ -10,12 +10,14 @@ body:
     attributes:
       label: 起きていること
       description: 実際に起きたことを書いてください。
+      placeholder: "投票後に再接続すると、自分の投票が消えて見え、投票済みか判断できない。"
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
       label: 期待すること
+      placeholder: "再接続後も自分の投票済み状態が見える。"
     validations:
       required: false
   - type: textarea
@@ -23,5 +25,6 @@ body:
     attributes:
       label: 再現手順・環境
       description: 分かる範囲で書いてください。
+      placeholder: "Chromeで投票 → 通信を切る → 再接続すると投票表示が消える。別のブラウザでは未確認。"
     validations:
       required: false

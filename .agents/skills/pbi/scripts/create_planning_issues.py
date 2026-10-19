@@ -59,17 +59,13 @@ def issue_title(item):
     return f"{item['id']} {item['title']}"
 
 
-def demo_section(index, demo):
-    parts = [
-        f"### {index}. {demo['title']}",
-        demo["goal"],
-        "確認観点:",
-        bullet_list(demo.get("checks")),
-    ]
-    risks = demo.get("risks")
-    if risks:
-        parts.extend(["リスク:", bullet_list(risks)])
-    return "\n\n".join(parts)
+def demo_section(demo):
+    parts = [f"- {demo['goal']}（{demo['title']}）"]
+    if demo.get("checks"):
+        parts.append("  - 代表確認: " + " / ".join(demo["checks"]))
+    if demo.get("risks"):
+        parts.append("  - 注意点: " + " / ".join(demo["risks"]))
+    return "\n".join(parts)
 
 
 def pbi_sections():
@@ -85,23 +81,21 @@ def pbi_sections():
 
 def pbi_body(spec):
     pbi = spec["pbi"]
-    why, behavior = pbi_sections()
-    parts = [
-        pbi["story"],
-        f"## {why}",
-        pbi.get("why") or "未確認：背景を確認して追記する。",
-        f"## {behavior}",
-        bullet_list(pbi.get("acceptance")),
-    ]
-    if spec.get("demo_overview") or spec.get("demo_goals"):
-        parts.append("## デモ確認内容")
+    why = pbi_sections()[0]
+    parts = [pbi["story"]]
+    parts.extend([f"## {why}", pbi.get("why") or "未確認：背景を確認して追記する。"])
+    if pbi.get("acceptance") or spec.get("demo_overview") or spec.get("demo_goals"):
+        parts.append("## ユーザーに提供する体験")
+        if pbi.get("acceptance"):
+            parts.append(bullet_list(pbi["acceptance"]))
         if spec.get("demo_overview"):
-            parts.append(spec["demo_overview"])
-        for index, demo in enumerate(spec.get("demo_goals", []), start=1):
-            parts.append(demo_section(index, demo))
+            parts.append("代表確認: " + spec["demo_overview"])
+        for demo in spec.get("demo_goals", []):
+            parts.append(demo_section(demo))
     if spec.get("not_doing"):
         parts.extend(["## やらないこと", bullet_list(spec["not_doing"])])
-    parts.extend(["## メモ", bullet_list(pbi.get("memo"))])
+    if pbi.get("memo"):
+        parts.extend(["## メモ", bullet_list(pbi["memo"])])
     return "\n\n".join(parts)
 
 
@@ -319,7 +313,7 @@ def render_dry_run(spec):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create one idea-boost PBI with acceptance and demo checks.")
+    parser = argparse.ArgumentParser(description="Create one idea-boost PBI centered on Why and user experience.")
     parser.add_argument("spec", type=Path, help="Path to a JSON planning spec")
     parser.add_argument("--dry-run", action="store_true", help="Render issue bodies without creating issues")
     args = parser.parse_args()
