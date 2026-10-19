@@ -4,6 +4,8 @@ import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
 
 const principal = "11111111-1111-4111-8111-111111111111";
+// 控えの発行と再送が秒をまたいでも、同じセッションの期限を使う。
+const sessionExpiresAt = Math.floor(Date.now() / 1000) + 600;
 async function send(ticket: string, sub = principal) {
   const session = await signToken(
     { sub, email: "owner@example.test" },
@@ -11,6 +13,7 @@ async function send(ticket: string, sub = principal) {
       secret: env.SESSION_SECRET,
       audience: TOKEN_AUDIENCE.session,
       expiresInSeconds: 600,
+      expiresAtSeconds: sessionExpiresAt,
     },
   );
   return exports.default.fetch("https://api.test/api/auth/consume-ticket", {
@@ -65,7 +68,7 @@ describe("再開情報の消費", () => {
 describe("同じ入室の控え", () => {
   async function admission(
     audience = "idea-boost:room-admission",
-    sessionExp = Math.floor(Date.now() / 1000) + 600,
+    sessionExp = sessionExpiresAt,
   ) {
     return signToken(
       {
@@ -90,10 +93,7 @@ describe("同じ入室の控え", () => {
     expect(
       (
         await send(
-          await admission(
-            "idea-boost:room-admission",
-            Math.floor(Date.now() / 1000) + 601,
-          ),
+          await admission("idea-boost:room-admission", sessionExpiresAt + 1),
         )
       ).status,
     ).toBe(403);

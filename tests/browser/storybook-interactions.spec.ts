@@ -13,6 +13,7 @@ afterAll(async () => {
 
 // DOMの描画だけではplayの失敗を検出できない。storyの操作を最後まで実行する。
 test.each([
+  "room-nextphaseconfirmdialog--all-ready",
   "notes-notecard--excluded-for-host",
   "notes-notecard--excluded-for-participant",
   "notes-notecard--result-with-candidate-action",

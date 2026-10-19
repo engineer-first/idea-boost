@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 // ホストの「次のフェーズへ」操作の確認 Dialog（トリガーボタン込み）。
-// フェーズ移行は付箋の整理を伴うため、必ず確認を挟む。
+// 未完了メンバーがいる場合など、確認が必要な進行操作で表示する。
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +43,7 @@ export function NextPhaseConfirmDialog({
   notReadyNames = [],
   notReadyMembers = [],
 }: NextPhaseConfirmDialogProps) {
+  const [open, setOpen] = useState(false);
   const beginsVoting =
     phase.kind === "step" &&
     phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1;
@@ -50,14 +52,19 @@ export function NextPhaseConfirmDialog({
       type="button"
       className="h-10 px-4 max-[900px]:px-2 max-[900px]:text-xs"
       disabled={disabled}
-      onClick={requireConfirmation ? undefined : onConfirm}
+      onClick={(event) => {
+        if (!requireConfirmation) {
+          event.preventDefault();
+          onConfirm();
+        }
+      }}
     >
       次のステップへ
     </Button>
   );
-  if (!requireConfirmation) return trigger;
+  // 全員完了後も構造を維持し、閉じたときにトリガーへフォーカスを戻す。
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
 
       <AlertDialogContent>
@@ -65,7 +72,9 @@ export function NextPhaseConfirmDialog({
           <AlertDialogTitle>
             {notReadyNames.length > 0
               ? "完了していないメンバーがいます"
-              : "次のステップへ進みますか？"}
+              : !requireConfirmation
+                ? "全員が完了しました"
+                : "次のステップへ進みますか？"}
           </AlertDialogTitle>
 
           <AlertDialogDescription>
@@ -73,6 +82,8 @@ export function NextPhaseConfirmDialog({
               <span className="block">
                 全員の完了を待たずに、次のステップへ進みますか？
               </span>
+            ) : !requireConfirmation ? (
+              <span className="block">このまま「次へ進む」を押せます。</span>
             ) : null}
             {getPhaseLabel(phase)}から次のステップへ進みます。
             {beginsVoting
