@@ -47,3 +47,14 @@ export const LeavingPersonalWork: Story = {
   args: { phase: STEP_1_1 },
   play: Opened.play,
 };
+
+// 開いた後にControlsでrequireConfirmationをfalse、notReadyNamesを[]にすると、
+// 全員完了後もダイアログが残り「次へ進む」を押せることを確認できる。
+export const WaitingForMember: Story = {
+  args: {
+    phase: STEP_1_1,
+    requireConfirmation: true,
+    notReadyNames: ["Member"],
+  },
+  play: Opened.play,
+};

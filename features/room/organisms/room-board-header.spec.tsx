@@ -68,6 +68,48 @@ function openRoomMenu() {
 }
 
 describe("RoomBoardHeader", () => {
+  it.each([true, false])(
+    "isHost=%sで確認中に全員が完了してもダイアログを維持し、最新の完了状態で進む",
+    (isHost) => {
+      const members = buildMembers(2, ME);
+      const props = setupProps({
+        isHost,
+        members,
+        progress: {
+          ...allReadyProgress(members),
+          readyUserIds: [ME],
+          notReadyUserIds: [members[1].userId],
+          allReady: false,
+        },
+      });
+      const { rerender } = render(<RoomBoardHeader {...props} />);
+      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+      expect(screen.getByRole("alertdialog")).toHaveTextContent(
+        members[1].name,
+      );
+
+      rerender(
+        <RoomBoardHeader
+          {...props}
+          progress={{ ...allReadyProgress(members), progressRevision: 3 }}
+        />,
+      );
+
+      expect(screen.getByRole("alertdialog")).toBeVisible();
+      expect(
+        screen.queryByRole("group", { name: "未完了のメンバー" }),
+      ).toBeNull();
+      expect(props.onNextPhase).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
+      expect(props.onNextPhase).toHaveBeenCalledExactlyOnceWith(undefined);
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+      expect(props.onNextPhase).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+    },
+  );
+
   it.each([4, 5])(
     "3-%iも問いと課題を畳んだ共通のマップ用参照欄を使う",
     (step) => {

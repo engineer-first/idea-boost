@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 // ホストの「次のフェーズへ」操作の確認 Dialog（トリガーボタン込み）。
 // フェーズ移行は付箋の整理を伴うため、必ず確認を挟む。
 import {
@@ -42,6 +43,7 @@ export function NextPhaseConfirmDialog({
   notReadyNames = [],
   notReadyMembers = [],
 }: NextPhaseConfirmDialogProps) {
+  const [open, setOpen] = useState(false);
   const beginsVoting =
     phase.kind === "step" &&
     phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1;
@@ -55,9 +57,10 @@ export function NextPhaseConfirmDialog({
       次のステップへ
     </Button>
   );
-  if (!requireConfirmation) return trigger;
+  // 確認中に全員が完了しても、利用者が閉じるまでダイアログを維持する。
+  if (!requireConfirmation && !open) return trigger;
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
 
       <AlertDialogContent>
