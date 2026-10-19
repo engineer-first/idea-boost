@@ -10,17 +10,20 @@ body:
     attributes:
       label: 調査したい問い
       description: この調査で明らかにしたいことを書いてください。
+      placeholder: "複数人で編集すると他の参加者への表示が遅れる。どこで遅延が起きているか。"
     validations:
       required: true
   - type: textarea
     id: outcome
     attributes:
       label: 欲しい判断材料・調査結果
+      placeholder: "同じ操作条件で計測した結果と原因候補を示し、次に試す対策を選べる。"
     validations:
       required: false
   - type: textarea
     id: notes
     attributes:
       label: 関連Issue・補足
+      placeholder: "対象: 参加者5人の個人作業中。未確認: 端末性能や通信環境による違い。"
     validations:
       required: false

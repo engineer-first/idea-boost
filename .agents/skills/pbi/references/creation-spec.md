@@ -18,7 +18,7 @@
 }
 ```
 
-`pbi.title` と、`pbi.why` または互換用の `pbi.story` が必須。新規起票はWhy中心とし、ユーザーストーリーは任意。ID未指定なら `pbi.genre` も必須。
+`pbi.title` と `pbi.story` は必須。新規起票はWhy中心とし、本文は見出しなしの冒頭ユーザーストーリー → Why → 必要な体験補足の順にする。ID未指定なら `pbi.genre` も必須。
 基本の6ジャンルで目的を表せない場合は追加ジャンルも使える。コードは大文字英字で始まる大文字英数字（例：`ACCESS`）。既存分類とのずれと追加理由は検討内容へ残す。
 ジャンル付きIDは作成されたIssue番号から確定する（例：CANVAS、#340 → `PBI-CANVAS-340`）。
 dry-runの `PBI-CANVAS-00` は仮表示で、入力specを書き換えない。
@@ -28,7 +28,7 @@ dry-runの `PBI-CANVAS-00` は仮表示で、入力specを書き換えない。
 `pbi.why` はWhyの本文、`pbi.acceptance` は「ユーザーに提供する体験」の配列。ユーザーに提供する体験はWhyで体験が伝われば省略できる。空の任意節は出力しない。
 旧specも受け付け、Whyがない場合は背景が未確認であることを本文に表示する。
 
-`milestone`、`pbi.acceptance`、`pbi.memo`、`demo_goals` は任意。`pbi.why` と `pbi.story` は少なくとも一方を記入する。
+`milestone`、`pbi.acceptance`、`pbi.memo`、`demo_goals` は任意。`pbi.why` は旧specとの互換性のため任意だが、新しい草案では現状の事実と影響を書く。
 既存入力の `demo_overview`、`demo_goals[].risks`、`not_doing` は本文へ保持する。
 既存JSONの `acceptance` / `demo_goals` というキー名は互換のため維持する。出力は「ユーザーに提供する体験」へまとめ、代表確認は必要な場合だけ短く添える。独立した「デモ確認内容」欄や詳細テスト一覧は作らない。
 補足が必要な場合の入力例：

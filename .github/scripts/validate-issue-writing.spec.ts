@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
 import {
@@ -23,18 +23,64 @@ const pbi = {
 };
 
 describe("入口共通のIssue形式検査", () => {
-  it("Whyだけで起票でき、任意欄・定型文・箇条書きを要求しない", () => {
-    for (const type of ["PBI", "Task"]) {
+  it("PBIは冒頭ストーリーとWhy、TaskはWhyだけで任意欄を要求しない", () => {
+    for (const issue of [task, pbi]) {
+      const introduction =
+        issue.type.name === "PBI" ? `${pbi.body.split("\n## Why")[0]}\n` : "";
       for (const body of [
         "## Why\n付箋を追加するたび入力先を探し、考える流れが止まる。",
         "### Why\n入力の流れが止まる。\n### How\n_No response_\n### 作業完了条件\n_No response_",
       ]) {
         expect(
           checkIssueWriting(
-            { ...task, type: { name: type }, body },
+            { ...issue, body: introduction + body },
             contract(),
           ),
         ).toEqual([]);
+      }
+    }
+  });
+  it("PBIのストーリー不足・見出し付き・Whyより後への配置を案内する", () => {
+    for (const body of [
+      "## Why\n入力先を探すため考えが途切れる。",
+      `### ユーザーストーリー\n${pbi.body}`,
+      pbi.body
+        .replace("## Why", "## ユーザーに提供する体験")
+        .replace("## 期待する振る舞い", "## Why"),
+      `## Why\n入力先を探している。\n${pbi.body.split("\n## Why")[0]}`,
+      `\`\`\`markdown\n${pbi.body}\n\`\`\``,
+    ]) {
+      expect(checkIssueWriting({ ...pbi, body }, contract()).join()).toContain(
+        "冒頭",
+      );
+    }
+    expect(
+      checkIssueWriting(
+        {
+          ...pbi,
+          body: pbi.body
+            .replace("として、", "として")
+            .replace("なぜなら、", "なぜなら"),
+        },
+        contract(),
+      ),
+    ).toEqual([]);
+  });
+  it("全フォームの具体例はplaceholderに置き、未編集の例文を入力値にしない", () => {
+    for (const name of readdirSync(".github/ISSUE_TEMPLATE").filter((name) =>
+      /^\d.*\.yml$/.test(name),
+    )) {
+      const form = parse(
+        readFileSync(`.github/ISSUE_TEMPLATE/${name}`, "utf8"),
+      );
+      for (const field of form.body.filter(
+        (field: { type: string }) => field.type === "textarea",
+      )) {
+        expect(
+          field.attributes.placeholder?.trim(),
+          `${name}: ${field.id}`,
+        ).toBeTruthy();
+        expect(field.attributes).not.toHaveProperty("value");
       }
     }
   });
@@ -61,7 +107,7 @@ describe("入口共通のIssue形式検査", () => {
     expect(checkIssueWriting(pbi, contract())).toEqual([]);
     expect(checkIssueWriting(task, contract())).toEqual([]);
   });
-  it("GUIの見出しレベルと任意の冒頭見出しをそのまま扱う", () => {
+  it("GUIのWhy見出しレベルも扱い、PBI冒頭の自動見出しは修正を案内する", () => {
     expect(
       checkIssueWriting(
         { ...task, body: task.body.replaceAll("## ", "### ") },
@@ -72,8 +118,8 @@ describe("入口共通のIssue形式検査", () => {
       checkIssueWriting(
         { ...pbi, body: `### ユーザーストーリー\n${pbi.body}` },
         contract(),
-      ),
-    ).toEqual([]);
+      ).join(),
+    ).toContain("冒頭");
   });
   it("Whyの空欄・重複を見逃さず、コード例やコメントで条件を満たさない", () => {
     for (const body of [
@@ -154,7 +200,11 @@ describe("入口共通のIssue形式検査", () => {
         )
         .map((x: { attributes: { label: string } }) => x.attributes.label);
       expect(form.type).toBe(type);
-      expect(requiredLabels).toEqual(contract().types[type].sections);
+      expect(requiredLabels).toEqual(
+        type === "PBI"
+          ? ["ユーザーストーリー", ...contract().types[type].sections]
+          : contract().types[type].sections,
+      );
     }
   });
 });
@@ -178,6 +228,22 @@ function fixture(issue = task, comments: object[] = []) {
 }
 
 describe("作成後の案内", () => {
+  it("PBIのストーリー不足は本文や状態を変えず案内コメントだけを返す", async () => {
+    const issue = {
+      ...pbi,
+      body: "## Why\n入力先を探すため考えが途切れる。",
+      state: "open",
+    };
+    const before = structuredClone(issue);
+    const f = fixture(issue);
+    const result = await reportIssueWriting({ ...f, contract: contract() });
+    expect(result.errors.join()).toContain("冒頭");
+    expect(f.issues.createComment).toHaveBeenCalledOnce();
+    expect(f.issues.createComment.mock.calls[0][0].body).toContain(
+      "起票や着手を妨げません",
+    );
+    expect(issue).toEqual(before);
+  });
   it("不足だけを1件案内し、同じ内容を再投稿しない", async () => {
     const f = fixture({ ...task, body: "" });
     await reportIssueWriting({ ...f, contract: contract() });

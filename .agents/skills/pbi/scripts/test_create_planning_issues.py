@@ -15,23 +15,24 @@ class PlanningIssueSpecTests(unittest.TestCase):
             "repo": "engineer-first/idea-boost",
             "project_owner": "engineer-first",
             "project_number": 3,
-            "pbi": {"genre": "CANVAS", "title": "タイトル", "story": "利用者として価値を得たい。"},
+            "pbi": {"genre": "CANVAS", "title": "タイトル", "story": "参加者として、案を比較したい。なぜなら、結論を選びたいからだ。"},
             "demo_goals": [{"title": "確認する", "goal": "画面で結果を確認できる。"}],
         }
 
-    def test_why_only_spec_does_not_generate_empty_optional_sections(self):
+    def test_story_and_why_do_not_generate_empty_optional_sections(self):
         spec = self.spec()
-        del spec["pbi"]["story"]
         del spec["demo_goals"]
         spec["pbi"]["why"] = "入力先を探すため案を書く流れが止まる。"
         planning.validate_spec(spec)
-        self.assertEqual(planning.pbi_body(spec), "## Why\n\n" + spec["pbi"]["why"])
+        self.assertEqual(planning.pbi_body(spec), spec["pbi"]["story"] + "\n\n## Why\n\n" + spec["pbi"]["why"])
 
-    def test_missing_why_and_story_is_rejected_before_creation(self):
-        spec = self.spec()
-        del spec["pbi"]["story"]
-        with self.assertRaisesRegex(ValueError, "pbi.why"):
-            planning.validate_spec(spec)
+    def test_story_is_required_even_when_why_is_present(self):
+        for value in [None, "", "   "]:
+            spec = self.spec()
+            spec["pbi"]["story"] = value
+            spec["pbi"]["why"] = "入力先を探すため考えが途切れる。"
+            with self.assertRaisesRegex(ValueError, "pbi.story"):
+                planning.validate_spec(spec)
 
     def test_demo_is_optional_representative_confirmation_in_one_experience_section(self):
         spec = self.spec()
@@ -161,7 +162,7 @@ class PlanningIssueSpecTests(unittest.TestCase):
         with patch.object(planning, "run") as run, redirect_stdout(io.StringIO()) as output:
             planning.render_dry_run(spec)
         run.assert_not_called()
-        self.assertIn("利用者として価値を得たい", output.getvalue())
+        self.assertIn("参加者として、案を比較したい。なぜなら、結論を選びたいからだ", output.getvalue())
 
     def test_main_creates_one_pbi_with_demo_checks_and_initializes_one_item(self):
         spec = self.spec()
@@ -188,7 +189,7 @@ class PlanningIssueSpecTests(unittest.TestCase):
         create.assert_called_once()
         created = create.call_args.args
         self.assertEqual(created[3:], ("PBI", "対象スプリント"))
-        for content in ["利用者として価値を得たい", "受け入れ条件を保持する", "デモの見せ方を保持する", "画面で結果を確認できる", "注意点を保持する", "確認観点を保持する", "対象外を保持する"]:
+        for content in ["参加者として、案を比較したい。なぜなら、結論を選びたいからだ", "受け入れ条件を保持する", "デモの見せ方を保持する", "画面で結果を確認できる", "注意点を保持する", "確認観点を保持する", "対象外を保持する"]:
             self.assertIn(content, created[2])
         add.assert_called_once_with(3, "engineer-first", "https://github.com/engineer-first/idea-boost/issues/340", 340)
         set_status.assert_called_once_with("pbi-item", "project-id", "status-id", "untriaged-id")

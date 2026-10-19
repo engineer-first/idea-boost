@@ -67,6 +67,18 @@ function checkIssueWriting(issue, contract) {
     if (!meaningful(content))
       errors.push(`「${section}」の内容を記入してください。`);
   }
+  if (rule.storyPattern) {
+    const introduction = text
+      .slice(0, headings[0]?.index ?? text.length)
+      .trim()
+      .replace(/\s*\n\s*/g, "");
+    if (!new RegExp(rule.storyPattern).test(introduction))
+      errors.push(
+        "PBI本文冒頭を見出しなしの「○○として、○○したい。なぜなら、○○だからだ。」にしてください。フォーム由来のユーザーストーリー見出しは削除し、段落は残します。",
+      );
+    if (headings[0]?.[1] !== rule.sections[0])
+      errors.push("冒頭ストーリーの次に「Why」見出しを置いてください。");
+  }
   return errors;
 }
 

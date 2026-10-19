@@ -7,6 +7,7 @@ body:
     attributes:
       label: 相談・要望の内容
       description: 決めたいこと、困っていること、実現したいことを短く書いてください。
+      placeholder: "進行役として、誤って次のステップへ進めたときに戻りたい。戻せる範囲を相談したい。"
     validations:
       required: true
   - type: textarea
@@ -14,5 +15,6 @@ body:
     attributes:
       label: 背景・補足
       description: 分かっている範囲で背景や参考情報を書いてください。
+      placeholder: "振り返り中に2回誤操作があり、参加者へ口頭で案内し直した。投票済みの内容は保ちたい。"
     validations:
       required: false

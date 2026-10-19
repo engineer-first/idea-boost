@@ -10,6 +10,7 @@ body:
     attributes:
       label: Why
       description: 親PBIがあればその価値を踏まえ、この作業が必要な理由と現在の障害を書いてください。
+      placeholder: "付箋を続けて書く際、毎回追加ボタンへ移動する必要がある。入力の流れを保てるようにしたい。"
     validations:
       required: true
   - type: textarea
@@ -17,6 +18,7 @@ body:
     attributes:
       label: How
       description: 任意。既知の方針や仮説だけを短く書いてください。解決方法・具体仕様・必要な制約は担当者とAIで詰め、実装中に追記できます。未定でも起票・着手できます。
+      placeholder: "仮案: 既存の付箋追加処理を利用し、新しい付箋の本文へフォーカスを移す。操作方法は担当者とAIで検討する。"
     validations:
       required: false
   - type: textarea
@@ -24,12 +26,13 @@ body:
     attributes:
       label: 作業完了条件
       description: 任意。完成を判断する主要な結果を少数だけ補足してください。未定でも起票・着手できます。詳細なテストケースの列挙や全ケースの人間レビューは不要です。
-      placeholder: "例: 参加者が個人ワークステップで自分の付箋を共有スペースへドラッグすると、ほかの参加者の画面にも表示される。"
+      placeholder: "合意した追加操作で付箋が1枚増え、そのまま本文を書ける。"
     validations:
       required: false
   - type: textarea
     id: related
     attributes:
       label: 関連Issue・補足
+      placeholder: "親PBI: #番号（未整理なら後から紐付ける）。未確認: 日本語変換中の入力との競合。"
     validations:
       required: false
