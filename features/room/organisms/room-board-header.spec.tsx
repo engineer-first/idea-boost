@@ -71,21 +71,21 @@ describe("RoomBoardHeader", () => {
   it.each([true, false])(
     "isHost=%sで確認中に全員が完了してもダイアログを維持し、最新の完了状態で進む",
     (isHost) => {
-      const members = buildMembers(2, ME);
+      const members = buildMembers(3, ME);
       const props = setupProps({
         isHost,
         members,
         progress: {
           ...allReadyProgress(members),
-          readyUserIds: [ME],
-          notReadyUserIds: [members[1].userId],
+          readyUserIds: members.slice(0, 2).map(({ userId }) => userId),
+          notReadyUserIds: [members[2].userId],
           allReady: false,
         },
       });
       const { rerender } = render(<RoomBoardHeader {...props} />);
       fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
       expect(screen.getByRole("alertdialog")).toHaveTextContent(
-        members[1].name,
+        members[2].name,
       );
 
       rerender(
