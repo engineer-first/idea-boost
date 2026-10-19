@@ -1,0 +1,40 @@
+name: Issue Writing
+
+on:
+  issues:
+    types: [opened, edited, reopened, typed, untyped]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 検査するIssue番号
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: issue-writing-${{ github.repository }}-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+        with:
+          script: |
+            const { readFileSync } = require("node:fs");
+            const { readWritingContract, reportIssueWriting } = require("./.github/scripts/validate-issue-writing.js");
+            const contract = readWritingContract(readFileSync("docs/team/issue-writing.md", "utf8"));
+            const result = await reportIssueWriting({ github, context, contract, issueNumber: process.env.ISSUE_NUMBER });
+            await core.summary.addHeading("Issue記述形式")
+              .addRaw(result.skipped ? result.reason : `形式上の指摘: ${result.errors.length}件。内容と粒度は共通ガイドでレビューしてください。`)
+              .write();

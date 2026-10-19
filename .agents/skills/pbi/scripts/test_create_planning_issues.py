@@ -84,6 +84,24 @@ class PlanningIssueSpecTests(unittest.TestCase):
         spec = self.spec()
         self.assertTrue(planning.pbi_body(spec).startswith(spec["pbi"]["story"]))
 
+    def test_body_expresses_why_and_behavior_without_story_heading(self):
+        spec = self.spec()
+        spec["pbi"]["why"] = "入力先を探すため案を書く流れが止まる。"
+        spec["pbi"]["acceptance"] = ["追加後すぐ本文を書ける"]
+        body = planning.pbi_body(spec)
+        self.assertTrue(body.startswith(spec["pbi"]["story"] + "\n\n## Why"))
+        self.assertIn(spec["pbi"]["why"], body)
+        self.assertIn("## 期待する振る舞い\n\n- 追加後すぐ本文を書ける", body)
+        self.assertNotIn("## 受け入れ条件", body)
+
+    def test_why_rejects_invalid_values_but_legacy_spec_is_accepted(self):
+        planning.validate_spec(self.spec())
+        for value in ["", [], 1]:
+            spec = self.spec()
+            spec["pbi"]["why"] = value
+            with self.assertRaisesRegex(ValueError, "pbi.why"):
+                planning.validate_spec(spec)
+
     def test_title_update_failure_reports_the_created_issue_for_recovery(self):
         with patch.object(planning, "create_issue", return_value={
             "number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340",

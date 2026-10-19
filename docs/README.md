@@ -4,26 +4,26 @@
 
 ## 知りたいことから探す
 
-| 知りたいこと                               | 読む資料                                                                                          |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| 何を作るか・誰のためか                     | [PRD](prd.md)                                                                                     |
-| ステップ・操作・ガイド・成果の振る舞い     | [進行仕様](product/sprint-flow.md)                                                                |
-| キャンバス操作の方針を3分で読む            | [操作概要](product/canvas-interactions.md) → [実装用詳細](product/canvas-interactions/details.md) |
-| FigJam / Miroの画像・GIFで操作を比較したい | [参考ギャラリー](product/canvas-interactions/reference-gallery.md)                                |
-| コードをどこに置くか                       | [開発規約](development/conventions.md)                                                            |
-| 何をどう検証するか                         | [テスト方針](development/testing.md)、[ローカル検証](development/local-verification.md)           |
-| 本番の閲覧権限を付けたい                   | [認証と権限付与](operations/access.md)                                                            |
-| PRの変更版をローカル起動なしで試したい     | [PR Preview](operations/preview.md)                                                               |
-| 本番を公開・復旧したい                     | [リリース運用](operations/release.md)                                                             |
-| 成果・意見の保存や削除を確認したい         | [共有成果](operations/shared-outcomes.md)、[意見](operations/feedback.md)                         |
-| 現在の構成とデータ責務を知りたい           | [構成概要](architecture/overview.md)                                                              |
-| なぜこの設計を選んだか                     | [ADR](adr/README.md)                                                                              |
-| Issue・チームの仕事を進めたい              | [Issue運用](team/issues.md)、[ホワイトボード](team/whiteboard.md)                                 |
-| CodeRabbitのレビューを進めたい             | [レビュー運用](team/code-review.md)                                                               |
-| 指示・skill・hookを保守したい              | [エージェント指示の保守](development/agent-maintenance.md)                                        |
-| 開発サーバーの期限と常駐を選びたい         | [開発サーバーの起動と停止](development/dev-server-lifecycle.md)                                   |
-| 図や操作デモで理解したい                   | [公開HTMLの目次](site/index.html) / [GitHub Pages](https://engineer-first.github.io/idea-boost/)  |
-| 当時の検討を辿りたい                       | [過去資料](archive/README.md)                                                                     |
+| 知りたいこと                               | 読む資料                                                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| 何を作るか・誰のためか                     | [PRD](prd.md)                                                                                               |
+| ステップ・操作・ガイド・成果の振る舞い     | [進行仕様](product/sprint-flow.md)                                                                          |
+| キャンバス操作の方針を3分で読む            | [操作概要](product/canvas-interactions.md) → [実装用詳細](product/canvas-interactions/details.md)           |
+| FigJam / Miroの画像・GIFで操作を比較したい | [参考ギャラリー](product/canvas-interactions/reference-gallery.md)                                          |
+| コードをどこに置くか                       | [開発規約](development/conventions.md)                                                                      |
+| 何をどう検証するか                         | [テスト方針](development/testing.md)、[ローカル検証](development/local-verification.md)                     |
+| 本番の閲覧権限を付けたい                   | [認証と権限付与](operations/access.md)                                                                      |
+| PRの変更版をローカル起動なしで試したい     | [PR Preview](operations/preview.md)                                                                         |
+| 本番を公開・復旧したい                     | [リリース運用](operations/release.md)                                                                       |
+| 成果・意見の保存や削除を確認したい         | [共有成果](operations/shared-outcomes.md)、[意見](operations/feedback.md)                                   |
+| 現在の構成とデータ責務を知りたい           | [構成概要](architecture/overview.md)                                                                        |
+| なぜこの設計を選んだか                     | [ADR](adr/README.md)                                                                                        |
+| Issue・チームの仕事を進めたい              | [Issue運用](team/issues.md)、[Issue記述ルール](team/issue-writing.md)、[ホワイトボード](team/whiteboard.md) |
+| CodeRabbitのレビューを進めたい             | [レビュー運用](team/code-review.md)                                                                         |
+| 指示・skill・hookを保守したい              | [エージェント指示の保守](development/agent-maintenance.md)                                                  |
+| 開発サーバーの期限と常駐を選びたい         | [開発サーバーの起動と停止](development/dev-server-lifecycle.md)                                             |
+| 図や操作デモで理解したい                   | [公開HTMLの目次](site/index.html) / [GitHub Pages](https://engineer-first.github.io/idea-boost/)            |
+| 当時の検討を辿りたい                       | [過去資料](archive/README.md)                                                                               |
 
 ルーム作成の受付・回復・移行・GCは[運用仕様](operations/room-creation.md)を参照。
 

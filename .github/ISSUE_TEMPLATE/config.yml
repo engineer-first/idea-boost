@@ -1,1 +1,5 @@
 blank_issues_enabled: true
+contact_links:
+  - name: Issue記述ルール（全員・全ツール共通）
+    url: https://github.com/engineer-first/idea-boost/blob/develop/docs/team/issue-writing.md
+    about: PBI・Taskの型、記入例、作成後の形式検査と修正方法
