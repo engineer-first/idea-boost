@@ -2909,6 +2909,66 @@ describe("RoomBoardView", () => {
     });
   });
 
+  describe("確定フェーズのメンバー完了表示", () => {
+    it.each([
+      [1, 5, true],
+      [2, 4, true],
+      [3, 5, true],
+      [1, 5, false],
+      [2, 4, false],
+      [3, 5, false],
+    ] as const)(
+      "%i-%iで確定・取消を全員の完了表示に反映する（ホスト=%s）",
+      (phase, step, isHost) => {
+        const members = buildMembers(3, ME);
+        const { props, rerender } = setup({
+          phase: buildPhaseStep(step, phase),
+          notes: [buildNote({ id: "note-1" })],
+          members,
+          isHost,
+          decision: null,
+        });
+        const actionName =
+          phase === 3 ? "完了して成果を表示" : "次のステップへ";
+        const assertCompletion = (complete: boolean) => {
+          expect(
+            within(
+              screen.getByRole("button", { name: "参加者 3人" }),
+            ).queryAllByTestId("member-voting-complete"),
+          ).toHaveLength(complete ? members.length : 0);
+          for (const member of members) {
+            expect(
+              screen.getAllByRole("img", {
+                name: member.name + (complete ? "（作業完了）" : ""),
+              }).length,
+            ).toBeGreaterThan(0);
+          }
+          if (isHost) {
+            if (complete)
+              expect(
+                screen.getByRole("button", { name: actionName }),
+              ).toBeEnabled();
+            else
+              expect(
+                screen.getByRole("button", { name: actionName }),
+              ).toBeDisabled();
+          }
+        };
+        fireEvent.click(screen.getByRole("button", { name: "参加者 3人" }));
+        assertCompletion(false);
+        rerender(
+          <TestBoardView
+            {...props}
+            decision={buildDecision({ phase, noteId: "note-1" })}
+          />,
+        );
+        assertCompletion(true);
+        rerender(<TestBoardView {...props} decision={null} />);
+        assertCompletion(false);
+      },
+    );
+  });
+
   describe("ステップ移行", () => {
     it("ホストの場合のみ「次のステップへ」ボタンを表示する", () => {
       setup({ isHost: true });
