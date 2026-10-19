@@ -2,7 +2,8 @@
 
 # PRのWorkers Previewを使う・設定する
 
-[Issue #362](https://github.com/engineer-first/idea-boost/issues/362)の実装と初期設定の手順です。**コードの追加と、Cloudflareの実設定・利用確認は別です。** 公開済みかは実行結果で確認し、別メンバーのGoogleログインと共同操作まで確認してIssueの完了を判断します。担当者・権限・契約の整備は[#360](https://github.com/engineer-first/idea-boost/issues/360)で行います。
+[Issue #362](https://github.com/engineer-first/idea-boost/issues/362)の実装と初期設定の手順です。
+**コードの追加と、Cloudflareの実設定・利用確認は別です。** 公開済みかは実行結果で確認し、別メンバーのGoogleログインと共同操作まで確認してIssueの完了を判断します。担当者・権限・契約の整備は[#360](https://github.com/engineer-first/idea-boost/issues/360)で行います。
 
 ## PR全体を反映する現在の方式
 
