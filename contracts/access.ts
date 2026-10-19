@@ -14,12 +14,12 @@ export const ManagedReadPermissionSchema = z.enum([
 ]);
 export type ManagedReadPermission = z.infer<typeof ManagedReadPermissionSchema>;
 
-export const AccessEmailSchema = z
-  .object({ email: z.string().trim().email() })
-  .strict();
+export const AccessEmailSchema = z.strictObject({
+  email: z.string().trim().pipe(z.email()),
+});
 export const AccessUserSchema = z.object({
   id: z.string(),
   name: z.string().nullable(),
-  email: z.string().email(),
+  email: z.email(),
 });
 export const AccessUsersSchema = z.object({ users: z.array(AccessUserSchema) });

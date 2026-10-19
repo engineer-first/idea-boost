@@ -1,4 +1,4 @@
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import worker from "./api-worker";
 import {
@@ -128,26 +128,31 @@ describe("退出時の成果閲覧選択", () => {
       ]),
     });
   });
-  it.each([
-    "discard",
-    undefined,
-  ])("%sで途中退出した本人の一覧・成果・場面は残らない", async (access) => {
-    const room = await roomWithGuest();
-    expect((await leave(room.roomId, access)).status).toBe(204);
-    await publish(room.roomId);
-    expect((await request(`completed-rooms/${room.roomId}`)).status).toBe(404);
-    expect(
-      (await request(`completed-rooms/${room.roomId}/scenes/problem-grouping`))
-        .status,
-    ).toBe(404);
-    expect(
-      (
-        (await (await request("completed-rooms")).json()) as {
-          rooms: Array<{ roomId: string }>;
-        }
-      ).rooms.some((item) => item.roomId === room.roomId),
-    ).toBe(false);
-  });
+  it.each(["discard", undefined])(
+    "%sで途中退出した本人の一覧・成果・場面は残らない",
+    async (access) => {
+      const room = await roomWithGuest();
+      expect((await leave(room.roomId, access)).status).toBe(204);
+      await publish(room.roomId);
+      expect((await request(`completed-rooms/${room.roomId}`)).status).toBe(
+        404,
+      );
+      expect(
+        (
+          await request(
+            `completed-rooms/${room.roomId}/scenes/problem-grouping`,
+          )
+        ).status,
+      ).toBe(404);
+      expect(
+        (
+          (await (await request("completed-rooms")).json()) as {
+            rooms: Array<{ roomId: string }>;
+          }
+        ).rooms.some((item) => item.roomId === room.roomId),
+      ).toBe(false);
+    },
+  );
   it("再参加後の最後の退出選択で保持を決め、保持済み退出者へ二重付与しない", async () => {
     const room = await roomWithGuest();
     await leave(room.roomId, "retain");

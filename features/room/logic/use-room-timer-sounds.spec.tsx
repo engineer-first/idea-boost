@@ -205,43 +205,45 @@ function deferResume(): () => void {
 }
 
 describe("useRoomTimerSounds", () => {
-  it.each([
-    2_000, 2_001,
-  ])("終了音のresume待機(%ims)でも2秒の許容期限を守る", async (resumeDelay) => {
-    const durationMs = 1_000;
-    const { result, rerender } = setup(
-      activeSound(nowMs + durationMs, durationMs),
-    );
-    await enableSounds(result);
-    audioContexts[0].state = "suspended";
-    const release = deferResume();
-    await advance(durationMs);
-    await rerenderTimer(rerender, { status: "ended", durationMs }, 1);
-    await advance(resumeDelay);
-    await act(async () => {
-      release();
-    });
-    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual(
-      resumeDelay <= 2_000 ? [392, 329.63] : [],
-    );
-  });
+  it.each([2_000, 2_001])(
+    "終了音のresume待機(%ims)でも2秒の許容期限を守る",
+    async (resumeDelay) => {
+      const durationMs = 1_000;
+      const { result, rerender } = setup(
+        activeSound(nowMs + durationMs, durationMs),
+      );
+      await enableSounds(result);
+      audioContexts[0].state = "suspended";
+      const release = deferResume();
+      await advance(durationMs);
+      await rerenderTimer(rerender, { status: "ended", durationMs }, 1);
+      await advance(resumeDelay);
+      await act(async () => {
+        release();
+      });
+      expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual(
+        resumeDelay <= 2_000 ? [392, 329.63] : [],
+      );
+    },
+  );
 
-  it.each([
-    0, 20,
-  ])("期限直後の通常再描画・時刻補正(%ims)で終了通知を失わない", async (offset) => {
-    const durationMs = 1_000;
-    const timer = activeSound(nowMs + durationMs, durationMs);
-    const { result, rerender } = setup(timer);
-    await enableSounds(result);
-    await advance(durationMs);
-    await rerenderTimer(rerender, { ...timer }, 0, offset);
-    await rerenderTimer(rerender, { status: "ended", durationMs }, 1, offset);
-    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
-      392, 329.63,
-    ]);
-    await rerenderTimer(rerender, { status: "ended", durationMs }, 2, offset);
-    expect(startedTones).toHaveLength(2);
-  });
+  it.each([0, 20])(
+    "期限直後の通常再描画・時刻補正(%ims)で終了通知を失わない",
+    async (offset) => {
+      const durationMs = 1_000;
+      const timer = activeSound(nowMs + durationMs, durationMs);
+      const { result, rerender } = setup(timer);
+      await enableSounds(result);
+      await advance(durationMs);
+      await rerenderTimer(rerender, { ...timer }, 0, offset);
+      await rerenderTimer(rerender, { status: "ended", durationMs }, 1, offset);
+      expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+        392, 329.63,
+      ]);
+      await rerenderTimer(rerender, { status: "ended", durationMs }, 2, offset);
+      expect(startedTones).toHaveLength(2);
+    },
+  );
 
   it("終了待ちを保持しても許容2秒を超えた終了音は後追いしない", async () => {
     const durationMs = 1_000;
@@ -254,29 +256,33 @@ describe("useRoomTimerSounds", () => {
     expect(startedTones).toHaveLength(0);
   });
 
-  it.each([
-    "start",
-    "end",
-  ] as const)("resume待機中の%s通知は別のタイマー状態で取り消す", async (kind) => {
-    const timer = activeSound(nowMs + 1_000, 1_000);
-    const { result, rerender } = setup(
-      kind === "start" ? { status: "idle" } : timer,
-    );
-    await enableSounds(result);
-    audioContexts[0].state = "suspended";
-    const release = deferResume();
-    if (kind === "start") {
-      await rerenderTimer(rerender, timer, 1);
-    } else {
-      await advance(1_000);
-      await rerenderTimer(rerender, { status: "ended", durationMs: 1_000 }, 1);
-    }
-    await rerenderTimer(rerender, { status: "idle" }, 2);
-    await act(async () => {
-      release();
-    });
-    expect(startedTones).toHaveLength(0);
-  });
+  it.each(["start", "end"] as const)(
+    "resume待機中の%s通知は別のタイマー状態で取り消す",
+    async (kind) => {
+      const timer = activeSound(nowMs + 1_000, 1_000);
+      const { result, rerender } = setup(
+        kind === "start" ? { status: "idle" } : timer,
+      );
+      await enableSounds(result);
+      audioContexts[0].state = "suspended";
+      const release = deferResume();
+      if (kind === "start") {
+        await rerenderTimer(rerender, timer, 1);
+      } else {
+        await advance(1_000);
+        await rerenderTimer(
+          rerender,
+          { status: "ended", durationMs: 1_000 },
+          1,
+        );
+      }
+      await rerenderTimer(rerender, { status: "idle" }, 2);
+      await act(async () => {
+        release();
+      });
+      expect(startedTones).toHaveLength(0);
+    },
+  );
 
   it("古い予告の失敗が再有効化後の音と設定を止めない", async () => {
     const { result } = setup(activeSound(nowMs + 6_000, 6_000));
@@ -328,35 +334,33 @@ describe("useRoomTimerSounds", () => {
     expect(audioContexts[0].state).toBe("running");
   });
 
-  it.each([
-    "pause",
-    "end",
-    "extend",
-    "snapshot",
-  ] as const)("resume 待機中に %s された古い予告を後から鳴らさない", async (operation) => {
-    const timer = activeSound(nowMs + 6_000, 6_000);
-    const { result, rerender } = setup(timer);
-    await enableSounds(result);
-    audioContexts[0].state = "suspended";
-    const release = deferResume();
-    await advance(1_000);
-    expect(startedTones).toHaveLength(0);
-    const replacement: TimerState =
-      operation === "pause"
-        ? { status: "paused", remainingMs: 5_000, durationMs: 6_000 }
-        : operation === "end"
-          ? { status: "ended", durationMs: 6_000 }
-          : activeSound(nowMs + 65_000, 66_000);
-    await rerenderTimer(
-      rerender,
-      replacement,
-      operation === "snapshot" ? 0 : 1,
-    );
-    await act(async () => {
-      release();
-    });
-    expect(startedTones).toHaveLength(0);
-  });
+  it.each(["pause", "end", "extend", "snapshot"] as const)(
+    "resume 待機中に %s された古い予告を後から鳴らさない",
+    async (operation) => {
+      const timer = activeSound(nowMs + 6_000, 6_000);
+      const { result, rerender } = setup(timer);
+      await enableSounds(result);
+      audioContexts[0].state = "suspended";
+      const release = deferResume();
+      await advance(1_000);
+      expect(startedTones).toHaveLength(0);
+      const replacement: TimerState =
+        operation === "pause"
+          ? { status: "paused", remainingMs: 5_000, durationMs: 6_000 }
+          : operation === "end"
+            ? { status: "ended", durationMs: 6_000 }
+            : activeSound(nowMs + 65_000, 66_000);
+      await rerenderTimer(
+        rerender,
+        replacement,
+        operation === "snapshot" ? 0 : 1,
+      );
+      await act(async () => {
+        release();
+      });
+      expect(startedTones).toHaveLength(0);
+    },
+  );
 
   it("resume 待機中の通常再描画は有効な予告を取り消さない", async () => {
     const timer = activeSound(nowMs + 6_000, 6_000);
@@ -420,27 +424,27 @@ describe("useRoomTimerSounds", () => {
     expect(startedTones).toHaveLength(0);
   });
 
-  it.each([
-    "mute",
-    "unmount",
-  ] as const)("有効化の resume 待機中に %s したら音と設定保存を取り消す", async (operation) => {
-    const { result, unmount } = setup({ status: "idle" });
-    const release = deferResume();
-    let enable: Promise<void> = Promise.resolve();
-    act(() => {
-      enable = result.current.onEnable();
-    });
-    act(() => {
-      operation === "mute" ? result.current.onMute() : unmount();
-    });
-    await act(async () => {
-      release();
-      await enable;
-    });
-    expect(startedTones).toHaveLength(0);
-    expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBeNull();
-    if (operation === "mute") expect(result.current.enabled).toBe(false);
-  });
+  it.each(["mute", "unmount"] as const)(
+    "有効化の resume 待機中に %s したら音と設定保存を取り消す",
+    async (operation) => {
+      const { result, unmount } = setup({ status: "idle" });
+      const release = deferResume();
+      let enable: Promise<void> = Promise.resolve();
+      act(() => {
+        enable = result.current.onEnable();
+      });
+      act(() => {
+        operation === "mute" ? result.current.onMute() : unmount();
+      });
+      await act(async () => {
+        release();
+        await enable;
+      });
+      expect(startedTones).toHaveLength(0);
+      expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBeNull();
+      if (operation === "mute") expect(result.current.enabled).toBe(false);
+    },
+  );
 
   it("消音とアンマウントは再生中の全音を停止し、退出で context を閉じる", async () => {
     const { result, unmount } = setup({ status: "idle" });

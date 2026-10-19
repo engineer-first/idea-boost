@@ -1,4 +1,4 @@
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
 
 it("種類の移行で既存投稿・索引・失効トリガーを維持する", async () => {

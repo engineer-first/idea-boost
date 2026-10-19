@@ -10,7 +10,7 @@ const runtime = vi.hoisted(() => ({
   close: vi.fn(async () => {}),
   options: vi.fn(),
 }));
-vi.mock("@cloudflare/vitest-pool-workers", () => ({
+vi.mock("@cloudflare/vitest-plugin", () => ({
   readD1Migrations: async () => [],
 }));
 vi.mock("miniflare", () => ({

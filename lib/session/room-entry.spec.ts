@@ -27,11 +27,11 @@ describe("入室に必要な残り時間", () => {
     expect(hasRoomEntryTime({ ...user, exp: 3600 }, now)).toBe(now < 3600);
     expect(hasRoomEntryTime(null, now)).toBe(false);
   });
-  it.each([
-    undefined,
-    "false",
-  ])("Previewを有効にしなければ短いセッションで入室できない (%s)", (enabled) => {
-    vi.stubEnv("PREVIEW_ENABLED", enabled);
-    expect(hasRoomEntryTime({ ...user, exp: 3600 }, 0)).toBe(false);
-  });
+  it.each([undefined, "false"])(
+    "Previewを有効にしなければ短いセッションで入室できない (%s)",
+    (enabled) => {
+      vi.stubEnv("PREVIEW_ENABLED", enabled);
+      expect(hasRoomEntryTime({ ...user, exp: 3600 }, 0)).toBe(false);
+    },
+  );
 });

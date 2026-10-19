@@ -36,26 +36,26 @@ function renderLinks(
 }
 
 describe.each(pages)("公開HTMLの文書リンク: %s", (page) => {
-  it.each([
-    "rawcdn.githack.com",
-    "raw.githack.com",
-  ])("%sのプレビューから同じコミットを開き、アンカーと他のリンクを保つ", (host) => {
-    const { before, after } = renderLinks(
-      page,
-      `https://${host}/engineer-first/idea-boost/${sha}/docs/site/${page}`,
-    );
-    expect(
-      before.some((link) => link.startsWith(`${repository}blob/develop/`)),
-    ).toBe(true);
-    expect(after).toEqual(
-      before.map((link) =>
-        link.replace(
-          /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//,
-          `$1${sha}/`,
+  it.each(["rawcdn.githack.com", "raw.githack.com"])(
+    "%sのプレビューから同じコミットを開き、アンカーと他のリンクを保つ",
+    (host) => {
+      const { before, after } = renderLinks(
+        page,
+        `https://${host}/engineer-first/idea-boost/${sha}/docs/site/${page}`,
+      );
+      expect(
+        before.some((link) => link.startsWith(`${repository}blob/develop/`)),
+      ).toBe(true);
+      expect(after).toEqual(
+        before.map((link) =>
+          link.replace(
+            /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//,
+            `$1${sha}/`,
+          ),
         ),
-      ),
-    );
-  });
+      );
+    },
+  );
 
   it.each([
     "https://engineer-first.github.io/idea-boost/",

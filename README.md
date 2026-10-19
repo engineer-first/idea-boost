@@ -21,6 +21,8 @@
 - [mise](https://mise.jdx.dev/)（Node.js のバージョン管理に使用）
 - Git
 
+Node.js は検証済みの24系LTS、依存の解決はnpmと `package-lock.json` を使います。採用版・互換性・overrideの更新条件は[依存関係の保守](docs/development/dependencies.md)を参照してください。
+
 Docker や外部サービスのアカウントは不要です（wrangler がローカルで D1 / Durable Objects をエミュレートします）。
 
 ### 手順
@@ -29,7 +31,7 @@ Docker や外部サービスのアカウントは不要です（wrangler がロ�
 git clone git@github.com:engineer-first/idea-boost.git
 cd idea-boost
 
-# mise で Node.js LTS をインストール（初回のみ）
+# mise で検証済み Node.js 24 LTS をインストール（初回のみ）
 mise install
 
 # 依存関係のインストール

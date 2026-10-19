@@ -151,14 +151,12 @@ describe.skipIf(process.platform === "win32")("期限付き開発サーバー", 
     expect(remaining).toBeLessThan(2 * 60 * 60 * 1000 + 5000);
   }, 10000);
 
-  it.each([
-    "0",
-    "-1",
-    "NaN",
-    "9007199254740991",
-  ])("不正な期限 %s では起動しない", async (ttl) => {
-    const run = await start(["--ttl-ms", ttl]);
-    expect(await run.exited).toEqual([1, null]);
-    expect(run.output()).toContain("期限");
-  });
+  it.each(["0", "-1", "NaN", "9007199254740991"])(
+    "不正な期限 %s では起動しない",
+    async (ttl) => {
+      const run = await start(["--ttl-ms", ttl]);
+      expect(await run.exited).toEqual([1, null]);
+      expect(run.output()).toContain("期限");
+    },
+  );
 });

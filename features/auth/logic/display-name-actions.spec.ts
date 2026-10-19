@@ -23,18 +23,19 @@ beforeEach(() => {
   mocks.currentUser.mockResolvedValue({ sub: input.expectedPrincipal });
 });
 describe("表示名の保存結果", () => {
-  it.each([
-    200, 502,
-  ])("非JSON応答（%s）は成功として扱わず再保存を案内する", async (status) => {
-    mocks.apiFetch.mockResolvedValue(
-      new Response("<html>proxy</html>", { status }),
-    );
-    await expect(saveDisplayName(input)).resolves.toMatchObject({
-      ok: false,
-      error: expect.stringContaining("もう一度保存"),
-    });
-    expect(mocks.revalidatePath).not.toHaveBeenCalled();
-  });
+  it.each([200, 502])(
+    "非JSON応答（%s）は成功として扱わず再保存を案内する",
+    async (status) => {
+      mocks.apiFetch.mockResolvedValue(
+        new Response("<html>proxy</html>", { status }),
+      );
+      await expect(saveDisplayName(input)).resolves.toMatchObject({
+        ok: false,
+        error: expect.stringContaining("もう一度保存"),
+      });
+      expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    },
+  );
   it("通信が失敗しても結果不明として再保存を案内する", async () => {
     mocks.apiFetch.mockRejectedValue(new Error("ネットワーク障害"));
     await expect(saveDisplayName(input)).resolves.toMatchObject({

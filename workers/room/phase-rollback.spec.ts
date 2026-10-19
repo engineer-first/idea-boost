@@ -1,4 +1,4 @@
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   connectRoomAs,
@@ -417,28 +417,28 @@ describe("復元の競合と連続進行", () => {
       ),
     ).toBe("paused");
   });
-  it.each([
-    "phase:restart-writing",
-    "phase:revote",
-  ])("%sはそれ以前の復元履歴を破棄する", async (type) => {
-    const { roomId, a, b } = await setup();
-    await seed(roomId);
-    await next(roomId, a, b);
-    if (type === "phase:revote") await next(roomId, a, b);
-    else
-      await env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)).setPhase(
-        { kind: "step", phase: 1, step: 3 },
-        host.sub,
+  it.each(["phase:restart-writing", "phase:revote"])(
+    "%sはそれ以前の復元履歴を破棄する",
+    async (type) => {
+      const { roomId, a, b } = await setup();
+      await seed(roomId);
+      await next(roomId, a, b);
+      if (type === "phase:revote") await next(roomId, a, b);
+      else
+        await env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)).setPhase(
+          { kind: "step", phase: 1, step: 3 },
+          host.sub,
+        );
+      a.ws.send(
+        JSON.stringify({ type, ...(await currentPhaseExpectation(roomId)) }),
       );
-    a.ws.send(
-      JSON.stringify({ type, ...(await currentPhaseExpectation(roomId)) }),
-    );
-    const [snapshot] = await Promise.all([
-      until(a, "snapshot"),
-      until(b, "snapshot"),
-    ]);
-    expect(snapshot).toMatchObject({ rollbackTarget: null });
-  });
+      const [snapshot] = await Promise.all([
+        until(a, "snapshot"),
+        until(b, "snapshot"),
+      ]);
+      expect(snapshot).toMatchObject({ rollbackTarget: null });
+    },
+  );
   it("古いフェーズ世代とホスト世代は拒否し、現在ホストと会員は維持する", async () => {
     const { roomId, a, b } = await setup();
     await seed(roomId);
@@ -480,107 +480,107 @@ describe("復元の競合と連続進行", () => {
   });
 });
 describe("復元後の会員情報と本文保存の世代", () => {
-  it.each([
-    "active",
-    "complete",
-  ] as const)("発表が%sでも現在の表示名と新規参加者を発表順へ保つ", async (status) => {
-    const { roomId, stub, a, b } = await setup();
-    await seed(roomId);
-    await stub.setPhase({ kind: "step", phase: 1, step: 2 }, host.sub);
-    await runInRoomDO(roomId, (_room, state) =>
-      resetSharingForPhase(
-        state.storage.sql,
-        { kind: "step", phase: 1, step: 2 },
-        true,
-      ),
-    );
-    await runInRoomDO(roomId, (_room, state) => {
-      const sql = state.storage.sql;
-      const sharing = getSharingState(sql);
-      if (!sharing) throw new Error("共有状態がありません");
-      sharing.status = status;
-      sharing.startsAt = null;
-      if (status === "complete") {
-        sharing.currentIndex = null;
-        sharing.results = sharing.order.map(() => "done");
-      }
-      saveSharingState(sql, sharing);
-      if (status === "active") {
-        captureRollbackCheckpoint(sql, {
-          kind: "step",
-          phase: 1,
-          step: 2,
-        });
-        sharing.status = "complete";
-        sharing.currentIndex = null;
-        sharing.results = sharing.order.map(() => "done");
-        saveSharingState(sql, sharing);
-      }
-    });
-    a.ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomId)),
-      }),
-    );
-    await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
-    if (status === "active") {
+  it.each(["active", "complete"] as const)(
+    "発表が%sでも現在の表示名と新規参加者を発表順へ保つ",
+    async (status) => {
+      const { roomId, stub, a, b } = await setup();
+      await seed(roomId);
+      await stub.setPhase({ kind: "step", phase: 1, step: 2 }, host.sub);
+      await runInRoomDO(roomId, (_room, state) =>
+        resetSharingForPhase(
+          state.storage.sql,
+          { kind: "step", phase: 1, step: 2 },
+          true,
+        ),
+      );
       await runInRoomDO(roomId, (_room, state) => {
         const sql = state.storage.sql;
         const sharing = getSharingState(sql);
         if (!sharing) throw new Error("共有状態がありません");
-        sharing.status = "active";
-        sharing.currentIndex = 0;
+        sharing.status = status;
         sharing.startsAt = null;
-        sharing.results = [];
+        if (status === "complete") {
+          sharing.currentIndex = null;
+          sharing.results = sharing.order.map(() => "done");
+        }
         saveSharingState(sql, sharing);
-        captureRollbackCheckpoint(sql, {
-          kind: "step",
-          phase: 1,
-          step: 2,
-        });
+        if (status === "active") {
+          captureRollbackCheckpoint(sql, {
+            kind: "step",
+            phase: 1,
+            step: 2,
+          });
+          sharing.status = "complete";
+          sharing.currentIndex = null;
+          sharing.results = sharing.order.map(() => "done");
+          saveSharingState(sql, sharing);
+        }
       });
-    }
-    const newcomer = crypto.randomUUID();
-    await runInRoomDO(roomId, (_room, state) => {
-      state.storage.sql.exec(
-        "UPDATE members SET name='新しい名前' WHERE user_id=?",
-        member.sub,
-      );
-      state.storage.sql.exec(
-        "INSERT INTO members(user_id,name,color) VALUES(?,'途中参加','green')",
-        newcomer,
-      );
-    });
-    const [snapshot] = await rollback(roomId, a, b);
-    expect(snapshot).toMatchObject({
-      sharing: {
-        status: status === "complete" ? "ready" : "active",
-        order: expect.arrayContaining([
-          expect.objectContaining({ userId: member.sub, name: "新しい名前" }),
-          expect.objectContaining({ userId: newcomer, name: "途中参加" }),
-        ]),
-      },
-    });
-    if (status === "complete") {
-      if (snapshot.type !== "snapshot" || !snapshot.sharing)
-        throw new Error("復元した共有状態がありません");
       a.ws.send(
         JSON.stringify({
-          type: "sharing:start",
-          revision: snapshot.sharing.revision,
-          durationMs: 60000,
+          type: "phase:next",
+          ...(await currentPhaseExpectation(roomId)),
         }),
       );
-      expect(await until(a, "sharing:updated")).toMatchObject({
+      await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
+      if (status === "active") {
+        await runInRoomDO(roomId, (_room, state) => {
+          const sql = state.storage.sql;
+          const sharing = getSharingState(sql);
+          if (!sharing) throw new Error("共有状態がありません");
+          sharing.status = "active";
+          sharing.currentIndex = 0;
+          sharing.startsAt = null;
+          sharing.results = [];
+          saveSharingState(sql, sharing);
+          captureRollbackCheckpoint(sql, {
+            kind: "step",
+            phase: 1,
+            step: 2,
+          });
+        });
+      }
+      const newcomer = crypto.randomUUID();
+      await runInRoomDO(roomId, (_room, state) => {
+        state.storage.sql.exec(
+          "UPDATE members SET name='新しい名前' WHERE user_id=?",
+          member.sub,
+        );
+        state.storage.sql.exec(
+          "INSERT INTO members(user_id,name,color) VALUES(?,'途中参加','green')",
+          newcomer,
+        );
+      });
+      const [snapshot] = await rollback(roomId, a, b);
+      expect(snapshot).toMatchObject({
         sharing: {
-          status: "active",
-          currentIndex: 2,
-          order: snapshot.sharing.order,
+          status: status === "complete" ? "ready" : "active",
+          order: expect.arrayContaining([
+            expect.objectContaining({ userId: member.sub, name: "新しい名前" }),
+            expect.objectContaining({ userId: newcomer, name: "途中参加" }),
+          ]),
         },
       });
-    }
-  });
+      if (status === "complete") {
+        if (snapshot.type !== "snapshot" || !snapshot.sharing)
+          throw new Error("復元した共有状態がありません");
+        a.ws.send(
+          JSON.stringify({
+            type: "sharing:start",
+            revision: snapshot.sharing.revision,
+            durationMs: 60000,
+          }),
+        );
+        expect(await until(a, "sharing:updated")).toMatchObject({
+          sharing: {
+            status: "active",
+            currentIndex: 2,
+            order: snapshot.sharing.order,
+          },
+        });
+      }
+    },
+  );
   it("戻す前の保存receiptをacceptedにせず旧ID再送で本文を戻さない", async () => {
     const { roomId, a, b } = await setup();
     const id = await seed(roomId);

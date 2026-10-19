@@ -1,4 +1,4 @@
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
 import {
@@ -268,200 +268,86 @@ describe("本文保存を待たない進行", () => {
     { phase: 1, name: "課題" },
     { phase: 2, name: "問い" },
     { phase: 3, name: "アイデア" },
-  ] as const)("$nameの個人作業から共有へ進むとき空白のマイ付箋だけを削除し本文のある下書きを保持する", async ({
-    phase,
-  }) => {
-    const host = {
-      sub: hostId,
-      name: "Host",
-      email: "host@example.test",
-    };
-    const member = {
-      sub: memberId,
-      name: "Member",
-      email: "member@example.test",
-    };
-    const { roomId, inviteCode } = await createRoomAs(host);
-    await joinRoomAs(member, inviteCode);
-    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
-    await stub.setPhase(buildPhaseStep(1, phase), hostId);
+  ] as const)(
+    "$nameの個人作業から共有へ進むとき空白のマイ付箋だけを削除し本文のある下書きを保持する",
+    async ({ phase }) => {
+      const host = {
+        sub: hostId,
+        name: "Host",
+        email: "host@example.test",
+      };
+      const member = {
+        sub: memberId,
+        name: "Member",
+        email: "member@example.test",
+      };
+      const { roomId, inviteCode } = await createRoomAs(host);
+      await joinRoomAs(member, inviteCode);
+      const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
+      await stub.setPhase(buildPhaseStep(1, phase), hostId);
 
-    const noteIds = {
-      ownerEmpty: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1",
-      ownerBlank: "dddddddd-dddd-4ddd-8ddd-ddddddddddd5",
-      ownerContent: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
-      memberEmpty: "dddddddd-dddd-4ddd-8ddd-ddddddddddd3",
-      memberContent: "dddddddd-dddd-4ddd-8ddd-ddddddddddd4",
-    };
-    await runInRoomDO(roomId, (_room, state) => {
-      for (const [id, authorId, content] of [
-        [noteIds.ownerEmpty, hostId, " \t\u3000\n "],
-        [noteIds.ownerBlank, hostId, ""],
-        [noteIds.ownerContent, hostId, "アイデア案"],
-        [noteIds.memberEmpty, memberId, "\u3000\n"],
-        [noteIds.memberContent, memberId, "別のアイデア案"],
-      ] as const) {
-        state.storage.sql.exec(
-          `INSERT INTO notes
+      const noteIds = {
+        ownerEmpty: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1",
+        ownerBlank: "dddddddd-dddd-4ddd-8ddd-ddddddddddd5",
+        ownerContent: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+        memberEmpty: "dddddddd-dddd-4ddd-8ddd-ddddddddddd3",
+        memberContent: "dddddddd-dddd-4ddd-8ddd-ddddddddddd4",
+      };
+      await runInRoomDO(roomId, (_room, state) => {
+        for (const [id, authorId, content] of [
+          [noteIds.ownerEmpty, hostId, " \t\u3000\n "],
+          [noteIds.ownerBlank, hostId, ""],
+          [noteIds.ownerContent, hostId, "アイデア案"],
+          [noteIds.memberEmpty, memberId, "\u3000\n"],
+          [noteIds.memberContent, memberId, "別のアイデア案"],
+        ] as const) {
+          state.storage.sql.exec(
+            `INSERT INTO notes
              (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at)
            VALUES (?1, ?2, ?3, 'private', 'yellow', 40, 50, ?4, ?5, ?5)`,
-          id,
-          authorId,
-          content,
-          phase,
-          new Date().toISOString(),
-        );
-      }
-    });
-
-    const ownerSocket = await connectRoomAs(host, roomId);
-    const memberSocket = await connectRoomAs(member, roomId);
-    expect((await ownerSocket.next()).type).toBe("snapshot");
-    expect((await memberSocket.next()).type).toBe("snapshot");
-    // 古い進行要求では空白の下書きも削除しない。
-    const before = await currentPhaseExpectation(roomId);
-    ownerSocket.ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...before,
-        expectedRevision: before.expectedRevision + 1,
-      }),
-    );
-    expect(await untilType(ownerSocket, "error")).toMatchObject({
-      code: "forbidden",
-    });
-    expect(
-      await runInRoomDO(roomId, (_room, state) =>
-        state.storage.sql.exec("SELECT id FROM notes").toArray(),
-      ),
-    ).toHaveLength(5);
-    await runInRoomDO(roomId, (_room, state) => {
-      const revision = state.storage.sql
-        .exec("SELECT phase_revision FROM room_state WHERE id=1")
-        .one().phase_revision;
-      for (const userId of [hostId, memberId]) {
-        state.storage.sql.exec(
-          "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
-          revision,
-          userId,
-          Date.now(),
-        );
-      }
-    });
-    await startTimerForTest(roomId);
-    ownerSocket.ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomId)),
-      }),
-    );
-
-    const [ownerSnapshot, memberSnapshot] = await Promise.all([
-      untilType(ownerSocket, "snapshot"),
-      untilType(memberSocket, "snapshot"),
-    ]);
-    await Promise.all([
-      untilType(ownerSocket, "phase:updated"),
-      untilType(memberSocket, "phase:updated"),
-    ]);
-    expect(ownerSnapshot.type).toBe("snapshot");
-    expect(memberSnapshot.type).toBe("snapshot");
-    if (ownerSnapshot.type !== "snapshot" || memberSnapshot.type !== "snapshot")
-      throw new Error("進行後のsnapshotが見つかりません");
-
-    expect(ownerSnapshot.phase).toEqual(buildPhaseStep(2, phase));
-    expect(memberSnapshot.phase).toEqual(buildPhaseStep(2, phase));
-    expect(
-      ownerSnapshot.notes.some((note) => note.id === noteIds.ownerEmpty),
-    ).toBe(false);
-    expect(
-      memberSnapshot.notes.some((note) => note.id === noteIds.memberEmpty),
-    ).toBe(false);
-    expect(
-      ownerSnapshot.notes.some(({ id }) => id === noteIds.ownerBlank),
-    ).toBe(false);
-    expect(ownerSnapshot.notes).toContainEqual(
-      expect.objectContaining({
-        id: noteIds.ownerContent,
-        content: "アイデア案",
-      }),
-    );
-    expect(memberSnapshot.notes).toContainEqual(
-      expect.objectContaining({
-        id: noteIds.memberContent,
-        content: "別のアイデア案",
-      }),
-    );
-    const persisted = await runInRoomDO(roomId, (_room, state) =>
-      state.storage.sql.exec("SELECT id FROM notes ORDER BY id").toArray(),
-    );
-    expect(persisted).toEqual([
-      { id: noteIds.ownerContent },
-      { id: noteIds.memberContent },
-    ]);
-    const reconnectedDuringSharing = await connectRoomAs(member, roomId);
-    expect(await reconnectedDuringSharing.next()).toMatchObject({
-      phase: buildPhaseStep(2, phase),
-      notes: [expect.objectContaining({ id: noteIds.memberContent })],
-    });
-    reconnectedDuringSharing.close();
-    // 旧工程の要求は拒否し、5秒後の通信回復でも同じ共有工程の本人本文は保存できる。
-    await startTimerForTest(roomId);
-    const current = await currentPhaseExpectation(roomId);
-    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 5000);
-    try {
-      memberSocket.ws.send(
-        JSON.stringify({
-          type: "note:update-content",
-          noteId: noteIds.memberContent,
-          operationId: crypto.randomUUID(),
-          content: "遅れて届く本人本文",
-          expectedContentRevision: 0,
-          expectedPhaseRevision: current.expectedRevision - 1,
-        }),
-      );
-      expect(await untilType(memberSocket, "error")).toMatchObject({
-        code: "content-conflict",
+            id,
+            authorId,
+            content,
+            phase,
+            new Date().toISOString(),
+          );
+        }
       });
-      memberSocket.ws.send(
-        JSON.stringify({
-          type: "note:update-content",
-          noteId: noteIds.memberContent,
-          operationId: crypto.randomUUID(),
-          content: "遅れて届く本人本文",
-          expectedContentRevision: 0,
-          expectedPhaseRevision: current.expectedRevision,
-        }),
-      );
-      expect(await untilType(memberSocket, "note:content-saved")).toMatchObject(
-        { contentRevision: 1 },
-      );
-      // 他人の個人付箋を書き換えたり共有したりできない。
+
+      const ownerSocket = await connectRoomAs(host, roomId);
+      const memberSocket = await connectRoomAs(member, roomId);
+      expect((await ownerSocket.next()).type).toBe("snapshot");
+      expect((await memberSocket.next()).type).toBe("snapshot");
+      // 古い進行要求では空白の下書きも削除しない。
+      const before = await currentPhaseExpectation(roomId);
       ownerSocket.ws.send(
         JSON.stringify({
-          type: "note:update-content",
-          noteId: noteIds.memberContent,
-          operationId: crypto.randomUUID(),
-          content: "他人からの本文",
-          expectedContentRevision: 1,
-          expectedPhaseRevision: current.expectedRevision,
+          type: "phase:next",
+          ...before,
+          expectedRevision: before.expectedRevision + 1,
         }),
       );
       expect(await untilType(ownerSocket, "error")).toMatchObject({
         code: "forbidden",
       });
-      // 問いの共有→投票に必要な候補だけを追加する。
-      await runInRoomDO(roomId, (_room, state) =>
-        state.storage.sql.exec(
-          "UPDATE notes SET visibility='shared' WHERE id=?1",
-          noteIds.ownerContent,
+      expect(
+        await runInRoomDO(roomId, (_room, state) =>
+          state.storage.sql.exec("SELECT id FROM notes").toArray(),
         ),
-      );
-      await runInRoomDO(roomId, (_room, state) =>
-        state.storage.sql.exec(
-          "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
-        ),
-      );
+      ).toHaveLength(5);
+      await runInRoomDO(roomId, (_room, state) => {
+        const revision = state.storage.sql
+          .exec("SELECT phase_revision FROM room_state WHERE id=1")
+          .one().phase_revision;
+        for (const userId of [hostId, memberId]) {
+          state.storage.sql.exec(
+            "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
+            revision,
+            userId,
+            Date.now(),
+          );
+        }
+      });
       await startTimerForTest(roomId);
       ownerSocket.ws.send(
         JSON.stringify({
@@ -469,56 +355,177 @@ describe("本文保存を待たない進行", () => {
           ...(await currentPhaseExpectation(roomId)),
         }),
       );
-      const nextSnapshot = await untilType(ownerSocket, "snapshot");
-      expect(nextSnapshot).toMatchObject({ phase: buildPhaseStep(3, phase) });
-      if (nextSnapshot.type !== "snapshot") throw new Error("snapshot missing");
+
+      const [ownerSnapshot, memberSnapshot] = await Promise.all([
+        untilType(ownerSocket, "snapshot"),
+        untilType(memberSocket, "snapshot"),
+      ]);
+      await Promise.all([
+        untilType(ownerSocket, "phase:updated"),
+        untilType(memberSocket, "phase:updated"),
+      ]);
+      expect(ownerSnapshot.type).toBe("snapshot");
+      expect(memberSnapshot.type).toBe("snapshot");
+      if (
+        ownerSnapshot.type !== "snapshot" ||
+        memberSnapshot.type !== "snapshot"
+      )
+        throw new Error("進行後のsnapshotが見つかりません");
+
+      expect(ownerSnapshot.phase).toEqual(buildPhaseStep(2, phase));
+      expect(memberSnapshot.phase).toEqual(buildPhaseStep(2, phase));
       expect(
-        nextSnapshot.notes.some(({ id }) => id === noteIds.ownerEmpty),
+        ownerSnapshot.notes.some((note) => note.id === noteIds.ownerEmpty),
       ).toBe(false);
-      await untilType(ownerSocket, "phase:updated");
-      const memberNext = await untilType(memberSocket, "snapshot");
-      expect(memberNext).toMatchObject({
-        notes: expect.arrayContaining([
-          expect.objectContaining({
-            id: noteIds.memberContent,
-            content: "遅れて届く本人本文",
-          }),
-        ]),
-      });
-      await untilType(memberSocket, "phase:updated");
-      memberSocket.ws.send(
-        JSON.stringify({
-          type: "note:update-content",
-          noteId: noteIds.memberContent,
-          operationId: crypto.randomUUID(),
-          content: "非編集工程からの本文",
-          expectedContentRevision: 1,
-          expectedPhaseRevision: current.expectedRevision + 1,
+      expect(
+        memberSnapshot.notes.some((note) => note.id === noteIds.memberEmpty),
+      ).toBe(false);
+      expect(
+        ownerSnapshot.notes.some(({ id }) => id === noteIds.ownerBlank),
+      ).toBe(false);
+      expect(ownerSnapshot.notes).toContainEqual(
+        expect.objectContaining({
+          id: noteIds.ownerContent,
+          content: "アイデア案",
         }),
       );
-      expect(await untilType(memberSocket, "error")).toMatchObject({
-        code: "forbidden",
+      expect(memberSnapshot.notes).toContainEqual(
+        expect.objectContaining({
+          id: noteIds.memberContent,
+          content: "別のアイデア案",
+        }),
+      );
+      const persisted = await runInRoomDO(roomId, (_room, state) =>
+        state.storage.sql.exec("SELECT id FROM notes ORDER BY id").toArray(),
+      );
+      expect(persisted).toEqual([
+        { id: noteIds.ownerContent },
+        { id: noteIds.memberContent },
+      ]);
+      const reconnectedDuringSharing = await connectRoomAs(member, roomId);
+      expect(await reconnectedDuringSharing.next()).toMatchObject({
+        phase: buildPhaseStep(2, phase),
+        notes: [expect.objectContaining({ id: noteIds.memberContent })],
       });
-      const reconnected = await connectRoomAs(host, roomId);
-      const reconnectedSnapshot = await reconnected.next();
-      expect(reconnectedSnapshot).toMatchObject({
-        phase: buildPhaseStep(3, phase),
-      });
-      if (reconnectedSnapshot.type !== "snapshot")
-        throw new Error("snapshot missing");
-      expect(
-        reconnectedSnapshot.notes.some(({ id }) => id === noteIds.ownerEmpty),
-      ).toBe(false);
-      expect(
-        reconnectedSnapshot.notes.some(({ id }) => id === noteIds.memberEmpty),
-      ).toBe(false);
-      reconnected.close();
-    } finally {
-      clock.mockRestore();
-    }
-    ownerSocket.close();
-    memberSocket.close();
-  });
+      reconnectedDuringSharing.close();
+      // 旧工程の要求は拒否し、5秒後の通信回復でも同じ共有工程の本人本文は保存できる。
+      await startTimerForTest(roomId);
+      const current = await currentPhaseExpectation(roomId);
+      const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 5000);
+      try {
+        memberSocket.ws.send(
+          JSON.stringify({
+            type: "note:update-content",
+            noteId: noteIds.memberContent,
+            operationId: crypto.randomUUID(),
+            content: "遅れて届く本人本文",
+            expectedContentRevision: 0,
+            expectedPhaseRevision: current.expectedRevision - 1,
+          }),
+        );
+        expect(await untilType(memberSocket, "error")).toMatchObject({
+          code: "content-conflict",
+        });
+        memberSocket.ws.send(
+          JSON.stringify({
+            type: "note:update-content",
+            noteId: noteIds.memberContent,
+            operationId: crypto.randomUUID(),
+            content: "遅れて届く本人本文",
+            expectedContentRevision: 0,
+            expectedPhaseRevision: current.expectedRevision,
+          }),
+        );
+        expect(
+          await untilType(memberSocket, "note:content-saved"),
+        ).toMatchObject({ contentRevision: 1 });
+        // 他人の個人付箋を書き換えたり共有したりできない。
+        ownerSocket.ws.send(
+          JSON.stringify({
+            type: "note:update-content",
+            noteId: noteIds.memberContent,
+            operationId: crypto.randomUUID(),
+            content: "他人からの本文",
+            expectedContentRevision: 1,
+            expectedPhaseRevision: current.expectedRevision,
+          }),
+        );
+        expect(await untilType(ownerSocket, "error")).toMatchObject({
+          code: "forbidden",
+        });
+        // 問いの共有→投票に必要な候補だけを追加する。
+        await runInRoomDO(roomId, (_room, state) =>
+          state.storage.sql.exec(
+            "UPDATE notes SET visibility='shared' WHERE id=?1",
+            noteIds.ownerContent,
+          ),
+        );
+        await runInRoomDO(roomId, (_room, state) =>
+          state.storage.sql.exec(
+            "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
+          ),
+        );
+        await startTimerForTest(roomId);
+        ownerSocket.ws.send(
+          JSON.stringify({
+            type: "phase:next",
+            ...(await currentPhaseExpectation(roomId)),
+          }),
+        );
+        const nextSnapshot = await untilType(ownerSocket, "snapshot");
+        expect(nextSnapshot).toMatchObject({ phase: buildPhaseStep(3, phase) });
+        if (nextSnapshot.type !== "snapshot")
+          throw new Error("snapshot missing");
+        expect(
+          nextSnapshot.notes.some(({ id }) => id === noteIds.ownerEmpty),
+        ).toBe(false);
+        await untilType(ownerSocket, "phase:updated");
+        const memberNext = await untilType(memberSocket, "snapshot");
+        expect(memberNext).toMatchObject({
+          notes: expect.arrayContaining([
+            expect.objectContaining({
+              id: noteIds.memberContent,
+              content: "遅れて届く本人本文",
+            }),
+          ]),
+        });
+        await untilType(memberSocket, "phase:updated");
+        memberSocket.ws.send(
+          JSON.stringify({
+            type: "note:update-content",
+            noteId: noteIds.memberContent,
+            operationId: crypto.randomUUID(),
+            content: "非編集工程からの本文",
+            expectedContentRevision: 1,
+            expectedPhaseRevision: current.expectedRevision + 1,
+          }),
+        );
+        expect(await untilType(memberSocket, "error")).toMatchObject({
+          code: "forbidden",
+        });
+        const reconnected = await connectRoomAs(host, roomId);
+        const reconnectedSnapshot = await reconnected.next();
+        expect(reconnectedSnapshot).toMatchObject({
+          phase: buildPhaseStep(3, phase),
+        });
+        if (reconnectedSnapshot.type !== "snapshot")
+          throw new Error("snapshot missing");
+        expect(
+          reconnectedSnapshot.notes.some(({ id }) => id === noteIds.ownerEmpty),
+        ).toBe(false);
+        expect(
+          reconnectedSnapshot.notes.some(
+            ({ id }) => id === noteIds.memberEmpty,
+          ),
+        ).toBe(false);
+        reconnected.close();
+      } finally {
+        clock.mockRestore();
+      }
+      ownerSocket.close();
+      memberSocket.close();
+    },
+  );
 
   it("進行が成立しない場合や前の工程へ戻る場合は共有付箋を削除しない", async () => {
     const host = {
@@ -617,117 +624,120 @@ describe("整理・評価の自動タイマー", () => {
   it.each([
     [1, 240000],
     [3, 420000],
-  ] as const)("phase %iの共有から進む確定時だけ開始する", async (phase, durationMs) => {
-    const host = { sub: hostId, name: "Host", email: "host@example.test" };
-    const { roomId } = await createRoomAs(host);
-    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
-    await stub.setPhase(buildPhaseStep(2, phase), hostId);
-    const socket = await connectRoomAs(host, roomId);
-    await socket.next();
-    const expectation = await currentPhaseExpectation(roomId);
-    socket.ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...expectation,
-        expectedRevision: expectation.expectedRevision + 1,
-      }),
-    );
-    await untilType(socket, "error");
-    const rejected = await connectRoomAs(host, roomId);
-    expect(await rejected.next()).toMatchObject({
-      phase: buildPhaseStep(2, phase),
-      timer: { status: "idle" },
-    });
-    rejected.close();
-    await runInRoomDO(roomId, (_room, state) =>
-      state.storage.sql.exec(
-        "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
-      ),
-    );
-    await runInRoomDO(roomId, (_room, state) => {
-      const revision = state.storage.sql
-        .exec("SELECT phase_revision FROM room_state WHERE id=1")
-        .one().phase_revision;
-      state.storage.sql.exec(
-        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
-        revision,
-        hostId,
-        Date.now(),
+  ] as const)(
+    "phase %iの共有から進む確定時だけ開始する",
+    async (phase, durationMs) => {
+      const host = { sub: hostId, name: "Host", email: "host@example.test" };
+      const { roomId } = await createRoomAs(host);
+      const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
+      await stub.setPhase(buildPhaseStep(2, phase), hostId);
+      const socket = await connectRoomAs(host, roomId);
+      await socket.next();
+      const expectation = await currentPhaseExpectation(roomId);
+      socket.ws.send(
+        JSON.stringify({
+          type: "phase:next",
+          ...expectation,
+          expectedRevision: expectation.expectedRevision + 1,
+        }),
       );
-    });
-    socket.ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomId)),
-      }),
-    );
-    const snapshot = await untilType(socket, "snapshot");
-    expect(snapshot).toMatchObject({
-      phase: buildPhaseStep(3, phase),
-      timer: { status: "running", durationMs, endsAt: expect.any(Number) },
-    });
-    socket.ws.send(JSON.stringify({ type: "phase:next", ...expectation }));
-    await untilType(socket, "phase:updated");
-    await untilType(socket, "error");
-    const stillRunning = await connectRoomAs(host, roomId);
-    expect(await stillRunning.next()).toMatchObject({
-      timer: snapshot.type === "snapshot" ? snapshot.timer : undefined,
-    });
-    stillRunning.close();
-    socket.close();
-    const reconnected = await connectRoomAs(host, roomId);
-    expect(await reconnected.next()).toMatchObject({
-      timer: snapshot.type === "snapshot" ? snapshot.timer : undefined,
-    });
-    reconnected.ws.send(
-      JSON.stringify({
-        type: "phase:restart-writing",
-        ...(await currentPhaseExpectation(roomId)),
-      }),
-    );
-    await untilType(reconnected, "phase:updated");
-    await runInRoomDO(roomId, (_room, state) => {
-      const revision = state.storage.sql
-        .exec("SELECT phase_revision FROM room_state WHERE id=1")
-        .one().phase_revision;
-      state.storage.sql.exec(
-        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
-        revision,
-        hostId,
-        Date.now(),
+      await untilType(socket, "error");
+      const rejected = await connectRoomAs(host, roomId);
+      expect(await rejected.next()).toMatchObject({
+        phase: buildPhaseStep(2, phase),
+        timer: { status: "idle" },
+      });
+      rejected.close();
+      await runInRoomDO(roomId, (_room, state) =>
+        state.storage.sql.exec(
+          "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
+        ),
       );
-    });
-    reconnected.ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomId)),
-      }),
-    );
-    await untilType(reconnected, "phase:updated");
-    await runInRoomDO(roomId, (_room, state) =>
-      state.storage.sql.exec(
-        "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
-      ),
-    );
-    reconnected.ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomId)),
-      }),
-    );
-    const reentered = await untilType(reconnected, "snapshot");
-    expect(reentered).toMatchObject({
-      phase: buildPhaseStep(3, phase),
-      timer: { status: "running", durationMs },
-    });
-    if (
-      reentered.type === "snapshot" &&
-      reentered.timer.status === "running" &&
-      snapshot.type === "snapshot" &&
-      snapshot.timer.status === "running"
-    ) {
-      expect(reentered.timer.endsAt).toBeGreaterThan(snapshot.timer.endsAt);
-    }
-    reconnected.close();
-  });
+      await runInRoomDO(roomId, (_room, state) => {
+        const revision = state.storage.sql
+          .exec("SELECT phase_revision FROM room_state WHERE id=1")
+          .one().phase_revision;
+        state.storage.sql.exec(
+          "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
+          revision,
+          hostId,
+          Date.now(),
+        );
+      });
+      socket.ws.send(
+        JSON.stringify({
+          type: "phase:next",
+          ...(await currentPhaseExpectation(roomId)),
+        }),
+      );
+      const snapshot = await untilType(socket, "snapshot");
+      expect(snapshot).toMatchObject({
+        phase: buildPhaseStep(3, phase),
+        timer: { status: "running", durationMs, endsAt: expect.any(Number) },
+      });
+      socket.ws.send(JSON.stringify({ type: "phase:next", ...expectation }));
+      await untilType(socket, "phase:updated");
+      await untilType(socket, "error");
+      const stillRunning = await connectRoomAs(host, roomId);
+      expect(await stillRunning.next()).toMatchObject({
+        timer: snapshot.type === "snapshot" ? snapshot.timer : undefined,
+      });
+      stillRunning.close();
+      socket.close();
+      const reconnected = await connectRoomAs(host, roomId);
+      expect(await reconnected.next()).toMatchObject({
+        timer: snapshot.type === "snapshot" ? snapshot.timer : undefined,
+      });
+      reconnected.ws.send(
+        JSON.stringify({
+          type: "phase:restart-writing",
+          ...(await currentPhaseExpectation(roomId)),
+        }),
+      );
+      await untilType(reconnected, "phase:updated");
+      await runInRoomDO(roomId, (_room, state) => {
+        const revision = state.storage.sql
+          .exec("SELECT phase_revision FROM room_state WHERE id=1")
+          .one().phase_revision;
+        state.storage.sql.exec(
+          "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
+          revision,
+          hostId,
+          Date.now(),
+        );
+      });
+      reconnected.ws.send(
+        JSON.stringify({
+          type: "phase:next",
+          ...(await currentPhaseExpectation(roomId)),
+        }),
+      );
+      await untilType(reconnected, "phase:updated");
+      await runInRoomDO(roomId, (_room, state) =>
+        state.storage.sql.exec(
+          "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
+        ),
+      );
+      reconnected.ws.send(
+        JSON.stringify({
+          type: "phase:next",
+          ...(await currentPhaseExpectation(roomId)),
+        }),
+      );
+      const reentered = await untilType(reconnected, "snapshot");
+      expect(reentered).toMatchObject({
+        phase: buildPhaseStep(3, phase),
+        timer: { status: "running", durationMs },
+      });
+      if (
+        reentered.type === "snapshot" &&
+        reentered.timer.status === "running" &&
+        snapshot.type === "snapshot" &&
+        snapshot.timer.status === "running"
+      ) {
+        expect(reentered.timer.endsAt).toBeGreaterThan(snapshot.timer.endsAt);
+      }
+      reconnected.close();
+    },
+  );
 });

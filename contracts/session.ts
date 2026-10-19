@@ -4,14 +4,15 @@
 import { z } from "zod";
 
 // セッショントークン (HS256 JWT) のペイロード。ブラウザの HttpOnly Cookie に入る。
+// guid は Zod 3 の UUID 受理範囲を維持する。既存の本人 ID を RFC variant で拒否しない。
 export const SessionPayloadSchema = z.object({
-  sub: z.string().uuid(),
-  email: z.string().email(),
+  sub: z.guid(),
+  email: z.email(),
   name: z.string().optional(),
 });
 
 // 検証済みJWTだけが持つ期限。発行時の本人情報とは分離する。
-export const SessionExpiresAtSchema = z.number().int().positive().safe();
+export const SessionExpiresAtSchema = z.int().positive();
 export const VerifiedSessionSchema = SessionPayloadSchema.extend({
   exp: SessionExpiresAtSchema,
 });
@@ -26,13 +27,13 @@ export const LoginAssertionSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("google"),
     googleSub: z.string().min(1),
-    email: z.string().email(),
+    email: z.email(),
     name: z.string().optional(),
   }),
   z.object({
     kind: z.literal("dev"),
-    userId: z.string().uuid(),
-    email: z.string().email(),
+    userId: z.guid(),
+    email: z.email(),
     name: z.string().optional(),
   }),
 ]);

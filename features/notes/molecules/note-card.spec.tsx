@@ -632,20 +632,16 @@ describe("NoteCard", () => {
     expect(screen.getByRole("textbox")).toHaveFocus();
   });
 
-  it.each<NoteColor>([
-    "yellow",
-    "green",
-    "blue",
-    "pink",
-    "orange",
-    "purple",
-  ])("%s の付箋をFigJam風パステルカラーで表示する", (color) => {
-    setup({ note: buildNote({ color }) });
+  it.each<NoteColor>(["yellow", "green", "blue", "pink", "orange", "purple"])(
+    "%s の付箋をFigJam風パステルカラーで表示する",
+    (color) => {
+      setup({ note: buildNote({ color }) });
 
-    expect(getCard()).toHaveStyle({
-      backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
-    });
-  });
+      expect(getCard()).toHaveStyle({
+        backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+      });
+    },
+  );
 
   it("薄い付箋色の上で本文を常に濃色で表示する", () => {
     setup();
@@ -757,30 +753,30 @@ describe("NoteCard", () => {
       expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
     });
 
-    it.each([
-      "Enter",
-      " ",
-    ])("シール選択中に%sを押すと付箋の中央へ投票する", (key) => {
-      const onVote = vi.fn();
-      const { props } = setup({
-        isSelected: true,
-        canEditNote: false,
-        vote: {
-          displayMode: "voting",
-          selectedKind: "subjective",
-          voteRemaining: { subjective: 1, objective: 3 },
-          canVote: true,
-          pendingOperations: [],
-          onVote,
-          onVoteRemove: vi.fn(),
-        },
-      });
+    it.each(["Enter", " "])(
+      "シール選択中に%sを押すと付箋の中央へ投票する",
+      (key) => {
+        const onVote = vi.fn();
+        const { props } = setup({
+          isSelected: true,
+          canEditNote: false,
+          vote: {
+            displayMode: "voting",
+            selectedKind: "subjective",
+            voteRemaining: { subjective: 1, objective: 3 },
+            canVote: true,
+            pendingOperations: [],
+            onVote,
+            onVoteRemove: vi.fn(),
+          },
+        });
 
-      fireEvent.keyDown(getNoteSurface(), { key });
+        fireEvent.keyDown(getNoteSurface(), { key });
 
-      expect(onVote).toHaveBeenCalledWith(props.note.id, "subjective");
-      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
-    });
+        expect(onVote).toHaveBeenCalledWith(props.note.id, "subjective");
+        expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+      },
+    );
 
     it("付箋のホバーでは投票用プレビューを出さない", () => {
       setup({
@@ -1189,21 +1185,21 @@ describe("NoteCard", () => {
       expect(onDelete).not.toHaveBeenCalled();
     });
 
-    it.each([
-      "Delete",
-      "Backspace",
-    ])("選択中（非編集）の個人付箋で%sを押すとonDeleteを呼ぶ", (key) => {
-      const onDelete = vi.fn();
-      setup({
-        isSelected: true,
-        onDelete,
-        note: buildNote({ visibility: "private" }),
-      });
+    it.each(["Delete", "Backspace"])(
+      "選択中（非編集）の個人付箋で%sを押すとonDeleteを呼ぶ",
+      (key) => {
+        const onDelete = vi.fn();
+        setup({
+          isSelected: true,
+          onDelete,
+          note: buildNote({ visibility: "private" }),
+        });
 
-      fireEvent.keyDown(getNoteSurface(), { key });
+        fireEvent.keyDown(getNoteSurface(), { key });
 
-      expect(onDelete).toHaveBeenCalledWith("note-1");
-    });
+        expect(onDelete).toHaveBeenCalledWith("note-1");
+      },
+    );
 
     it("canDeleteNote=falseではBackspace/DeleteでもonDeleteを呼ばない", () => {
       const onDelete = vi.fn();
@@ -1221,58 +1217,58 @@ describe("NoteCard", () => {
       expect(onDelete).not.toHaveBeenCalled();
     });
 
-    it.each([
-      "Delete",
-      "Backspace",
-    ])("編集中の%sは文字削除でありonDeleteを呼ばない", (key) => {
-      const onDelete = vi.fn();
-      setup({
-        isSelected: true,
-        onDelete,
-        note: buildNote({ visibility: "private" }),
-      });
+    it.each(["Delete", "Backspace"])(
+      "編集中の%sは文字削除でありonDeleteを呼ばない",
+      (key) => {
+        const onDelete = vi.fn();
+        setup({
+          isSelected: true,
+          onDelete,
+          note: buildNote({ visibility: "private" }),
+        });
 
-      clickNote();
-      fireEvent.keyDown(screen.getByRole("textbox"), { key });
+        clickNote();
+        fireEvent.keyDown(screen.getByRole("textbox"), { key });
 
-      expect(onDelete).not.toHaveBeenCalled();
-    });
+        expect(onDelete).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe("ドラッグ", () => {
-    it.each([
-      false,
-      true,
-    ])("途中moveが届かなくても解放位置で移動を開始し、編集にしない selected=%s", (isSelected) => {
-      const { props } = setup({ isSelected });
-      const surface = getNoteSurface();
-      fireEvent.pointerDown(surface, {
-        pointerId: 1,
-        buttons: 1,
-        clientX: 50,
-        clientY: 50,
-      });
-      fireEvent.pointerUp(surface, {
-        pointerId: 1,
-        buttons: 0,
-        clientX: 120,
-        clientY: 80,
-      });
-      expect(props.onDragStart).toHaveBeenCalledExactlyOnceWith(
-        "note-1",
-        expect.objectContaining({
-          type: "pointerup",
+    it.each([false, true])(
+      "途中moveが届かなくても解放位置で移動を開始し、編集にしない selected=%s",
+      (isSelected) => {
+        const { props } = setup({ isSelected });
+        const surface = getNoteSurface();
+        fireEvent.pointerDown(surface, {
+          pointerId: 1,
+          buttons: 1,
+          clientX: 50,
+          clientY: 50,
+        });
+        fireEvent.pointerUp(surface, {
+          pointerId: 1,
+          buttons: 0,
           clientX: 120,
           clientY: 80,
-        }),
-        { clientX: 50, clientY: 50 },
-      );
-      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
-      expect(props.onSelect).not.toHaveBeenCalledWith(
-        "note-1",
-        expect.objectContaining({ bringToFront: true }),
-      );
-    });
+        });
+        expect(props.onDragStart).toHaveBeenCalledExactlyOnceWith(
+          "note-1",
+          expect.objectContaining({
+            type: "pointerup",
+            clientX: 120,
+            clientY: 80,
+          }),
+          { clientX: 50, clientY: 50 },
+        );
+        expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+        expect(props.onSelect).not.toHaveBeenCalledWith(
+          "note-1",
+          expect.objectContaining({ bringToFront: true }),
+        );
+      },
+    );
     it("閾値内のmoveの後に離した座標が遠ければドラッグとして扱う", () => {
       const { props } = setup({ isSelected: true });
       const surface = getNoteSurface();
@@ -1320,38 +1316,38 @@ describe("NoteCard", () => {
       { clientX: 52, buttons: 0 },
       { clientX: 80, buttons: 0 },
       { clientX: 80, buttons: 2 },
-    ])("主ボタンを失ったx=$clientX・buttons=$buttonsの移動は選択・編集・ドラッグを開始せず、次のクリックを受け付ける", ({
-      clientX,
-      buttons,
-    }) => {
-      const { props } = setup({ isSelected: true });
-      const surface = getNoteSurface();
-      fireEvent.pointerDown(surface, {
-        pointerId: 1,
-        buttons: 1,
-        clientX: 50,
-        clientY: 50,
-      });
-      fireEvent.pointerMove(surface, {
-        pointerId: 1,
-        buttons,
-        clientX,
-        clientY: 50,
-      });
-      fireEvent.pointerUp(surface, {
-        pointerId: 1,
-        clientX,
-        clientY: 50,
-      });
+    ])(
+      "主ボタンを失ったx=$clientX・buttons=$buttonsの移動は選択・編集・ドラッグを開始せず、次のクリックを受け付ける",
+      ({ clientX, buttons }) => {
+        const { props } = setup({ isSelected: true });
+        const surface = getNoteSurface();
+        fireEvent.pointerDown(surface, {
+          pointerId: 1,
+          buttons: 1,
+          clientX: 50,
+          clientY: 50,
+        });
+        fireEvent.pointerMove(surface, {
+          pointerId: 1,
+          buttons,
+          clientX,
+          clientY: 50,
+        });
+        fireEvent.pointerUp(surface, {
+          pointerId: 1,
+          clientX,
+          clientY: 50,
+        });
 
-      expect(props.onDragStart).not.toHaveBeenCalled();
-      expect(props.onSelect).not.toHaveBeenCalled();
-      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+        expect(props.onDragStart).not.toHaveBeenCalled();
+        expect(props.onSelect).not.toHaveBeenCalled();
+        expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
 
-      clickNote();
-      expect(props.onSelect).toHaveBeenCalledOnce();
-      expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
-    });
+        clickNote();
+        expect(props.onSelect).toHaveBeenCalledOnce();
+        expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
+      },
+    );
 
     it("閾値を超えるポインター移動でonDragStartを呼ぶ", () => {
       const onDragStart = vi.fn();
@@ -1588,44 +1584,42 @@ it("候補ボタンを押した付箋を先に選択する", () => {
 });
 
 describe("#522 focus・pointerの境界", () => {
-  it.each([
-    "Escape",
-    "blur",
-  ])("閾値前の%sでpointer captureを解放し移動を再開しない", (reason) => {
-    const { props } = setup({ isSelected: true });
-    const surface = getNoteSurface();
-    surface.hasPointerCapture = vi.fn(() => true);
-    surface.releasePointerCapture = vi.fn();
-    fireEvent.pointerDown(surface, {
-      pointerId: 91,
-      buttons: 1,
-      clientX: 50,
-      clientY: 60,
-    });
-    if (reason === "Escape") fireEvent.keyDown(surface, { key: "Escape" });
-    else fireEvent.blur(window);
-    expect(surface.releasePointerCapture).toHaveBeenCalledWith(91);
-    fireEvent.pointerMove(surface, {
-      pointerId: 91,
-      buttons: 1,
-      clientX: 80,
-      clientY: 90,
-    });
-    expect(props.onDragStart).not.toHaveBeenCalled();
-  });
+  it.each(["Escape", "blur"])(
+    "閾値前の%sでpointer captureを解放し移動を再開しない",
+    (reason) => {
+      const { props } = setup({ isSelected: true });
+      const surface = getNoteSurface();
+      surface.hasPointerCapture = vi.fn(() => true);
+      surface.releasePointerCapture = vi.fn();
+      fireEvent.pointerDown(surface, {
+        pointerId: 91,
+        buttons: 1,
+        clientX: 50,
+        clientY: 60,
+      });
+      if (reason === "Escape") fireEvent.keyDown(surface, { key: "Escape" });
+      else fireEvent.blur(window);
+      expect(surface.releasePointerCapture).toHaveBeenCalledWith(91);
+      fireEvent.pointerMove(surface, {
+        pointerId: 91,
+        buttons: 1,
+        clientX: 80,
+        clientY: 90,
+      });
+      expect(props.onDragStart).not.toHaveBeenCalled();
+    },
+  );
 
-  it.each([
-    "Enter",
-    "h",
-    "Delete",
-    "Backspace",
-  ])("AT-005: 未選択focusで%sは対象化だけを行う", (key) => {
-    const { props } = setup({ note: buildNote({ visibility: "private" }) });
-    fireEvent.keyDown(getNoteSurface(), { key });
-    expect(props.onSelect).toHaveBeenCalledWith("note-1");
-    expect(props.onDelete).not.toHaveBeenCalled();
-    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
-  });
+  it.each(["Enter", "h", "Delete", "Backspace"])(
+    "AT-005: 未選択focusで%sは対象化だけを行う",
+    (key) => {
+      const { props } = setup({ note: buildNote({ visibility: "private" }) });
+      fireEvent.keyDown(getNoteSurface(), { key });
+      expect(props.onSelect).toHaveBeenCalledWith("note-1");
+      expect(props.onDelete).not.toHaveBeenCalled();
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    },
+  );
   it("AT-023: IME変換中のEnterは本文編集を開始しない", () => {
     setup({ isSelected: true });
     fireEvent.keyDown(getNoteSurface(), { key: "Enter", isComposing: true });
@@ -1716,17 +1710,17 @@ describe("#522 focus・pointerの境界", () => {
     fireEvent.pointerUp(getNoteSurface(), { pointerId: 1 });
     expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
   });
-  it.each([
-    "Delete",
-    "Backspace",
-  ])("AT-011: %sのrepeatで次の対象を連続削除しない", (key) => {
-    const { props } = setup({
-      isSelected: true,
-      note: buildNote({ visibility: "private" }),
-    });
-    fireEvent.keyDown(getNoteSurface(), { key, repeat: true });
-    expect(props.onDelete).not.toHaveBeenCalled();
-  });
+  it.each(["Delete", "Backspace"])(
+    "AT-011: %sのrepeatで次の対象を連続削除しない",
+    (key) => {
+      const { props } = setup({
+        isSelected: true,
+        note: buildNote({ visibility: "private" }),
+      });
+      fireEvent.keyDown(getNoteSurface(), { key, repeat: true });
+      expect(props.onDelete).not.toHaveBeenCalled();
+    },
+  );
 });
 
 it("AT-002: window blur後に古いpointerupで編集を始めない", () => {

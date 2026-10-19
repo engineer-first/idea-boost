@@ -8,7 +8,7 @@
 // 加えて PoC の同期セマンティクスを検証する:
 // - note:drag は永続化されず、送信者自身にはエコーされない
 // - 再接続時は snapshot で現在状態へ復帰できる（R1 復帰パス）
-import { SELF } from "cloudflare:test";
+import { exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import {
   NOTE_SPAWN_JITTER,
@@ -318,7 +318,7 @@ describe("メンバー色と付箋色", () => {
     });
     await expectType(member, "note:inserted");
 
-    const leaveResponse = await SELF.fetch(
+    const leaveResponse = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/leave`,
       {
         method: "POST",
@@ -430,18 +430,21 @@ describe("member_joined（Realtime 反映）", () => {
       email: `${crypto.randomUUID()}@example.test`,
     };
     const { roomId, owner, member } = await setupRoom(memberUser);
-    const saved = await SELF.fetch("https://api.test/api/me/display-name", {
-      method: "PUT",
-      headers: {
-        Cookie: await sessionCookieFor(memberUser),
-        "Content-Type": "application/json",
+    const saved = await exports.default.fetch(
+      "https://api.test/api/me/display-name",
+      {
+        method: "PUT",
+        headers: {
+          Cookie: await sessionCookieFor(memberUser),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          expectedPrincipal: memberUser.sub,
+          roomId,
+          name: "保存した表示名",
+        }),
       },
-      body: JSON.stringify({
-        expectedPrincipal: memberUser.sub,
-        roomId,
-        name: "保存した表示名",
-      }),
-    });
+    );
     expect(saved.status).toBe(200);
     await expectType(owner, "member:renamed");
     await expectType(member, "member:renamed");
@@ -490,7 +493,7 @@ describe("member_left（退出の Realtime 反映）", () => {
     const { roomId, owner } = await setupRoom();
 
     // member が REST で退出
-    const leaveRes = await SELF.fetch(
+    const leaveRes = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/leave`,
       { method: "POST", headers: { Cookie: await sessionCookieFor(MEMBER) } },
     );
@@ -506,7 +509,7 @@ describe("member_left（退出の Realtime 反映）", () => {
     const { roomId, owner, member } = await setupRoom();
 
     // member が REST で退出
-    await SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
+    await exports.default.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
       method: "POST",
       headers: { Cookie: await sessionCookieFor(MEMBER) },
     });
@@ -522,7 +525,7 @@ describe("member_left（退出の Realtime 反映）", () => {
     // （member_left と member_joined が両方届くことで「リアルタイム反映が
     // 生きている」ことを示す）
     const { roomId, owner, member } = await setupRoom();
-    const membersBeforeLeave = await SELF.fetch(
+    const membersBeforeLeave = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/members`,
       { headers: { Cookie: await sessionCookieFor(OWNER) } },
     );
@@ -536,7 +539,7 @@ describe("member_left（退出の Realtime 反映）", () => {
     expect(colorBeforeLeave).toEqual(expect.stringMatching(NOTE_COLOR_PATTERN));
 
     // member 退出
-    await SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
+    await exports.default.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
       method: "POST",
       headers: { Cookie: await sessionCookieFor(MEMBER) },
     });
@@ -544,14 +547,17 @@ describe("member_left（退出の Realtime 反映）", () => {
     member.close();
 
     // member 再 join
-    const rejoin = await SELF.fetch("https://api.test/api/rooms/join", {
-      method: "POST",
-      headers: {
-        Cookie: await sessionCookieFor(MEMBER),
-        "Content-Type": "application/json",
+    const rejoin = await exports.default.fetch(
+      "https://api.test/api/rooms/join",
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookieFor(MEMBER),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code: await getInviteCode(roomId, OWNER) }),
       },
-      body: JSON.stringify({ code: await getInviteCode(roomId, OWNER) }),
-    });
+    );
     expect(rejoin.status).toBe(200);
 
     // owner に member_joined が届く
@@ -589,9 +595,12 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
 
     await expectType(owner, "phase:updated");
     // APIでも開始済みの進行を確認する。
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookieFor(OWNER) },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookieFor(OWNER) },
+      },
+    );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { phase: unknown };
     expect(body.phase).toEqual(buildPhaseStep(1));
@@ -698,9 +707,12 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
     member.close();
 
     // 永続化されているか: 新規 WS 接続を開いて snapshot ではなく REST で phase を見る。
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookieFor(MEMBER) },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookieFor(MEMBER) },
+      },
+    );
     const body = (await res.json()) as { phase: unknown };
     expect(body.phase).toEqual(buildPhaseStep(1));
   });
@@ -711,30 +723,34 @@ async function getInviteCode(
   roomId: string,
   asUser: TestUser,
 ): Promise<string> {
-  const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-    headers: { Cookie: await sessionCookieFor(asUser) },
-  });
+  const res = await exports.default.fetch(
+    `https://api.test/api/rooms/${roomId}`,
+    {
+      headers: { Cookie: await sessionCookieFor(asUser) },
+    },
+  );
   expect(res.status).toBe(200);
   return ((await res.json()) as { inviteCode: string }).inviteCode;
 }
 
 describe("note:create", () => {
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%sの個人作業工程では操作ID付きで空のprivate付箋を1枚作成する", async (phase) => {
-    const { roomId, owner, member } = await setupStartedRoom();
-    await runInRoomDO(roomId, (instance) =>
-      instance.setPhase(buildPhaseStep(1, phase), OWNER.sub),
-    );
-    const operationId = crypto.randomUUID();
-    send(owner, { type: "note:create", operationId });
-    expect(await expectType(owner, "note:inserted")).toMatchObject({
-      operationId,
-      note: { content: "", authorId: OWNER.sub, visibility: "private" },
-    });
-    owner.close();
-    member.close();
-  });
+  it.each([1, 2, 3] as const)(
+    "フェーズ%sの個人作業工程では操作ID付きで空のprivate付箋を1枚作成する",
+    async (phase) => {
+      const { roomId, owner, member } = await setupStartedRoom();
+      await runInRoomDO(roomId, (instance) =>
+        instance.setPhase(buildPhaseStep(1, phase), OWNER.sub),
+      );
+      const operationId = crypto.randomUUID();
+      send(owner, { type: "note:create", operationId });
+      expect(await expectType(owner, "note:inserted")).toMatchObject({
+        operationId,
+        note: { content: "", authorId: OWNER.sub, visibility: "private" },
+      });
+      owner.close();
+      member.close();
+    },
+  );
 
   it("ロビーの作成を操作ID付きで拒否する", async () => {
     const { owner, member } = await setupRoom();
@@ -764,38 +780,41 @@ describe("note:create", () => {
     member.close();
   });
 
-  it.each([
-    "authorId",
-    "roomId",
-  ])("作成要求に %s を混入しても作成せず、接続は維持する", async (field) => {
-    const { roomId, owner, member } = await setupStartedRoom();
-    send(owner, {
-      type: "note:create",
-      operationId: crypto.randomUUID(),
-      [field]: MEMBER.sub,
-    });
-    const rejected = await owner.next();
-    expect(rejected).toMatchObject({ type: "error", code: "invalid-message" });
+  it.each(["authorId", "roomId"])(
+    "作成要求に %s を混入しても作成せず、接続は維持する",
+    async (field) => {
+      const { roomId, owner, member } = await setupStartedRoom();
+      send(owner, {
+        type: "note:create",
+        operationId: crypto.randomUUID(),
+        [field]: MEMBER.sub,
+      });
+      const rejected = await owner.next();
+      expect(rejected).toMatchObject({
+        type: "error",
+        code: "invalid-message",
+      });
 
-    const reconnected = await connectRoomAs(OWNER, roomId);
-    expect((await expectType(reconnected, "snapshot")).notes).toEqual([]);
-    send(owner, { type: "note:create" });
-    expect((await expectType(owner, "note:inserted")).note.authorId).toBe(
-      OWNER.sub,
-    );
-    reconnected.close();
-    owner.close();
-    member.close();
-  });
+      const reconnected = await connectRoomAs(OWNER, roomId);
+      expect((await expectType(reconnected, "snapshot")).notes).toEqual([]);
+      send(owner, { type: "note:create" });
+      expect((await expectType(owner, "note:inserted")).note.authorId).toBe(
+        OWNER.sub,
+      );
+      reconnected.close();
+      owner.close();
+      member.close();
+    },
+  );
 
   it("未認証・非メンバーは作成要求の送信経路へ接続できない", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const unauthenticated = await SELF.fetch(
+    const unauthenticated = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/ws`,
       { headers: { Upgrade: "websocket" } },
     );
     expect(unauthenticated.status).toBe(401);
-    const nonMember = await SELF.fetch(
+    const nonMember = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/ws`,
       {
         headers: {
@@ -1741,7 +1760,7 @@ describe("note:vote（課題ドット投票）", () => {
 
   it("未認証・非メンバーは投票完了状態の配信経路へ接続できない", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const unauthenticated = await SELF.fetch(
+    const unauthenticated = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/ws`,
       { headers: { Upgrade: "websocket" } },
     );
@@ -1752,7 +1771,7 @@ describe("note:vote（課題ドット投票）", () => {
       email: "outsider@example.test",
       name: "Outsider",
     };
-    const nonMember = await SELF.fetch(
+    const nonMember = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/ws`,
       {
         headers: {
@@ -2912,38 +2931,39 @@ describe("cursor presence（名前付きの一時同期）", () => {
     room.member.close();
   });
 
-  it.each([
-    2, 3, 5,
-  ])("3-%iではマップ外カーソルを中継し、存在しない操作対象は中継しない", async (step) => {
-    const room = await setupStartedRoom();
-    await runInRoomDO(room.roomId, (instance) =>
-      instance.setPhase(buildPhaseStep(step, 3), OWNER.sub),
-    );
-    send(room.owner, { type: "cursor:update", x: 110, y: -10 });
-    expect(
-      (await expectType(room.member, "cursor:updated")).cursor,
-    ).toMatchObject({
-      userId: OWNER.sub,
-      x: 110,
-      y: -10,
-      draggingNoteId: null,
-    });
-    const privateNoteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    send(room.owner, {
-      type: "cursor:update",
-      x: 110,
-      y: -10,
-      draggingNoteId: privateNoteId,
-    });
-    expect(
-      await Promise.race([
-        room.member.next(),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
-      ]),
-    ).toBeNull();
-    room.owner.close();
-    room.member.close();
-  });
+  it.each([2, 3, 5])(
+    "3-%iではマップ外カーソルを中継し、存在しない操作対象は中継しない",
+    async (step) => {
+      const room = await setupStartedRoom();
+      await runInRoomDO(room.roomId, (instance) =>
+        instance.setPhase(buildPhaseStep(step, 3), OWNER.sub),
+      );
+      send(room.owner, { type: "cursor:update", x: 110, y: -10 });
+      expect(
+        (await expectType(room.member, "cursor:updated")).cursor,
+      ).toMatchObject({
+        userId: OWNER.sub,
+        x: 110,
+        y: -10,
+        draggingNoteId: null,
+      });
+      const privateNoteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+      send(room.owner, {
+        type: "cursor:update",
+        x: 110,
+        y: -10,
+        draggingNoteId: privateNoteId,
+      });
+      expect(
+        await Promise.race([
+          room.member.next(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+        ]),
+      ).toBeNull();
+      room.owner.close();
+      room.member.close();
+    },
+  );
 
   it("共有作業中はメンバー・付箋と同じサーバー由来の色を付けて他メンバーだけへ中継する", async () => {
     const room = await setupStartedRoom();

@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
 import { issueCreationId } from "../../contracts/room-creation";
@@ -28,7 +28,7 @@ async function reserve(name = "test", requestId = issueCreationId().requestId) {
   return reserveRoomCreation(env.DB, USER.sub, requestId, name);
 }
 async function post(requestId: string, name: string, user = USER) {
-  return SELF.fetch("https://api.test/api/rooms", {
+  return exports.default.fetch("https://api.test/api/rooms", {
     method: "POST",
     headers: {
       Cookie: await sessionCookieFor(user),
@@ -115,7 +115,7 @@ describe("作成要求の障害回復", () => {
       ]) {
         expect(
           (
-            await SELF.fetch(`https://api.test${path}`, {
+            await exports.default.fetch(`https://api.test${path}`, {
               headers: { Cookie: cookie, Upgrade: "websocket" },
             })
           ).status,
@@ -123,7 +123,7 @@ describe("作成要求の障害回復", () => {
       }
       expect(
         (
-          await SELF.fetch("https://api.test/api/rooms/join", {
+          await exports.default.fetch("https://api.test/api/rooms/join", {
             method: "POST",
             headers: { Cookie: cookie, "Content-Type": "application/json" },
             body: JSON.stringify({ code: creation.invite_code }),
@@ -167,30 +167,32 @@ describe("作成要求の障害回復", () => {
     expect(count?.count).toBe((before?.count ?? 0) + 2);
   });
 
-  it.each([
-    "pending",
-    "ready",
-  ] as const)("%s要求のルーム削除後も墓標が残り復活しない", async (status) => {
-    const creation = await reserve();
-    if (status === "ready")
-      await completeRoomCreation(env.DB, creation, () => initialize(creation));
-    await env.DB.prepare("DELETE FROM rooms WHERE id=?")
-      .bind(creation.room_id)
-      .run();
-    expect((await post(creation.request_id, "test")).status).toBe(410);
-    const record = await reserveRoomCreation(
-      env.DB,
-      USER.sub,
-      creation.request_id,
-      "test",
-    );
-    await expect(
-      completeRoomCreation(env.DB, record, async () => {
-        throw new Error("must not initialize");
-      }),
-    ).rejects.toBeInstanceOf(CreationGone);
-    expect(record.room_id).toBe(creation.room_id);
-  });
+  it.each(["pending", "ready"] as const)(
+    "%s要求のルーム削除後も墓標が残り復活しない",
+    async (status) => {
+      const creation = await reserve();
+      if (status === "ready")
+        await completeRoomCreation(env.DB, creation, () =>
+          initialize(creation),
+        );
+      await env.DB.prepare("DELETE FROM rooms WHERE id=?")
+        .bind(creation.room_id)
+        .run();
+      expect((await post(creation.request_id, "test")).status).toBe(410);
+      const record = await reserveRoomCreation(
+        env.DB,
+        USER.sub,
+        creation.request_id,
+        "test",
+      );
+      await expect(
+        completeRoomCreation(env.DB, record, async () => {
+          throw new Error("must not initialize");
+        }),
+      ).rejects.toBeInstanceOf(CreationGone);
+      expect(record.room_id).toBe(creation.room_id);
+    },
+  );
 
   it("ready再送はDOを呼ばず進行状態を変更しない", async () => {
     const creation = await reserve();
@@ -276,11 +278,66 @@ describe("作成要求の障害回復", () => {
     );
   });
 
-  it.each([
-    "completed",
-    "disbanded",
-    "expired",
-  ])("%sのDOへ遅延初期化しても状態を復活させない", async (kind) => {
+  it.each(["completed", "disbanded", "expired"])(
+    "%sのDOへ遅延初期化しても状態を復活させない",
+    async (kind) => {
+      const creation = await reserve();
+      await initialize(creation);
+      if (kind === "disbanded")
+        await env.ROOM_DO.get(env.ROOM_DO.idFromName(creation.room_id)).disband(
+          USER.sub,
+        );
+      else
+        await runInRoomDO(creation.room_id, (_instance, state) => {
+          if (kind === "completed")
+            state.storage.sql.exec(
+              "UPDATE room_state SET outcome_published=1 WHERE id=1",
+            );
+          else
+            state.storage.sql.exec(
+              "UPDATE shared_outcome_state SET expires_at=0 WHERE id=1",
+            );
+          savePhase(state.storage.sql, buildPhaseStep(1));
+        });
+      const before = await runInRoomDO(
+        creation.room_id,
+        (_instance, state) => ({
+          phase: state.storage.sql.exec("SELECT * FROM room_state").one(),
+          members: state.storage.sql.exec("SELECT * FROM members").toArray(),
+          marker: state.storage.sql
+            .exec("SELECT * FROM room_creation_marker")
+            .one(),
+        }),
+      );
+      await runInRoomDO(creation.room_id, async (instance) => {
+        await expect(
+          instance.initializeCreation(
+            {
+              creator: USER.sub,
+              roomId: creation.room_id,
+              requestId: creation.request_id,
+              expiresAt: creation.expires_at,
+            },
+            USER.name,
+            creation.name,
+          ),
+        ).resolves.toBe("closed");
+      });
+      const after = await runInRoomDO(creation.room_id, (_instance, state) => ({
+        phase: state.storage.sql.exec("SELECT * FROM room_state").one(),
+        members: state.storage.sql.exec("SELECT * FROM members").toArray(),
+        marker: state.storage.sql
+          .exec("SELECT * FROM room_creation_marker")
+          .one(),
+      }));
+      expect(after).toEqual(before);
+    },
+  );
+});
+
+it.each(["completed", "disbanded", "expired"])(
+  "pendingの%s後はAPI再送を確定拒否し復活させない",
+  async (kind) => {
     const creation = await reserve();
     await initialize(creation);
     if (kind === "disbanded")
@@ -289,69 +346,16 @@ describe("作成要求の障害回復", () => {
       );
     else
       await runInRoomDO(creation.room_id, (_instance, state) => {
-        if (kind === "completed")
-          state.storage.sql.exec(
-            "UPDATE room_state SET outcome_published=1 WHERE id=1",
-          );
-        else
-          state.storage.sql.exec(
-            "UPDATE shared_outcome_state SET expires_at=0 WHERE id=1",
-          );
-        savePhase(state.storage.sql, buildPhaseStep(1));
+        state.storage.sql.exec(
+          kind === "completed"
+            ? "UPDATE room_state SET outcome_published=1 WHERE id=1"
+            : "UPDATE shared_outcome_state SET expires_at=0 WHERE id=1",
+        );
       });
-    const before = await runInRoomDO(creation.room_id, (_instance, state) => ({
-      phase: state.storage.sql.exec("SELECT * FROM room_state").one(),
-      members: state.storage.sql.exec("SELECT * FROM members").toArray(),
-      marker: state.storage.sql
-        .exec("SELECT * FROM room_creation_marker")
-        .one(),
-    }));
-    await runInRoomDO(creation.room_id, async (instance) => {
-      await expect(
-        instance.initializeCreation(
-          {
-            creator: USER.sub,
-            roomId: creation.room_id,
-            requestId: creation.request_id,
-            expiresAt: creation.expires_at,
-          },
-          USER.name,
-          creation.name,
-        ),
-      ).resolves.toBe("closed");
-    });
-    const after = await runInRoomDO(creation.room_id, (_instance, state) => ({
-      phase: state.storage.sql.exec("SELECT * FROM room_state").one(),
-      members: state.storage.sql.exec("SELECT * FROM members").toArray(),
-      marker: state.storage.sql
-        .exec("SELECT * FROM room_creation_marker")
-        .one(),
-    }));
-    expect(after).toEqual(before);
-  });
-});
-
-it.each([
-  "completed",
-  "disbanded",
-  "expired",
-])("pendingの%s後はAPI再送を確定拒否し復活させない", async (kind) => {
-  const creation = await reserve();
-  await initialize(creation);
-  if (kind === "disbanded")
-    await env.ROOM_DO.get(env.ROOM_DO.idFromName(creation.room_id)).disband(
-      USER.sub,
-    );
-  else
-    await runInRoomDO(creation.room_id, (_instance, state) => {
-      state.storage.sql.exec(
-        kind === "completed"
-          ? "UPDATE room_state SET outcome_published=1 WHERE id=1"
-          : "UPDATE shared_outcome_state SET expires_at=0 WHERE id=1",
-      );
-    });
-  expect((await post(creation.request_id, "test")).status).toBe(410);
-  expect(
-    (await readCreationRequest(env.DB, USER.sub, creation.request_id))?.room_id,
-  ).toBe(creation.room_id);
-});
+    expect((await post(creation.request_id, "test")).status).toBe(410);
+    expect(
+      (await readCreationRequest(env.DB, USER.sub, creation.request_id))
+        ?.room_id,
+    ).toBe(creation.room_id);
+  },
+);

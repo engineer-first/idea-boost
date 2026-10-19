@@ -33,7 +33,12 @@ export function DependencyDiagram({
         }
         const definition = await response.text();
         const mermaid = (await import("mermaid")).default;
-        mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "neutral",
+          layout: "dagre",
+          look: "classic",
+        });
         // mermaid.render は描画用の一時 DOM 要素を id で作るため、
         // useId の区切り文字（:）を除いた安全な id を渡す
         const domId = `dependency-diagram-${reactId.replaceAll(":", "")}`;

@@ -279,66 +279,66 @@ it("移動中の通知は同じタブのBroadcastChannelからも確認を再開
   expect(count).toBe(0);
 });
 
-it.each([
-  "prepared",
-  "submitted",
-  "legacy",
-] as const)("旧上限80文字の%s控えは先頭15文字に短縮して復元・一覧取得できる", async (kind) => {
-  const p = await tab();
-  const user = crypto.randomUUID();
-  const value = {
-    ...record(),
-    expectedPrincipal: user,
-    name: `${"あ".repeat(14)}😀${"あ".repeat(64)}`,
-    state: kind === "prepared" ? ("prepared" as const) : ("submitted" as const),
-  };
-  await p.evaluate(
-    async ({ value, kind }) => {
-      if (kind === "legacy") {
-        sessionStorage.setItem(
-          `idea-boost:room-creation:${value.expectedPrincipal}`,
-          JSON.stringify({ requestId: value.requestId, name: value.name }),
-        );
-        return;
-      }
-      await window.creationStore.saveRoomCreationIntent(
-        value.expectedPrincipal,
-        { ...value, name: "短い名前" },
-      );
-      const db = await new Promise<IDBDatabase>((resolve) => {
-        const r = indexedDB.open("idea-boost-room-creations", 1);
-        r.onsuccess = () => resolve(r.result);
-      });
-      await new Promise<void>((resolve) => {
-        const tx = db.transaction("intents", "readwrite");
-        tx.objectStore("intents").put(
-          value,
-          `${value.expectedPrincipal}:${value.requestId}`,
-        );
-        tx.oncomplete = () => resolve();
-      });
-      db.close();
-    },
-    { value, kind },
-  );
-  expect(
+it.each(["prepared", "submitted", "legacy"] as const)(
+  "旧上限80文字の%s控えは先頭15文字に短縮して復元・一覧取得できる",
+  async (kind) => {
+    const p = await tab();
+    const user = crypto.randomUUID();
+    const value = {
+      ...record(),
+      expectedPrincipal: user,
+      name: `${"あ".repeat(14)}😀${"あ".repeat(64)}`,
+      state:
+        kind === "prepared" ? ("prepared" as const) : ("submitted" as const),
+    };
     await p.evaluate(
-      (user) => window.creationStore.readRoomCreationIntent(user),
-      user,
-    ),
-  ).toMatchObject({
-    name: value.name.slice(0, 15).replace(/[\uD800-\uDBFF]$/, ""),
-    requestId: value.requestId,
-  });
-  expect(
-    await p.evaluate(
-      (user) => window.creationStore.listRoomCreationIntents(user),
-      user,
-    ),
-  ).toEqual([
-    expect.objectContaining({
+      async ({ value, kind }) => {
+        if (kind === "legacy") {
+          sessionStorage.setItem(
+            `idea-boost:room-creation:${value.expectedPrincipal}`,
+            JSON.stringify({ requestId: value.requestId, name: value.name }),
+          );
+          return;
+        }
+        await window.creationStore.saveRoomCreationIntent(
+          value.expectedPrincipal,
+          { ...value, name: "短い名前" },
+        );
+        const db = await new Promise<IDBDatabase>((resolve) => {
+          const r = indexedDB.open("idea-boost-room-creations", 1);
+          r.onsuccess = () => resolve(r.result);
+        });
+        await new Promise<void>((resolve) => {
+          const tx = db.transaction("intents", "readwrite");
+          tx.objectStore("intents").put(
+            value,
+            `${value.expectedPrincipal}:${value.requestId}`,
+          );
+          tx.oncomplete = () => resolve();
+        });
+        db.close();
+      },
+      { value, kind },
+    );
+    expect(
+      await p.evaluate(
+        (user) => window.creationStore.readRoomCreationIntent(user),
+        user,
+      ),
+    ).toMatchObject({
       name: value.name.slice(0, 15).replace(/[\uD800-\uDBFF]$/, ""),
-    }),
-  ]);
-  await p.close();
-});
+      requestId: value.requestId,
+    });
+    expect(
+      await p.evaluate(
+        (user) => window.creationStore.listRoomCreationIntents(user),
+        user,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        name: value.name.slice(0, 15).replace(/[\uD800-\uDBFF]$/, ""),
+      }),
+    ]);
+    await p.close();
+  },
+);

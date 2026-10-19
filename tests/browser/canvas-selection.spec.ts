@@ -79,43 +79,44 @@ async function openClockedCanvas(width = 1280, cpuRate = 1): Promise<void> {
   await page.clock.pauseAt(new Date("2030-01-01T00:01:00Z"));
 }
 
-test.each([
-  390, 1280,
-])("%ipxで各キャンバス操作のヒントをhoverの1秒後に画面内へ表示する", async (width) => {
-  await openClockedCanvas(width);
-  const hint = page.locator(
-    '[data-slot="tooltip-content"]:not([data-state="closed"])',
-  );
-  for (const name of [
-    "選択ツール",
-    "手のひらツール",
-    "キャンバスを縮小",
-    "ズームを100%に戻す",
-    "キャンバスを拡大",
-    "付箋全体を表示",
-  ]) {
-    const button = page.getByRole("button", { name, exact: true });
-    await button.hover();
-    await page.clock.runFor(999);
-    expect(await hint.count()).toBe(0);
-    await page.clock.runFor(1);
-    await expect.poll(() => hint.count()).toBe(1);
-    await expect
-      .poll(async () => {
-        await page.clock.runFor(16);
-        return hint.isVisible();
-      })
-      .toBe(true);
-    expect(await hint.textContent()).toContain(name.replace("ツール", ""));
-    const bounds = await hint.boundingBox();
-    if (!bounds) throw new Error("ヒントが表示されていません");
-    expect(bounds.x).toBeGreaterThanOrEqual(0);
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
-    await page.mouse.move(width / 2, 400, { steps: 4 });
-    await page.clock.runFor(400);
-    await hint.waitFor({ state: "hidden" });
-  }
-});
+test.each([390, 1280])(
+  "%ipxで各キャンバス操作のヒントをhoverの1秒後に画面内へ表示する",
+  async (width) => {
+    await openClockedCanvas(width);
+    const hint = page.locator(
+      '[data-slot="tooltip-content"]:not([data-state="closed"])',
+    );
+    for (const name of [
+      "選択ツール",
+      "手のひらツール",
+      "キャンバスを縮小",
+      "ズームを100%に戻す",
+      "キャンバスを拡大",
+      "付箋全体を表示",
+    ]) {
+      const button = page.getByRole("button", { name, exact: true });
+      await button.hover();
+      await page.clock.runFor(999);
+      expect(await hint.count()).toBe(0);
+      await page.clock.runFor(1);
+      await expect.poll(() => hint.count()).toBe(1);
+      await expect
+        .poll(async () => {
+          await page.clock.runFor(16);
+          return hint.isVisible();
+        })
+        .toBe(true);
+      expect(await hint.textContent()).toContain(name.replace("ツール", ""));
+      const bounds = await hint.boundingBox();
+      if (!bounds) throw new Error("ヒントが表示されていません");
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      await page.mouse.move(width / 2, 400, { steps: 4 });
+      await page.clock.runFor(400);
+      await hint.waitFor({ state: "hidden" });
+    }
+  },
+);
 
 test("キーボードでフォーカスしたヒントは待たずに表示し、Escapeで閉じる", async () => {
   const hand = page.getByRole("button", { name: "手のひらツール" });
@@ -132,60 +133,63 @@ test("キーボードでフォーカスしたヒントは待たずに表示し�
   expect(await hand.evaluate((el) => el === document.activeElement)).toBe(true);
 });
 
-test.each([
-  1, 8,
-])("CPU減速%ixでも手のひらのヒントから隣の選択ツールへ待たずに切り替わる", async (cpuRate) => {
-  await openClockedCanvas(1280, cpuRate);
-  const hint = page.locator(
-    '[data-slot="tooltip-content"]:not([data-state="closed"])',
-  );
-  await page.getByRole("button", { name: "手のひらツール" }).hover();
-  await page.clock.runFor(1000);
-  await expect.poll(() => hint.getAttribute("data-state")).toBe("delayed-open");
-  // Popperの配置RAFはReactのcommit後に登録される。停止時計でも描画を進める。
-  await expect
-    .poll(async () => {
-      await page.clock.runFor(16);
-      return hint.isVisible();
-    })
-    .toBe(true);
-  expect(await hint.textContent()).toContain("手のひら");
-
-  const hand = await page
-    .getByRole("button", { name: "手のひらツール" })
-    .boundingBox();
-  const select = await page
-    .getByRole("button", { name: "選択ツール" })
-    .boundingBox();
-  if (!hand || !select)
-    throw new Error("キャンバスのツールが表示されていません");
-  // 停止時計のまま連続イベントを送ると、Radixのhover猶予領域の更新より先に
-  // 移動が終わる。実際の移動と同じく各ステップで描画を進める（合計64ms）。
-  for (let step = 1; step <= 4; step++) {
-    await page.mouse.move(
-      hand.x + hand.width / 2 + ((select.x - hand.x) * step) / 4,
-      hand.y + hand.height / 2 + ((select.y - hand.y) * step) / 4,
+test.each([1, 8])(
+  "CPU減速%ixでも手のひらのヒントから隣の選択ツールへ待たずに切り替わる",
+  async (cpuRate) => {
+    await openClockedCanvas(1280, cpuRate);
+    const hint = page.locator(
+      '[data-slot="tooltip-content"]:not([data-state="closed"])',
     );
-    await page.clock.runFor(16);
-  }
-  // 1秒の表示待ちを省いた状態を検査する。常に存在するtriggerを読み、
-  // ヒント未表示時にlocatorの自動待機でpollが止まることも避ける。
-  await expect
-    .poll(() =>
-      page
-        .getByRole("button", { name: "選択ツール" })
-        .getAttribute("data-state"),
-    )
-    .toBe("instant-open");
-  // Popperの配置RAFはReactのcommit後に登録される。停止時計でも描画を進める。
-  await expect
-    .poll(async () => {
+    await page.getByRole("button", { name: "手のひらツール" }).hover();
+    await page.clock.runFor(1000);
+    await expect
+      .poll(() => hint.getAttribute("data-state"))
+      .toBe("delayed-open");
+    // Popperの配置RAFはReactのcommit後に登録される。停止時計でも描画を進める。
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(16);
+        return hint.isVisible();
+      })
+      .toBe(true);
+    expect(await hint.textContent()).toContain("手のひら");
+
+    const hand = await page
+      .getByRole("button", { name: "手のひらツール" })
+      .boundingBox();
+    const select = await page
+      .getByRole("button", { name: "選択ツール" })
+      .boundingBox();
+    if (!hand || !select)
+      throw new Error("キャンバスのツールが表示されていません");
+    // 停止時計のまま連続イベントを送ると、Radixのhover猶予領域の更新より先に
+    // 移動が終わる。実際の移動と同じく各ステップで描画を進める（合計64ms）。
+    for (let step = 1; step <= 4; step++) {
+      await page.mouse.move(
+        hand.x + hand.width / 2 + ((select.x - hand.x) * step) / 4,
+        hand.y + hand.height / 2 + ((select.y - hand.y) * step) / 4,
+      );
       await page.clock.runFor(16);
-      return hint.isVisible();
-    })
-    .toBe(true);
-  expect(await hint.textContent()).toContain("選択（背景でV）");
-});
+    }
+    // 1秒の表示待ちを省いた状態を検査する。常に存在するtriggerを読み、
+    // ヒント未表示時にlocatorの自動待機でpollが止まることも避ける。
+    await expect
+      .poll(() =>
+        page
+          .getByRole("button", { name: "選択ツール" })
+          .getAttribute("data-state"),
+      )
+      .toBe("instant-open");
+    // Popperの配置RAFはReactのcommit後に登録される。停止時計でも描画を進める。
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(16);
+        return hint.isVisible();
+      })
+      .toBe(true);
+    expect(await hint.textContent()).toContain("選択（背景でV）");
+  },
+);
 
 test("選択ツールは付箋上でも矢印になり、handから戻すと矢印へ戻る", async () => {
   const viewport = page.getByTestId("board-scroller");
@@ -365,60 +369,61 @@ test("AT-008/010: 選択付箋のSpaceはpanだけ、hは本文末尾の文字",
   await selectedCount(1);
 });
 
-test.each([
-  25, 100, 200,
-])("AT-003: zoom%s%%の描画矩形で付箋を対象にできる", async (zoom) => {
-  await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
-  await page.getByTestId("board-scroller").evaluate((viewport, zoom) => {
-    viewport.dispatchEvent(
-      new WheelEvent("wheel", {
-        bubbles: true,
-        cancelable: true,
-        clientX: 640,
-        clientY: 360,
-        ctrlKey: true,
-        deltaY: -Math.log(zoom / 100) / 0.002,
-      }),
-    );
-  }, zoom);
-  await expect
-    .poll(() =>
-      page.getByRole("button", { name: "ズームを100%に戻す" }).innerText(),
-    )
-    .toBe(`${zoom}%`);
-  const note = page.getByTestId("note-card").nth(1);
-  const box = await note.boundingBox();
-  if (!box) throw new Error("付箋が見つかりません");
-  // 新25%では付箋間の隙間も狭い。別の付箋を掴まない空白の角から囲む。
-  const corner = await page.evaluate((box) => {
-    for (const [dx, dy] of [
-      [1, 1],
-      [1, -1],
-      [-1, 1],
-      [-1, -1],
-    ]) {
-      const x = dx > 0 ? box.x + box.width : box.x;
-      const y = dy > 0 ? box.y + box.height : box.y;
-      const target = document.elementFromPoint(x + dx * 10, y + dy * 10);
-      if (
-        target?.closest("[data-testid='board-scroller']") &&
-        !target.closest("[data-testid='note-card']")
+test.each([25, 100, 200])(
+  "AT-003: zoom%s%%の描画矩形で付箋を対象にできる",
+  async (zoom) => {
+    await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
+    await page.getByTestId("board-scroller").evaluate((viewport, zoom) => {
+      viewport.dispatchEvent(
+        new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 640,
+          clientY: 360,
+          ctrlKey: true,
+          deltaY: -Math.log(zoom / 100) / 0.002,
+        }),
+      );
+    }, zoom);
+    await expect
+      .poll(() =>
+        page.getByRole("button", { name: "ズームを100%に戻す" }).innerText(),
       )
-        return {
-          startX: x + dx * 10,
-          startY: y + dy * 10,
-          endX: x - dx * 10,
-          endY: y - dy * 10,
-        };
-    }
-    throw new Error("矩形選択を開始する空白がありません");
-  }, box);
-  await page.mouse.move(corner.startX, corner.startY);
-  await page.mouse.down();
-  await page.mouse.move(corner.endX, corner.endY, { steps: 4 });
-  await page.mouse.up();
-  expect(await note.getAttribute("data-selected")).toBe("true");
-});
+      .toBe(`${zoom}%`);
+    const note = page.getByTestId("note-card").nth(1);
+    const box = await note.boundingBox();
+    if (!box) throw new Error("付箋が見つかりません");
+    // 新25%では付箋間の隙間も狭い。別の付箋を掴まない空白の角から囲む。
+    const corner = await page.evaluate((box) => {
+      for (const [dx, dy] of [
+        [1, 1],
+        [1, -1],
+        [-1, 1],
+        [-1, -1],
+      ]) {
+        const x = dx > 0 ? box.x + box.width : box.x;
+        const y = dy > 0 ? box.y + box.height : box.y;
+        const target = document.elementFromPoint(x + dx * 10, y + dy * 10);
+        if (
+          target?.closest("[data-testid='board-scroller']") &&
+          !target.closest("[data-testid='note-card']")
+        )
+          return {
+            startX: x + dx * 10,
+            startY: y + dy * 10,
+            endX: x - dx * 10,
+            endY: y - dy * 10,
+          };
+      }
+      throw new Error("矩形選択を開始する空白がありません");
+    }, box);
+    await page.mouse.move(corner.startX, corner.startY);
+    await page.mouse.down();
+    await page.mouse.move(corner.endX, corner.endY, { steps: 4 });
+    await page.mouse.up();
+    expect(await note.getAttribute("data-selected")).toBe("true");
+  },
+);
 
 test("AT-023: 390pxでもツール入口とnative Spaceを維持する", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1119,76 +1124,79 @@ test.each([
   { width: 1280, height: 720 },
   { width: 390, height: 720 },
   { width: 1280, height: 400 },
-])("$width×$heightで操作ヒント全文へ到達し、選択を維持してEscapeだけ閉じる", async (size) => {
-  await page.setViewportSize(size);
-  await page.reload();
-  await page.getByTestId("note-card").first().waitFor();
-  await page.evaluate(() => document.fonts.ready);
-  for (const note of await page.getByTestId("note-card").all()) {
-    await note
-      .getByRole("button", { name: "付箋", exact: true })
-      .click({ modifiers: ["Shift"] });
-  }
-  await selectedCount(3);
-  const summary = page.getByLabel("キャンバス操作のヒント", { exact: true });
-  await summary.click();
-  const panel = page.getByTestId("canvas-operation-help");
-  const bounds = await panel.boundingBox();
-  if (!bounds) throw new Error("操作ヒントが表示されていません");
-  expect(bounds.x).toBeGreaterThanOrEqual(0);
-  expect(bounds.y).toBeGreaterThanOrEqual(0);
-  expect(bounds.x + bounds.width).toBeLessThanOrEqual(size.width);
-  expect(bounds.y + bounds.height).toBeLessThanOrEqual(size.height);
-  expect(
-    await panel.evaluate((el) =>
-      Number.parseFloat(getComputedStyle(el).fontSize),
-    ),
-  ).toBeGreaterThanOrEqual(14);
-  await panel.focus();
-  await page.mouse.move(
-    bounds.x + bounds.width / 2,
-    bounds.y + bounds.height / 2,
-  );
-  const before = await transform();
-  await page.mouse.wheel(0, 800);
-  await expect
-    .poll(() => panel.evaluate((el) => el.scrollTop))
-    .toBeGreaterThan(0);
-  expect(await transform()).toBe(before);
-  const last = panel.getByText("編集中は本文の文字を削除します。", {
-    exact: true,
-  });
-  await last.scrollIntoViewIfNeeded();
-  expect(
-    await last.evaluate((el) => {
-      const content = el.getBoundingClientRect();
-      const container = el.closest("section")?.getBoundingClientRect();
-      return (
-        !!container &&
-        content.top >= container.top &&
-        content.bottom <= container.bottom
-      );
-    }),
-  ).toBe(true);
-  // CTAの上でも本文を実際に操作できることを確認する。
-  await last.click();
-  expect(await panel.isVisible()).toBe(true);
-  await panel.focus();
-  await page.keyboard.press("Escape");
-  expect(await panel.isVisible()).toBe(false);
-  expect(await summary.evaluate((el) => el === document.activeElement)).toBe(
-    true,
-  );
-  await selectedCount(3);
-  const announcement = page
-    .getByTestId("canvas-zoom-hud")
-    .locator('[aria-live="polite"]')
-    .filter({ hasText: "選択した付箋：3枚" });
-  expect(await announcement.count()).toBe(1);
-  expect(
-    await announcement.evaluate((el) => el.getBoundingClientRect().width),
-  ).toBeLessThanOrEqual(1);
-});
+])(
+  "$width×$heightで操作ヒント全文へ到達し、選択を維持してEscapeだけ閉じる",
+  async (size) => {
+    await page.setViewportSize(size);
+    await page.reload();
+    await page.getByTestId("note-card").first().waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    for (const note of await page.getByTestId("note-card").all()) {
+      await note
+        .getByRole("button", { name: "付箋", exact: true })
+        .click({ modifiers: ["Shift"] });
+    }
+    await selectedCount(3);
+    const summary = page.getByLabel("キャンバス操作のヒント", { exact: true });
+    await summary.click();
+    const panel = page.getByTestId("canvas-operation-help");
+    const bounds = await panel.boundingBox();
+    if (!bounds) throw new Error("操作ヒントが表示されていません");
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(size.width);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(size.height);
+    expect(
+      await panel.evaluate((el) =>
+        Number.parseFloat(getComputedStyle(el).fontSize),
+      ),
+    ).toBeGreaterThanOrEqual(14);
+    await panel.focus();
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+    const before = await transform();
+    await page.mouse.wheel(0, 800);
+    await expect
+      .poll(() => panel.evaluate((el) => el.scrollTop))
+      .toBeGreaterThan(0);
+    expect(await transform()).toBe(before);
+    const last = panel.getByText("編集中は本文の文字を削除します。", {
+      exact: true,
+    });
+    await last.scrollIntoViewIfNeeded();
+    expect(
+      await last.evaluate((el) => {
+        const content = el.getBoundingClientRect();
+        const container = el.closest("section")?.getBoundingClientRect();
+        return (
+          !!container &&
+          content.top >= container.top &&
+          content.bottom <= container.bottom
+        );
+      }),
+    ).toBe(true);
+    // CTAの上でも本文を実際に操作できることを確認する。
+    await last.click();
+    expect(await panel.isVisible()).toBe(true);
+    await panel.focus();
+    await page.keyboard.press("Escape");
+    expect(await panel.isVisible()).toBe(false);
+    expect(await summary.evaluate((el) => el === document.activeElement)).toBe(
+      true,
+    );
+    await selectedCount(3);
+    const announcement = page
+      .getByTestId("canvas-zoom-hud")
+      .locator('[aria-live="polite"]')
+      .filter({ hasText: "選択した付箋：3枚" });
+    expect(await announcement.count()).toBe(1);
+    expect(
+      await announcement.evaluate((el) => el.getBoundingClientRect().width),
+    ).toBeLessThanOrEqual(1);
+  },
+);
 
 test("外側の付箋・ツール・wheel・panはヒントを閉じて同じ操作を実行する", async () => {
   const summary = page.getByLabel("キャンバス操作のヒント", { exact: true });

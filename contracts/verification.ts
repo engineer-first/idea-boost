@@ -35,20 +35,18 @@ export const VERIFICATION_CHECKPOINTS: ReadonlyArray<{
   );
   return { id, label: getRoomPhaseLabel(phase), phase };
 });
-export const VerificationCreateRequestSchema = z
-  .object({ checkpoint: VerificationCheckpointSchema })
-  .strict();
-export const VerificationVoteRequestSchema = z
-  .object({
-    phase: z.number().int().min(1).max(3),
-    step: z.number().int().min(1).max(5),
-  })
-  .strict();
+export const VerificationCreateRequestSchema = z.strictObject({
+  checkpoint: VerificationCheckpointSchema,
+});
+export const VerificationVoteRequestSchema = z.strictObject({
+  phase: z.int().min(1).max(3),
+  step: z.int().min(1).max(5),
+});
 export type VerificationVoteRequest = z.infer<
   typeof VerificationVoteRequestSchema
 >;
 export const VerificationActiveSchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
   inviteCode: z.string(),
   checkpoint: VerificationCheckpointSchema,
 });
@@ -59,7 +57,7 @@ export const VerificationWorkspaceSchema = z.object({
 export const VerificationStatusSchema = z.object({
   phase: RoomPhaseSchema,
   canCompleteVotes: z.boolean(),
-  completedOtherVoters: z.number().int().min(0).max(2),
+  completedOtherVoters: z.int().min(0).max(2),
 });
 export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
 
@@ -73,12 +71,10 @@ export const VerificationOutcomeScenarioSchema = z.enum([
 export type VerificationOutcomeScenario = z.infer<
   typeof VerificationOutcomeScenarioSchema
 >;
-export const VerificationOutcomeRequestSchema = z
-  .object({
-    scenario: VerificationOutcomeScenarioSchema,
-    roomName: z.string().trim().max(ROOM_CREATION_NAME_MAX).optional(),
-  })
-  .strict();
+export const VerificationOutcomeRequestSchema = z.strictObject({
+  scenario: VerificationOutcomeScenarioSchema,
+  roomName: z.string().trim().max(ROOM_CREATION_NAME_MAX).optional(),
+});
 export const VerificationOutcomeRecoverySchema = z.object({
   recovered: z.literal(true),
 });

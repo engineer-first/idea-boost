@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ServerMessage } from "../../contracts/room-protocol";
 import worker from "../api-worker";
@@ -222,18 +222,18 @@ describe("ホストによるメンバー除外", () => {
     expect(await stub.isMember(A.sub)).toBe(true);
     a.close();
   });
-  it.each([
-    A.sub,
-    OUTSIDER,
-  ])("自己または非メンバー %s を拒否する", async (target) => {
-    const { a, stub } = await setup();
-    const operationId = remove(a, target);
-    expect(await receive(a, "error")).toMatchObject({
-      code: "forbidden",
-      operationId,
-    });
-    expect(await stub.isMember(A.sub)).toBe(true);
-  });
+  it.each([A.sub, OUTSIDER])(
+    "自己または非メンバー %s を拒否する",
+    async (target) => {
+      const { a, stub } = await setup();
+      const operationId = remove(a, target);
+      expect(await receive(a, "error")).toMatchObject({
+        code: "forbidden",
+        operationId,
+      });
+      expect(await stub.isMember(A.sub)).toBe(true);
+    },
+  );
   it("未接続のメンバーを外し、他メンバーへ退出・送信者へ完了を順に返す", async () => {
     const { a, b, stub } = await setup();
     await removeAccepted(a, C.sub);
@@ -259,7 +259,7 @@ describe("ホストによるメンバー除外", () => {
     await removeAccepted(a);
     expect(await Promise.all(closes)).toEqual([4000, 4000]);
     expect(await stub.isMember(B.sub)).toBe(false);
-    const response = await SELF.fetch(
+    const response = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/ws`,
       { headers: { Upgrade: "websocket", Cookie: await sessionCookieFor(B) } },
     );

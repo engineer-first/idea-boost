@@ -1,4 +1,5 @@
-import { env, runInDurableObject } from "cloudflare:test";
+import { runInDurableObject } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
 import {
   parseServerMessage,
@@ -88,72 +89,73 @@ it("開発用の本人主張はPreviewで受理しない", async () => {
   expect(res.status).toBe(403);
 });
 
-it.each(
-  VERIFICATION_CHECKPOINTS.filter((c) => c.id !== "lobby"),
-)("$id の新規ルームで本人だけに未共有付箋を用意する", async ({ id, phase }) => {
-  const cookie = await sessionCookieFor(owner);
-  const res = await previewWorker.fetch(
-    request({ checkpoint: id }, cookie),
-    config(),
-  );
-  expect(res.status).toBe(201);
-  const room = (await res.json()) as { roomId: string; inviteCode: string };
-  const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(room.roomId));
-  await runInDurableObject(stub, async (instance, state) => {
-    expect(getPhase(state.storage.sql)).toEqual(phase);
-    expect(instance.listMembers().map((m) => m.userId)).toEqual([owner.sub]);
-    const notes = listNotes(state.storage.sql, owner.sub);
-    expect(notes.length).toBeGreaterThan(0);
-    expect(notes.every((n) => n.authorId === owner.sub)).toBe(true);
-    if (phase.kind === "step" && phase.phase === 3 && phase.step >= 2)
-      expect(getIdeaMapSizeState(state.storage.sql)).toEqual({
-        sizeLevel: 4,
-        initialized: true,
-      });
-    for (const note of notes.filter((n) => n.visibility === "private")) {
-      expect(
-        visibleTo(
-          { viewerId: owner.sub },
-          { authorId: note.authorId, visibility: note.visibility },
-        ),
-      ).toBe(true);
-      expect(
-        visibleTo(
-          { viewerId: member.sub },
-          { authorId: note.authorId, visibility: note.visibility },
-        ),
-      ).toBe(false);
-    }
-    if (phase.kind === "step")
-      for (let p = 1; p < phase.phase; p++)
-        expect(getDecision(state.storage.sql, p)).not.toBeNull();
-  });
-  const join = () =>
-    previewWorker.fetch(
-      new Request("https://preview.test/api/rooms/join", {
-        method: "POST",
-        headers: { Cookie: cookie },
-        body: JSON.stringify({ code: room.inviteCode }),
-      }),
+it.each(VERIFICATION_CHECKPOINTS.filter((c) => c.id !== "lobby"))(
+  "$id の新規ルームで本人だけに未共有付箋を用意する",
+  async ({ id, phase }) => {
+    const cookie = await sessionCookieFor(owner);
+    const res = await previewWorker.fetch(
+      request({ checkpoint: id }, cookie),
       config(),
     );
-  expect((await join()).ok).toBe(true);
-  expect(
-    (
-      await previewWorker.fetch(
-        request({ checkpoint: id, roomId: room.roomId }, cookie),
+    expect(res.status).toBe(201);
+    const room = (await res.json()) as { roomId: string; inviteCode: string };
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(room.roomId));
+    await runInDurableObject(stub, async (instance, state) => {
+      expect(getPhase(state.storage.sql)).toEqual(phase);
+      expect(instance.listMembers().map((m) => m.userId)).toEqual([owner.sub]);
+      const notes = listNotes(state.storage.sql, owner.sub);
+      expect(notes.length).toBeGreaterThan(0);
+      expect(notes.every((n) => n.authorId === owner.sub)).toBe(true);
+      if (phase.kind === "step" && phase.phase === 3 && phase.step >= 2)
+        expect(getIdeaMapSizeState(state.storage.sql)).toEqual({
+          sizeLevel: 4,
+          initialized: true,
+        });
+      for (const note of notes.filter((n) => n.visibility === "private")) {
+        expect(
+          visibleTo(
+            { viewerId: owner.sub },
+            { authorId: note.authorId, visibility: note.visibility },
+          ),
+        ).toBe(true);
+        expect(
+          visibleTo(
+            { viewerId: member.sub },
+            { authorId: note.authorId, visibility: note.visibility },
+          ),
+        ).toBe(false);
+      }
+      if (phase.kind === "step")
+        for (let p = 1; p < phase.phase; p++)
+          expect(getDecision(state.storage.sql, p)).not.toBeNull();
+    });
+    const join = () =>
+      previewWorker.fetch(
+        new Request("https://preview.test/api/rooms/join", {
+          method: "POST",
+          headers: { Cookie: cookie },
+          body: JSON.stringify({ code: room.inviteCode }),
+        }),
         config(),
-      )
-    ).status,
-  ).toBe(400);
-  const another = await previewWorker.fetch(
-    request({ checkpoint: id }, cookie),
-    config(),
-  );
-  expect(((await another.json()) as { roomId: string }).roomId).not.toBe(
-    room.roomId,
-  );
-});
+      );
+    expect((await join()).ok).toBe(true);
+    expect(
+      (
+        await previewWorker.fetch(
+          request({ checkpoint: id, roomId: room.roomId }, cookie),
+          config(),
+        )
+      ).status,
+    ).toBe(400);
+    const another = await previewWorker.fetch(
+      request({ checkpoint: id }, cookie),
+      config(),
+    );
+    expect(((await another.json()) as { roomId: string }).roomId).not.toBe(
+      room.roomId,
+    );
+  },
+);
 
 async function socketFor(user: typeof owner, roomId: string) {
   const res = await previewWorker.fetch(

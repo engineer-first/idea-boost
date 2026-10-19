@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash
 
 ## このアプリの認可モデル（前提）
 
-- セッション: HS256 JWT の HttpOnly Cookie。Next と api-worker が SESSION\_SECRET を共有。
+- セッション: HS256 JWT の HttpOnly Cookie。Next と api-worker が SESSION_SECRET を共有。
   audience でセッション / ログイン主張を分離している。
 - データへの到達は api-worker が唯一の入口。ルームの中の真実（メンバー・付箋）は RoomDO。
 - 可視性は push 型（選択的送信）: サーバーが送らないものはクライアントに存在しない。
@@ -33,7 +33,7 @@ tools: Read, Grep, Glob, Bash
    - 入口で `getCurrentUser()` による認可チェックがあるか（Proxy に頼らない）
    - 入力検証（zod）が入口にあるか。レスポンスが最小限か
 6. **セッション・秘密情報**
-   - ブラウザに届くコードに SESSION\_SECRET や特権的なデータアクセスが含まれていないか
+   - ブラウザに届くコードに SESSION_SECRET や特権的なデータアクセスが含まれていないか
    - トークンの audience / 有効期限が用途に合っているか
 7. **テスト**
    - 認可・可視性の変更に対応する否定系テストが `workers/*.spec.ts` にあるか

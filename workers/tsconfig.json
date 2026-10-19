@@ -20,7 +20,7 @@
     "../contracts/**/*.ts",
     "../lib/session/token.ts",
     "../app/rooms/invite-code.ts",
-    "../node_modules/@cloudflare/vitest-pool-workers/types/cloudflare-test.d.ts"
+    "../node_modules/@cloudflare/vitest-plugin/types/cloudflare-test.d.ts"
   ],
   // app-worker.ts はビルド時生成物 (.open-next/worker.js) に依存するため
   // 型検査から除外する（wrangler が bundle 時に解決する）。

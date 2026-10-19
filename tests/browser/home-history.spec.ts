@@ -228,290 +228,312 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 // Storybook の Next router はモック。実際の URL 遷移は下の実 Next/Worker で検証する。
-it.each([
-  390, 640, 1280,
-])("左右カードの配置を保って招待コードのblur検証と履歴入口のTab操作を%ipxで行える", async (width) => {
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage({ viewport: { width, height: 844 } });
-    const historyRequests: string[] = [];
-    page.on("request", (request) => {
-      if (new URL(request.url()).pathname.startsWith("/api/completed-rooms"))
-        historyRequests.push(request.url());
-    });
-    await page.goto(
-      `${origin}/iframe.html?id=home-homeview--default&viewMode=story`,
-    );
-    const name = page.getByRole("textbox", { name: "ルーム名（任意）" });
-    const code = page.getByRole("textbox", { name: "招待コード" });
-    const create = page.getByRole("button", {
-      name: "新しいルームを作成",
-      exact: true,
-    });
-    const join = page.getByRole("button", { name: "参加する", exact: true });
-    const error = page.getByRole("alert");
-    const entry = page.getByRole("link", { name: /過去の成果を見る/ });
-    const destructive = await code.evaluate((element) => {
-      // CSS最適化による百分率等の表記差を、同じブラウザのcomputed色へ正規化する。
-      const reference = document.createElement("span");
-      reference.hidden = true;
-      reference.style.color = "var(--destructive)";
-      (element.parentElement ?? document.body).append(reference);
-      try {
-        return getComputedStyle(reference).color;
-      } finally {
-        reference.remove();
+it.each([390, 640, 1280])(
+  "左右カードの配置を保って招待コードのblur検証と履歴入口のTab操作を%ipxで行える",
+  async (width) => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width, height: 844 } });
+      const historyRequests: string[] = [];
+      page.on("request", (request) => {
+        if (new URL(request.url()).pathname.startsWith("/api/completed-rooms"))
+          historyRequests.push(request.url());
+      });
+      await page.goto(
+        `${origin}/iframe.html?id=home-homeview--default&viewMode=story`,
+      );
+      const name = page.getByRole("textbox", { name: "ルーム名（任意）" });
+      const code = page.getByRole("textbox", { name: "招待コード" });
+      const create = page.getByRole("button", {
+        name: "新しいルームを作成",
+        exact: true,
+      });
+      const join = page.getByRole("button", { name: "参加する", exact: true });
+      const error = page.getByRole("alert");
+      const entry = page.getByRole("link", { name: /過去の成果を見る/ });
+      const destructive = await code.evaluate((element) => {
+        // CSS最適化による百分率等の表記差を、同じブラウザのcomputed色へ正規化する。
+        const reference = document.createElement("span");
+        reference.hidden = true;
+        reference.style.color = "var(--destructive)";
+        (element.parentElement ?? document.body).append(reference);
+        try {
+          return getComputedStyle(reference).color;
+        } finally {
+          reference.remove();
+        }
+      });
+      const initialBorder = await code.evaluate(
+        (element) => getComputedStyle(element).borderColor,
+      );
+      expect(await code.inputValue()).toBe("");
+      expect(await error.count()).toBe(0);
+      expect(await code.getAttribute("aria-invalid")).not.toBe("true");
+      expect(initialBorder).not.toBe(destructive);
+      expect(await join.isDisabled()).toBe(true);
+      await page.evaluate(() => document.fonts.ready);
+      const initialLayout = await measureHomeLayout(page);
+      expectAlignedCards(initialLayout, width, "initial");
+      for (const target of [name, create, code, join, entry]) {
+        await expectReachable(page, target);
       }
-    });
-    const initialBorder = await code.evaluate(
-      (element) => getComputedStyle(element).borderColor,
-    );
-    expect(await code.inputValue()).toBe("");
-    expect(await error.count()).toBe(0);
-    expect(await code.getAttribute("aria-invalid")).not.toBe("true");
-    expect(initialBorder).not.toBe(destructive);
-    expect(await join.isDisabled()).toBe(true);
-    await page.evaluate(() => document.fonts.ready);
-    const initialLayout = await measureHomeLayout(page);
-    expectAlignedCards(initialLayout, width, "initial");
-    for (const target of [name, create, code, join, entry]) {
-      await expectReachable(page, target);
-    }
-    await expectNoHorizontalOverflow(page);
-    await capture(page, `home-invite-${width}-initial`, initialLayout);
+      await expectNoHorizontalOverflow(page);
+      await capture(page, `home-invite-${width}-initial`, initialLayout);
 
-    await code.focus();
-    await page.keyboard.press("Tab");
-    expect(await error.count()).toBe(0);
-    await code.fill("ab");
-    expect(await code.inputValue()).toBe("AB");
-    expect(await error.count()).toBe(0);
-    expect(await code.getAttribute("aria-invalid")).not.toBe("true");
-    expect(await join.isDisabled()).toBe(true);
-    await page.keyboard.press("Tab");
-    await error.waitFor();
-    expect(await code.getAttribute("aria-invalid")).toBe("true");
-    const errorId = await error.getAttribute("id");
-    expect(errorId).toBeTruthy();
-    expect(
-      (await code.getAttribute("aria-describedby"))?.split(/\s+/),
-    ).toContain(errorId);
-    expect(
-      await error.evaluate((element) => getComputedStyle(element).color),
-    ).toBe(destructive);
-    await expect
-      .poll(() =>
-        code.evaluate((element) => getComputedStyle(element).borderColor),
-      )
-      .toBe(destructive);
-    const errorLayout = await measureHomeLayout(page);
-    expectAlignedCards(errorLayout, width, "error");
-    expectStableLayout(initialLayout, errorLayout, `${width}px error`);
-    for (const target of [name, create, code, error, join, entry]) {
-      await expectReachable(page, target);
-    }
-    const inputBounds = await code.boundingBox();
-    const errorBounds = await error.boundingBox();
-    const joinBounds = await join.boundingBox();
-    expect(inputBounds).not.toBeNull();
-    expect(errorBounds).not.toBeNull();
-    expect(errorBounds?.y).toBeGreaterThanOrEqual(
-      (inputBounds?.y ?? 0) + (inputBounds?.height ?? 0),
-    );
-    expect(
-      (errorBounds?.y ?? 844) + (errorBounds?.height ?? 0),
-    ).toBeLessThanOrEqual(joinBounds?.y ?? 0);
-    await expectNoHorizontalOverflow(page);
-    await capture(page, `home-invite-${width}-error`, errorLayout);
+      await code.focus();
+      await page.keyboard.press("Tab");
+      expect(await error.count()).toBe(0);
+      await code.fill("ab");
+      expect(await code.inputValue()).toBe("AB");
+      expect(await error.count()).toBe(0);
+      expect(await code.getAttribute("aria-invalid")).not.toBe("true");
+      expect(await join.isDisabled()).toBe(true);
+      await page.keyboard.press("Tab");
+      await error.waitFor();
+      expect(await code.getAttribute("aria-invalid")).toBe("true");
+      const errorId = await error.getAttribute("id");
+      expect(errorId).toBeTruthy();
+      expect(
+        (await code.getAttribute("aria-describedby"))?.split(/\s+/),
+      ).toContain(errorId);
+      expect(
+        await error.evaluate((element) => getComputedStyle(element).color),
+      ).toBe(destructive);
+      await expect
+        .poll(() =>
+          code.evaluate((element) => getComputedStyle(element).borderColor),
+        )
+        .toBe(destructive);
+      const errorLayout = await measureHomeLayout(page);
+      expectAlignedCards(errorLayout, width, "error");
+      expectStableLayout(initialLayout, errorLayout, `${width}px error`);
+      for (const target of [name, create, code, error, join, entry]) {
+        await expectReachable(page, target);
+      }
+      const inputBounds = await code.boundingBox();
+      const errorBounds = await error.boundingBox();
+      const joinBounds = await join.boundingBox();
+      expect(inputBounds).not.toBeNull();
+      expect(errorBounds).not.toBeNull();
+      expect(errorBounds?.y).toBeGreaterThanOrEqual(
+        (inputBounds?.y ?? 0) + (inputBounds?.height ?? 0),
+      );
+      expect(
+        (errorBounds?.y ?? 844) + (errorBounds?.height ?? 0),
+      ).toBeLessThanOrEqual(joinBounds?.y ?? 0);
+      await expectNoHorizontalOverflow(page);
+      await capture(page, `home-invite-${width}-error`, errorLayout);
 
-    await code.focus();
-    await page.keyboard.press("Backspace");
-    expect(await code.inputValue()).toBe("A");
-    expect(await error.count()).toBe(0);
-    expect(await code.getAttribute("aria-invalid")).not.toBe("true");
-    expect(await code.getAttribute("aria-describedby")).toBeNull();
-    await code.fill("abc123");
-    await page.keyboard.press("Tab");
-    expect(await code.inputValue()).toBe("ABC123");
-    expect(await join.isEnabled()).toBe(true);
-    expect(await error.count()).toBe(0);
-    expect(await code.getAttribute("aria-invalid")).not.toBe("true");
-    await expect
-      .poll(() =>
-        code.evaluate((element) => getComputedStyle(element).borderColor),
-      )
-      .toBe(initialBorder);
-    await expectNoHorizontalOverflow(page);
-    const correctedLayout = await measureHomeLayout(page);
-    expectAlignedCards(correctedLayout, width, "corrected");
-    expectStableLayout(initialLayout, correctedLayout, `${width}px corrected`);
-    for (const target of [name, create, code, join, entry]) {
-      await expectReachable(page, target);
+      await code.focus();
+      await page.keyboard.press("Backspace");
+      expect(await code.inputValue()).toBe("A");
+      expect(await error.count()).toBe(0);
+      expect(await code.getAttribute("aria-invalid")).not.toBe("true");
+      expect(await code.getAttribute("aria-describedby")).toBeNull();
+      await code.fill("abc123");
+      await page.keyboard.press("Tab");
+      expect(await code.inputValue()).toBe("ABC123");
+      expect(await join.isEnabled()).toBe(true);
+      expect(await error.count()).toBe(0);
+      expect(await code.getAttribute("aria-invalid")).not.toBe("true");
+      await expect
+        .poll(() =>
+          code.evaluate((element) => getComputedStyle(element).borderColor),
+        )
+        .toBe(initialBorder);
+      await expectNoHorizontalOverflow(page);
+      const correctedLayout = await measureHomeLayout(page);
+      expectAlignedCards(correctedLayout, width, "corrected");
+      expectStableLayout(
+        initialLayout,
+        correctedLayout,
+        `${width}px corrected`,
+      );
+      for (const target of [name, create, code, join, entry]) {
+        await expectReachable(page, target);
+      }
+      await capture(page, `home-invite-${width}-corrected`, correctedLayout);
+      await name.fill("授業の相談");
+      expect(await entry.getAttribute("href")).toBe("/completed-rooms");
+      expect(await entry.getAttribute("target")).not.toBe("_blank");
+      expect(await page.locator("details, summary").count()).toBe(0);
+      expect(
+        await page.getByRole("button", { name: "最新の一覧を取得" }).count(),
+      ).toBe(0);
+      await page.getByRole("button", { name: "参加する", exact: true }).focus();
+      await page.keyboard.press("Tab");
+      expect(
+        await entry.evaluate((element) => element === document.activeElement),
+      ).toBe(true);
+      const bounds = await entry.boundingBox();
+      expect(bounds?.height).toBeGreaterThanOrEqual(44);
+      expect(bounds?.y).toBeGreaterThanOrEqual(0);
+      expect((bounds?.y ?? 844) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
+        844,
+      );
+      await page.keyboard.press("Shift+Tab");
+      expect(
+        await page
+          .getByRole("button", { name: "参加する", exact: true })
+          .evaluate((element) => element === document.activeElement),
+      ).toBe(true);
+      expect(await name.inputValue()).toBe("授業の相談");
+      expect(await code.inputValue()).toBe("ABC123");
+      expect(historyRequests).toEqual([]);
+      await expectNoHorizontalOverflow(page);
+      await capture(page, `home-history-${width}-entry`);
+    } finally {
+      await browser.close();
     }
-    await capture(page, `home-invite-${width}-corrected`, correctedLayout);
-    await name.fill("授業の相談");
-    expect(await entry.getAttribute("href")).toBe("/completed-rooms");
-    expect(await entry.getAttribute("target")).not.toBe("_blank");
-    expect(await page.locator("details, summary").count()).toBe(0);
-    expect(
-      await page.getByRole("button", { name: "最新の一覧を取得" }).count(),
-    ).toBe(0);
-    await page.getByRole("button", { name: "参加する", exact: true }).focus();
-    await page.keyboard.press("Tab");
-    expect(
-      await entry.evaluate((element) => element === document.activeElement),
-    ).toBe(true);
-    const bounds = await entry.boundingBox();
-    expect(bounds?.height).toBeGreaterThanOrEqual(44);
-    expect(bounds?.y).toBeGreaterThanOrEqual(0);
-    expect((bounds?.y ?? 844) + (bounds?.height ?? 0)).toBeLessThanOrEqual(844);
-    await page.keyboard.press("Shift+Tab");
-    expect(
+  },
+);
+
+it.each(widths)(
+  "専用一覧の読込・再試行・ページング・期限切れ更新を%ipxで操作できる",
+  async (width) => {
+    const browser = await chromium.launch();
+    let releaseInitial: (() => void) | undefined;
+    try {
+      const page = await browser.newPage({ viewport: { width, height: 844 } });
+      let attempt = 0;
+      const initial = new Promise<void>((resolve) => {
+        releaseInitial = resolve;
+      });
+      await page.route("**/api/completed-rooms*", async (route) => {
+        attempt++;
+        if (attempt === 1) {
+          await initial;
+          await route.fulfill({ status: 503, json: {} });
+        } else if (attempt === 2) {
+          expect(
+            new URL(route.request().url()).searchParams.has("cursor"),
+          ).toBe(false);
+          await route.fulfill({ json: { rooms: [], nextCursor: "page-2" } });
+        } else if (attempt === 3) {
+          expect(
+            new URL(route.request().url()).searchParams.get("cursor"),
+          ).toBe("page-2");
+          await route.fulfill({
+            json: { rooms: [completedRoomFixture()], nextCursor: null },
+          });
+        } else {
+          // サーバーが期限切れのルームを返さなくなった更新結果を表示する。
+          expect(
+            new URL(route.request().url()).searchParams.has("cursor"),
+          ).toBe(false);
+          await route.fulfill({ json: { rooms: [], nextCursor: null } });
+        }
+      });
+      await page.goto(
+        `${origin}/iframe.html?id=completedrooms-container--default&viewMode=story`,
+      );
       await page
-        .getByRole("button", { name: "参加する", exact: true })
-        .evaluate((element) => element === document.activeElement),
-    ).toBe(true);
-    expect(await name.inputValue()).toBe("授業の相談");
-    expect(await code.inputValue()).toBe("ABC123");
-    expect(historyRequests).toEqual([]);
-    await expectNoHorizontalOverflow(page);
-    await capture(page, `home-history-${width}-entry`);
-  } finally {
-    await browser.close();
-  }
-});
+        .getByRole("heading", { name: "以前のルーム", exact: true })
+        .waitFor();
+      expect(
+        await page.getByRole("link", { name: "ホームへ" }).getAttribute("href"),
+      ).toBe("/home");
+      expect(await page.getByRole("main").count()).toBe(1);
+      await page.getByRole("status").waitFor();
+      expect(
+        await page
+          .getByRole("button", { name: "最新の一覧を取得" })
+          .isDisabled(),
+      ).toBe(true);
+      releaseInitial?.();
+      await page.getByRole("alert").waitFor();
+      await page.getByRole("button", { name: "再取得", exact: true }).click();
+      const more = page.getByRole("button", { name: "次のルームを表示" });
+      await more.waitFor();
+      expect(
+        await page.getByText("以前のルームはまだありません。").count(),
+      ).toBe(0);
+      await more.click();
+      const outcome = page.getByRole("link", {
+        name: "成果を見る",
+        exact: true,
+      });
+      await outcome.waitFor();
+      expect(await outcome.getAttribute("href")).toBe(
+        `/completed-rooms/${completedRoomFixture().roomId}`,
+      );
+      await capture(page, `completed-rooms-${width}-success`);
+      expect(attempt).toBe(3);
+      await page.getByRole("button", { name: "最新の一覧を取得" }).click();
+      await page.getByText("以前のルームはまだありません。").waitFor();
+      expect(await outcome.count()).toBe(0);
+      expect(attempt).toBe(4);
+      await expectNoHorizontalOverflow(page);
+    } finally {
+      releaseInitial?.();
+      await browser.close();
+    }
+  },
+);
 
-it.each(
-  widths,
-)("専用一覧の読込・再試行・ページング・期限切れ更新を%ipxで操作できる", async (width) => {
-  const browser = await chromium.launch();
-  let releaseInitial: (() => void) | undefined;
-  try {
-    const page = await browser.newPage({ viewport: { width, height: 844 } });
-    let attempt = 0;
-    const initial = new Promise<void>((resolve) => {
-      releaseInitial = resolve;
-    });
-    await page.route("**/api/completed-rooms*", async (route) => {
-      attempt++;
-      if (attempt === 1) {
-        await initial;
-        await route.fulfill({ status: 503, json: {} });
-      } else if (attempt === 2) {
-        expect(new URL(route.request().url()).searchParams.has("cursor")).toBe(
-          false,
+it.each(widths)(
+  "大量・長文の専用一覧を%ipxで最後まで読んでページングできる",
+  async (width) => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width, height: 844 } });
+      const rooms = Array.from({ length: 30 }, (_, index) =>
+        completedRoomFixture({
+          roomId: `11111111-1111-4111-8111-${String(index).padStart(12, "0")}`,
+          idea: `${index + 1}件目：${"授業で考えた長いアイデア".repeat(30)}`,
+        }),
+      );
+      await page.route("**/api/completed-rooms*", async (route) => {
+        const cursor = new URL(route.request().url()).searchParams.get(
+          "cursor",
         );
-        await route.fulfill({ json: { rooms: [], nextCursor: "page-2" } });
-      } else if (attempt === 3) {
-        expect(new URL(route.request().url()).searchParams.get("cursor")).toBe(
-          "page-2",
-        );
-        await route.fulfill({
-          json: { rooms: [completedRoomFixture()], nextCursor: null },
-        });
-      } else {
-        // サーバーが期限切れのルームを返さなくなった更新結果を表示する。
-        expect(new URL(route.request().url()).searchParams.has("cursor")).toBe(
-          false,
-        );
-        await route.fulfill({ json: { rooms: [], nextCursor: null } });
-      }
-    });
-    await page.goto(
-      `${origin}/iframe.html?id=completedrooms-container--default&viewMode=story`,
-    );
-    await page
-      .getByRole("heading", { name: "以前のルーム", exact: true })
-      .waitFor();
-    expect(
-      await page.getByRole("link", { name: "ホームへ" }).getAttribute("href"),
-    ).toBe("/home");
-    expect(await page.getByRole("main").count()).toBe(1);
-    await page.getByRole("status").waitFor();
-    expect(
-      await page.getByRole("button", { name: "最新の一覧を取得" }).isDisabled(),
-    ).toBe(true);
-    releaseInitial?.();
-    await page.getByRole("alert").waitFor();
-    await page.getByRole("button", { name: "再取得", exact: true }).click();
-    const more = page.getByRole("button", { name: "次のルームを表示" });
-    await more.waitFor();
-    expect(await page.getByText("以前のルームはまだありません。").count()).toBe(
-      0,
-    );
-    await more.click();
-    const outcome = page.getByRole("link", { name: "成果を見る", exact: true });
-    await outcome.waitFor();
-    expect(await outcome.getAttribute("href")).toBe(
-      `/completed-rooms/${completedRoomFixture().roomId}`,
-    );
-    await capture(page, `completed-rooms-${width}-success`);
-    expect(attempt).toBe(3);
-    await page.getByRole("button", { name: "最新の一覧を取得" }).click();
-    await page.getByText("以前のルームはまだありません。").waitFor();
-    expect(await outcome.count()).toBe(0);
-    expect(attempt).toBe(4);
-    await expectNoHorizontalOverflow(page);
-  } finally {
-    releaseInitial?.();
-    await browser.close();
-  }
-});
-
-it.each(
-  widths,
-)("大量・長文の専用一覧を%ipxで最後まで読んでページングできる", async (width) => {
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage({ viewport: { width, height: 844 } });
-    const rooms = Array.from({ length: 30 }, (_, index) =>
-      completedRoomFixture({
-        roomId: `11111111-1111-4111-8111-${String(index).padStart(12, "0")}`,
-        idea: `${index + 1}件目：${"授業で考えた長いアイデア".repeat(30)}`,
-      }),
-    );
-    await page.route("**/api/completed-rooms*", async (route) => {
-      const cursor = new URL(route.request().url()).searchParams.get("cursor");
-      if (cursor) {
-        expect(cursor).toBe("page-2");
-        await route.fulfill({
-          json: { rooms: [completedRoomFixture()], nextCursor: null },
-        });
-      } else {
-        await route.fulfill({ json: { rooms, nextCursor: "page-2" } });
-      }
-    });
-    await page.goto(
-      `${origin}/iframe.html?id=completedrooms-container--default&viewMode=story`,
-    );
-    const more = page.getByRole("button", { name: "次のルームを表示" });
-    await more.waitFor();
-    expect(
-      await page.getByRole("link", { name: "成果を見る", exact: true }).count(),
-    ).toBe(30);
-    await more.scrollIntoViewIfNeeded();
-    const bounds = await more.boundingBox();
-    expect(bounds?.height).toBeGreaterThanOrEqual(44);
-    expect(bounds?.y).toBeGreaterThanOrEqual(0);
-    expect((bounds?.y ?? 844) + (bounds?.height ?? 0)).toBeLessThanOrEqual(844);
-    await expectNoHorizontalOverflow(page);
-    await capture(page, `completed-rooms-${width}-many`);
-    await more.click();
-    await page
-      .locator(`a[href="/completed-rooms/${completedRoomFixture().roomId}"]`)
-      .waitFor();
-    expect(
-      await page.getByRole("link", { name: "成果を見る", exact: true }).count(),
-    ).toBe(31);
-    expect(await more.count()).toBe(0);
-    await expectNoHorizontalOverflow(page);
-    const home = page.getByRole("link", { name: "ホームへ" });
-    await home.scrollIntoViewIfNeeded();
-    expect(await home.isVisible()).toBe(true);
-  } finally {
-    await browser.close();
-  }
-});
+        if (cursor) {
+          expect(cursor).toBe("page-2");
+          await route.fulfill({
+            json: { rooms: [completedRoomFixture()], nextCursor: null },
+          });
+        } else {
+          await route.fulfill({ json: { rooms, nextCursor: "page-2" } });
+        }
+      });
+      await page.goto(
+        `${origin}/iframe.html?id=completedrooms-container--default&viewMode=story`,
+      );
+      const more = page.getByRole("button", { name: "次のルームを表示" });
+      await more.waitFor();
+      expect(
+        await page
+          .getByRole("link", { name: "成果を見る", exact: true })
+          .count(),
+      ).toBe(30);
+      await more.scrollIntoViewIfNeeded();
+      const bounds = await more.boundingBox();
+      expect(bounds?.height).toBeGreaterThanOrEqual(44);
+      expect(bounds?.y).toBeGreaterThanOrEqual(0);
+      expect((bounds?.y ?? 844) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
+        844,
+      );
+      await expectNoHorizontalOverflow(page);
+      await capture(page, `completed-rooms-${width}-many`);
+      await more.click();
+      await page
+        .locator(`a[href="/completed-rooms/${completedRoomFixture().roomId}"]`)
+        .waitFor();
+      expect(
+        await page
+          .getByRole("link", { name: "成果を見る", exact: true })
+          .count(),
+      ).toBe(31);
+      expect(await more.count()).toBe(0);
+      await expectNoHorizontalOverflow(page);
+      const home = page.getByRole("link", { name: "ホームへ" });
+      await home.scrollIntoViewIfNeeded();
+      expect(await home.isVisible()).toBe(true);
+    } finally {
+      await browser.close();
+    }
+  },
+);
 
 // URL 指定時は既存 dev:verify を利用する。指定がない CI でも実 Next/Worker を起動し、
 // Storybook router mock では保証できない Link と履歴を検査する。通常 DB は変更しない。
@@ -657,95 +679,103 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
     }
   });
 
-  it.each(
-    widths,
-  )("%ipxでEnterから同じタブの一覧・詳細へ移動し、戻るリンクとbrowser Backが機能する", async (width) => {
-    const browser = await chromium.launch();
-    try {
-      const context = await browser.newContext({
-        viewport: { width, height: 844 },
-      });
-      const page = await context.newPage();
-      for (const path of [
-        "/completed-rooms",
-        `/completed-rooms/${completedRoomFixture().roomId}`,
-      ]) {
-        await page.goto(`${app}${path}`);
-        await page.waitForURL(`${app}/login?next=${encodeURIComponent(path)}`);
+  it.each(widths)(
+    "%ipxでEnterから同じタブの一覧・詳細へ移動し、戻るリンクとbrowser Backが機能する",
+    async (width) => {
+      const browser = await chromium.launch();
+      try {
+        const context = await browser.newContext({
+          viewport: { width, height: 844 },
+        });
+        const page = await context.newPage();
+        for (const path of [
+          "/completed-rooms",
+          `/completed-rooms/${completedRoomFixture().roomId}`,
+        ]) {
+          await page.goto(`${app}${path}`);
+          await page.waitForURL(
+            `${app}/login?next=${encodeURIComponent(path)}`,
+          );
+        }
+        await page.goto(`${app}/login?next=%2Fhome`);
+        await page.getByLabel("メールアドレス").fill("owner@example.test");
+        await page.getByLabel("パスワード").fill("password");
+        await page
+          .getByRole("button", { name: "開発用ユーザーでログイン" })
+          .click();
+        await page.waitForURL(`${app}/home`);
+        const prepared = await page.request.post(
+          `${app}/api/verification/outcomes`,
+          {
+            data: { scenario: "completed", roomName: `履歴導線${width}px` },
+            headers: { origin: app as string },
+          },
+        );
+        expect(prepared.ok()).toBe(true);
+        const { roomId } = VerificationActiveSchema.parse(
+          await prepared.json(),
+        );
+        const detailResponse = await page.request.get(
+          `${app}/api/completed-rooms/${roomId}`,
+        );
+        expect(detailResponse.ok()).toBe(true);
+        const room = CompletedRoomSchema.parse(await detailResponse.json());
+        await page
+          .getByRole("textbox", { name: "ルーム名（任意）" })
+          .fill("授業の相談");
+        await page.getByRole("textbox", { name: "招待コード" }).fill("ABC123");
+        await page
+          .getByRole("button", { name: "参加する", exact: true })
+          .focus();
+        await page.keyboard.press("Tab");
+        const entry = page.getByRole("link", { name: /過去の成果を見る/ });
+        expect(
+          await entry.evaluate((element) => element === document.activeElement),
+        ).toBe(true);
+        await page.keyboard.press("Enter");
+        await page.waitForURL(`${app}/completed-rooms`);
+        await page
+          .getByRole("heading", { name: "以前のルーム", exact: true })
+          .waitFor();
+        expect(context.pages()).toHaveLength(1);
+        const outcome = page.locator(`a[href="/completed-rooms/${roomId}"]`);
+        await outcome.waitFor();
+        await capture(page, `home-history-${width}-actual-list`);
+        await outcome.click();
+        await page.waitForURL(`${app}/completed-rooms/${roomId}`);
+        await page
+          .getByRole("heading", { name: "チームで決めた成果", exact: true })
+          .waitFor();
+        await page.getByText(room.idea, { exact: true }).waitFor();
+        expect(context.pages()).toHaveLength(1);
+        await expectNoHorizontalOverflow(page);
+        await capture(page, `home-history-${width}-actual-detail`);
+        const backToList = page.getByRole("link", {
+          name: "以前のルームへ",
+          exact: true,
+        });
+        expect(await backToList.getAttribute("href")).toBe("/completed-rooms");
+        await backToList.click();
+        await page.waitForURL(`${app}/completed-rooms`);
+        await outcome.waitFor();
+        await page.goBack();
+        await page.waitForURL(`${app}/completed-rooms/${roomId}`);
+        await page
+          .getByRole("heading", { name: "チームで決めた成果", exact: true })
+          .waitFor();
+        await page.goBack();
+        await page.waitForURL(`${app}/completed-rooms`);
+        await outcome.waitFor();
+        await page.goBack();
+        await page.waitForURL(`${app}/home`);
+        await entry.waitFor();
+        expect(context.pages()).toHaveLength(1);
+        await expectNoHorizontalOverflow(page);
+        await capture(page, `home-history-${width}-actual-back-home`);
+      } finally {
+        await browser.close();
       }
-      await page.goto(`${app}/login?next=%2Fhome`);
-      await page.getByLabel("メールアドレス").fill("owner@example.test");
-      await page.getByLabel("パスワード").fill("password");
-      await page
-        .getByRole("button", { name: "開発用ユーザーでログイン" })
-        .click();
-      await page.waitForURL(`${app}/home`);
-      const prepared = await page.request.post(
-        `${app}/api/verification/outcomes`,
-        {
-          data: { scenario: "completed", roomName: `履歴導線${width}px` },
-          headers: { origin: app as string },
-        },
-      );
-      expect(prepared.ok()).toBe(true);
-      const { roomId } = VerificationActiveSchema.parse(await prepared.json());
-      const detailResponse = await page.request.get(
-        `${app}/api/completed-rooms/${roomId}`,
-      );
-      expect(detailResponse.ok()).toBe(true);
-      const room = CompletedRoomSchema.parse(await detailResponse.json());
-      await page
-        .getByRole("textbox", { name: "ルーム名（任意）" })
-        .fill("授業の相談");
-      await page.getByRole("textbox", { name: "招待コード" }).fill("ABC123");
-      await page.getByRole("button", { name: "参加する", exact: true }).focus();
-      await page.keyboard.press("Tab");
-      const entry = page.getByRole("link", { name: /過去の成果を見る/ });
-      expect(
-        await entry.evaluate((element) => element === document.activeElement),
-      ).toBe(true);
-      await page.keyboard.press("Enter");
-      await page.waitForURL(`${app}/completed-rooms`);
-      await page
-        .getByRole("heading", { name: "以前のルーム", exact: true })
-        .waitFor();
-      expect(context.pages()).toHaveLength(1);
-      const outcome = page.locator(`a[href="/completed-rooms/${roomId}"]`);
-      await outcome.waitFor();
-      await capture(page, `home-history-${width}-actual-list`);
-      await outcome.click();
-      await page.waitForURL(`${app}/completed-rooms/${roomId}`);
-      await page
-        .getByRole("heading", { name: "チームで決めた成果", exact: true })
-        .waitFor();
-      await page.getByText(room.idea, { exact: true }).waitFor();
-      expect(context.pages()).toHaveLength(1);
-      await expectNoHorizontalOverflow(page);
-      await capture(page, `home-history-${width}-actual-detail`);
-      const backToList = page.getByRole("link", {
-        name: "以前のルームへ",
-        exact: true,
-      });
-      expect(await backToList.getAttribute("href")).toBe("/completed-rooms");
-      await backToList.click();
-      await page.waitForURL(`${app}/completed-rooms`);
-      await outcome.waitFor();
-      await page.goBack();
-      await page.waitForURL(`${app}/completed-rooms/${roomId}`);
-      await page
-        .getByRole("heading", { name: "チームで決めた成果", exact: true })
-        .waitFor();
-      await page.goBack();
-      await page.waitForURL(`${app}/completed-rooms`);
-      await outcome.waitFor();
-      await page.goBack();
-      await page.waitForURL(`${app}/home`);
-      await entry.waitFor();
-      expect(context.pages()).toHaveLength(1);
-      await expectNoHorizontalOverflow(page);
-      await capture(page, `home-history-${width}-actual-back-home`);
-    } finally {
-      await browser.close();
-    }
-  }, 90_000);
+    },
+    90_000,
+  );
 });

@@ -139,26 +139,24 @@ describe("Google成功と安全な元操作の対応", () => {
     expect(response.headers.get("location")).toContain("error=account_changed");
     expect(mocks.store.has(ROOM_RESUME_COOKIE)).toBe(false);
   });
-  it.each([
-    "expired",
-    "state",
-    "other_tab",
-    "cancel",
-  ])("%s は自動再開を拒否", async (kind) => {
-    await prepare(
-      kind === "expired" ? -1 : 600,
-      kind === "state" ? crypto.randomUUID() : state,
-    );
-    const response = await GET(
-      request(
-        kind === "cancel" ? "" : "code",
-        kind === "other_tab" ? crypto.randomUUID() : state,
-      ),
-    );
-    expect(new URL(response.headers.get("location") ?? "").pathname).toBe(
-      "/login",
-    );
-    expect(mocks.establish).not.toHaveBeenCalled();
-    expect(mocks.store.has(ROOM_RESUME_COOKIE)).toBe(false);
-  });
+  it.each(["expired", "state", "other_tab", "cancel"])(
+    "%s は自動再開を拒否",
+    async (kind) => {
+      await prepare(
+        kind === "expired" ? -1 : 600,
+        kind === "state" ? crypto.randomUUID() : state,
+      );
+      const response = await GET(
+        request(
+          kind === "cancel" ? "" : "code",
+          kind === "other_tab" ? crypto.randomUUID() : state,
+        ),
+      );
+      expect(new URL(response.headers.get("location") ?? "").pathname).toBe(
+        "/login",
+      );
+      expect(mocks.establish).not.toHaveBeenCalled();
+      expect(mocks.store.has(ROOM_RESUME_COOKIE)).toBe(false);
+    },
+  );
 });

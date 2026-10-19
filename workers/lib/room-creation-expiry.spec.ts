@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { runInRoomDO, sessionCookieFor } from "../test-helpers";
 import { ensureUser, findRoomById } from "./db";
@@ -23,7 +23,7 @@ async function post(
   expectedPrincipal = owner.sub,
   user = owner,
 ) {
-  return SELF.fetch("https://api.test/api/rooms", {
+  return exports.default.fetch("https://api.test/api/rooms", {
     method: "POST",
     headers: {
       Cookie: await sessionCookieFor(user),
@@ -83,7 +83,7 @@ describe("24h作成と独立した公開・回復契約", () => {
     ]) {
       expect(
         (
-          await SELF.fetch(`https://api.test${path}`, {
+          await exports.default.fetch(`https://api.test${path}`, {
             headers: { Cookie: cookie, Upgrade: "websocket" },
           })
         ).status,
@@ -95,7 +95,7 @@ describe("24h作成と独立した公開・回復契約", () => {
     ])
       expect(
         (
-          await SELF.fetch(`https://api.test${path}`, {
+          await exports.default.fetch(`https://api.test${path}`, {
             method: "POST",
             headers: { Cookie: cookie, "Content-Type": "application/json" },
             body: JSON.stringify({}),
@@ -124,7 +124,7 @@ describe("24h作成と独立した公開・回復契約", () => {
     const id = v7();
     const created = await post(id);
     const result = await created.json();
-    const response = await SELF.fetch(
+    const response = await exports.default.fetch(
       `https://api.test/api/room-creations/${id}?expectedPrincipal=${owner.sub}`,
       { headers: { Cookie: await sessionCookieFor(owner) } },
     );
@@ -133,7 +133,7 @@ describe("24h作成と独立した公開・回復契約", () => {
       kind: "ready",
       ...(result as object),
     });
-    const outsider = await SELF.fetch(
+    const outsider = await exports.default.fetch(
       `https://api.test/api/room-creations/${id}?expectedPrincipal=${other.sub}`,
       { headers: { Cookie: await sessionCookieFor(other) } },
     );
@@ -189,20 +189,23 @@ it("発行と未認証照会はルーム副作用を持たない", async () => {
   ]) {
     expect(
       (
-        await SELF.fetch(`https://api.test${path}`, {
+        await exports.default.fetch(`https://api.test${path}`, {
           method: path.endsWith("issue") ? "POST" : "GET",
         })
       ).status,
     ).toBe(401);
   }
-  const issued = await SELF.fetch("https://api.test/api/room-creations/issue", {
-    method: "POST",
-    headers: {
-      Cookie: await sessionCookieFor(owner),
-      "Content-Type": "application/json",
+  const issued = await exports.default.fetch(
+    "https://api.test/api/room-creations/issue",
+    {
+      method: "POST",
+      headers: {
+        Cookie: await sessionCookieFor(owner),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ expectedPrincipal: owner.sub }),
     },
-    body: JSON.stringify({ expectedPrincipal: owner.sub }),
-  });
+  );
   expect(issued.status).toBe(200);
   expect(
     await env.DB.prepare("SELECT COUNT(*) AS n FROM rooms").first(),
@@ -218,7 +221,7 @@ it("受付期限後もread-only statusがreadyを返し、POSTは拒否", async 
     .bind(owner.sub, id)
     .run();
   expect((await post(id)).status).toBe(410);
-  const status = await SELF.fetch(
+  const status = await exports.default.fetch(
     `https://api.test/api/room-creations/${id}?expectedPrincipal=${owner.sub}`,
     { headers: { Cookie: await sessionCookieFor(owner) } },
   );
@@ -426,7 +429,7 @@ it("retired時間帯の既存pendingも時計後退で受付を再開しない",
     .bind(Date.now() + 1000)
     .run();
   expect((await post(id)).status).toBe(410);
-  const query = await SELF.fetch(
+  const query = await exports.default.fetch(
     `https://api.test/api/room-creations/${id}?expectedPrincipal=${owner.sub}`,
     { headers: { Cookie: await sessionCookieFor(owner) } },
   );

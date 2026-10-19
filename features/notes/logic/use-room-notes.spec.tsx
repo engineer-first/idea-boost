@@ -392,71 +392,67 @@ describe("useRoomNotes", () => {
       content: "new body",
     });
   });
-  it.each([
-    "expiry",
-    "disconnect",
-    "snapshot",
-    "phase",
-    "member",
-    "adoption",
-  ])("peer overlayは%sで全件消える", (reason) => {
-    const { result } = setup();
-    const note = buildNote({
-      id: NOTE_ID,
-      x: 100,
-      y: 100,
-      positionRevision: 0,
-      visibilityRevision: 0,
-    });
-    act(() => result.current.applyMessage(snapshotMessage([note])));
-    act(() =>
-      result.current.applyMessage({
-        type: "notes:move-preview",
-        operationId: DRAG_ID,
-        userId: FONT_SIZE_OPERATION_ID,
-        phaseRevision: 0,
-        sequence: 1,
-        leaseMs: 15000,
-        positions: [
-          {
-            noteId: NOTE_ID,
-            x: 150,
-            y: 100,
-            positionRevision: 0,
-            visibilityRevision: 0,
-          },
-        ],
-      }),
-    );
-    expect(result.current.notes[0].x).toBe(150);
-    act(() => {
-      if (reason === "expiry") vi.advanceTimersByTime(15000);
-      if (reason === "disconnect") result.current.clearPeerMoves();
-      if (reason === "snapshot")
-        result.current.applyMessage(snapshotMessage([note]));
-      if (reason === "phase")
+  it.each(["expiry", "disconnect", "snapshot", "phase", "member", "adoption"])(
+    "peer overlayは%sで全件消える",
+    (reason) => {
+      const { result } = setup();
+      const note = buildNote({
+        id: NOTE_ID,
+        x: 100,
+        y: 100,
+        positionRevision: 0,
+        visibilityRevision: 0,
+      });
+      act(() => result.current.applyMessage(snapshotMessage([note])));
+      act(() =>
         result.current.applyMessage({
-          type: "phase:updated",
-          phase: buildPhaseStep(1, 3),
-          phaseRevision: 1,
-        });
-      if (reason === "member")
-        result.current.applyMessage({
-          type: "member_left",
+          type: "notes:move-preview",
+          operationId: DRAG_ID,
           userId: FONT_SIZE_OPERATION_ID,
-        });
-      if (reason === "adoption")
-        result.current.applyMessage({
-          type: "decision:updated",
-          decision: {
-            phase: 1,
-            noteId: NOTE_ID,
-            decidedBy: FONT_SIZE_OPERATION_ID,
-          },
-        });
-    });
-    expect(result.current.notes[0].x).toBe(100);
-  });
+          phaseRevision: 0,
+          sequence: 1,
+          leaseMs: 15000,
+          positions: [
+            {
+              noteId: NOTE_ID,
+              x: 150,
+              y: 100,
+              positionRevision: 0,
+              visibilityRevision: 0,
+            },
+          ],
+        }),
+      );
+      expect(result.current.notes[0].x).toBe(150);
+      act(() => {
+        if (reason === "expiry") vi.advanceTimersByTime(15000);
+        if (reason === "disconnect") result.current.clearPeerMoves();
+        if (reason === "snapshot")
+          result.current.applyMessage(snapshotMessage([note]));
+        if (reason === "phase")
+          result.current.applyMessage({
+            type: "phase:updated",
+            phase: buildPhaseStep(1, 3),
+            phaseRevision: 1,
+          });
+        if (reason === "member")
+          result.current.applyMessage({
+            type: "member_left",
+            userId: FONT_SIZE_OPERATION_ID,
+          });
+        if (reason === "adoption")
+          result.current.applyMessage({
+            type: "decision:updated",
+            decision: {
+              phase: 1,
+              noteId: NOTE_ID,
+              decidedBy: FONT_SIZE_OPERATION_ID,
+            },
+          });
+      });
+      expect(result.current.notes[0].x).toBe(100);
+    },
+  );
   it("peerの一対象がprivateまたは新版なら全件を表示しない", () => {
     const { result } = setup();
     const notes = [
@@ -971,20 +967,18 @@ describe("useRoomNotes", () => {
     expect(result.current.notes[0]?.fontSize).toBe(14);
   });
 
-  it.each([
-    11,
-    12.5,
-    25,
-    Number.POSITIVE_INFINITY,
-  ])("不正な文字サイズ %s は楽観表示もRoomDOへの送信もしない", (fontSize) => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
+  it.each([11, 12.5, 25, Number.POSITIVE_INFINITY])(
+    "不正な文字サイズ %s は楽観表示もRoomDOへの送信もしない",
+    (fontSize) => {
+      const { result } = setup();
+      act(() => result.current.applyMessage(snapshotMessage()));
 
-    act(() => result.current.changeNoteFontSize(NOTE_ID, fontSize));
+      act(() => result.current.changeNoteFontSize(NOTE_ID, fontSize));
 
-    expect(result.current.notes[0]?.fontSize).toBe(14);
-    expect(send).not.toHaveBeenCalled();
-  });
+      expect(result.current.notes[0]?.fontSize).toBe(14);
+      expect(send).not.toHaveBeenCalled();
+    },
+  );
 
   it("連続した文字サイズ変更は途中応答で巻き戻さず、最後の拒否で確定値へ戻す", () => {
     const operationIds = [
@@ -1188,54 +1182,57 @@ describe("useRoomNotes", () => {
     { action: "remove", message: "投票を1票取り消しました。" },
     { action: "remove-sticker", message: "投票を1票取り消しました。" },
     { action: "move", message: "シールを移動しました。" },
-  ] as const)("$action の受理後だけ操作に合った成功状態を示す", ({
-    action,
-    message,
-  }) => {
-    const { result } = setup();
-    const voted = buildNote({
-      id: NOTE_ID,
-      dotVotes: {
-        subjective: { votedByMe: false, ownCount: 0 },
-        objective: { votedByMe: true, ownCount: 1 },
-      },
-      dotVoteStickers: [{ id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 }],
-    });
-    act(() =>
-      result.current.applyMessage(
-        snapshotMessage([voted, buildNote({ id: TARGET_NOTE_ID })]),
-      ),
-    );
-    act(() => {
-      if (action === "add")
-        result.current.voteNote(TARGET_NOTE_ID, "objective");
-      else if (action === "remove")
-        result.current.removeNoteVote(NOTE_ID, "objective");
-      else if (action === "remove-sticker")
-        result.current.removeVoteSticker(STICKER_ID);
-      else result.current.moveVoteSticker(STICKER_ID, TARGET_NOTE_ID, 0.8, 0.9);
-    });
-    expect(result.current.pendingVoteOperations).toHaveLength(1);
-    expect(result.current.voteFeedback).toBeNull();
-    const note = result.current.notes.find(
-      ({ id }) =>
-        id ===
-        (action === "add" || action === "move" ? TARGET_NOTE_ID : NOTE_ID),
-    );
-    if (!note) throw new Error("操作後の付箋が見つかりません");
-    act(() =>
-      result.current.applyMessage({
-        type: "note:updated",
-        note,
-        operationId: "33333333-3333-4333-8333-333333333333",
-      }),
-    );
-    expect(result.current.pendingVoteOperations).toEqual([]);
-    expect(result.current.voteFeedback).toEqual({
-      state: "confirmed",
-      message,
-    });
-  });
+  ] as const)(
+    "$action の受理後だけ操作に合った成功状態を示す",
+    ({ action, message }) => {
+      const { result } = setup();
+      const voted = buildNote({
+        id: NOTE_ID,
+        dotVotes: {
+          subjective: { votedByMe: false, ownCount: 0 },
+          objective: { votedByMe: true, ownCount: 1 },
+        },
+        dotVoteStickers: [
+          { id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 },
+        ],
+      });
+      act(() =>
+        result.current.applyMessage(
+          snapshotMessage([voted, buildNote({ id: TARGET_NOTE_ID })]),
+        ),
+      );
+      act(() => {
+        if (action === "add")
+          result.current.voteNote(TARGET_NOTE_ID, "objective");
+        else if (action === "remove")
+          result.current.removeNoteVote(NOTE_ID, "objective");
+        else if (action === "remove-sticker")
+          result.current.removeVoteSticker(STICKER_ID);
+        else
+          result.current.moveVoteSticker(STICKER_ID, TARGET_NOTE_ID, 0.8, 0.9);
+      });
+      expect(result.current.pendingVoteOperations).toHaveLength(1);
+      expect(result.current.voteFeedback).toBeNull();
+      const note = result.current.notes.find(
+        ({ id }) =>
+          id ===
+          (action === "add" || action === "move" ? TARGET_NOTE_ID : NOTE_ID),
+      );
+      if (!note) throw new Error("操作後の付箋が見つかりません");
+      act(() =>
+        result.current.applyMessage({
+          type: "note:updated",
+          note,
+          operationId: "33333333-3333-4333-8333-333333333333",
+        }),
+      );
+      expect(result.current.pendingVoteOperations).toEqual([]);
+      expect(result.current.voteFeedback).toEqual({
+        state: "confirmed",
+        message,
+      });
+    },
+  );
 
   it("投票の上限に達していたら反映も送信もしない", () => {
     const { result } = setup();
@@ -1755,57 +1752,56 @@ it("moveProtocolVersion省略時は複数付箋の移動を開始せず、要求
   expect(result.current.draggingNoteId).toBe(null);
   expect(result.current.notes[0].x).toBe(100);
 });
-it.each([
-  "position",
-  "visibility",
-  "phase",
-] as const)("遅延成功receiptで%s新版の盤面を戻さない", (kind) => {
-  const send = vi.fn();
-  const { result } = renderHook(() =>
-    useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
-  );
-  act(() =>
-    result.current.applyMessage({
-      ...snapshotMessage(),
-      moveProtocolVersion: 1,
-      groupRevision: 0,
-      mapRevision: 0,
-    } as ServerMessage),
-  );
-  act(() => result.current.startNoteDrag(NOTE_ID));
-  act(() => result.current.endNoteDrag(NOTE_ID, 150, 140));
-  const latest = buildNote({
-    id: NOTE_ID,
-    x: 700,
-    y: 800,
-    positionRevision: kind === "position" ? 2 : 0,
-    visibilityRevision: kind === "visibility" ? 1 : 0,
-    visibility: kind === "visibility" ? "private" : "shared",
-  });
-  act(() =>
-    result.current.applyMessage({
-      ...snapshotMessage([latest]),
-      moveProtocolVersion: 1,
-      groupRevision: 0,
-      mapRevision: 0,
-      phaseRevision: kind === "phase" ? 1 : 0,
-      phase: kind === "phase" ? buildPhaseStep(2, 2) : buildPhaseStep(1),
-    } as ServerMessage),
-  );
-  act(() =>
-    result.current.applyMessage({
-      type: "note:move:result",
-      operationId: DRAG_ID,
-      status: "accepted",
-      receipt: successfulMoveReceipt(),
-    }),
-  );
-  expect(result.current.notes[0]).toMatchObject({
-    x: 700,
-    y: 800,
-    visibility: latest.visibility,
-    positionRevision: latest.positionRevision,
-    visibilityRevision: latest.visibilityRevision,
-  });
-  expect(result.current.movePending).toBe(false);
-});
+it.each(["position", "visibility", "phase"] as const)(
+  "遅延成功receiptで%s新版の盤面を戻さない",
+  (kind) => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage(),
+        moveProtocolVersion: 1,
+        groupRevision: 0,
+        mapRevision: 0,
+      } as ServerMessage),
+    );
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    act(() => result.current.endNoteDrag(NOTE_ID, 150, 140));
+    const latest = buildNote({
+      id: NOTE_ID,
+      x: 700,
+      y: 800,
+      positionRevision: kind === "position" ? 2 : 0,
+      visibilityRevision: kind === "visibility" ? 1 : 0,
+      visibility: kind === "visibility" ? "private" : "shared",
+    });
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage([latest]),
+        moveProtocolVersion: 1,
+        groupRevision: 0,
+        mapRevision: 0,
+        phaseRevision: kind === "phase" ? 1 : 0,
+        phase: kind === "phase" ? buildPhaseStep(2, 2) : buildPhaseStep(1),
+      } as ServerMessage),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "note:move:result",
+        operationId: DRAG_ID,
+        status: "accepted",
+        receipt: successfulMoveReceipt(),
+      }),
+    );
+    expect(result.current.notes[0]).toMatchObject({
+      x: 700,
+      y: 800,
+      visibility: latest.visibility,
+      positionRevision: latest.positionRevision,
+      visibilityRevision: latest.visibilityRevision,
+    });
+    expect(result.current.movePending).toBe(false);
+  },
+);

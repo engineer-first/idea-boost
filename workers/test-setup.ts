@@ -4,9 +4,9 @@
 import {
   applyD1Migrations,
   type D1Migration,
-  env,
   runInDurableObject,
 } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { beforeEach } from "vitest";
 
 declare global {

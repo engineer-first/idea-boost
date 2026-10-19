@@ -1,4 +1,5 @@
-import { env, evictDurableObject, SELF } from "cloudflare:test";
+import { evictDurableObject } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { SignJWT } from "jose";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
@@ -29,37 +30,35 @@ describe("認証期限のfail-closed", () => {
       .setIssuer("idea-boost")
       .setAudience(TOKEN_AUDIENCE.session)
       .sign(new TextEncoder().encode(env.SESSION_SECRET));
-    const response = await SELF.fetch("https://api.test/api/rooms", {
+    const response = await exports.default.fetch("https://api.test/api/rooms", {
       headers: { Cookie: `idea_boost_session=${token}` },
     });
     expect(response.status).toBe(401);
   });
 
-  it.each([
-    undefined,
-    0,
-    "invalid",
-    Math.floor(Date.now() / 1000),
-  ])("旧・不正・期限到達attachment (%s)は個別返信も操作も拒否する", async (exp) => {
-    const { roomId } = await createRoomAs(USER);
-    const connection = await connectRoomAs(USER, roomId);
-    await connection.next();
-    await runInRoomDO(roomId, async (instance, state) => {
-      const socket = state.getWebSockets()[0];
-      socket.serializeAttachment({ userId: USER.sub, sessionExpiresAt: exp });
-      await instance.webSocketMessage(
-        socket,
-        JSON.stringify({ type: "invalid" }),
-      );
-      expect(socket.readyState).not.toBe(WebSocket.OPEN);
-    });
-    expect(await listMemberIds(roomId)).toEqual([USER.sub]);
-    connection.close();
-  });
+  it.each([undefined, 0, "invalid", Math.floor(Date.now() / 1000)])(
+    "旧・不正・期限到達attachment (%s)は個別返信も操作も拒否する",
+    async (exp) => {
+      const { roomId } = await createRoomAs(USER);
+      const connection = await connectRoomAs(USER, roomId);
+      await connection.next();
+      await runInRoomDO(roomId, async (instance, state) => {
+        const socket = state.getWebSockets()[0];
+        socket.serializeAttachment({ userId: USER.sub, sessionExpiresAt: exp });
+        await instance.webSocketMessage(
+          socket,
+          JSON.stringify({ type: "invalid" }),
+        );
+        expect(socket.readyState).not.toBe(WebSocket.OPEN);
+      });
+      expect(await listMemberIds(roomId)).toEqual([USER.sub]);
+      connection.close();
+    },
+  );
 
   it("クライアントの偽装期限を署名済み期限で上書きする", async () => {
     const { roomId } = await createRoomAs(USER);
-    const response = await SELF.fetch(
+    const response = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/ws`,
       {
         headers: {
@@ -178,65 +177,62 @@ it("無操作の旧タブを配信から除外し、有効な新タブと確定�
   fresh.close();
 });
 
-it.each([
-  undefined,
-  "",
-  "NaN",
-  "Infinity",
-  "-1",
-  "1",
-  "1.5",
-])("DOの未検証・不正・期限切れ引継ぎ (%s)を拒否する", async (expiry) => {
-  const { roomId } = await createRoomAs(USER);
-  const headers = new Headers({
-    Upgrade: "websocket",
-    "X-Idea-Boost-User-Id": USER.sub,
-    "X-Idea-Boost-Host-Id": USER.sub,
-  });
-  if (expiry !== undefined)
-    headers.set("X-Idea-Boost-Session-Expires-At", expiry);
-  const response = await env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)).fetch(
-    "https://do/ws",
-    { headers },
-  );
-  expect(response.status).toBe(401);
-});
+it.each([undefined, "", "NaN", "Infinity", "-1", "1", "1.5"])(
+  "DOの未検証・不正・期限切れ引継ぎ (%s)を拒否する",
+  async (expiry) => {
+    const { roomId } = await createRoomAs(USER);
+    const headers = new Headers({
+      Upgrade: "websocket",
+      "X-Idea-Boost-User-Id": USER.sub,
+      "X-Idea-Boost-Host-Id": USER.sub,
+    });
+    if (expiry !== undefined)
+      headers.set("X-Idea-Boost-Session-Expires-At", expiry);
+    const response = await env.ROOM_DO.get(
+      env.ROOM_DO.idFromName(roomId),
+    ).fetch("https://do/ws", { headers });
+    expect(response.status).toBe(401);
+  },
+);
 
-it.each([
-  -1, 0, 1,
-])("HTTPと既存WSは署名済み期限から%s秒の時点で同じ判定をする", async (offset) => {
-  const expiry = Math.floor(Date.now() / 1000) + 60;
-  const token = await new SignJWT(USER)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuer("idea-boost")
-    .setAudience(TOKEN_AUDIENCE.session)
-    .setExpirationTime(expiry)
-    .sign(new TextEncoder().encode(env.SESSION_SECRET));
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime((expiry + offset) * 1000);
-  const socket = {
-    readyState: WebSocket.OPEN,
-    deserializeAttachment: () => ({
-      userId: USER.sub,
-      sessionExpiresAt: expiry,
-    }),
-    close: vi.fn(),
-  } as unknown as WebSocket;
-  try {
-    const session = await getSessionFromRequest(
-      new Request("https://api.test", {
-        headers: { Cookie: `idea_boost_session=${token}` },
+it.each([-1, 0, 1])(
+  "HTTPと既存WSは署名済み期限から%s秒の時点で同じ判定をする",
+  async (offset) => {
+    const expiry = Math.floor(Date.now() / 1000) + 60;
+    const token = await new SignJWT(USER)
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuer("idea-boost")
+      .setAudience(TOKEN_AUDIENCE.session)
+      .setExpirationTime(expiry)
+      .sign(new TextEncoder().encode(env.SESSION_SECRET));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime((expiry + offset) * 1000);
+    const socket = {
+      readyState: WebSocket.OPEN,
+      deserializeAttachment: () => ({
+        userId: USER.sub,
+        sessionExpiresAt: expiry,
       }),
-      env.SESSION_SECRET,
-    );
-    expect(session !== null).toBe(offset < 0);
-    expect(
-      new RoomBroadcaster({ getWebSockets: () => [socket] }).authorize(socket),
-    ).toBe(offset < 0);
-  } finally {
-    vi.useRealTimers();
-  }
-});
+      close: vi.fn(),
+    } as unknown as WebSocket;
+    try {
+      const session = await getSessionFromRequest(
+        new Request("https://api.test", {
+          headers: { Cookie: `idea_boost_session=${token}` },
+        }),
+        env.SESSION_SECRET,
+      );
+      expect(session !== null).toBe(offset < 0);
+      expect(
+        new RoomBroadcaster({ getWebSockets: () => [socket] }).authorize(
+          socket,
+        ),
+      ).toBe(offset < 0);
+    } finally {
+      vi.useRealTimers();
+    }
+  },
+);
 
 it("ハイバネーションから復帰してもattachmentの期限切れを拒否する", async () => {
   const { roomId } = await createRoomAs(USER);

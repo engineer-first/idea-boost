@@ -4,7 +4,7 @@ import { NoteColorSchema } from "./room-protocol";
 export const SharedOutcomeNoteSchema = z.object({
   id: z.string(),
   content: z.string(),
-  phase: z.number().int().min(1).max(3),
+  phase: z.int().min(1).max(3),
   x: z.number(),
   y: z.number(),
   color: NoteColorSchema,
@@ -15,7 +15,7 @@ export const SharedOutcomeNoteSchema = z.object({
 });
 export const SharedOutcomeSnapshotSchema = z.object({
   capturedAt: z.number(),
-  participantCount: z.number().int().nonnegative().nullable().default(null),
+  participantCount: z.int().nonnegative().nullable().default(null),
   phase: RoomPhaseSchema,
   decisions: z.array(
     z.object({
@@ -36,8 +36,8 @@ export const SharedOutcomeSnapshotSchema = z.object({
   ideaMapSizeLevel: z.number(),
 });
 export const SharedOutcomeSummarySchema = z.object({
-  roomId: z.string().uuid(),
-  participantCount: z.number().int().nonnegative().nullable().default(null),
+  roomId: z.guid(),
+  participantCount: z.int().nonnegative().nullable().default(null),
   name: z.string().nullable(),
   displayId: z.string(),
   lastUsedAt: z.number(),
@@ -64,8 +64,8 @@ export type SharedOutcomesResponse = z.infer<
 export const SHARED_OUTCOME_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const ProgressHistoryEntrySchema = z.object({
-  id: z.string().uuid(),
-  sequence: z.number().int().positive(),
+  id: z.guid(),
+  sequence: z.int().positive(),
   phase: RoomPhaseSchema,
   nextPhase: RoomPhaseSchema.nullable(),
   action: z
@@ -109,7 +109,7 @@ export const SharedOutcomeFiltersSchema = z
     to: OutcomeDateSchema.default(""),
   })
   .refine(({ from, to }) => !from || !to || from <= to, {
-    message: "終了日は開始日以降にしてください。",
+    error: "終了日は開始日以降にしてください。",
     path: ["to"],
   });
 export const SharedOutcomeCursorSchema = z
@@ -121,7 +121,7 @@ export const SharedOutcomeCursorSchema = z
       /^\d+$/.test(position) &&
       Number.isSafeInteger(Number(position)) &&
       extra === undefined &&
-      (id === undefined || z.string().uuid().safeParse(id).success)
+      (id === undefined || z.guid().safeParse(id).success)
     );
   });
 export const SharedOutcomesQuerySchema = SharedOutcomeFiltersSchema.and(

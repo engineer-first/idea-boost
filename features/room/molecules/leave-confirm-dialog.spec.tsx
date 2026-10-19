@@ -110,26 +110,28 @@ describe("LeaveConfirmDialog（disband）", () => {
   });
 });
 
-it.each([
-  false,
-  true,
-])("退出時に選んだ成果の閲覧権を渡す completed=%s", async (completed) => {
-  const onConfirm = vi.fn();
-  const user = userEvent.setup();
-  render(
-    <LeaveConfirmDialog
-      open
-      onOpenChange={vi.fn()}
-      onConfirm={onConfirm}
-      isLeaving={false}
-      completed={completed}
-    />,
-  );
-  expect(screen.getByRole("radio", { name: "成果を残して退出" })).toBeChecked();
-  await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
-  await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
-  expect(onConfirm).toHaveBeenCalledWith("discard");
-});
+it.each([false, true])(
+  "退出時に選んだ成果の閲覧権を渡す completed=%s",
+  async (completed) => {
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <LeaveConfirmDialog
+        open
+        onOpenChange={vi.fn()}
+        onConfirm={onConfirm}
+        isLeaving={false}
+        completed={completed}
+      />,
+    );
+    expect(
+      screen.getByRole("radio", { name: "成果を残して退出" }),
+    ).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
+    await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
+    expect(onConfirm).toHaveBeenCalledWith("discard");
+  },
+);
 
 it("既定の退出は閲覧権を残し、処理中は選択も変えられない", async () => {
   const onConfirm = vi.fn();

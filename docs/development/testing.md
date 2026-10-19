@@ -70,7 +70,7 @@
 コマンドの正本は [package.json](../../package.json)。変更範囲に必要な検証を実行する。
 
 - unit / DOM: `npm run test`（[vitest.config.mts](../../vitest.config.mts)、jsdom）
-- Worker / RoomDO: `npm run test:workers`（[vitest.workers.config.mts](../../vitest.workers.config.mts)、`@cloudflare/vitest-pool-workers`）
+- Worker / RoomDO: `npm run test:workers`（[vitest.workers.config.mts](../../vitest.workers.config.mts)、`@cloudflare/vitest-plugin`）
 - browser: Storybook を起動または build して配信し、`npm run test:browser`
   （[vitest.browser.config.mts](../../vitest.browser.config.mts)、`tests/browser/`）。
   配信先は `STORYBOOK_TEST_URL`、既定は `http://127.0.0.1:6006`。

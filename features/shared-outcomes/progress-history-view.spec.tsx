@@ -13,28 +13,31 @@ it.each([
   ["pending", "閲覧への反映を待っています。"],
   ["failed", "保全した同じ記録を自動で再試行しています。"],
   ["missing", "盤面を保存できませんでした。"],
-] as const)("%s の記録を別時点の盤面で補わず説明する", (saveStatus, message) => {
-  const record = buildProgressHistoryRecord({
-    saveStatus,
-    snapshot: null,
-    reflectedAt: null,
-  });
-  render(
-    <ProgressHistoryView
-      {...handlers}
-      entries={[record]}
-      selected={record}
-      record={record}
-      nextCursor={null}
-      loading={false}
-      error={null}
-      recordLoading={false}
-      recordError={null}
-    />,
-  );
-  expect(screen.getByRole("status")).toHaveTextContent(message);
-  expect(screen.queryByRole("img")).not.toBeInTheDocument();
-});
+] as const)(
+  "%s の記録を別時点の盤面で補わず説明する",
+  (saveStatus, message) => {
+    const record = buildProgressHistoryRecord({
+      saveStatus,
+      snapshot: null,
+      reflectedAt: null,
+    });
+    render(
+      <ProgressHistoryView
+        {...handlers}
+        entries={[record]}
+        selected={record}
+        record={record}
+        nextCursor={null}
+        loading={false}
+        error={null}
+        recordLoading={false}
+        recordError={null}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(message);
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  },
+);
 it("正常な空盤面と不明な時刻を表示し、アイデアの記録はそのタブを開く", () => {
   const base = buildProgressHistoryRecord();
   if (!base.snapshot) throw new Error("fixture snapshot required");

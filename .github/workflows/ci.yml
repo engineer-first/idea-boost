@@ -31,6 +31,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # npm ciだけでは推移依存のoptional peer不整合を検知できない。
+      - name: Check dependency graph
+        run: npm ls --all > /dev/null
+
       - name: Create .dev.vars for type generation
         run: cp workers/.dev.vars.example workers/.dev.vars
 

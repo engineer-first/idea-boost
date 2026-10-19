@@ -132,42 +132,41 @@ describe("NoteGroupCard", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent(longName);
   });
 
-  it.each([
-    "click",
-    "Enter",
-    " ",
-  ] as const)("%sで編集を開始できる", (action) => {
-    setup();
-    const heading = screen.getByRole("button", { name: baseGroup.name });
+  it.each(["click", "Enter", " "] as const)(
+    "%sで編集を開始できる",
+    (action) => {
+      setup();
+      const heading = screen.getByRole("button", { name: baseGroup.name });
 
-    if (action === "click") {
-      fireEvent.click(heading);
-    } else {
-      fireEvent.keyDown(heading, { key: action });
-    }
+      if (action === "click") {
+        fireEvent.click(heading);
+      } else {
+        fireEvent.keyDown(heading, { key: action });
+      }
 
-    expect(screen.getByTestId("group-name-input")).toBeInTheDocument();
-  });
+      expect(screen.getByTestId("group-name-input")).toBeInTheDocument();
+    },
+  );
 
-  it.each([
-    "Enter",
-    "blur",
-  ] as const)("%sで前後空白を除いて確定する", (action) => {
-    const onUpdateName = vi.fn();
-    setup({ onUpdateName });
-    fireEvent.click(screen.getByRole("button", { name: baseGroup.name }));
-    const input = screen.getByTestId("group-name-input");
-    fireEvent.change(input, { target: { value: "  更新した名前  " } });
+  it.each(["Enter", "blur"] as const)(
+    "%sで前後空白を除いて確定する",
+    (action) => {
+      const onUpdateName = vi.fn();
+      setup({ onUpdateName });
+      fireEvent.click(screen.getByRole("button", { name: baseGroup.name }));
+      const input = screen.getByTestId("group-name-input");
+      fireEvent.change(input, { target: { value: "  更新した名前  " } });
 
-    if (action === "Enter") {
-      fireEvent.keyDown(input, { key: "Enter" });
-    } else {
-      fireEvent.blur(input);
-    }
+      if (action === "Enter") {
+        fireEvent.keyDown(input, { key: "Enter" });
+      } else {
+        fireEvent.blur(input);
+      }
 
-    expect(onUpdateName).toHaveBeenCalledOnce();
-    expect(onUpdateName).toHaveBeenCalledWith("更新した名前");
-  });
+      expect(onUpdateName).toHaveBeenCalledOnce();
+      expect(onUpdateName).toHaveBeenCalledWith("更新した名前");
+    },
+  );
 
   it("Escapeで編集を取り消す", () => {
     const onUpdateName = vi.fn();

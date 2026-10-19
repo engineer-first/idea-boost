@@ -129,25 +129,25 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(result.current.dragGhost).toBeNull();
   });
 
-  it.each([
-    false,
-    true,
-  ])("保存待ち中も共有移動を開始でき、逆操作や共有待ちは止める blocked=%s", (moveBlocked) => {
-    const { result, onNoteDragStart } = setup({
-      withSharedDrag: true,
-      movePending: true,
-      moveBlocked,
-    });
-    act(() =>
-      result.current.onNoteDragStart("shared-1", {
-        pointerId: 1,
-        clientX: 200,
-        clientY: 200,
-        currentTarget: document.createElement("button"),
-      } as unknown as PointerEvent<HTMLButtonElement>),
-    );
-    expect(onNoteDragStart).toHaveBeenCalledTimes(moveBlocked ? 0 : 1);
-  });
+  it.each([false, true])(
+    "保存待ち中も共有移動を開始でき、逆操作や共有待ちは止める blocked=%s",
+    (moveBlocked) => {
+      const { result, onNoteDragStart } = setup({
+        withSharedDrag: true,
+        movePending: true,
+        moveBlocked,
+      });
+      act(() =>
+        result.current.onNoteDragStart("shared-1", {
+          pointerId: 1,
+          clientX: 200,
+          clientY: 200,
+          currentTarget: document.createElement("button"),
+        } as unknown as PointerEvent<HTMLButtonElement>),
+      );
+      expect(onNoteDragStart).toHaveBeenCalledTimes(moveBlocked ? 0 : 1);
+    },
+  );
 
   it("マイ付箋から素早く出したpreviewは押下した場所をポインターに合わせる", () => {
     const { result } = setup({ withPrivateNote: true });
@@ -257,42 +257,43 @@ describe("useRoomBoardInteractions cursor input", () => {
     );
   });
 
-  it.each([
-    3, 5,
-  ])("3-%iのマップ四辺の外もcanvas上なら範囲を丸めず送信する", (step) => {
-    const { result, onCursorMove, onCursorLeave, viewport } = setup({
-      phase: buildPhaseStep(step, 3),
-    });
-    const plane = document.createElement("div");
-    plane.getBoundingClientRect = () => new DOMRect(100, 200, 400, 200);
-    result.current.ideaMapPlaneRef.current = plane;
-    for (const [clientX, clientY, x, y] of [
-      [550, 300, 112.5, 50],
-      [50, 300, -12.5, 50],
-      [300, 150, 50, 125],
-      [300, 450, 50, -25],
-    ]) {
+  it.each([3, 5])(
+    "3-%iのマップ四辺の外もcanvas上なら範囲を丸めず送信する",
+    (step) => {
+      const { result, onCursorMove, onCursorLeave, viewport } = setup({
+        phase: buildPhaseStep(step, 3),
+      });
+      const plane = document.createElement("div");
+      plane.getBoundingClientRect = () => new DOMRect(100, 200, 400, 200);
+      result.current.ideaMapPlaneRef.current = plane;
+      for (const [clientX, clientY, x, y] of [
+        [550, 300, 112.5, 50],
+        [50, 300, -12.5, 50],
+        [300, 150, 50, 125],
+        [300, 450, 50, -25],
+      ]) {
+        act(() =>
+          result.current.onPresencePointerMove({
+            clientX,
+            clientY,
+            pointerType: "mouse",
+            target: viewport,
+          } as unknown as PointerEvent<HTMLDivElement>),
+        );
+        expect(onCursorMove).toHaveBeenLastCalledWith({ x, y }, null);
+      }
+      expect(onCursorLeave).not.toHaveBeenCalled();
       act(() =>
         result.current.onPresencePointerMove({
-          clientX,
-          clientY,
+          clientX: 850,
+          clientY: 300,
           pointerType: "mouse",
           target: viewport,
         } as unknown as PointerEvent<HTMLDivElement>),
       );
-      expect(onCursorMove).toHaveBeenLastCalledWith({ x, y }, null);
-    }
-    expect(onCursorLeave).not.toHaveBeenCalled();
-    act(() =>
-      result.current.onPresencePointerMove({
-        clientX: 850,
-        clientY: 300,
-        pointerType: "mouse",
-        target: viewport,
-      } as unknown as PointerEvent<HTMLDivElement>),
-    );
-    expect(onCursorLeave).toHaveBeenCalledOnce();
-  });
+      expect(onCursorLeave).toHaveBeenCalledOnce();
+    },
+  );
 
   it("共有キャンバスの client 座標を board 座標へ変換する", () => {
     const { result, onCursorMove, viewport } = setup();
@@ -359,116 +360,119 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(onCursorMove).toHaveBeenCalledWith({ x: 50, y: 75 }, null);
   });
 
-  it.each([
-    2, 3, 5,
-  ])("3-%iの縮小表示付箋を上端・右端まで動かすと外側の辺を枠に合わせる", (step) => {
-    const { result, onNoteDragEnd, onNoteDragMove, viewport } = setup({
-      phase: buildPhaseStep(step, 3),
-      withSharedDrag: true,
-      sharedNotePosition: { x: 40, y: 40 },
-      draggingNoteId: "shared-1",
-      ideaMapSizeLevel: 2,
-    });
-    const plane = document.createElement("div");
-    plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
-    plane.style.setProperty(
-      "--idea-map-note-scale",
-      String(100 / (NOTE_WIDTH * getIdeaMapNoteDisplayScale(2))),
-    );
-    result.current.ideaMapPlaneRef.current = plane;
+  it.each([2, 3, 5])(
+    "3-%iの縮小表示付箋を上端・右端まで動かすと外側の辺を枠に合わせる",
+    (step) => {
+      const { result, onNoteDragEnd, onNoteDragMove, viewport } = setup({
+        phase: buildPhaseStep(step, 3),
+        withSharedDrag: true,
+        sharedNotePosition: { x: 40, y: 40 },
+        draggingNoteId: "shared-1",
+        ideaMapSizeLevel: 2,
+      });
+      const plane = document.createElement("div");
+      plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
+      plane.style.setProperty(
+        "--idea-map-note-scale",
+        String(100 / (NOTE_WIDTH * getIdeaMapNoteDisplayScale(2))),
+      );
+      result.current.ideaMapPlaneRef.current = plane;
 
-    act(() =>
-      result.current.onNoteDragStart("shared-1", {
-        pointerId: 16,
-        clientX: 300,
-        clientY: 200,
-        currentTarget: {
-          // 付箋の実表示寸法。理論上の200×150pxより縮小されている。
-          getBoundingClientRect: () => new DOMRect(200, 125, 100, 75),
-        },
-      } as unknown as PointerEvent<HTMLButtonElement>),
-    );
+      act(() =>
+        result.current.onNoteDragStart("shared-1", {
+          pointerId: 16,
+          clientX: 300,
+          clientY: 200,
+          currentTarget: {
+            // 付箋の実表示寸法。理論上の200×150pxより縮小されている。
+            getBoundingClientRect: () => new DOMRect(200, 125, 100, 75),
+          },
+        } as unknown as PointerEvent<HTMLButtonElement>),
+      );
 
-    act(() =>
-      result.current.onPointerMove({
-        pointerId: 16,
-        clientX: 500,
-        clientY: 100,
-        target: viewport,
-      } as unknown as PointerEvent<HTMLDivElement>),
-    );
+      act(() =>
+        result.current.onPointerMove({
+          pointerId: 16,
+          clientX: 500,
+          clientY: 100,
+          target: viewport,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
 
-    expect(onNoteDragMove).toHaveBeenLastCalledWith("shared-1", 87.5, 81.25);
+      expect(onNoteDragMove).toHaveBeenLastCalledWith("shared-1", 87.5, 81.25);
 
-    act(() =>
-      result.current.onPointerEnd({
-        pointerId: 16,
-        clientX: 500,
-        clientY: 100,
-        target: viewport,
-      } as unknown as PointerEvent<HTMLDivElement>),
-    );
+      act(() =>
+        result.current.onPointerEnd({
+          pointerId: 16,
+          clientX: 500,
+          clientY: 100,
+          target: viewport,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
 
-    expect(onNoteDragEnd).toHaveBeenCalledWith("shared-1", 87.5, 81.25);
-  });
+      expect(onNoteDragEnd).toHaveBeenCalledWith("shared-1", 87.5, 81.25);
+    },
+  );
 
-  it.each([
-    0.6, 0.75,
-  ])("採用ボタンからのドラッグも表示倍率%sでマップ端へ配置する", (responsiveScale) => {
-    const { result, onNoteDragEnd, viewport } = setup({
-      phase: buildPhaseStep(5, 3),
-      withSharedDrag: true,
-      sharedNotePosition: { x: 40, y: 40 },
-      ideaMapSizeLevel: 2,
-    });
-    const scale = getIdeaMapNoteDisplayScale(2);
-    const width = NOTE_WIDTH * scale;
-    const height =
-      getNoteHeight(buildNote().content, buildNote().fontSize) * scale;
-    const plane = document.createElement("div");
-    plane.style.setProperty("--idea-map-note-scale", String(responsiveScale));
-    plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
-    result.current.ideaMapPlaneRef.current = plane;
-    act(() =>
-      result.current.onNoteDragStart("shared-1", {
-        pointerId: 17,
-        clientX: 200 + width / 2,
-        clientY: 125 + height / 2,
-        currentTarget: {
-          getBoundingClientRect: () => new DOMRect(200, 125, width, height),
-        },
-      } as unknown as PointerEvent<HTMLButtonElement>),
-    );
-    act(() =>
-      result.current.onPointerEnd({
-        pointerId: 17,
-        clientX: 500,
-        clientY: 100,
-        target: viewport,
-      } as unknown as PointerEvent<HTMLDivElement>),
-    );
-    expect(onNoteDragEnd).toHaveBeenCalledWith(
-      "shared-1",
-      expect.closeTo(100 - ((width * responsiveScale) / 2 / 400) * 100),
-      expect.closeTo(100 - ((height * responsiveScale) / 2 / 200) * 100),
-    );
-  });
+  it.each([0.6, 0.75])(
+    "採用ボタンからのドラッグも表示倍率%sでマップ端へ配置する",
+    (responsiveScale) => {
+      const { result, onNoteDragEnd, viewport } = setup({
+        phase: buildPhaseStep(5, 3),
+        withSharedDrag: true,
+        sharedNotePosition: { x: 40, y: 40 },
+        ideaMapSizeLevel: 2,
+      });
+      const scale = getIdeaMapNoteDisplayScale(2);
+      const width = NOTE_WIDTH * scale;
+      const height =
+        getNoteHeight(buildNote().content, buildNote().fontSize) * scale;
+      const plane = document.createElement("div");
+      plane.style.setProperty("--idea-map-note-scale", String(responsiveScale));
+      plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
+      result.current.ideaMapPlaneRef.current = plane;
+      act(() =>
+        result.current.onNoteDragStart("shared-1", {
+          pointerId: 17,
+          clientX: 200 + width / 2,
+          clientY: 125 + height / 2,
+          currentTarget: {
+            getBoundingClientRect: () => new DOMRect(200, 125, width, height),
+          },
+        } as unknown as PointerEvent<HTMLButtonElement>),
+      );
+      act(() =>
+        result.current.onPointerEnd({
+          pointerId: 17,
+          clientX: 500,
+          clientY: 100,
+          target: viewport,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
+      expect(onNoteDragEnd).toHaveBeenCalledWith(
+        "shared-1",
+        expect.closeTo(100 - ((width * responsiveScale) / 2 / 400) * 100),
+        expect.closeTo(100 - ((height * responsiveScale) / 2 / 200) * 100),
+      );
+    },
+  );
 
-  it.each([
-    3, 4, 5,
-  ])("3-%iの固定マップ表示中はカメラの全体表示操作を無効にする", (step) => {
-    const { result, viewport } = setup({
-      phase: buildPhaseStep(step, 3),
-      ideaMapSizeLevel: 1,
-      ideaMapSizeInitialized: true,
-    });
-    result.current.boardScrollerRef.current = viewport;
-    const camera = result.current.camera;
+  it.each([3, 4, 5])(
+    "3-%iの固定マップ表示中はカメラの全体表示操作を無効にする",
+    (step) => {
+      const { result, viewport } = setup({
+        phase: buildPhaseStep(step, 3),
+        ideaMapSizeLevel: 1,
+        ideaMapSizeInitialized: true,
+      });
+      result.current.boardScrollerRef.current = viewport;
+      const camera = result.current.camera;
 
-    act(() => expect(result.current.onFitToNotes()).toBe(false));
+      act(() => expect(result.current.onFitToNotes()).toBe(false));
 
-    expect(result.current.camera).toEqual(camera);
-  });
+      expect(result.current.camera).toEqual(camera);
+    },
+  );
 
   it("3-2のprivate previewはpointerdownで他者配信されるlockを要求しない", () => {
     const { result, onNoteDragStart } = setup({
@@ -759,147 +763,152 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
   });
 
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%iの発表終了後は共有付箋を動かせるが返却しない", (phase) => {
-    const note = buildNote({
-      id: "shared-1",
-      authorId: "11111111-1111-4111-8111-111111111111",
-      visibility: "shared",
-    });
-    const { result, onNoteDragMove, onPrivateNoteUnpublish, toolbar } = setup({
-      phase: buildPhaseStep(2, phase),
-      withSharedDrag: true,
-      sharing: buildSharingState({
-        status: "complete",
-        currentIndex: null,
+  it.each([1, 2, 3] as const)(
+    "フェーズ%iの発表終了後は共有付箋を動かせるが返却しない",
+    (phase) => {
+      const note = buildNote({
+        id: "shared-1",
+        authorId: "11111111-1111-4111-8111-111111111111",
+        visibility: "shared",
+      });
+      const { result, onNoteDragMove, onPrivateNoteUnpublish, toolbar } = setup(
+        {
+          phase: buildPhaseStep(2, phase),
+          withSharedDrag: true,
+          sharing: buildSharingState({
+            status: "complete",
+            currentIndex: null,
+            order: [
+              { userId: note.authorId, name: "本人", color: "yellow" },
+              {
+                userId: "22222222-2222-4222-8222-222222222222",
+                name: "発表者",
+                color: "green",
+              },
+            ],
+          }),
+        },
+      );
+      const plane = document.createElement("div");
+      plane.getBoundingClientRect = () => new DOMRect(10, 20, 800, 600);
+      result.current.ideaMapPlaneRef.current = plane;
+      toolbar.getBoundingClientRect = () => new DOMRect(600, 100, 200, 500);
+
+      act(() =>
+        result.current.onNoteDragStart(note.id, {
+          pointerId: 32,
+          clientX: 40,
+          clientY: 50,
+          currentTarget: {
+            getBoundingClientRect: () => new DOMRect(20, 20, 180, 140),
+          },
+        } as unknown as PointerEvent<HTMLButtonElement>),
+      );
+      act(() =>
+        result.current.onPointerMove({
+          pointerId: 32,
+          clientX: 450,
+          clientY: 280,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
+      expect(result.current.isReturnDropTarget).toBe(false);
+      expect(onNoteDragMove).toHaveBeenCalledWith(
+        note.id,
+        expect.any(Number),
+        expect.any(Number),
+      );
+      act(() =>
+        result.current.onPointerMove({
+          pointerId: 32,
+          clientX: 650,
+          clientY: 280,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
+      expect(onNoteDragMove).toHaveBeenCalledTimes(2);
+      act(() =>
+        result.current.onPointerEnd({
+          pointerId: 32,
+          clientX: 650,
+          clientY: 280,
+          target: toolbar,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
+
+      expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([1, 2, 3] as const)(
+    "フェーズ%iで返却先をpreview中に発表者が交代したら返却を取り消す",
+    (phase) => {
+      const sharing = buildSharingState({
+        status: "active",
+        currentIndex: 0,
         order: [
-          { userId: note.authorId, name: "本人", color: "yellow" },
+          {
+            userId: "11111111-1111-4111-8111-111111111111",
+            name: "本人",
+            color: "yellow",
+          },
           {
             userId: "22222222-2222-4222-8222-222222222222",
-            name: "発表者",
+            name: "次の人",
             color: "green",
           },
         ],
-      }),
-    });
-    const plane = document.createElement("div");
-    plane.getBoundingClientRect = () => new DOMRect(10, 20, 800, 600);
-    result.current.ideaMapPlaneRef.current = plane;
-    toolbar.getBoundingClientRect = () => new DOMRect(600, 100, 200, 500);
+      });
+      const {
+        result,
+        rerender,
+        toolbar,
+        onPrivateNoteUnpublish,
+        onNoteDragCancel,
+      } = setup({
+        phase: buildPhaseStep(2, phase),
+        withSharedDrag: true,
+        sharing,
+      });
+      act(() =>
+        result.current.onNoteDragStart("shared-1", {
+          pointerId: 33,
+          clientX: 40,
+          clientY: 50,
+          currentTarget: document.createElement("button"),
+        } as unknown as PointerEvent<HTMLButtonElement>),
+      );
+      act(() =>
+        result.current.onPointerMove({
+          pointerId: 33,
+          clientX: 650,
+          clientY: 280,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
+      expect(result.current.notes).toHaveLength(0);
+      expect(result.current.privateNotes.map((note) => note.id)).toContain(
+        "shared-1",
+      );
+      onNoteDragCancel.mockClear();
 
-    act(() =>
-      result.current.onNoteDragStart(note.id, {
-        pointerId: 32,
-        clientX: 40,
-        clientY: 50,
-        currentTarget: {
-          getBoundingClientRect: () => new DOMRect(20, 20, 180, 140),
-        },
-      } as unknown as PointerEvent<HTMLButtonElement>),
-    );
-    act(() =>
-      result.current.onPointerMove({
-        pointerId: 32,
-        clientX: 450,
-        clientY: 280,
-      } as unknown as PointerEvent<HTMLDivElement>),
-    );
-    expect(result.current.isReturnDropTarget).toBe(false);
-    expect(onNoteDragMove).toHaveBeenCalledWith(
-      note.id,
-      expect.any(Number),
-      expect.any(Number),
-    );
-    act(() =>
-      result.current.onPointerMove({
-        pointerId: 32,
-        clientX: 650,
-        clientY: 280,
-      } as unknown as PointerEvent<HTMLDivElement>),
-    );
-    expect(onNoteDragMove).toHaveBeenCalledTimes(2);
-    act(() =>
-      result.current.onPointerEnd({
-        pointerId: 32,
-        clientX: 650,
-        clientY: 280,
-        target: toolbar,
-      } as unknown as PointerEvent<HTMLDivElement>),
-    );
+      rerender({
+        sharing: { ...sharing, currentIndex: 1, revision: crypto.randomUUID() },
+      });
 
-    expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%iで返却先をpreview中に発表者が交代したら返却を取り消す", (phase) => {
-    const sharing = buildSharingState({
-      status: "active",
-      currentIndex: 0,
-      order: [
-        {
-          userId: "11111111-1111-4111-8111-111111111111",
-          name: "本人",
-          color: "yellow",
-        },
-        {
-          userId: "22222222-2222-4222-8222-222222222222",
-          name: "次の人",
-          color: "green",
-        },
-      ],
-    });
-    const {
-      result,
-      rerender,
-      toolbar,
-      onPrivateNoteUnpublish,
-      onNoteDragCancel,
-    } = setup({
-      phase: buildPhaseStep(2, phase),
-      withSharedDrag: true,
-      sharing,
-    });
-    act(() =>
-      result.current.onNoteDragStart("shared-1", {
-        pointerId: 33,
-        clientX: 40,
-        clientY: 50,
-        currentTarget: document.createElement("button"),
-      } as unknown as PointerEvent<HTMLButtonElement>),
-    );
-    act(() =>
-      result.current.onPointerMove({
-        pointerId: 33,
-        clientX: 650,
-        clientY: 280,
-      } as unknown as PointerEvent<HTMLDivElement>),
-    );
-    expect(result.current.notes).toHaveLength(0);
-    expect(result.current.privateNotes.map((note) => note.id)).toContain(
-      "shared-1",
-    );
-    onNoteDragCancel.mockClear();
-
-    rerender({
-      sharing: { ...sharing, currentIndex: 1, revision: crypto.randomUUID() },
-    });
-
-    expect(result.current.notes.map((note) => note.id)).toContain("shared-1");
-    expect(result.current.privateNotes).toHaveLength(0);
-    expect(result.current.dragPreview).toBeNull();
-    if (phase === 3) expect(onNoteDragCancel).toHaveBeenCalledWith("shared-1");
-    act(() =>
-      result.current.onPointerEnd({
-        pointerId: 33,
-        clientX: 650,
-        clientY: 280,
-        target: toolbar,
-      } as unknown as PointerEvent<HTMLDivElement>),
-    );
-    expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
-  });
+      expect(result.current.notes.map((note) => note.id)).toContain("shared-1");
+      expect(result.current.privateNotes).toHaveLength(0);
+      expect(result.current.dragPreview).toBeNull();
+      if (phase === 3)
+        expect(onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+      act(() =>
+        result.current.onPointerEnd({
+          pointerId: 33,
+          clientX: 650,
+          clientY: 280,
+          target: toolbar,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
+      expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    },
+  );
 
   it("入力欄と touch の位置は送信せず、キャンバス退出を通知する", () => {
     const { result, onCursorMove, onCursorLeave } = setup();

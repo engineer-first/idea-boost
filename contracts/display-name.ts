@@ -7,14 +7,12 @@ export const DisplayNameResponseSchema = z.object({
   name: z.string().trim().min(1).nullable(),
 });
 export type DisplayNameResponse = z.infer<typeof DisplayNameResponseSchema>;
-export const SetDisplayNameInputSchema = z
-  .object({
-    expectedPrincipal: z.string().uuid(),
-    name: RoomDisplayNameSchema,
-    // ルーム内から変更した場合だけ、その在籍先にも反映する。
-    roomId: z.string().uuid().optional(),
-  })
-  .strict();
+export const SetDisplayNameInputSchema = z.strictObject({
+  expectedPrincipal: z.guid(),
+  name: RoomDisplayNameSchema,
+  // ルーム内から変更した場合だけ、その在籍先にも反映する。
+  roomId: z.guid().optional(),
+});
 export type SetDisplayNameInput = z.infer<typeof SetDisplayNameInputSchema>;
 
 export function defaultDisplayName(userId: string): string {

@@ -222,7 +222,10 @@ describe("候補操作", () => {
       ],
       connected: true,
     });
-    act(() => (excluded.mock.calls[0]?.[0] as () => void)());
+    const undo = excluded.mock.calls[0]?.[0];
+    expect(undo).toBeTypeOf("function");
+    if (!undo) throw new Error("取り消し操作が通知されていません");
+    act(() => undo());
     expect(send).toHaveBeenCalledOnce();
   });
   it("切断で停止し、遅れた成功応答では通知や旧状態を復活させない", () => {

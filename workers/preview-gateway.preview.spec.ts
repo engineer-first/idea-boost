@@ -110,53 +110,54 @@ it("設定不足で拒否し、本番Cookieを本人セッションとして転�
   expect(res.headers.get("Set-Cookie")).toContain("Secure");
   expect(res.headers.get("Set-Cookie")).toContain("HttpOnly");
 });
-it.each([
-  undefined,
-  "https://another-pr.preview.test",
-])("WebSocketの別origin/欠落(%s)を拒否する", async (origin) => {
-  certs();
-  const req = request(await jwt(), "/api/rooms/room/ws");
-  req.headers.set("Upgrade", "websocket");
-  if (origin) req.headers.set("Origin", origin);
-  expect((await previewGateway(req, config, next)).status).toBe(403);
-  expect(next).not.toHaveBeenCalled();
-  expect(config.API_WORKER.fetch).not.toHaveBeenCalled();
-});
+it.each([undefined, "https://another-pr.preview.test"])(
+  "WebSocketの別origin/欠落(%s)を拒否する",
+  async (origin) => {
+    certs();
+    const req = request(await jwt(), "/api/rooms/room/ws");
+    req.headers.set("Upgrade", "websocket");
+    if (origin) req.headers.set("Origin", origin);
+    expect((await previewGateway(req, config, next)).status).toBe(403);
+    expect(next).not.toHaveBeenCalled();
+    expect(config.API_WORKER.fetch).not.toHaveBeenCalled();
+  },
+);
 
-it.each([
-  45, 75,
-])("本人同期が%s秒遅れてもAccess期限を超えるセッションを発行しない", async (delay) => {
-  certs();
-  const access = await jwt();
-  const now = Date.now();
-  let clock: ReturnType<typeof vi.spyOn> | undefined;
-  config.API_WORKER.fetch.mockImplementationOnce(async () => {
-    clock = vi.spyOn(Date, "now").mockReturnValue(now + delay * 1000);
-    return Response.json({ userId: "b1000000-0000-4000-8000-000000000001" });
-  });
-  try {
-    const response = await previewGateway(
-      request(access, "/preview"),
-      config,
-      next,
-    );
-    if (delay > 60) {
-      expect(response.status).toBe(401);
-      expect(next).not.toHaveBeenCalled();
-    } else {
-      const token = response.headers
-        .get("Set-Cookie")
-        ?.split("=")[1]
-        .split(";")[0];
-      expect(token).toBeTruthy();
-      expect(Number(decodeJwt(token ?? "").exp)).toBeLessThanOrEqual(
-        Number(decodeJwt(access).exp),
+it.each([45, 75])(
+  "本人同期が%s秒遅れてもAccess期限を超えるセッションを発行しない",
+  async (delay) => {
+    certs();
+    const access = await jwt();
+    const now = Date.now();
+    let clock: ReturnType<typeof vi.spyOn> | undefined;
+    config.API_WORKER.fetch.mockImplementationOnce(async () => {
+      clock = vi.spyOn(Date, "now").mockReturnValue(now + delay * 1000);
+      return Response.json({ userId: "b1000000-0000-4000-8000-000000000001" });
+    });
+    try {
+      const response = await previewGateway(
+        request(access, "/preview"),
+        config,
+        next,
       );
+      if (delay > 60) {
+        expect(response.status).toBe(401);
+        expect(next).not.toHaveBeenCalled();
+      } else {
+        const token = response.headers
+          .get("Set-Cookie")
+          ?.split("=")[1]
+          .split(";")[0];
+        expect(token).toBeTruthy();
+        expect(Number(decodeJwt(token ?? "").exp)).toBeLessThanOrEqual(
+          Number(decodeJwt(access).exp),
+        );
+      }
+    } finally {
+      clock?.mockRestore();
     }
-  } finally {
-    clock?.mockRestore();
-  }
-});
+  },
+);
 
 it("ログアウト時のPreview CookieをSecure付きで削除し、自動再発行しない", async () => {
   certs();

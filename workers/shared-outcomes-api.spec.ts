@@ -1,4 +1,4 @@
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { expect, it, vi } from "vitest";
 import { issueCreationId } from "../contracts/room-creation";
 import { buildSharedOutcome } from "../contracts/shared-outcomes.fixture";
@@ -190,46 +190,46 @@ it("最終利用日を日本時間の両端を含む期間で絞り、片方だ�
   expect(await search("from=2026-09-29")).toEqual([]);
 });
 
-it.each([
-  "q=探している",
-  "from=2026-09-27&to=2026-09-27",
-])("検索条件 %s が最初の50候補に一致しなくても続きの成果を見つける", async (query) => {
-  const records = Array.from({ length: 51 }, (_, index) =>
-    buildSharedOutcome({
-      roomId: crypto.randomUUID(),
-      name: index === 50 ? "探しているルーム" : "別ルーム",
-      lastUsedAt:
-        Date.parse(
-          index === 50
-            ? "2026-09-27T12:00:00+09:00"
-            : "2026-09-28T12:00:00+09:00",
-        ) - index,
-    }),
-  );
-  for (const record of records) {
-    await env.DB.prepare(
-      "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
-    )
-      .bind(record.roomId, record.lastUsedAt, record.expiresAt)
-      .run();
-  }
-  const namespace = {
-    idFromName: (id: string) => id,
-    get: (id: string) => ({
-      ensureSharedOutcome: async () => {},
-      getSharedOutcome: async () =>
-        records.find((record) => record.roomId === id) ?? null,
-    }),
-  } as unknown as typeof env.ROOM_DO;
-  const response = await handleSharedOutcomes(
-    new Request(`https://api.test/api/shared-outcomes?${query}`),
-    { ...env, ROOM_DO: namespace },
-  );
-  expect(await response.json()).toMatchObject({
-    outcomes: [expect.objectContaining({ roomId: records[50].roomId })],
-    nextCursor: null,
-  });
-});
+it.each(["q=探している", "from=2026-09-27&to=2026-09-27"])(
+  "検索条件 %s が最初の50候補に一致しなくても続きの成果を見つける",
+  async (query) => {
+    const records = Array.from({ length: 51 }, (_, index) =>
+      buildSharedOutcome({
+        roomId: crypto.randomUUID(),
+        name: index === 50 ? "探しているルーム" : "別ルーム",
+        lastUsedAt:
+          Date.parse(
+            index === 50
+              ? "2026-09-27T12:00:00+09:00"
+              : "2026-09-28T12:00:00+09:00",
+          ) - index,
+      }),
+    );
+    for (const record of records) {
+      await env.DB.prepare(
+        "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
+      )
+        .bind(record.roomId, record.lastUsedAt, record.expiresAt)
+        .run();
+    }
+    const namespace = {
+      idFromName: (id: string) => id,
+      get: (id: string) => ({
+        ensureSharedOutcome: async () => {},
+        getSharedOutcome: async () =>
+          records.find((record) => record.roomId === id) ?? null,
+      }),
+    } as unknown as typeof env.ROOM_DO;
+    const response = await handleSharedOutcomes(
+      new Request(`https://api.test/api/shared-outcomes?${query}`),
+      { ...env, ROOM_DO: namespace },
+    );
+    expect(await response.json()).toMatchObject({
+      outcomes: [expect.objectContaining({ roomId: records[50].roomId })],
+      nextCursor: null,
+    });
+  },
+);
 
 it("検索中に期限切れの索引が削除されても次の候補を飛ばさない", async () => {
   const now = Date.now();

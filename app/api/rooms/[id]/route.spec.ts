@@ -14,22 +14,23 @@ it("未認証はWorkerへ問い合わせず401", async () => {
   expect((await GET(request, context)).status).toBe(401);
   expect(mocks.api).not.toHaveBeenCalled();
 });
-it.each([
-  200, 401, 404, 503,
-])("Workerの%sを保持し本文を公開せずsignalを伝える", async (status) => {
-  mocks.user.mockResolvedValue({ sub: "user" });
-  mocks.api.mockResolvedValue(
-    Response.json({ secret: "private", error: "internal" }, { status }),
-  );
-  const response = await GET(request, context);
-  expect(response.status).toBe(status);
-  expect(await response.text()).toBe("");
-  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
-  expect(mocks.api).toHaveBeenCalledWith("/api/rooms/room", {
-    cache: "no-store",
-    signal: request.signal,
-  });
-});
+it.each([200, 401, 404, 503])(
+  "Workerの%sを保持し本文を公開せずsignalを伝える",
+  async (status) => {
+    mocks.user.mockResolvedValue({ sub: "user" });
+    mocks.api.mockResolvedValue(
+      Response.json({ secret: "private", error: "internal" }, { status }),
+    );
+    const response = await GET(request, context);
+    expect(response.status).toBe(status);
+    expect(await response.text()).toBe("");
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(mocks.api).toHaveBeenCalledWith("/api/rooms/room", {
+      cache: "no-store",
+      signal: request.signal,
+    });
+  },
+);
 it("一時通信障害は404でなく503", async () => {
   mocks.user.mockResolvedValue({ sub: "user" });
   mocks.api.mockRejectedValue(new Error());

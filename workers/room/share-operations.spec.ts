@@ -156,50 +156,53 @@ describe("share commit", () => {
         status: "rejected",
       });
       expect(findNote(ctx.sql, N1)?.visibility).toBe("private");
-    }));
+    }),
+  );
 
-  it.each([
-    1, 2,
-  ] as const)("フェーズ%iの同一座標での共有は座標と位置リビジョンを保つ", (phase) =>
-    setup(`share-same-position-phase-${phase}`, (ctx, responses) => {
-      savePhase(ctx.sql, { kind: "step", phase, step: 2 });
-      ctx.sql.exec(
-        "UPDATE notes SET visibility='private', phase=?2 WHERE id=?1",
-        N1,
-        phase,
-      );
-      const row = findNote(ctx.sql, N1);
-      if (!row) throw new Error("付箋がありません");
-      const messages = peer(ctx);
-      noteHandlers["note:publish"](ctx, {
-        type: "note:publish",
-        operationId: OP,
-        noteId: N1,
-        x: row.x,
-        y: row.y,
-        expectedPhaseRevision: Number(
-          ctx.sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
-            .phase_revision,
-        ),
-        expectedPositionRevision: row.position_revision ?? 0,
-        expectedVisibilityRevision: row.visibility_revision ?? 0,
-      });
-      expect(responses.at(-1)).toMatchObject({
-        type: "note:share:result",
-        status: "committed",
-      });
-      expect(findNote(ctx.sql, N1)).toMatchObject({
-        x: row.x,
-        y: row.y,
-        position_revision: row.position_revision,
-      });
-      expect(messages).toContainEqual(
-        expect.objectContaining({
-          type: "note:inserted",
-          note: expect.objectContaining({ id: N1, visibility: "shared" }),
-        }),
-      );
-    }));
+  it.each([1, 2] as const)(
+    "フェーズ%iの同一座標での共有は座標と位置リビジョンを保つ",
+    (phase) =>
+      setup(`share-same-position-phase-${phase}`, (ctx, responses) => {
+        savePhase(ctx.sql, { kind: "step", phase, step: 2 });
+        ctx.sql.exec(
+          "UPDATE notes SET visibility='private', phase=?2 WHERE id=?1",
+          N1,
+          phase,
+        );
+        const row = findNote(ctx.sql, N1);
+        if (!row) throw new Error("付箋がありません");
+        const messages = peer(ctx);
+        noteHandlers["note:publish"](ctx, {
+          type: "note:publish",
+          operationId: OP,
+          noteId: N1,
+          x: row.x,
+          y: row.y,
+          expectedPhaseRevision: Number(
+            ctx.sql
+              .exec("SELECT phase_revision FROM room_state WHERE id=1")
+              .one().phase_revision,
+          ),
+          expectedPositionRevision: row.position_revision ?? 0,
+          expectedVisibilityRevision: row.visibility_revision ?? 0,
+        });
+        expect(responses.at(-1)).toMatchObject({
+          type: "note:share:result",
+          status: "committed",
+        });
+        expect(findNote(ctx.sql, N1)).toMatchObject({
+          x: row.x,
+          y: row.y,
+          position_revision: row.position_revision,
+        });
+        expect(messages).toContainEqual(
+          expect.objectContaining({
+            type: "note:inserted",
+            note: expect.objectContaining({ id: N1, visibility: "shared" }),
+          }),
+        );
+      }),
+  );
 
   it("Step 3-2の共有はマップ座標で公開を確定する", () =>
     setup("share-phase-3-step-2-map-coordinates", (ctx, responses) => {
@@ -422,53 +425,54 @@ describe("share commit", () => {
       expect(findNote(ctx.sql, N1)?.visibility).toBe("shared");
       expect(messages.some((item) => item.type === "note:deleted")).toBe(false);
     }));
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%iの共有開始前・終了後は作者の返却も拒否し他者表示を保つ", (phase) =>
-    setup(`share-return-outside-presentation-${phase}`, (ctx, responses) => {
-      const messages = peer(ctx);
-      savePhase(ctx.sql, { kind: "step", phase, step: 2 });
-      ctx.sql.exec("UPDATE notes SET phase=?1", phase);
-      for (const status of ["ready", "inactive", "complete"] as const) {
-        saveSharingState(ctx.sql, {
-          revision: crypto.randomUUID(),
-          order: [{ userId: A, name: "作者", color: "yellow" }],
-          status,
-          currentIndex: null,
-          results: [],
-          durationMs: 180000,
-          startsAt: null,
-        });
-        noteHandlers["note:unpublish"](ctx, {
-          type: "note:unpublish",
-          noteId: N1,
-        });
-        expect(responses.at(-1)).toMatchObject({
-          type: "error",
-          code: "forbidden",
-        });
-        noteHandlers["note:unpublish"](ctx, {
-          type: "note:unpublish",
-          noteId: N1,
-          operationId: crypto.randomUUID(),
-          expectedPhaseRevision: Number(
-            ctx.sql
-              .exec("SELECT phase_revision FROM room_state WHERE id=1")
-              .one().phase_revision,
-          ),
-          expectedPositionRevision: 0,
-          expectedVisibilityRevision: 0,
-        });
-        expect(responses.at(-1)).toMatchObject({
-          type: "note:share:result",
-          status: "rejected",
-        });
-        expect(findNote(ctx.sql, N1)?.visibility).toBe("shared");
-        expect(messages.some((item) => item.type === "note:deleted")).toBe(
-          false,
-        );
-      }
-    }));
+  it.each([1, 2, 3] as const)(
+    "フェーズ%iの共有開始前・終了後は作者の返却も拒否し他者表示を保つ",
+    (phase) =>
+      setup(`share-return-outside-presentation-${phase}`, (ctx, responses) => {
+        const messages = peer(ctx);
+        savePhase(ctx.sql, { kind: "step", phase, step: 2 });
+        ctx.sql.exec("UPDATE notes SET phase=?1", phase);
+        for (const status of ["ready", "inactive", "complete"] as const) {
+          saveSharingState(ctx.sql, {
+            revision: crypto.randomUUID(),
+            order: [{ userId: A, name: "作者", color: "yellow" }],
+            status,
+            currentIndex: null,
+            results: [],
+            durationMs: 180000,
+            startsAt: null,
+          });
+          noteHandlers["note:unpublish"](ctx, {
+            type: "note:unpublish",
+            noteId: N1,
+          });
+          expect(responses.at(-1)).toMatchObject({
+            type: "error",
+            code: "forbidden",
+          });
+          noteHandlers["note:unpublish"](ctx, {
+            type: "note:unpublish",
+            noteId: N1,
+            operationId: crypto.randomUUID(),
+            expectedPhaseRevision: Number(
+              ctx.sql
+                .exec("SELECT phase_revision FROM room_state WHERE id=1")
+                .one().phase_revision,
+            ),
+            expectedPositionRevision: 0,
+            expectedVisibilityRevision: 0,
+          });
+          expect(responses.at(-1)).toMatchObject({
+            type: "note:share:result",
+            status: "rejected",
+          });
+          expect(findNote(ctx.sql, N1)?.visibility).toBe("shared");
+          expect(messages.some((item) => item.type === "note:deleted")).toBe(
+            false,
+          );
+        }
+      }),
+  );
   it("他接続の移動lockがあるshared付箋は0件戻し、他者表示を消さない", () =>
     setup("share-return-lock", (ctx, responses) => {
       const messages = peer(ctx);
@@ -490,41 +494,38 @@ describe("share commit", () => {
       expect(findNote(ctx.sql, N1)?.visibility).toBe("shared");
       expect(messages.some((item) => item.type === "note:deleted")).toBe(false);
     }));
-  it.each([
-    "nonmember",
-    "phase",
-    "position",
-    "excluded",
-    "step",
-  ])("%sの公開要求はprivate本文を配信しない", (kind) =>
-    setup(`share-reject-${kind}`, (ctx, responses) => {
-      const messages = peer(ctx);
-      savePhase(ctx.sql, { kind: "step", phase: 1, step: 2 });
-      ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N1);
-      if (kind === "step")
-        savePhase(ctx.sql, { kind: "step", phase: 1, step: 1 });
-      const revision = Number(
-        ctx.sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
-          .phase_revision,
-      );
-      if (kind === "excluded")
-        ctx.sql.exec("UPDATE notes SET excluded=1 WHERE id=?1", N1);
-      if (kind === "nonmember")
-        ctx.sql.exec("DELETE FROM members WHERE user_id=?1", A);
-      noteHandlers["note:publish"](ctx, {
-        type: "note:publish",
-        operationId: OP,
-        noteId: N1,
-        x: 200,
-        y: 210,
-        expectedPhaseRevision: kind === "phase" ? revision - 1 : revision,
-        expectedPositionRevision: kind === "position" ? 9 : 0,
-        expectedVisibilityRevision: 1,
-      });
-      expect(findNote(ctx.sql, N1)?.visibility).toBe("private");
-      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
-      expect(messages).toHaveLength(0);
-    }));
+  it.each(["nonmember", "phase", "position", "excluded", "step"])(
+    "%sの公開要求はprivate本文を配信しない",
+    (kind) =>
+      setup(`share-reject-${kind}`, (ctx, responses) => {
+        const messages = peer(ctx);
+        savePhase(ctx.sql, { kind: "step", phase: 1, step: 2 });
+        ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N1);
+        if (kind === "step")
+          savePhase(ctx.sql, { kind: "step", phase: 1, step: 1 });
+        const revision = Number(
+          ctx.sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
+            .phase_revision,
+        );
+        if (kind === "excluded")
+          ctx.sql.exec("UPDATE notes SET excluded=1 WHERE id=?1", N1);
+        if (kind === "nonmember")
+          ctx.sql.exec("DELETE FROM members WHERE user_id=?1", A);
+        noteHandlers["note:publish"](ctx, {
+          type: "note:publish",
+          operationId: OP,
+          noteId: N1,
+          x: 200,
+          y: 210,
+          expectedPhaseRevision: kind === "phase" ? revision - 1 : revision,
+          expectedPositionRevision: kind === "position" ? 9 : 0,
+          expectedVisibilityRevision: 1,
+        });
+        expect(findNote(ctx.sql, N1)?.visibility).toBe("private");
+        expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+        expect(messages).toHaveLength(0);
+      }),
+  );
   it("期限削除の保存失敗中でも共有結果照会はunknownで終端しpendingを残さない", () =>
     setup(
       "share-status-retention-failure",

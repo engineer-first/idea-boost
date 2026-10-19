@@ -2,9 +2,7 @@
 import { z } from "zod";
 
 export const LAST_ROOM_STORAGE_KEY = "idea-boost:last-room";
-const CandidateSchema = z
-  .object({ userId: z.string().uuid(), roomId: z.string().uuid() })
-  .strict();
+const CandidateSchema = z.strictObject({ userId: z.guid(), roomId: z.guid() });
 export function rememberLastRoom(userId: string, roomId: string): void {
   const candidate = CandidateSchema.safeParse({ userId, roomId });
   if (!candidate.success) return;

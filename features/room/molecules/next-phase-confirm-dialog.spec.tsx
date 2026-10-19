@@ -65,27 +65,29 @@ describe("NextPhaseConfirmDialog", () => {
     );
   });
 
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%sの共有を離れるときは空白のマイ付箋を整理すると説明する", (phase) => {
-    setup({ phase: buildPhaseStep(2, phase) });
+  it.each([1, 2, 3] as const)(
+    "フェーズ%sの共有を離れるときは空白のマイ付箋を整理すると説明する",
+    (phase) => {
+      setup({ phase: buildPhaseStep(2, phase) });
 
-    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "この共有ステップの空白だけのマイ付箋も削除します。",
-    );
-  });
+      expect(screen.getByRole("alertdialog")).toHaveTextContent(
+        "この共有ステップの空白だけのマイ付箋も削除します。",
+      );
+    },
+  );
 
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%sの個人作業を離れるときは空白のマイ付箋を削除すると説明する", (phase) => {
-    setup({ phase: buildPhaseStep(1, phase) });
-    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "この個人作業ステップの空白だけのマイ付箋も削除します。",
-    );
-  });
+  it.each([1, 2, 3] as const)(
+    "フェーズ%sの個人作業を離れるときは空白のマイ付箋を削除すると説明する",
+    (phase) => {
+      setup({ phase: buildPhaseStep(1, phase) });
+      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+      expect(screen.getByRole("alertdialog")).toHaveTextContent(
+        "この個人作業ステップの空白だけのマイ付箋も削除します。",
+      );
+    },
+  );
 
   it("「次へ進む」で onConfirm を呼ぶ（確認前には呼ばない）", () => {
     const { onConfirm } = setup();
@@ -107,11 +109,12 @@ describe("NextPhaseConfirmDialog", () => {
   });
 });
 
-it.each([
-  3, 5,
-])("step%sの進行確認は緊急復元を不可能と説明せず、下書きの扱いを伝える", (step) => {
-  setup({ phase: buildPhaseStep(step, 1) });
-  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-  expect(screen.getByRole("alertdialog")).not.toHaveTextContent("戻れません");
-  expect(screen.getByRole("alertdialog")).toHaveTextContent(/下書き.*破棄/);
-});
+it.each([3, 5])(
+  "step%sの進行確認は緊急復元を不可能と説明せず、下書きの扱いを伝える",
+  (step) => {
+    setup({ phase: buildPhaseStep(step, 1) });
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+    expect(screen.getByRole("alertdialog")).not.toHaveTextContent("戻れません");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(/下書き.*破棄/);
+  },
+);

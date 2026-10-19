@@ -210,13 +210,13 @@ it("参加者がロビーで選んだ成果の扱いを退出へ渡す", async (
   expect(onLeave).toHaveBeenCalledWith("discard");
 });
 
-it.each([
-  true,
-  false,
-])("待機画面でホスト=%sも現在名を確認して変更を開ける", (isHost) => {
-  const request = vi.fn();
-  renderView({ isHost, roomName: buildRoomNameControls({ request }) });
-  expect(screen.getByText("J05")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "ルーム名を変更" }));
-  expect(request).toHaveBeenCalledOnce();
-});
+it.each([true, false])(
+  "待機画面でホスト=%sも現在名を確認して変更を開ける",
+  (isHost) => {
+    const request = vi.fn();
+    renderView({ isHost, roomName: buildRoomNameControls({ request }) });
+    expect(screen.getByText("J05")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ルーム名を変更" }));
+    expect(request).toHaveBeenCalledOnce();
+  },
+);

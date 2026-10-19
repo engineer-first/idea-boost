@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { createApiWorker } from "./api-worker";
 import {
@@ -17,7 +17,7 @@ async function save(
   name: string,
   roomId?: string,
 ) {
-  return SELF.fetch("https://api.test/api/me/display-name", {
+  return exports.default.fetch("https://api.test/api/me/display-name", {
     method: "PUT",
     headers: {
       Cookie: await sessionCookieFor(actor),
@@ -49,7 +49,7 @@ async function leaveKeepingRoom(
       successor.sub,
     ),
   );
-  const response = await SELF.fetch(
+  const response = await exports.default.fetch(
     `https://api.test/api/rooms/${roomId}/leave`,
     {
       method: "POST",
@@ -72,7 +72,7 @@ describe("表示名を変更したルームと次の参加に反映する", () =
     const room = await createRoomAs(actor);
     expect((await save(actor, "ホームで変更")).status).toBe(200);
     expect(await members(room.roomId)).toMatchObject([{ name: actor.name }]);
-    const lookup = await SELF.fetch(
+    const lookup = await exports.default.fetch(
       `https://api.test/api/rooms/lookup?code=${room.inviteCode}`,
       { headers: { Cookie: await sessionCookieFor(actor) } },
     );
@@ -104,7 +104,7 @@ describe("表示名を変更したルームと次の参加に反映する", () =
     for (const suffix of ["", "/members"]) {
       expect(
         (
-          await SELF.fetch(
+          await exports.default.fetch(
             `https://api.test/api/rooms/${first.roomId}${suffix}`,
             {
               headers: { Cookie: await sessionCookieFor(actor) },
@@ -123,7 +123,7 @@ describe("表示名を変更したルームと次の参加に反映する", () =
       expect((await save(actor, "不正な変更", roomId)).status).toBe(
         roomId === "invalid-id" ? 400 : 404,
       );
-      const response = await SELF.fetch(
+      const response = await exports.default.fetch(
         "https://api.test/api/me/display-name",
         {
           headers: { Cookie: await sessionCookieFor(actor) },
@@ -149,9 +149,12 @@ describe("表示名を変更したルームと次の参加に反映する", () =
       error: expect.stringContaining("保存しました"),
     });
     expect(await members(room.roomId)).toMatchObject([{ name: actor.name }]);
-    const profile = await SELF.fetch("https://api.test/api/me/display-name", {
-      headers: { Cookie: await sessionCookieFor(actor) },
-    });
+    const profile = await exports.default.fetch(
+      "https://api.test/api/me/display-name",
+      {
+        headers: { Cookie: await sessionCookieFor(actor) },
+      },
+    );
     expect(await profile.json()).toEqual({ name: "次回の表示名" });
   });
   it("ホームの変更ではRoomDOを呼び出さない", async () => {

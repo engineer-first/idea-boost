@@ -5,7 +5,7 @@
 ## 条件と再現
 
 - Mac mini Mac16,10、Apple M4 10 cores、16GB、macOS 26.1。Chromium 153.0.8010.12、Playwright headless、1280×720。物理画面・mouse/trackpad入力の計測ではない。
-- `#364前 1ce8b5d`、`#364後 b17a260`、現行 `d5edae6`、候補をgit archive相当の固定sourceへ分離した。Next 16.2.9のwebpack dev・共有した同じnode\_modules・実dev:verify/RoomDOで順次起動し、所有サーバーは毎回停止した。歴史版の起動管理だけ現行scriptを使い、プロダクト実装は変更しない。候補の本番変更ファイル集合のSHA256は`93d1424ab3aa7391184b0f104634999ea085a245839925c78876f2c0e7c7eae9`（traceにも記録）。
+- `#364前 1ce8b5d`、`#364後 b17a260`、現行 `d5edae6`、候補をgit archive相当の固定sourceへ分離した。Next 16.2.9のwebpack dev・共有した同じnode_modules・実dev:verify/RoomDOで順次起動し、所有サーバーは毎回停止した。歴史版の起動管理だけ現行scriptを使い、プロダクト実装は変更しない。候補の本番変更ファイル集合のSHA256は`93d1424ab3aa7391184b0f104634999ea085a245839925c78876f2c0e7c7eae9`（traceにも記録）。
 - 1-2のsnapshotを100枚へ増やす公開fixture注入: shared9/private91、長文30枚。DOには元の10枚だけが存在し、private1枚と本人shared1枚を操作する。100枚の保存/通信負荷は測っていない。
 - privateはトレイ内、returningは共有付箋から始める。pointerdown後40ms保持、初回12pxで閾値を超え、returningはパネルhover→ボードへ戻す。Escape/upで終了し、次のdrag前にcameraを同じ位置へ調整する。掴み位置のhit IDを検査し、不正hitや対象消失を速度の成功として数えない。
 - 閾値超過からrAFでゴースト出現/対象rect移動を初めて観測するまでを計測。GPUの描画完了やpointerdownからの全待ち時間ではない。downToPreviewをtraceへ別記した。

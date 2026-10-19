@@ -139,58 +139,59 @@ test("ロビーでも参加者本人からホスト変更を確認し、取消�
   await page.getByTestId("start-phase-button").waitFor();
 });
 
-test.each(
-  viewports,
-)("$name: 参加者選択とキーボード取消が到達可能で、変更後もボード・付箋・タイマーを保つ", async (viewport) => {
-  await page.setViewportSize(viewport);
-  await openActive();
-  const before = await boardContents();
-  expect(before.notes).toHaveLength(3);
-  expect(before.timer).toBe("02:18");
-  await expectInsideViewport(membersTrigger());
-  await page.screenshot({
-    path: `${output}/508-active-session-before-transfer-${viewport.name}.png`,
-  });
-  await membersTrigger().press("Enter");
-  await page
-    .getByRole("button", { name: targetName, exact: true })
-    .press("Enter");
-  const dialog = page.getByRole("alertdialog");
-  await dialog.waitFor();
-  await expectInsideViewport(dialog);
-  expect(await dialog.innerText()).toContain(targetName);
-  expect(await dialog.innerText()).toContain("開始・進行・解散");
-  expect(await dialog.getByRole("combobox").count()).toBe(0);
-  await page.keyboard.press("Escape");
-  await dialog.waitFor({ state: "hidden" });
-  await vi.waitFor(async () =>
-    expect(
-      await membersTrigger().evaluate(
-        (node) => node === document.activeElement,
-      ),
-    ).toBe(true),
-  );
-  await selectTarget();
-  await page.screenshot({
-    path: `${output}/508-active-confirm-${viewport.name}.png`,
-  });
-  await page.getByRole("button", { name: confirmName }).click();
-  await expectTransferred();
-  expect(await boardContents()).toEqual(before);
-  await page.screenshot({
-    path: `${output}/508-active-session-after-transfer-${viewport.name}.png`,
-  });
-  await membersTrigger().click();
-  await page.getByTestId(`member-host-label-${targetId}`).waitFor();
-  expect(
-    await page.getByRole("button", { name: targetName, exact: true }).count(),
-  ).toBe(0);
-  expect(
+test.each(viewports)(
+  "$name: 参加者選択とキーボード取消が到達可能で、変更後もボード・付箋・タイマーを保つ",
+  async (viewport) => {
+    await page.setViewportSize(viewport);
+    await openActive();
+    const before = await boardContents();
+    expect(before.notes).toHaveLength(3);
+    expect(before.timer).toBe("02:18");
+    await expectInsideViewport(membersTrigger());
+    await page.screenshot({
+      path: `${output}/508-active-session-before-transfer-${viewport.name}.png`,
+    });
+    await membersTrigger().press("Enter");
     await page
-      .getByRole("button", { name: "Yuki Tanaka", exact: true })
-      .count(),
-  ).toBe(0);
-});
+      .getByRole("button", { name: targetName, exact: true })
+      .press("Enter");
+    const dialog = page.getByRole("alertdialog");
+    await dialog.waitFor();
+    await expectInsideViewport(dialog);
+    expect(await dialog.innerText()).toContain(targetName);
+    expect(await dialog.innerText()).toContain("開始・進行・解散");
+    expect(await dialog.getByRole("combobox").count()).toBe(0);
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+    await vi.waitFor(async () =>
+      expect(
+        await membersTrigger().evaluate(
+          (node) => node === document.activeElement,
+        ),
+      ).toBe(true),
+    );
+    await selectTarget();
+    await page.screenshot({
+      path: `${output}/508-active-confirm-${viewport.name}.png`,
+    });
+    await page.getByRole("button", { name: confirmName }).click();
+    await expectTransferred();
+    expect(await boardContents()).toEqual(before);
+    await page.screenshot({
+      path: `${output}/508-active-session-after-transfer-${viewport.name}.png`,
+    });
+    await membersTrigger().click();
+    await page.getByTestId(`member-host-label-${targetId}`).waitFor();
+    expect(
+      await page.getByRole("button", { name: targetName, exact: true }).count(),
+    ).toBe(0);
+    expect(
+      await page
+        .getByRole("button", { name: "Yuki Tanaka", exact: true })
+        .count(),
+    ).toBe(0);
+  },
+);
 
 test("参加者をEnterで選んだ直後のEscape一回で閉じ、常設入口に戻る", async () => {
   await openActive();
@@ -341,31 +342,34 @@ const activeSteps = [
   "3-4",
   "3-5",
 ];
-test.each(
-  activeSteps,
-)("Step %s: 390pxでも既存参加者UIからホスト変更を確認できる", async (step) => {
-  const [phase, number] = step.split("-");
-  await openActive(`phase-${phase}-step-${number}`);
-  const sharing = number === "2";
-  await expectInsideViewport(membersTrigger(sharing));
-  // 常設の操作面積は増やさず、既存の参加者UIを入口にする。
-  expect(
-    await page.getByRole("button", { name: "ホスト交代", exact: true }).count(),
-  ).toBe(0);
-  await selectTarget(sharing);
-  await expectInsideViewport(page.getByRole("alertdialog"));
-  expect(
-    await page.getByRole("button", { name: confirmName }).isEnabled(),
-  ).toBe(true);
-  await page.getByRole("button", { name: "キャンセル", exact: true }).click();
-  await vi.waitFor(async () =>
+test.each(activeSteps)(
+  "Step %s: 390pxでも既存参加者UIからホスト変更を確認できる",
+  async (step) => {
+    const [phase, number] = step.split("-");
+    await openActive(`phase-${phase}-step-${number}`);
+    const sharing = number === "2";
+    await expectInsideViewport(membersTrigger(sharing));
+    // 常設の操作面積は増やさず、既存の参加者UIを入口にする。
     expect(
-      await membersTrigger(sharing).evaluate(
-        (node) => node === document.activeElement,
-      ),
-    ).toBe(true),
-  );
-});
+      await page
+        .getByRole("button", { name: "ホスト交代", exact: true })
+        .count(),
+    ).toBe(0);
+    await selectTarget(sharing);
+    await expectInsideViewport(page.getByRole("alertdialog"));
+    expect(
+      await page.getByRole("button", { name: confirmName }).isEnabled(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "キャンセル", exact: true }).click();
+    await vi.waitFor(async () =>
+      expect(
+        await membersTrigger(sharing).evaluate(
+          (node) => node === document.activeElement,
+        ),
+      ).toBe(true),
+    );
+  },
+);
 
 test("共有中も順番とタイマーを保ったまま参加者からホストを変更できる", async () => {
   await openActive("phase-1-step-2");
@@ -399,17 +403,18 @@ test("非ホストと成果公開後にはホスト変更の入口がない", as
   expect(await page.getByRole("alertdialog").count()).toBe(0);
 });
 
-test.each(
-  viewports,
-)("$name: 既存1-3 storyの実装後比較画像を残す", async (viewport) => {
-  await page.setViewportSize(viewport);
-  // 旧56e6f38のChromaticにもある同fixture・同viewportで比較する。
-  await openStory("room-roomboardview--guide-phase-1-step-3");
-  await page.getByTestId("board-control-hud").waitFor();
-  await page.screenshot({
-    path: `${output}/508-after-view-step-1-3-${viewport.name}.png`,
-  });
-});
+test.each(viewports)(
+  "$name: 既存1-3 storyの実装後比較画像を残す",
+  async (viewport) => {
+    await page.setViewportSize(viewport);
+    // 旧56e6f38のChromaticにもある同fixture・同viewportで比較する。
+    await openStory("room-roomboardview--guide-phase-1-step-3");
+    await page.getByTestId("board-control-hud").waitFor();
+    await page.screenshot({
+      path: `${output}/508-after-view-step-1-3-${viewport.name}.png`,
+    });
+  },
+);
 
 for (const participant of [false, true]) {
   test(`1-1のホスト交代後もマイ付箋を表示する（新ホスト=${participant}）`, async () => {

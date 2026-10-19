@@ -76,6 +76,6 @@ npm run access:list
 
 ## 機能ごとの運用とローカル検証
 
-保存失敗・期限は[共有成果](shared-outcomes.md)、意見の期限・緊急削除は[意見の運用](feedback.md)を参照する。通常開発・検証ではOwnerの成果read / manage\_accessが開発ログイン時に自動登録される。意見の権限は自動付与しない。検証環境の準備と確認は[ローカル検証](../development/local-verification.md)。
+保存失敗・期限は[共有成果](shared-outcomes.md)、意見の期限・緊急削除は[意見の運用](feedback.md)を参照する。通常開発・検証ではOwnerの成果read / manage_accessが開発ログイン時に自動登録される。意見の権限は自動付与しない。検証環境の準備と確認は[ローカル検証](../development/local-verification.md)。
 
 実装の正本は[権限定義](../../contracts/access.ts)と[運用CLI](../../scripts/access.mts)。

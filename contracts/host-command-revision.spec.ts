@@ -24,19 +24,20 @@ const commands = [
   { type: "idea-map:resize", sizeLevel: 1 },
 ];
 describe("ホスト操作の世代境界", () => {
-  it.each(
-    commands,
-  )("$type のホスト世代を落とさず保持し、不正な世代は拒否する", (message) => {
-    expect(
-      ClientMessageSchema.parse({ ...message, expectedHostRevision: 2 }),
-    ).toMatchObject({ expectedHostRevision: 2 });
-    for (const expectedHostRevision of [-1, 0.5, "2"])
+  it.each(commands)(
+    "$type のホスト世代を落とさず保持し、不正な世代は拒否する",
+    (message) => {
       expect(
-        ClientMessageSchema.safeParse({ ...message, expectedHostRevision })
-          .success,
-      ).toBe(false);
-    expect(ClientMessageSchema.safeParse(message).success).toBe(true);
-  });
+        ClientMessageSchema.parse({ ...message, expectedHostRevision: 2 }),
+      ).toMatchObject({ expectedHostRevision: 2 });
+      for (const expectedHostRevision of [-1, 0.5, "2"])
+        expect(
+          ClientMessageSchema.safeParse({ ...message, expectedHostRevision })
+            .success,
+        ).toBe(false);
+      expect(ClientMessageSchema.safeParse(message).success).toBe(true);
+    },
+  );
   it("移譲の操作IDを要求と成功通知に保持する", () => {
     expect(
       ClientMessageSchema.parse({

@@ -50,18 +50,16 @@ export const FeedbackTargetSchema = z
     (value) => FEEDBACK_TARGETS.some((target) => target.value === value),
     "対象を選んでください。",
   );
-const FeedbackFieldsSchema = z
-  .object({
-    id: z.string().uuid(),
-    target: FeedbackTargetSchema,
-    kind: FeedbackKindSchema,
-    body: z
-      .string()
-      .max(FEEDBACK_BODY_LIMIT)
-      .transform((value) => value.trim()),
-    rating: z.number().int().min(1).max(5).nullable(),
-  })
-  .strict();
+const FeedbackFieldsSchema = z.strictObject({
+  id: z.guid(),
+  target: FeedbackTargetSchema,
+  kind: FeedbackKindSchema,
+  body: z
+    .string()
+    .max(FEEDBACK_BODY_LIMIT)
+    .transform((value) => value.trim()),
+  rating: z.int().min(1).max(5).nullable(),
+});
 export const FeedbackInputSchema = FeedbackFieldsSchema.refine(
   (value) => value.target === "app" || value.rating === null,
   "評価できる対象はアプリ全体です。",
@@ -69,9 +67,9 @@ export const FeedbackInputSchema = FeedbackFieldsSchema.refine(
 export type FeedbackInput = z.infer<typeof FeedbackInputSchema>;
 export type FeedbackKind = z.infer<typeof FeedbackKindSchema>;
 export const FeedbackRecordSchema = FeedbackFieldsSchema.extend({
-  roomId: z.string().uuid(),
-  createdAt: z.number().int(),
-  expiresAt: z.number().int(),
+  roomId: z.guid(),
+  createdAt: z.int(),
+  expiresAt: z.int(),
 });
 export type FeedbackRecord = z.infer<typeof FeedbackRecordSchema>;
 export const FeedbackListSchema = z.object({
