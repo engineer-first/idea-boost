@@ -1888,6 +1888,9 @@ export function RoomBoardView({
           onToggleReady={onToggleReady}
           isNextPhasePending={isNextPhasePending}
           isNextPhaseBlocked={isNextPhaseBlocked}
+          hasCurrentDecision={
+            phase.kind === "step" && decision?.phase === phase.phase
+          }
           initialGuideState={initialGuideState}
           hasFinalDecision={hasFinalDecision}
           outcomePublished={outcomePublished}

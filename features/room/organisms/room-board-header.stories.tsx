@@ -158,6 +158,7 @@ export const OutcomePublished: Story = {
     onEditSelf: fn(),
     phase: STEP_3_5,
     hasFinalDecision: true,
+    hasCurrentDecision: true,
     outcomePublished: true,
   },
 };
@@ -166,6 +167,7 @@ export const FinalDecisionPending: Story = {
   args: {
     phase: STEP_3_5,
     hasFinalDecision: true,
+    hasCurrentDecision: true,
   },
 };
 
@@ -203,6 +205,16 @@ export const TimerPaused: Story = {
 export const VoteResultAwaitingDecision: Story = {
   args: { phase: STEP_1_5, isNextPhaseBlocked: true, members: HUD_MEMBERS },
 };
+export const VoteResultDecided: Story = {
+  args: {
+    ...VoteResultAwaitingDecision.args,
+    hasCurrentDecision: true,
+    isNextPhaseBlocked: false,
+  },
+};
+export const HmwResultDecided: Story = {
+  args: { ...VoteResultDecided.args, phase: buildPhaseStep(4, 2) },
+};
 export const IdeaVoting: Story = {
   args: { phase: STEP_3_4, members: HUD_MEMBERS },
 };
@@ -214,6 +226,7 @@ export const IdeaResultDecided: Story = {
   args: {
     ...IdeaResultAwaitingDecision.args,
     hasFinalDecision: true,
+    hasCurrentDecision: true,
     isNextPhaseBlocked: false,
   },
 };

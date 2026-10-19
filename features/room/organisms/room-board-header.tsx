@@ -111,6 +111,7 @@ export type RoomBoardHeaderProps = {
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
+  hasCurrentDecision?: boolean;
   initialGuideState?: StepGuideState;
   hasFinalDecision: boolean;
   outcomePublished: boolean;
@@ -175,6 +176,7 @@ export function RoomBoardHeader({
   roomNameDisabled,
   isTransferring = false,
   isNextPhaseBlocked,
+  hasCurrentDecision = false,
   initialGuideState,
   hasFinalDecision,
   outcomePublished,
@@ -436,11 +438,15 @@ export function RoomBoardHeader({
     progress.connectedUserIds.length > 0 &&
     progress.allReady &&
     !isDisconnected;
-  const completedMemberIds = isCurrentVotingStep
-    ? completedVoterIds
-    : isManualProgressStep
-      ? progress.readyUserIds
-      : [];
+  const completedMemberIds = isResultStep(phase)
+    ? hasCurrentDecision
+      ? members.map(({ userId }) => userId)
+      : []
+    : isCurrentVotingStep
+      ? completedVoterIds
+      : isManualProgressStep
+        ? progress.readyUserIds
+        : [];
   const completionLabel = isCurrentVotingStep ? "投票完了" : "作業完了";
   const timerSoundControls = useRoomTimerSounds({
     timer,
