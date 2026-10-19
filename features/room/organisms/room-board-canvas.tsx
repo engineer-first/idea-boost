@@ -17,12 +17,8 @@ import {
   NOTE_DEFAULT_FONT_SIZE,
   NOTE_WIDTH,
 } from "@/contracts/board";
+import type { PersistentGroup } from "@/contracts/grouping";
 import {
-  calculateRenderGroups,
-  type PersistentGroup,
-} from "@/contracts/grouping";
-import {
-  isAtOrAfterGroupingStep,
   isPhaseStep,
   isResultStep,
   isVotingStep,
@@ -39,6 +35,7 @@ import {
 } from "@/features/notes";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { BoardPermissions } from "../logic/board-permissions";
+import { getBoardRenderGroups } from "../logic/board-render-groups";
 import {
   type CanvasCamera,
   clampCanvasZoom,
@@ -279,9 +276,7 @@ export function RoomBoardCanvas({
   const selectionIds =
     selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
   const isMultiSelected = selectionIds.length > 1;
-  const renderGroups = isAtOrAfterGroupingStep(phase)
-    ? calculateRenderGroups(notes, groups)
-    : [];
+  const renderGroups = getBoardRenderGroups(notes, groups, phase);
   // 候補外を先に描き、付箋単位の wrapper で重なり順を管理する。
   // カードと採用領域を同じ単位に収め、見えている候補とクリック先を一致させる。
   const orderedNotes = [...notes].sort(

@@ -1,6 +1,8 @@
 // グルーピング（groups）の真実と、付箋の位置変化に追随する自動再編成。
 // グループは shared な付箋だけから構成される（hasOnlySharedNotes で強制）。
 import {
+  calculateClusters,
+  calculateRenderGroups,
   type PersistentGroup,
   reorganizeGroups,
 } from "../../contracts/grouping";
@@ -150,6 +152,30 @@ export function saveGroups(
       );
     }
   });
+}
+
+// 1-3 の表示上のまとまりを確定する。名前を編集していない仮グループも
+// 次ステップ以降は同じ所属で表示できるよう、RoomDO に保存する。
+// 既存グループ同士が接している場合も、画面で見えていた単一の枠と名前に揃える。
+export function finalizeGrouping(storage: DurableObjectStorage): void {
+  const notes = listSharedNotes(storage.sql).filter(
+    (note) => note.content.trim() !== "",
+  );
+  const currentGroups = listGroups(storage.sql);
+  const usedIds = new Set<string>();
+  const groups: PersistentGroup[] = [];
+  for (const noteIds of calculateClusters(notes)) {
+    if (noteIds.length < 2) continue;
+    const members = notes.filter((note) => noteIds.includes(note.id));
+    const rendered = calculateRenderGroups(members, currentGroups)[0];
+    if (!rendered) continue;
+    const existingId = rendered.persistentGroupId;
+    const id =
+      existingId && !usedIds.has(existingId) ? existingId : crypto.randomUUID();
+    usedIds.add(id);
+    groups.push({ id, name: rendered.name, noteIds });
+  }
+  saveGroups(storage, groups);
 }
 
 // shared 付箋の現在位置からグループを再計算し、差分だけを配信する。

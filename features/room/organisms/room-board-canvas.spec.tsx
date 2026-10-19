@@ -1024,7 +1024,7 @@ describe("RoomBoardCanvas", () => {
     expect(screen.queryByTestId("note-group-card")).not.toBeInTheDocument();
   });
 
-  it("Step 1-4 では近接する付箋のグループ枠を描画する", () => {
+  it("Step 1-4 では無所属の付箋が近接しても仮グループを描画しない", () => {
     setup({
       phase: buildPhaseStep(4),
       notes: [
@@ -1033,7 +1033,53 @@ describe("RoomBoardCanvas", () => {
       ],
     });
 
-    expect(screen.getByTestId("note-group-card")).toBeInTheDocument();
+    expect(screen.queryByTestId("note-group-card")).not.toBeInTheDocument();
+  });
+
+  it.each([4, 5])(
+    "Step 1-%i では所属する付箋が離れてもグループ名と枠を保つ",
+    (step) => {
+      const { props, rerender } = setup({
+        phase: buildPhaseStep(step),
+        notes: [
+          buildNote({ id: "note-1", x: 100, y: 100 }),
+          buildNote({ id: "note-2", x: 350, y: 100 }),
+        ],
+        groups: [{ id: "g1", name: "課題A", noteIds: ["note-1", "note-2"] }],
+      });
+      rerender(
+        <RoomBoardCanvas
+          {...props}
+          notes={[props.notes[0], { ...props.notes[1], x: 900 }]}
+        />,
+      );
+      expect(screen.getByText("課題A")).toBeInTheDocument();
+      expect(screen.getByTestId("note-group-card")).toHaveStyle({
+        left: "84px",
+        width: "1032px",
+      });
+    },
+  );
+
+  it("Step 1-5 では別グループを近づけても両方の名前を保ち、無所属の付箋を枠へ取り込まない", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      notes: [
+        buildNote({ id: "a1", x: 100, y: 100 }),
+        buildNote({ id: "a2", x: 310, y: 100 }),
+        buildNote({ id: "b1", x: 100, y: 200 }),
+        buildNote({ id: "b2", x: 310, y: 200 }),
+        buildNote({ id: "free", x: 530, y: 100 }),
+      ],
+      groups: [
+        { id: "a", name: "課題A", noteIds: ["a1", "a2"] },
+        { id: "b", name: "課題B", noteIds: ["b1", "b2"] },
+      ],
+    });
+    expect(screen.getByText("課題A")).toBeInTheDocument();
+    expect(screen.getByText("課題B")).toBeInTheDocument();
+    for (const frame of screen.getAllByTestId("note-group-card"))
+      expect(frame).toHaveStyle({ width: "442px" });
   });
 
   it.each([2, 3, 4, 5])(
