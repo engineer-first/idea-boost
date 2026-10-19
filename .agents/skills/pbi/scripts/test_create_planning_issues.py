@@ -19,6 +19,20 @@ class PlanningIssueSpecTests(unittest.TestCase):
             "demo_goals": [{"title": "確認する", "goal": "画面で結果を確認できる。"}],
         }
 
+    def test_why_only_spec_does_not_generate_empty_optional_sections(self):
+        spec = self.spec()
+        del spec["pbi"]["story"]
+        del spec["demo_goals"]
+        spec["pbi"]["why"] = "入力先を探すため案を書く流れが止まる。"
+        planning.validate_spec(spec)
+        self.assertEqual(planning.pbi_body(spec), "## Why\n\n" + spec["pbi"]["why"])
+
+    def test_missing_why_and_story_is_rejected_before_creation(self):
+        spec = self.spec()
+        del spec["pbi"]["story"]
+        with self.assertRaisesRegex(ValueError, "pbi.why"):
+            planning.validate_spec(spec)
+
     def test_pbi_id_is_optional_for_the_existing_auto_numbering_route(self):
         planning.validate_spec(self.spec())
 

@@ -1,46 +1,29 @@
 name: PBIを作る
-description: ユーザー価値・Why・期待する振る舞いをまとめる
+description: Whyとユーザーに提供する体験を短く伝える
 type: PBI
 body:
   - type: markdown
     attributes:
       value: "[Issue記述ルール](https://github.com/engineer-first/idea-boost/blob/develop/docs/team/issue-writing.md) に沿って記入してください。タイトルは「PBI-ジャンル-番号 主題」。既存コードは保持し、主題は何ができるかを具体的に書いてください。ジャンル・採番は [Issue運用](https://github.com/engineer-first/idea-boost/blob/develop/docs/team/issues.md) を参照してください。"
   - type: textarea
-    id: story
-    attributes:
-      label: ユーザーストーリー
-      description: 誰が・何をしたいか・なぜ必要かを書いてください。作成後は自動挿入された「ユーザーストーリー」の見出しを削除し、本文冒頭の段落にしてください。確認した背景と仮案を区別します。
-      placeholder: "利用者として、…したい。なぜなら、…だからだ。"
-    validations:
-      required: true
-  - type: textarea
     id: why
     attributes:
       label: Why
-      description: 現状の問題、利用者への影響、改善が必要になった背景を事実に基づいて書いてください。
+      description: 現状の問題、利用者への影響、改善が必要になった背景を事実に基づいて書いてください。誰がどんな場面で困り、どう変わるとよいかを短く伝えます。解決方法は担当者とAIで詰められます。
     validations:
-      required: false
+      required: true
   - type: textarea
     id: acceptance
     attributes:
       label: 期待する振る舞い
-      description: ユーザーが観察できる主要な操作と結果を書いてください。Taskの作業完了条件を列挙しないでください。操作は「誰が・どの画面で・何をすると・何が見えるか」、未確定の名称は仮と明記します。期待する振る舞いでデモ確認も伝わるなら重複は不要です。
-      placeholder: "例: 参加者が個人ワークステップで自分の付箋を共有スペースへドラッグすると、ほかの参加者の画面にも表示される。"
-    validations:
-      required: false
-  - type: textarea
-    id: user-flow
-    attributes:
-      label: 利用の流れ・画面イメージ
-      description: 画面操作を伴う場合に、利用者がどこから入り、何を選び、どの画面で結果を見るかを順に書いてください。必要なら簡単な画面図や画像を添えてください。画面名が未確定なら仮と明記してください。
-      placeholder: "例: 利用者が共有リンクを開く → 一覧で対象を選ぶ → 詳細画面で結果を見る。"
+      description: 必要な場合だけ、ユーザーに提供する体験を少数の結果で補足してください。Whyで伝われば省略できます。詳細な仕様やテストケースは不要です。
     validations:
       required: false
   - type: textarea
     id: notes
     attributes:
       label: 補足
-      description: 関連する相談・Task・Issue・PR、対象外、判断理由、残る未確認を必要な分だけ残してください。実績と今後の要望を区別します。
+      description: 関連Issue・PR、重要な対象外や未確認だけ必要に応じて添えてください。実績と今後の要望を区別します。
       placeholder: "根拠：#番号で確認した変更／仮案：確認したい背景／未確認：残る期待する振る舞い"
     validations:
       required: false

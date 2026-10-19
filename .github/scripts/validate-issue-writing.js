@@ -52,7 +52,6 @@ function checkIssueWriting(issue, contract) {
   if (!issue.title?.trim()) errors.push("タイトルを記入してください。");
   const text = prose(issue.body);
   const headings = [...text.matchAll(/^#{2,3} ([^\n]+?)\s*$/gm)];
-  let previous = -1;
   for (const section of rule.sections) {
     const matches = headings.filter((match) => match[1] === section);
     if (matches.length !== 1) {
@@ -60,11 +59,6 @@ function checkIssueWriting(issue, contract) {
       continue;
     }
     const match = matches[0];
-    if (match.index < previous)
-      errors.push(
-        `見出しは「${rule.sections.join(" → ")}」の順にしてください。`,
-      );
-    previous = match.index;
     const next = headings.find((heading) => heading.index > match.index);
     const content = text.slice(
       match.index + match[0].length,
@@ -72,26 +66,6 @@ function checkIssueWriting(issue, contract) {
     );
     if (!meaningful(content))
       errors.push(`「${section}」の内容を記入してください。`);
-    if (
-      section === rule.bulletSection &&
-      !content
-        .split("\n")
-        .some((line) => /^\s*[-*+]\s+/.test(line) && meaningful(line))
-    ) {
-      errors.push(
-        `「${section}」には確認できる結果を箇条書きで記入してください。`,
-      );
-    }
-  }
-  if (rule.storyPattern) {
-    const introduction = text
-      .slice(0, headings[0]?.index ?? text.length)
-      .trim()
-      .replace(/\s*\n\s*/g, "");
-    if (!new RegExp(rule.storyPattern).test(introduction))
-      errors.push(
-        "本文冒頭を見出しなしの「○○として、○○したい。なぜなら、○○だからだ。」にしてください。フォーム由来のユーザーストーリー見出しは削除します。",
-      );
   }
   return errors;
 }
@@ -128,7 +102,7 @@ async function reportIssueWriting({
   );
   if (!errors.length && !existing) return { errors };
   const guide = `https://github.com/${context.repo.owner}/${context.repo.repo}/blob/HEAD/${contract.guidePath}`;
-  const body = `${MARKER}\n### Issue記述形式の確認\n\n${errors.length ? errors.map((error) => `- ${error}`).join("\n") : "形式上の不足はありません（対象外Typeへの変更も含みます）。"}\n\n[共通ルールと記入例](${guide})\n\n本文や状態は変更していません。内容の妥当性・粒度・未確認事項はチームで確認してください。`;
+  const body = `${MARKER}\n### Issue記述形式の確認\n\n${errors.length ? errors.map((error) => `- ${error}`).join("\n") : "形式上の不足はありません（対象外Typeへの変更も含みます）。"}\n\n[共通ルールと記入例](${guide})\n\n本文や状態は変更していません。How・具体仕様・詳細テストの未決定は起票や着手を妨げません。Whyと提供したい体験を担当者と確認してください。`;
   if (existing?.body === body) return { errors };
   const { data: latest } = await github.rest.issues.get(params);
   if (!sameIssue(issue, latest))

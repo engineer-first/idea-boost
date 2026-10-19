@@ -23,11 +23,26 @@ const pbi = {
 };
 
 describe("入口共通のIssue形式検査", () => {
+  it("Whyだけで起票でき、任意欄・定型文・箇条書きを要求しない", () => {
+    for (const type of ["PBI", "Task"]) {
+      for (const body of [
+        "## Why\n付箋を追加するたび入力先を探し、考える流れが止まる。",
+        "### Why\n入力の流れが止まる。\n### How\n_No response_\n### 作業完了条件\n_No response_",
+      ]) {
+        expect(
+          checkIssueWriting(
+            { ...task, type: { name: type }, body },
+            contract(),
+          ),
+        ).toEqual([]);
+      }
+    }
+  });
   it("PBIとTaskの標準本文を受け付ける", () => {
     expect(checkIssueWriting(pbi, contract())).toEqual([]);
     expect(checkIssueWriting(task, contract())).toEqual([]);
   });
-  it("GUIの見出しレベルも扱い、PBI冒頭見出しは修正を案内する", () => {
+  it("GUIの見出しレベルと任意の冒頭見出しをそのまま扱う", () => {
     expect(
       checkIssueWriting(
         { ...task, body: task.body.replaceAll("## ", "### ") },
@@ -38,18 +53,15 @@ describe("入口共通のIssue形式検査", () => {
       checkIssueWriting(
         { ...pbi, body: `### ユーザーストーリー\n${pbi.body}` },
         contract(),
-      ).join(),
-    ).toContain("冒頭");
+      ),
+    ).toEqual([]);
   });
-  it("空欄・順序逆転・重複を見逃さず、コード例やコメントで条件を満たさない", () => {
+  it("Whyの空欄・重複を見逃さず、コード例やコメントで条件を満たさない", () => {
     for (const body of [
       "",
       "## Why\n_No response_\n## How\n-\n## 作業完了条件\n<!-- 条件 -->",
       `\`\`\`markdown\n${task.body}\n\`\`\``,
       task.body.replace("## How", "## Why"),
-      task.body
-        .replace("## Why", "## How")
-        .replace("## How\n既存", "## Why\n既存"),
     ]) {
       expect(
         checkIssueWriting({ ...task, body }, contract()).length,
@@ -116,13 +128,14 @@ describe("入口共通のIssue形式検査", () => {
       const form = parse(
         readFileSync(`.github/ISSUE_TEMPLATE/${file}`, "utf8"),
       );
-      const labels = form.body
-        .filter((x: { type: string }) => x.type === "textarea")
+      const requiredLabels = form.body
+        .filter(
+          (x: { type: string; validations?: { required: boolean } }) =>
+            x.type === "textarea" && x.validations?.required,
+        )
         .map((x: { attributes: { label: string } }) => x.attributes.label);
       expect(form.type).toBe(type);
-      expect(labels.slice(type === "PBI" ? 1 : 0, 3)).toEqual(
-        contract().types[type].sections,
-      );
+      expect(requiredLabels).toEqual(contract().types[type].sections);
     }
   });
 });

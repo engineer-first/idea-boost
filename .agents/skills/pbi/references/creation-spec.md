@@ -18,17 +18,17 @@
 }
 ```
 
-`pbi.title` と `pbi.story` は必須。ID未指定なら `pbi.genre` も必須。
+`pbi.title` と、`pbi.why` または互換用の `pbi.story` が必須。新規起票はWhy中心とし、ユーザーストーリーは任意。ID未指定なら `pbi.genre` も必須。
 基本の6ジャンルで目的を表せない場合は追加ジャンルも使える。コードは大文字英字で始まる大文字英数字（例：`ACCESS`）。既存分類とのずれと追加理由は検討内容へ残す。
 ジャンル付きIDは作成されたIssue番号から確定する（例：CANVAS、#340 → `PBI-CANVAS-340`）。
 dry-runの `PBI-CANVAS-00` は仮表示で、入力specを書き換えない。
 既存採番を保持する場合は `pbi.id` を指定する（例：`PBI-CANVAS-04`）。ジャンルも指定する場合はIDと一致させる。
 旧 `PBI-12` も明示入力の互換性を保つが、新規採番には使わない。既存PBIを更新するためにこの作成スクリプトを実行しない。
 
-`pbi.why` はWhyの本文、`pbi.acceptance` は「期待する振る舞い」の配列。新規の草案では両方を記入する。
+`pbi.why` はWhyの本文、`pbi.acceptance` は「期待する振る舞い」の配列。期待する振る舞いはWhyで体験が伝われば省略できる。空の任意節は出力しない。
 旧specも受け付け、Whyがない場合は背景が未確認であることを本文に表示する。
 
-`milestone`、`pbi.why`、`pbi.acceptance`、`pbi.memo`、`demo_goals` は任意。
+`milestone`、`pbi.acceptance`、`pbi.memo`、`demo_goals` は任意。`pbi.why` と `pbi.story` は少なくとも一方を記入する。
 既存入力の `demo_overview`、`demo_goals[].risks`、`not_doing` は本文へ保持する。
 デモを別に書く必要がある場合の形：
 

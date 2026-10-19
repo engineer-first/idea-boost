@@ -49,3 +49,8 @@ Issueの当初予定とPRの実際の変更を照合し、実現した成果と�
 共通のスキル実体はこのディレクトリの[SKILL.md](SKILL.md)。CodexとOpenCodeは `.agents/skills/pbi`、Claude Codeは既存の `.claude/skills/pbi` symlinkから読みます。
 読込経路の保守は[共有スキルの正本](../../../docs/development/agent-maintenance.md#共有スキルの正本)、
 書き残す型・採番・GitHub状態は[Issue運用](../../../docs/team/issues.md)と[PBIフォーム](../../../.github/ISSUE_TEMPLATE/01-pbi.yml)を参照してください。
+
+## 短い入力で始める
+
+「付箋を追加するたび入力先を探して考えが途切れる。続けて案を書ける体験にしたい。Why中心の短いPBIを一緒に考えて」だけでも始められます。
+解決方法・具体仕様は担当者とAIで詰めます。実績IssueとPR、壁打ち、相談・要望、既存Taskのどの入口にも固定の大きな入力フォームは求めません。

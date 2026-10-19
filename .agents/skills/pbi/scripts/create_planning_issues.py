@@ -85,14 +85,11 @@ def pbi_sections():
 
 def pbi_body(spec):
     pbi = spec["pbi"]
-    why, behavior = pbi_sections()
-    parts = [
-        pbi["story"],
-        f"## {why}",
-        pbi.get("why") or "未確認：背景を確認して追記する。",
-        f"## {behavior}",
-        bullet_list(pbi.get("acceptance")),
-    ]
+    why = pbi_sections()[0]
+    parts = [pbi["story"]] if pbi.get("story") else []
+    parts.extend([f"## {why}", pbi.get("why") or "未確認：背景を確認して追記する。"])
+    if pbi.get("acceptance"):
+        parts.extend(["## 期待する振る舞い", bullet_list(pbi["acceptance"])])
     if spec.get("demo_overview") or spec.get("demo_goals"):
         parts.append("## デモ確認内容")
         if spec.get("demo_overview"):
@@ -101,7 +98,8 @@ def pbi_body(spec):
             parts.append(demo_section(index, demo))
     if spec.get("not_doing"):
         parts.extend(["## やらないこと", bullet_list(spec["not_doing"])])
-    parts.extend(["## メモ", bullet_list(pbi.get("memo"))])
+    if pbi.get("memo"):
+        parts.extend(["## メモ", bullet_list(pbi["memo"])])
     return "\n\n".join(parts)
 
 
@@ -116,10 +114,13 @@ def validate_spec(spec):
     require_optional_string(spec.get("milestone"), "milestone")
 
     pbi = require_object(spec["pbi"], "pbi")
-    for key in ["title", "story"]:
+    for key in ["title"]:
         if key not in pbi:
             raise ValueError(f"pbi.{key} is required")
         require_string(pbi[key], f"pbi.{key}")
+    require_optional_string(pbi.get("story"), "pbi.story")
+    if not pbi.get("story") and not pbi.get("why"):
+        raise ValueError("pbi.why is required when pbi.story is omitted")
     genre = pbi.get("genre")
     if genre is not None and (
         not isinstance(genre, str) or not re.fullmatch(PBI_GENRE_PATTERN, genre)

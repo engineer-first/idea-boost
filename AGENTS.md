@@ -33,6 +33,8 @@
 | 重要な設計判断の追加・変更                         | [ADR運用](docs/adr/README.md)                                                    |
 | エージェント指示・ハーネスの保守                   | [保守記録](docs/development/agent-maintenance.md)                                |
 
+IssueはWhyと提供したい体験を短く伝える。解決方法・具体仕様は担当者とAIで詰め、未決定だけで起票・着手を止めない。詳細は[Issue記述ルール](docs/team/issue-writing.md)に従う。
+
 ## 開発と検証
 
 - 開発サーバーは標準で2時間後に停止する。起動・常駐・並行worktreeのポート指定は
