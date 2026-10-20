@@ -16,10 +16,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getNoteHeight, NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
+import {
+  getNoteHeight,
+  NOTE_DEFAULT_FONT_SIZE,
+  NOTE_HEIGHT,
+  NOTE_WIDTH,
+} from "@/contracts/board";
 import { cn } from "@/lib/utils";
 import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
+import { StickyNote } from "../molecules/sticky-note";
 
 export type PrivateNotesToolbarProps = {
   rollbackRevision?: number;
@@ -428,7 +434,7 @@ export function PrivateNotesToolbar({
             className={cn(
               "grid",
               isWorkspace
-                ? "grid-cols-[repeat(auto-fill,200px)] justify-center gap-6 pb-8"
+                ? "grid-cols-[repeat(auto-fill,200px)] justify-center gap-x-3 gap-y-6 pb-8"
                 : "grid-cols-1 justify-items-center gap-3",
             )}
             data-testid="private-notes-list"
@@ -448,6 +454,25 @@ export function PrivateNotesToolbar({
                 <span>付箋を追加</span>
               </Button>
             ) : null}
+            {isWorkspace
+              ? exampleNotes.map((example, index) => (
+                  <StickyNote
+                    key={`hmw-example-${index}`}
+                    noteId={`hmw-example-${index}`}
+                    color="blue"
+                    height={getNoteHeight(example, NOTE_DEFAULT_FONT_SIZE)}
+                    className="relative w-[200px] cursor-not-allowed"
+                    style={{ left: 0, top: 0 }}
+                    testId={`hmw-example-note-${index + 1}`}
+                  >
+                    <div className="flex h-full flex-col p-2">
+                      <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-sm">
+                        {example}
+                      </p>
+                    </div>
+                  </StickyNote>
+                ))
+              : null}
             {notes.map((note) =>
               dropPlaceholder?.noteId === note.id ? (
                 <div
