@@ -1,3 +1,5 @@
+const { isEvidenceIssue } = require("./evidence-issue-policy.js");
+
 function resolveCurrentSprint(milestones, now) {
   const current = [];
   for (const milestone of milestones) {
@@ -64,7 +66,12 @@ function resolveCurrentSprint(milestones, now) {
 }
 
 function openIssue(issue) {
-  return issue && !issue.pull_request && issue.state === "open";
+  return (
+    issue &&
+    !issue.pull_request &&
+    issue.state === "open" &&
+    !isEvidenceIssue(issue)
+  );
 }
 
 async function assignCurrentSprint({

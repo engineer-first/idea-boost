@@ -1,0 +1,47 @@
+name: 成果データ
+description: 1ルームの1回の活動で得た成果・進行を残す
+type: 成果データ
+body:
+  - type: markdown
+    attributes:
+      value: 公開Issueです。公開可能な記録だけを残し、個人情報・招待や認証の秘密情報は載せません。アプリの閲覧権限・30日の期限とGitHubでの保存は別です。原文の転載範囲と保存期間を確認してください。本文は現在の要約、コメントは追記の履歴とします。作業用PBI・Task・Bugには関連リンクで結び、親PBIやスプリントは付けません。
+  - type: textarea
+    id: summary
+    attributes:
+      label: 要約
+      description: 何の記録か、本文だけで分かるように短く書きます。
+      placeholder: 活動日・ルームの呼び名・成果の要点
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: 出典・識別情報
+      description: ルームの識別情報、活動日、保存日時、取得日時、元データURL、保存範囲と期限。
+      placeholder: ルームの識別情報、活動日、保存日時、取得日時、元データURL、保存範囲と期限。
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 成果・進行の記録
+      description: 参加人数、到達工程、途中/確定、保存状態、決定した課題・問い・アイデア。必要な共有付箋・進行記録やJSONも添える。
+      placeholder: 参加人数、到達工程、途中/確定、保存状態、決定した課題・問い・アイデア。必要な共有付箋・進行記録やJSONも添える。
+    validations:
+      required: true
+  - type: textarea
+    id: limits
+    attributes:
+      label: 確認事項・未確認
+      description: 未記録・反映待ち・保存失敗・正常な空データを区別。時間や利用率を推測しない。
+      placeholder: 未記録・反映待ち・保存失敗・正常な空データを区別。時間や利用率を推測しない。
+    validations:
+      required: false
+  - type: textarea
+    id: related
+    attributes:
+      label: 関連Issue・現在の判断
+      description: 対応先のPBI・Task・Bug、元の一覧Issue、重要な判断コメント。未判断ならそのまま記録。
+      placeholder: 関連IssueのURLと関係。採否・対応先が未定なら未判断。
+    validations:
+      required: false

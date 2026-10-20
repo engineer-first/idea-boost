@@ -8,15 +8,20 @@
 
 ## Issue Type
 
+競合調査・フィードバック・成果データの蓄積は[記録の運用](evidence-issues.md)に従い、作業Project・スプリント・親PBIへの作業紐付けから分ける。
+
 Issue は GitHub の Issue Type で分類する。タイトル接頭辞やラベルで代用しない。
 
-| Type         | 用途                                                               |
-| ------------ | ------------------------------------------------------------------ |
-| `相談・要望` | 方針・要件・優先度の相談、改善や機能の要望                         |
-| `PBI`        | ユーザー価値とユーザーに提供する体験を示すプロダクトバックログ項目 |
-| `Task`       | 実装など具体的な作業                                               |
-| `Bug`        | 不具合・想定外の挙動                                               |
-| `Spike`      | 不確実な点を調査して判断材料を得る作業                             |
+| Type             | 用途                                                               |
+| ---------------- | ------------------------------------------------------------------ |
+| `相談・要望`     | 方針・要件・優先度の相談、改善や機能の要望                         |
+| `PBI`            | ユーザー価値とユーザーに提供する体験を示すプロダクトバックログ項目 |
+| `Task`           | 実装など具体的な作業                                               |
+| `Bug`            | 不具合・想定外の挙動                                               |
+| `Spike`          | 不確実な点を調査して判断材料を得る作業                             |
+| `競合調査`       | 競合の観察記録。Project #5へ蓄積する                               |
+| `フィードバック` | 利用者の受付・回答1件の記録。Project #5へ蓄積する                  |
+| `成果データ`     | 1ルームの1回の活動の記録。Project #5へ蓄積する                     |
 
 Issue 作成時は `.github/ISSUE_TEMPLATE/` の Issue Forms または空の Issue を使う。PBIは冒頭ユーザーストーリーで誰が何をなぜ望むかを示し、Whyで現状の問題と影響を伝える。TaskのWhyは作業が必要な理由を伝える。体験・How・作業完了条件・関連Issueは、担当者が判断や検討を進めるための情報として書き、検討が進んだ分を追記する。Issue Type はフォームから設定される。空の Issue は自由に記述し、Type は作成時または後から設定する。フォームに Project を埋め込まず、Project の自動追加を使う。
 
@@ -47,7 +52,7 @@ sprint の日程・全体の成果は GitHub Milestone を正本とする。Mile
 
 ## 現在sprintへの自動割当
 
-[Assign Current Sprint](../../.github/workflows/assign-current-sprint.yml)は毎時23分に、**未着手を含む全open Issue**を現在の sprint の Milestone へ割り当てる。Type・親・Project の Status を条件にしない。REST Issue API に混在する PR は除外する。
+[Assign Current Sprint](../../.github/workflows/assign-current-sprint.yml)は毎時23分に、**競合調査・フィードバック・成果データ以外の、未着手を含む全open Issue**を現在の sprint の Milestone へ割り当てる。競合調査・フィードバック・成果データを除外し、その他のType・親・Project の Status は条件にしない。REST Issue API に混在する PR は除外する。
 
 既存割当が以前・将来の sprint や非sprint Milestone でも、現在の sprint へ付け替える。次の sprint でも open なら繰り越し、closed Issue は最後の Milestone を保持する。繰越しは GitHub 標準の Milestone 変更履歴に残し、コメントや別台帳は追加しない。割当は着手・完了の判断ではなく、実作業の状態は Status で区別する。
 
@@ -138,7 +143,7 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 
 ## Project automation と既存項目
 
-- Project の auto-add は `idea-boost` の open Issue 全種を対象とする。GitHub の自動追加は新規作成・更新時に適用され、既存 Issue の一括追加には使わない。
+- Project の auto-add は `idea-boost` の open Issueのうち競合調査・フィードバック・成果データを除いたものを対象とする。GitHub の自動追加は新規作成・更新時に適用され、既存 Issue の一括追加には使わない。
 - `Item added to project` の既定状態を `未整理` にする。CLI 作成スクリプトも同じ初期値を1回だけ設定する。
 - `完了` を明示的に選んだ場合に Issue を閉じる自動化は維持する。逆方向は一般の close イベントではなく、`Closes` を含む PR の `develop` へのマージだけを Actions で `完了` にする。
 - Issue の close/reopen、PR のリンク/merge、レビュー承認/変更要求から状態を推測する既定 automation は無効にする。
@@ -148,15 +153,15 @@ Project の作業・状態を変えるときは、Issue本文と Milestone は�
 
 ## 日常のビュー
 
-| ビュー                                                                       | 読む目的                                                        |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| [ホワイトボード](https://github.com/orgs/engineer-first/projects/3/views/2)  | 完了・見送りを除いた全体の状態                                  |
-| [今回の作業](https://github.com/orgs/engineer-first/projects/3/views/3)      | 確定した sprint の全open Issue・Draft item・関連 PR             |
-| [PBI階層](https://github.com/orgs/engineer-first/projects/3/views/4)         | PBI のユーザーに提供する体験と子 Issue の進捗（Show hierarchy） |
-| [自分の作業](https://github.com/orgs/engineer-first/projects/3/views/6)      | ログインした本人が担当する未完了の作業                          |
-| [レビュー待ち](https://github.com/orgs/engineer-first/projects/3/views/7)    | Status がレビュー中の項目                                       |
-| [PBI未紐づけ](https://github.com/orgs/engineer-first/projects/3/views/8)     | 完了済みも含めて、親のない作業を PBI へ整理する候補             |
-| [今回やったこと](https://github.com/orgs/engineer-first/projects/3/views/11) | その sprint で完了した Issue と現在残っている Issue             |
+| ビュー                                                                       | 読む目的                                                           |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [ホワイトボード](https://github.com/orgs/engineer-first/projects/3/views/2)  | 完了・見送りを除いた全体の状態                                     |
+| [今回の作業](https://github.com/orgs/engineer-first/projects/3/views/3)      | 対象スプリントの未完了作業・Draft item・関連PR（蓄積3 Typeを除く） |
+| [PBI階層](https://github.com/orgs/engineer-first/projects/3/views/4)         | PBI のユーザーに提供する体験と子 Issue の進捗（Show hierarchy）    |
+| [自分の作業](https://github.com/orgs/engineer-first/projects/3/views/6)      | ログインした本人が担当する未完了の作業                             |
+| [レビュー待ち](https://github.com/orgs/engineer-first/projects/3/views/7)    | Status がレビュー中の項目                                          |
+| [PBI未紐づけ](https://github.com/orgs/engineer-first/projects/3/views/8)     | 完了済みも含めて、親のない作業を PBI へ整理する候補                |
+| [今回やったこと](https://github.com/orgs/engineer-first/projects/3/views/11) | その sprint で完了した Issue と現在残っている Issue                |
 
 「今回の作業」は未着手のバックログも含むため、実作業は Status で区別する。「今回やったこと」はその sprint の完了分と現在の残件を読む。繰り越した open Issue は次の sprint へ移り、過去の全所属一覧にはならない。
 

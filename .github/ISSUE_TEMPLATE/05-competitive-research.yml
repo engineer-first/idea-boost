@@ -1,0 +1,47 @@
+name: 競合調査
+description: 競合1社・テーマ1つ・調査回1回の観察を残す
+type: 競合調査
+body:
+  - type: markdown
+    attributes:
+      value: 公開Issueです。公開可能な記録だけを残し、個人情報・招待や認証の秘密情報は載せません。アプリの閲覧権限・30日の期限とGitHubでの保存は別です。原文の転載範囲と保存期間を確認してください。本文は現在の要約、コメントは追記の履歴とします。作業用PBI・Task・Bugには関連リンクで結び、親PBIやスプリントは付けません。
+  - type: textarea
+    id: summary
+    attributes:
+      label: 要約
+      description: 何の記録か、本文だけで分かるように短く書きます。
+      placeholder: 製品名・調査テーマ・観察日
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: 出典・識別情報
+      description: 製品名、URL、調査テーマ、観察日時と取得日時。再調査は前回Issueも記載。
+      placeholder: 製品名、URL、調査テーマ、観察日時と取得日時。再調査は前回Issueも記載。
+    validations:
+      required: true
+  - type: textarea
+    id: observations
+    attributes:
+      label: 観察記録
+      description: 操作条件、実際に見た文言・挙動、証拠へのリンク。画像だけの観察と実操作を区別。
+      placeholder: 操作条件、実際に見た文言・挙動、証拠へのリンク。画像だけの観察と実操作を区別。
+    validations:
+      required: true
+  - type: textarea
+    id: limits
+    attributes:
+      label: 確認事項・未確認
+      description: 確認できた事実と、推測・未確認の表示条件を分ける。
+      placeholder: 確認できた事実と、推測・未確認の表示条件を分ける。
+    validations:
+      required: false
+  - type: textarea
+    id: related
+    attributes:
+      label: 関連Issue・現在の判断
+      description: 対応先のPBI・Task・Bug、元の一覧Issue、重要な判断コメント。未判断ならそのまま記録。
+      placeholder: 関連IssueのURLと関係。採否・対応先が未定なら未判断。
+    validations:
+      required: false

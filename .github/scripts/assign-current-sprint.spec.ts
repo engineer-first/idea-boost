@@ -346,3 +346,20 @@ it("定期更新はdefault branchだけで実行し、手動実行はdry-runを�
   });
   expect(source).not.toMatch(/secrets\.|create-github-app-token|pull_request:/);
 });
+
+it.each(["競合調査", "フィードバック", "成果データ"])(
+  "蓄積Type %sにはスプリントを付与しない",
+  async (type) => {
+    const input = fixture([{ ...issue(), type: { name: type } }]);
+    expect((await assignCurrentSprint(input)).planned).toEqual([]);
+    expect(input.github.rest.issues.update).not.toHaveBeenCalled();
+  },
+);
+it("再読取で蓄積Typeに変わったIssueへスプリントを付与しない", async () => {
+  const input = fixture();
+  input.github.rest.issues.get.mockResolvedValue({
+    data: { ...issue(), type: { name: "成果データ" } },
+  });
+  expect((await assignCurrentSprint(input)).planned).toEqual([]);
+  expect(input.github.rest.issues.update).not.toHaveBeenCalled();
+});
