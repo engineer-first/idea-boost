@@ -40,7 +40,7 @@ export function SharingReactionDisplay({
           }
         >
           <Image
-            src="/reactions/like-3d.png"
+            src="/reactions/like-3d.webp"
             alt=""
             width={80}
             height={80}

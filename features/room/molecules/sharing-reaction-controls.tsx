@@ -66,7 +66,7 @@ export function SharingReactionControls({
                 }}
               >
                 <Image
-                  src="/reactions/like-3d.png"
+                  src="/reactions/like-3d.webp"
                   alt=""
                   width={28}
                   height={28}
