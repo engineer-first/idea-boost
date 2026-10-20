@@ -1,47 +1,15 @@
 name: フィードバック
-description: 1日分のフィードバックを1つのIssueにまとめ、原文をコメントへ追記する
+description: 日付ごとに1 Issue。本文は対象だけ、原文はコメントへ追記する
 type: フィードバック
 body:
   - type: markdown
     attributes:
-      value: 同じ日付のまとめIssueがないか先に確認してください。既存の一覧があれば再利用し、回答・投稿ごとにIssueを分割しません。タイトルは「YYYY-MM-DDのフィードバック」。本文は対象日・収集範囲・要約、コメントは原文・追加分・整理とします。公開できる情報だけを記録し、原文の転載範囲と保存期間を確認してください。
+      value: 本文は収集・調査の対象を示す入口です。まず原文・観察・成果データをコメントへ保存し、その後に必要なら要約・分析・判断を別コメントに残します。要約、現在の状況、索引の記入は要求しません。公開できる情報だけを記録してください。
   - type: textarea
-    id: scope
+    id: target
     attributes:
-      label: 対象日・収集範囲
-      description: 日本時間で対象日、媒体、収集期間、取得日時、取得できた件数を記録します。投稿日が不明な回答を推測で同じ日へ混ぜません。
-      placeholder: "対象日: YYYY-MM-DD（日本時間）。出典: アプリ内フィードバック。対象期間・取得日時・件数・未取得の範囲。"
+      label: 対象
+      description: 日本時間の対象日と収集する媒体・範囲を書きます。タイトルは「YYYY-MM-DDのフィードバック」。同日の既存Issueを先に確認します。
+      placeholder: 2026-10-20実施分のアプリ内フィードバックとアンケート回答。
     validations:
       required: true
-  - type: textarea
-    id: summary
-    attributes:
-      label: 要約
-      description: その日の傾向を短く記録します。まだ読んでいなければ未整理とし、分析を捏造しません。
-      placeholder: "困ったこと・よかったこと・要望の傾向。件数を数える場合は媒体と集計単位を明記。"
-    validations:
-      required: true
-  - type: textarea
-    id: sources
-    attributes:
-      label: 原文・コメントの索引
-      description: 原文はコメントにまとめて追記し、ここから参照します。追加取得分は別コメントにし、受付IDや回答位置で二重登録を防ぎます。
-      placeholder: "原文コメントへのリンク、追加取得分、整理コメントへのリンク。収集前なら未収集。"
-    validations:
-      required: false
-  - type: textarea
-    id: limits
-    attributes:
-      label: 確認事項・未確認
-      description: 原文と解釈、利用者の報告と再現確認、投稿数と人数を区別します。
-      placeholder: "回答人数は不明。再現確認・採否は未判断。取得後の追加投稿は未取得。"
-    validations:
-      required: false
-  - type: textarea
-    id: related
-    attributes:
-      label: 関連Issue・現在の判断
-      description: 採用した改善だけ、既存のPBI・Task・Bugへ関連付けます。原文の1投稿をそのまま作業Issueへ変えません。
-      placeholder: "対応先のIssueと関係。採否・対応先が未定なら未判断。"
-    validations:
-      required: false
