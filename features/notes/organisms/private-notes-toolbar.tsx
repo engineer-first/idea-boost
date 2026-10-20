@@ -461,7 +461,7 @@ export function PrivateNotesToolbar({
                     noteId={`hmw-example-${index}`}
                     color="blue"
                     height={getNoteHeight(example, NOTE_DEFAULT_FONT_SIZE)}
-                    className="relative w-[200px] cursor-not-allowed"
+                    className="relative w-[200px]"
                     style={{ left: 0, top: 0 }}
                     testId={`hmw-example-note-${index + 1}`}
                   >
