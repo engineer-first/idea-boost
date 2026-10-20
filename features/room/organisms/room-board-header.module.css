@@ -1,0 +1,70 @@
+.readyButton {
+  transition:
+    transform 180ms,
+    background-color 180ms,
+    box-shadow 180ms;
+}
+[data-completion-cue="button"] .readyButton {
+  background: #e0f0e5;
+  box-shadow: inset 0 2px 4px #28654433;
+  transform: translateY(1px) scale(0.98);
+}
+.avatarCue {
+  border-radius: 50%;
+  transition:
+    transform 220ms,
+    box-shadow 220ms;
+}
+[data-completion-cue="self"] .avatarCue[data-cue-self],
+[data-completion-cue="waiting"] .avatarCue[data-cue-self],
+[data-completion-cue="check"] .avatarCue[data-cue-self] {
+  transform: scale(1.18);
+
+  box-shadow: 0 0 0 5px #dcece1;
+}
+[data-completion-cue="check"] .avatarCue[data-cue-self] svg polyline,
+[data-completion-cue="check"] .avatarCue[data-cue-self] svg path {
+  stroke-dasharray: 24;
+  animation: draw-check 400ms ease-out both;
+}
+[data-completion-cue="others"] .avatarCue[data-cue-waiting] {
+  box-shadow: 0 0 0 3px #c68a2c66;
+}
+@keyframes draw-check {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .readyButton,
+  .avatarCue {
+    transition: none;
+  }
+  [data-completion-cue] .readyButton,
+  [data-completion-cue] .avatarCue[data-cue-self] {
+    transform: none;
+  }
+  [data-completion-cue="check"] .avatarCue[data-cue-self] svg path,
+  [data-completion-cue="check"] .avatarCue[data-cue-self] svg polyline {
+    animation: none;
+  }
+}
+
+@media (width < 1024px) {
+  [data-completion-cue="others"] .overflowCue[data-waiting-small] {
+    box-shadow: 0 0 0 3px #c68a2c66;
+  }
+}
+@media (1024px <= width < 1280px) {
+  [data-completion-cue="others"] .overflowCue[data-waiting-medium] {
+    box-shadow: 0 0 0 3px #c68a2c66;
+  }
+}
+@media (width >= 1280px) {
+  [data-completion-cue="others"] .overflowCue[data-waiting-large] {
+    box-shadow: 0 0 0 3px #c68a2c66;
+  }
+}

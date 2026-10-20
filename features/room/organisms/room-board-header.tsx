@@ -55,6 +55,7 @@ import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
 import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import type { Member, PhaseProgressState } from "../logic/room-reducer";
+import { useCompletionCue } from "../logic/use-completion-cue";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
@@ -64,6 +65,7 @@ import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
 import { SharingPresenter } from "../molecules/sharing-presenter";
 import { StepGuide } from "../molecules/step-guide";
+import styles from "./room-board-header.module.css";
 import { RoomTimer } from "./room-timer";
 
 const IDEA_MAP_CONTEXT_GAP = 18;
@@ -99,7 +101,8 @@ export type RoomBoardHeaderProps = {
   hostUserId: string;
   completedVoterIds?: ReadonlyArray<string>;
   progress?: PhaseProgressState;
-  onToggleReady?: (ready: boolean) => void;
+  onToggleReady?: ((ready: boolean) => boolean) | ((ready: boolean) => void);
+  completionResetVersion?: number;
   isNextPhasePending: boolean;
   hostRevision?: number;
   onEditSelf?: () => void;
@@ -167,6 +170,7 @@ export function RoomBoardHeader({
     allReady: false,
   },
   onToggleReady,
+  completionResetVersion = 0,
   isNextPhasePending,
   hostRevision = 0,
   onSelectHostTarget,
@@ -421,6 +425,26 @@ export function RoomBoardHeader({
       ((phase.phase === 1 && phase.step === 3) ||
         (phase.phase === 3 && phase.step === 3)));
   const isCurrentUserReady = progress.readyUserIds.includes(currentUserId);
+  const completionCue = useCompletionCue({
+    scope: `${inviteCode}:${currentUserId}:${JSON.stringify(phase)}:${phaseRevision}:${hostRevision}:${completionResetVersion}`,
+    disabled:
+      isDisconnected ||
+      isNextPhasePending ||
+      isTransferring ||
+      isLeaving ||
+      outcomePublished,
+    ready: isCurrentUserReady,
+    canAdvance: progress.canAdvance,
+    onReady: onToggleReady,
+  });
+  // 狭幅でも本人を省略しない。順番は操作中の状態で変えない。
+  const hudMembers = isManualProgressStep
+    ? [...members].sort(
+        (a, b) =>
+          Number(b.userId === currentUserId) -
+          Number(a.userId === currentUserId),
+      )
+    : members;
   const notReadyNames = members
     .filter((member) => progress.notReadyUserIds.includes(member.userId))
     .map((member) => member.name);
@@ -540,17 +564,38 @@ export function RoomBoardHeader({
           <fieldset
             className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"
             aria-label="ルームの操作"
+            data-completion-cue={completionCue.stage}
             data-testid="board-control-hud"
             data-board-fit-edge="top"
           >
+            {isManualProgressStep ? (
+              <span className="sr-only" aria-live="polite">
+                {completionCue.stage === "waiting"
+                  ? "完了を更新しています"
+                  : isCurrentUserReady
+                    ? "あなたの作業は完了しています"
+                    : "あなたは作業中です"}
+              </span>
+            ) : null}
             {isManualProgressStep && onToggleReady ? (
               <Button
                 type="button"
                 variant={isCurrentUserReady ? "secondary" : "outline"}
-                className="h-10 shrink-0 px-3"
-                disabled={isDisconnected || isNextPhasePending}
+                className={`h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
+                disabled={
+                  isDisconnected ||
+                  isNextPhasePending ||
+                  isTransferring ||
+                  isLeaving ||
+                  completionCue.busy
+                }
+                aria-busy={completionCue.stage === "waiting"}
                 aria-pressed={isCurrentUserReady}
-                onClick={() => onToggleReady(!isCurrentUserReady)}
+                onClick={() =>
+                  isCurrentUserReady
+                    ? onToggleReady(false)
+                    : completionCue.request(null)
+                }
               >
                 {isCurrentUserReady ? "完了を取り消す" : "完了"}
               </Button>
@@ -599,10 +644,18 @@ export function RoomBoardHeader({
                       className="flex items-center pl-2 max-[900px]:pl-0"
                       aria-hidden="true"
                     >
-                      {members.slice(0, 10).map((member, index) => (
+                      {hudMembers.slice(0, 10).map((member, index) => (
                         <span
                           key={member.userId}
-                          className={`relative ${
+                          data-cue-self={
+                            member.userId === currentUserId || undefined
+                          }
+                          data-cue-waiting={
+                            (progress.notReadyUserIds.includes(member.userId) &&
+                              member.userId !== currentUserId) ||
+                            undefined
+                          }
+                          className={`${styles.avatarCue} relative ${
                             index >= 3
                               ? "hidden xl:inline-flex"
                               : index >= 1
@@ -616,16 +669,41 @@ export function RoomBoardHeader({
                             color={member.color}
                             size={28}
                             isMe={member.userId === currentUserId}
-                            isVotingComplete={completedMemberIds.includes(
-                              member.userId,
-                            )}
+                            isVotingComplete={
+                              completedMemberIds.includes(member.userId) &&
+                              !(
+                                member.userId === currentUserId &&
+                                completionCue.hideSelfCheck
+                              )
+                            }
                             completionLabel={completionLabel}
                           />
                         </span>
                       ))}
                       <span
                         data-testid="member-overflow-indicator"
-                        className={`relative z-20 -ml-1 size-7 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold tabular-nums text-foreground ${
+                        data-waiting-small={
+                          hudMembers
+                            .slice(1)
+                            .some((m) =>
+                              progress.notReadyUserIds.includes(m.userId),
+                            ) || undefined
+                        }
+                        data-waiting-medium={
+                          hudMembers
+                            .slice(3)
+                            .some((m) =>
+                              progress.notReadyUserIds.includes(m.userId),
+                            ) || undefined
+                        }
+                        data-waiting-large={
+                          hudMembers
+                            .slice(10)
+                            .some((m) =>
+                              progress.notReadyUserIds.includes(m.userId),
+                            ) || undefined
+                        }
+                        className={`${styles.overflowCue} relative z-20 -ml-1 size-7 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold tabular-nums text-foreground ${
                           members.length > 10
                             ? "inline-flex"
                             : members.length > 3
@@ -897,9 +975,15 @@ export function RoomBoardHeader({
                   isDisconnected ||
                   isNextPhasePending ||
                   isNextPhaseBlocked ||
-                  ((isManualProgressStep || isCurrentVotingStep) &&
+                  (((isManualProgressStep && !onToggleReady) ||
+                    isCurrentVotingStep) &&
                     !progress.canAdvance) ||
                   isTransferring
+                }
+                onRequestAdvance={
+                  isManualProgressStep && onToggleReady
+                    ? (proceed) => completionCue.request(proceed)
+                    : undefined
                 }
                 requireConfirmation={requireProgressConfirmation}
                 notReadyNames={notReadyNames}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
@@ -1224,4 +1224,169 @@ it("参加者はルームメニューで現在名と変更入口を確認でき�
   expect(
     screen.queryByRole("button", { name: "ルーム名を変更" }),
   ).not.toBeInTheDocument();
+});
+
+describe("次へに含まれる本人の完了", () => {
+  it("人数不足でも操作でき、注目する間の後に本人の完了を一度送信し、受信前にはチェックを出さない", () => {
+    vi.useFakeTimers();
+    try {
+      const members = buildMembers(5, ME);
+      const props = setupProps({
+        members,
+        onToggleReady: vi.fn(),
+        progress: {
+          ...allReadyProgress(members),
+          readyUserIds: [members[1].userId],
+          notReadyUserIds: members
+            .filter((m) => m.userId !== members[1].userId)
+            .map((m) => m.userId),
+          canAdvance: false,
+          allReady: false,
+        },
+      });
+      const { rerender } = render(<RoomBoardHeader {...props} />);
+      const next = screen.getByRole("button", { name: "次のステップへ" });
+      expect(next).toBeEnabled();
+      next.focus();
+      fireEvent.click(next);
+      fireEvent.click(next);
+      expect(props.onToggleReady).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(380));
+      act(() => vi.advanceTimersByTime(440));
+      expect(props.onToggleReady).toHaveBeenCalledExactlyOnceWith(true);
+      expect(screen.getAllByTestId("member-voting-complete")).toHaveLength(1);
+      expect(document.activeElement).toBe(next);
+      act(() => vi.advanceTimersByTime(1000));
+      expect(props.onNextPhase).not.toHaveBeenCalled();
+      rerender(
+        <RoomBoardHeader
+          {...props}
+          progress={{
+            ...allReadyProgress(members),
+            ...props.progress,
+            readyUserIds: [ME, members[1].userId],
+            notReadyUserIds: members.slice(2).map((m) => m.userId),
+          }}
+        />,
+      );
+      expect(screen.getAllByTestId("member-voting-complete")).toHaveLength(2);
+      act(() => vi.advanceTimersByTime(400));
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "参加者 5人" }),
+      ).toHaveAttribute("aria-expanded", "false");
+      expect(props.onNextPhase).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+it.each([2, 3])(
+  "他者%d人が完了でも本人を更新し、受信と演出の後に確認を開く",
+  (otherReadyCount) => {
+    vi.useFakeTimers();
+    try {
+      const members = buildMembers(5, ME);
+      const others = members.filter((m) => m.userId !== ME);
+      const readyIds = others.slice(0, otherReadyCount).map((m) => m.userId);
+      const progress = {
+        ...allReadyProgress(members),
+        readyUserIds: readyIds,
+        notReadyUserIds: members
+          .filter((m) => !readyIds.includes(m.userId))
+          .map((m) => m.userId),
+        canAdvance: otherReadyCount >= 3,
+        allReady: false,
+      };
+      const props = setupProps({ members, progress, onToggleReady: vi.fn() });
+      const { rerender } = render(<RoomBoardHeader {...props} />);
+      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+      act(() => vi.advanceTimersByTime(380));
+      act(() => vi.advanceTimersByTime(440));
+      expect(props.onToggleReady).toHaveBeenCalledExactlyOnceWith(true);
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      rerender(
+        <RoomBoardHeader
+          {...props}
+          progress={{
+            ...progress,
+            readyUserIds: [...readyIds, ME],
+            notReadyUserIds: others.slice(otherReadyCount).map((m) => m.userId),
+            canAdvance: true,
+            progressRevision: 3,
+          }}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(400));
+      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+      expect(props.onNextPhase).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+      expect(props.onToggleReady).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
+      expect(props.onNextPhase).toHaveBeenCalledExactlyOnceWith(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  },
+);
+
+it("投票不足時の次へから手動完了を送らない", () => {
+  const members = buildMembers(5, ME);
+  const props = setup({
+    phase: buildPhaseStep(4),
+    members,
+    onToggleReady: vi.fn(),
+    progress: {
+      ...allReadyProgress(members),
+      readyUserIds: [],
+      notReadyUserIds: members.map((m) => m.userId),
+      canAdvance: false,
+      allReady: false,
+    },
+  });
+  const next = screen.getByRole("button", {
+    name: "次のステップへ",
+  });
+  expect(next).toBeDisabled();
+  fireEvent.click(next);
+  expect(props.onToggleReady).not.toHaveBeenCalled();
+});
+
+it("完了受信待ちに操作エラーを受けたら、遅れた完了で確認を開かない", () => {
+  vi.useFakeTimers();
+  try {
+    const members = buildMembers(3, ME);
+    const progress = {
+      ...allReadyProgress(members),
+      readyUserIds: [members[1].userId],
+      notReadyUserIds: [ME, members[2].userId],
+      canAdvance: false,
+      allReady: false,
+    };
+    const props = setupProps({ members, progress, onToggleReady: vi.fn() });
+    const { rerender } = render(<RoomBoardHeader {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+    act(() => vi.advanceTimersByTime(380));
+    act(() => vi.advanceTimersByTime(440));
+    rerender(<RoomBoardHeader {...props} completionResetVersion={1} />);
+    rerender(
+      <RoomBoardHeader
+        {...props}
+        completionResetVersion={1}
+        progress={{
+          ...progress,
+          readyUserIds: [ME, members[1].userId],
+          notReadyUserIds: [members[2].userId],
+          canAdvance: true,
+        }}
+      />,
+    );
+    act(() => vi.advanceTimersByTime(10000));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(props.onNextPhase).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
 });

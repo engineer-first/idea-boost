@@ -193,7 +193,8 @@ export type RoomBoardViewProps = {
   // 全票を使い切ったメンバーの userId。投票先は含まない。
   completedVoterIds?: ReadonlyArray<string>;
   progress?: import("../logic/room-reducer").PhaseProgressState;
-  onToggleReady?: (ready: boolean) => void;
+  onToggleReady?: ((ready: boolean) => boolean) | ((ready: boolean) => void);
+  completionResetVersion?: number;
   isNextPhasePending: boolean;
   isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
@@ -333,6 +334,7 @@ export function RoomBoardView({
     allReady: false,
   },
   onToggleReady,
+  completionResetVersion = 0,
   isNextPhasePending,
   isSavingBeforeShare = false,
   interactions,
@@ -1886,6 +1888,7 @@ export function RoomBoardView({
           completedVoterIds={completedVoterIds}
           progress={progress}
           onToggleReady={onToggleReady}
+          completionResetVersion={completionResetVersion}
           isNextPhasePending={isNextPhasePending}
           isNextPhaseBlocked={isNextPhaseBlocked}
           hasCurrentDecision={
