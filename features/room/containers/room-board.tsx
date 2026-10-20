@@ -83,7 +83,8 @@ export function RoomBoard({
   const feedback = useFeedback(roomId, submitFeedback);
   const [completionResetVersion, setCompletionResetVersion] = useState(0);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
-  const hmwExamplesInitializedVersionRef = useRef(0);
+  const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
+    useState(false);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
   const bulkUndoIdsRef = useRef(new Set<string>());
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
@@ -508,38 +509,6 @@ export function RoomBoard({
     [addNote, roomState.timer.status],
   );
 
-  useEffect(() => {
-    const isHmwWritingStep =
-      roomState.phase.kind === "step" &&
-      roomState.phase.phase === 2 &&
-      roomState.phase.step === 1;
-    if (
-      roomState.timer.status !== "running" ||
-      !isHmwWritingStep ||
-      connectionStatus !== "open" ||
-      notes.snapshotVersion === 0 ||
-      hmwExamplesInitializedVersionRef.current === notes.snapshotVersion
-    )
-      return;
-
-    const existingContents = new Set(
-      notes.notes
-        .filter((note) => note.visibility === "private")
-        .map((note) => note.content),
-    );
-    hmwExamplesInitializedVersionRef.current = notes.snapshotVersion;
-    for (const example of HMW_EXAMPLES) {
-      if (!existingContents.has(example)) addNote(example);
-    }
-  }, [
-    addNote,
-    connectionStatus,
-    notes.notes,
-    notes.snapshotVersion,
-    roomState.phase,
-    roomState.timer.status,
-  ]);
-
   // フェーズ2では決定課題を、フェーズ3では決定課題と決定した問いを掲示する。
   // 持ち越しはフェーズ昇順の配列なので、由来フェーズで取り出す。
   const currentPhase =
@@ -659,6 +628,13 @@ export function RoomBoard({
         }}
         feedback={feedback}
         notes={boardNotes}
+        exampleNotes={
+          roomState.phase.kind === "step" &&
+          roomState.phase.phase === 2 &&
+          roomState.phase.step === 1
+            ? HMW_EXAMPLES
+            : []
+        }
         confirmedNotes={notes.notes.filter(
           (note) => note.visibility === "shared",
         )}

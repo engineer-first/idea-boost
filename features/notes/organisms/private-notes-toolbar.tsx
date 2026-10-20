@@ -24,6 +24,7 @@ import { NoteCard } from "../molecules/note-card";
 export type PrivateNotesToolbarProps = {
   rollbackRevision?: number;
   notes: Note[];
+  exampleNotes?: readonly string[];
   disabled: boolean;
   editingDisabled?: boolean;
   canEditNote: boolean;
@@ -62,6 +63,7 @@ export type PrivateNotesToolbarProps = {
 export function PrivateNotesToolbar({
   rollbackRevision = 0,
   notes,
+  exampleNotes = [],
   disabled,
   editingDisabled = false,
   className,
@@ -384,10 +386,16 @@ export function PrivateNotesToolbar({
           }}
         >
           {isWorkspace ? (
-            <p className="mx-auto mb-6 flex max-w-5xl items-center gap-2 text-sm text-muted-foreground">
-              <LockKeyhole aria-hidden="true" className="size-4 shrink-0" />
-              この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
-            </p>
+            <div className="mx-auto mb-6 max-w-5xl text-sm text-muted-foreground">
+              <p className="flex items-center justify-center gap-2 text-center">
+                <LockKeyhole aria-hidden="true" className="size-4 shrink-0" />
+                この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
+              </p>
+              <p className="mt-3 text-center text-xs">
+                （付箋追加ショートカットキー：
+                Macは⌘＋Enter、Windows等はCtrl＋Enter）
+              </p>
+            </div>
           ) : (
             <p
               className={cn(
@@ -403,7 +411,7 @@ export function PrivateNotesToolbar({
               {sharingHint}
             </p>
           ) : null}
-          {canCreateNote ? (
+          {!isWorkspace && canCreateNote ? (
             <p
               className={cn(
                 "text-xs text-muted-foreground",
