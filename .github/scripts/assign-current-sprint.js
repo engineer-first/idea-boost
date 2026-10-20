@@ -1,5 +1,3 @@
-const { isEvidenceIssue } = require("./evidence-issue-policy.js");
-
 function resolveCurrentSprint(milestones, now) {
   const current = [];
   for (const milestone of milestones) {
@@ -70,7 +68,7 @@ function openIssue(issue) {
     issue &&
     !issue.pull_request &&
     issue.state === "open" &&
-    !isEvidenceIssue(issue)
+    !["競合調査", "フィードバック", "成果データ"].includes(issue.type?.name)
   );
 }
 
