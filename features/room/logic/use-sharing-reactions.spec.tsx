@@ -92,6 +92,93 @@ describe("useSharingReactions", () => {
     expect(send).toHaveBeenCalledTimes(4);
   });
 
+  it("工程更新後も直前の送信から400msは送信を待つ", () => {
+    vi.useFakeTimers();
+    const send = vi.fn(() => true);
+    const { result, rerender } = renderHook(
+      ({ revision }) =>
+        useSharingReactions({
+          phase,
+          phaseRevision: revision,
+          connectionStatus: "open",
+          send,
+        }),
+      { initialProps: { revision: 3 } },
+    );
+    act(() => result.current.sendLike());
+    act(() => vi.advanceTimersByTime(100));
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase,
+        phaseRevision: 4,
+      } as ServerMessage),
+    );
+    rerender({ revision: 4 });
+    expect(result.current.canSendLike).toBe(false);
+    act(() => result.current.sendLike());
+    expect(send).toHaveBeenCalledTimes(1);
+    act(() => vi.advanceTimersByTime(300));
+    expect(result.current.canSendLike).toBe(true);
+    act(() => result.current.sendLike());
+    expect(send).toHaveBeenLastCalledWith({
+      type: "reaction:send",
+      kind: "like",
+      phaseRevision: 4,
+    });
+  });
+
+  it.each(["操作停止", "再接続", "snapshot"] as const)(
+    "%sの後も同じ工程の3件上限を維持する",
+    (interruption) => {
+      vi.useFakeTimers();
+      const send = vi.fn(() => true);
+      const { result, rerender } = renderHook(
+        ({
+          blocked,
+          connectionStatus,
+        }: {
+          blocked: boolean;
+          connectionStatus: "open" | "closed";
+        }) =>
+          useSharingReactions({
+            phase,
+            phaseRevision: 3,
+            blocked,
+            connectionStatus,
+            send,
+          }),
+        { initialProps: { blocked: false, connectionStatus: "open" } },
+      );
+      for (let index = 0; index < 3; index++) {
+        act(() => result.current.sendLike());
+        act(() => vi.advanceTimersByTime(400));
+      }
+      if (interruption === "snapshot") {
+        act(() =>
+          result.current.applyMessage({
+            type: "snapshot",
+            phase,
+            phaseRevision: 3,
+          } as ServerMessage),
+        );
+      } else {
+        rerender({
+          blocked: interruption === "操作停止",
+          connectionStatus: interruption === "再接続" ? "closed" : "open",
+        });
+        rerender({ blocked: false, connectionStatus: "open" });
+      }
+      expect(result.current.canSendLike).toBe(false);
+      act(() => result.current.sendLike());
+      expect(send).toHaveBeenCalledTimes(3);
+      act(() => vi.advanceTimersByTime(1_800));
+      expect(result.current.canSendLike).toBe(true);
+      act(() => result.current.sendLike());
+      expect(send).toHaveBeenCalledTimes(4);
+    },
+  );
+
   it("同じ送信者のいいねは3つまで表示し、別の送信者の枠は残す", () => {
     const { result } = renderHook(() =>
       useSharingReactions({

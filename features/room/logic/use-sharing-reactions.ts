@@ -55,6 +55,7 @@ export function useSharingReactions({
   const nextSlotRef = useRef(0);
   const sentAtRef = useRef<number[]>([]);
   const cooldownUntilRef = useRef(0);
+  const lastSentAtRef = useRef<number | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contextRef = useRef({
     phase,
@@ -65,14 +66,33 @@ export function useSharingReactions({
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : phase.kind;
 
-  const resetSendLimit = useCallback((): void => {
-    sentAtRef.current = [];
-    cooldownUntilRef.current = 0;
+  const refreshSendLimit = useCallback((resetCount = false): void => {
+    const now = Date.now();
+    sentAtRef.current = resetCount
+      ? []
+      : sentAtRef.current.filter(
+          (sentAt) => sentAt + SHARING_REACTION_DURATION_MS > now,
+        );
+    // 工程変更では表示件数だけ解除し、サーバーと同じ400ms間隔を維持する。
+    cooldownUntilRef.current = Math.max(
+      lastSentAtRef.current === null
+        ? now
+        : lastSentAtRef.current + SHARING_REACTION_INTERVAL_MS,
+      sentAtRef.current.length >= SHARING_REACTION_MAX_PER_ACCOUNT
+        ? sentAtRef.current[0] + SHARING_REACTION_DURATION_MS
+        : now,
+    );
     if (cooldownTimerRef.current !== null) {
       clearTimeout(cooldownTimerRef.current);
       cooldownTimerRef.current = null;
     }
-    setCoolingDown(false);
+    const remaining = cooldownUntilRef.current - now;
+    setCoolingDown(remaining > 0);
+    if (remaining > 0)
+      cooldownTimerRef.current = setTimeout(
+        () => setCoolingDown(false),
+        remaining,
+      );
   }, []);
 
   useLayoutEffect(() => {
@@ -88,7 +108,9 @@ export function useSharingReactions({
       connectionStatus !== "open" ||
       blocked
     ) {
-      resetSendLimit();
+      refreshSendLimit(
+        previousKey !== phaseKey || previous.phaseRevision !== phaseRevision,
+      );
       setReactions((current) => (current.length === 0 ? current : []));
     }
   }, [
@@ -97,7 +119,7 @@ export function useSharingReactions({
     phaseRevision,
     connectionStatus,
     blocked,
-    resetSendLimit,
+    refreshSendLimit,
   ]);
 
   useEffect(() => {
@@ -147,25 +169,22 @@ export function useSharingReactions({
     )
       return;
     sentAtRef.current = [...recentSends, now];
-    cooldownUntilRef.current = Math.max(
-      now + SHARING_REACTION_INTERVAL_MS,
-      sentAtRef.current.length >= SHARING_REACTION_MAX_PER_ACCOUNT
-        ? sentAtRef.current[0] + SHARING_REACTION_DURATION_MS
-        : now,
-    );
-    setCoolingDown(true);
-    if (cooldownTimerRef.current !== null)
-      clearTimeout(cooldownTimerRef.current);
-    cooldownTimerRef.current = setTimeout(
-      () => setCoolingDown(false),
-      cooldownUntilRef.current - now,
-    );
-  }, [send]);
+    lastSentAtRef.current = now;
+    refreshSendLimit();
+  }, [send, refreshSendLimit]);
 
   const applyMessage = useCallback(
     (message: ServerMessage, receivedAt = Date.now()): void => {
       if (message.type === "snapshot" || message.type === "phase:updated") {
-        resetSendLimit();
+        const previous = contextRef.current;
+        refreshSendLimit(
+          previous.phaseRevision !== (message.phaseRevision ?? 0) ||
+            previous.phase.kind !== message.phase.kind ||
+            (previous.phase.kind === "step" &&
+              message.phase.kind === "step" &&
+              (previous.phase.phase !== message.phase.phase ||
+                previous.phase.step !== message.phase.step)),
+        );
         contextRef.current = {
           ...contextRef.current,
           phase: message.phase,
@@ -200,7 +219,7 @@ export function useSharingReactions({
         return [...visible, reaction].slice(-SHARING_REACTION_MAX_VISIBLE);
       });
     },
-    [resetSendLimit],
+    [refreshSendLimit],
   );
 
   return {
