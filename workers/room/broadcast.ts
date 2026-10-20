@@ -29,8 +29,6 @@ export type SocketAttachment = {
   activeMoveOperationId?: string;
   movePreviewSequence?: number;
   hasCursor?: boolean;
-  lastReactionAt?: number;
-  activeReactions?: { sentAt: number; phaseRevision: number }[];
   adoptionFocusNoteId?: string;
   // ハイバネーション後も排他ドラッグ権を復元できるよう接続へ保存する。
   activeDrag?: { noteId: string; dragId: string; leaseUntil?: number };
@@ -44,6 +42,15 @@ export type ActiveDragOwner = {
 };
 
 export class RoomBroadcaster {
+  // 再接続で制限が消えないよう、3秒以内の送信履歴を接続ではなく本人に紐づける。
+  private readonly reactionsByUser = new Map<
+    string,
+    {
+      lastReactionAt: number;
+      activeReactions: { sentAt: number; phaseRevision: number }[];
+    }
+  >();
+
   constructor(
     private readonly connections: Pick<DurableObjectState, "getWebSockets">,
     private readonly onExpired?: (socket: WebSocket) => void,
@@ -254,35 +261,30 @@ export class RoomBroadcaster {
   reserveReaction(socket: WebSocket, phaseRevision: number): boolean {
     const now = Date.now();
     const sender = socket.deserializeAttachment() as SocketAttachment;
-    const accounts = this.connections
-      .getWebSockets()
-      .map((peer) => peer.deserializeAttachment() as SocketAttachment | null)
-      .filter((attachment) => attachment?.userId === sender.userId);
-    const isVisible = (reaction: { sentAt: number; phaseRevision: number }) =>
-      reaction.phaseRevision === phaseRevision &&
-      reaction.sentAt + SHARING_REACTION_DURATION_MS > now;
-    const visibleCount = accounts.reduce(
-      (count, attachment) =>
-        count + (attachment?.activeReactions?.filter(isVisible).length ?? 0),
-      0,
+    for (const [userId, history] of this.reactionsByUser) {
+      history.activeReactions = history.activeReactions.filter(
+        (reaction) => reaction.sentAt + SHARING_REACTION_DURATION_MS > now,
+      );
+      if (
+        history.activeReactions.length === 0 &&
+        now - history.lastReactionAt >= SHARING_REACTION_INTERVAL_MS
+      )
+        this.reactionsByUser.delete(userId);
+    }
+    const history = this.reactionsByUser.get(sender.userId);
+    const activeReactions = (history?.activeReactions ?? []).filter(
+      (reaction) => reaction.phaseRevision === phaseRevision,
     );
     if (
-      visibleCount >= SHARING_REACTION_MAX_PER_ACCOUNT ||
-      accounts.some(
-        (attachment) =>
-          attachment?.lastReactionAt !== undefined &&
-          now - attachment.lastReactionAt < SHARING_REACTION_INTERVAL_MS,
-      )
+      activeReactions.length >= SHARING_REACTION_MAX_PER_ACCOUNT ||
+      (history !== undefined &&
+        now - history.lastReactionAt < SHARING_REACTION_INTERVAL_MS)
     )
       return false;
-    socket.serializeAttachment({
-      ...sender,
+    this.reactionsByUser.set(sender.userId, {
       lastReactionAt: now,
-      activeReactions: [
-        ...(sender.activeReactions?.filter(isVisible) ?? []),
-        { sentAt: now, phaseRevision },
-      ],
-    } satisfies SocketAttachment);
+      activeReactions: [...activeReactions, { sentAt: now, phaseRevision }],
+    });
     return true;
   }
 

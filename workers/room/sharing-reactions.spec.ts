@@ -205,6 +205,178 @@ describe("共有中のいいね", () => {
     }
   });
 
+  it.each([
+    {
+      limit: "400ms間隔",
+      sentAt: [0],
+      reconnectAt: 100,
+      availableAt: 400,
+    },
+    {
+      limit: "同時3件",
+      sentAt: [0, 400, 800],
+      reconnectAt: 1_200,
+      availableAt: 3_000,
+    },
+  ])("切断して再接続しても「$limit」の制限を維持する", async (scenario) => {
+    const { roomId, owner, member, revision } = await setup();
+    let reconnected: RoomSocket | undefined;
+    try {
+      const start = await runInRoomDO(roomId, async (instance, state) => {
+        const sender = state
+          .getWebSockets()
+          .find((ws) => ws.deserializeAttachment().userId === listener.sub);
+        const recipient = state
+          .getWebSockets()
+          .find((ws) => ws.deserializeAttachment().userId === host.sub);
+        if (!sender || !recipient)
+          throw new Error("テスト用ソケットがありません");
+        const wire = vi.spyOn(recipient, "send");
+        const start = Date.now();
+        vi.useFakeTimers({ toFake: ["Date"] });
+        try {
+          for (const sentAt of scenario.sentAt) {
+            vi.setSystemTime(start + sentAt);
+            await instance.webSocketMessage(
+              sender,
+              JSON.stringify({
+                type: "reaction:send",
+                kind: "like",
+                phaseRevision: revision,
+              }),
+            );
+          }
+          expect(
+            wire.mock.calls.filter(
+              ([raw]) => parseServerMessage(raw)?.type === "reaction:received",
+            ),
+          ).toHaveLength(scenario.sentAt.length);
+          sender.close();
+          return start;
+        } finally {
+          wire.mockRestore();
+          vi.useRealTimers();
+        }
+      });
+      member.close();
+      await expect
+        .poll(() =>
+          runInRoomDO(
+            roomId,
+            (_, state) =>
+              state
+                .getWebSockets()
+                .filter(
+                  (ws) => ws.deserializeAttachment().userId === listener.sub,
+                ).length,
+          ),
+        )
+        .toBe(0);
+      reconnected = await connectRoomAs(listener, roomId);
+      await reconnected.next();
+      await runInRoomDO(roomId, async (instance, state) => {
+        const sender = state
+          .getWebSockets()
+          .find((ws) => ws.deserializeAttachment().userId === listener.sub);
+        const recipient = state
+          .getWebSockets()
+          .find((ws) => ws.deserializeAttachment().userId === host.sub);
+        if (!sender || !recipient)
+          throw new Error("テスト用ソケットがありません");
+        const wire = vi.spyOn(recipient, "send");
+        const count = () =>
+          wire.mock.calls.filter(
+            ([raw]) => parseServerMessage(raw)?.type === "reaction:received",
+          ).length;
+        const send = () =>
+          instance.webSocketMessage(
+            sender,
+            JSON.stringify({
+              type: "reaction:send",
+              kind: "like",
+              phaseRevision: revision,
+            }),
+          );
+        vi.useFakeTimers({ toFake: ["Date"] });
+        try {
+          vi.setSystemTime(start + scenario.reconnectAt);
+          await send();
+          expect(count()).toBe(0);
+          vi.setSystemTime(start + scenario.availableAt);
+          await send();
+          expect(count()).toBe(1);
+        } finally {
+          wire.mockRestore();
+          vi.useRealTimers();
+        }
+      });
+    } finally {
+      owner.close();
+      member.close();
+      reconnected?.close();
+    }
+  });
+
+  it("工程変更で同時表示件数をリセットし、400msの送信間隔は維持する", async () => {
+    const { roomId, owner, member, revision } = await setup();
+    try {
+      await runInRoomDO(roomId, async (instance, state) => {
+        const sender = state
+          .getWebSockets()
+          .find((ws) => ws.deserializeAttachment().userId === listener.sub);
+        const recipient = state
+          .getWebSockets()
+          .find((ws) => ws.deserializeAttachment().userId === host.sub);
+        if (!sender || !recipient)
+          throw new Error("テスト用ソケットがありません");
+        const wire = vi.spyOn(recipient, "send");
+        const count = () =>
+          wire.mock.calls.filter(
+            ([raw]) => parseServerMessage(raw)?.type === "reaction:received",
+          ).length;
+        const send = (phaseRevision: number) =>
+          instance.webSocketMessage(
+            sender,
+            JSON.stringify({
+              type: "reaction:send",
+              kind: "like",
+              phaseRevision,
+            }),
+          );
+        const start = Date.now();
+        vi.useFakeTimers({ toFake: ["Date"] });
+        try {
+          for (let index = 0; index < 3; index++) {
+            vi.setSystemTime(start + index * 400);
+            await send(revision);
+          }
+          expect(count()).toBe(3);
+          await instance.setPhase(
+            { kind: "step", phase: 2, step: 2 },
+            host.sub,
+          );
+          const nextRevision = Number(
+            state.storage.sql
+              .exec("SELECT phase_revision FROM room_state WHERE id=1")
+              .one().phase_revision,
+          );
+          vi.setSystemTime(start + 1_199);
+          await send(nextRevision);
+          expect(count()).toBe(3);
+          vi.setSystemTime(start + 1_200);
+          await send(nextRevision);
+          expect(count()).toBe(4);
+        } finally {
+          wire.mockRestore();
+          vi.useRealTimers();
+        }
+      });
+    } finally {
+      owner.close();
+      member.close();
+    }
+  });
+
   it("参加先確認の非同期待機中にセッション期限を越えたいいねを配信しない", async () => {
     const { roomId, owner, member, revision } = await setup();
     try {

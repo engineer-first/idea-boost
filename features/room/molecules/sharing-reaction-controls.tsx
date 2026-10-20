@@ -59,8 +59,11 @@ export function SharingReactionControls({
                 variant="ghost"
                 size="icon-sm"
                 aria-label="いいねを送る"
-                disabled={disabled}
-                onClick={onSendLike}
+                aria-disabled={disabled}
+                className="aria-disabled:opacity-50 aria-disabled:hover:bg-transparent"
+                onClick={() => {
+                  if (!disabled) onSendLike();
+                }}
               >
                 <Image
                   src="/reactions/like-3d.png"

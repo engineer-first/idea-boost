@@ -1,7 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 import { fn, userEvent, within } from "storybook/test";
+import { buildPhaseStep } from "@/contracts/phase.fixture";
+import { useSharingReactions } from "../logic/use-sharing-reactions";
 import { SharingReactionControls } from "./sharing-reaction-controls";
+
+const sharingPhase = buildPhaseStep(2);
 
 const meta = {
   title: "Room/SharingReactionControls",
@@ -75,4 +79,29 @@ export const WaitingToSend: Story = {
 
 export const Disconnected: Story = {
   args: { disabled: true },
+};
+
+export const RepeatedSending: Story = {
+  render: function RepeatedSending(args) {
+    const [sentCount, setSentCount] = useState(0);
+    const { canSendLike, sendLike } = useSharingReactions({
+      phase: sharingPhase,
+      phaseRevision: 3,
+      connectionStatus: "open",
+      send: () => {
+        args.onSendLike();
+        setSentCount((current) => current + 1);
+        return true;
+      },
+    });
+    return (
+      <div className="flex items-center gap-4">
+        <SharingReactionControls
+          disabled={!canSendLike}
+          onSendLike={sendLike}
+        />
+        <output aria-label="いいねの送信回数">{sentCount}</output>
+      </div>
+    );
+  },
 };
