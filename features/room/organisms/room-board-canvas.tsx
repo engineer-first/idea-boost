@@ -63,6 +63,7 @@ import type {
   CanvasSelectionOptions,
   CanvasTool,
 } from "../logic/use-canvas-selection";
+import type { SharingReactionControls } from "../logic/use-sharing-reactions";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -81,6 +82,7 @@ const ADOPTION_TARGET_CLASS_NAME =
 export type RoomBoardCanvasProps = {
   rollbackRevision?: number;
   moveHistory?: MoveHistoryControlsProps;
+  reactionControls?: SharingReactionControls;
   notes: Note[];
   groups: PersistentGroup[];
   phase: RoomPhase;
@@ -192,6 +194,7 @@ export type RoomBoardCanvasProps = {
 export function RoomBoardCanvas({
   rollbackRevision = 0,
   moveHistory,
+  reactionControls,
   notes,
   groups,
   phase,
@@ -558,6 +561,7 @@ export function RoomBoardCanvas({
 
   const canvasZoomControls = (
     <CanvasZoomControls
+      reactionControls={reactionControls}
       moveHistory={moveHistory}
       showNavigationControls
       interactionTool={interactionTool}

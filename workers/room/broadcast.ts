@@ -13,6 +13,11 @@ import {
   WS_CLOSE_AUTH_REQUIRED_REASON,
 } from "../../contracts/room-protocol";
 import { SessionExpiresAtSchema } from "../../contracts/session";
+import {
+  SHARING_REACTION_DURATION_MS,
+  SHARING_REACTION_INTERVAL_MS,
+  SHARING_REACTION_MAX_PER_ACCOUNT,
+} from "../../contracts/sharing-reactions";
 import { visibleTo } from "../visibility";
 
 // WS 接続ごとに serializeAttachment で永続化する状態。
@@ -24,6 +29,8 @@ export type SocketAttachment = {
   activeMoveOperationId?: string;
   movePreviewSequence?: number;
   hasCursor?: boolean;
+  lastReactionAt?: number;
+  activeReactions?: { sentAt: number; phaseRevision: number }[];
   adoptionFocusNoteId?: string;
   // ハイバネーション後も排他ドラッグ権を復元できるよう接続へ保存する。
   activeDrag?: { noteId: string; dragId: string; leaseUntil?: number };
@@ -241,6 +248,55 @@ export class RoomBroadcaster {
     const payload = JSON.stringify(message);
     for (const socket of this.connections.getWebSockets()) {
       this.trySend(socket, payload);
+    }
+  }
+
+  reserveReaction(socket: WebSocket, phaseRevision: number): boolean {
+    const now = Date.now();
+    const sender = socket.deserializeAttachment() as SocketAttachment;
+    const accounts = this.connections
+      .getWebSockets()
+      .map((peer) => peer.deserializeAttachment() as SocketAttachment | null)
+      .filter((attachment) => attachment?.userId === sender.userId);
+    const isVisible = (reaction: { sentAt: number; phaseRevision: number }) =>
+      reaction.phaseRevision === phaseRevision &&
+      reaction.sentAt + SHARING_REACTION_DURATION_MS > now;
+    const visibleCount = accounts.reduce(
+      (count, attachment) =>
+        count + (attachment?.activeReactions?.filter(isVisible).length ?? 0),
+      0,
+    );
+    if (
+      visibleCount >= SHARING_REACTION_MAX_PER_ACCOUNT ||
+      accounts.some(
+        (attachment) =>
+          attachment?.lastReactionAt !== undefined &&
+          now - attachment.lastReactionAt < SHARING_REACTION_INTERVAL_MS,
+      )
+    )
+      return false;
+    socket.serializeAttachment({
+      ...sender,
+      lastReactionAt: now,
+      activeReactions: [
+        ...(sender.activeReactions?.filter(isVisible) ?? []),
+        { sentAt: now, phaseRevision },
+      ],
+    } satisfies SocketAttachment);
+    return true;
+  }
+
+  // リアクションは共有工程の全員共有情報。失効した在籍者には配信しない。
+  broadcastReaction(
+    message: Extract<ServerMessage, { type: "reaction:received" }>,
+    isMember: (userId: string) => boolean,
+  ): void {
+    const payload = JSON.stringify(message);
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment && isMember(attachment.userId))
+        this.trySend(socket, payload);
     }
   }
 

@@ -101,6 +101,7 @@ export function applyServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "reaction:received":
     case "member_vote_status":
     case "phase:progress":
     case "member:renamed":
