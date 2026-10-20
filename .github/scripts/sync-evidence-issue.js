@@ -17,19 +17,23 @@ async function syncEvidenceIssue({
   const initial = await read();
   if (!isEvidenceIssue(initial))
     return { updated: false, reason: "not-evidence" };
-  const items = [];
-  let after = null;
-  do {
-    const result = await github.graphql(
-      `query EvidenceItems($id:ID!,$after:String){node(id:$id){...on Issue{projectItems(first:100,after:$after){nodes{id isArchived project{id} review:fieldValueByName(name:"確認状態"){...on ProjectV2ItemFieldSingleSelectValue{name}}} pageInfo{hasNextPage endCursor}}}}}`,
-      { id: initial.node_id, after },
-    );
-    if (!result.node?.projectItems)
-      throw new Error("IssueのProject所属を取得できません。");
-    const page = result.node.projectItems;
-    items.push(...page.nodes);
-    after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
-  } while (after);
+  const readItems = async () => {
+    const items = [];
+    let after = null;
+    do {
+      const result = await github.graphql(
+        `query EvidenceItems($id:ID!,$after:String){node(id:$id){...on Issue{projectItems(first:100,after:$after){nodes{id isArchived project{id} review:fieldValueByName(name:"確認状態"){...on ProjectV2ItemFieldSingleSelectValue{name}}} pageInfo{hasNextPage endCursor}}}}}`,
+        { id: initial.node_id, after },
+      );
+      if (!result.node?.projectItems)
+        throw new Error("IssueのProject所属を取得できません。");
+      const page = result.node.projectItems;
+      items.push(...page.nodes);
+      after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+    } while (after);
+    return items;
+  };
+  const items = await readItems();
   const current = async () => {
     const issue = await read();
     return isEvidenceIssue(issue) && issue.type.name === initial.type.name
@@ -50,11 +54,25 @@ async function syncEvidenceIssue({
     if (!dryRun) {
       if (!(await current()))
         return { updated: planned.length > 1, reason: "type-changed" };
-      const added = await github.graphql(
-        `mutation AddEvidence($projectId:ID!,$contentId:ID!){addProjectV2ItemById(input:{projectId:$projectId,contentId:$contentId}){item{id}}}`,
-        { projectId: EVIDENCE_PROJECT_ID, contentId: initial.node_id },
-      );
-      item = added.addProjectV2ItemById.item;
+      try {
+        const added = await github.graphql(
+          `mutation AddEvidence($projectId:ID!,$contentId:ID!){addProjectV2ItemById(input:{projectId:$projectId,contentId:$contentId}){item{id}}}`,
+          { projectId: EVIDENCE_PROJECT_ID, contentId: initial.node_id },
+        );
+        item = added.addProjectV2ItemById.item;
+      } catch (error) {
+        // 標準の自動追加が先に完了した場合だけ、追加済みの項目を利用する。
+        if (
+          !String(error.message).includes(
+            "Content already exists in this project",
+          )
+        )
+          throw error;
+        item = (await readItems()).find(
+          (i) => i.project.id === EVIDENCE_PROJECT_ID,
+        );
+        if (!item) throw error;
+      }
     }
   }
   if (item && !item.isArchived && !item.review?.name) {

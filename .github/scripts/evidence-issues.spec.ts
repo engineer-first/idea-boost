@@ -159,3 +159,42 @@ describe("蓄積Issueの振り分け", () => {
     ).toBe(true);
   });
 });
+
+it("標準の自動追加と競合しても既存の記録を再取得し、確認状態を保つ", async () => {
+  const input = fixture();
+  let reads = 0;
+  input.github.graphql.mockImplementation(async (query: string) => {
+    if (query.includes("EvidenceItems")) {
+      reads += 1;
+      return {
+        node: {
+          projectItems: {
+            nodes:
+              reads === 1
+                ? []
+                : [
+                    {
+                      id: "NATIVE_ITEM",
+                      isArchived: false,
+                      project: { id: "PVT_kwDOEYcVLM4Bn1YA" },
+                      review: { name: "確認済み" },
+                    },
+                  ],
+            pageInfo: { hasNextPage: false },
+          },
+        },
+      } as never;
+    }
+    if (query.includes("AddEvidence"))
+      throw new Error("Content already exists in this project");
+    return {} as never;
+  });
+  await expect(syncEvidenceIssue(input)).resolves.toMatchObject({
+    updated: true,
+  });
+  expect(
+    input.github.graphql.mock.calls.some(([q]) =>
+      q.includes("InitializeEvidenceReview"),
+    ),
+  ).toBe(false);
+});
