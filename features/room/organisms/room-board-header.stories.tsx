@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { PhaseProgress } from "@/contracts/room-protocol";
@@ -352,4 +353,61 @@ export const FinalCompletionDisconnected: Story = {
     isDisconnected: true,
     connectionStatus: "reconnecting",
   },
+};
+
+// 5人中Bだけ完了。実通信は実アプリ検証で確認し、ここでは受信の遅延を再現する。
+export const CompletionCue: Story = {
+  args: {
+    members: buildMembers(5, ME),
+    progress: {
+      phaseRevision: 0,
+      progressRevision: 1,
+      connectedUserIds: buildMembers(5, ME).map((m) => m.userId),
+      readyUserIds: [buildMembers(5, ME)[1].userId],
+      notReadyUserIds: buildMembers(5, ME)
+        .filter((_, i) => i !== 1)
+        .map((m) => m.userId),
+      canAdvance: false,
+      allReady: false,
+    },
+  },
+  render: function Render(args) {
+    const [readyIds, setReadyIds] = useState(args.progress?.readyUserIds ?? []);
+    const ids = args.members.map((m) => m.userId);
+    return (
+      <RoomBoardHeader
+        {...args}
+        progress={{
+          phaseRevision: 0,
+          progressRevision: readyIds.length,
+          connectedUserIds: ids,
+          readyUserIds: readyIds,
+          notReadyUserIds: ids.filter((id) => !readyIds.includes(id)),
+          canAdvance: readyIds.length >= ids.length / 2,
+          allReady: readyIds.length === ids.length,
+        }}
+        onToggleReady={(ready) => {
+          setTimeout(
+            () =>
+              setReadyIds((current) =>
+                ready
+                  ? [...new Set([...current, ME])]
+                  : current.filter((id) => id !== ME),
+              ),
+            250,
+          );
+        }}
+      />
+    );
+  },
+};
+
+export const CompletionUpdatePending: Story = {
+  ...CompletionCue,
+  render: (args) => <RoomBoardHeader {...args} onToggleReady={fn()} />,
+};
+
+export const CompletionUpdateFailed: Story = {
+  ...CompletionCue,
+  render: (args) => <RoomBoardHeader {...args} onToggleReady={() => false} />,
 };

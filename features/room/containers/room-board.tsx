@@ -81,6 +81,7 @@ export function RoomBoard({
   saveDisplayNameAction,
 }: RoomBoardProps) {
   const feedback = useFeedback(roomId, submitFeedback);
+  const [completionResetVersion, setCompletionResetVersion] = useState(0);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const hmwExamplesInitializedVersionRef = useRef(0);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
@@ -311,6 +312,7 @@ export function RoomBoard({
       if (message.operationId !== undefined) {
         return;
       }
+      setCompletionResetVersion((version) => version + 1);
       if (message.code === "phase-confirmation-required") {
         setIsNextPhasePending(false);
         notify.error(message.message);
@@ -370,8 +372,9 @@ export function RoomBoard({
 
   const handleToggleReady = useCallback(
     (ready: boolean) => {
-      if (connectionStatus !== "open" || roomState.outcomePublished) return;
-      send({
+      if (connectionStatus !== "open" || roomState.outcomePublished)
+        return false;
+      return send({
         type: "phase:ready",
         expectedPhase: roomState.phase,
         expectedRevision: roomState.phaseRevision,
@@ -729,6 +732,7 @@ export function RoomBoard({
         completedVoterIds={roomState.completedVoterIds}
         progress={roomState.progress}
         onToggleReady={handleToggleReady}
+        completionResetVersion={completionResetVersion}
         isNextPhasePending={isNextPhasePending}
         isSavingBeforeShare={drafts.sharingSavePending}
         signOutAction={signOutAction}

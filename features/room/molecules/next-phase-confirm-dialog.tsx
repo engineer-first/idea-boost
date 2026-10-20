@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 // ホストの「次のフェーズへ」操作の確認 Dialog（トリガーボタン込み）。
 // 未完了メンバーがいる場合など、確認が必要な進行操作で表示する。
 import {
@@ -30,6 +30,7 @@ export type NextPhaseConfirmDialogProps = {
   phase: RoomPhase;
   disabled: boolean;
   onConfirm: () => void;
+  onRequestAdvance?: (proceed: () => void) => void;
   requireConfirmation?: boolean;
   notReadyNames?: ReadonlyArray<string>;
   notReadyMembers?: ReadonlyArray<Pick<Member, "userId" | "name" | "color">>;
@@ -39,11 +40,18 @@ export function NextPhaseConfirmDialog({
   phase,
   disabled,
   onConfirm,
+  onRequestAdvance,
   requireConfirmation = true,
   notReadyNames = [],
   notReadyMembers = [],
 }: NextPhaseConfirmDialogProps) {
   const [open, setOpen] = useState(false);
+  const proceed = useRef<() => void>(() => {});
+  proceed.current = () => {
+    if (disabled) return;
+    if (requireConfirmation) setOpen(true);
+    else onConfirm();
+  };
   const beginsVoting =
     phase.kind === "step" &&
     phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1;
@@ -53,7 +61,10 @@ export function NextPhaseConfirmDialog({
       className="h-10 px-4 max-[900px]:px-2 max-[900px]:text-xs"
       disabled={disabled}
       onClick={(event) => {
-        if (!requireConfirmation) {
+        if (onRequestAdvance) {
+          event.preventDefault();
+          onRequestAdvance(() => proceed.current());
+        } else if (!requireConfirmation) {
           event.preventDefault();
           onConfirm();
         }
