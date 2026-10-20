@@ -1,0 +1,15 @@
+name: 成果データ
+description: 日付・実施回ごとの成果データ一覧。個別の成果はコメントへ追記する
+type: 成果データ
+body:
+  - type: markdown
+    attributes:
+      value: 本文は収集・調査の対象を示す入口です。まず原文・観察・成果データをコメントへ保存し、その後に必要なら要約・分析・判断を別コメントに残します。要約、現在の状況、索引の記入は要求しません。公開できる情報だけを記録してください。
+  - type: textarea
+    id: target
+    attributes:
+      label: 対象
+      description: 対象日・実施回と、集める成果データの範囲を書きます。タイトルは「YYYY-MM-DDの成果データ一覧」。ルーム単位でIssueを分割しません。
+      placeholder: 2026-10-20の実施で得られた成果データ一覧。個別の成果や元データをコメントに追加する。
+    validations:
+      required: true

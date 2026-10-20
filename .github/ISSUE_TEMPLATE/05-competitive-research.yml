@@ -1,0 +1,23 @@
+name: 競合調査
+description: 目的・対象だけで起票し、観察の一次情報をコメントに蓄積する
+type: 競合調査
+body:
+  - type: markdown
+    attributes:
+      value: 本文は収集・調査の対象を示す入口です。まず原文・観察・成果データをコメントへ保存し、その後に必要なら要約・分析・判断を別コメントに残します。要約、現在の状況、索引の記入は要求しません。公開できる情報だけを記録してください。
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 目的
+      description: 調査で知りたいことを書きます。結果や要約を先に作りません。
+      placeholder: ヒント文言と、表示される場面を調べる。
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: 対象
+      description: 製品・画面・テーマ・調査期間など、調べる範囲を書きます。
+      placeholder: 競合Aの入力画面。2026-10-20に確認するヒント表示。
+    validations:
+      required: true

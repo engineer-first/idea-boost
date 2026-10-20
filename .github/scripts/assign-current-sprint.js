@@ -64,7 +64,12 @@ function resolveCurrentSprint(milestones, now) {
 }
 
 function openIssue(issue) {
-  return issue && !issue.pull_request && issue.state === "open";
+  return (
+    issue &&
+    !issue.pull_request &&
+    issue.state === "open" &&
+    !["競合調査", "フィードバック", "成果データ"].includes(issue.type?.name)
+  );
 }
 
 async function assignCurrentSprint({
