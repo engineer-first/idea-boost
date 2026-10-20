@@ -28,6 +28,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Compact: Story = {};
+export const OnboardingSlide: Story = {
+  args: {
+    sessionKey: "onboarding-slide-preview:me",
+    initialState: "compact",
+  },
+};
 export const Intro: Story = { args: { initialState: "intro" } };
 export const Detail: Story = { args: { initialState: "detail" } };
 export const Host: Story = { args: { initialState: "detail", isHost: true } };
