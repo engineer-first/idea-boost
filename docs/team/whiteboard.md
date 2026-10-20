@@ -37,4 +37,4 @@ sprint の日程・全体の成果は GitHub Milestone を正本とし、最終�
 - [Milestones](https://github.com/engineer-first/idea-boost/milestones): スプリントの期間と対象
 - [Issue運用](issues.md): 種類・作成・自動化
 
-PBI・Task・Bug・Spike・種類なし・相談の内容はGitHub Issueを正本とし、本文や受け入れ条件をMarkdownと二重管理しない。
+PBI・Task・Bug・種類なし・相談の内容はGitHub Issueを正本とし、本文や受け入れ条件をMarkdownと二重管理しない。
