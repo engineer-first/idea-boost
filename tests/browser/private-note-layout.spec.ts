@@ -57,6 +57,9 @@ for (const viewport of [
         await page.getByTestId("board-reference-hmw-content").isVisible(),
       ).toBe(false);
     }
+    if (viewport.width >= 640) {
+      await page.getByRole("button", { name: "考えるヒントを開く" }).click();
+    }
     const help = page.locator("#board-help-content");
     expect(
       await help.evaluate((element) => element.clientHeight),

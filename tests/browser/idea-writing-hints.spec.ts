@@ -178,9 +178,7 @@ for (const width of [390, 1280]) {
       await page.screenshot({
         path: `${output}/after-phase-3-1-initial-${width}.png`,
       });
-      if (width < 640) {
-        await help.getByRole("button", { name: "考えるヒントを開く" }).click();
-      }
+      await help.getByRole("button", { name: "考えるヒントを開く" }).click();
       const template = help.getByRole("button", {
         name: "もっと簡単に",
         exact: true,
