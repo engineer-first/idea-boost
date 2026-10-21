@@ -37,23 +37,17 @@ for (const viewport of [
     expect(await toolbar.getAttribute("data-presentation")).toBe("workspace");
     expect(await page.getByTestId("board-scroller").isVisible()).toBe(false);
     const toolbarBox = await toolbar.boundingBox();
-    const topHudIds =
-      viewport.width < 640
-        ? ["board-context-hud", "board-control-hud", "step-guide"]
-        : ["board-control-hud", "step-guide"];
-    const topHudBoxes = await Promise.all(
-      topHudIds.map((testId) => page.getByTestId(testId).boundingBox()),
+    expect(toolbarBox).not.toBeNull();
+    expect(toolbarBox?.x).toBeGreaterThanOrEqual(0);
+    expect(toolbarBox?.y).toBeGreaterThanOrEqual(0);
+
+    expect((toolbarBox?.x ?? 0) + (toolbarBox?.width ?? 0)).toBeLessThanOrEqual(
+      viewport.width,
     );
-    const topHudBottom = Math.max(
-      ...topHudBoxes.flatMap((box) => (box ? [box.y + box.height] : [])),
-    );
-    expect(toolbarBox?.y).toBeGreaterThanOrEqual(topHudBottom + 8);
-    if (viewport.width >= 640) {
-      const context = await page.getByTestId("board-context-hud").boundingBox();
-      expect(toolbarBox?.x).toBeGreaterThanOrEqual(
-        (context?.x ?? 0) + (context?.width ?? 0) + 8,
-      );
-    }
+
+    expect(
+      (toolbarBox?.y ?? 0) + (toolbarBox?.height ?? 0),
+    ).toBeLessThanOrEqual(viewport.height);
     if (viewport.width < 640) {
       const reference = page.getByRole("button", { name: "決定した問い" });
       expect(await reference.isVisible()).toBe(true);

@@ -29,6 +29,7 @@ test("3-1の考えるヒントはデスクトップの残りの高さを使い�
     await page
       .getByRole("region", { name: "ファシリテーションガイド" })
       .press("Escape");
+    await page.getByRole("button", { name: "考えるヒントを開く" }).click();
     const panel = page.getByTestId("board-help-panel").locator(":scope > div");
     const heights: number[] = [];
     for (const height of [720, 1030]) {

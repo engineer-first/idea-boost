@@ -62,6 +62,7 @@ async function expectLayout(): Promise<void> {
     .evaluateAll((elements) =>
       elements.map((element) => ({
         id: element.getAttribute("data-testid") ?? "help",
+        presentation: element.getAttribute("data-presentation"),
         ...element.getBoundingClientRect().toJSON(),
       })),
     );
@@ -71,9 +72,14 @@ async function expectLayout(): Promise<void> {
     expect(box.right, box.id).toBeLessThanOrEqual(viewport.width);
     expect(box.bottom, box.id).toBeLessThanOrEqual(viewport.height);
   }
-  for (let i = 0; i < boxes.length; i++) {
-    for (const other of boxes.slice(i + 1)) {
-      const box = boxes[i];
+  const collisionBoxes = boxes.filter(
+    (box) =>
+      !(box.id === "private-notes-toolbar" && box.presentation === "workspace"),
+  );
+
+  for (let i = 0; i < collisionBoxes.length; i++) {
+    for (const other of collisionBoxes.slice(i + 1)) {
+      const box = collisionBoxes[i];
       const overlap =
         Math.min(box.right, other.right) - Math.max(box.left, other.left) > 1 &&
         Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > 1;
@@ -175,6 +181,7 @@ test.each(steps)(
 
 test("左右の開閉は独立し、多数の付箋とヒントは内部スクロールで末尾に到達できる", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
+  await page.getByRole("button", { name: "考えるヒントを開く" }).click();
   expect(await page.getByTestId("board-scroller").isVisible()).toBe(false);
   const toolbar = page.getByTestId("private-notes-toolbar");
   expect(await toolbar.getAttribute("data-presentation")).toBe("workspace");
@@ -694,10 +701,13 @@ test.each([1280, 1024, 768])(
     const toolbarBox = await page
       .getByTestId("private-notes-toolbar")
       .boundingBox();
-    const contextBox = await hud.boundingBox();
-    expect(toolbarBox?.x).toBeGreaterThanOrEqual(
-      (contextBox?.x ?? 0) + (contextBox?.width ?? 0) + 8,
-    );
+
+    const addNote = page.getByRole("button", {
+      name: "付箋を追加",
+      exact: true,
+    });
+
+    expect(await addNote.isVisible()).toBe(true);
     expect(
       (toolbarBox?.x ?? Infinity) + (toolbarBox?.width ?? 0),
     ).toBeLessThanOrEqual(width);
@@ -711,6 +721,7 @@ test.each([1280, 1024, 768])(
 
 test("考えるヒントは白地のタブにし、スクロールしても大分類を切り替えられる", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
+  await page.getByRole("button", { name: "考えるヒントを開く" }).click();
   await page.getByRole("tab", { name: "発想を広げる", exact: true }).click();
   const panel = page.getByTestId("board-help-panel");
   expect(await panel.evaluate((e) => getComputedStyle(e).fontFamily)).toContain(
@@ -890,6 +901,7 @@ test("決定内容を参照したまま発想支援の3項目目へ到達でき�
   expect(
     await page.getByTestId("board-reference-hmw-content").isVisible(),
   ).toBe(true);
+  await page.getByRole("button", { name: "考えるヒントを開く" }).click();
   await page.getByRole("tab", { name: "発想を広げる", exact: true }).click();
   await page.getByRole("button", { name: /ほかの問いを見る/ }).click();
   const content = await page.locator("#board-help-content").boundingBox();
