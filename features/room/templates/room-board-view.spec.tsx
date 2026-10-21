@@ -175,6 +175,41 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
   return { ...renderResult, props: resolvedProps };
 }
 
+describe("共有中のいいねの表示", () => {
+  it.each([1, 2] as const)(
+    "%i-2で受信したいいねを表示し、対象外工程へ進むと消す",
+    (phase) => {
+      const { props, rerender } = setup({
+        phase: buildPhaseStep(2, phase),
+        sharingReactions: [
+          { id: ME, senderId: ME, slot: 0, expiresAt: Date.now() + 3_000 },
+        ],
+      });
+      expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
+
+      rerender(<TestBoardView {...props} phase={buildPhaseStep(3, phase)} />);
+      expect(
+        screen.queryByRole("img", { name: "いいね" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("成果公開後は残っているいいねの受信propsを表示しない", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(2),
+      sharingReactions: [
+        { id: ME, senderId: ME, slot: 0, expiresAt: Date.now() + 3_000 },
+      ],
+    });
+    expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
+
+    rerender(<TestBoardView {...props} outcomePublished />);
+    expect(
+      screen.queryByRole("img", { name: "いいね" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 it("選択ツールからの単一移動は押下座標を移動hookへ渡す", () => {
   const { props } = setup({ phase: buildPhaseStep(2) });
   const surface = getNoteSurface(screen.getAllByTestId("note-card")[0]);

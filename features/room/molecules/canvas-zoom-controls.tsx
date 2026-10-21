@@ -9,13 +9,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
+import type { SharingReactionControls as SharingReactionControlsOptions } from "../logic/use-sharing-reactions";
 import {
   MoveHistoryControls,
   type MoveHistoryControlsProps,
 } from "./move-history-controls";
+import { SharingReactionControls } from "./sharing-reaction-controls";
 
 export type CanvasZoomControlsProps = {
+  reactionControls?: SharingReactionControlsOptions;
   moveHistory?: MoveHistoryControlsProps;
   showNavigationControls?: boolean;
   interactionTool?: "select" | "hand";
@@ -29,6 +31,7 @@ export type CanvasZoomControlsProps = {
 };
 
 export function CanvasZoomControls({
+  reactionControls,
   moveHistory,
   showNavigationControls = true,
   interactionTool = "select",
@@ -199,6 +202,12 @@ export function CanvasZoomControls({
                 付箋全体を表示（自分だけの表示）
               </TooltipContent>
             </Tooltip>
+            {reactionControls ? (
+              <SharingReactionControls
+                {...reactionControls}
+                disabled={reactionControls.disabled || toolDisabled}
+              />
+            ) : null}
             <details
               ref={helpRef}
               data-canvas-help="true"

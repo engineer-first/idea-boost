@@ -44,6 +44,7 @@ import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
 import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
+import { useSharingReactions } from "../logic/use-sharing-reactions";
 import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
 
 export type RoomBoardProps = {
@@ -218,6 +219,13 @@ export function RoomBoard({
     connectionStatus,
     send,
   });
+  const sharingReactions = useSharingReactions({
+    phase: roomState.phase,
+    phaseRevision: roomState.phaseRevision,
+    connectionStatus,
+    blocked: isLeaving || isNextPhasePending || roomState.outcomePublished,
+    send,
+  });
 
   function clearCandidateNotices(): void {
     bulkUndoIdsRef.current.clear();
@@ -339,6 +347,7 @@ export function RoomBoard({
     noteGroups.applyMessage(message);
     roomState.applyMessage(message, receivedAt);
     cursorPresence.applyMessage(message, receivedAt);
+    sharingReactions.applyMessage(message, receivedAt);
   }
 
   const handleNextPhase = useCallback(
@@ -649,6 +658,11 @@ export function RoomBoard({
   return (
     <>
       <RoomBoardView
+        sharingReactions={sharingReactions.reactions}
+        reactionControls={{
+          disabled: !sharingReactions.canSendLike,
+          onSendLike: sharingReactions.sendLike,
+        }}
         loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
           undo: moveHistory.undoState,

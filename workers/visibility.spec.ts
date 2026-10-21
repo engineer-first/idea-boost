@@ -322,6 +322,7 @@ it.each([
   "direct",
   "note",
   "group",
+  "reaction",
   "move-ended",
   "move-preview",
   "move-batch",
@@ -356,6 +357,18 @@ it.each([
     case "group":
       broadcaster.broadcastGroup(
         { type: "group:deleted", groupId: "group", groupRevision: 1 },
+        () => true,
+      );
+      break;
+    case "reaction":
+      broadcaster.broadcastReaction(
+        {
+          type: "reaction:received",
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          senderId: "11111111-1111-4111-8111-111111111111",
+          kind: "like",
+          phaseRevision: 1,
+        },
         () => true,
       );
       break;

@@ -306,6 +306,32 @@ function openPrivateNotesToolbar() {
   return toolbar;
 }
 
+it("共有中のいいねをツールバーから送信し、配信を受けて画面に表示する", () => {
+  const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(2) });
+  const toolbar = screen.getByTestId("canvas-zoom-controls");
+  fireEvent.click(
+    within(toolbar).getByRole("button", { name: "リアクション" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "いいねを送る" }));
+  expectSent(socket, {
+    type: "reaction:send",
+    kind: "like",
+    phaseRevision: 0,
+  });
+  expect(screen.queryByRole("img", { name: "いいね" })).not.toBeInTheDocument();
+
+  act(() =>
+    socket.simulateServerMessage({
+      type: "reaction:received",
+      id: STICKER_ID,
+      senderId: "22222222-2222-4222-8222-222222222222",
+      kind: "like",
+      phaseRevision: 0,
+    }),
+  );
+  expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
+});
+
 describe("問いの投票中の付箋移動", () => {
   it.each([true, false])(
     "ホスト権限%jでシールの貼付・付替・取消から付箋移動まで同じポインターで続けられる",
