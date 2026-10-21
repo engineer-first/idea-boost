@@ -457,7 +457,7 @@ export function PrivateNotesToolbar({
             {isWorkspace
               ? exampleNotes.map((example, index) => (
                   <StickyNote
-                    key={`hmw-example-${index}`}
+                    key={example}
                     noteId={`hmw-example-${index}`}
                     color="blue"
                     height={getNoteHeight(example, NOTE_DEFAULT_FONT_SIZE)}

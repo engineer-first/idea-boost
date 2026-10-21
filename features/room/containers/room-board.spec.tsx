@@ -1069,7 +1069,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     },
   );
 
-  it("HMWのサンプル付箋はタイマー開始まで自動作成しない", () => {
+  it("HMWのサンプル付箋はタイマー開始後も保存せず参照表示する", () => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(1, 2),
       timer: { status: "idle" },
@@ -1095,10 +1095,13 @@ describe("サーバーメッセージ → 画面反映", () => {
       });
     });
 
-    // タイマー開始後は HMW のサンプル作成が実行される。
+    // タイマー開始後も HMW の例示を付箋として保存しない。
     expect(
       sentMessages().some((message) => message.type === "note:create"),
-    ).toBe(true);
+    ).toBe(false);
+
+    expect(screen.getByTestId("hmw-example-note-1")).toBeVisible();
+    expect(screen.getByTestId("hmw-example-note-2")).toBeVisible();
   });
 
   it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {
@@ -3345,7 +3348,7 @@ describe("Step 3-1（アイデア個人執筆）", () => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(1, 3),
     });
-
+    fireEvent.click(screen.getByRole("button", { name: "考えるヒントを開く" }));
     fireEvent.click(screen.getByRole("button", { name: "もっと簡単に" }));
 
     expect(socket.sent.map((raw) => JSON.parse(raw))).toContainEqual({

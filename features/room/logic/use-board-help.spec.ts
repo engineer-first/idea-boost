@@ -31,7 +31,7 @@ describe("useBoardHelp", () => {
     [2, 2, null, false],
     [2, 3, null, false],
     [2, 4, null, false],
-    [3, 1, "idea", true],
+    [3, 1, "idea", false],
     [3, 2, null, false],
     [3, 3, null, false],
     [3, 4, null, false],

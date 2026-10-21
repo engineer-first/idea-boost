@@ -83,8 +83,6 @@ export function RoomBoard({
   const feedback = useFeedback(roomId, submitFeedback);
   const [completionResetVersion, setCompletionResetVersion] = useState(0);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
-  const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
-    useState(false);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
   const bulkUndoIdsRef = useRef(new Set<string>());
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
