@@ -220,10 +220,10 @@ test("1-1: 右上のルームメニューと招待操作が拡大パネルに隠
   await page.getByRole("dialog", { name: "ルームに招待" }).waitFor();
 });
 
-test("1-1から1-2への遷移でマイ付箋エリアのView Transitionが再生される", async () => {
+async function expectPrivateAreaTransition(storyId: string): Promise<void> {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(
-    `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-1-to-step-2&viewMode=story`,
+    `${origin}/iframe.html?id=room-roomboardlayout--${storyId}&viewMode=story`,
   );
   await page.getByTestId("private-notes-workspace").waitFor();
 
@@ -301,7 +301,17 @@ test("1-1から1-2への遷移でマイ付箋エリアのView Transitionが再�
       ),
     )
     .toBeGreaterThan(0);
-});
+}
+
+for (const { step, storyId } of [
+  { step: "1-1から1-2", storyId: "phase-1-step-1-to-step-2" },
+  { step: "2-1から2-2", storyId: "phase-2-step-1-to-step-2" },
+  { step: "3-1から3-2", storyId: "phase-3-step-1-to-step-2" },
+]) {
+  test(`${step}への遷移でマイ付箋エリアのView Transitionが再生される`, async () => {
+    await expectPrivateAreaTransition(storyId);
+  });
+}
 
 for (const width of [390, 1440]) {
   test(`${width}px: 個人作業の追加ボタンは空の状態から追加を繰り返しても一覧の左上から動かない`, async () => {

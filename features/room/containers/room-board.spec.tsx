@@ -915,6 +915,33 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(reactTransitionProbe.start).toHaveBeenCalledTimes(1);
   });
 
+  it.each([2, 3] as const)(
+    "%i-1から同じフェーズのStep 2へ進んでもマイ付箋を展開したままにする",
+    (phase) => {
+      const { socket } = connectWithSnapshot([], {
+        phase: buildPhaseStep(1, phase),
+      });
+      reactTransitionProbe.start.mockClear();
+
+      act(() =>
+        socket.simulateServerMessage({
+          type: "phase:updated",
+          phaseRevision: 1,
+          phase: buildPhaseStep(2, phase),
+        }),
+      );
+
+      expect(reactTransitionProbe.start).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        "true",
+      );
+      expect(
+        screen.getByRole("button", { name: "マイ付箋を閉じる" }),
+      ).toHaveAttribute("aria-expanded", "true");
+    },
+  );
+
   it("共有作業中だけ他者のカーソルを表示し、切断時に消す", () => {
     const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(2) });
     act(() =>

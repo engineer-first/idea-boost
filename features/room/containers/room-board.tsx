@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
-import { isPhaseStep, isResultStep, type RoomPhase } from "@/contracts/phase";
+import { isResultStep, type RoomPhase } from "@/contracts/phase";
 import {
   type ClientMessage,
   needsHostRevision,
@@ -73,6 +73,19 @@ export type RoomBoardProps = {
   ) => Promise<DisplayNameResult>;
   // テストでボード操作を単体検証するときは案内モーダルを無効化する。
 };
+
+function isPrivateNotesWorkspaceHandoff(
+  from: RoomPhase,
+  to: RoomPhase,
+): boolean {
+  return (
+    from.kind === "step" &&
+    to.kind === "step" &&
+    from.phase === to.phase &&
+    from.step === 1 &&
+    to.step === 2
+  );
+}
 
 export function RoomBoard({
   roomId,
@@ -391,8 +404,7 @@ export function RoomBoard({
     noteGroups.applyMessage(message);
     if (
       (message.type === "phase:updated" || message.type === "snapshot") &&
-      isPhaseStep(roomState.phase, 1, 1) &&
-      isPhaseStep(message.phase, 1, 2)
+      isPrivateNotesWorkspaceHandoff(roomState.phase, message.phase)
     ) {
       beginPrivateNotesHandoff();
       startTransition(() => roomState.applyMessage(message, receivedAt));

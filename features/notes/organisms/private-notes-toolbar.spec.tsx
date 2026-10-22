@@ -36,7 +36,7 @@ function setup(disabled = false, selectedNoteId: string | null = null) {
 }
 
 describe("PrivateNotesToolbar", () => {
-  it("workspaceからdockへ切り替わると通常の折りたたみ状態に戻る", () => {
+  it("workspaceからdockへ切り替わるとマイ付箋を展開する", () => {
     const props = {
       notes: [buildNote({ visibility: "private", content: "非公開の考え" })],
       disabled: false,
@@ -63,18 +63,18 @@ describe("PrivateNotesToolbar", () => {
       <PrivateNotesToolbar
         {...props}
         presentation="dock"
-        collapseOnWorkspaceExit
+        expandOnWorkspaceExit
         defaultExpanded={false}
       />,
     );
 
     expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
       "data-expanded",
-      "false",
+      "true",
     );
   });
 
-  it("View Transition中はworkspaceを展開したままにし、完了後にdockを折りたたむ", () => {
+  it("View Transition中から完了後までマイ付箋を展開したままにする", () => {
     const props = {
       notes: [buildNote({ visibility: "private", content: "非公開の考え" })],
       disabled: false,
@@ -102,7 +102,7 @@ describe("PrivateNotesToolbar", () => {
       <PrivateNotesToolbar
         {...props}
         presentation="dock"
-        collapseOnWorkspaceExit
+        expandOnWorkspaceExit
         defaultExpanded={false}
         workspaceExitTransitionPending
       />,
@@ -117,7 +117,7 @@ describe("PrivateNotesToolbar", () => {
       <PrivateNotesToolbar
         {...props}
         presentation="dock"
-        collapseOnWorkspaceExit
+        expandOnWorkspaceExit
         defaultExpanded={false}
         workspaceExitTransitionPending={false}
       />,
@@ -125,7 +125,7 @@ describe("PrivateNotesToolbar", () => {
 
     expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
       "data-expanded",
-      "false",
+      "true",
     );
   });
 
@@ -159,7 +159,7 @@ describe("PrivateNotesToolbar", () => {
       <PrivateNotesToolbar
         {...props}
         presentation="dock"
-        collapseOnWorkspaceExit
+        expandOnWorkspaceExit
         defaultExpanded
         workspaceExitTransitionPending
       />,
@@ -174,7 +174,7 @@ describe("PrivateNotesToolbar", () => {
       <PrivateNotesToolbar
         {...props}
         presentation="dock"
-        collapseOnWorkspaceExit
+        expandOnWorkspaceExit
         defaultExpanded
         workspaceExitTransitionPending={false}
       />,

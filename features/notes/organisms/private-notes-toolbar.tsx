@@ -44,7 +44,7 @@ export type PrivateNotesToolbarProps = {
   canMoveNote: boolean;
   sharingHint?: string;
   presentation?: "dock" | "workspace";
-  collapseOnWorkspaceExit?: boolean;
+  expandOnWorkspaceExit?: boolean;
   workspaceExitTransitionPending?: boolean;
   defaultExpanded?: boolean;
   expandRequest?: number;
@@ -84,7 +84,7 @@ export function PrivateNotesToolbar({
   canMoveNote,
   sharingHint,
   presentation = "dock",
-  collapseOnWorkspaceExit = false,
+  expandOnWorkspaceExit = false,
   workspaceExitTransitionPending = false,
   canEditNote,
   defaultExpanded = true,
@@ -108,7 +108,7 @@ export function PrivateNotesToolbar({
   const isWorkspace = presentation === "workspace";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const previousPresentationRef = useRef(presentation);
-  const pendingWorkspaceExitCollapseRef = useRef(false);
+  const pendingWorkspaceExitExpandRef = useRef(false);
   const [autoFocusNoteId, setAutoFocusNoteId] = useState<string | null>(null);
   const [newlyAddedNoteId, setNewlyAddedNoteId] = useState<string | null>(null);
   const pendingCreationFocusRef = useRef<{
@@ -134,26 +134,24 @@ export function PrivateNotesToolbar({
     const presentationChanged =
       previousPresentationRef.current !== presentation;
     if (presentationChanged) previousPresentationRef.current = presentation;
-    if (presentation !== "dock" || !collapseOnWorkspaceExit) {
-      pendingWorkspaceExitCollapseRef.current = false;
+    if (presentation !== "dock" || !expandOnWorkspaceExit) {
+      pendingWorkspaceExitExpandRef.current = false;
       return;
     }
-    if (!presentationChanged && !pendingWorkspaceExitCollapseRef.current)
-      return;
+    if (!presentationChanged && !pendingWorkspaceExitExpandRef.current) return;
     if (workspaceExitTransitionPending) {
-      pendingWorkspaceExitCollapseRef.current = true;
+      pendingWorkspaceExitExpandRef.current = true;
       return;
     }
-    pendingWorkspaceExitCollapseRef.current = false;
+    pendingWorkspaceExitExpandRef.current = false;
     const activeElement = document.activeElement;
     const isFocusedEditor =
       activeElement instanceof HTMLTextAreaElement &&
       toolbarRef?.current?.contains(activeElement) &&
       !activeElement.readOnly;
-    if (!isFocusedEditor) setIsExpanded(defaultExpanded);
+    if (!isFocusedEditor) setIsExpanded(true);
   }, [
-    collapseOnWorkspaceExit,
-    defaultExpanded,
+    expandOnWorkspaceExit,
     presentation,
     toolbarRef,
     workspaceExitTransitionPending,

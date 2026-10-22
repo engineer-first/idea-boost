@@ -360,6 +360,34 @@ test("2-1は例付箋をマイ付箋に表示し、考えるヒントを表示�
   await expectLayout();
 });
 
+test.each([2, 3] as const)(
+  "%i-1から同フェーズのステップ2へ移行してもマイ付箋エリアを展開したままにする",
+  async (phase) => {
+    await openStory(`room-roomboardlayout--phase-${phase}-step-1-to-step-2`);
+    const toolbar = page.getByTestId("private-notes-toolbar");
+    expect(await toolbar.getAttribute("data-expanded")).toBe("true");
+
+    await page.getByRole("button", { name: "次のステップへ" }).click();
+    await expect
+      .poll(() => toolbar.getAttribute("data-presentation"))
+      .toBe("dock");
+    await page.waitForTimeout(600);
+    await expect.poll(() => toolbar.getAttribute("data-expanded")).toBe("true");
+    await expect
+      .poll(() => page.getByTestId("private-notes-scroll").isVisible())
+      .toBe(true);
+
+    await openStory(`room-roomboardlayout--phase-${phase}-step-2`);
+    const reloadedToolbar = page.getByTestId("private-notes-toolbar");
+    await expect
+      .poll(() => reloadedToolbar.getAttribute("data-expanded"))
+      .toBe("true");
+    await expect
+      .poll(() => page.getByTestId("private-notes-scroll").isVisible())
+      .toBe(true);
+  },
+);
+
 test("接続中断時と参加者表示でもタイマー枠を薄くせず、全状態で寸法を保つ", async () => {
   let participantPosition: { x: number; y: number } | undefined;
 

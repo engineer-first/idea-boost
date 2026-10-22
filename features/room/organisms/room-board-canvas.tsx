@@ -1223,7 +1223,9 @@ export function RoomBoardCanvas({
                         : undefined
                 }
                 presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
-                collapseOnWorkspaceExit={isPhaseStep(phase, 1, 2)}
+                expandOnWorkspaceExit={
+                  phase.kind === "step" && phase.step === 2
+                }
                 workspaceExitTransitionPending={isPrivateNotesHandoffPending}
                 editingDisabled={isResultStep(phase)}
                 defaultExpanded={
@@ -1231,17 +1233,16 @@ export function RoomBoardCanvas({
                     phase.step === 1 &&
                     phase.phase <= 3) ||
                   isPhaseStep(phase, 1, 2) ||
+                  isPhaseStep(phase, 2, 2) ||
                   isPhaseStep(phase, 3, 2)
                 }
                 expandRequest={expandPrivateNotesRequest}
                 addRequest={addPrivateNoteRequest}
                 addActionRef={privateNoteAddRef}
                 className={
-                  isInitialPersonalEntryPhase
-                    ? "pointer-events-auto h-full w-full max-w-none rounded-2xl border border-border bg-card shadow-xl"
-                    : isPersonalNoteEntryPhase
-                      ? "pointer-events-auto h-full w-full"
-                      : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
+                  isPersonalNoteEntryPhase
+                    ? "pointer-events-auto h-full w-full rounded-2xl border border-border bg-card shadow-xl"
+                    : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
                 }
                 toolbarRef={privateToolbarRef}
                 isReturnDropTarget={isReturnDropTarget}
