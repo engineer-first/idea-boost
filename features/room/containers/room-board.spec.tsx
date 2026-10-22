@@ -318,6 +318,32 @@ function openPrivateNotesToolbar() {
   return toolbar;
 }
 
+it("共有中のいいねをツールバーから送信し、配信を受けて画面に表示する", () => {
+  const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(2) });
+  const toolbar = screen.getByTestId("canvas-zoom-controls");
+  fireEvent.click(
+    within(toolbar).getByRole("button", { name: "リアクション" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "いいねを送る" }));
+  expectSent(socket, {
+    type: "reaction:send",
+    kind: "like",
+    phaseRevision: 0,
+  });
+  expect(screen.queryByRole("img", { name: "いいね" })).not.toBeInTheDocument();
+
+  act(() =>
+    socket.simulateServerMessage({
+      type: "reaction:received",
+      id: STICKER_ID,
+      senderId: "22222222-2222-4222-8222-222222222222",
+      kind: "like",
+      phaseRevision: 0,
+    }),
+  );
+  expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
+});
+
 describe("問いの投票中の付箋移動", () => {
   it.each([true, false])(
     "ホスト権限%jでシールの貼付・付替・取消から付箋移動まで同じポインターで続けられる",
@@ -1117,7 +1143,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     },
   );
 
-  it("HMWのサンプル付箋はタイマー開始まで自動作成しない", () => {
+  it("HMWのサンプル付箋はタイマー開始後も保存せず参照表示する", () => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(1, 2),
       timer: { status: "idle" },
@@ -1143,10 +1169,13 @@ describe("サーバーメッセージ → 画面反映", () => {
       });
     });
 
-    // タイマー開始後は HMW のサンプル作成が実行される。
+    // タイマー開始後も HMW の例示を付箋として保存しない。
     expect(
       sentMessages().some((message) => message.type === "note:create"),
-    ).toBe(true);
+    ).toBe(false);
+
+    expect(screen.getByTestId("hmw-example-note-1")).toBeVisible();
+    expect(screen.getByTestId("hmw-example-note-2")).toBeVisible();
   });
 
   it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {
@@ -3393,7 +3422,7 @@ describe("Step 3-1（アイデア個人執筆）", () => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(1, 3),
     });
-
+    fireEvent.click(screen.getByRole("button", { name: "考えるヒントを開く" }));
     fireEvent.click(screen.getByRole("button", { name: "もっと簡単に" }));
 
     expect(socket.sent.map((raw) => JSON.parse(raw))).toContainEqual({

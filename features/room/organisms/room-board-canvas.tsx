@@ -60,6 +60,7 @@ import type {
   CanvasSelectionOptions,
   CanvasTool,
 } from "../logic/use-canvas-selection";
+import type { SharingReactionControls } from "../logic/use-sharing-reactions";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -78,7 +79,9 @@ const ADOPTION_TARGET_CLASS_NAME =
 export type RoomBoardCanvasProps = {
   rollbackRevision?: number;
   moveHistory?: MoveHistoryControlsProps;
+  reactionControls?: SharingReactionControls;
   notes: Note[];
+  exampleNotes?: readonly string[];
   groups: PersistentGroup[];
   phase: RoomPhase;
   isPrivateNotesHandoffPending?: boolean;
@@ -190,6 +193,7 @@ export type RoomBoardCanvasProps = {
 export function RoomBoardCanvas({
   rollbackRevision = 0,
   moveHistory,
+  reactionControls,
   notes,
   groups,
   phase,
@@ -197,6 +201,7 @@ export function RoomBoardCanvas({
   decision,
   isHost,
   privateNotes,
+  exampleNotes = [],
   canPublishPrivateNote = false,
   isSavingBeforeShare = false,
   selectedNoteId,
@@ -310,7 +315,7 @@ export function RoomBoardCanvas({
   const privateNotesContainerClassName = isPersonalNoteEntryPhase
     ? isInitialPersonalEntryPhase
       ? "fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[60] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 sm:top-[var(--board-private-expanded-top,5rem)] lg:inset-x-5 lg:bottom-5 lg:top-[var(--board-private-expanded-top,5rem)]"
-      : "absolute inset-x-0 top-[min(var(--board-private-workspace-top,12rem),calc(100%-20rem))] bottom-24 z-30 flex min-h-0 justify-center px-3 py-2 min-[640px]:left-96 max-[639px]:top-[min(var(--board-private-workspace-top,12rem),calc(100%-8rem))] max-[639px]:bottom-8"
+      : "absolute inset-x-0 top-[var(--board-private-workspace-top,12rem)] bottom-0 z-30 flex min-h-0 justify-center px-3 py-2"
     : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
@@ -560,6 +565,7 @@ export function RoomBoardCanvas({
 
   const canvasZoomControls = (
     <CanvasZoomControls
+      reactionControls={reactionControls}
       moveHistory={moveHistory}
       showNavigationControls
       interactionTool={interactionTool}
@@ -1165,6 +1171,13 @@ export function RoomBoardCanvas({
           >
             <div
               className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
+              style={
+                isPersonalNoteEntryPhase && !isInitialPersonalEntryPhase
+                  ? {
+                      top: "calc(var(--board-private-workspace-top, 12rem) - 100px)",
+                    }
+                  : undefined
+              }
               data-testid={
                 isPersonalNoteEntryPhase
                   ? "private-notes-workspace"
@@ -1177,6 +1190,7 @@ export function RoomBoardCanvas({
               <PrivateNotesToolbar
                 rollbackRevision={rollbackRevision}
                 notes={privateNotes}
+                exampleNotes={exampleNotes}
                 disabled={isDisconnected}
                 canDeleteNote={
                   !privateNotesInteractionBlocked && permissions.canDeleteNote

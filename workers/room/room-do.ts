@@ -139,6 +139,7 @@ import {
   sharingHandlers,
   startPendingSharingTurn,
 } from "./sharing";
+import { sharingReactionHandlers } from "./sharing-reactions";
 import {
   appendSharingMember,
   getSharingState,
@@ -186,6 +187,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...timerHandlers,
   ...sharingHandlers,
   ...presenceHandlers,
+  ...sharingReactionHandlers,
 };
 
 function optimisticOperationIdOf(message: ClientMessage): string | undefined {

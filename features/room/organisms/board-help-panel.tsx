@@ -30,7 +30,11 @@ export function BoardHelpPanel({
       aria-label="考えるヒント"
       data-testid="board-help-panel"
       data-open={isOpen}
-      className={`pointer-events-none flex min-h-0 w-80 max-w-full flex-1 items-start max-[639px]:w-full ${isOpen ? "max-[639px]:absolute max-[639px]:left-0 max-[639px]:top-[calc(var(--board-location-height,80px)+3.5rem)] max-[639px]:z-40 max-[639px]:h-[140px]" : ""}`}
+      className={`pointer-events-none flex min-h-0 max-w-full items-start ${
+        isOpen
+          ? "w-80 flex-1 max-[639px]:w-full max-[639px]:absolute max-[639px]:left-0 max-[639px]:top-[calc(var(--board-location-height,80px)+3.5rem)] max-[639px]:z-40 max-[639px]:h-[140px]"
+          : "w-[200px] flex-none max-[639px]:w-full"
+      }`}
       onKeyDown={(event) => {
         if (event.key !== "Escape" || !isOpen) return;
         event.stopPropagation();
