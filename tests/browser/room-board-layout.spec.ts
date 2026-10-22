@@ -254,6 +254,151 @@ test.each(["reconnecting", "participant"])(
   },
 );
 
+for (const [phase, reference] of [
+  [2, "issue"],
+  [3, "hmw"],
+] as const) {
+  test(`${phase}-1の付箋と追加カードはマイ付箋エリアの中央に横一列で並ぶ`, async () => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
+
+    const workspace = page.getByTestId("private-notes-toolbar");
+    const list = page.getByTestId("private-notes-list");
+    const layout = await page.evaluate(() => {
+      const workspace = document.querySelector(
+        '[data-testid="private-notes-toolbar"]',
+      );
+      const list = document.querySelector('[data-testid="private-notes-list"]');
+      if (!workspace || !list) return null;
+      const workspaceBounds = workspace.getBoundingClientRect();
+      const cards = Array.from(list.children).map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          left: bounds.left,
+          right: bounds.right,
+          top: bounds.top,
+        };
+      });
+      const firstRowTop = cards[0]?.top;
+      const firstRow = cards.filter(
+        (card) => Math.abs(card.top - (firstRowTop ?? 0)) < 1,
+      );
+      return {
+        workspaceCenter: workspaceBounds.left + workspaceBounds.width / 2,
+        firstRowCenter:
+          firstRow.length > 0
+            ? (firstRow[0].left + firstRow[firstRow.length - 1].right) / 2
+            : null,
+        firstRowCount: firstRow.length,
+      };
+    });
+
+    expect(await workspace.isVisible()).toBe(true);
+    expect(await list.isVisible()).toBe(true);
+    expect(layout).not.toBeNull();
+    expect(layout?.firstRowCount).toBe(5);
+    expect(
+      Math.abs((layout?.firstRowCenter ?? 0) - (layout?.workspaceCenter ?? 0)),
+    ).toBeLessThan(16);
+  });
+
+  for (const [width, height] of [
+    [1280, 720],
+    [1920, 1080],
+  ] as const) {
+    test(`${phase}-1 ${width}×${height}pxで参照付箋と追加カードが重ならない`, async () => {
+      await page.setViewportSize({ width, height });
+      await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
+
+      const referenceNote = page
+        .getByTestId(`board-reference-${reference}-content`)
+        .locator("xpath=..");
+      const addNote = page.getByRole("button", {
+        name: "付箋を追加",
+        exact: true,
+      });
+      expect(await referenceNote.isVisible()).toBe(true);
+      expect(await addNote.isVisible()).toBe(true);
+
+      const referenceBox = await referenceNote.boundingBox();
+      const addBox = await addNote.boundingBox();
+      if (!referenceBox || !addBox)
+        throw new Error("参照付箋または追加カードが見つかりません");
+      const overlaps =
+        Math.min(referenceBox.x + referenceBox.width, addBox.x + addBox.width) >
+          Math.max(referenceBox.x, addBox.x) &&
+        Math.min(
+          referenceBox.y + referenceBox.height,
+          addBox.y + addBox.height,
+        ) > Math.max(referenceBox.y, addBox.y);
+      expect(overlaps, JSON.stringify({ referenceBox, addBox })).toBe(false);
+      expect(
+        await addNote.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return (
+            document
+              .elementFromPoint(
+                bounds.x + bounds.width / 2,
+                bounds.y + bounds.height / 2,
+              )
+              ?.closest('button[aria-label="付箋を追加"]') === element
+          );
+        }),
+      ).toBe(true);
+    });
+  }
+}
+
+for (const phase of [1, 2, 3] as const) {
+  test(`${phase}-1ではマイ付箋エリア外の余白に無限キャンバスが見える`, async () => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
+
+    const privateNotes = page.getByTestId("private-notes-toolbar");
+    expect(await privateNotes.isVisible()).toBe(true);
+    await expectOpaqueAndReadable(privateNotes);
+
+    const boardScroller = page.getByTestId("board-scroller");
+    if (phase === 1) {
+      expect(await boardScroller.isVisible()).toBe(true);
+      expect(
+        await boardScroller.evaluate(
+          (element) => getComputedStyle(element).filter,
+        ),
+      ).toBe("blur(4px)");
+    } else {
+      expect(await boardScroller.isVisible()).toBe(false);
+    }
+
+    const canvas = page.getByTestId("private-workspace-canvas-backdrop");
+    expect(await canvas.isVisible()).toBe(true);
+    const backdropStyle = await canvas.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backgroundImage: style.backgroundImage,
+        filter: style.filter,
+        pointerEvents: style.pointerEvents,
+      };
+    });
+    expect(backdropStyle.backgroundImage).not.toBe("none");
+    expect(backdropStyle.filter).toBe("none");
+    expect(backdropStyle.pointerEvents).toBe("none");
+
+    const canvasBox = await canvas.boundingBox();
+    const privateNotesBox = await privateNotes.boundingBox();
+    if (!canvasBox || !privateNotesBox)
+      throw new Error("キャンバスまたはマイ付箋エリアが見つかりません");
+    expect(canvasBox.x).toBeLessThan(privateNotesBox.x);
+    expect(canvasBox.y).toBeLessThan(privateNotesBox.y);
+    expect(canvasBox.x + canvasBox.width).toBeGreaterThan(
+      privateNotesBox.x + privateNotesBox.width,
+    );
+    expect(canvasBox.y + canvasBox.height).toBeGreaterThan(
+      privateNotesBox.y + privateNotesBox.height,
+    );
+  });
+}
+
 async function expectOpaqueAndReadable(locator: Locator): Promise<void> {
   const style = await locator.evaluate((element) => {
     const css = getComputedStyle(element);

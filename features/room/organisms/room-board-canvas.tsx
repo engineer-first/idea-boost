@@ -814,6 +814,14 @@ export function RoomBoardCanvas({
         data-testid="board-frame"
         data-map-workspace={usesIdeaMapViewport || undefined}
       >
+        {isPersonalNoteEntryPhase ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-muted/20"
+            data-testid="private-workspace-canvas-backdrop"
+            style={gridStyle}
+          />
+        ) : null}
         <div
           className="pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
           data-testid="board-tools-hud"
@@ -870,7 +878,7 @@ export function RoomBoardCanvas({
           <div
             ref={boardScrollerRef}
             // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
-            className={`personal-canvas-scroller relative h-full ${usesIdeaMapViewport ? "overflow-visible bg-background" : "overflow-clip bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
+            className={`personal-canvas-scroller relative h-full ${usesIdeaMapViewport ? "overflow-visible bg-background" : isInitialPersonalEntryPhase ? "overflow-clip bg-transparent" : "overflow-clip bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
               isIdeaMapWorkspaceStep
                 ? "cursor-default"
                 : isAdoptMode
@@ -899,7 +907,7 @@ export function RoomBoardCanvas({
             data-selection-count={selectionIds.length}
             data-adopt-mode={isAdoptMode || undefined}
             style={{
-              ...(usesIdeaMapViewport
+              ...(usesIdeaMapViewport || isInitialPersonalEntryPhase
                 ? { backgroundImage: "none" }
                 : gridStyle),
               filter: isInitialPersonalEntryPhase ? "blur(4px)" : "none",
@@ -1241,7 +1249,7 @@ export function RoomBoardCanvas({
                 addActionRef={privateNoteAddRef}
                 className={
                   isPersonalNoteEntryPhase
-                    ? "pointer-events-auto h-full w-full rounded-2xl border border-border bg-card shadow-xl"
+                    ? `pointer-events-auto h-full w-full rounded-2xl border border-border bg-card shadow-xl ${phase.kind === "step" && phase.phase > 1 ? styles.workspaceWithReference : ""}`
                     : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
                 }
                 toolbarRef={privateToolbarRef}
