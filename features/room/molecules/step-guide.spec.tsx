@@ -50,6 +50,19 @@ function outsideClick() {
 }
 beforeEach(() => {
   sessionStorage.clear();
+  for (const phaseKey of [
+    "1-1",
+    "1-2",
+    "1-3",
+    "1-4",
+    "1-5",
+    "2-1",
+    "3-1",
+    "3-2",
+    "3-3",
+  ]) {
+    sessionStorage.setItem(`step-onboarding:room:me:${phaseKey}`, "seen");
+  }
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -57,6 +70,34 @@ afterEach(() => {
 });
 
 describe("工程ガイド", () => {
+  it.each(["1-1", "1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-2", "3-3"])(
+    "%s は初回に工程スライドを表示し、開始後は再表示しない",
+    (phaseKey) => {
+      sessionStorage.removeItem(`step-onboarding:room:me:${phaseKey}`);
+      const first = setup({ phaseKey });
+      const slide = screen.getByRole("dialog", { name: guide.modalTitle });
+      expect(within(slide).getByText(guide.firstAction)).toBeVisible();
+      expect(within(slide).getByText(guide.steps[0])).toBeVisible();
+      fireEvent.click(within(slide).getByRole("button", { name: "はじめる" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      first.unmount();
+
+      const { unmount } = render(
+        <StepGuide {...defaults} phaseKey={phaseKey} />,
+      );
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      unmount();
+    },
+  );
+
+  it.each(["2-2", "2-3", "2-4", "3-4", "3-5"])(
+    "%s は共通作業の工程スライドを表示しない",
+    (phaseKey) => {
+      setup({ phaseKey });
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    },
+  );
+
   it.each([undefined, "intro"] as const)(
     "639px以下では初めての工程も説明を閉じ、入口から開ける（初期状態: %s）",
     (initialState) => {
