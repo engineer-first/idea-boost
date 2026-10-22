@@ -2732,19 +2732,25 @@ describe("RoomBoardView", () => {
     it("接続確立中は接続中の表示を出す（loading）", () => {
       setup({ connectionStatus: "connecting" });
 
-      expect(screen.getByRole("status")).toHaveTextContent("接続しています");
+      expect(screen.getByTestId("board-connection-status")).toHaveTextContent(
+        "接続しています",
+      );
     });
 
     it("切断中は再接続中の表示を出す（error）", () => {
       setup({ connectionStatus: "closed" });
 
-      expect(screen.getByRole("status")).toHaveTextContent("再接続");
+      expect(screen.getByTestId("board-connection-status")).toHaveTextContent(
+        "再接続",
+      );
     });
 
     it("接続済みならインジケータを出さない（success）", () => {
       setup({ connectionStatus: "open" });
 
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("board-connection-status"),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -2825,8 +2831,6 @@ describe("RoomBoardView", () => {
         interactions: buildInteractions([], [privateNote]),
         onNoteBringToFront,
       });
-      fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
-
       const card = within(
         screen.getByTestId("private-notes-toolbar"),
       ).getByTestId("note-card");
@@ -4153,7 +4157,6 @@ describe("AT-004: 所有gestureの取消経路", () => {
         interactions,
         phase: buildPhaseStep(2),
       });
-      fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
       const card = screen.getByTestId("note-card");
       clickNote(card);
       getNoteSurface(card).focus();
@@ -4291,7 +4294,6 @@ it("AT-004: privateの閾値前pressをEscapeで取消した後move/upしてもd
   });
   const interactions = buildInteractions([], [note]);
   setup({ notes: [], interactions, phase: buildPhaseStep(2) });
-  fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
   const card = screen.getByTestId("note-card");
   clickNote(card);
   const surface = getNoteSurface(card);
@@ -4328,7 +4330,6 @@ describe("AT-002: private pressedの単一pointer所有", () => {
     const interactions = buildInteractions([], [note]);
     interactions.onGestureBlockedChange = vi.fn();
     const result = setup({ notes: [], interactions, phase: buildPhaseStep(2) });
-    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
     const surface = getNoteSurface(screen.getByTestId("note-card"));
     surface.focus();
     fireEvent.pointerDown(surface, {
@@ -4404,7 +4405,6 @@ it("AT-002: private press取消後の新native HUD press/upは古pointer抑止�
   });
   const interactions = buildInteractions([], [note]);
   setup({ notes: [], interactions, phase: buildPhaseStep(2) });
-  fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
   const surface = getNoteSurface(screen.getByTestId("note-card"));
   surface.focus();
   fireEvent.pointerDown(surface, { pointerId: 1, button: 0, buttons: 1 });
