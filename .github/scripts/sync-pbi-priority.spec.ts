@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
+import { parse } from "yaml";
 import { planPriorityUpdates, syncPbiPriority } from "./sync-pbi-priority.js";
 
 const item = (number: number, priority: number | null = null) => ({
@@ -22,7 +24,10 @@ const snapshot = (items = [item(2, 2), item(1, 1)]) => ({
     sortByFields: { totalCount: 0 },
     groupByFields: { totalCount: 0 },
   },
-  items: { nodes: items, pageInfo: { hasNextPage: false, endCursor: null } },
+  items: {
+    nodes: items,
+    pageInfo: { hasNextPage: false, endCursor: null as string | null },
+  },
 });
 const page = (value: ReturnType<typeof snapshot>) => ({
   organization: { projectV2: value },
@@ -76,7 +81,7 @@ describe("PBIの優先順位同期", () => {
   });
   it("全ページ取得後に更新しdry-runでは書き込まない", async () => {
     const first = snapshot([item(2, 2)]);
-    first.items.pageInfo = { hasNextPage: true, endCursor: "next" } as never;
+    first.items.pageInfo = { hasNextPage: true, endCursor: "next" };
     const graphql = vi
       .fn()
       .mockResolvedValueOnce(page(first))
@@ -135,4 +140,67 @@ describe("PBIの優先順位同期", () => {
       priority: 1,
     });
   });
+});
+
+it("優先順位同期は5分ごとと手動実行に限定し、既存Appを使う", () => {
+  const workflow = parse(
+    readFileSync(".github/workflows/sync-pbi-priority.yml", "utf8"),
+  );
+  expect(workflow.on.schedule).toEqual([{ cron: "*/5 * * * *" }]);
+  expect(Object.keys(workflow.on).sort()).toEqual([
+    "schedule",
+    "workflow_dispatch",
+  ]);
+  expect(workflow.concurrency["cancel-in-progress"]).toBe(false);
+  const token = workflow.jobs.sync.steps.find(
+    (step: { id?: string }) => step.id === "project-token",
+  );
+  expect(token.with["permission-organization-projects"]).toBe("write");
+  expect(token.with["permission-issues"]).toBe("read");
+  const sync = workflow.jobs.sync.steps.at(-1);
+  expect(sync.env.DRY_RUN).toContain(
+    "github.event_name == 'workflow_dispatch' && inputs.dry_run || false",
+  );
+});
+
+it("途中のページのAPIエラーでは番号を一つも更新しない", async () => {
+  const first = snapshot([item(2, 2)]);
+  first.items.pageInfo = { hasNextPage: true, endCursor: "next" };
+  const graphql = vi
+    .fn()
+    .mockResolvedValueOnce(page(first))
+    .mockRejectedValueOnce(new Error("API unavailable"));
+  await expect(syncPbiPriority({ graphql, dryRun: false })).rejects.toThrow(
+    "API unavailable",
+  );
+  expect(graphql).toHaveBeenCalledTimes(2);
+});
+
+it("更新APIの失敗を成功扱いせず後続の更新を止める", async () => {
+  const graphql = vi
+    .fn()
+    .mockResolvedValueOnce(page(snapshot()))
+    .mockResolvedValueOnce(page(snapshot()))
+    .mockRejectedValueOnce(new Error("rate limited"));
+  await expect(syncPbiPriority({ graphql, dryRun: false })).rejects.toThrow(
+    "rate limited",
+  );
+  expect(graphql).toHaveBeenCalledTimes(3);
+});
+
+it("更新後の読み取りで数字が反映されていなければ失敗する", async () => {
+  const graphql = vi
+    .fn()
+    .mockResolvedValueOnce(page(snapshot()))
+    .mockResolvedValueOnce(page(snapshot()))
+    .mockResolvedValueOnce({
+      updateProjectV2ItemFieldValue: { projectV2Item: { id: "item-2" } },
+    })
+    .mockResolvedValueOnce({
+      updateProjectV2ItemFieldValue: { projectV2Item: { id: "item-1" } },
+    })
+    .mockResolvedValueOnce(page(snapshot()));
+  await expect(syncPbiPriority({ graphql, dryRun: false })).rejects.toThrow(
+    /verification failed/,
+  );
 });
