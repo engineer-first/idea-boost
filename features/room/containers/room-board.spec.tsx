@@ -70,6 +70,8 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
+import { IDEA_NOTE_EXAMPLES } from "@/features/idea-support";
+import { ISSUE_NOTE_EXAMPLES } from "../logic/issue-note-examples";
 import { RoomBoard } from "./room-board";
 
 const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -1126,8 +1128,66 @@ describe("サーバーメッセージ → 画面反映", () => {
       sentMessages().some((message) => message.type === "note:create"),
     ).toBe(false);
 
-    expect(screen.getByTestId("hmw-example-note-1")).toBeVisible();
-    expect(screen.getByTestId("hmw-example-note-2")).toBeVisible();
+    expect(screen.getByTestId("example-note-1")).toBeVisible();
+    expect(screen.getByTestId("example-note-2")).toBeVisible();
+  });
+
+  it.each([
+    {
+      label: "課題",
+      phase: 1,
+      examples: ISSUE_NOTE_EXAMPLES,
+    },
+    {
+      label: "アイデア",
+      phase: 3,
+      examples: IDEA_NOTE_EXAMPLES,
+    },
+  ] as const)("$labelの例付箋は保存せず参照表示する", ({ phase, examples }) => {
+    const { socket } = connectWithSnapshot([], {
+      phase: buildPhaseStep(1, phase),
+      timer: { status: "idle" },
+    });
+
+    const sentMessages = () =>
+      socket.sent.map((payload) => JSON.parse(payload) as { type?: string });
+
+    // 例付箋が表示されていることを確認する。
+    const expectExamplesVisible = () => {
+      examples.forEach((example, index) => {
+        expect(screen.getByTestId(`example-note-${index + 1}`)).toBeVisible();
+
+        expect(screen.getByText(example)).toBeVisible();
+      });
+    };
+
+    // 例付箋を通常の付箋として保存していないことを確認する。
+    const expectNoExampleNotesSaved = () => {
+      expect(
+        sentMessages().some((message) => message.type === "note:create"),
+      ).toBe(false);
+    };
+
+    // タイマー開始前
+    expectExamplesVisible();
+    expectNoExampleNotesSaved();
+
+    // タイマーを開始する。
+    act(() => {
+      socket.simulateServerMessage({
+        type: "timer:updated",
+        timer: {
+          status: "running",
+          endsAt: Date.now() + 60_000,
+          durationMs: 60_000,
+        },
+        serverNow: Date.now(),
+      });
+    });
+
+    // タイマー開始後も表示され、保存されないことを確認する。
+    expectExamplesVisible();
+    expectNoExampleNotesSaved();
   });
 
   it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {
