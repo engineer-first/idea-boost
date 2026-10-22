@@ -173,6 +173,16 @@ test.each(steps)(
   },
 );
 
+test("現在地・工程進捗カードは上部操作HUDと上端・高さを揃える", async () => {
+  await openStory("room-roomboardlayout--phase-1-step-1");
+  const location = await page.getByTestId("board-location-card").boundingBox();
+  const controls = await page.getByTestId("board-control-hud").boundingBox();
+  expect(location).not.toBeNull();
+  expect(controls).not.toBeNull();
+  expect(location?.y).toBe(controls?.y);
+  expect(location?.height).toBe(controls?.height);
+});
+
 test("左右の開閉は独立し、多数の付箋とヒントは内部スクロールで末尾に到達できる", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
   expect(await page.getByTestId("board-scroller").isVisible()).toBe(false);
@@ -1062,7 +1072,7 @@ test.each(["reconnecting", "connecting"])(
 );
 
 test.each([1280, 1024, 768])(
-  "%ipxで進め方と執筆の材料を同時に読み、独立して開閉できる",
+  "%ipxで執筆の参照情報を読み、独立して開閉できる",
   async (width) => {
     await page.setViewportSize({ width, height: 720 });
     for (const [phase, reference] of [
@@ -1070,19 +1080,14 @@ test.each([1280, 1024, 768])(
       [3, "hmw"],
     ] as const) {
       await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
-      const guide = page.getByRole("region", {
-        name: "ファシリテーションガイド",
-      });
       const decision = page.getByTestId(`board-reference-${reference}`);
       const content = page.getByTestId(`board-reference-${reference}-content`);
       await decision.waitFor();
-      expect(await guide.isVisible()).toBe(true);
       expect(await content.isVisible()).toBe(true);
       const trigger = page.getByRole("button", {
         name: reference === "hmw" ? "決定した問い" : "決定した課題",
         exact: true,
       });
-      expect(await guide.isVisible()).toBe(true);
       expect(await content.isVisible()).toBe(true);
       expect(await trigger.getAttribute("aria-expanded")).toBe("true");
       const scrollBox = await content.boundingBox();
@@ -1104,9 +1109,7 @@ test.each([1280, 1024, 768])(
       expect(paragraph.y + paragraph.height).toBeLessThanOrEqual(
         after.y + after.height,
       );
-      await page.getByRole("button", { name: "進め方", exact: true }).click();
       await trigger.click();
-      expect(await guide.isVisible()).toBe(false);
       expect(await content.isVisible()).toBe(false);
       await trigger.press("Enter");
       expect(await content.isVisible()).toBe(true);
@@ -1135,23 +1138,15 @@ test("U03: 3-3のマップ増減と書き足しへ通常pointerで到達でき�
   expect(await page.getByRole("alertdialog").isVisible()).toBe(true);
 });
 
-test("U03: 390pxでガイド全文と現在の操作が画面内に収まる", async () => {
+test("U03: 390pxでガイドを表示せず、現在の操作へ到達できる", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openStory("room-roomboardlayout--phase-3-step-1");
-  const guide = page.getByTestId("step-guide");
-  await guide.waitFor();
   await page.screenshot({ path: `${output}/u03-narrow.png` });
-  const box = await guide.boundingBox();
-  expect(box?.width).toBeGreaterThanOrEqual(280);
-  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
+  expect(await page.getByTestId("step-guide").count()).toBe(0);
   const controls = await page.getByTestId("board-control-hud").boundingBox();
   expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(390);
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "進め方", exact: true }).click();
   expect(
-    await page
-      .getByRole("region", { name: "ファシリテーションガイド" })
-      .isVisible(),
+    await page.getByRole("button", { name: "付箋を追加" }).isVisible(),
   ).toBe(true);
 });
 
@@ -1285,41 +1280,12 @@ test.each([1280, 390])(
           `room-roomboardlayout--phase-${phase}-step-${number}&args=isHost:${isHost}`,
         );
         await page.getByTestId("board-context-hud").waitFor();
-        console.log("HUD", width, isHost, step);
         expect(
           await page
             .getByRole("dialog", { name: "投票結果", exact: true })
             .count(),
         ).toBe(0);
-        await expect
-          .poll(() =>
-            page
-              .getByTestId("step-guide")
-              .evaluate((e) => e.getAnimations({ subtree: true }).length),
-          )
-          .toBe(0);
-        await page.keyboard.press("Escape");
-        await expect
-          .poll(() => page.getByTestId("step-guide").getAttribute("data-state"))
-          .toBe("compact");
-        await expect
-          .poll(() =>
-            page
-              .getByTestId("step-guide")
-              .evaluate((e) => e.getAnimations({ subtree: true }).length),
-          )
-          .toBe(0);
-        await expectHudTargets();
-        await page.getByRole("button", { name: "進め方", exact: true }).click();
-        await expect
-          .poll(() =>
-            page
-              .getByTestId("step-guide")
-              .evaluate((e) => e.getAnimations({ subtree: true }).length),
-          )
-          .toBe(0);
-        const box = await page.getByTestId("step-guide").boundingBox();
-        expect(box?.width).toBeGreaterThanOrEqual(width === 390 ? 280 : 100);
+        expect(await page.getByTestId("step-guide").count()).toBe(0);
         await expectHudTargets();
       }
   },

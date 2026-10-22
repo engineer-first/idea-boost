@@ -207,6 +207,7 @@ function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
 
 function renderBoard(options: { open?: boolean; isHost?: boolean } = {}) {
   FakeWebSocket.instances = [];
+  sessionStorage.setItem(`step-onboarding:AB12CD:${USER_ID}:1-1`, "seen");
   const factory = (url: string) =>
     new FakeWebSocket(url) as unknown as WebSocket;
   const view = render(

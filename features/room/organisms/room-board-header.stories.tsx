@@ -59,7 +59,6 @@ const meta = {
     hostUserId: ME,
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
-    initialGuideState: "detail",
     hasFinalDecision: false,
     outcomePublished: false,
     onPublishOutcome: fn(),
@@ -76,11 +75,19 @@ const meta = {
     onTimerStop: fn(),
   },
   decorators: [
-    (Story) => (
-      <div className="relative h-96 overflow-hidden bg-muted/20">
-        <Story />
-      </div>
-    ),
+    (Story, context) => {
+      const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      if (context.parameters.firstVisitOnboarding) {
+        window.sessionStorage.removeItem(sessionKey);
+      } else {
+        window.sessionStorage.setItem(sessionKey, "seen");
+      }
+      return (
+        <div className="relative h-96 overflow-hidden bg-muted/20">
+          <Story />
+        </div>
+      );
+    },
   ],
 } satisfies Meta<typeof RoomBoardHeader>;
 
@@ -99,9 +106,7 @@ export const NonHost: Story = {
 };
 
 export const CollapsedGuide: Story = {
-  args: {
-    initialGuideState: "compact",
-  },
+  args: {},
 };
 
 // 3フェーズの現在地と、フェーズ別の5/4/5ステップ進捗を確認する。
@@ -285,7 +290,6 @@ export const PresentingMember: Story = {
       currentIndex: 1,
     }),
     onSharingAdvance: fn(),
-    initialGuideState: "compact",
   },
 };
 export const WaitingMember: Story = {

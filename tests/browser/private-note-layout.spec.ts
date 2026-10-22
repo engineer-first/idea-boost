@@ -22,10 +22,10 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 1280, height: 720 },
 ]) {
-  test(`${viewport.width}×${viewport.height}: 個人付箋ワークスペースとガイドを操作できる`, async () => {
+  test(`${viewport.width}×${viewport.height}: 個人付箋ワークスペースを操作できる`, async () => {
     page = await browser.newPage({ viewport });
     await page.goto(
-      `${origin}/iframe.html?id=room-roomboardlayout--phase-3-step-1&viewMode=story&args=initialGuideState:compact`,
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-3-step-1&viewMode=story`,
     );
     await page.getByTestId("board-header-row").waitFor();
     await page.evaluate(() => document.fonts.ready);
@@ -39,8 +39,8 @@ for (const viewport of [
     const toolbarBox = await toolbar.boundingBox();
     const topHudIds =
       viewport.width < 640
-        ? ["board-context-hud", "board-control-hud", "step-guide"]
-        : ["board-control-hud", "step-guide"];
+        ? ["board-context-hud", "board-control-hud"]
+        : ["board-control-hud"];
     const topHudBoxes = await Promise.all(
       topHudIds.map((testId) => page.getByTestId(testId).boundingBox()),
     );
@@ -111,7 +111,7 @@ for (const step of [2, 3]) {
   test(`390px・1-${step}: トレイを閉じた上部欄の下の空白でボードを操作できる`, async () => {
     page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(
-      `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-${step}&viewMode=story&args=initialGuideState:compact`,
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-${step}&viewMode=story`,
     );
     const column = page.getByTestId("board-context-column");
     await column.waitFor();

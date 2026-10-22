@@ -148,7 +148,6 @@ const meta = {
       onOpenChange: fn(),
       onTabChange: fn(),
     },
-    initialGuideState: "compact",
     hmwDecidedIssue: null,
     decidedHmw: null,
     onAddPrivateNote: fn(),
@@ -183,11 +182,19 @@ const meta = {
     remoteCursors: [],
   },
   decorators: [
-    (Story) => (
-      <div style={{ height: "100vh" }}>
-        <Story />
-      </div>
-    ),
+    (Story, context) => {
+      const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      if (context.parameters.firstVisitOnboarding) {
+        window.sessionStorage.removeItem(sessionKey);
+      } else {
+        window.sessionStorage.setItem(sessionKey, "seen");
+      }
+      return (
+        <div style={{ height: "100vh" }}>
+          <Story />
+        </div>
+      );
+    },
   ],
 } satisfies Meta<typeof RoomBoardView>;
 
@@ -200,7 +207,6 @@ function guideStory(phase: 1 | 2 | 3, step: number): Story {
     args: {
       phase: buildPhaseStep(step, phase),
       notes: step === 1 ? [] : buildNotes(3),
-      initialGuideState: "detail",
       hmwDecidedIssue: phase >= 2 ? GUIDE_ISSUE : null,
       decidedHmw: phase === 3 ? GUIDE_QUESTION : null,
     },
@@ -221,7 +227,6 @@ export const PrivateNoteAdditionDelayed: Story = {
   args: {
     phase: STEP_1_1,
     notes: [],
-    initialGuideState: "compact",
   },
   render: function Render(args) {
     const [privateNotes, setPrivateNotes] = useState([
@@ -306,7 +311,6 @@ export const StepIntro: Story = {
   args: {
     phase: buildPhaseStep(1, 2),
     notes: [],
-    initialGuideState: "intro",
     hmwDecidedIssue: "会議で発言する人が偏ってしまう",
   },
 };
@@ -316,7 +320,6 @@ export const Phase1FirstStepIntro: Story = {
   args: {
     phase: buildPhaseStep(1, 1),
     notes: [],
-    initialGuideState: "intro",
   },
 };
 
@@ -324,7 +327,6 @@ export const Phase1SecondStepIntro: Story = {
   name: "フェーズ1 Step 2の付箋共有",
   args: {
     phase: buildPhaseStep(2, 1),
-    initialGuideState: "intro",
   },
 };
 
@@ -871,7 +873,6 @@ export const VotingGuideScrollInteraction: Story = {
   args: {
     phase: STEP_1_4,
     notes: CANVAS_HUD_NOTES,
-    initialGuideState: "detail",
   },
 };
 
@@ -915,7 +916,7 @@ const decisionReselectionRender: Story["render"] =
   };
 export const DecisionReselection: Story = {
   render: decisionReselectionRender,
-  args: { ...Decided.args, isHost: true, initialGuideState: "compact" },
+  args: { ...Decided.args, isHost: true },
 };
 export const HmwDecisionReselection: Story = {
   render: decisionReselectionRender,
@@ -931,7 +932,6 @@ export const IdeaDecisionReselection: Story = {
   args: {
     ...FinalDecisionPending.args,
     isHost: true,
-    initialGuideState: "compact",
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 20 + index * 30,
@@ -951,7 +951,6 @@ export const FitUnavailable: Story = {
   ],
   args: {
     phase: STEP_1_4,
-    initialGuideState: "detail",
     interactions: { ...INTERACTIONS, onFitToNotes: fn(() => false) },
   },
 };
@@ -972,7 +971,6 @@ export const ExcludedVoteAttempt: Story = {
       ...note,
       excluded: index === 0,
     })),
-    initialGuideState: "compact",
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1001,7 +999,6 @@ export const CanvasInputInteraction: Story = {
   args: {
     phase: STEP_1_3,
     notes: CANVAS_HUD_NOTES.slice(0, 3),
-    initialGuideState: "compact",
   },
   render: function Render(args) {
     const [notes, setNotes] = useState(args.notes);
@@ -1257,7 +1254,6 @@ export const IdeaMapWorkspace: Story = {
     isHost: true,
     ideaMapSizeLevel: 4,
     ideaMapSizeInitialized: true,
-    initialGuideState: "compact",
   },
 };
 
@@ -1561,7 +1557,6 @@ export const DecidedMoveInteraction: Story = {
   render: CanvasInputInteraction.render,
   args: {
     ...Decided.args,
-    initialGuideState: "compact",
     notes: Decided.args?.notes?.map((note, index) => ({
       ...note,
       excluded: index === 2,
@@ -1583,7 +1578,6 @@ export const IdeaDecidedMoveInteraction: Story = {
   ...DecidedMoveInteraction,
   args: {
     ...FinalDecisionPending.args,
-    initialGuideState: "compact",
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 20 + index * 30,

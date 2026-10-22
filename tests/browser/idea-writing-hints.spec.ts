@@ -26,9 +26,6 @@ test("3-1の考えるヒントはデスクトップの残りの高さを使い�
   });
   try {
     await open(page, "room-roomboardlayout--phase-3-step-1");
-    await page
-      .getByRole("region", { name: "ファシリテーションガイド" })
-      .press("Escape");
     const panel = page.getByTestId("board-help-panel").locator(":scope > div");
     const heights: number[] = [];
     for (const height of [720, 1030]) {
@@ -170,9 +167,6 @@ for (const width of [390, 1280]) {
       await page.screenshot({ path: `${output}/after-phase-2-1-${width}.png` });
       await open(page, "room-roomboardlayout--phase-3-step-1");
       const help = page.getByTestId("board-help-panel");
-      await page
-        .getByRole("region", { name: "ファシリテーションガイド" })
-        .press("Escape");
       await help.waitFor();
       await page.screenshot({
         path: `${output}/after-phase-3-1-initial-${width}.png`,

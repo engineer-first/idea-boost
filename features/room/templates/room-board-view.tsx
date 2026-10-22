@@ -56,7 +56,6 @@ import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
-import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -199,7 +198,6 @@ export type RoomBoardViewProps = {
   isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
-  initialGuideState?: StepGuideState;
   remoteCursors: RenderedRemoteCursorPresence[];
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
@@ -385,7 +383,6 @@ export function RoomBoardView({
   onTimerResume,
   onTimerExtend,
   onTimerStop,
-  initialGuideState,
 }: RoomBoardViewProps) {
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const phaseKey =
@@ -1376,7 +1373,6 @@ export function RoomBoardView({
     ] as const;
     const isPersonalNoteEntryPhase =
       phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
-    let stepGuideBottomInFrame: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1416,16 +1412,7 @@ export function RoomBoardView({
         );
         if (frame) {
           const frameTop = frame.getBoundingClientRect().top;
-          if (stepGuideBottomInFrame === null) {
-            const stepGuide = root.querySelector<HTMLElement>(
-              '[data-testid="step-guide"]',
-            );
-            stepGuideBottomInFrame =
-              stepGuide && stepGuide.getClientRects().length > 0
-                ? stepGuide.getBoundingClientRect().bottom - frameTop
-                : 0;
-          }
-          let top = stepGuideBottomInFrame;
+          let top = 0;
           for (const testId of workspaceTopSurfaces) {
             if (
               window.innerWidth >= 640 &&
@@ -1894,7 +1881,6 @@ export function RoomBoardView({
           hasCurrentDecision={
             phase.kind === "step" && decision?.phase === phase.phase
           }
-          initialGuideState={initialGuideState}
           hasFinalDecision={hasFinalDecision}
           outcomePublished={outcomePublished}
           onPublishOutcome={onPublishOutcome}

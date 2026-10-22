@@ -1,6 +1,6 @@
 "use client";
 
-// ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
+// ボード画面の進行レールと操作 HUD。
 
 import {
   Check,
@@ -52,23 +52,32 @@ import {
 } from "@/features/room-members";
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
-import { getFacilitationGuide } from "../logic/facilitation-guide";
 import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import type { Member, PhaseProgressState } from "../logic/room-reducer";
 import { useCompletionCue } from "../logic/use-completion-cue";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
-import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
 import { SharingPresenter } from "../molecules/sharing-presenter";
-import { StepGuide } from "../molecules/step-guide";
+import { StepOneOnboardingSlide } from "../molecules/step-one-onboarding-slide";
 import styles from "./room-board-header.module.css";
 import { RoomTimer } from "./room-timer";
 
 const IDEA_MAP_CONTEXT_GAP = 18;
+const TIMER_DURATIONS_MINUTES = {
+  1: [5, 6, 4, 3, 10],
+  2: [3, 6, 4, 10],
+  3: [5, 6, 7, 3, 10],
+} as const;
+
+function getRecommendedTimerDurationMs(phase: RoomPhase): number {
+  if (phase.kind === "lobby") return 3 * 60_000;
+  const minutes = TIMER_DURATIONS_MINUTES[phase.phase][phase.step - 1] ?? 3;
+  return minutes * 60_000;
+}
 
 export type RoomBoardHeaderProps = {
   children?: ReactNode;
@@ -115,7 +124,6 @@ export type RoomBoardHeaderProps = {
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
   hasCurrentDecision?: boolean;
-  initialGuideState?: StepGuideState;
   hasFinalDecision: boolean;
   outcomePublished: boolean;
   isLeaving: boolean;
@@ -181,7 +189,6 @@ export function RoomBoardHeader({
   isTransferring = false,
   isNextPhaseBlocked,
   hasCurrentDecision = false,
-  initialGuideState,
   hasFinalDecision,
   outcomePublished,
   isLeaving,
@@ -222,9 +229,6 @@ export function RoomBoardHeader({
         const location = header.querySelector<HTMLElement>(
           '[data-testid="board-location-card"]',
         );
-        const guide = header.querySelector<HTMLElement>(
-          '[data-testid="step-guide"]',
-        );
         const helpToggle = isIdeaMapWorkspaceStep
           ? header
               .querySelector<HTMLElement>('[data-testid="board-help-panel"]')
@@ -233,8 +237,6 @@ export function RoomBoardHeader({
         const contextColumn = header.querySelector<HTMLElement>(
           '[data-testid="board-context-column"]',
         );
-        const compactGuideBottom =
-          (guide?.getBoundingClientRect().top ?? boardTop) + 42;
         const locationBottom =
           location?.getBoundingClientRect().bottom ?? boardTop;
         const controlsBottom = area?.getBoundingClientRect().bottom ?? boardTop;
@@ -253,18 +255,13 @@ export function RoomBoardHeader({
           window.innerWidth >= 900
             ? Math.max(controlsBottom, locationBottom) - boardTop + 50
             : window.innerWidth <= 639
-              ? Math.max(
-                  ...(usesIdeaMapViewport ? [] : [compactGuideBottom]),
-                  locationBottom,
-                  controlsBottom,
-                  helpRowBottom,
-                ) -
+              ? Math.max(locationBottom, controlsBottom, helpRowBottom) -
                 boardTop +
                 25
-              : compactGuideBottom - boardTop + 24;
-        // 投票完了表示用のモバイル余白は周辺UIに残し、マップ位置には足さない。
+              : Math.max(locationBottom, controlsBottom) - boardTop + 24;
+        // 狭幅の投票完了表示用余白は周辺UIに残し、マップ位置には足さない。
         const votingStatusPadding =
-          !isIdeaMapWorkspaceStep && window.innerWidth <= 639 && area
+          !isIdeaMapWorkspaceStep && window.innerWidth <= 900 && area
             ? Number.parseFloat(getComputedStyle(area).paddingBottom) || 0
             : 0;
         board.style.setProperty(
@@ -486,7 +483,6 @@ export function RoomBoardHeader({
       isDisconnected,
     },
   });
-  const guide = getFacilitationGuide(phase);
   const isPhaseThreePrivateNoteEntry =
     phase.kind === "step" && phase.phase === 3 && phase.step === 1;
   const isFinalStep = isPhaseStep(phase, 3, 5);
@@ -502,23 +498,9 @@ export function RoomBoardHeader({
         ? "退出中…"
         : "退出する";
 
-  const stepGuide =
+  const sharingAnnouncement =
     transitioning && presenter ? (
       <SharingAnnouncement member={presenter} />
-    ) : guide ? (
-      <StepGuide
-        key={`${inviteCode}:${currentUserId}`}
-        sessionKey={`${inviteCode}:${currentUserId}`}
-        placement={isIdeaMapWorkspaceStep ? "floating" : undefined}
-        phaseKey={
-          phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
-        }
-        guide={guide}
-        isHost={isHost}
-        isReady={!isDisconnected}
-        timer={timer}
-        initialState={initialGuideState}
-      />
     ) : null;
 
   return (
@@ -543,8 +525,15 @@ export function RoomBoardHeader({
               issueReference={issueReference}
               hmwReference={hmwReference}
             />
+            <StepOneOnboardingSlide
+              phaseKey={
+                phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
+              }
+              sessionKey={`${inviteCode}:${currentUserId}`}
+              isReady={!isDisconnected}
+            />
           </div>
-          {stepGuide}
+          {sharingAnnouncement}
           {!isIdeaMapWorkspaceStep ||
           (children !== null && children !== undefined) ? (
             <div
@@ -844,7 +833,7 @@ export function RoomBoardHeader({
                   initialDurationMs={
                     activeSharing
                       ? sharingDuration
-                      : (guide?.durationMinutes ?? 3) * 60_000
+                      : getRecommendedTimerDurationMs(phase)
                   }
                   onStart={onTimerStart}
                   onPause={onTimerPause}

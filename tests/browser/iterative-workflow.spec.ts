@@ -40,7 +40,7 @@ async function openStory(id: string, isHost = true): Promise<void> {
   const url = new URL("/iframe.html", origin);
   url.searchParams.set("id", id);
   url.searchParams.set("viewMode", "story");
-  url.searchParams.set("args", `isHost:${isHost};initialGuideState:compact`);
+  url.searchParams.set("args", `isHost:${isHost}`);
   await page.goto(url.toString());
   if (id === "room-roomboardlayout--completed") {
     await page.getByRole("heading", { name: "チームで決めた成果" }).waitFor();
@@ -432,7 +432,7 @@ test("390px fit失敗の案内がルーム操作/閉じる操作を遮らず、�
   await page.setViewportSize({ width: 390, height: 844 });
   await openStory("room-roomboardview--fit-unavailable");
   await page.getByRole("button", { name: "付箋全体を表示" }).click();
-  const notice = page.getByText(/進め方・ヒント・マイ付箋を閉じてから/);
+  const notice = page.getByText(/ヒント・マイ付箋を閉じてから/);
   await notice.waitFor();
   const control = page.getByTestId("board-control-hud");
   expect(
