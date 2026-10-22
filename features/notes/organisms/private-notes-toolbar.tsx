@@ -458,12 +458,12 @@ export function PrivateNotesToolbar({
               ? exampleNotes.map((example, index) => (
                   <StickyNote
                     key={example}
-                    noteId={`hmw-example-${index}`}
+                    noteId={`example-note-${index}`}
                     color="blue"
                     height={getNoteHeight(example, NOTE_DEFAULT_FONT_SIZE)}
                     className="relative w-[200px]"
                     style={{ left: 0, top: 0 }}
-                    testId={`hmw-example-note-${index + 1}`}
+                    testId={`example-note-${index + 1}`}
                   >
                     <div className="flex h-full flex-col p-2">
                       <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-sm">

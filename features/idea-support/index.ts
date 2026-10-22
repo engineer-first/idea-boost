@@ -7,6 +7,7 @@ export type {
   IdeaSupportSidebarProps,
 } from "./containers/idea-support-sidebar";
 export { IdeaSupportSidebar } from "./containers/idea-support-sidebar";
+export { IDEA_NOTE_EXAMPLES } from "./logic/idea-note-content";
 export type { IdeaGuidePanelProps } from "./molecules/idea-guide-panel";
 export { IdeaGuidePanel } from "./molecules/idea-guide-panel";
 export { IdeaSupportSidebarContent } from "./molecules/idea-support-sidebar-content";
