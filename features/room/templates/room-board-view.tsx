@@ -156,6 +156,7 @@ export type RoomBoardViewProps = {
   feedback?: FeedbackControls;
   moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
+  exampleNotes?: readonly string[];
   confirmedNotes?: Note[];
   pendingCandidateNoteIds?: string[];
   isCandidatePending?: boolean;
@@ -294,6 +295,7 @@ export function RoomBoardView({
   feedback,
   moveHistory,
   notes,
+  exampleNotes = [],
   confirmedNotes = notes,
   pendingCandidateNoteIds = [],
   isCandidatePending = false,
@@ -1986,6 +1988,7 @@ export function RoomBoardView({
           adoptionFocusNoteId={adoptionFocusNoteId}
           isHost={isHost}
           privateNotes={toolbarNotes}
+          exampleNotes={exampleNotes}
           isSavingBeforeShare={isSavingBeforeShare}
           canPublishPrivateNote={
             !boardInteractionBlocked &&

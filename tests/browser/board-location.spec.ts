@@ -256,7 +256,7 @@ test.each([
     );
     await open("room-roomboardlayout--phase-3-step-1");
     const hint = page.getByRole("button", {
-      name: width < 640 ? "考えるヒントを開く" : "考えるヒントを閉じる",
+      name: "考えるヒントを開く",
     });
     await reachable(hint);
     const notes = page.getByTestId("private-notes-toolbar");

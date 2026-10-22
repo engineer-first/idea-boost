@@ -965,9 +965,13 @@ describe("PrivateNotesToolbar", () => {
       const view = render(<PrivateNotesToolbar {...props} />);
       expect(screen.getByText(/付箋追加ショートカットキー/)).toBeVisible();
       view.rerender(<PrivateNotesToolbar {...props} canCreateNote={false} />);
-      expect(
-        screen.queryByText(/付箋追加ショートカットキー/),
-      ).not.toBeInTheDocument();
+      if (presentation === "workspace") {
+        expect(screen.getByText(/付箋追加ショートカットキー/)).toBeVisible();
+      } else {
+        expect(
+          screen.queryByText(/付箋追加ショートカットキー/),
+        ).not.toBeInTheDocument();
+      }
     },
   );
 
