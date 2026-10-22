@@ -1,0 +1,60 @@
+name: Sync PBI Priority
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '変更予定だけを確認する'
+        type: boolean
+        default: true
+  push:
+    branches: [codex/pbi-priority-sync]
+    paths:
+      - '.github/scripts/sync-pbi-priority.js'
+      - '.github/workflows/sync-pbi-priority.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pbi-priority-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Create Project token using the existing GitHub App
+        id: project-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.ISSUE_PROJECT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ISSUE_PROJECT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-issues: read
+          permission-organization-projects: write
+      - name: Synchronize PBI priority
+        uses: actions/github-script@v7
+        env:
+          DRY_RUN: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run }}
+        with:
+          github-token: ${{ steps.project-token.outputs.token }}
+          script: |
+            const { syncPbiPriority } = require('./.github/scripts/sync-pbi-priority.js');
+            const result = await syncPbiPriority({
+              graphql: (query, variables) => github.graphql(query, variables),
+              dryRun: process.env.DRY_RUN !== 'false',
+            });
+            core.info(JSON.stringify(result));
+            await core.summary
+              .addHeading(result.dryRun ? 'PBI 優先順位（変更予定）' : 'PBI 優先順位')
+              .addRaw(`更新: ${result.updated}件\n`)
+              .addTable([
+                [{data: 'Issue', header: true}, {data: '変更前', header: true}, {data: '変更後', header: true}],
+                ...result.planned.map(change => [`#${change.number}`, String(change.from ?? '未設定'), String(change.to)]),
+              ]).write();
