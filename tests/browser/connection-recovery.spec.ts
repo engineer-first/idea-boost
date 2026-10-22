@@ -40,19 +40,13 @@ for (const width of [390, 1440]) {
       const entry = page.getByRole("link", { name: terminal.label });
       await entry.waitFor();
       await page.evaluate(() => document.fonts.ready);
-      if (
-        width >= 640 &&
-        (await page
-          .getByTestId("private-notes-toolbar")
-          .getAttribute("data-presentation")) !== "workspace"
-      ) {
+      if (width >= 640) {
         const notice = await page
           .getByTestId("board-connection-status")
           .boundingBox();
         const notes = await page
           .getByTestId("private-notes-toolbar")
           .boundingBox();
-
         expect(
           notes?.y,
           "停止案内がマイ付箋一覧を覆わない",
@@ -224,12 +218,7 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
       expect(
         (noticeBox?.x ?? Infinity) + (noticeBox?.width ?? 0),
       ).toBeLessThanOrEqual(width);
-      if (
-        width >= 640 &&
-        (await page
-          .getByTestId("private-notes-toolbar")
-          .getAttribute("data-presentation")) !== "workspace"
-      ) {
+      if (width >= 640) {
         const privateNotesBox = await page
           .getByTestId("private-notes-toolbar")
           .boundingBox();
@@ -254,22 +243,16 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
           .getByTestId("private-notes-toolbar")
           .boundingBox();
         const guideBox = await guide.boundingBox();
-        if (
-          (await page
-            .getByTestId("private-notes-toolbar")
-            .getAttribute("data-presentation")) !== "workspace"
-        ) {
-          expect(
-            privateNotesBox?.y,
-            "マイ付箋一覧が進め方を覆わない",
-          ).toBeGreaterThanOrEqual(
-            // 進行欄は独立スクロールするため、実際に見える範囲で比較する。
-            Math.min(
-              (guideBox?.y ?? Infinity) + (guideBox?.height ?? 0),
-              (contextBox?.y ?? Infinity) + (contextBox?.height ?? 0),
-            ),
-          );
-        }
+        expect(
+          privateNotesBox?.y,
+          "マイ付箋一覧が進め方を覆わない",
+        ).toBeGreaterThanOrEqual(
+          // 進行欄は独立スクロールするため、実際に見える範囲で比較する。
+          Math.min(
+            (guideBox?.y ?? Infinity) + (guideBox?.height ?? 0),
+            (contextBox?.y ?? Infinity) + (contextBox?.height ?? 0),
+          ),
+        );
         expect(
           await guide.evaluate((element) => {
             const rect = element.getBoundingClientRect();

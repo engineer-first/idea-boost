@@ -62,7 +62,6 @@ async function expectLayout(): Promise<void> {
     .evaluateAll((elements) =>
       elements.map((element) => ({
         id: element.getAttribute("data-testid") ?? "help",
-        presentation: element.getAttribute("data-presentation"),
         ...element.getBoundingClientRect().toJSON(),
       })),
     );
@@ -72,14 +71,9 @@ async function expectLayout(): Promise<void> {
     expect(box.right, box.id).toBeLessThanOrEqual(viewport.width);
     expect(box.bottom, box.id).toBeLessThanOrEqual(viewport.height);
   }
-  const collisionBoxes = boxes.filter(
-    (box) =>
-      !(box.id === "private-notes-toolbar" && box.presentation === "workspace"),
-  );
-
-  for (let i = 0; i < collisionBoxes.length; i++) {
-    for (const other of collisionBoxes.slice(i + 1)) {
-      const box = collisionBoxes[i];
+  for (let i = 0; i < boxes.length; i++) {
+    for (const other of boxes.slice(i + 1)) {
+      const box = boxes[i];
       const overlap =
         Math.min(box.right, other.right) - Math.max(box.left, other.left) > 1 &&
         Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > 1;
@@ -701,13 +695,10 @@ test.each([1280, 1024, 768])(
     const toolbarBox = await page
       .getByTestId("private-notes-toolbar")
       .boundingBox();
-
-    const addNote = page.getByRole("button", {
-      name: "付箋を追加",
-      exact: true,
-    });
-
-    expect(await addNote.isVisible()).toBe(true);
+    const contextBox = await hud.boundingBox();
+    expect(toolbarBox?.x).toBeGreaterThanOrEqual(
+      (contextBox?.x ?? 0) + (contextBox?.width ?? 0) + 8,
+    );
     expect(
       (toolbarBox?.x ?? Infinity) + (toolbarBox?.width ?? 0),
     ).toBeLessThanOrEqual(width);
