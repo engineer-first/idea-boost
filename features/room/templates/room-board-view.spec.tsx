@@ -1473,7 +1473,7 @@ describe("RoomBoardView", () => {
     expect(screen.getByTestId("board-scroller")).not.toHaveAttribute("inert");
   });
 
-  it("1-1の拡大パネルはガイドではなくヘッダー直下に配置する", () => {
+  it("1-1の拡大パネルはガイドと既存HUDの直下に配置する", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
       function (this: HTMLElement) {
         switch (this.dataset.testid) {
@@ -1504,7 +1504,7 @@ describe("RoomBoardView", () => {
 
     const root = screen.getByTestId("room-board-view-root");
     expect(root.style.getPropertyValue("--board-private-expanded-top")).toBe(
-      "212px",
+      "372px",
     );
   });
 

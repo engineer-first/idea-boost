@@ -1395,6 +1395,7 @@ export function RoomBoardView({
       "board-context-hud",
       "board-control-hud",
       "board-connection-slot",
+      "step-guide",
     ] as const;
     let stepGuideBottomInFrame: number | null = null;
     const surfaces = [
@@ -1505,7 +1506,10 @@ export function RoomBoardView({
       );
       if (element) observer?.observe(element);
     }
-    for (const testId of workspaceTopSurfaces) {
+    for (const testId of new Set([
+      ...workspaceTopSurfaces,
+      ...expandedWorkspaceHeaderSurfaces,
+    ])) {
       const element = root.querySelector<HTMLElement>(
         `[data-testid="${testId}"]`,
       );

@@ -1255,6 +1255,9 @@ test.each([1280, 1024, 768])(
       [3, "hmw"],
     ] as const) {
       await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
+      const guideShell = page.getByTestId("step-guide");
+      if ((await guideShell.getAttribute("data-state")) !== "detail")
+        await page.getByRole("button", { name: "進め方", exact: true }).click();
       const guide = page.getByRole("region", {
         name: "ファシリテーションガイド",
       });

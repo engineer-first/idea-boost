@@ -190,11 +190,11 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
   });
 
   const add = page.getByRole("button", { name: "付箋を追加", exact: true });
-  await expect(add).toBeEnabled();
+  expect(await add.isEnabled()).toBe(true);
   const previousIds = await privateNoteIds();
   await add.click();
   await expect
-    .poll(() => privateNoteIds().then((ids) => ids.length))
+    .poll(() => privateNoteIds().then((ids) => ids.length), { timeout: 5000 })
     .toBe(previousIds.length + 1);
   const addedNote = await addedPrivateNote(previousIds);
   const editor = addedNote.locator("textarea:not([readonly])");
@@ -203,9 +203,29 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
   expect(await editor.inputValue()).toBe("日本語入力の保存確認");
   await editor.press("Escape");
   const savedEditor = addedNote.locator("textarea");
-  await expect(savedEditor).toHaveAttribute("readonly", "");
-  expect(await savedEditor.inputValue()).toBe("日本語入力の保存確認");
+  await expect.poll(() => savedEditor.getAttribute("readonly")).toBe("");
+  await expect
+    .poll(() => savedEditor.inputValue())
+    .toBe("日本語入力の保存確認");
 });
+
+test.each([1440, 1280, 390])(
+  "1-1: %ipxでも進め方を拡大エリアに遮られず開ける",
+  async (width) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardview--private-note-addition-before-timer&viewMode=story`,
+    );
+    const guide = page.getByRole("button", { name: "進め方", exact: true });
+    await guide.waitFor();
+
+    await guide.click();
+
+    await expect
+      .poll(() => page.getByTestId("step-guide").getAttribute("data-state"))
+      .toBe("detail");
+  },
+);
 
 test("1-1: 右上のルームメニューと招待操作が拡大パネルに隠れない", async () => {
   await page.setViewportSize({ width: 1440, height: 900 });
