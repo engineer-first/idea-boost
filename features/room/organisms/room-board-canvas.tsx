@@ -9,7 +9,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, ViewTransition } from "react";
 import { createPortal } from "react-dom";
 import {
   DRAG_THRESHOLD_PX,
@@ -81,6 +81,7 @@ export type RoomBoardCanvasProps = {
   notes: Note[];
   groups: PersistentGroup[];
   phase: RoomPhase;
+  isPrivateNotesHandoffPending?: boolean;
   decision: Decision | null;
   isHost: boolean;
   privateNotes: Note[];
@@ -192,6 +193,7 @@ export function RoomBoardCanvas({
   notes,
   groups,
   phase,
+  isPrivateNotesHandoffPending = false,
   decision,
   isHost,
   privateNotes,
@@ -302,8 +304,13 @@ export function RoomBoardCanvas({
   const ideaMapNoteDisplayScale = getIdeaMapNoteDisplayScale(ideaMapSizeLevel);
   const isPersonalNoteEntryPhase =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
+  const isInitialPersonalEntryPhase = isPhaseStep(phase, 1, 1);
+  const privateNotesInteractionBlocked =
+    boardInteractionBlocked && !isInitialPersonalEntryPhase;
   const privateNotesContainerClassName = isPersonalNoteEntryPhase
-    ? "absolute inset-x-0 top-[min(var(--board-private-workspace-top,12rem),calc(100%-20rem))] bottom-24 z-30 flex min-h-0 justify-center px-3 py-2 min-[640px]:left-96 max-[639px]:top-[min(var(--board-private-workspace-top,12rem),calc(100%-8rem))] max-[639px]:bottom-8"
+    ? isInitialPersonalEntryPhase
+      ? "fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[60] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 sm:top-[var(--board-private-expanded-top,5rem)] lg:inset-x-5 lg:bottom-5 lg:top-[var(--board-private-expanded-top,5rem)]"
+      : "absolute inset-x-0 top-[min(var(--board-private-workspace-top,12rem),calc(100%-20rem))] bottom-24 z-30 flex min-h-0 justify-center px-3 py-2 min-[640px]:left-96 max-[639px]:top-[min(var(--board-private-workspace-top,12rem),calc(100%-8rem))] max-[639px]:bottom-8"
     : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
@@ -852,12 +859,12 @@ export function RoomBoardCanvas({
               ? "relative min-h-0 min-w-0 flex-1"
               : "absolute inset-0"
           }
-          hidden={isPersonalNoteEntryPhase}
+          hidden={isPersonalNoteEntryPhase && !isInitialPersonalEntryPhase}
         >
           <div
             ref={boardScrollerRef}
             // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
-            className={`relative h-full ${usesIdeaMapViewport ? "overflow-visible bg-background" : "overflow-clip bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
+            className={`personal-canvas-scroller relative h-full ${usesIdeaMapViewport ? "overflow-visible bg-background" : "overflow-clip bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
               isIdeaMapWorkspaceStep
                 ? "cursor-default"
                 : isAdoptMode
@@ -871,6 +878,7 @@ export function RoomBoardCanvas({
                         : "cursor-default"
             }`}
             data-testid="board-scroller"
+            inert={isInitialPersonalEntryPhase}
             data-interaction-tool={interactionTool}
             tabIndex={-1}
             role="application"
@@ -884,9 +892,12 @@ export function RoomBoardCanvas({
             }
             data-selection-count={selectionIds.length}
             data-adopt-mode={isAdoptMode || undefined}
-            style={
-              usesIdeaMapViewport ? { backgroundImage: "none" } : gridStyle
-            }
+            style={{
+              ...(usesIdeaMapViewport
+                ? { backgroundImage: "none" }
+                : gridStyle),
+              filter: isInitialPersonalEntryPhase ? "blur(4px)" : "none",
+            }}
             onPointerDownCapture={handleViewportPointerDown}
             onPointerUp={(event) => {
               finishAdoptionPointer(event);
@@ -1146,78 +1157,94 @@ export function RoomBoardCanvas({
           <BoardOperationMatrix permissions={permissions} />
         </div>
         {permissions.showPrivateToolbar ? (
-          <div
-            className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
-            data-testid={
-              isPersonalNoteEntryPhase
-                ? "private-notes-workspace"
-                : "private-notes-dock"
-            }
-            data-board-fit-edge={
-              isPersonalNoteEntryPhase ? undefined : "bottom"
-            }
+          <ViewTransition
+            name="private-notes-area"
+            default="none"
+            share="private-notes-area-morph"
+            update="private-notes-area-morph"
           >
-            <PrivateNotesToolbar
-              rollbackRevision={rollbackRevision}
-              notes={privateNotes}
-              disabled={isDisconnected}
-              canDeleteNote={
-                !boardInteractionBlocked && permissions.canDeleteNote
-              }
-              canCreateNote={
-                !boardInteractionBlocked &&
-                permissions.canCreateNote &&
-                noteCreationSupported
-              }
-              noteCreationPending={noteCreationPending}
-              noteCreationReceipt={noteCreationReceipt}
-              noteCreationFocusContext={noteCreationFocusContext}
-              canEditNote={!boardInteractionBlocked && permissions.canEditNote}
-              canMoveNote={!boardInteractionBlocked && permissions.canMoveNote}
-              sharingHint={
-                isSavingBeforeShare
-                  ? "本文の保存を確認してから共有します…"
-                  : isPhaseStep(phase, 3, 2)
-                    ? canPublishPrivateNote
-                      ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
-                      : "付箋の共有は、自分の番になるまでお待ちください。"
-                    : phase.kind === "step" && phase.step === 2
-                      ? canPublishPrivateNote
-                        ? "あなたの番です。付箋をボードへドラッグして共有できます。"
-                        : "付箋の共有は、自分の番になるまでお待ちください。"
-                      : undefined
-              }
-              presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
-              editingDisabled={isResultStep(phase)}
-              defaultExpanded={
-                (phase.kind === "step" &&
-                  phase.step === 1 &&
-                  phase.phase <= 3) ||
-                isPhaseStep(phase, 3, 2)
-              }
-              expandRequest={expandPrivateNotesRequest}
-              addRequest={addPrivateNoteRequest}
-              addActionRef={privateNoteAddRef}
-              className={
+            <div
+              className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
+              data-testid={
                 isPersonalNoteEntryPhase
-                  ? "pointer-events-auto h-full w-full"
-                  : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
+                  ? "private-notes-workspace"
+                  : "private-notes-dock"
               }
-              toolbarRef={privateToolbarRef}
-              isReturnDropTarget={isReturnDropTarget}
-              dropPlaceholder={privateDropPlaceholder}
-              selectedNoteId={selectedNoteId}
-              onSelect={onSelect}
-              onAdd={onAddPrivateNote}
-              onContentChange={onPrivateNoteContentChange}
-              draftValue={draftValue}
-              onDraftChange={onDraftChange}
-              onDraftCompositionStart={onDraftCompositionStart}
-              onDraftCompositionEnd={onDraftCompositionEnd}
-              onDelete={onPrivateNoteDelete}
-              onDragStart={onPrivateNoteDragStart}
-            />
-          </div>
+              data-board-fit-edge={
+                isPersonalNoteEntryPhase ? undefined : "bottom"
+              }
+            >
+              <PrivateNotesToolbar
+                rollbackRevision={rollbackRevision}
+                notes={privateNotes}
+                disabled={isDisconnected}
+                canDeleteNote={
+                  !privateNotesInteractionBlocked && permissions.canDeleteNote
+                }
+                canCreateNote={
+                  !privateNotesInteractionBlocked &&
+                  permissions.canCreateNote &&
+                  noteCreationSupported
+                }
+                noteCreationPending={noteCreationPending}
+                noteCreationReceipt={noteCreationReceipt}
+                noteCreationFocusContext={noteCreationFocusContext}
+                canEditNote={
+                  !privateNotesInteractionBlocked && permissions.canEditNote
+                }
+                canMoveNote={
+                  !privateNotesInteractionBlocked && permissions.canMoveNote
+                }
+                sharingHint={
+                  isSavingBeforeShare
+                    ? "本文の保存を確認してから共有します…"
+                    : isPhaseStep(phase, 3, 2)
+                      ? canPublishPrivateNote
+                        ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
+                        : "付箋の共有は、自分の番になるまでお待ちください。"
+                      : phase.kind === "step" && phase.step === 2
+                        ? canPublishPrivateNote
+                          ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+                          : "付箋の共有は、自分の番になるまでお待ちください。"
+                        : undefined
+                }
+                presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
+                collapseOnWorkspaceExit={isPhaseStep(phase, 1, 2)}
+                workspaceExitTransitionPending={isPrivateNotesHandoffPending}
+                editingDisabled={isResultStep(phase)}
+                defaultExpanded={
+                  (phase.kind === "step" &&
+                    phase.step === 1 &&
+                    phase.phase <= 3) ||
+                  isPhaseStep(phase, 1, 2) ||
+                  isPhaseStep(phase, 3, 2)
+                }
+                expandRequest={expandPrivateNotesRequest}
+                addRequest={addPrivateNoteRequest}
+                addActionRef={privateNoteAddRef}
+                className={
+                  isInitialPersonalEntryPhase
+                    ? "pointer-events-auto h-full w-full max-w-none rounded-2xl border border-border bg-card shadow-xl"
+                    : isPersonalNoteEntryPhase
+                      ? "pointer-events-auto h-full w-full"
+                      : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
+                }
+                toolbarRef={privateToolbarRef}
+                isReturnDropTarget={isReturnDropTarget}
+                dropPlaceholder={privateDropPlaceholder}
+                selectedNoteId={selectedNoteId}
+                onSelect={onSelect}
+                onAdd={onAddPrivateNote}
+                onContentChange={onPrivateNoteContentChange}
+                draftValue={draftValue}
+                onDraftChange={onDraftChange}
+                onDraftCompositionStart={onDraftCompositionStart}
+                onDraftCompositionEnd={onDraftCompositionEnd}
+                onDelete={onPrivateNoteDelete}
+                onDragStart={onPrivateNoteDragStart}
+              />
+            </div>
+          </ViewTransition>
         ) : null}
       </div>
     </div>

@@ -120,6 +120,189 @@ async function expectFocused(editor: Locator): Promise<void> {
     .toBe("focused");
 }
 
+test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、背景だけをぼかす", async () => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardview--private-note-addition-before-timer&viewMode=story`,
+  );
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  await toolbar.waitFor();
+
+  const layers = await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLElement>(
+      '[data-testid="board-scroller"]',
+    );
+    const workspace = document.querySelector<HTMLElement>(
+      '[data-testid="private-notes-workspace"]',
+    );
+    const header = document.querySelector<HTMLElement>(
+      '[data-testid="board-control-hud"]',
+    );
+    if (!canvas || !workspace || !header)
+      throw new Error("個人入力画面のレイヤーがありません");
+    const point = workspace.getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      point.left + point.width / 2,
+      point.top + point.height / 2,
+    );
+    const headerBottom = [
+      "board-context-hud",
+      "board-control-hud",
+      "board-connection-slot",
+    ].reduce((bottom, testId) => {
+      const element = document.querySelector<HTMLElement>(
+        `[data-testid="${testId}"]`,
+      );
+      if (
+        !element ||
+        element.getClientRects().length === 0 ||
+        getComputedStyle(element).visibility === "hidden"
+      )
+        return bottom;
+      return Math.max(bottom, element.getBoundingClientRect().bottom);
+    }, 0);
+    return {
+      canvasInert: canvas.hasAttribute("inert"),
+      canvasFilter: getComputedStyle(canvas).filter,
+      backdropExists:
+        document.querySelector(
+          '[data-testid="personal-workspace-backdrop"]',
+        ) !== null,
+      headerFilter: getComputedStyle(header).filter,
+      panelTop: point.top,
+      headerBottom,
+      workspaceFilter: getComputedStyle(workspace).filter,
+      workspaceHasInertAncestor: workspace.closest("[inert]") !== null,
+      pointerHitsWorkspace:
+        hit?.closest('[data-testid="private-notes-toolbar"]') !== null,
+    };
+  });
+  expect(layers).toEqual({
+    canvasInert: true,
+    canvasFilter: "blur(4px)",
+    backdropExists: false,
+    headerFilter: "none",
+    panelTop: layers.headerBottom + 12,
+    headerBottom: layers.headerBottom,
+    workspaceFilter: "none",
+    workspaceHasInertAncestor: false,
+    pointerHitsWorkspace: true,
+  });
+
+  const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+  await expect(add).toBeEnabled();
+  const previousIds = await privateNoteIds();
+  await add.click();
+  await expect
+    .poll(() => privateNoteIds().then((ids) => ids.length))
+    .toBe(previousIds.length + 1);
+  const addedNote = await addedPrivateNote(previousIds);
+  const editor = addedNote.locator("textarea:not([readonly])");
+  await expectFocused(editor);
+  await page.keyboard.insertText("日本語入力の保存確認");
+  expect(await editor.inputValue()).toBe("日本語入力の保存確認");
+  await editor.press("Escape");
+  const savedEditor = addedNote.locator("textarea");
+  await expect(savedEditor).toHaveAttribute("readonly", "");
+  expect(await savedEditor.inputValue()).toBe("日本語入力の保存確認");
+});
+
+test("1-1: 右上のルームメニューと招待操作が拡大パネルに隠れない", async () => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardview--private-note-addition-before-timer&viewMode=story`,
+  );
+  await page.getByTestId("private-notes-workspace").waitFor();
+
+  await page.getByTestId("room-menu-trigger").click();
+  const inviteButton = page.getByRole("button", { name: "招待", exact: true });
+  await inviteButton.click({ timeout: 2000 });
+  await page.getByRole("dialog", { name: "ルームに招待" }).waitFor();
+});
+
+test("1-1から1-2への遷移でマイ付箋エリアのView Transitionが再生される", async () => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-1-to-step-2&viewMode=story`,
+  );
+  await page.getByTestId("private-notes-workspace").waitFor();
+
+  const supportsViewTransitions = await page.evaluate(
+    () => typeof document.startViewTransition === "function",
+  );
+  expect(supportsViewTransitions).toBe(true);
+  await page.evaluate(() => {
+    type TransitionProbe = {
+      calls: number;
+      areaGroupAnimations: string[];
+    };
+    type TransitionDocument = Document & {
+      startViewTransition: (callback: () => void) => {
+        ready: Promise<void>;
+        finished: Promise<void>;
+      };
+    };
+    const transitionDocument = document as TransitionDocument;
+    const startViewTransition =
+      transitionDocument.startViewTransition.bind(transitionDocument);
+    const probe: TransitionProbe = { calls: 0, areaGroupAnimations: [] };
+    Object.assign(window, { __privateAreaTransitionProbe: probe });
+    transitionDocument.startViewTransition = (callback) => {
+      const transition = startViewTransition(callback);
+      probe.calls += 1;
+      const startedAt = performance.now();
+      const collect = () => {
+        for (const animation of document.getAnimations()) {
+          const pseudoElement =
+            (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "";
+          if (
+            pseudoElement.includes("view-transition-group") &&
+            pseudoElement.includes("private-notes-area")
+          )
+            probe.areaGroupAnimations.push(pseudoElement);
+        }
+        if (performance.now() - startedAt < 1200)
+          requestAnimationFrame(collect);
+      };
+      void transition.ready.then(collect);
+      return transition;
+    };
+  });
+
+  await page.getByRole("button", { name: "次のステップへ" }).click();
+  await page.getByTestId("private-notes-dock").waitFor();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as Window & {
+              __privateAreaTransitionProbe?: {
+                calls: number;
+                areaGroupAnimations: string[];
+              };
+            }
+          ).__privateAreaTransitionProbe?.calls ?? 0,
+      ),
+    )
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as Window & {
+              __privateAreaTransitionProbe?: {
+                calls: number;
+                areaGroupAnimations: string[];
+              };
+            }
+          ).__privateAreaTransitionProbe?.areaGroupAnimations.length ?? 0,
+      ),
+    )
+    .toBeGreaterThan(0);
+});
+
 for (const width of [390, 1440]) {
   test(`${width}px: 個人作業の追加ボタンは空の状態から追加を繰り返しても一覧の左上から動かない`, async () => {
     await page.setViewportSize({ width, height: 844 });

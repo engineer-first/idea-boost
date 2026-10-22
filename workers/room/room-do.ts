@@ -117,6 +117,7 @@ import {
   getPhase,
   getPhaseRevision,
   isBoardMutation,
+  isTimerExemptPersonalNoteMutation,
   phaseHandlers,
   savePhase,
 } from "./phase";
@@ -1661,10 +1662,12 @@ export class RoomDO extends DurableObject {
       });
       return;
     }
+    const phase = getPhase(this.sql);
     const timerBlocked =
       isBoardMutation(message) &&
       message.type !== "note:update-font-size" &&
       message.type !== "idea-map:resize" &&
+      !isTimerExemptPersonalNoteMutation(phase, message) &&
       getTimerState(this.sql).status !== "running";
 
     // inverse の拒否は専用ハンドラで終端結果として保存する。
@@ -1676,7 +1679,6 @@ export class RoomDO extends DurableObject {
       });
       return;
     }
-    const phase = getPhase(this.sql);
     const forbiddenMessage =
       phase.kind === "step" &&
       getDecision(this.sql, phase.phase) &&

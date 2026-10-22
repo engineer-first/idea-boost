@@ -9,9 +9,15 @@
 // このファイルに残るのはフェーズ進行の操作と画面反応だけ。
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
-import { isResultStep, type RoomPhase } from "@/contracts/phase";
+import { isPhaseStep, isResultStep, type RoomPhase } from "@/contracts/phase";
 import {
   type ClientMessage,
   needsHostRevision,
@@ -83,6 +89,9 @@ export function RoomBoard({
   const feedback = useFeedback(roomId, submitFeedback);
   const [completionResetVersion, setCompletionResetVersion] = useState(0);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
+  const [isPrivateNotesHandoffPending, setIsPrivateNotesHandoffPending] =
+    useState(false);
+  const privateNotesHandoffCleanupRef = useRef<(() => void) | null>(null);
   const hmwExamplesInitializedVersionRef = useRef(0);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
   const bulkUndoIdsRef = useRef(new Set<string>());
@@ -227,8 +236,44 @@ export function RoomBoard({
     candidateNoticeIdsRef.current.clear();
   }
 
+  function beginPrivateNotesHandoff(): void {
+    privateNotesHandoffCleanupRef.current?.();
+    privateNotesHandoffCleanupRef.current = null;
+    if (
+      typeof document === "undefined" ||
+      typeof document.startViewTransition !== "function" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setIsPrivateNotesHandoffPending(false);
+      return;
+    }
+
+    setIsPrivateNotesHandoffPending(true);
+    let timeoutId: number | undefined;
+    const finish = (): void => {
+      cleanup();
+      setIsPrivateNotesHandoffPending(false);
+    };
+    const onAnimationEnd = (event: AnimationEvent): void => {
+      if (event.pseudoElement === "::view-transition-group(private-notes-area)")
+        finish();
+    };
+    const cleanup = (): void => {
+      document.removeEventListener("animationend", onAnimationEnd, true);
+      document.removeEventListener("animationcancel", onAnimationEnd, true);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      if (privateNotesHandoffCleanupRef.current === cleanup)
+        privateNotesHandoffCleanupRef.current = null;
+    };
+    document.addEventListener("animationend", onAnimationEnd, true);
+    document.addEventListener("animationcancel", onAnimationEnd, true);
+    timeoutId = window.setTimeout(finish, 1000);
+    privateNotesHandoffCleanupRef.current = cleanup;
+  }
+
   useEffect(
     () => () => {
+      privateNotesHandoffCleanupRef.current?.();
       for (const id of candidateNoticeIdsRef.current)
         roomNotify.dismissCandidateNotice(id);
       candidateNoticeIdsRef.current.clear();
@@ -337,7 +382,16 @@ export function RoomBoard({
     )
       boardInteractions.cancelCurrentNoteDrag(true);
     noteGroups.applyMessage(message);
-    roomState.applyMessage(message, receivedAt);
+    if (
+      (message.type === "phase:updated" || message.type === "snapshot") &&
+      isPhaseStep(roomState.phase, 1, 1) &&
+      isPhaseStep(message.phase, 1, 2)
+    ) {
+      beginPrivateNotesHandoff();
+      startTransition(() => roomState.applyMessage(message, receivedAt));
+    } else {
+      roomState.applyMessage(message, receivedAt);
+    }
     cursorPresence.applyMessage(message, receivedAt);
   }
 
@@ -649,6 +703,7 @@ export function RoomBoard({
   return (
     <>
       <RoomBoardView
+        isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
         loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
           undo: moveHistory.undoState,

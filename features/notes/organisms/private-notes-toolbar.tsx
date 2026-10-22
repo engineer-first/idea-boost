@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  ViewTransition,
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,8 @@ export type PrivateNotesToolbarProps = {
   canMoveNote: boolean;
   sharingHint?: string;
   presentation?: "dock" | "workspace";
+  collapseOnWorkspaceExit?: boolean;
+  workspaceExitTransitionPending?: boolean;
   defaultExpanded?: boolean;
   expandRequest?: number;
   addRequest?: number;
@@ -73,6 +76,8 @@ export function PrivateNotesToolbar({
   canMoveNote,
   sharingHint,
   presentation = "dock",
+  collapseOnWorkspaceExit = false,
+  workspaceExitTransitionPending = false,
   canEditNote,
   defaultExpanded = true,
   expandRequest = 0,
@@ -94,6 +99,8 @@ export function PrivateNotesToolbar({
 }: PrivateNotesToolbarProps) {
   const isWorkspace = presentation === "workspace";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const previousPresentationRef = useRef(presentation);
+  const pendingWorkspaceExitCollapseRef = useRef(false);
   const [autoFocusNoteId, setAutoFocusNoteId] = useState<string | null>(null);
   const [newlyAddedNoteId, setNewlyAddedNoteId] = useState<string | null>(null);
   const pendingCreationFocusRef = useRef<{
@@ -114,6 +121,36 @@ export function PrivateNotesToolbar({
   const previousNoteTopsRef = useRef(new Map<string, number>());
   const noteAnimationsRef = useRef(new Map<HTMLElement, Animation>());
   const noteOrderKey = JSON.stringify(notes.map((note) => note.id));
+
+  useLayoutEffect(() => {
+    const presentationChanged =
+      previousPresentationRef.current !== presentation;
+    if (presentationChanged) previousPresentationRef.current = presentation;
+    if (presentation !== "dock" || !collapseOnWorkspaceExit) {
+      pendingWorkspaceExitCollapseRef.current = false;
+      return;
+    }
+    if (!presentationChanged && !pendingWorkspaceExitCollapseRef.current)
+      return;
+    if (workspaceExitTransitionPending) {
+      pendingWorkspaceExitCollapseRef.current = true;
+      return;
+    }
+    pendingWorkspaceExitCollapseRef.current = false;
+    const activeElement = document.activeElement;
+    const isFocusedEditor =
+      activeElement instanceof HTMLTextAreaElement &&
+      toolbarRef?.current?.contains(activeElement) &&
+      !activeElement.readOnly;
+    if (!isFocusedEditor) setIsExpanded(defaultExpanded);
+  }, [
+    collapseOnWorkspaceExit,
+    defaultExpanded,
+    presentation,
+    toolbarRef,
+    workspaceExitTransitionPending,
+  ]);
+
   const handleAdd = useCallback(() => {
     if (disabled || !canCreateNote || noteCreationPending) return;
     const editor = document.activeElement;
@@ -451,51 +488,58 @@ export function PrivateNotesToolbar({
                   style={{ height: getNoteHeight(note.content, note.fontSize) }}
                 />
               ) : (
-                <NoteCard
+                <ViewTransition
                   key={`${note.id}:${rollbackRevision}`}
-                  note={note}
-                  isOwnDrag={false}
-                  isSelected={selectedNoteId === note.id}
-                  disabled={disabled}
-                  editingDisabled={editingDisabled}
-                  canDeleteNote={canDeleteNote}
-                  canEditNote={canEditNote}
-                  canMoveNote={canMoveNote}
-                  onSelect={onSelect}
-                  onDragStart={onDragStart}
-                  onContentChange={onContentChange}
-                  draftValue={draftValue?.(note.id)}
-                  onDraftChange={onDraftChange}
-                  onDraftCompositionStart={onDraftCompositionStart}
-                  onDraftCompositionEnd={onDraftCompositionEnd}
-                  onDelete={(id) => {
-                    pendingDeleteFocusRef.current = {
-                      id,
-                      index: notes.findIndex((note) => note.id === id),
-                      surface: document.activeElement,
-                    };
-                    onDelete(id);
-                  }}
-                  // 付箋の x/y はホワイトボード上の座標なので、一覧内では常に原点に置く。
-                  style={{ left: 0, top: 0 }}
-                  vote={{
-                    displayMode: "hidden",
-                    selectedKind: null,
-                    voteRemaining: { subjective: 0, objective: 0 },
-                    canVote: false,
-                    pendingOperations: [],
-                    onVote: () => {},
-                    onVoteRemove: () => {},
-                  }}
-                  autoFocusEditor={autoFocusNoteId === note.id}
-                  onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
-                  className={cn(
-                    "relative",
-                    isWorkspace && "w-[200px]",
-                    newlyAddedNoteId === note.id &&
-                      "animate-in fade-in slide-in-from-bottom-2 duration-200",
-                  )}
-                />
+                  name={`private-note-${note.id}`}
+                  default="none"
+                  share="private-note-morph"
+                  update="private-note-morph"
+                >
+                  <NoteCard
+                    note={note}
+                    isOwnDrag={false}
+                    isSelected={selectedNoteId === note.id}
+                    disabled={disabled}
+                    editingDisabled={editingDisabled}
+                    canDeleteNote={canDeleteNote}
+                    canEditNote={canEditNote}
+                    canMoveNote={canMoveNote}
+                    onSelect={onSelect}
+                    onDragStart={onDragStart}
+                    onContentChange={onContentChange}
+                    draftValue={draftValue?.(note.id)}
+                    onDraftChange={onDraftChange}
+                    onDraftCompositionStart={onDraftCompositionStart}
+                    onDraftCompositionEnd={onDraftCompositionEnd}
+                    onDelete={(id) => {
+                      pendingDeleteFocusRef.current = {
+                        id,
+                        index: notes.findIndex((note) => note.id === id),
+                        surface: document.activeElement,
+                      };
+                      onDelete(id);
+                    }}
+                    // 付箋の x/y はホワイトボード上の座標なので、一覧内では常に原点に置く。
+                    style={{ left: 0, top: 0 }}
+                    vote={{
+                      displayMode: "hidden",
+                      selectedKind: null,
+                      voteRemaining: { subjective: 0, objective: 0 },
+                      canVote: false,
+                      pendingOperations: [],
+                      onVote: () => {},
+                      onVoteRemove: () => {},
+                    }}
+                    autoFocusEditor={autoFocusNoteId === note.id}
+                    onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
+                    className={cn(
+                      "relative",
+                      isWorkspace && "w-[200px]",
+                      newlyAddedNoteId === note.id &&
+                        "animate-in fade-in slide-in-from-bottom-2 duration-200",
+                    )}
+                  />
+                </ViewTransition>
               ),
             )}
           </div>

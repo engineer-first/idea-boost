@@ -196,6 +196,7 @@ export type RoomBoardViewProps = {
   onToggleReady?: ((ready: boolean) => boolean) | ((ready: boolean) => void);
   completionResetVersion?: number;
   isNextPhasePending: boolean;
+  isPrivateNotesHandoffPending?: boolean;
   isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
@@ -336,6 +337,7 @@ export function RoomBoardView({
   onToggleReady,
   completionResetVersion = 0,
   isNextPhasePending,
+  isPrivateNotesHandoffPending = false,
   isSavingBeforeShare = false,
   interactions,
   help,
@@ -1376,6 +1378,12 @@ export function RoomBoardView({
     ] as const;
     const isPersonalNoteEntryPhase =
       phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
+    const isInitialPersonalEntryPhase = isPhaseStep(phase, 1, 1);
+    const expandedWorkspaceHeaderSurfaces = [
+      "board-context-hud",
+      "board-control-hud",
+      "board-connection-slot",
+    ] as const;
     let stepGuideBottomInFrame: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
@@ -1416,6 +1424,28 @@ export function RoomBoardView({
         );
         if (frame) {
           const frameTop = frame.getBoundingClientRect().top;
+          if (isInitialPersonalEntryPhase) {
+            let headerBottom = frameTop;
+            for (const testId of expandedWorkspaceHeaderSurfaces) {
+              const element = root.querySelector<HTMLElement>(
+                `[data-testid="${testId}"]`,
+              );
+              if (
+                !element ||
+                element.getClientRects().length === 0 ||
+                getComputedStyle(element).visibility === "hidden"
+              )
+                continue;
+              headerBottom = Math.max(
+                headerBottom,
+                element.getBoundingClientRect().bottom,
+              );
+            }
+            root.style.setProperty(
+              "--board-private-expanded-top",
+              `${Math.ceil(headerBottom + 12)}px`,
+            );
+          }
           if (stepGuideBottomInFrame === null) {
             const stepGuide = root.querySelector<HTMLElement>(
               '[data-testid="step-guide"]',
@@ -1960,6 +1990,7 @@ export function RoomBoardView({
           </p>
         ) : null}
         <RoomBoardCanvas
+          isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
           rollbackRevision={rollbackRevision}
           moveHistory={moveHistoryControls}
           notes={renderedNotes}
@@ -2111,7 +2142,6 @@ export function RoomBoardView({
           onPrivateNoteDragStart={handlePrivateDragStart}
           remoteCursors={remoteCursors}
         />
-
         {isVotingStep(phase) ? (
           <div
             className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center min-[640px]:max-[1023px]:bottom-[5.25rem] max-[639px]:justify-center max-[639px]:bottom-[var(--board-mobile-controls-bottom)]"

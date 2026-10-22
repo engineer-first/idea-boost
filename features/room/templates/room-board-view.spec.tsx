@@ -1396,7 +1396,7 @@ describe("RoomBoardView", () => {
     },
   );
 
-  it("個人執筆中も既存HUDの位置を保ち、共有キャンバスだけを隠す", () => {
+  it("個人執筆中も既存HUDを保ち、共有キャンバスを操作できない背景として表示する", () => {
     setup({
       phase: buildPhaseStep(1),
       isHost: true,
@@ -1411,10 +1411,65 @@ describe("RoomBoardView", () => {
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("board-scroller").parentElement).toHaveAttribute(
-      "hidden",
-    );
+    expect(
+      screen.getByTestId("board-scroller").parentElement,
+    ).not.toHaveAttribute("hidden");
+    expect(screen.getByTestId("board-scroller")).toHaveAttribute("inert");
     expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
+  });
+
+  it("1-1では背景をぼかし、1-2では背景をぼかさない", () => {
+    const { rerender, props } = setup({ phase: buildPhaseStep(1, 1) });
+    const boardScroller = screen.getByTestId("board-scroller");
+
+    expect(
+      screen.queryByTestId("personal-workspace-backdrop"),
+    ).not.toBeInTheDocument();
+    expect(boardScroller).toHaveStyle({ filter: "blur(4px)" });
+    expect(boardScroller).toHaveAttribute("inert");
+    expect(screen.getByTestId("board-context-hud")).toBeInTheDocument();
+
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(1, 2)} />);
+
+    expect(screen.getByTestId("board-scroller")).toHaveStyle({
+      filter: "none",
+    });
+    expect(screen.getByTestId("board-scroller")).not.toHaveAttribute("inert");
+  });
+
+  it("1-1の拡大パネルはガイドではなくヘッダー直下に配置する", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        switch (this.dataset.testid) {
+          case "board-frame":
+            return new DOMRect(0, 100, 1280, 700);
+          case "step-guide":
+            return new DOMRect(0, 180, 300, 180);
+          case "board-context-hud":
+            return new DOMRect(0, 110, 200, 90);
+          case "board-control-hud":
+            return new DOMRect(900, 110, 300, 56);
+          default:
+            return new DOMRect(0, 0, 0, 0);
+        }
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(
+      function (this: HTMLElement) {
+        return this.dataset.testid === "board-context-hud" ||
+          this.dataset.testid === "board-control-hud" ||
+          this.dataset.testid === "step-guide"
+          ? ([this.getBoundingClientRect()] as unknown as DOMRectList)
+          : ([] as unknown as DOMRectList);
+      },
+    );
+
+    setup({ phase: buildPhaseStep(1, 1) });
+
+    const root = screen.getByTestId("room-board-view-root");
+    expect(root.style.getPropertyValue("--board-private-expanded-top")).toBe(
+      "212px",
+    );
   });
 
   it("個人入力の上端はガイドの初回位置を保つ", () => {
@@ -3026,7 +3081,41 @@ describe("RoomBoardView", () => {
   });
 
   describe("ステップごとの付箋編集制御", () => {
-    it("個人執筆中は共有済み付箋を隠し、個人付箋の入力を表示する", () => {
+    it("1-1はタイマー未開始でも個人付箋を編集・保存・削除できる", () => {
+      const privateNote = buildNote({
+        id: "private-note-before-timer",
+        content: "変換前の本文",
+        visibility: "private",
+      });
+      const { props } = setup({
+        phase: buildPhaseStep(1, 1),
+        timer: { status: "idle" },
+        notes: [],
+        interactions: buildInteractions([], [privateNote]),
+      });
+
+      expect(screen.getByRole("button", { name: "付箋を追加" })).toBeEnabled();
+
+      const card = screen.getByTestId("note-card");
+      clickNote(card);
+      clickNote(card);
+      const editor = within(card).getByRole("textbox");
+      expect(editor).toHaveFocus();
+      expect(editor).not.toHaveAttribute("readonly");
+
+      fireEvent.change(editor, { target: { value: "日本語の変換確定" } });
+      fireEvent.blur(editor);
+
+      expect(props.onPrivateNoteContentChange).toHaveBeenCalledWith(
+        privateNote.id,
+        "日本語の変換確定",
+      );
+
+      fireEvent.keyDown(getNoteSurface(card), { key: "Backspace" });
+      expect(props.onPrivateNoteDelete).toHaveBeenCalledWith(privateNote.id);
+    });
+
+    it("個人執筆中は共有済み付箋を背景に表示して操作不可にし、個人付箋は入力できる", () => {
       const sharedNote = buildNote({
         id: "shared-note",
         content: "共有済みの付箋",
@@ -3043,11 +3132,15 @@ describe("RoomBoardView", () => {
         interactions: buildInteractions([sharedNote], [privateNote]),
       });
 
-      expect(screen.queryByDisplayValue("共有済みの付箋")).not.toBeVisible();
-      expect(screen.getByDisplayValue("自分だけの付箋")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("共有済みの付箋")).toBeVisible();
+      expect(screen.getByDisplayValue("共有済みの付箋")).toHaveAttribute(
+        "readonly",
+      );
+      expect(screen.getByDisplayValue("自分だけの付箋")).toBeVisible();
       expect(
         screen.getByTestId("board-scroller").parentElement,
-      ).toHaveAttribute("hidden");
+      ).not.toHaveAttribute("hidden");
+      expect(screen.getByTestId("board-scroller")).toHaveAttribute("inert");
     });
 
     it("Step2では付箋編集できる", () => {

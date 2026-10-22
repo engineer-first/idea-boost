@@ -36,6 +36,159 @@ function setup(disabled = false, selectedNoteId: string | null = null) {
 }
 
 describe("PrivateNotesToolbar", () => {
+  it("workspaceからdockへ切り替わると通常の折りたたみ状態に戻る", () => {
+    const props = {
+      notes: [buildNote({ visibility: "private", content: "非公開の考え" })],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="workspace"
+        defaultExpanded
+      />,
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        collapseOnWorkspaceExit
+        defaultExpanded={false}
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "false",
+    );
+  });
+
+  it("View Transition中はworkspaceを展開したままにし、完了後にdockを折りたたむ", () => {
+    const props = {
+      notes: [buildNote({ visibility: "private", content: "非公開の考え" })],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="workspace"
+        defaultExpanded
+        workspaceExitTransitionPending={false}
+      />,
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        collapseOnWorkspaceExit
+        defaultExpanded={false}
+        workspaceExitTransitionPending
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        collapseOnWorkspaceExit
+        defaultExpanded={false}
+        workspaceExitTransitionPending={false}
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "false",
+    );
+  });
+
+  it("1-2へのworkspace遷移が完了してもdockを開いたままにする", () => {
+    const props = {
+      notes: [
+        buildNote({ visibility: "private", content: "共有するアイデア" }),
+      ],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: false,
+      canDeleteNote: false,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="workspace"
+        defaultExpanded
+        workspaceExitTransitionPending={false}
+      />,
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        collapseOnWorkspaceExit
+        defaultExpanded
+        workspaceExitTransitionPending
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        collapseOnWorkspaceExit
+        defaultExpanded
+        workspaceExitTransitionPending={false}
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: "マイ付箋を閉じる" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("作成待ちで＋が無効になったときのブラウザの自動blurは新規本文への移動を取り消さない", () => {
     const oldNote = buildNote({ id: "old", visibility: "private" });
     const newNote = buildNote({

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
@@ -14,7 +14,7 @@ import {
 import { NoteDraftRecovery } from "@/features/notes";
 import { roomNotify } from "../logic/room-notify";
 import { useBoardHelp } from "../logic/use-board-help";
-import { RoomBoardView } from "./room-board-view";
+import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
 import boardMeta, { MoveHistoryAvailable } from "./room-board-view.stories";
 
 const LONG_ISSUE =
@@ -65,6 +65,20 @@ const meta = {
 } satisfies Meta<typeof RoomBoardView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+function PhaseOneHandoffPreview(args: RoomBoardViewProps) {
+  const [phase, setPhase] = useState(args.phase);
+  const help = useBoardHelp(phase);
+
+  return (
+    <RoomBoardView
+      {...args}
+      phase={phase}
+      help={help}
+      onNextPhase={() => startTransition(() => setPhase(buildPhaseStep(2, 1)))}
+    />
+  );
+}
 
 function step(
   phase: 1 | 2 | 3,
@@ -121,6 +135,11 @@ function step(
   };
 }
 export const Phase1Step1: Story = step(1, 1);
+export const Phase1Step1ToStep2: Story = {
+  ...step(1, 1),
+  name: "1-1から1-2への移行アニメーション",
+  render: (args) => <PhaseOneHandoffPreview {...args} />,
+};
 export const Phase1Step2: Story = step(1, 2);
 export const Phase1Step3: Story = step(1, 3);
 export const Phase1Step3WithNotReadyMember: Story = {
