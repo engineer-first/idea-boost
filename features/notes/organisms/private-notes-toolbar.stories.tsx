@@ -85,6 +85,21 @@ export const EmptyWritingWorkspace: Story = {
   ),
 };
 
+export const WritingWorkspaceWithExamples: Story = {
+  args: {
+    presentation: "workspace",
+    exampleNotes: [
+      "（例）どうすれば、小さいタスクを忘れずに取り組めるだろう？",
+      "（例）どうすれば、買い物を忘れずに安くできるだろう？",
+    ],
+  },
+  render: (args) => (
+    <div className="h-[720px] w-full">
+      <PrivateNotesToolbar {...args} />
+    </div>
+  ),
+};
+
 export const Single: Story = {
   args: { notes: [singleNote] },
 };
