@@ -232,27 +232,6 @@ function discardEmptyPrivateNotes(sql: SqlStorage, phase: number): void {
   }
 }
 
-// 旧実装で個人付箋として保存されていた HMW の例を削除する。
-// 新実装の例は保存されないため、移行期間中の既存データだけを対象にする。
-function discardLegacyHmwExampleNotes(sql: SqlStorage): void {
-  const rows = sql
-    .exec(
-      `SELECT id FROM notes
-       WHERE phase = ?1
-         AND visibility = 'private'
-         AND content IN (?2, ?3)`,
-      2,
-      "（例）どうすれば、小さいタスクを忘れずに取り組めるだろう？",
-      "（例）どうすれば、買い物を忘れずに安くできるだろう？",
-    )
-    .toArray() as Array<{ id: string }>;
-
-  for (const { id } of rows) {
-    deleteNoteVotes(sql, id);
-    deleteNote(sql, id);
-  }
-}
-
 // WebSocket を直接送られても状態が変わらないよう、変更系メッセージを
 // room-do.ts の handleClientMessage 前段で一元的に判定する。
 export function isBoardMutation(message: ClientMessage): boolean {
@@ -772,10 +751,6 @@ export const phaseHandlers: MessageHandlers<
         next.step > current.step
       ) {
         discardEmptyPrivateNotes(ctx.sql, current.phase);
-
-        if (current.phase === 2 && current.step === 1 && next.step === 2) {
-          discardLegacyHmwExampleNotes(ctx.sql);
-        }
       }
       if (crossesPhaseBoundary) {
         discardPrivateNotes(ctx.sql);

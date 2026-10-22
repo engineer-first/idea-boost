@@ -14,12 +14,6 @@ export const HMW_TEMPLATES = [
   "もっと継続して",
 ] as const;
 
-// Step 2-1 の開始時にマイ付箋へ追加する、完成済みの問いの例。
-export const HMW_EXAMPLES = [
-  "（例）どうすれば、小さいタスクを忘れずに取り組めるだろう？",
-  "（例）どうすれば、買い物を忘れずに安くできるだろう？",
-] as const;
-
 // テンプレートを自分の問いへ書き換えるための操作案内。
 export const HMW_GUIDE_HEADING = "どうしたら私たちは、もっと〇〇できるだろう？";
 export const HMW_TEMPLATE_DESCRIPTION =

@@ -27,6 +27,7 @@ import { canPublishNoteInTurn } from "@/contracts/sharing";
 import type { DisplayNameResult } from "@/features/auth";
 import { submitFeedback, useFeedback } from "@/features/feedback";
 import { HMW_EXAMPLES } from "@/features/hmw";
+import { IDEA_NOTE_EXAMPLES } from "@/features/idea-support";
 import {
   NoteDraftRecovery,
   useMoveHistory,
@@ -37,6 +38,7 @@ import {
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { getBoardPermissions } from "../logic/board-permissions";
+import { ISSUE_NOTE_EXAMPLES } from "../logic/issue-note-examples";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
@@ -85,6 +87,24 @@ function isPrivateNotesWorkspaceHandoff(
     from.step === 1 &&
     to.step === 2
   );
+}
+
+function getPersonalNoteExamples(phase: RoomPhase): readonly string[] {
+  // 個人作業のStep 1以外では、例付箋を表示しない。
+  if (phase.kind !== "step" || phase.step !== 1) {
+    return [];
+  }
+
+  switch (phase.phase) {
+    case 1:
+      return ISSUE_NOTE_EXAMPLES;
+    case 2:
+      return HMW_EXAMPLES;
+    case 3:
+      return IDEA_NOTE_EXAMPLES;
+    default:
+      return [];
+  }
 }
 
 export function RoomBoard({
@@ -707,13 +727,7 @@ export function RoomBoard({
         }}
         feedback={feedback}
         notes={boardNotes}
-        exampleNotes={
-          roomState.phase.kind === "step" &&
-          roomState.phase.phase === 2 &&
-          roomState.phase.step === 1
-            ? HMW_EXAMPLES
-            : []
-        }
+        exampleNotes={getPersonalNoteExamples(roomState.phase)}
         confirmedNotes={notes.notes.filter(
           (note) => note.visibility === "shared",
         )}
