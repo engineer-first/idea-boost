@@ -140,6 +140,21 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 
 ワークフローは実行時に `actions/create-github-app-token` で `idea-boost` に限定した短命 token を発行する。個人 PAT は使わない。実行コードは PR イベントなら base SHA、Issue イベントなら default branch のイベント SHA から取得し、PR 側の変更コードを実行しない。`client-id` は [v3 の公式入力定義](https://github.com/actions/create-github-app-token/blob/v3/action.yml)に準拠する（`app-id` は非推奨）。App の作成・インストール・権限付与と秘密鍵の登録は組織管理者が明示的に承認した後に行う。未設定の間は警告を出して状態同期をスキップする。
 
+## PBIのドラッグ順と優先順位
+
+[Product Backlog Refinement](https://github.com/orgs/engineer-first/projects/3/views/16)では、左端の行番号をドラッグして優先順を決める。View の Sort by は `manual` のまま使う。
+[Sync PBI Priority](../../.github/workflows/sync-pbi-priority.yml) が約5分ごとに、手動順から「優先順位」を1、2、3…へ振り直す。GitHub Actions の混雑時は開始が遅れるため、即時反映ではない。
+
+対象は Project #3 にある `engineer-first/idea-boost` の未アーカイブ・open・Type `PBI`・親なしのIssueだけ。サブIssue・closed・他Type・別リポジトリの数字は変更せず、採番にも含めない。数字を直接変更しても次の同期で行順に戻る。行順が正本となる。
+
+手動順はビュー専用の保存値ではなくProject全体の項目順を使う。他のビューから同じPBIを手動で並べ替えた場合も次の同期に反映される。対象ビューのフィルターは `repo:engineer-first/idea-boost is:issue type:PBI is:open`。フィルター変更・ソート追加・グループ化・数値フィールドの不一致では誤採番を避けるため失敗し、設定の確認を求める。
+
+認証は状態同期と同じ `ISSUE_PROJECT_APP_CLIENT_ID` / `ISSUE_PROJECT_APP_PRIVATE_KEY` を使い、新しい秘密鍵や権限は追加しない。Actions → Sync PBI Priority → Run workflow から、`dry_run` を有効にして変更予定を確認できる。無効にするとその場で同期する。自動同期を止める場合はこのworkflowを無効にする。
+
+全ページを取得した後、書き込み直前にも順序と現在値を再取得する。競合やAPI失敗はActionsを失敗させ、次の実行で最新順からやり直す。数値が同じ項目は更新しない。更新後も再読取で検証する。GitHub APIに並び順と複数フィールドを原子的に更新する機能はないため、書き込み中の並べ替えでは一時的に不一致になることがある。
+
+ローカルでHTTP経由の同期を検証する場合は `postman simulation run postman/simulations/pbi-priority.sim.yaml --port 4918` を起動し、別の端末から `node .github/scripts/check-pbi-priority-simulation.js` を実行する。GitHub公式GraphQLの項目形に沿った合成データで、番号更新後の読み取りも保持する。実データや認証情報は含めない。
+
 ## Project automation と既存項目
 
 - Project の auto-add は `idea-boost` の open Issue 全種を対象とする。GitHub の自動追加は新規作成・更新時に適用され、既存 Issue の一括追加には使わない。

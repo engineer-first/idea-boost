@@ -1,0 +1,10 @@
+version: 1
+name: github-pbi-priority
+slug: github-pbi-priority
+protocol: http
+port: 4917
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true
