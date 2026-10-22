@@ -32,7 +32,7 @@ import {
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { getBoardPermissions } from "../logic/board-permissions";
-import { ISSUE_NOTE_EXAMPLES } from "../logic/issue-note-content";
+import { ISSUE_NOTE_EXAMPLES } from "../logic/issue-note-examples";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";

@@ -71,7 +71,7 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
 import { IDEA_NOTE_EXAMPLES } from "@/features/idea-support";
-import { ISSUE_NOTE_EXAMPLES } from "../logic/issue-note-content";
+import { ISSUE_NOTE_EXAMPLES } from "../logic/issue-note-examples";
 import { RoomBoard } from "./room-board";
 
 const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
