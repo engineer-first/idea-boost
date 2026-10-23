@@ -12,6 +12,18 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const reactTransitionProbe = vi.hoisted(() => ({ start: vi.fn() }));
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return {
+    ...actual,
+    startTransition: (scope: () => void) => {
+      reactTransitionProbe.start(scope);
+      actual.startTransition(scope);
+    },
+  };
+});
+
 // useRouter の戻り値は毎レンダー同じ参照にする（effect の再実行ループ防止）。
 const navigationMocks = vi.hoisted(() => {
   const replace = vi.fn();
@@ -70,8 +82,6 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
-import { IDEA_NOTE_EXAMPLES } from "@/features/idea-support";
-import { ISSUE_NOTE_EXAMPLES } from "../logic/issue-note-examples";
 import { RoomBoard } from "./room-board";
 
 const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -869,6 +879,69 @@ describe("メンバー参加・退出の通知", () => {
 });
 
 describe("サーバーメッセージ → 画面反映", () => {
+  it("1-1からのsnapshotで遷移を開始し、後続phase:updatedで二重開始しない", () => {
+    const { socket } = connectWithSnapshot([]);
+    reactTransitionProbe.start.mockClear();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "snapshot",
+        phaseRevision: 1,
+        notes: [],
+        members: [],
+        phase: buildPhaseStep(2),
+        isHost: true,
+        decision: null,
+        outcomePublished: false,
+        adoptionFocusNoteId: null,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      }),
+    );
+
+    expect(reactTransitionProbe.start).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phaseRevision: 1,
+        phase: buildPhaseStep(2),
+      }),
+    );
+
+    expect(reactTransitionProbe.start).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([2, 3] as const)(
+    "%i-1から同じフェーズのStep 2へ進んでもマイ付箋を展開したままにする",
+    (phase) => {
+      const { socket } = connectWithSnapshot([], {
+        phase: buildPhaseStep(1, phase),
+      });
+      reactTransitionProbe.start.mockClear();
+
+      act(() =>
+        socket.simulateServerMessage({
+          type: "phase:updated",
+          phaseRevision: 1,
+          phase: buildPhaseStep(2, phase),
+        }),
+      );
+
+      expect(reactTransitionProbe.start).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        "true",
+      );
+      expect(
+        screen.getByRole("button", { name: "マイ付箋を閉じる" }),
+      ).toHaveAttribute("aria-expanded", "true");
+    },
+  );
+
   it("共有作業中だけ他者のカーソルを表示し、切断時に消す", () => {
     const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(2) });
     act(() =>
@@ -1132,62 +1205,16 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByTestId("example-note-2")).toBeVisible();
   });
 
-  it.each([
-    {
-      label: "課題",
-      phase: 1,
-      examples: ISSUE_NOTE_EXAMPLES,
-    },
-    {
-      label: "アイデア",
-      phase: 3,
-      examples: IDEA_NOTE_EXAMPLES,
-    },
-  ] as const)("$labelの例付箋は保存せず参照表示する", ({ phase, examples }) => {
+  it.each([1, 3] as const)("%i-1では例付箋を表示しない", (phase) => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(1, phase),
       timer: { status: "idle" },
     });
 
-    const sentMessages = () =>
-      socket.sent.map((payload) => JSON.parse(payload) as { type?: string });
-
-    // 例付箋が表示されていることを確認する。
-    const expectExamplesVisible = () => {
-      examples.forEach((example, index) => {
-        expect(screen.getByTestId(`example-note-${index + 1}`)).toBeVisible();
-
-        expect(screen.getByText(example)).toBeVisible();
-      });
-    };
-
-    // 例付箋を通常の付箋として保存していないことを確認する。
-    const expectNoExampleNotesSaved = () => {
-      expect(
-        sentMessages().some((message) => message.type === "note:create"),
-      ).toBe(false);
-    };
-
-    // タイマー開始前
-    expectExamplesVisible();
-    expectNoExampleNotesSaved();
-
-    // タイマーを開始する。
-    act(() => {
-      socket.simulateServerMessage({
-        type: "timer:updated",
-        timer: {
-          status: "running",
-          endsAt: Date.now() + 60_000,
-          durationMs: 60_000,
-        },
-        serverNow: Date.now(),
-      });
-    });
-
-    // タイマー開始後も表示され、保存されないことを確認する。
-    expectExamplesVisible();
-    expectNoExampleNotesSaved();
+    expect(screen.queryAllByTestId(/^example-note-/)).toHaveLength(0);
+    expect(
+      socket.sent.some((payload) => payload.includes('"type":"note:create"')),
+    ).toBe(false);
   });
 
   it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {

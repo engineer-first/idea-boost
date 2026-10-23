@@ -205,6 +205,7 @@ export type RoomBoardViewProps = {
   onToggleReady?: ((ready: boolean) => boolean) | ((ready: boolean) => void);
   completionResetVersion?: number;
   isNextPhasePending: boolean;
+  isPrivateNotesHandoffPending?: boolean;
   isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
@@ -348,6 +349,7 @@ export function RoomBoardView({
   onToggleReady,
   completionResetVersion = 0,
   isNextPhasePending,
+  isPrivateNotesHandoffPending = false,
   isSavingBeforeShare = false,
   interactions,
   help,
@@ -1388,6 +1390,13 @@ export function RoomBoardView({
     ] as const;
     const isPersonalNoteEntryPhase =
       phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
+    const isInitialPersonalEntryPhase = isPhaseStep(phase, 1, 1);
+    const expandedWorkspaceHeaderSurfaces = [
+      "board-context-hud",
+      "board-control-hud",
+      "board-connection-slot",
+      "step-guide",
+    ] as const;
     let stepGuideBottomInFrame: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
@@ -1428,6 +1437,40 @@ export function RoomBoardView({
         );
         if (frame) {
           const frameTop = frame.getBoundingClientRect().top;
+          if (isInitialPersonalEntryPhase) {
+            let headerBottom = frameTop;
+            let guideBottom = 0;
+            for (const testId of expandedWorkspaceHeaderSurfaces) {
+              const element = root.querySelector<HTMLElement>(
+                `[data-testid="${testId}"]`,
+              );
+              if (
+                !element ||
+                element.getClientRects().length === 0 ||
+                getComputedStyle(element).visibility === "hidden"
+              )
+                continue;
+              const bounds = element.getBoundingClientRect();
+              if (testId === "step-guide") guideBottom = bounds.bottom;
+              // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
+              // デスクトップのガイドはコンパクトな入口の領域を確保し、詳細はその上に重ねる。
+              const bottom =
+                testId === "board-connection-slot"
+                  ? bounds.top + Math.max(38, bounds.height)
+                  : testId === "step-guide" && window.innerWidth >= 640
+                    ? bounds.top + 42
+                    : bounds.bottom;
+              headerBottom = Math.max(headerBottom, bottom);
+            }
+            root.style.setProperty(
+              "--board-private-expanded-top",
+              `${Math.ceil(headerBottom + 12)}px`,
+            );
+            root.style.setProperty(
+              "--board-private-guide-bottom",
+              `${Math.ceil(guideBottom)}px`,
+            );
+          }
           if (stepGuideBottomInFrame === null) {
             const stepGuide = root.querySelector<HTMLElement>(
               '[data-testid="step-guide"]',
@@ -1475,7 +1518,10 @@ export function RoomBoardView({
       );
       if (element) observer?.observe(element);
     }
-    for (const testId of workspaceTopSurfaces) {
+    for (const testId of new Set([
+      ...workspaceTopSurfaces,
+      ...expandedWorkspaceHeaderSurfaces,
+    ])) {
       const element = root.querySelector<HTMLElement>(
         `[data-testid="${testId}"]`,
       );
@@ -1975,6 +2021,7 @@ export function RoomBoardView({
           </p>
         ) : null}
         <RoomBoardCanvas
+          isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
           reactionControls={
             canSendSharingReaction(phase) ? reactionControls : undefined
           }
@@ -2130,7 +2177,6 @@ export function RoomBoardView({
           onPrivateNoteDragStart={handlePrivateDragStart}
           remoteCursors={remoteCursors}
         />
-
         {isVotingStep(phase) ? (
           <div
             className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center min-[640px]:max-[1023px]:bottom-[5.25rem] max-[639px]:justify-center max-[639px]:bottom-[var(--board-mobile-controls-bottom)]"

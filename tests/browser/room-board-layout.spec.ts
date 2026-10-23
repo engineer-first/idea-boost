@@ -254,6 +254,183 @@ test.each(["reconnecting", "participant"])(
   },
 );
 
+for (const [phase, reference] of [
+  [2, "issue"],
+  [3, "hmw"],
+] as const) {
+  test(`${phase}-1の付箋と追加カードはマイ付箋エリアの中央に横一列で並ぶ`, async () => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
+
+    const workspace = page.getByTestId("private-notes-toolbar");
+    const list = page.getByTestId("private-notes-list");
+    const layout = await page.evaluate(() => {
+      const workspace = document.querySelector(
+        '[data-testid="private-notes-toolbar"]',
+      );
+      const list = document.querySelector('[data-testid="private-notes-list"]');
+      if (!workspace || !list) return null;
+      const workspaceBounds = workspace.getBoundingClientRect();
+      const cards = Array.from(list.children).map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          left: bounds.left,
+          right: bounds.right,
+          top: bounds.top,
+        };
+      });
+      const firstRowTop = cards[0]?.top;
+      const firstRow = cards.filter(
+        (card) => Math.abs(card.top - (firstRowTop ?? 0)) < 1,
+      );
+      return {
+        workspaceCenter: workspaceBounds.left + workspaceBounds.width / 2,
+        firstRowCenter:
+          firstRow.length > 0
+            ? (firstRow[0].left + firstRow[firstRow.length - 1].right) / 2
+            : null,
+        firstRowCount: firstRow.length,
+      };
+    });
+
+    expect(await workspace.isVisible()).toBe(true);
+    expect(await list.isVisible()).toBe(true);
+    expect(layout).not.toBeNull();
+    expect(layout?.firstRowCount).toBe(5);
+    expect(
+      Math.abs((layout?.firstRowCenter ?? 0) - (layout?.workspaceCenter ?? 0)),
+    ).toBeLessThan(16);
+  });
+
+  for (const [width, height] of [
+    [1280, 720],
+    [1920, 1080],
+  ] as const) {
+    test(`${phase}-1 ${width}×${height}pxで参照情報と追加カードを操作できる`, async () => {
+      await page.setViewportSize({ width, height });
+      await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
+
+      const referenceNote = page
+        .getByTestId(`board-reference-${reference}-content`)
+        .locator("xpath=..");
+      const addNote = page.getByRole("button", {
+        name: "付箋を追加",
+        exact: true,
+      });
+      expect(await referenceNote.isVisible()).toBe(true);
+      expect(await addNote.isVisible()).toBe(true);
+
+      const referenceBox = await referenceNote.boundingBox();
+      const addBox = await addNote.boundingBox();
+      if (!referenceBox || !addBox)
+        throw new Error("参照付箋または追加カードが見つかりません");
+      const overlaps =
+        Math.min(referenceBox.x + referenceBox.width, addBox.x + addBox.width) >
+          Math.max(referenceBox.x, addBox.x) &&
+        Math.min(
+          referenceBox.y + referenceBox.height,
+          addBox.y + addBox.height,
+        ) > Math.max(referenceBox.y, addBox.y);
+      if (overlaps) {
+        const overlapPoint = {
+          x:
+            (Math.max(referenceBox.x, addBox.x) +
+              Math.min(
+                referenceBox.x + referenceBox.width,
+                addBox.x + addBox.width,
+              )) /
+            2,
+          y:
+            (Math.max(referenceBox.y, addBox.y) +
+              Math.min(
+                referenceBox.y + referenceBox.height,
+                addBox.y + addBox.height,
+              )) /
+            2,
+        };
+        expect(
+          await page.evaluate(
+            ({ x, y }) =>
+              Boolean(
+                document
+                  .elementFromPoint(x, y)
+                  ?.closest('[data-testid="board-context-hud"]'),
+              ),
+            overlapPoint,
+          ),
+        ).toBe(true);
+        await addNote.click({
+          position: { x: addBox.width * 0.8, y: addBox.height / 2 },
+        });
+      } else {
+        expect(
+          await addNote.evaluate((element) => {
+            const bounds = element.getBoundingClientRect();
+            return (
+              document
+                .elementFromPoint(
+                  bounds.x + bounds.width / 2,
+                  bounds.y + bounds.height / 2,
+                )
+                ?.closest('button[aria-label="付箋を追加"]') === element
+            );
+          }),
+        ).toBe(true);
+      }
+    });
+  }
+}
+
+for (const phase of [1, 2, 3] as const) {
+  test(`${phase}-1ではマイ付箋エリア外の余白に無限キャンバスが見える`, async () => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
+
+    const privateNotes = page.getByTestId("private-notes-toolbar");
+    expect(await privateNotes.isVisible()).toBe(true);
+    await expectOpaqueAndReadable(privateNotes);
+
+    const boardScroller = page.getByTestId("board-scroller");
+    if (phase === 1) {
+      expect(await boardScroller.isVisible()).toBe(true);
+      expect(
+        await boardScroller.evaluate(
+          (element) => getComputedStyle(element).filter,
+        ),
+      ).toBe("blur(4px)");
+    } else {
+      expect(await boardScroller.isVisible()).toBe(false);
+    }
+
+    const canvas = page.getByTestId("private-workspace-canvas-backdrop");
+    expect(await canvas.isVisible()).toBe(true);
+    const backdropStyle = await canvas.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backgroundImage: style.backgroundImage,
+        filter: style.filter,
+        pointerEvents: style.pointerEvents,
+      };
+    });
+    expect(backdropStyle.backgroundImage).not.toBe("none");
+    expect(backdropStyle.filter).toBe("none");
+    expect(backdropStyle.pointerEvents).toBe("none");
+
+    const canvasBox = await canvas.boundingBox();
+    const privateNotesBox = await privateNotes.boundingBox();
+    if (!canvasBox || !privateNotesBox)
+      throw new Error("キャンバスまたはマイ付箋エリアが見つかりません");
+    expect(canvasBox.x).toBeLessThan(privateNotesBox.x);
+    expect(canvasBox.y).toBeLessThan(privateNotesBox.y);
+    expect(canvasBox.x + canvasBox.width).toBeGreaterThan(
+      privateNotesBox.x + privateNotesBox.width,
+    );
+    expect(canvasBox.y + canvasBox.height).toBeGreaterThan(
+      privateNotesBox.y + privateNotesBox.height,
+    );
+  });
+}
+
 async function expectOpaqueAndReadable(locator: Locator): Promise<void> {
   const style = await locator.evaluate((element) => {
     const css = getComputedStyle(element);
@@ -359,6 +536,34 @@ test("2-1は例付箋をマイ付箋に表示し、考えるヒントを表示�
   ).toBeGreaterThanOrEqual(2);
   await expectLayout();
 });
+
+test.each([2, 3] as const)(
+  "%i-1から同フェーズのステップ2へ移行してもマイ付箋エリアを展開したままにする",
+  async (phase) => {
+    await openStory(`room-roomboardlayout--phase-${phase}-step-1-to-step-2`);
+    const toolbar = page.getByTestId("private-notes-toolbar");
+    expect(await toolbar.getAttribute("data-expanded")).toBe("true");
+
+    await page.getByRole("button", { name: "次のステップへ" }).click();
+    await expect
+      .poll(() => toolbar.getAttribute("data-presentation"))
+      .toBe("dock");
+    await page.waitForTimeout(600);
+    await expect.poll(() => toolbar.getAttribute("data-expanded")).toBe("true");
+    await expect
+      .poll(() => page.getByTestId("private-notes-scroll").isVisible())
+      .toBe(true);
+
+    await openStory(`room-roomboardlayout--phase-${phase}-step-2`);
+    const reloadedToolbar = page.getByTestId("private-notes-toolbar");
+    await expect
+      .poll(() => reloadedToolbar.getAttribute("data-expanded"))
+      .toBe("true");
+    await expect
+      .poll(() => page.getByTestId("private-notes-scroll").isVisible())
+      .toBe(true);
+  },
+);
 
 test("接続中断時と参加者表示でもタイマー枠を薄くせず、全状態で寸法を保つ", async () => {
   let participantPosition: { x: number; y: number } | undefined;
@@ -1082,6 +1287,9 @@ test.each([1280, 1024, 768])(
       [3, "hmw"],
     ] as const) {
       await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
+      const guideShell = page.getByTestId("step-guide");
+      if ((await guideShell.getAttribute("data-state")) !== "detail")
+        await page.getByRole("button", { name: "進め方", exact: true }).click();
       const guide = page.getByRole("region", {
         name: "ファシリテーションガイド",
       });
@@ -1197,7 +1405,7 @@ test.each([
   },
 );
 
-// 空のpointer-events-none wrapperではなく、clip内に見える実操作対象を調べる。
+// 固定情報との意図した部分重なりは許容し、各操作対象に到達できる可視部分が残ることを調べる。
 async function expectHudTargets(): Promise<void> {
   const targets = page.locator(
     [
@@ -1242,12 +1450,17 @@ async function expectHudTargets(): Promise<void> {
         }
       }
       if (clip.right - clip.left < 2 || clip.bottom - clip.top < 2) return [];
-      const x = (clip.left + clip.right) / 2,
-        y = (clip.top + clip.bottom) / 2;
       const disabled = e instanceof HTMLButtonElement && e.disabled;
+      const probePoints: Array<[number, number]> = [0.2, 0.5, 0.8].flatMap(
+        (xRatio) =>
+          [0.2, 0.5, 0.8].map((yRatio): [number, number] => [
+            clip.left + (clip.right - clip.left) * xRatio,
+            clip.top + (clip.bottom - clip.top) * yRatio,
+          ]),
+      );
       return [
         {
-          // タイマー通知音は既存timer枠の内側に置く独立操作。中心の到達性は両方検査する。
+          // タイマー通知音は既存timer枠の内側に置く独立操作。
           family: e.parentElement?.querySelector(
             ':scope > [data-testid="room-timer"]',
           )
@@ -1259,7 +1472,11 @@ async function expectHudTargets(): Promise<void> {
             .map((other) => elements.indexOf(other)),
           name: e.getAttribute("aria-label") ?? e.textContent,
           ...clip,
-          hit: disabled || e.contains(document.elementFromPoint(x, y)),
+          hit:
+            disabled ||
+            probePoints.some(([probeX, probeY]) =>
+              e.contains(document.elementFromPoint(probeX, probeY)),
+            ),
         },
       ];
     }),

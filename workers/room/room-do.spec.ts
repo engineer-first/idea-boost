@@ -7269,6 +7269,103 @@ describe("RoomDO タイマー終了", () => {
   });
 
   describe("RoomDO ボード操作のタイマーゲート", () => {
+    it("1-1ではタイマー停止中も個人付箋を作成・編集・削除できる", async () => {
+      const roomName = "room-board-timer-gate-private-writing";
+      const stub = roomStub(roomName);
+
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(1, 1), USER_A);
+
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+      ws.send(
+        JSON.stringify({
+          type: "note:create",
+          content: "個人作業の下書き",
+        }),
+      );
+
+      const inserted = await nextJson(ws);
+      expect(inserted).toMatchObject({
+        type: "note:inserted",
+        note: { content: "個人作業の下書き", visibility: "private" },
+      });
+      const noteId = (inserted.note as { id: string }).id;
+      const phaseRevision = await runInRoomDO(roomName, (_instance, state) =>
+        Number(
+          state.storage.sql
+            .exec("SELECT phase_revision FROM room_state WHERE id = 1")
+            .one().phase_revision,
+        ),
+      );
+
+      ws.send(
+        JSON.stringify({
+          type: "note:update-content",
+          noteId,
+          content: "日本語で編集した下書き",
+          operationId: crypto.randomUUID(),
+          expectedContentRevision: 0,
+          expectedPhaseRevision: phaseRevision,
+        }),
+      );
+      expect(await nextJsonOfType(ws, "note:updated")).toMatchObject({
+        type: "note:updated",
+        note: { id: noteId, content: "日本語で編集した下書き" },
+      });
+
+      ws.send(JSON.stringify({ type: "note:delete", noteId }));
+      expect(await nextJson(ws)).toMatchObject({
+        type: "note:deleted",
+        noteId,
+      });
+      const remaining = await runInRoomDO(roomName, (_instance, state) =>
+        Number(
+          state.storage.sql
+            .exec("SELECT COUNT(*) AS count FROM notes WHERE id = ?1", noteId)
+            .one().count,
+        ),
+      );
+      expect(remaining).toBe(0);
+
+      ws.close();
+    });
+
+    it("1-2ではタイマー実行中も新しい付箋を作成できない", async () => {
+      const roomName = "room-board-timer-gate-sharing-no-create";
+      const stub = roomStub(roomName);
+
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(2, 1), USER_A);
+      await startTimerForTest(roomName);
+
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+      ws.send(
+        JSON.stringify({
+          type: "note:create",
+          content: "共有工程で作成できてはいけない付箋",
+        }),
+      );
+
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+        message: expect.stringContaining("この操作を行えません"),
+      });
+      const noteCount = await runInRoomDO(roomName, (_instance, state) =>
+        Number(
+          state.storage.sql
+            .exec(
+              "SELECT COUNT(*) AS count FROM notes WHERE author_id = ?1",
+              USER_A,
+            )
+            .one().count,
+        ),
+      );
+      expect(noteCount).toBe(0);
+
+      ws.close();
+    });
+
     it.each(["idle", "paused", "ended"] as const)(
       "タイマーが %s のとき note:create を拒否する",
       async (status) => {

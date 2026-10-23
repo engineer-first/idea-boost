@@ -99,6 +99,31 @@
   }
 }
 
+.personal-canvas-scroller {
+  transition: filter 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(.private-notes-area-morph),
+::view-transition-group(.private-note-morph) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .personal-canvas-scroller {
+    transition-duration: 0ms;
+  }
+
+  ::view-transition-group(.private-notes-area-morph),
+  ::view-transition-group(.private-note-morph) {
+    animation-duration: 0ms;
+  }
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .facilitation-guide-material,
   .board-hud {

@@ -308,10 +308,7 @@ describe("RoomBoardCanvas", () => {
       onPrivateNoteDragStart,
     });
 
-    const toolbar = screen.getByTestId("private-notes-toolbar");
-    fireEvent.click(
-      within(toolbar).getByRole("button", { name: "マイ付箋を開く" }),
-    );
+    const toolbar = openPrivateNotesToolbar();
     const note = within(toolbar).getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(note, { pointerId: 1, clientX: 20, clientY: 20 });
     fireEvent.pointerMove(note, {
@@ -1765,8 +1762,63 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
   });
 
+  it("Step1-2へ移行した直後はマイ付箋エリアを開いて表示する", () => {
+    const phase = buildPhaseStep(2);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      privateNotes: [
+        buildNote({
+          id: "private-note",
+          visibility: "private",
+          content: "共有するアイデア",
+        }),
+      ],
+    });
+
+    const toolbar = screen.getByTestId("private-notes-toolbar");
+    expect(toolbar).toHaveAttribute("data-expanded", "true");
+    expect(
+      within(toolbar).getByRole("button", { name: "マイ付箋を閉じる" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(within(toolbar).getByText("共有するアイデア")).toBeVisible();
+    expect(
+      within(toolbar).getByRole("button", { name: "付箋を追加" }),
+    ).toBeDisabled();
+  });
+
+  it("Step1-1では共有キャンバスを非操作の背景に表示し、個人付箋を一箇所だけに表示する", () => {
+    const phase = buildPhaseStep(1, 1);
+    const sharedNote = buildNote({
+      id: "shared-background-note",
+      visibility: "shared",
+      content: "背景の共有付箋",
+    });
+    const privateNote = buildNote({
+      id: "private-workspace-note",
+      visibility: "private",
+      content: "本人だけの下書き",
+    });
+
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      notes: [sharedNote],
+      privateNotes: [privateNote],
+    });
+
+    expect(
+      screen.getByTestId("board-scroller").parentElement,
+    ).not.toHaveAttribute("hidden");
+    expect(screen.getByTestId("board-scroller")).toHaveAttribute("inert");
+    expect(screen.getByText("背景の共有付箋")).toBeVisible();
+    expect(screen.getAllByTestId("private-notes-toolbar")).toHaveLength(1);
+    expect(screen.getByTestId("private-notes-workspace")).toBeVisible();
+    expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
+    expect(screen.getByText("本人だけの下書き")).toBeVisible();
+  });
+
   it.each([
-    { label: "Step1-1", phase: buildPhaseStep(1, 1) },
     { label: "Step2-1", phase: buildPhaseStep(1, 2) },
     { label: "Step3-1", phase: buildPhaseStep(1, 3) },
   ])(

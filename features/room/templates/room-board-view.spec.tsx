@@ -1432,7 +1432,7 @@ describe("RoomBoardView", () => {
     },
   );
 
-  it("個人執筆中も既存HUDの位置を保ち、共有キャンバスだけを隠す", () => {
+  it("個人執筆中も既存HUDを保ち、共有キャンバスを操作できない背景として表示する", () => {
     setup({
       phase: buildPhaseStep(1),
       isHost: true,
@@ -1447,10 +1447,82 @@ describe("RoomBoardView", () => {
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("board-scroller").parentElement).toHaveAttribute(
-      "hidden",
-    );
+    expect(
+      screen.getByTestId("board-scroller").parentElement,
+    ).not.toHaveAttribute("hidden");
+    expect(screen.getByTestId("board-scroller")).toHaveAttribute("inert");
     expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
+  });
+
+  it("1-1では背景をぼかし、1-2では背景をぼかさない", () => {
+    const { rerender, props } = setup({ phase: buildPhaseStep(1, 1) });
+    const boardScroller = screen.getByTestId("board-scroller");
+
+    expect(
+      screen.getByTestId("private-workspace-canvas-backdrop"),
+    ).toBeInTheDocument();
+    expect(boardScroller).toHaveStyle({ filter: "blur(4px)" });
+    expect(boardScroller).toHaveAttribute("inert");
+    expect(screen.getByTestId("board-context-hud")).toBeInTheDocument();
+
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(1, 2)} />);
+
+    expect(screen.getByTestId("board-scroller")).toHaveStyle({
+      filter: "none",
+    });
+    expect(screen.getByTestId("board-scroller")).not.toHaveAttribute("inert");
+  });
+
+  it("1-1のパネル上端は接続案内の切替とガイドの展開で動かない", () => {
+    let guideHeight = 42;
+    let connectionHeight = 38;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        switch (this.dataset.testid) {
+          case "board-frame":
+            return new DOMRect(0, 100, 1280, 700);
+          case "step-guide":
+            return new DOMRect(0, 110, 300, guideHeight);
+          case "board-context-hud":
+            return new DOMRect(0, 110, 200, 40);
+          case "board-control-hud":
+            return new DOMRect(900, 110, 300, 56);
+          case "board-connection-slot":
+            return new DOMRect(900, 174, 300, connectionHeight);
+          default:
+            return new DOMRect(0, 0, 0, 0);
+        }
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(
+      function (this: HTMLElement) {
+        return this.dataset.testid === "board-context-hud" ||
+          this.dataset.testid === "board-control-hud" ||
+          this.dataset.testid === "board-connection-slot" ||
+          this.dataset.testid === "step-guide"
+          ? ([this.getBoundingClientRect()] as unknown as DOMRectList)
+          : ([] as unknown as DOMRectList);
+      },
+    );
+
+    setup({ phase: buildPhaseStep(1, 1) });
+
+    const root = screen.getByTestId("room-board-view-root");
+    const top = root.style.getPropertyValue("--board-private-expanded-top");
+    expect(top).not.toBe("");
+
+    guideHeight = 180;
+    fireEvent(window, new Event("resize"));
+    expect(root.style.getPropertyValue("--board-private-expanded-top")).toBe(
+      top,
+    );
+
+    guideHeight = 42;
+    connectionHeight = 0;
+    fireEvent(window, new Event("resize"));
+    expect(root.style.getPropertyValue("--board-private-expanded-top")).toBe(
+      top,
+    );
   });
 
   it("個人入力の上端はガイドの初回位置を保つ", () => {
@@ -2677,19 +2749,25 @@ describe("RoomBoardView", () => {
     it("接続確立中は接続中の表示を出す（loading）", () => {
       setup({ connectionStatus: "connecting" });
 
-      expect(screen.getByRole("status")).toHaveTextContent("接続しています");
+      expect(screen.getByTestId("board-connection-status")).toHaveTextContent(
+        "接続しています",
+      );
     });
 
     it("切断中は再接続中の表示を出す（error）", () => {
       setup({ connectionStatus: "closed" });
 
-      expect(screen.getByRole("status")).toHaveTextContent("再接続");
+      expect(screen.getByTestId("board-connection-status")).toHaveTextContent(
+        "再接続",
+      );
     });
 
     it("接続済みならインジケータを出さない（success）", () => {
       setup({ connectionStatus: "open" });
 
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("board-connection-status"),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -2770,8 +2848,6 @@ describe("RoomBoardView", () => {
         interactions: buildInteractions([], [privateNote]),
         onNoteBringToFront,
       });
-      fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
-
       const card = within(
         screen.getByTestId("private-notes-toolbar"),
       ).getByTestId("note-card");
@@ -3062,7 +3138,41 @@ describe("RoomBoardView", () => {
   });
 
   describe("ステップごとの付箋編集制御", () => {
-    it("個人執筆中は共有済み付箋を隠し、個人付箋の入力を表示する", () => {
+    it("1-1はタイマー未開始でも個人付箋を編集・保存・削除できる", () => {
+      const privateNote = buildNote({
+        id: "private-note-before-timer",
+        content: "変換前の本文",
+        visibility: "private",
+      });
+      const { props } = setup({
+        phase: buildPhaseStep(1, 1),
+        timer: { status: "idle" },
+        notes: [],
+        interactions: buildInteractions([], [privateNote]),
+      });
+
+      expect(screen.getByRole("button", { name: "付箋を追加" })).toBeEnabled();
+
+      const card = screen.getByTestId("note-card");
+      clickNote(card);
+      clickNote(card);
+      const editor = within(card).getByRole("textbox");
+      expect(editor).toHaveFocus();
+      expect(editor).not.toHaveAttribute("readonly");
+
+      fireEvent.change(editor, { target: { value: "日本語の変換確定" } });
+      fireEvent.blur(editor);
+
+      expect(props.onPrivateNoteContentChange).toHaveBeenCalledWith(
+        privateNote.id,
+        "日本語の変換確定",
+      );
+
+      fireEvent.keyDown(getNoteSurface(card), { key: "Backspace" });
+      expect(props.onPrivateNoteDelete).toHaveBeenCalledWith(privateNote.id);
+    });
+
+    it("個人執筆中は共有済み付箋を背景に表示して操作不可にし、個人付箋は入力できる", () => {
       const sharedNote = buildNote({
         id: "shared-note",
         content: "共有済みの付箋",
@@ -3079,11 +3189,15 @@ describe("RoomBoardView", () => {
         interactions: buildInteractions([sharedNote], [privateNote]),
       });
 
-      expect(screen.queryByDisplayValue("共有済みの付箋")).not.toBeVisible();
-      expect(screen.getByDisplayValue("自分だけの付箋")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("共有済みの付箋")).toBeVisible();
+      expect(screen.getByDisplayValue("共有済みの付箋")).toHaveAttribute(
+        "readonly",
+      );
+      expect(screen.getByDisplayValue("自分だけの付箋")).toBeVisible();
       expect(
         screen.getByTestId("board-scroller").parentElement,
-      ).toHaveAttribute("hidden");
+      ).not.toHaveAttribute("hidden");
+      expect(screen.getByTestId("board-scroller")).toHaveAttribute("inert");
     });
 
     it("Step2では付箋編集できる", () => {
@@ -4060,7 +4174,6 @@ describe("AT-004: 所有gestureの取消経路", () => {
         interactions,
         phase: buildPhaseStep(2),
       });
-      fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
       const card = screen.getByTestId("note-card");
       clickNote(card);
       getNoteSurface(card).focus();
@@ -4198,7 +4311,6 @@ it("AT-004: privateの閾値前pressをEscapeで取消した後move/upしてもd
   });
   const interactions = buildInteractions([], [note]);
   setup({ notes: [], interactions, phase: buildPhaseStep(2) });
-  fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
   const card = screen.getByTestId("note-card");
   clickNote(card);
   const surface = getNoteSurface(card);
@@ -4235,7 +4347,6 @@ describe("AT-002: private pressedの単一pointer所有", () => {
     const interactions = buildInteractions([], [note]);
     interactions.onGestureBlockedChange = vi.fn();
     const result = setup({ notes: [], interactions, phase: buildPhaseStep(2) });
-    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
     const surface = getNoteSurface(screen.getByTestId("note-card"));
     surface.focus();
     fireEvent.pointerDown(surface, {
@@ -4311,7 +4422,6 @@ it("AT-002: private press取消後の新native HUD press/upは古pointer抑止�
   });
   const interactions = buildInteractions([], [note]);
   setup({ notes: [], interactions, phase: buildPhaseStep(2) });
-  fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
   const surface = getNoteSurface(screen.getByTestId("note-card"));
   surface.focus();
   fireEvent.pointerDown(surface, { pointerId: 1, button: 0, buttons: 1 });
