@@ -136,13 +136,35 @@ async function advancePhase(
   traces: readonly Trace[],
   step: number,
 ): Promise<void> {
+  // 完了ボタンの演出中は次への要求が無視されるため、固定時間ではなく
+  // UIが再び操作を受け付ける状態まで待つ。
+  await poll(
+    async () =>
+      (await owner
+        .getByTestId("board-control-hud")
+        .getAttribute("data-completion-cue")) === "idle",
+    "作成者の完了操作が終了する",
+  );
   await owner
     .getByRole("button", { name: "次のステップへ", exact: true })
     .click();
-  // 全員完了済みの通常移行は即時。投票への移行だけ確認を挟む。
-  if (step === 4)
-    await owner
-      .getByRole("alertdialog", { name: "次のステップへ進みますか？" })
+  // 完了の同期が間に合えば即時移行し、間に合わなければ確認が開く。
+  // 一度開いた確認は全員完了後も残るため、WSの移行か確認の表示を待つ。
+  const confirmation = owner.getByRole("alertdialog", {
+    name: /^(次のステップへ進みますか？|完了していないメンバーがいます|全員が完了しました)$/,
+  });
+  await poll(
+    async () =>
+      frames(traces[0]).some(
+        (frame) =>
+          frame.phase?.kind === "step" &&
+          frame.phase.phase === 1 &&
+          frame.phase.step === step,
+      ) || (await confirmation.isVisible()),
+    `ステップ${step}への移行または確認の表示`,
+  );
+  if (await confirmation.isVisible())
+    await confirmation
       .getByRole("button", { name: "次へ進む", exact: true })
       .click();
   await Promise.all(traces.map((trace) => waitForPhase(trace, step)));
