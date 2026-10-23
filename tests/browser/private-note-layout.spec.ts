@@ -104,6 +104,33 @@ for (const viewport of [
   });
 }
 
+for (const phase of [2, 3]) {
+  test(`フェーズ${phase}の個人作業では参照情報があっても付箋の開始位置を下げない`, async () => {
+    const viewport = { width: 1280, height: 720 };
+    page = await browser.newPage({ viewport });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-${phase}-step-1&viewMode=story&args=initialGuideState:compact`,
+    );
+    await page.getByTestId("private-notes-toolbar").waitFor();
+
+    const spacing = await page.evaluate(() => {
+      const scroll = document.querySelector(
+        '[data-testid="private-notes-scroll"]',
+      );
+      const list = document.querySelector('[data-testid="private-notes-list"]');
+      if (!scroll || !list) return null;
+      return (
+        list.getBoundingClientRect().top - scroll.getBoundingClientRect().top
+      );
+    });
+
+    // 通常の説明文・パディング分は許容し、参照情報を避ける13remの
+    // 追加オフセットで付箋と追加カードが下がらないことを確かめる。
+    expect(spacing).not.toBeNull();
+    expect(spacing).toBeLessThan(200);
+  });
+}
+
 for (const step of [2, 3]) {
   test(`390px・1-${step}: トレイを閉じた上部欄の下の空白でボードを操作できる`, async () => {
     page = await browser.newPage({ viewport: { width: 390, height: 844 } });

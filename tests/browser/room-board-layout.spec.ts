@@ -306,7 +306,7 @@ for (const [phase, reference] of [
     [1280, 720],
     [1920, 1080],
   ] as const) {
-    test(`${phase}-1 ${width}×${height}pxで参照付箋と追加カードが重ならない`, async () => {
+    test(`${phase}-1 ${width}×${height}pxで参照情報と追加カードを操作できる`, async () => {
       await page.setViewportSize({ width, height });
       await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
 
@@ -331,20 +331,52 @@ for (const [phase, reference] of [
           referenceBox.y + referenceBox.height,
           addBox.y + addBox.height,
         ) > Math.max(referenceBox.y, addBox.y);
-      expect(overlaps, JSON.stringify({ referenceBox, addBox })).toBe(false);
-      expect(
-        await addNote.evaluate((element) => {
-          const bounds = element.getBoundingClientRect();
-          return (
-            document
-              .elementFromPoint(
-                bounds.x + bounds.width / 2,
-                bounds.y + bounds.height / 2,
-              )
-              ?.closest('button[aria-label="付箋を追加"]') === element
-          );
-        }),
-      ).toBe(true);
+      if (overlaps) {
+        const overlapPoint = {
+          x:
+            (Math.max(referenceBox.x, addBox.x) +
+              Math.min(
+                referenceBox.x + referenceBox.width,
+                addBox.x + addBox.width,
+              )) /
+            2,
+          y:
+            (Math.max(referenceBox.y, addBox.y) +
+              Math.min(
+                referenceBox.y + referenceBox.height,
+                addBox.y + addBox.height,
+              )) /
+            2,
+        };
+        expect(
+          await page.evaluate(
+            ({ x, y }) =>
+              Boolean(
+                document
+                  .elementFromPoint(x, y)
+                  ?.closest('[data-testid="board-context-hud"]'),
+              ),
+            overlapPoint,
+          ),
+        ).toBe(true);
+        await addNote.click({
+          position: { x: addBox.width * 0.8, y: addBox.height / 2 },
+        });
+      } else {
+        expect(
+          await addNote.evaluate((element) => {
+            const bounds = element.getBoundingClientRect();
+            return (
+              document
+                .elementFromPoint(
+                  bounds.x + bounds.width / 2,
+                  bounds.y + bounds.height / 2,
+                )
+                ?.closest('button[aria-label="付箋を追加"]') === element
+            );
+          }),
+        ).toBe(true);
+      }
     });
   }
 }
@@ -1373,7 +1405,7 @@ test.each([
   },
 );
 
-// 空のpointer-events-none wrapperではなく、clip内に見える実操作対象を調べる。
+// 固定情報との意図した部分重なりは許容し、各操作対象に到達できる可視部分が残ることを調べる。
 async function expectHudTargets(): Promise<void> {
   const targets = page.locator(
     [
@@ -1418,12 +1450,17 @@ async function expectHudTargets(): Promise<void> {
         }
       }
       if (clip.right - clip.left < 2 || clip.bottom - clip.top < 2) return [];
-      const x = (clip.left + clip.right) / 2,
-        y = (clip.top + clip.bottom) / 2;
       const disabled = e instanceof HTMLButtonElement && e.disabled;
+      const probePoints: Array<[number, number]> = [0.2, 0.5, 0.8].flatMap(
+        (xRatio) =>
+          [0.2, 0.5, 0.8].map((yRatio) => [
+            clip.left + (clip.right - clip.left) * xRatio,
+            clip.top + (clip.bottom - clip.top) * yRatio,
+          ]),
+      );
       return [
         {
-          // タイマー通知音は既存timer枠の内側に置く独立操作。中心の到達性は両方検査する。
+          // タイマー通知音は既存timer枠の内側に置く独立操作。
           family: e.parentElement?.querySelector(
             ':scope > [data-testid="room-timer"]',
           )
@@ -1435,7 +1472,11 @@ async function expectHudTargets(): Promise<void> {
             .map((other) => elements.indexOf(other)),
           name: e.getAttribute("aria-label") ?? e.textContent,
           ...clip,
-          hit: disabled || e.contains(document.elementFromPoint(x, y)),
+          hit:
+            disabled ||
+            probePoints.some(([probeX, probeY]) =>
+              e.contains(document.elementFromPoint(probeX, probeY)),
+            ),
         },
       ];
     }),

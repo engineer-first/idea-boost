@@ -30,13 +30,6 @@
   }
 }
 
-@media (min-width: 640px) and (max-width: 1439px) {
-  /* 狭い画面では中央配置を保ったまま、左の参照付箋と縦に重ならないようにする。 */
-  .workspaceWithReference [data-testid="private-notes-list"] {
-    margin-block-start: 13rem;
-  }
-}
-
 @media (min-width: 40rem) {
   .ideaMapNotePosition {
     left: var(--idea-map-note-left-tablet);
