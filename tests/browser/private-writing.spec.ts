@@ -166,7 +166,7 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
       canvasFilter: getComputedStyle(canvas).filter,
       backdropExists:
         document.querySelector(
-          '[data-testid="personal-workspace-backdrop"]',
+          '[data-testid="private-workspace-canvas-backdrop"]',
         ) !== null,
       headerFilter: getComputedStyle(header).filter,
       panelTop: point.top,
@@ -180,7 +180,7 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
   expect(layers).toMatchObject({
     canvasInert: true,
     canvasFilter: "blur(4px)",
-    backdropExists: false,
+    backdropExists: true,
     headerFilter: "none",
     workspaceFilter: "none",
     workspaceHasInertAncestor: false,

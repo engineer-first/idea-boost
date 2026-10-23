@@ -1459,8 +1459,8 @@ describe("RoomBoardView", () => {
     const boardScroller = screen.getByTestId("board-scroller");
 
     expect(
-      screen.queryByTestId("personal-workspace-backdrop"),
-    ).not.toBeInTheDocument();
+      screen.getByTestId("private-workspace-canvas-backdrop"),
+    ).toBeInTheDocument();
     expect(boardScroller).toHaveStyle({ filter: "blur(4px)" });
     expect(boardScroller).toHaveAttribute("inert");
     expect(screen.getByTestId("board-context-hud")).toBeInTheDocument();
