@@ -1439,6 +1439,7 @@ export function RoomBoardView({
           const frameTop = frame.getBoundingClientRect().top;
           if (isInitialPersonalEntryPhase) {
             let headerBottom = frameTop;
+            let guideBottom = 0;
             for (const testId of expandedWorkspaceHeaderSurfaces) {
               const element = root.querySelector<HTMLElement>(
                 `[data-testid="${testId}"]`,
@@ -1449,14 +1450,25 @@ export function RoomBoardView({
                 getComputedStyle(element).visibility === "hidden"
               )
                 continue;
-              headerBottom = Math.max(
-                headerBottom,
-                element.getBoundingClientRect().bottom,
-              );
+              const bounds = element.getBoundingClientRect();
+              if (testId === "step-guide") guideBottom = bounds.bottom;
+              // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
+              // デスクトップのガイドはコンパクトな入口の領域を確保し、詳細はその上に重ねる。
+              const bottom =
+                testId === "board-connection-slot"
+                  ? bounds.top + Math.max(38, bounds.height)
+                  : testId === "step-guide" && window.innerWidth >= 640
+                    ? bounds.top + 42
+                    : bounds.bottom;
+              headerBottom = Math.max(headerBottom, bottom);
             }
             root.style.setProperty(
               "--board-private-expanded-top",
               `${Math.ceil(headerBottom + 12)}px`,
+            );
+            root.style.setProperty(
+              "--board-private-guide-bottom",
+              `${Math.ceil(guideBottom)}px`,
             );
           }
           if (stepGuideBottomInFrame === null) {

@@ -49,7 +49,7 @@ for (const viewport of [
     await page.evaluate(() => document.fonts.ready);
     const before = await matrix.boundingBox();
     const toolbar = page.getByTestId("private-notes-toolbar");
-    await page.getByRole("button", { name: "マイ付箋を開く" }).click();
+    expect(await toolbar.getAttribute("data-expanded")).toBe("true");
     const bounds = await toolbar.boundingBox();
     expect(before).not.toBeNull();
     expect(bounds).not.toBeNull();

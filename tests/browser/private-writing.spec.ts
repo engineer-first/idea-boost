@@ -177,17 +177,18 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
         hit?.closest('[data-testid="private-notes-toolbar"]') !== null,
     };
   });
-  expect(layers).toEqual({
+  expect(layers).toMatchObject({
     canvasInert: true,
     canvasFilter: "blur(4px)",
     backdropExists: false,
     headerFilter: "none",
-    panelTop: layers.headerBottom + 12,
-    headerBottom: layers.headerBottom,
     workspaceFilter: "none",
     workspaceHasInertAncestor: false,
     pointerHitsWorkspace: true,
   });
+  // 通常の接続案内1行（38px）を予約しても、ヘッダー直下の余白に収まる。
+  expect(layers.panelTop).toBeGreaterThanOrEqual(layers.headerBottom + 12);
+  expect(layers.panelTop).toBeLessThanOrEqual(layers.headerBottom + 50);
 
   const add = page.getByRole("button", { name: "付箋を追加", exact: true });
   expect(await add.isEnabled()).toBe(true);

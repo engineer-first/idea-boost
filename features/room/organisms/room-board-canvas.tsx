@@ -1249,7 +1249,7 @@ export function RoomBoardCanvas({
                 addActionRef={privateNoteAddRef}
                 className={
                   isPersonalNoteEntryPhase
-                    ? `pointer-events-auto h-full w-full rounded-2xl border border-border bg-card shadow-xl ${phase.kind === "step" && phase.phase > 1 ? styles.workspaceWithReference : ""}`
+                    ? `pointer-events-auto h-full w-full rounded-2xl border border-border bg-card shadow-xl ${isInitialPersonalEntryPhase ? styles.initialWorkspace : styles.workspaceWithReference}`
                     : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
                 }
                 toolbarRef={privateToolbarRef}

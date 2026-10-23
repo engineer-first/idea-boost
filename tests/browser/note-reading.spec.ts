@@ -24,6 +24,8 @@ beforeEach(async () => {
     `${origin}/iframe.html?id=room-roomboardcanvas--interactive-note-reading&viewMode=story`,
   );
   await page.getByTestId("note-card").waitFor();
+  // 本文とカメラの検証は、共有時に開くドックを閉じて盤面へ戻ってから行う。
+  await page.getByRole("button", { name: "マイ付箋を閉じる" }).click();
   await page.evaluate(() => document.fonts.ready);
 });
 afterEach(async () => {

@@ -1473,18 +1473,22 @@ describe("RoomBoardView", () => {
     expect(screen.getByTestId("board-scroller")).not.toHaveAttribute("inert");
   });
 
-  it("1-1の拡大パネルはガイドと既存HUDの直下に配置する", () => {
+  it("1-1のパネル上端は接続案内の切替とガイドの展開で動かない", () => {
+    let guideHeight = 42;
+    let connectionHeight = 38;
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
       function (this: HTMLElement) {
         switch (this.dataset.testid) {
           case "board-frame":
             return new DOMRect(0, 100, 1280, 700);
           case "step-guide":
-            return new DOMRect(0, 180, 300, 180);
+            return new DOMRect(0, 110, 300, guideHeight);
           case "board-context-hud":
-            return new DOMRect(0, 110, 200, 90);
+            return new DOMRect(0, 110, 200, 40);
           case "board-control-hud":
             return new DOMRect(900, 110, 300, 56);
+          case "board-connection-slot":
+            return new DOMRect(900, 174, 300, connectionHeight);
           default:
             return new DOMRect(0, 0, 0, 0);
         }
@@ -1494,6 +1498,7 @@ describe("RoomBoardView", () => {
       function (this: HTMLElement) {
         return this.dataset.testid === "board-context-hud" ||
           this.dataset.testid === "board-control-hud" ||
+          this.dataset.testid === "board-connection-slot" ||
           this.dataset.testid === "step-guide"
           ? ([this.getBoundingClientRect()] as unknown as DOMRectList)
           : ([] as unknown as DOMRectList);
@@ -1503,8 +1508,20 @@ describe("RoomBoardView", () => {
     setup({ phase: buildPhaseStep(1, 1) });
 
     const root = screen.getByTestId("room-board-view-root");
+    const top = root.style.getPropertyValue("--board-private-expanded-top");
+    expect(top).not.toBe("");
+
+    guideHeight = 180;
+    fireEvent(window, new Event("resize"));
     expect(root.style.getPropertyValue("--board-private-expanded-top")).toBe(
-      "372px",
+      top,
+    );
+
+    guideHeight = 42;
+    connectionHeight = 0;
+    fireEvent(window, new Event("resize"));
+    expect(root.style.getPropertyValue("--board-private-expanded-top")).toBe(
+      top,
     );
   });
 
