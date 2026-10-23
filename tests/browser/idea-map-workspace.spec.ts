@@ -569,21 +569,150 @@ test.each([
   },
 );
 
-test.each([1280, 1440])(
-  "%dpxで3-2の進め方が最新の発表者HUDを遮らない",
-  async (width) => {
-    const page = await browser.newPage({ viewport: { width, height: 800 } });
+test.each([
+  ["100%", 1440, 900],
+  ["90%", 1600, 1000],
+  ["110%", 1309, 818],
+  ["125%", 1152, 720],
+] as const)(
+  "%s相当の幅でフェーズ1・2・3の進め方が上部HUDと重ならない",
+  async (zoom, width, height) => {
+    const page = await browser.newPage({ viewport: { width, height } });
     try {
-      await openWorkspace(page);
-      const guide = await readBounds(page, "step-guide");
-      const controls = await readBounds(page, "board-control-hud");
-      const overlapWidth =
-        Math.min(guide.x + guide.width, controls.x + controls.width) -
-        Math.max(guide.x, controls.x);
-      const overlapHeight =
-        Math.min(guide.y + guide.height, controls.y + controls.height) -
-        Math.max(guide.y, controls.y);
-      expect(overlapWidth > 0 && overlapHeight > 0).toBe(false);
+      for (const { phase, story } of [
+        { phase: "1", story: "room-roomboardlayout--phase-1-step-1" },
+        { phase: "2", story: "room-roomboardlayout--phase-2-step-1" },
+        { phase: "3", story: "room-roomboardview--idea-map-workspace" },
+      ]) {
+        if (phase === "3") await openWorkspace(page);
+        else await openStory(page, story);
+
+        const shell = page.getByTestId("step-guide");
+        await expect
+          .poll(() => shell.getAttribute("data-state"))
+          .not.toBeNull();
+        if ((await shell.getAttribute("data-state")) !== "compact") {
+          await page.keyboard.press("Escape");
+          await expect
+            .poll(() => shell.getAttribute("data-state"))
+            .toBe("compact");
+          await waitForLayoutAnimations(shell);
+        }
+
+        const compact = await readBounds(page, "step-guide");
+        const context = await readBounds(page, "board-context-hud");
+        const controls = await readBounds(page, "board-control-hud");
+        const availableGap = controls.x - (context.x + context.width);
+        if (availableGap >= compact.width + 24) {
+          expect(
+            Math.abs(compact.y - controls.y),
+            `${phase}相当・${zoom}相当では十分な横幅があるため上部HUDと同じ段に置く`,
+          ).toBeLessThanOrEqual(1);
+          expect(compact.x).toBeGreaterThanOrEqual(
+            context.x + context.width + 11,
+          );
+          expect(compact.x + compact.width).toBeLessThanOrEqual(
+            controls.x - 11,
+          );
+        } else {
+          expect(compact.y).toBeGreaterThanOrEqual(
+            Math.max(context.y + context.height, controls.y + controls.height) +
+              7,
+          );
+        }
+
+        const mapBefore =
+          phase === "3"
+            ? await readBounds(page, "idea-value-feasibility-map-plane")
+            : null;
+        const noteBefore =
+          phase === "3"
+            ? await readBounds(
+                page,
+                "idea-value-feasibility-map-note-map-workspace-shared-5",
+              )
+            : null;
+        if (phase === "3")
+          await page.screenshot({
+            path: `${output}/header-guide-${zoom.replace("%", "")}-phase-3-compact.png`,
+          });
+        await page.getByRole("button", { name: "進め方", exact: true }).click();
+        await expect
+          .poll(() => shell.getAttribute("data-state"))
+          .toBe("detail");
+        await waitForLayoutAnimations(shell);
+        const detail = await readBounds(page, "step-guide");
+        const updatedContext = await readBounds(page, "board-context-hud");
+        const updatedControls = await readBounds(page, "board-control-hud");
+        for (const [surface, before, after] of [
+          ["context HUD", context, updatedContext],
+          ["operation HUD", controls, updatedControls],
+        ] as const)
+          for (const dimension of ["x", "y", "width", "height"] as const)
+            expect(
+              after[dimension],
+              `${surface}.${dimension}がガイド開閉で変わらない`,
+            ).toBeCloseTo(before[dimension], 1);
+        for (const [surface, bounds] of [
+          ["context HUD", updatedContext],
+          ["operation HUD", updatedControls],
+        ] as const) {
+          const overlapWidth =
+            Math.min(detail.x + detail.width, bounds.x + bounds.width) -
+            Math.max(detail.x, bounds.x);
+          const overlapHeight =
+            Math.min(detail.y + detail.height, bounds.y + bounds.height) -
+            Math.max(detail.y, bounds.y);
+          expect(
+            overlapWidth > 0 && overlapHeight > 0,
+            `${phase}相当・${zoom}相当で詳細ガイドが${surface}を覆わない`,
+          ).toBe(false);
+        }
+        for (const testId of [
+          "board-tools-hud",
+          "board-operation-matrix",
+          "phase-loop-hud",
+          "idea-map-size-controls-hud",
+          "vote-palette-hud",
+        ]) {
+          const locator = page.getByTestId(testId);
+          if ((await locator.count()) === 0 || !(await locator.isVisible()))
+            continue;
+          const bounds = await locator.boundingBox();
+          if (!bounds) continue;
+          const overlapWidth =
+            Math.min(detail.x + detail.width, bounds.x + bounds.width) -
+            Math.max(detail.x, bounds.x);
+          const overlapHeight =
+            Math.min(detail.y + detail.height, bounds.y + bounds.height) -
+            Math.max(detail.y, bounds.y);
+          expect(
+            overlapWidth > 0 && overlapHeight > 0,
+            `${phase}相当・${zoom}相当で詳細ガイドが${testId}を覆わない`,
+          ).toBe(false);
+        }
+
+        if (mapBefore) {
+          const mapAfter = await readBounds(
+            page,
+            "idea-value-feasibility-map-plane",
+          );
+          for (const dimension of ["x", "y", "width", "height"] as const)
+            expect(mapAfter[dimension]).toBeCloseTo(mapBefore[dimension], 1);
+        }
+        if (noteBefore) {
+          const noteAfter = await readBounds(
+            page,
+            "idea-value-feasibility-map-note-map-workspace-shared-5",
+          );
+          for (const dimension of ["x", "y", "width", "height"] as const)
+            expect(noteAfter[dimension]).toBeCloseTo(noteBefore[dimension], 1);
+        }
+
+        await page.screenshot({
+          path: `${output}/header-guide-${zoom.replace("%", "")}-phase-${phase}.png`,
+        });
+      }
     } finally {
       await page.close();
     }

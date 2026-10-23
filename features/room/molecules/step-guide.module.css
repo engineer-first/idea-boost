@@ -21,11 +21,11 @@
 }
 .guide[data-state="detail"] {
   width: var(--guide-width);
-  height: min(440px, calc(100dvh - 200px));
+  height: min(440px, var(--guide-desktop-max-height, calc(100dvh - 200px)));
   border-radius: 20px;
 }
 .guide:has(.detail[data-no-footer="true"])[data-state="detail"] {
-  height: min(440px, calc(100dvh - 160px));
+  height: min(440px, var(--guide-desktop-max-height, calc(100dvh - 160px)));
 }
 .detail[data-no-footer="true"] {
   overflow-y: auto;
@@ -84,15 +84,14 @@
     opacity 130ms 100ms ease,
     visibility 0s;
 }
-@media (max-width: 1439px) {
+@media (min-width: 901px) {
   .guide {
-    top: 84px;
+    top: 0;
   }
-}
-/* 固定マップも、狭幅ではdevelopの退避位置で発表者HUDとの重なりを避ける。 */
-@media (min-width: 1440px) {
-  [data-map-workspace="true"] .guide {
-    top: 4px;
+  .guide[data-desktop-placement] {
+    top: var(--guide-desktop-top);
+    left: var(--guide-desktop-left);
+    transform: none;
   }
 }
 @media (min-width: 901px) and (max-width: 1199px) {
