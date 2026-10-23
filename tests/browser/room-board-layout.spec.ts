@@ -1453,7 +1453,7 @@ async function expectHudTargets(): Promise<void> {
       const disabled = e instanceof HTMLButtonElement && e.disabled;
       const probePoints: Array<[number, number]> = [0.2, 0.5, 0.8].flatMap(
         (xRatio) =>
-          [0.2, 0.5, 0.8].map((yRatio) => [
+          [0.2, 0.5, 0.8].map((yRatio): [number, number] => [
             clip.left + (clip.right - clip.left) * xRatio,
             clip.top + (clip.bottom - clip.top) * yRatio,
           ]),
