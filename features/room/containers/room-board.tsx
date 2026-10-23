@@ -27,7 +27,6 @@ import { canPublishNoteInTurn } from "@/contracts/sharing";
 import type { DisplayNameResult } from "@/features/auth";
 import { submitFeedback, useFeedback } from "@/features/feedback";
 import { HMW_EXAMPLES } from "@/features/hmw";
-import { IDEA_NOTE_EXAMPLES } from "@/features/idea-support";
 import {
   NoteDraftRecovery,
   useMoveHistory,
@@ -38,7 +37,6 @@ import {
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { getBoardPermissions } from "../logic/board-permissions";
-import { ISSUE_NOTE_EXAMPLES } from "../logic/issue-note-examples";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
@@ -90,21 +88,10 @@ function isPrivateNotesWorkspaceHandoff(
 }
 
 function getPersonalNoteExamples(phase: RoomPhase): readonly string[] {
-  // 個人作業のStep 1以外では、例付箋を表示しない。
-  if (phase.kind !== "step" || phase.step !== 1) {
-    return [];
-  }
-
-  switch (phase.phase) {
-    case 1:
-      return ISSUE_NOTE_EXAMPLES;
-    case 2:
-      return HMW_EXAMPLES;
-    case 3:
-      return IDEA_NOTE_EXAMPLES;
-    default:
-      return [];
-  }
+  // 例付箋は問い作成（2-1）だけで使う。
+  return phase.kind === "step" && phase.phase === 2 && phase.step === 1
+    ? HMW_EXAMPLES
+    : [];
 }
 
 export function RoomBoard({
