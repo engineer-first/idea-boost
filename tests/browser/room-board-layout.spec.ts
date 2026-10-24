@@ -456,7 +456,8 @@ test("1-1・2-1・3-1のマイ付箋エリアはガイドの開閉によらず�
       tops[`${phase}-1/${guide}`] = box.y;
     }
   }
-  const expected = tops["1-1/detail"];
+  // 1280×720では上部の操作欄（接続案内1行を含む）の直下、150pxから始める。
+  const expected = 150;
   for (const [key, top] of Object.entries(tops)) {
     expect(
       Math.abs(top - expected),
@@ -478,13 +479,10 @@ for (const id of [
     await page.setViewportSize({ width: 1280, height: 720 });
     await openStory(`room-roomboardlayout--${id}`);
     await page.getByTestId("private-notes-toolbar").waitFor();
+    // 2-1・3-1は背景キャンバスごと hidden になるため、表示状態で絞らずに数える。
     const backgroundNotes = await page
       .locator('[data-testid="board-scroller"] [data-note-id]')
-      .evaluateAll(
-        (elements) =>
-          elements.filter((element) => element.getClientRects().length > 0)
-            .length,
-      );
+      .count();
     expect(backgroundNotes).toBe(0);
   });
 }
