@@ -38,8 +38,10 @@ afterAll(async () => {
   await browser?.close();
 });
 
-async function openStory(id: string): Promise<void> {
-  await page.goto(`${origin}/iframe.html?id=${id}&viewMode=story`);
+async function openStory(id: string, args?: string): Promise<void> {
+  await page.goto(
+    `${origin}/iframe.html?id=${id}&viewMode=story${args ? `&args=${args}` : ""}`,
+  );
   await page.locator("#storybook-root > *").first().waitFor();
   await page.evaluate(() => document.fonts.ready);
 }
@@ -258,7 +260,7 @@ for (const [phase, reference] of [
   [2, "issue"],
   [3, "hmw"],
 ] as const) {
-  test(`${phase}-1の付箋と追加カードはマイ付箋エリアの中央に横一列で並ぶ`, async () => {
+  test(`${phase}-1の付箋と追加カードは参照情報の右側の中央に横一列で並ぶ`, async () => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
 
@@ -268,9 +270,16 @@ for (const [phase, reference] of [
       const workspace = document.querySelector(
         '[data-testid="private-notes-toolbar"]',
       );
+      const references = document.querySelector(
+        '[data-testid="board-context-references"]',
+      );
       const list = document.querySelector('[data-testid="private-notes-list"]');
-      if (!workspace || !list) return null;
+      if (!workspace || !references || !list) return null;
       const workspaceBounds = workspace.getBoundingClientRect();
+      const areaLeft = Math.max(
+        workspaceBounds.left,
+        references.getBoundingClientRect().right,
+      );
       const cards = Array.from(list.children).map((element) => {
         const bounds = element.getBoundingClientRect();
         return {
@@ -284,7 +293,7 @@ for (const [phase, reference] of [
         (card) => Math.abs(card.top - (firstRowTop ?? 0)) < 1,
       );
       return {
-        workspaceCenter: workspaceBounds.left + workspaceBounds.width / 2,
+        areaCenter: (areaLeft + workspaceBounds.right) / 2,
         firstRowCenter:
           firstRow.length > 0
             ? (firstRow[0].left + firstRow[firstRow.length - 1].right) / 2
@@ -298,7 +307,7 @@ for (const [phase, reference] of [
     expect(layout).not.toBeNull();
     expect(layout?.firstRowCount).toBe(5);
     expect(
-      Math.abs((layout?.firstRowCenter ?? 0) - (layout?.workspaceCenter ?? 0)),
+      Math.abs((layout?.firstRowCenter ?? 0) - (layout?.areaCenter ?? 0)),
     ).toBeLessThan(16);
   });
 
@@ -306,7 +315,7 @@ for (const [phase, reference] of [
     [1280, 720],
     [1920, 1080],
   ] as const) {
-    test(`${phase}-1 ${width}×${height}pxで参照情報と追加カードを操作できる`, async () => {
+    test(`${phase}-1 ${width}×${height}pxで参照情報は付箋と追加カードに重ならない`, async () => {
       await page.setViewportSize({ width, height });
       await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
 
@@ -321,62 +330,34 @@ for (const [phase, reference] of [
       expect(await addNote.isVisible()).toBe(true);
 
       const referenceBox = await referenceNote.boundingBox();
-      const addBox = await addNote.boundingBox();
-      if (!referenceBox || !addBox)
-        throw new Error("参照付箋または追加カードが見つかりません");
-      const overlaps =
-        Math.min(referenceBox.x + referenceBox.width, addBox.x + addBox.width) >
-          Math.max(referenceBox.x, addBox.x) &&
-        Math.min(
-          referenceBox.y + referenceBox.height,
-          addBox.y + addBox.height,
-        ) > Math.max(referenceBox.y, addBox.y);
-      if (overlaps) {
-        const overlapPoint = {
-          x:
-            (Math.max(referenceBox.x, addBox.x) +
-              Math.min(
-                referenceBox.x + referenceBox.width,
-                addBox.x + addBox.width,
-              )) /
-            2,
-          y:
-            (Math.max(referenceBox.y, addBox.y) +
-              Math.min(
-                referenceBox.y + referenceBox.height,
-                addBox.y + addBox.height,
-              )) /
-            2,
-        };
-        expect(
-          await page.evaluate(
-            ({ x, y }) =>
-              Boolean(
-                document
-                  .elementFromPoint(x, y)
-                  ?.closest('[data-testid="board-context-hud"]'),
-              ),
-            overlapPoint,
-          ),
-        ).toBe(true);
-        await addNote.click({
-          position: { x: addBox.width * 0.8, y: addBox.height / 2 },
-        });
-      } else {
-        expect(
-          await addNote.evaluate((element) => {
-            const bounds = element.getBoundingClientRect();
-            return (
-              document
-                .elementFromPoint(
-                  bounds.x + bounds.width / 2,
-                  bounds.y + bounds.height / 2,
-                )
-                ?.closest('button[aria-label="付箋を追加"]') === element
-            );
-          }),
-        ).toBe(true);
+      if (!referenceBox) throw new Error("参照付箋が見つかりません");
+      const cardBoxes = await page
+        .getByTestId("private-notes-list")
+        .locator(":scope > *")
+        .evaluateAll((elements) =>
+          elements.map((element) => element.getBoundingClientRect().toJSON()),
+        );
+      for (const card of cardBoxes) {
+        const overlaps =
+          Math.min(referenceBox.x + referenceBox.width, card.right) >
+            Math.max(referenceBox.x, card.left) &&
+          Math.min(referenceBox.y + referenceBox.height, card.bottom) >
+            Math.max(referenceBox.y, card.top);
+        expect(overlaps, JSON.stringify({ referenceBox, card })).toBe(false);
       }
+      expect(
+        await addNote.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return (
+            document
+              .elementFromPoint(
+                bounds.x + bounds.width / 2,
+                bounds.y + bounds.height / 2,
+              )
+              ?.closest('button[aria-label="付箋を追加"]') === element
+          );
+        }),
+      ).toBe(true);
     });
   }
 }
@@ -428,6 +409,52 @@ for (const phase of [1, 2, 3] as const) {
     expect(canvasBox.y + canvasBox.height).toBeGreaterThan(
       privateNotesBox.y + privateNotesBox.height,
     );
+  });
+}
+
+test("1-1・2-1・3-1のマイ付箋エリアはガイドの開閉によらず同じ高さから始まる", async () => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const tops: Record<string, number> = {};
+  for (const phase of [1, 2, 3] as const) {
+    for (const guide of ["detail", "compact"] as const) {
+      await openStory(
+        `room-roomboardlayout--phase-${phase}-step-1`,
+        `initialGuideState:${guide}`,
+      );
+      const box = await page.getByTestId("private-notes-toolbar").boundingBox();
+      if (!box) throw new Error("マイ付箋エリアが見つかりません");
+      tops[`${phase}-1/${guide}`] = box.y;
+    }
+  }
+  const expected = tops["1-1/detail"];
+  for (const [key, top] of Object.entries(tops)) {
+    expect(
+      Math.abs(top - expected),
+      `${key}: ${JSON.stringify(tops)}`,
+    ).toBeLessThan(1);
+  }
+});
+
+for (const id of [
+  "phase-1-step-1",
+  "phase-2-step-1",
+  "phase-3-step-1",
+  "phase-1-step-1-to-step-2",
+  "phase-2-step-1-to-step-2",
+  "phase-3-step-1-to-step-2",
+]) {
+  test(`${id}: 個人作業の背景キャンバスに付箋を表示しない`, async () => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openStory(`room-roomboardlayout--${id}`);
+    await page.getByTestId("private-notes-toolbar").waitFor();
+    const backgroundNotes = await page
+      .locator('[data-testid="board-scroller"] [data-note-id]')
+      .evaluateAll(
+        (elements) =>
+          elements.filter((element) => element.getClientRects().length > 0)
+            .length,
+      );
+    expect(backgroundNotes).toBe(0);
   });
 }
 
