@@ -209,7 +209,86 @@ export function RoomBoardHeader({
       '[data-testid="room-board-view-root"]',
     );
     if (!area || !header) return;
+    const guideClearanceSurfaces = [
+      "board-tools-hud",
+      "board-operation-matrix",
+      "phase-loop-hud",
+      "idea-map-size-controls-hud",
+      "vote-palette-hud",
+    ] as const;
     function updateBoardLayoutOffsets(): void {
+      const guide = header?.querySelector<HTMLElement>(
+        '[data-testid="step-guide"]',
+      );
+      const context = header?.querySelector<HTMLElement>(
+        '[data-testid="board-context-hud"]',
+      );
+      if (guide && context && header && window.innerWidth >= 901) {
+        const headerBounds = header.getBoundingClientRect();
+        const contextBounds = context.getBoundingClientRect();
+        const controlsBounds = area?.getBoundingClientRect();
+        const isCompact = guide.dataset.state === "compact";
+        const expandedWidth =
+          window.innerWidth <= 1199
+            ? Math.min(470, window.innerWidth - 660)
+            : Math.min(470, window.innerWidth - 40);
+        const guideWidth = isCompact ? 126 : expandedWidth;
+        const gapStart = contextBounds.right + 12;
+        const gapEnd = (controlsBounds?.left ?? gapStart) - 12 - guideWidth;
+        const fitsOnHudRow = gapEnd >= gapStart;
+        const clamp = (value: number, min: number, max: number): number =>
+          Math.min(max, Math.max(min, value));
+        const viewportCenter = window.innerWidth / 2;
+        const x = fitsOnHudRow
+          ? clamp(viewportCenter - guideWidth / 2, gapStart, gapEnd)
+          : clamp(
+              viewportCenter - guideWidth / 2,
+              headerBounds.left + 12,
+              headerBounds.right - guideWidth - 12,
+            );
+        const y = fitsOnHudRow
+          ? (controlsBounds?.top ?? headerBounds.top)
+          : Math.max(
+              contextBounds.bottom,
+              controlsBounds?.bottom ?? headerBounds.top,
+            ) + 12;
+        let nextHudTop = window.innerHeight;
+        for (const testId of guideClearanceSurfaces) {
+          const surface = board?.querySelector<HTMLElement>(
+            `[data-testid="${testId}"]`,
+          );
+          if (
+            !surface ||
+            surface.getClientRects().length === 0 ||
+            getComputedStyle(surface).visibility === "hidden"
+          )
+            continue;
+          const bounds = surface.getBoundingClientRect();
+          const overlapsHorizontally =
+            x < bounds.right && x + guideWidth > bounds.left;
+          if (overlapsHorizontally && bounds.top >= y)
+            nextHudTop = Math.min(nextHudTop, bounds.top);
+        }
+        const maxHeight = Math.max(
+          96,
+          Math.min(440, window.innerHeight - y - 200, nextHudTop - y - 12),
+        );
+        guide.dataset.desktopPlacement = fitsOnHudRow ? "hud-row" : "below-hud";
+        guide.style.setProperty(
+          "--guide-desktop-left",
+          `${x - headerBounds.left}px`,
+        );
+        guide.style.setProperty(
+          "--guide-desktop-top",
+          `${y - headerBounds.top}px`,
+        );
+        guide.style.setProperty("--guide-desktop-max-height", `${maxHeight}px`);
+      } else if (guide) {
+        delete guide.dataset.desktopPlacement;
+        guide.style.removeProperty("--guide-desktop-left");
+        guide.style.removeProperty("--guide-desktop-top");
+        guide.style.removeProperty("--guide-desktop-max-height");
+      }
       const notice =
         connectionStatus === "open"
           ? null
@@ -221,9 +300,6 @@ export function RoomBoardHeader({
         const boardTop = board.getBoundingClientRect().top;
         const location = header.querySelector<HTMLElement>(
           '[data-testid="board-location-card"]',
-        );
-        const guide = header.querySelector<HTMLElement>(
-          '[data-testid="step-guide"]',
         );
         const helpToggle = isIdeaMapWorkspaceStep
           ? header
@@ -343,14 +419,43 @@ export function RoomBoardHeader({
         : new ResizeObserver(updateBoardLayoutOffsets);
     observer?.observe(area);
     if (usesIdeaMapViewport) observer?.observe(header);
+    const context = header.querySelector<HTMLElement>(
+      '[data-testid="board-context-hud"]',
+    );
+    if (context) observer?.observe(context);
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
     if (location?.parentElement) observer?.observe(location.parentElement);
+    for (const testId of guideClearanceSurfaces) {
+      const surface = board?.querySelector<HTMLElement>(
+        `[data-testid="${testId}"]`,
+      );
+      if (surface) observer?.observe(surface);
+    }
+    const guide = header.querySelector<HTMLElement>(
+      '[data-testid="step-guide"]',
+    );
+    const guideStateObserver =
+      guide && typeof MutationObserver !== "undefined"
+        ? new MutationObserver(updateBoardLayoutOffsets)
+        : null;
+    if (guide && guideStateObserver)
+      guideStateObserver.observe(guide, {
+        attributes: true,
+        attributeFilter: ["data-state"],
+      });
     window.addEventListener("resize", updateBoardLayoutOffsets);
     return () => {
       observer?.disconnect();
+      guideStateObserver?.disconnect();
       window.removeEventListener("resize", updateBoardLayoutOffsets);
+      if (guide) {
+        delete guide.dataset.desktopPlacement;
+        guide.style.removeProperty("--guide-desktop-left");
+        guide.style.removeProperty("--guide-desktop-top");
+        guide.style.removeProperty("--guide-desktop-max-height");
+      }
       header.style.removeProperty("--board-connection-guide-top");
       header.style.removeProperty("--board-location-top");
       header.style.removeProperty("--board-location-height");
