@@ -37,7 +37,7 @@ jobs:
       - uses: jdx/mise-action@v3
         with:
           install: true
-          cache: true
+          cache: false
       - run: npm ci
       - name: Validate legacy release note
         if: inputs.note_json == ''

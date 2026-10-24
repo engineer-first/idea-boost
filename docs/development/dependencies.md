@@ -4,9 +4,13 @@
 
 ## Node.jsとnpm
 
-開発・CIの基準は `mise.toml` のNode.js 24.22.0 / npm 11.19.1。`packageManager` にnpmの版を記録し、`npm ci` でlockfile v3を再現する。別のパッケージマネージャのlockfileを追加しない。`packageManager` はnpmの版を自動的に切り替える設定ではないため、`node --version` と `npm --version` も確認する。
+開発・CIは `mise.toml` の `node = "24"` で、検証対象のLTSである24系の更新に追従する。2026-10-23の検証版はNode.js 24.22.1 / npm 11.19.1。`packageManager` にnpmの版を記録し、`npm ci` でlockfile v3を再現する。別のパッケージマネージャのlockfileを追加しない。`packageManager` はnpmの版を自動的に切り替える設定ではないため、`node --version` と `npm --version` も確認する。
 
-jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上。プロジェクトの `engines.node` はこのうち検証する24系（`^24.15.0`）に揃える。`lts` だけでは将来のメジャー切替でCIの実行環境が変わるため、miseは検証済みの版へ固定する。パッチ更新時も型・テスト・ビルドを確認して固定値を更新する。[NodeのLTS方針](https://nodejs.org/en/about/previous-releases)も参照。
+`engines.node: ^24.22.1` を最低条件とし、`.npmrc` の `engine-strict=true` で修正前のNodeによる依存インストールを拒否する。24.22.1は[2026-10-21のセキュリティ修正版](https://nodejs.org/en/blog/release/v24.22.1/)で、Node内蔵Undiciも7.30.1へ更新される。npm依存のUndiciへのoverrideでは、Node内蔵版は修正できない。
+
+完全固定は更新のたびに設定変更が必要になり、`lts` だけでは将来のLTSメジャー切替で `engines.node` と検証対象から外れる。このため24系の範囲指定を採用する。ローカルに古い24系がある場合は `mise upgrade node` で更新し、`mise exec -- node --version` で最低条件以上を確認する。将来のLTSメジャー移行は依存のengine・peer条件とCIを確認する別の変更として扱う。[miseの版指定](https://mise.jdx.dev/lang/node.html#choosing-a-version)と[NodeのLTS方針](https://nodejs.org/en/about/previous-releases)も参照。
+
+jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する24系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、GitHub Actionsのmise tool cacheは無効にする。ホストが新しいGitHub-hosted runnerで毎回24系を解決し、設定hashが同じでも古いNodeを復元し続けない。追加のダウンロード時間は発生する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)も参照。
 
 Node.jsはビルドと検証のホスト。公開先はworkerdであり、Nodeのバージョン指定でWorkersの互換性を保証したことにはしない。App/APIの `compatibility_date: 2026-06-01` と `nodejs_compat` を維持し、Workerテストとコンパイル済みPreviewでサービスバインディング・D1・RoomDOを検査する。[OpenNextの前提](https://opennext.js.org/cloudflare/get-started)は互換日付2024-09-23以降と `nodejs_compat`。
 

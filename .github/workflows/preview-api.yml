@@ -31,7 +31,7 @@ jobs:
       - uses: jdx/mise-action@v3
         with:
           install: true
-          cache: true
+          cache: false
       - run: npm ci
       - name: Verify latest develop and its successful CI before migration
         run: |
