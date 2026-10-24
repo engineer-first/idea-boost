@@ -115,7 +115,7 @@ export function BoardLocation({
   const stepLabel =
     phase.kind === "step" ? STEP_NAMES[phase.phase][phase.step - 1] : "";
   return (
-    <div className={styles.slot}>
+    <div className={styles.slot} data-testid="board-location-slot">
       <fieldset
         aria-label="現在地"
         ref={card}

@@ -963,14 +963,23 @@ describe("マイ付箋の追加ショートカット", () => {
     { key: "Enter", ctrlKey: true, keyCode: 229 },
     { key: "Enter", metaKey: true },
     { key: "Enter", ctrlKey: true, metaKey: true },
-  ])("修飾・IME・リピートの除外条件では追加しない: %j", (event) => {
-    const { props } = setup({ phase: buildPhaseStep(1) });
-    fireEvent.keyDown(
-      screen.getByRole("button", { name: "付箋を追加" }),
-      event,
-    );
-    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
-  });
+  ])(
+    "マイ付箋の表面でも修飾・IME・リピートの除外条件では追加しない: %j",
+    (event) => {
+      const privateNote = buildNote({
+        id: "private",
+        authorId: ME,
+        visibility: "private",
+      });
+      const { props } = setup({
+        phase: buildPhaseStep(1),
+        notes: [],
+        interactions: buildInteractions([], [privateNote]),
+      });
+      fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), event);
+      expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+    },
+  );
 
   it("Macは⌘＋Enterを使い、Ctrl＋Enterでは追加しない", () => {
     const platform = vi
@@ -1503,7 +1512,7 @@ describe("RoomBoardView", () => {
             return new DOMRect(0, 110, 300, guideHeight);
           case "board-context-hud":
             return new DOMRect(0, 110, 200, contextHeight);
-          case "board-location-card":
+          case "board-location-slot":
             return new DOMRect(0, 110, 200, 40);
           case "board-control-hud":
             return new DOMRect(900, 110, 300, 56);
@@ -1516,7 +1525,7 @@ describe("RoomBoardView", () => {
       vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(
         function (this: HTMLElement) {
           return this.dataset.testid === "board-context-hud" ||
-            this.dataset.testid === "board-location-card" ||
+            this.dataset.testid === "board-location-slot" ||
             this.dataset.testid === "board-control-hud" ||
             this.dataset.testid === "board-connection-slot" ||
             this.dataset.testid === "step-guide"
@@ -1533,7 +1542,7 @@ describe("RoomBoardView", () => {
       // 接続案内1行（174 + 38）の下に12pxの余白を取る。
       expect(top()).toBe("224px");
 
-      // 640px以上では決定事項（board-context-hud）を測らず現在地カードだけで決めるため、
+      // 640px以上では決定事項（board-context-hud）を測らず現在地の枠だけで決めるため、
       // 決定事項が伸びても上端は変わらない。
       guideHeight = 180;
       contextHeight = 300;
@@ -1547,43 +1556,64 @@ describe("RoomBoardView", () => {
     },
   );
 
-  function mockPersonalWorkspaceGeometry(contextHeight: number) {
+  type PersonalWorkspaceGeometry = {
+    contextHeight: number;
+    guideHeight: number;
+    helpPanel: DOMRect | null;
+  };
+  function mockPersonalWorkspaceGeometry(
+    overrides: Partial<PersonalWorkspaceGeometry> = {},
+  ): PersonalWorkspaceGeometry {
+    const geometry: PersonalWorkspaceGeometry = {
+      contextHeight: 250,
+      guideHeight: 42,
+      helpPanel: null,
+      ...overrides,
+    };
+    const rectOf = (element: HTMLElement): DOMRect | null => {
+      if (element.parentElement?.dataset.testid === "board-help-panel")
+        return geometry.helpPanel;
+      switch (element.dataset.testid) {
+        case "board-frame":
+          return new DOMRect(0, 100, 1280, 700);
+        case "step-guide":
+          return new DOMRect(0, 110, 300, geometry.guideHeight);
+        case "board-context-hud":
+          return new DOMRect(0, 110, 200, geometry.contextHeight);
+        case "board-context-references":
+          return new DOMRect(12, 160, 203, 200);
+        case "board-location-slot":
+          return new DOMRect(0, 110, 200, 40);
+        case "private-notes-toolbar":
+          return new DOMRect(20, 224, 1240, 476);
+        default:
+          return null;
+      }
+    };
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
       function (this: HTMLElement) {
-        switch (this.dataset.testid) {
-          case "board-frame":
-            return new DOMRect(0, 100, 1280, 700);
-          case "step-guide":
-            return new DOMRect(0, 110, 300, 42);
-          case "board-context-hud":
-            return new DOMRect(0, 110, 200, contextHeight);
-          case "board-context-references":
-            return new DOMRect(12, 160, 203, 200);
-          case "board-location-card":
-            return new DOMRect(0, 110, 200, 40);
-          case "private-notes-toolbar":
-            return new DOMRect(20, 224, 1240, 476);
-          default:
-            return new DOMRect(0, 0, 0, 0);
-        }
+        return rectOf(this) ?? new DOMRect(0, 0, 0, 0);
       },
     );
     vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(
       function (this: HTMLElement) {
-        return [
-          "board-context-hud",
-          "board-context-references",
-          "board-location-card",
-          "step-guide",
-        ].includes(this.dataset.testid ?? "")
-          ? ([this.getBoundingClientRect()] as unknown as DOMRectList)
-          : ([] as unknown as DOMRectList);
+        const rect =
+          this.dataset.testid === "private-notes-toolbar" ? null : rectOf(this);
+        return (rect ? [rect] : []) as unknown as DOMRectList;
       },
     );
+    return geometry;
   }
+  const openIdeaHelp = {
+    kind: "idea" as const,
+    isOpen: true,
+    tab: "write" as const,
+    onOpenChange: vi.fn(),
+    onTabChange: vi.fn(),
+  };
 
   it("640px以上の2-1では付箋一覧を決定事項の右端から16px離して始める", () => {
-    mockPersonalWorkspaceGeometry(250);
+    mockPersonalWorkspaceGeometry();
     setup({ phase: buildPhaseStep(1, 2), hmwDecidedIssue: "決定した課題" });
 
     const root = screen.getByTestId("room-board-view-root");
@@ -1596,7 +1626,7 @@ describe("RoomBoardView", () => {
   it("640px未満の2-1では決定事項の下からマイ付箋エリアを始め、一覧を右へ寄せない", () => {
     const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(390);
     try {
-      mockPersonalWorkspaceGeometry(250);
+      mockPersonalWorkspaceGeometry();
       setup({ phase: buildPhaseStep(1, 2), hmwDecidedIssue: "決定した課題" });
 
       const root = screen.getByTestId("room-board-view-root");
@@ -1607,6 +1637,63 @@ describe("RoomBoardView", () => {
       expect(
         root.style.getPropertyValue("--board-private-reference-inset"),
       ).toBe("0px");
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it("640px以上の3-1で考えるヒントを開くと、付箋一覧をヒントの右端から16px離して始める", () => {
+    mockPersonalWorkspaceGeometry({
+      helpPanel: new DOMRect(12, 372, 320, 330),
+    });
+    setup({
+      phase: buildPhaseStep(1, 3),
+      hmwDecidedIssue: "決定した課題",
+      decidedHmw: "決定した問い",
+      help: openIdeaHelp,
+    });
+
+    const root = screen.getByTestId("room-board-view-root");
+    // ヒントの右端332px − マイ付箋エリアの左端20px + 16px。
+    expect(root.style.getPropertyValue("--board-private-reference-inset")).toBe(
+      "328px",
+    );
+  });
+
+  it("640px未満の2-1では進め方ガイドを開閉してもマイ付箋エリアの上端を動かさない", () => {
+    const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(390);
+    try {
+      const geometry = mockPersonalWorkspaceGeometry({ contextHeight: 40 });
+      setup({ phase: buildPhaseStep(1, 2) });
+
+      const root = screen.getByTestId("room-board-view-root");
+      const top = () =>
+        root.style.getPropertyValue("--board-private-expanded-top");
+      // 初回のガイド下端（110 + 42）の下に12pxの余白を取る。
+      expect(top()).toBe("164px");
+
+      geometry.guideHeight = 300;
+      fireEvent(window, new Event("resize"));
+      expect(top()).toBe("164px");
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it("640px未満の3-1で考えるヒントを開くと、ヒントの下からマイ付箋エリアを始める", () => {
+    const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(390);
+    try {
+      mockPersonalWorkspaceGeometry({
+        contextHeight: 40,
+        helpPanel: new DOMRect(0, 200, 390, 140),
+      });
+      setup({ phase: buildPhaseStep(1, 3), help: openIdeaHelp });
+
+      const root = screen.getByTestId("room-board-view-root");
+      // ヒントの下端（200 + 140）の下に12pxの余白を取る。
+      expect(root.style.getPropertyValue("--board-private-expanded-top")).toBe(
+        "352px",
+      );
     } finally {
       width.mockRestore();
     }

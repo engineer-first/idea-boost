@@ -362,6 +362,36 @@ for (const [phase, reference] of [
   }
 }
 
+test("3-1で考えるヒントを開いても、付箋と追加カードはヒントに隠れない", async () => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openStory(
+    "room-roomboardlayout--phase-3-step-1",
+    "initialGuideState:compact",
+  );
+  await page.getByRole("button", { name: "考えるヒントを開く" }).click();
+  const help = page.locator('[data-testid="board-help-panel"] > div');
+  await expect
+    .poll(() => help.evaluate((e) => e.getBoundingClientRect().width))
+    .toBeGreaterThan(300);
+  const helpBox = await help.boundingBox();
+  if (!helpBox) throw new Error("考えるヒントが見つかりません");
+  const cards = await page
+    .getByTestId("private-notes-list")
+    .locator(":scope > *")
+    .evaluateAll((elements) =>
+      elements.map((element) => element.getBoundingClientRect().toJSON()),
+    );
+  expect(cards.length).toBeGreaterThan(0);
+  for (const card of cards) {
+    const overlaps =
+      Math.min(helpBox.x + helpBox.width, card.right) >
+        Math.max(helpBox.x, card.left) &&
+      Math.min(helpBox.y + helpBox.height, card.bottom) >
+        Math.max(helpBox.y, card.top);
+    expect(overlaps, JSON.stringify({ helpBox, card })).toBe(false);
+  }
+});
+
 for (const phase of [1, 2, 3] as const) {
   test(`${phase}-1ではマイ付箋エリア外の余白に無限キャンバスが見える`, async () => {
     await page.setViewportSize({ width: 1280, height: 720 });
@@ -443,7 +473,8 @@ for (const id of [
   "phase-2-step-1-to-step-2",
   "phase-3-step-1-to-step-2",
 ]) {
-  test(`${id}: 個人作業の背景キャンバスに付箋を表示しない`, async () => {
+  // 実ルームの個人作業では背景キャンバスに付箋が無い。資料用Storyがmeta既定の共有付箋を背景へ混入させないことを守る。
+  test(`${id}: 個人作業のStoryは背景キャンバスに付箋を描画しない`, async () => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await openStory(`room-roomboardlayout--${id}`);
     await page.getByTestId("private-notes-toolbar").waitFor();
