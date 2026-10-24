@@ -1382,22 +1382,21 @@ export function RoomBoardView({
   useEffect(() => {
     const root = boardRootRef.current;
     if (!root) return;
-    const workspaceTopSurfaces = [
-      "board-context-hud",
-      "board-control-hud",
-      "board-connection-slot",
-      "board-help-panel",
-    ] as const;
     const isPersonalNoteEntryPhase =
       phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
-    const isInitialPersonalEntryPhase = isPhaseStep(phase, 1, 1);
     const expandedWorkspaceHeaderSurfaces = [
       "board-context-hud",
       "board-control-hud",
       "board-connection-slot",
       "step-guide",
     ] as const;
-    let stepGuideBottomInFrame: number | null = null;
+    const helpPanelSelector = '[data-testid="board-help-panel"] > div';
+    const referenceSelectors = [
+      '[data-testid="board-context-references"]',
+      helpPanelSelector,
+    ] as const;
+    // モバイルのガイドは詳細を開くと伸びるため、この工程で最初に測った位置で上端を固定する。
+    let initialMobileGuideBottom: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1436,76 +1435,73 @@ export function RoomBoardView({
           '[data-testid="board-frame"]',
         );
         if (frame) {
-          const frameTop = frame.getBoundingClientRect().top;
-          if (isInitialPersonalEntryPhase) {
-            let headerBottom = frameTop;
-            let guideBottom = 0;
-            for (const testId of expandedWorkspaceHeaderSurfaces) {
-              const element = root.querySelector<HTMLElement>(
-                `[data-testid="${testId}"]`,
-              );
-              if (
-                !element ||
-                element.getClientRects().length === 0 ||
-                getComputedStyle(element).visibility === "hidden"
-              )
-                continue;
-              const bounds = element.getBoundingClientRect();
-              if (testId === "step-guide") guideBottom = bounds.bottom;
-              // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
-              // デスクトップのガイドはコンパクトな入口の領域を確保し、詳細はその上に重ねる。
-              const bottom =
-                testId === "board-connection-slot"
-                  ? bounds.top + Math.max(38, bounds.height)
-                  : testId === "step-guide" && window.innerWidth >= 640
-                    ? bounds.top + 42
-                    : bounds.bottom;
-              headerBottom = Math.max(headerBottom, bottom);
-            }
-            root.style.setProperty(
-              "--board-private-expanded-top",
-              `${Math.ceil(headerBottom + 12)}px`,
-            );
-            root.style.setProperty(
-              "--board-private-guide-bottom",
-              `${Math.ceil(guideBottom)}px`,
-            );
-          }
-          if (stepGuideBottomInFrame === null) {
-            const stepGuide = root.querySelector<HTMLElement>(
-              '[data-testid="step-guide"]',
-            );
-            stepGuideBottomInFrame =
-              stepGuide && stepGuide.getClientRects().length > 0
-                ? stepGuide.getBoundingClientRect().bottom - frameTop
-                : 0;
-          }
-          let top = stepGuideBottomInFrame;
-          for (const testId of workspaceTopSurfaces) {
-            if (
-              window.innerWidth >= 640 &&
-              (testId === "board-context-hud" || testId === "board-help-panel")
-            )
-              continue;
-            const selector =
-              testId === "board-help-panel"
-                ? '[data-testid="board-help-panel"] > div'
-                : `[data-testid="${testId}"]`;
+          const isDesktop = window.innerWidth >= 640;
+          const visibleBounds = (selector: string): DOMRect | null => {
             const element = root.querySelector<HTMLElement>(selector);
-            if (
-              !element ||
+            return !element ||
               element.getClientRects().length === 0 ||
               getComputedStyle(element).visibility === "hidden"
-            )
-              continue;
-            top = Math.max(
-              top,
-              element.getBoundingClientRect().bottom - frameTop,
+              ? null
+              : element.getBoundingClientRect();
+          };
+          let headerBottom = frame.getBoundingClientRect().top;
+          let guideBottom = 0;
+          for (const testId of expandedWorkspaceHeaderSurfaces) {
+            // デスクトップでは2-1・3-1の決定事項を左側でエリアの前面に重ね、
+            // 上端は現在地の閉じた寸法を予約する枠だけで決める（開いたカードは前面に重ねる）。
+            // モバイルは決定事項の下から始める。
+            const bounds = visibleBounds(
+              testId === "board-context-hud" && isDesktop
+                ? '[data-testid="board-location-slot"]'
+                : `[data-testid="${testId}"]`,
             );
+            if (!bounds) continue;
+            let bottom = bounds.bottom;
+            if (testId === "board-connection-slot") {
+              // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
+              bottom = bounds.top + Math.max(38, bounds.height);
+            } else if (testId === "step-guide") {
+              guideBottom = bounds.bottom;
+              // デスクトップのガイドはコンパクトな入口の領域を確保し、詳細はその上に重ねる。
+              initialMobileGuideBottom ??= bounds.bottom;
+              bottom = isDesktop ? bounds.top + 42 : initialMobileGuideBottom;
+            }
+            headerBottom = Math.max(headerBottom, bottom);
           }
+          // モバイルの考えるヒントは上部欄の下に重なるため、その下から始める。
+          const mobileHelpPanel = isDesktop
+            ? null
+            : visibleBounds(helpPanelSelector);
+          if (mobileHelpPanel)
+            headerBottom = Math.max(headerBottom, mobileHelpPanel.bottom);
           root.style.setProperty(
-            "--board-private-workspace-top",
-            `${Math.max(192, Math.ceil(top + 16))}px`,
+            "--board-private-expanded-top",
+            `${Math.ceil(headerBottom + 12)}px`,
+          );
+          root.style.setProperty(
+            "--board-private-guide-bottom",
+            `${Math.ceil(guideBottom)}px`,
+          );
+          // デスクトップの決定事項・考えるヒントは左側で前面に重なるため、
+          // 付箋一覧をその右側へ寄せる。
+          const workspace = root.querySelector<HTMLElement>(
+            '[data-testid="private-notes-toolbar"]',
+          );
+          const referenceRight = isDesktop
+            ? Math.max(
+                0,
+                ...referenceSelectors.map(
+                  (selector) => visibleBounds(selector)?.right ?? 0,
+                ),
+              )
+            : 0;
+          const referenceInset =
+            workspace && referenceRight > 0
+              ? referenceRight - workspace.getBoundingClientRect().left + 16
+              : 0;
+          root.style.setProperty(
+            "--board-private-reference-inset",
+            `${Math.max(0, Math.ceil(referenceInset))}px`,
           );
         }
       }
@@ -1518,13 +1514,15 @@ export function RoomBoardView({
       );
       if (element) observer?.observe(element);
     }
-    for (const testId of new Set([
-      ...workspaceTopSurfaces,
-      ...expandedWorkspaceHeaderSurfaces,
-    ])) {
-      const element = root.querySelector<HTMLElement>(
-        `[data-testid="${testId}"]`,
-      );
+    for (const selector of [
+      ...expandedWorkspaceHeaderSurfaces.map(
+        (testId) => `[data-testid="${testId}"]`,
+      ),
+      '[data-testid="board-location-slot"]',
+      '[data-testid="board-help-panel"]',
+      ...referenceSelectors,
+    ]) {
+      const element = root.querySelector<HTMLElement>(selector);
       if (element) observer?.observe(element);
     }
     update();
@@ -1786,14 +1784,9 @@ export function RoomBoardView({
               inPrivateToolbar &&
               target instanceof HTMLTextAreaElement &&
               !target.readOnly;
-            const isBackground =
-              target === interactions.boardScrollerRef.current ||
-              target.dataset.canvasBackground === "true";
+            // 個人作業で付箋を作れる場所はマイ付箋エリアだけ。背景キャンバスは起点にしない。
             if (
-              (isBackground ||
-                isPrivateSurface ||
-                isPrivateEditor ||
-                isPrivateWorkspace) &&
+              (isPrivateSurface || isPrivateEditor || isPrivateWorkspace) &&
               !target.closest(
                 '[data-board-native-control], [role="menu"], [role="dialog"]',
               )

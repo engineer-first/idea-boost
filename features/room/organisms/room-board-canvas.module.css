@@ -8,12 +8,12 @@
   bottom: var(--idea-map-note-bottom-compact);
 }
 
-.initialWorkspace {
+.personalWorkspace {
   --private-workspace-padding: 0.75rem;
 }
 
 /* ガイドを開いても外枠は動かさず、入力内容をガイドの下へ退避する。 */
-.initialWorkspace [data-testid="private-notes-scroll"] {
+.personalWorkspace [data-testid="private-notes-scroll"] {
   padding-block-start: max(
     var(--private-workspace-padding),
     calc(
@@ -22,10 +22,14 @@
       12px
     )
   );
+  padding-inline-start: max(
+    var(--private-workspace-padding),
+    var(--board-private-reference-inset, 0px)
+  );
 }
 
 @media (min-width: 768px) {
-  .initialWorkspace {
+  .personalWorkspace {
     --private-workspace-padding: 1.25rem;
   }
 }
