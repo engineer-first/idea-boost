@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
@@ -11,10 +11,11 @@ import {
   buildNotes,
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
+import { HMW_EXAMPLES } from "@/features/hmw";
 import { NoteDraftRecovery } from "@/features/notes";
 import { roomNotify } from "../logic/room-notify";
 import { useBoardHelp } from "../logic/use-board-help";
-import { RoomBoardView } from "./room-board-view";
+import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
 import boardMeta, { MoveHistoryAvailable } from "./room-board-view.stories";
 
 const LONG_ISSUE =
@@ -74,6 +75,32 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+function PhaseHandoffPreview(args: RoomBoardViewProps) {
+  const [phase, setPhase] = useState(args.phase);
+  const help = useBoardHelp(phase);
+
+  return (
+    <RoomBoardView
+      {...args}
+      phase={phase}
+      help={help}
+      onNextPhase={() =>
+        startTransition(() =>
+          setPhase(buildPhaseStep(2, phase.kind === "step" ? phase.phase : 1)),
+        )
+      }
+    />
+  );
+}
+
+function handoffStory(phase: 1 | 2 | 3): Story {
+  return {
+    ...step(phase, 1),
+    name: `${phase}-1から${phase}-2への移行アニメーション`,
+    render: (args) => <PhaseHandoffPreview {...args} />,
+  };
+}
+
 function step(
   phase: 1 | 2 | 3,
   value: number,
@@ -85,6 +112,7 @@ function step(
     args: {
       phase: buildPhaseStep(value, phase),
       notes: value === 1 ? [] : buildNotes(3),
+      exampleNotes: phase === 2 && value === 1 ? HMW_EXAMPLES : [],
       hmwDecidedIssue: phase >= 2 ? LONG_ISSUE : null,
       issueReference:
         phase >= 2
@@ -133,6 +161,7 @@ export const FirstVisitOnboarding: Story = {
   name: "1-1 初回案内",
   parameters: { firstVisitOnboarding: true },
 };
+export const Phase1Step1ToStep2: Story = handoffStory(1);
 export const Phase1Step2: Story = step(1, 2);
 export const Phase1Step3: Story = step(1, 3);
 export const Phase1Step3WithNotReadyMember: Story = {
@@ -142,6 +171,7 @@ export const Phase1Step3WithNotReadyMember: Story = {
 export const Phase1Step4: Story = step(1, 4);
 export const Phase1Step5: Story = step(1, 5);
 export const Phase2Step1: Story = step(2, 1);
+export const Phase2Step1ToStep2: Story = handoffStory(2);
 export const Phase2Step1WithGuide: Story = {
   ...Phase2Step1,
   name: "問い作成の詳細ガイド",
@@ -151,6 +181,7 @@ export const Phase2Step2: Story = step(2, 2);
 export const Phase2Step3: Story = step(2, 3);
 export const Phase2Step4: Story = step(2, 4);
 export const Phase3Step1: Story = step(3, 1);
+export const Phase3Step1ToStep2: Story = handoffStory(3);
 export const Phase3Step2: Story = {
   ...step(3, 2),
   play: async ({ canvasElement }) => {

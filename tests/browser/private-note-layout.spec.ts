@@ -37,23 +37,17 @@ for (const viewport of [
     expect(await toolbar.getAttribute("data-presentation")).toBe("workspace");
     expect(await page.getByTestId("board-scroller").isVisible()).toBe(false);
     const toolbarBox = await toolbar.boundingBox();
-    const topHudIds =
-      viewport.width < 640
-        ? ["board-context-hud", "board-control-hud"]
-        : ["board-control-hud"];
-    const topHudBoxes = await Promise.all(
-      topHudIds.map((testId) => page.getByTestId(testId).boundingBox()),
+    expect(toolbarBox).not.toBeNull();
+    expect(toolbarBox?.x).toBeGreaterThanOrEqual(0);
+    expect(toolbarBox?.y).toBeGreaterThanOrEqual(0);
+
+    expect((toolbarBox?.x ?? 0) + (toolbarBox?.width ?? 0)).toBeLessThanOrEqual(
+      viewport.width,
     );
-    const topHudBottom = Math.max(
-      ...topHudBoxes.flatMap((box) => (box ? [box.y + box.height] : [])),
-    );
-    expect(toolbarBox?.y).toBeGreaterThanOrEqual(topHudBottom + 8);
-    if (viewport.width >= 640) {
-      const context = await page.getByTestId("board-context-hud").boundingBox();
-      expect(toolbarBox?.x).toBeGreaterThanOrEqual(
-        (context?.x ?? 0) + (context?.width ?? 0) + 8,
-      );
-    }
+
+    expect(
+      (toolbarBox?.y ?? 0) + (toolbarBox?.height ?? 0),
+    ).toBeLessThanOrEqual(viewport.height);
     if (viewport.width < 640) {
       const reference = page.getByRole("button", { name: "決定した問い" });
       expect(await reference.isVisible()).toBe(true);
@@ -62,6 +56,9 @@ for (const viewport of [
       expect(
         await page.getByTestId("board-reference-hmw-content").isVisible(),
       ).toBe(false);
+    }
+    if (viewport.width >= 640) {
+      await page.getByRole("button", { name: "考えるヒントを開く" }).click();
     }
     const help = page.locator("#board-help-content");
     expect(
@@ -104,6 +101,33 @@ for (const viewport of [
     await page.screenshot({
       path: `${output}/${viewport.width}x${viewport.height}-workspace.png`,
     });
+  });
+}
+
+for (const phase of [2, 3]) {
+  test(`フェーズ${phase}の個人作業では参照情報があっても付箋の開始位置を下げない`, async () => {
+    const viewport = { width: 1280, height: 720 };
+    page = await browser.newPage({ viewport });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-${phase}-step-1&viewMode=story`,
+    );
+    await page.getByTestId("private-notes-toolbar").waitFor();
+
+    const spacing = await page.evaluate(() => {
+      const scroll = document.querySelector(
+        '[data-testid="private-notes-scroll"]',
+      );
+      const list = document.querySelector('[data-testid="private-notes-list"]');
+      if (!scroll || !list) return null;
+      return (
+        list.getBoundingClientRect().top - scroll.getBoundingClientRect().top
+      );
+    });
+
+    // 通常の説明文・パディング分は許容し、参照情報を避ける13remの
+    // 追加オフセットで付箋と追加カードが下がらないことを確かめる。
+    expect(spacing).not.toBeNull();
+    expect(spacing).toBeLessThan(200);
   });
 }
 

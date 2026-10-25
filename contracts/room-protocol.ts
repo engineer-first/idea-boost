@@ -20,6 +20,7 @@ import {
 import { UUID_PATTERN } from "./ids";
 import { RoomPhaseSchema } from "./phase";
 import { RoomNameSchema } from "./room-name";
+import { SharingReactionKindSchema } from "./sharing-reactions";
 
 // 既存 ID の受理範囲を Zod のバージョンに依存させない。
 const HostUserIdSchema = z.string().regex(UUID_PATTERN);
@@ -344,6 +345,11 @@ export const RoomDisplayNameSchema = z
   );
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z.strictObject({
+    type: z.literal("reaction:send"),
+    kind: SharingReactionKindSchema,
+    phaseRevision: z.int().nonnegative(),
+  }),
   z.strictObject({
     type: z.literal("room:rename"),
     name: RoomNameSchema,
@@ -730,6 +736,13 @@ export const ShareReceiptSchema = z.object({
 export type ShareReceipt = z.infer<typeof ShareReceiptSchema>;
 
 export const ServerMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("reaction:received"),
+    id: z.guid(),
+    senderId: HostUserIdSchema,
+    kind: SharingReactionKindSchema,
+    phaseRevision: z.int().nonnegative(),
+  }),
   z.object({
     type: z.literal("room:renamed"),
     name: RoomNameSchema,

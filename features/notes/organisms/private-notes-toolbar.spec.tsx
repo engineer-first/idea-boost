@@ -36,6 +36,159 @@ function setup(disabled = false, selectedNoteId: string | null = null) {
 }
 
 describe("PrivateNotesToolbar", () => {
+  it("workspaceからdockへ切り替わるとマイ付箋を展開する", () => {
+    const props = {
+      notes: [buildNote({ visibility: "private", content: "非公開の考え" })],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="workspace"
+        defaultExpanded
+      />,
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        expandOnWorkspaceExit
+        defaultExpanded={false}
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+  });
+
+  it("View Transition中から完了後までマイ付箋を展開したままにする", () => {
+    const props = {
+      notes: [buildNote({ visibility: "private", content: "非公開の考え" })],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="workspace"
+        defaultExpanded
+        workspaceExitTransitionPending={false}
+      />,
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        expandOnWorkspaceExit
+        defaultExpanded={false}
+        workspaceExitTransitionPending
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        expandOnWorkspaceExit
+        defaultExpanded={false}
+        workspaceExitTransitionPending={false}
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+  });
+
+  it("1-2へのworkspace遷移が完了してもdockを開いたままにする", () => {
+    const props = {
+      notes: [
+        buildNote({ visibility: "private", content: "共有するアイデア" }),
+      ],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: false,
+      canDeleteNote: false,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="workspace"
+        defaultExpanded
+        workspaceExitTransitionPending={false}
+      />,
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        expandOnWorkspaceExit
+        defaultExpanded
+        workspaceExitTransitionPending
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        presentation="dock"
+        expandOnWorkspaceExit
+        defaultExpanded
+        workspaceExitTransitionPending={false}
+      />,
+    );
+
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: "マイ付箋を閉じる" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("作成待ちで＋が無効になったときのブラウザの自動blurは新規本文への移動を取り消さない", () => {
     const oldNote = buildNote({ id: "old", visibility: "private" });
     const newNote = buildNote({
@@ -965,9 +1118,13 @@ describe("PrivateNotesToolbar", () => {
       const view = render(<PrivateNotesToolbar {...props} />);
       expect(screen.getByText(/付箋追加ショートカットキー/)).toBeVisible();
       view.rerender(<PrivateNotesToolbar {...props} canCreateNote={false} />);
-      expect(
-        screen.queryByText(/付箋追加ショートカットキー/),
-      ).not.toBeInTheDocument();
+      if (presentation === "workspace") {
+        expect(screen.getByText(/付箋追加ショートカットキー/)).toBeVisible();
+      } else {
+        expect(
+          screen.queryByText(/付箋追加ショートカットキー/),
+        ).not.toBeInTheDocument();
+      }
     },
   );
 

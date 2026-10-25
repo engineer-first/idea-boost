@@ -13,6 +13,11 @@ import {
   WS_CLOSE_AUTH_REQUIRED_REASON,
 } from "../../contracts/room-protocol";
 import { SessionExpiresAtSchema } from "../../contracts/session";
+import {
+  SHARING_REACTION_DURATION_MS,
+  SHARING_REACTION_INTERVAL_MS,
+  SHARING_REACTION_MAX_PER_ACCOUNT,
+} from "../../contracts/sharing-reactions";
 import { visibleTo } from "../visibility";
 
 // WS 接続ごとに serializeAttachment で永続化する状態。
@@ -37,6 +42,15 @@ export type ActiveDragOwner = {
 };
 
 export class RoomBroadcaster {
+  // 再接続で制限が消えないよう、3秒以内の送信履歴を接続ではなく本人に紐づける。
+  private readonly reactionsByUser = new Map<
+    string,
+    {
+      lastReactionAt: number;
+      activeReactions: { sentAt: number; phaseRevision: number }[];
+    }
+  >();
+
   constructor(
     private readonly connections: Pick<DurableObjectState, "getWebSockets">,
     private readonly onExpired?: (socket: WebSocket) => void,
@@ -241,6 +255,50 @@ export class RoomBroadcaster {
     const payload = JSON.stringify(message);
     for (const socket of this.connections.getWebSockets()) {
       this.trySend(socket, payload);
+    }
+  }
+
+  reserveReaction(socket: WebSocket, phaseRevision: number): boolean {
+    const now = Date.now();
+    const sender = socket.deserializeAttachment() as SocketAttachment;
+    for (const [userId, history] of this.reactionsByUser) {
+      history.activeReactions = history.activeReactions.filter(
+        (reaction) => reaction.sentAt + SHARING_REACTION_DURATION_MS > now,
+      );
+      if (
+        history.activeReactions.length === 0 &&
+        now - history.lastReactionAt >= SHARING_REACTION_INTERVAL_MS
+      )
+        this.reactionsByUser.delete(userId);
+    }
+    const history = this.reactionsByUser.get(sender.userId);
+    const activeReactions = (history?.activeReactions ?? []).filter(
+      (reaction) => reaction.phaseRevision === phaseRevision,
+    );
+    if (
+      activeReactions.length >= SHARING_REACTION_MAX_PER_ACCOUNT ||
+      (history !== undefined &&
+        now - history.lastReactionAt < SHARING_REACTION_INTERVAL_MS)
+    )
+      return false;
+    this.reactionsByUser.set(sender.userId, {
+      lastReactionAt: now,
+      activeReactions: [...activeReactions, { sentAt: now, phaseRevision }],
+    });
+    return true;
+  }
+
+  // リアクションは共有工程の全員共有情報。失効した在籍者には配信しない。
+  broadcastReaction(
+    message: Extract<ServerMessage, { type: "reaction:received" }>,
+    isMember: (userId: string) => boolean,
+  ): void {
+    const payload = JSON.stringify(message);
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment && isMember(attachment.userId))
+        this.trySend(socket, payload);
     }
   }
 

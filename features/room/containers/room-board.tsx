@@ -9,7 +9,13 @@
 // このファイルに残るのはフェーズ進行の操作と画面反応だけ。
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
 import { isResultStep, type RoomPhase } from "@/contracts/phase";
 import {
@@ -44,6 +50,7 @@ import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
 import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
+import { useSharingReactions } from "../logic/use-sharing-reactions";
 import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
 
 export type RoomBoardProps = {
@@ -67,6 +74,26 @@ export type RoomBoardProps = {
   // テストでボード操作を単体検証するときは案内モーダルを無効化する。
 };
 
+function isPrivateNotesWorkspaceHandoff(
+  from: RoomPhase,
+  to: RoomPhase,
+): boolean {
+  return (
+    from.kind === "step" &&
+    to.kind === "step" &&
+    from.phase === to.phase &&
+    from.step === 1 &&
+    to.step === 2
+  );
+}
+
+function getPersonalNoteExamples(phase: RoomPhase): readonly string[] {
+  // 例付箋は問い作成（2-1）だけで使う。
+  return phase.kind === "step" && phase.phase === 2 && phase.step === 1
+    ? HMW_EXAMPLES
+    : [];
+}
+
 export function RoomBoard({
   roomId,
   inviteCode,
@@ -83,7 +110,9 @@ export function RoomBoard({
   const feedback = useFeedback(roomId, submitFeedback);
   const [completionResetVersion, setCompletionResetVersion] = useState(0);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
-  const hmwExamplesInitializedVersionRef = useRef(0);
+  const [isPrivateNotesHandoffPending, setIsPrivateNotesHandoffPending] =
+    useState(false);
+  const privateNotesHandoffCleanupRef = useRef<(() => void) | null>(null);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
   const bulkUndoIdsRef = useRef(new Set<string>());
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
@@ -218,6 +247,13 @@ export function RoomBoard({
     connectionStatus,
     send,
   });
+  const sharingReactions = useSharingReactions({
+    phase: roomState.phase,
+    phaseRevision: roomState.phaseRevision,
+    connectionStatus,
+    blocked: isLeaving || isNextPhasePending || roomState.outcomePublished,
+    send,
+  });
 
   function clearCandidateNotices(): void {
     bulkUndoIdsRef.current.clear();
@@ -227,8 +263,44 @@ export function RoomBoard({
     candidateNoticeIdsRef.current.clear();
   }
 
+  function beginPrivateNotesHandoff(): void {
+    privateNotesHandoffCleanupRef.current?.();
+    privateNotesHandoffCleanupRef.current = null;
+    if (
+      typeof document === "undefined" ||
+      typeof document.startViewTransition !== "function" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setIsPrivateNotesHandoffPending(false);
+      return;
+    }
+
+    setIsPrivateNotesHandoffPending(true);
+    let timeoutId: number | undefined;
+    const finish = (): void => {
+      cleanup();
+      setIsPrivateNotesHandoffPending(false);
+    };
+    const onAnimationEnd = (event: AnimationEvent): void => {
+      if (event.pseudoElement === "::view-transition-group(private-notes-area)")
+        finish();
+    };
+    const cleanup = (): void => {
+      document.removeEventListener("animationend", onAnimationEnd, true);
+      document.removeEventListener("animationcancel", onAnimationEnd, true);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      if (privateNotesHandoffCleanupRef.current === cleanup)
+        privateNotesHandoffCleanupRef.current = null;
+    };
+    document.addEventListener("animationend", onAnimationEnd, true);
+    document.addEventListener("animationcancel", onAnimationEnd, true);
+    timeoutId = window.setTimeout(finish, 1000);
+    privateNotesHandoffCleanupRef.current = cleanup;
+  }
+
   useEffect(
     () => () => {
+      privateNotesHandoffCleanupRef.current?.();
       for (const id of candidateNoticeIdsRef.current)
         roomNotify.dismissCandidateNotice(id);
       candidateNoticeIdsRef.current.clear();
@@ -337,8 +409,17 @@ export function RoomBoard({
     )
       boardInteractions.cancelCurrentNoteDrag(true);
     noteGroups.applyMessage(message);
-    roomState.applyMessage(message, receivedAt);
+    if (
+      (message.type === "phase:updated" || message.type === "snapshot") &&
+      isPrivateNotesWorkspaceHandoff(roomState.phase, message.phase)
+    ) {
+      beginPrivateNotesHandoff();
+      startTransition(() => roomState.applyMessage(message, receivedAt));
+    } else {
+      roomState.applyMessage(message, receivedAt);
+    }
     cursorPresence.applyMessage(message, receivedAt);
+    sharingReactions.applyMessage(message, receivedAt);
   }
 
   const handleNextPhase = useCallback(
@@ -508,38 +589,6 @@ export function RoomBoard({
     [addNote, roomState.timer.status],
   );
 
-  useEffect(() => {
-    const isHmwWritingStep =
-      roomState.phase.kind === "step" &&
-      roomState.phase.phase === 2 &&
-      roomState.phase.step === 1;
-    if (
-      roomState.timer.status !== "running" ||
-      !isHmwWritingStep ||
-      connectionStatus !== "open" ||
-      notes.snapshotVersion === 0 ||
-      hmwExamplesInitializedVersionRef.current === notes.snapshotVersion
-    )
-      return;
-
-    const existingContents = new Set(
-      notes.notes
-        .filter((note) => note.visibility === "private")
-        .map((note) => note.content),
-    );
-    hmwExamplesInitializedVersionRef.current = notes.snapshotVersion;
-    for (const example of HMW_EXAMPLES) {
-      if (!existingContents.has(example)) addNote(example);
-    }
-  }, [
-    addNote,
-    connectionStatus,
-    notes.notes,
-    notes.snapshotVersion,
-    roomState.phase,
-    roomState.timer.status,
-  ]);
-
   // フェーズ2では決定課題を、フェーズ3では決定課題と決定した問いを掲示する。
   // 持ち越しはフェーズ昇順の配列なので、由来フェーズで取り出す。
   const currentPhase =
@@ -649,6 +698,12 @@ export function RoomBoard({
   return (
     <>
       <RoomBoardView
+        isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
+        sharingReactions={sharingReactions.reactions}
+        reactionControls={{
+          disabled: !sharingReactions.canSendLike,
+          onSendLike: sharingReactions.sendLike,
+        }}
         loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
           undo: moveHistory.undoState,
@@ -659,6 +714,7 @@ export function RoomBoard({
         }}
         feedback={feedback}
         notes={boardNotes}
+        exampleNotes={getPersonalNoteExamples(roomState.phase)}
         confirmedNotes={notes.notes.filter(
           (note) => note.visibility === "shared",
         )}

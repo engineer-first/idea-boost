@@ -12,6 +12,18 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const reactTransitionProbe = vi.hoisted(() => ({ start: vi.fn() }));
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return {
+    ...actual,
+    startTransition: (scope: () => void) => {
+      reactTransitionProbe.start(scope);
+      actual.startTransition(scope);
+    },
+  };
+});
+
 // useRouter の戻り値は毎レンダー同じ参照にする（effect の再実行ループ防止）。
 const navigationMocks = vi.hoisted(() => {
   const replace = vi.fn();
@@ -306,6 +318,32 @@ function openPrivateNotesToolbar() {
   if (openButton) fireEvent.click(openButton);
   return toolbar;
 }
+
+it("共有中のいいねをツールバーから送信し、配信を受けて画面に表示する", () => {
+  const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(2) });
+  const toolbar = screen.getByTestId("canvas-zoom-controls");
+  fireEvent.click(
+    within(toolbar).getByRole("button", { name: "リアクション" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "いいねを送る" }));
+  expectSent(socket, {
+    type: "reaction:send",
+    kind: "like",
+    phaseRevision: 0,
+  });
+  expect(screen.queryByRole("img", { name: "いいね" })).not.toBeInTheDocument();
+
+  act(() =>
+    socket.simulateServerMessage({
+      type: "reaction:received",
+      id: STICKER_ID,
+      senderId: "22222222-2222-4222-8222-222222222222",
+      kind: "like",
+      phaseRevision: 0,
+    }),
+  );
+  expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
+});
 
 describe("問いの投票中の付箋移動", () => {
   it.each([true, false])(
@@ -842,6 +880,69 @@ describe("メンバー参加・退出の通知", () => {
 });
 
 describe("サーバーメッセージ → 画面反映", () => {
+  it("1-1からのsnapshotで遷移を開始し、後続phase:updatedで二重開始しない", () => {
+    const { socket } = connectWithSnapshot([]);
+    reactTransitionProbe.start.mockClear();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "snapshot",
+        phaseRevision: 1,
+        notes: [],
+        members: [],
+        phase: buildPhaseStep(2),
+        isHost: true,
+        decision: null,
+        outcomePublished: false,
+        adoptionFocusNoteId: null,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      }),
+    );
+
+    expect(reactTransitionProbe.start).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phaseRevision: 1,
+        phase: buildPhaseStep(2),
+      }),
+    );
+
+    expect(reactTransitionProbe.start).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([2, 3] as const)(
+    "%i-1から同じフェーズのStep 2へ進んでもマイ付箋を展開したままにする",
+    (phase) => {
+      const { socket } = connectWithSnapshot([], {
+        phase: buildPhaseStep(1, phase),
+      });
+      reactTransitionProbe.start.mockClear();
+
+      act(() =>
+        socket.simulateServerMessage({
+          type: "phase:updated",
+          phaseRevision: 1,
+          phase: buildPhaseStep(2, phase),
+        }),
+      );
+
+      expect(reactTransitionProbe.start).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        "true",
+      );
+      expect(
+        screen.getByRole("button", { name: "マイ付箋を閉じる" }),
+      ).toHaveAttribute("aria-expanded", "true");
+    },
+  );
+
   it("共有作業中だけ他者のカーソルを表示し、切断時に消す", () => {
     const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(2) });
     act(() =>
@@ -1070,7 +1171,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     },
   );
 
-  it("HMWのサンプル付箋はタイマー開始まで自動作成しない", () => {
+  it("HMWのサンプル付箋はタイマー開始後も保存せず参照表示する", () => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(1, 2),
       timer: { status: "idle" },
@@ -1096,10 +1197,25 @@ describe("サーバーメッセージ → 画面反映", () => {
       });
     });
 
-    // タイマー開始後は HMW のサンプル作成が実行される。
+    // タイマー開始後も HMW の例示を付箋として保存しない。
     expect(
       sentMessages().some((message) => message.type === "note:create"),
-    ).toBe(true);
+    ).toBe(false);
+
+    expect(screen.getByTestId("example-note-1")).toBeVisible();
+    expect(screen.getByTestId("example-note-2")).toBeVisible();
+  });
+
+  it.each([1, 3] as const)("%i-1では例付箋を表示しない", (phase) => {
+    const { socket } = connectWithSnapshot([], {
+      phase: buildPhaseStep(1, phase),
+      timer: { status: "idle" },
+    });
+
+    expect(screen.queryAllByTestId(/^example-note-/)).toHaveLength(0);
+    expect(
+      socket.sent.some((payload) => payload.includes('"type":"note:create"')),
+    ).toBe(false);
   });
 
   it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {
@@ -3346,7 +3462,7 @@ describe("Step 3-1（アイデア個人執筆）", () => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(1, 3),
     });
-
+    fireEvent.click(screen.getByRole("button", { name: "考えるヒントを開く" }));
     fireEvent.click(screen.getByRole("button", { name: "もっと簡単に" }));
 
     expect(socket.sent.map((raw) => JSON.parse(raw))).toContainEqual({

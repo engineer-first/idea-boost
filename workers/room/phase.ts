@@ -6,6 +6,7 @@ import {
 import {
   getRoomPhaseLabel,
   isLobby,
+  isPhaseStep,
   isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
@@ -54,6 +55,23 @@ export function getPhase(sql: SqlStorage): RoomPhase {
   const rows = sql.exec("SELECT phase FROM room_state WHERE id = 1").toArray();
   const row = rows[0] as { phase: string } | undefined;
   return decodePhase(row?.phase ?? "lobby");
+}
+
+// 1-1の下書き（本人専用付箋）だけは、タイマーの開始・終了に関わらず
+// 作成・編集・削除できる。可視性と作者の検証は各note handlerで別途行う。
+export function isTimerExemptPersonalNoteMutation(
+  phase: RoomPhase,
+  message: ClientMessage,
+): boolean {
+  if (!isPhaseStep(phase, 1, 1)) return false;
+  switch (message.type) {
+    case "note:create":
+    case "note:update-content":
+    case "note:delete":
+      return true;
+    default:
+      return false;
+  }
 }
 
 export function savePhase(sql: SqlStorage, phase: RoomPhase): void {
@@ -249,6 +267,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "group:update-name":
     case "idea-map:resize":
       return true;
+    case "reaction:send":
     case "cursor:update":
     case "note:share:status":
     case "note:move:status":

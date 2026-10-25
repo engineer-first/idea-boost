@@ -1,0 +1,75 @@
+.display {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.reaction {
+  --reaction-rise: calc(50dvh - 2.25rem - env(safe-area-inset-bottom, 0px));
+  position: absolute;
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: 50%;
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin-left: -2.25rem;
+  place-items: center;
+  animation-name: float-like;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+.image {
+  width: clamp(3.5rem, 6.25vw, 5rem);
+  max-width: none;
+  height: auto;
+}
+
+@keyframes float-like {
+  0% {
+    opacity: 0;
+    transform: translateY(100%) scale(0.72);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(
+        calc(var(--reaction-drift) * 0.08),
+        calc(var(--reaction-rise) * -0.12)
+      )
+      scale(1.06);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(var(--reaction-drift), calc(var(--reaction-rise) * -1))
+      scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--reaction-drift), calc(var(--reaction-rise) * -1))
+      scale(0.96);
+  }
+}
+
+@keyframes fade-like {
+  0% {
+    opacity: 0;
+  }
+  12%,
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reaction {
+    bottom: calc(50% - 2.25rem);
+    left: calc(50% + var(--reaction-drift));
+    animation-name: fade-like;
+  }
+}

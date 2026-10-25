@@ -31,6 +31,11 @@ async function untilType(
   throw new Error(`応答 ${type} が見つかりません`);
 }
 
+// 以前の画面が自動保存していた「HMWの例」と同じ文章。
+// 自動保存された付箋と、利用者が自分で書いた付箋は見分けられないため、消さずに残す。
+const SAME_AS_LEGACY_HMW_EXAMPLE =
+  "（例）どうすれば、買い物を忘れずに安くできるだろう？";
+
 describe("本文保存を待たない進行", () => {
   it("個人から共有は時計を進めず本文ACKを待たず確定する", async () => {
     const name = "phase-save-window";
@@ -297,7 +302,7 @@ describe("本文保存を待たない進行", () => {
         for (const [id, authorId, content] of [
           [noteIds.ownerEmpty, hostId, " \t\u3000\n "],
           [noteIds.ownerBlank, hostId, ""],
-          [noteIds.ownerContent, hostId, "アイデア案"],
+          [noteIds.ownerContent, hostId, SAME_AS_LEGACY_HMW_EXAMPLE],
           [noteIds.memberEmpty, memberId, "\u3000\n"],
           [noteIds.memberContent, memberId, "別のアイデア案"],
         ] as const) {
@@ -386,7 +391,7 @@ describe("本文保存を待たない進行", () => {
       expect(ownerSnapshot.notes).toContainEqual(
         expect.objectContaining({
           id: noteIds.ownerContent,
-          content: "アイデア案",
+          content: SAME_AS_LEGACY_HMW_EXAMPLE,
         }),
       );
       expect(memberSnapshot.notes).toContainEqual(

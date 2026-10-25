@@ -16,6 +16,7 @@ type Trace = { sent: string[]; received: string[]; connections: string[][] };
 type Frame = {
   type: string;
   phase?: { kind: string; phase: number; step: number };
+  progress?: { allReady: boolean; readyUserIds: string[] };
   notes?: Array<{
     id: string;
     authorId: string;
@@ -131,18 +132,53 @@ async function waitForPhase(trace: Trace, step: number): Promise<void> {
     `課題フェーズのステップ${step}がWSで届く`,
   );
 }
+// allReadyは接続中の全員が基準のため、参加者の切断でも成立しないよう人数も見る。
+async function waitForAllReady(trace: Trace, step: number): Promise<void> {
+  await poll(
+    () => {
+      const progress = frames(trace).findLast(
+        (frame) => frame.type === "phase:progress",
+      )?.progress;
+      return progress?.allReady === true && progress.readyUserIds.length === 2;
+    },
+    `ステップ${step - 1}で2本人の完了がWSで届く`,
+  );
+}
 async function advancePhase(
   owner: Page,
   traces: readonly Trace[],
   step: number,
 ): Promise<void> {
+  // 完了ボタンの演出中は次への要求が無視されるため、固定時間ではなく
+  // UIが再び操作を受け付ける状態まで待つ。
+  await poll(
+    async () =>
+      (await owner
+        .getByTestId("board-control-hud")
+        .getAttribute("data-completion-cue")) === "idle",
+    "作成者の完了操作が終了する",
+  );
   await owner
     .getByRole("button", { name: "次のステップへ", exact: true })
     .click();
-  // 全員完了済みの通常移行は即時。投票への移行だけ確認を挟む。
-  if (step === 4)
-    await owner
-      .getByRole("alertdialog", { name: "次のステップへ進みますか？" })
+  // 全員完了の受信後でも、画面への反映が遅れれば確認が開く。一度開いた確認は
+  // 全員完了後も残るため、WSの移行か確認の表示を待つ。未完了メンバーの確認は
+  // 完了同期の失敗を強制移行で隠すため、ここでは受け付けない。
+  const confirmation = owner.getByRole("alertdialog", {
+    name: /^(次のステップへ進みますか？|全員が完了しました)$/,
+  });
+  await poll(
+    async () =>
+      frames(traces[0]).some(
+        (frame) =>
+          frame.phase?.kind === "step" &&
+          frame.phase.phase === 1 &&
+          frame.phase.step === step,
+      ) || (await confirmation.isVisible()),
+    `ステップ${step}への移行または確認の表示`,
+  );
+  if (await confirmation.isVisible())
+    await confirmation
       .getByRole("button", { name: "次へ進む", exact: true })
       .click();
   await Promise.all(traces.map((trace) => waitForPhase(trace, step)));
@@ -327,6 +363,7 @@ export async function smokePreviewBrowserCollaboration(
 
     for (const page of [owner, member])
       await page.getByRole("button", { name: "完了", exact: true }).click();
+    await waitForAllReady(ownerTrace, 2);
     await advancePhase(owner, [ownerTrace, memberTrace], 2);
     await owner.getByTestId("sharing-advance").waitFor();
     await poll(
@@ -358,6 +395,7 @@ export async function smokePreviewBrowserCollaboration(
     await capture(member, "participant-shared-notes");
     for (const page of [owner, member])
       await page.getByRole("button", { name: "完了", exact: true }).click();
+    await waitForAllReady(ownerTrace, 4);
     await advancePhase(owner, [ownerTrace, memberTrace], 4);
     await owner.getByRole("button", { name: /^タイマー 未開始/ }).click();
     await owner.getByRole("button", { name: "開始", exact: true }).click();

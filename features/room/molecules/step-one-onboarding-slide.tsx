@@ -366,7 +366,7 @@ export function StepOneOnboardingSlide({
           ref={guideButtonRef}
           type="button"
           variant="outline"
-          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-full border-border/80 bg-background/95 px-4 text-sm shadow-lg backdrop-blur transition hover:bg-muted max-[639px]:-top-12"
+          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-full border-border/80 bg-background/95 px-4 text-sm shadow-lg backdrop-blur transition hover:bg-muted max-[639px]:fixed max-[639px]:top-[calc(var(--board-location-top,7.25rem)-3rem)]"
           onClick={openGuide}
         >
           進め方

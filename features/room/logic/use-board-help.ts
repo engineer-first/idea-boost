@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { isPhaseStep, type RoomPhase } from "@/contracts/phase";
 
 export type BoardHelpKind = "hmw" | "idea" | "reference" | null;
@@ -17,28 +17,30 @@ export function useBoardHelp(phase: RoomPhase): BoardHelpControls {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const kind: BoardHelpKind = isPhaseStep(phase, 3, 1) ? "idea" : null;
-  const visited = useRef(new Set<string>());
-  const activePhase = useRef(phaseKey);
-  const initiallyOpen = kind === "idea" && !visited.current.has(phaseKey);
+
   const [display, setDisplay] = useState({
     phaseKey,
-    isOpen: initiallyOpen,
+    isOpen: false,
     tab: "write" as BoardHelpTab,
   });
+
   useEffect(() => {
-    if (activePhase.current !== phaseKey)
-      visited.current.add(activePhase.current);
-    activePhase.current = phaseKey;
     setDisplay({
       phaseKey,
-      isOpen: initiallyOpen && window.innerWidth > 639,
+      isOpen: false,
       tab: "write",
     });
-  }, [phaseKey, initiallyOpen]);
+  }, [phaseKey]);
+
   const current =
     display.phaseKey === phaseKey
       ? display
-      : { phaseKey, isOpen: initiallyOpen, tab: "write" as BoardHelpTab };
+      : {
+          phaseKey,
+          isOpen: false,
+          tab: "write" as BoardHelpTab,
+        };
+
   return {
     kind,
     isOpen: kind !== null && current.isOpen,

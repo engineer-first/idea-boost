@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { getNoteHeight } from "@/contracts/board";
 import type { NoteColor } from "@/contracts/room-protocol";
@@ -1172,6 +1173,47 @@ describe("NoteCard", () => {
       fireEvent.keyDown(textarea, { key: "Escape" });
 
       expect(onContentChange).toHaveBeenCalledWith("note-1", "編集した本文");
+    });
+
+    it("親が本文を同期更新してもEscapeで確定した入力を空に戻さない", () => {
+      const initialNote = buildNote({ content: "" });
+      const vote = {
+        displayMode: "hidden" as const,
+        selectedKind: null,
+        voteRemaining: { subjective: 1, objective: 3 },
+        canVote: true,
+        pendingOperations: [],
+        onVote: vi.fn(),
+        onVoteRemove: vi.fn(),
+      };
+      function ControlledNoteCard() {
+        const [note, setNote] = useState(initialNote);
+        return (
+          <NoteCard
+            note={note}
+            isOwnDrag={false}
+            isSelected
+            canEditNote
+            canDeleteNote
+            canMoveNote
+            onSelect={vi.fn()}
+            onDragStart={vi.fn()}
+            onContentChange={(_noteId, content) =>
+              setNote((current) => ({ ...current, content }))
+            }
+            onDelete={vi.fn()}
+            vote={vote}
+          />
+        );
+      }
+      render(<ControlledNoteCard />);
+
+      clickNote();
+      const textarea = screen.getByRole("textbox");
+      fireEvent.change(textarea, { target: { value: "親へ同期する本文" } });
+      fireEvent.keyDown(textarea, { key: "Escape" });
+
+      expect(screen.getByRole("textbox")).toHaveValue("親へ同期する本文");
     });
   });
 

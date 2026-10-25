@@ -42,7 +42,9 @@ describe("本文の確定", () => {
       const roomName = `note-content-timer-${status}`;
       const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
       await initializeTestRoom(stub, hostId, "Host");
-      await stub.setPhase(buildPhaseStep(1), hostId);
+      // 1-1は個人の下書きをタイマー状態に関係なく編集できる。
+      // 共有ステップ1-2では停止中の保存が引き続き拒否されることを検証する。
+      await stub.setPhase(buildPhaseStep(2, 1), hostId);
       await startTimerForTest(roomName);
       const socket = await connect(roomName);
       await runInRoomDO(roomName, async (room, state) => {

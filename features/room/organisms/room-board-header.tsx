@@ -483,6 +483,7 @@ export function RoomBoardHeader({
       isDisconnected,
     },
   });
+  const isPhaseOnePrivateNoteEntry = isPhaseStep(phase, 1, 1);
   const isPhaseThreePrivateNoteEntry =
     phase.kind === "step" && phase.phase === 3 && phase.step === 1;
   const isFinalStep = isPhaseStep(phase, 3, 5);
@@ -1000,7 +1001,9 @@ export function RoomBoardHeader({
               </PopoverTrigger>
               <PopoverContent
                 ref={roomMenuContentRef}
-                className="w-80 p-2"
+                className={
+                  isPhaseOnePrivateNoteEntry ? "z-[70] w-80 p-2" : "w-80 p-2"
+                }
                 aria-label="ルームメニュー"
                 onCloseAutoFocus={(event) => {
                   if (!feedbackOpening.current) return;
@@ -1088,7 +1091,9 @@ export function RoomBoardHeader({
                       <PopoverContent
                         ref={inviteContentRef}
                         align="end"
-                        className="w-80"
+                        className={
+                          isPhaseOnePrivateNoteEntry ? "z-[70] w-80" : "w-80"
+                        }
                         aria-label="ルームに招待"
                       >
                         <p className="mb-1 text-sm font-semibold">

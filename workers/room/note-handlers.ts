@@ -56,7 +56,11 @@ import {
   unpublishNoteAtIndex,
   updateNoteFontSize,
 } from "./notes";
-import { getPhase, getPhaseRevision } from "./phase";
+import {
+  getPhase,
+  getPhaseRevision,
+  isTimerExemptPersonalNoteMutation,
+} from "./phase";
 import { commitShare } from "./share-operations";
 import { getSharingState } from "./sharing-state";
 import { getTimerState } from "./timer";
@@ -364,8 +368,12 @@ export const noteHandlers: MessageHandlers<
       });
       return;
     }
-    // digest の待機中に一時停止・終了していたら、本文と保存記録を確定しない。
-    if (getTimerState(ctx.sql).status !== "running") {
+    // 1-1の個人下書きは、タイマー状態に関係なく本文を確定できる。
+    // それ以外の工程ではdigest待機中の停止・終了も保存を拒否する。
+    if (
+      getTimerState(ctx.sql).status !== "running" &&
+      !isTimerExemptPersonalNoteMutation(getPhase(ctx.sql), message)
+    ) {
       ctx.reply({
         type: "error",
         code: "forbidden",

@@ -306,6 +306,16 @@ export const PrivateNoteAdditionDelayed: Story = {
   },
 };
 
+export const PrivateNoteAdditionBeforeTimer: Story = {
+  ...PrivateNoteAdditionDelayed,
+  name: "1-1でタイマー未開始",
+  args: {
+    ...PrivateNoteAdditionDelayed.args,
+    phase: STEP_1_1,
+    timer: { status: "idle" },
+  },
+};
+
 export const StepIntro: Story = {
   name: "ステップ開始の短い案内",
   args: {

@@ -10,13 +10,15 @@
 
 Issue は GitHub の Issue Type で分類する。タイトル接頭辞やラベルで代用しない。
 
-| Type         | 用途                                                               |
-| ------------ | ------------------------------------------------------------------ |
-| `相談・要望` | 方針・要件・優先度の相談、改善や機能の要望                         |
-| `PBI`        | ユーザー価値とユーザーに提供する体験を示すプロダクトバックログ項目 |
-| `Task`       | 実装など具体的な作業                                               |
-| `Bug`        | 不具合・想定外の挙動                                               |
-| `Spike`      | 不確実な点を調査して判断材料を得る作業                             |
+| Type             | 用途                                                               |
+| ---------------- | ------------------------------------------------------------------ |
+| `相談・要望`     | 方針・要件・優先度の相談、改善や機能の要望                         |
+| `PBI`            | ユーザー価値とユーザーに提供する体験を示すプロダクトバックログ項目 |
+| `Task`           | 実装など具体的な作業                                               |
+| `Bug`            | 不具合・想定外の挙動                                               |
+| `競合調査`       | 競合の観察・資料を残す。必要なPBIの子Issueにできる                 |
+| `フィードバック` | 日付ごとのフィードバック一覧                                       |
+| `成果データ`     | 対象日・実施回ごとの成果データ一覧                                 |
 
 Issue 作成時は `.github/ISSUE_TEMPLATE/` の Issue Forms または空の Issue を使う。PBIは冒頭ユーザーストーリーで誰が何をなぜ望むかを示し、Whyで現状の問題と影響を伝える。TaskのWhyは作業が必要な理由を伝える。体験・How・作業完了条件・関連Issueは、担当者が判断や検討を進めるための情報として書き、検討が進んだ分を追記する。Issue Type はフォームから設定される。空の Issue は自由に記述し、Type は作成時または後から設定する。フォームに Project を埋め込まず、Project の自動追加を使う。
 
@@ -24,6 +26,8 @@ Issue 作成時は `.github/ISSUE_TEMPLATE/` の Issue Forms または空の Iss
 
 PBIでは、画面の流れや画面図が判断に必要な場合だけ補足へ添える。ユーザーに提供する体験には確認できる結果を残す。
 Issue の要件や不具合を理解するために必要な画面イメージは本文へ、後から得た再現画像・動画はコメントへ添付する。`gh issue create` / `gh issue edit` / `gh issue comment` の `--attach` を使い、画像・動画はリポジトリ外に保存する。本文の指定欄に置く場合は、`--body-file` に渡す本文のその欄へローカルファイルへの Markdown 参照を記載し、同じファイルを `--attach` に指定する。参照がない添付は本文末尾に追加される。投稿後は GitHub 上の表示を確認する。`pbi` のスクリプトで作った Issue に添付するときは、既存本文を取得して追記を保持した本文ファイルを作り、`gh issue edit --body-file` と `--attach` を併用する。添付のために作成スクリプトを再実行しない。
+
+記録用3 Typeの本文は対象だけ（競合調査は目的・対象）にし、一次情報を先にコメントへ残す。要約・分析・判断は必要な場合だけ後続コメントに書く。フィードバックと成果データは同じ日付・実施回の既存一覧へ追記し、回答・ルームごとに分割したり、過去の一覧を再起票したりしない。競合調査は必要なPBIへ親子関係で紐付け、他のPBIからも関連リンクで参照できる。3 Typeはスプリント自動割当だけ対象外にし、既存Projectでの管理・ビューは通常どおり扱う。
 
 Issue Type の追加・変更・削除は組織全体に影響するため、他リポジトリへの影響を確認してから行う。
 
@@ -37,7 +41,7 @@ PBI本文の冒頭に見出しなしの「○○として、○○したい。�
 
 ## PBIとスプリント
 
-- 思いつきは小さな Issue で起票してよい。Task / Bug / Spike / 種類なしなどの作業 Issue は、原則最終的に PBI へ親子関係で紐付ける。親PBIの整理を待たず起票・着手し、開発中・完了後に紐付けを整理してよい。Blank issue は起票方法であり、Issue Type ではない。
+- 思いつきは小さな Issue で起票してよい。Task / Bug / 種類なしなどの作業 Issue は、原則最終的に PBI へ親子関係で紐付ける。親PBIの整理を待たず起票・着手し、開発中・完了後に紐付けを整理してよい。Blank issue は起票方法であり、Issue Type ではない。
 - Milestone は定期自動割当に任せる。開発者・エージェントは着手前に確認・設定する必要はなく、反映待ち・対象期間外・現在sprint未確定でも作業を進めてよい。
 - sprint 内の Issue は完了済みも含めて Milestone から確認し、後で PBI へまとめられる。open Issue は次の sprint へ移るため、過去の割当は GitHub の Milestone 変更履歴から確認する。PBI が別 sprint・未割当でも、作業 Issue 自身の Milestone を集計の起点にする。
 - 成果は開始時に大まかに決め、後から追加・変更してよい。作業の完了見込みと残り時間に余裕があれば、入れ替えの確認を挟まず追加できる。厳しいときだけ範囲・優先順位を再検討する。
@@ -47,7 +51,7 @@ sprint の日程・全体の成果は GitHub Milestone を正本とする。Mile
 
 ## 現在sprintへの自動割当
 
-[Assign Current Sprint](../../.github/workflows/assign-current-sprint.yml)は毎時23分に、**未着手を含む全open Issue**を現在の sprint の Milestone へ割り当てる。Type・親・Project の Status を条件にしない。REST Issue API に混在する PR は除外する。
+[Assign Current Sprint](../../.github/workflows/assign-current-sprint.yml)は毎時23分に、**競合調査・フィードバック・成果データを除く、未着手を含む全open Issue**を現在の sprint の Milestone へ割り当てる。この3 Type以外は、Type・親・Project の Status を条件にしない。REST Issue API に混在する PR は除外する。
 
 既存割当が以前・将来の sprint や非sprint Milestone でも、現在の sprint へ付け替える。次の sprint でも open なら繰り越し、closed Issue は最後の Milestone を保持する。繰越しは GitHub 標準の Milestone 変更履歴に残し、コメントや別台帳は追加しない。割当は着手・完了の判断ではなく、実作業の状態は Status で区別する。
 
@@ -85,14 +89,14 @@ How・具体仕様・詳細テストの未決定だけで着手を止めない�
 
 すべての新規 Issue は `未整理` から始める。問題と望む変化を確認して `着手可能` にした後、次の GitHub 操作に状態更新を連動させる。
 
-| GitHub の操作                                           | 状態の更新              | 対象・条件                                                                                      |
-| ------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
-| Assignees → Assign yourself                             | `着手可能` → `作業中`   | open で子 Issue のない Task / Bug / Spike。実行者と追加された担当者が一致し、現在も担当している |
-| 対応する Draft PR を作成                                | `着手可能` → `作業中`   | 同じ3 Type、直接対応する PR が1件、現在も open / Draft                                          |
-| PR の Reviewers から依頼、または依頼が残る Draft の解除 | `作業中` → `レビュー中` | 下記のレビュー条件を満たす                                                                      |
-| PR を Convert to draft                                  | `レビュー中` → `作業中` | 同じ単一 PR による自動更新の記録と、現在の状態更新時刻が一致する                                |
-| `Closes #番号` のある PR を `develop` へマージ          | 現在の状態 → `完了`     | GitHub の closing reference が対象 Issue と一致する。Issue は GitHub 標準機能で閉じる           |
-| Issue の Status → 完了                                  | Issue をクローズ        | 人が成果を確認した後に操作。Project の標準 automation を使う                                    |
+| GitHub の操作                                           | 状態の更新              | 対象・条件                                                                              |
+| ------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
+| Assignees → Assign yourself                             | `着手可能` → `作業中`   | open で子 Issue のない Task / Bug。実行者と追加された担当者が一致し、現在も担当している |
+| 対応する Draft PR を作成                                | `着手可能` → `作業中`   | 同じ2 Type、直接対応する PR が1件、現在も open / Draft                                  |
+| PR の Reviewers から依頼、または依頼が残る Draft の解除 | `作業中` → `レビュー中` | 下記のレビュー条件を満たす                                                              |
+| PR を Convert to draft                                  | `レビュー中` → `作業中` | 同じ単一 PR による自動更新の記録と、現在の状態更新時刻が一致する                        |
+| `Closes #番号` のある PR を `develop` へマージ          | 現在の状態 → `完了`     | GitHub の closing reference が対象 Issue と一致する。Issue は GitHub 標準機能で閉じる   |
+| Issue の Status → 完了                                  | Issue をクローズ        | 人が成果を確認した後に操作。Project の標準 automation を使う                            |
 
 他人への担当者割当て、割当て解除、Assign to Agent、Milestone・Priority・Type・Relationships の変更、ブランチ作成、通常 PR 作成、closing reference のないマージ、承認・変更要求だけでは状態を動かさない。
 PBI の担当者は成果全体の責任者を表すため、アサインから開始とみなさない。Issue の close / reopen から状態を推測しない。
@@ -108,7 +112,7 @@ PR 本文の `<!-- issue-ref:番号 -->` が、その PR が直接対応する I
 - イベント実行者に対象リポジトリの write / maintain / admin 権限がある。権限照会に失敗したら更新しない。
 - PR が open かつ Draft ではなく、レビュー依頼が現在も残っている。
 - 有効な単一マーカー、または上記の同一リポジトリのブランチにより対象 Issue が確定する。イベント時と最新の参照が違う場合は更新しない。
-- Issue が open で子 Issue を持たず、Type が `Task` / `Bug` / `Spike` / `PBI`。
+- Issue が open で子 Issue を持たず、Type が `Task` / `Bug` / `PBI`。
 - Issue が Project #3 に未アーカイブ状態で登録され、現在の状態が `作業中`。
 - 同じ Issue に直接対応する PR がこの1件だけである。
 
@@ -135,6 +139,21 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 - Repository secret: `ISSUE_PROJECT_APP_PRIVATE_KEY`
 
 ワークフローは実行時に `actions/create-github-app-token` で `idea-boost` に限定した短命 token を発行する。個人 PAT は使わない。実行コードは PR イベントなら base SHA、Issue イベントなら default branch のイベント SHA から取得し、PR 側の変更コードを実行しない。`client-id` は [v3 の公式入力定義](https://github.com/actions/create-github-app-token/blob/v3/action.yml)に準拠する（`app-id` は非推奨）。App の作成・インストール・権限付与と秘密鍵の登録は組織管理者が明示的に承認した後に行う。未設定の間は警告を出して状態同期をスキップする。
+
+## PBIのドラッグ順と優先順位
+
+[Product Backlog Refinement](https://github.com/orgs/engineer-first/projects/3/views/16)では、左端の行番号をドラッグして優先順を決める。View の Sort by は `manual` のまま使う。
+[Sync PBI Priority](../../.github/workflows/sync-pbi-priority.yml) が約5分ごとに、手動順から「優先順位」を1、2、3…へ振り直す。GitHub Actions の混雑時は開始が遅れるため、即時反映ではない。
+
+対象は Project #3 にある `engineer-first/idea-boost` の未アーカイブ・open・Type `PBI`・親なしのIssueだけ。サブIssue・closed・他Type・別リポジトリの数字は変更せず、採番にも含めない。数字を直接変更しても次の同期で行順に戻る。行順が正本となる。
+
+手動順はビュー専用の保存値ではなくProject全体の項目順を使う。他のビューから同じPBIを手動で並べ替えた場合も次の同期に反映される。対象ビューのフィルターは `repo:engineer-first/idea-boost is:issue type:PBI is:open`。フィルター変更・ソート追加・グループ化・数値フィールドの不一致では誤採番を避けるため失敗し、設定の確認を求める。
+
+認証は状態同期と同じ `ISSUE_PROJECT_APP_CLIENT_ID` / `ISSUE_PROJECT_APP_PRIVATE_KEY` を使い、新しい秘密鍵や権限は追加しない。Actions → Sync PBI Priority → Run workflow から、`dry_run` を有効にして変更予定を確認できる。無効にするとその場で同期する。自動同期を止める場合はこのworkflowを無効にする。
+
+全ページを取得した後、書き込み直前にも順序と現在値を再取得する。競合やAPI失敗はActionsを失敗させ、次の実行で最新順からやり直す。数値が同じ項目は更新しない。更新後も再読取で検証する。GitHub APIに並び順と複数フィールドを原子的に更新する機能はないため、書き込み中の並べ替えでは一時的に不一致になることがある。
+
+ローカルでHTTP経由の同期を検証する場合は `postman simulation run postman/simulations/pbi-priority.sim.yaml --port 4918` を起動し、別の端末から `node .github/scripts/check-pbi-priority-simulation.js` を実行する。GitHub公式GraphQLの項目形に沿った合成データで、番号更新後の読み取りも保持する。実データや認証情報は含めない。
 
 ## Project automation と既存項目
 

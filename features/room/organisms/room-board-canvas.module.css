@@ -8,6 +8,20 @@
   bottom: var(--idea-map-note-bottom-compact);
 }
 
+.initialWorkspace {
+  --private-workspace-padding: 0.75rem;
+}
+
+.initialWorkspace [data-testid="private-notes-scroll"] {
+  padding-block-start: var(--private-workspace-padding);
+}
+
+@media (min-width: 768px) {
+  .initialWorkspace {
+    --private-workspace-padding: 1.25rem;
+  }
+}
+
 @media (min-width: 40rem) {
   .ideaMapNotePosition {
     left: var(--idea-map-note-left-tablet);

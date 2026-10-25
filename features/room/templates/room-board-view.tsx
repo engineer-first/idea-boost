@@ -33,6 +33,7 @@ import {
   type TimerState,
 } from "@/contracts/room-protocol";
 import { canPublishNoteInTurn } from "@/contracts/sharing";
+import { canSendSharingReaction } from "@/contracts/sharing-reactions";
 import { DotVotePalette, DotVoteSticker } from "@/features/dot-vote";
 import {
   type FeedbackControls,
@@ -56,6 +57,10 @@ import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
+import type {
+  SharingReaction,
+  SharingReactionControls,
+} from "../logic/use-sharing-reactions";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -65,6 +70,7 @@ import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
 import { RoomNameDialog } from "../molecules/room-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
+import { SharingReactionDisplay } from "../molecules/sharing-reaction-display";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
@@ -144,9 +150,12 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
 }
 
 export type RoomBoardViewProps = {
+  sharingReactions?: SharingReaction[];
+  reactionControls?: SharingReactionControls;
   feedback?: FeedbackControls;
   moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
+  exampleNotes?: readonly string[];
   confirmedNotes?: Note[];
   pendingCandidateNoteIds?: string[];
   isCandidatePending?: boolean;
@@ -195,6 +204,7 @@ export type RoomBoardViewProps = {
   onToggleReady?: ((ready: boolean) => boolean) | ((ready: boolean) => void);
   completionResetVersion?: number;
   isNextPhasePending: boolean;
+  isPrivateNotesHandoffPending?: boolean;
   isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
@@ -279,9 +289,12 @@ type VoteStampPointer = {
 };
 
 export function RoomBoardView({
+  sharingReactions = [],
+  reactionControls,
   feedback,
   moveHistory,
   notes,
+  exampleNotes = [],
   confirmedNotes = notes,
   pendingCandidateNoteIds = [],
   isCandidatePending = false,
@@ -334,6 +347,7 @@ export function RoomBoardView({
   onToggleReady,
   completionResetVersion = 0,
   isNextPhasePending,
+  isPrivateNotesHandoffPending = false,
   isSavingBeforeShare = false,
   interactions,
   help,
@@ -1373,6 +1387,12 @@ export function RoomBoardView({
     ] as const;
     const isPersonalNoteEntryPhase =
       phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
+    const isInitialPersonalEntryPhase = isPhaseStep(phase, 1, 1);
+    const expandedWorkspaceHeaderSurfaces = [
+      "board-context-hud",
+      "board-control-hud",
+      "board-connection-slot",
+    ] as const;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1412,6 +1432,31 @@ export function RoomBoardView({
         );
         if (frame) {
           const frameTop = frame.getBoundingClientRect().top;
+          if (isInitialPersonalEntryPhase) {
+            let headerBottom = frameTop;
+            for (const testId of expandedWorkspaceHeaderSurfaces) {
+              const element = root.querySelector<HTMLElement>(
+                `[data-testid="${testId}"]`,
+              );
+              if (
+                !element ||
+                element.getClientRects().length === 0 ||
+                getComputedStyle(element).visibility === "hidden"
+              )
+                continue;
+              const bounds = element.getBoundingClientRect();
+              // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
+              const bottom =
+                testId === "board-connection-slot"
+                  ? bounds.top + Math.max(38, bounds.height)
+                  : bounds.bottom;
+              headerBottom = Math.max(headerBottom, bottom);
+            }
+            root.style.setProperty(
+              "--board-private-expanded-top",
+              `${Math.ceil(headerBottom + 12)}px`,
+            );
+          }
           let top = 0;
           for (const testId of workspaceTopSurfaces) {
             if (
@@ -1450,7 +1495,10 @@ export function RoomBoardView({
       );
       if (element) observer?.observe(element);
     }
-    for (const testId of workspaceTopSurfaces) {
+    for (const testId of new Set([
+      ...workspaceTopSurfaces,
+      ...expandedWorkspaceHeaderSurfaces,
+    ])) {
       const element = root.querySelector<HTMLElement>(
         `[data-testid="${testId}"]`,
       );
@@ -1910,6 +1958,9 @@ export function RoomBoardView({
             />
           ) : null}
         </RoomBoardHeader>
+        {canSendSharingReaction(phase) && !outcomePublished ? (
+          <SharingReactionDisplay reactions={sharingReactions} />
+        ) : null}
         {boardInteractionBlocked &&
         phase.kind === "step" &&
         !isDisconnected &&
@@ -1946,6 +1997,10 @@ export function RoomBoardView({
           </p>
         ) : null}
         <RoomBoardCanvas
+          isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
+          reactionControls={
+            canSendSharingReaction(phase) ? reactionControls : undefined
+          }
           rollbackRevision={rollbackRevision}
           moveHistory={moveHistoryControls}
           notes={renderedNotes}
@@ -1956,6 +2011,7 @@ export function RoomBoardView({
           adoptionFocusNoteId={adoptionFocusNoteId}
           isHost={isHost}
           privateNotes={toolbarNotes}
+          exampleNotes={exampleNotes}
           isSavingBeforeShare={isSavingBeforeShare}
           canPublishPrivateNote={
             !boardInteractionBlocked &&
@@ -2097,7 +2153,6 @@ export function RoomBoardView({
           onPrivateNoteDragStart={handlePrivateDragStart}
           remoteCursors={remoteCursors}
         />
-
         {isVotingStep(phase) ? (
           <div
             className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center min-[640px]:max-[1023px]:bottom-[5.25rem] max-[639px]:justify-center max-[639px]:bottom-[var(--board-mobile-controls-bottom)]"

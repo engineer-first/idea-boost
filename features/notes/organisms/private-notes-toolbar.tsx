@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  ViewTransition,
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
@@ -16,14 +17,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getNoteHeight, NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
+import {
+  getNoteHeight,
+  NOTE_DEFAULT_FONT_SIZE,
+  NOTE_HEIGHT,
+  NOTE_WIDTH,
+} from "@/contracts/board";
 import { cn } from "@/lib/utils";
 import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
+import { StickyNote } from "../molecules/sticky-note";
 
 export type PrivateNotesToolbarProps = {
   rollbackRevision?: number;
   notes: Note[];
+  exampleNotes?: readonly string[];
   disabled: boolean;
   editingDisabled?: boolean;
   canEditNote: boolean;
@@ -36,6 +44,8 @@ export type PrivateNotesToolbarProps = {
   canMoveNote: boolean;
   sharingHint?: string;
   presentation?: "dock" | "workspace";
+  expandOnWorkspaceExit?: boolean;
+  workspaceExitTransitionPending?: boolean;
   defaultExpanded?: boolean;
   expandRequest?: number;
   addRequest?: number;
@@ -62,6 +72,7 @@ export type PrivateNotesToolbarProps = {
 export function PrivateNotesToolbar({
   rollbackRevision = 0,
   notes,
+  exampleNotes = [],
   disabled,
   editingDisabled = false,
   className,
@@ -73,6 +84,8 @@ export function PrivateNotesToolbar({
   canMoveNote,
   sharingHint,
   presentation = "dock",
+  expandOnWorkspaceExit = false,
+  workspaceExitTransitionPending = false,
   canEditNote,
   defaultExpanded = true,
   expandRequest = 0,
@@ -94,6 +107,8 @@ export function PrivateNotesToolbar({
 }: PrivateNotesToolbarProps) {
   const isWorkspace = presentation === "workspace";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const previousPresentationRef = useRef(presentation);
+  const pendingWorkspaceExitExpandRef = useRef(false);
   const [autoFocusNoteId, setAutoFocusNoteId] = useState<string | null>(null);
   const [newlyAddedNoteId, setNewlyAddedNoteId] = useState<string | null>(null);
   const pendingCreationFocusRef = useRef<{
@@ -114,6 +129,34 @@ export function PrivateNotesToolbar({
   const previousNoteTopsRef = useRef(new Map<string, number>());
   const noteAnimationsRef = useRef(new Map<HTMLElement, Animation>());
   const noteOrderKey = JSON.stringify(notes.map((note) => note.id));
+
+  useLayoutEffect(() => {
+    const presentationChanged =
+      previousPresentationRef.current !== presentation;
+    if (presentationChanged) previousPresentationRef.current = presentation;
+    if (presentation !== "dock" || !expandOnWorkspaceExit) {
+      pendingWorkspaceExitExpandRef.current = false;
+      return;
+    }
+    if (!presentationChanged && !pendingWorkspaceExitExpandRef.current) return;
+    if (workspaceExitTransitionPending) {
+      pendingWorkspaceExitExpandRef.current = true;
+      return;
+    }
+    pendingWorkspaceExitExpandRef.current = false;
+    const activeElement = document.activeElement;
+    const isFocusedEditor =
+      activeElement instanceof HTMLTextAreaElement &&
+      toolbarRef?.current?.contains(activeElement) &&
+      !activeElement.readOnly;
+    if (!isFocusedEditor) setIsExpanded(true);
+  }, [
+    expandOnWorkspaceExit,
+    presentation,
+    toolbarRef,
+    workspaceExitTransitionPending,
+  ]);
+
   const handleAdd = useCallback(() => {
     if (disabled || !canCreateNote || noteCreationPending) return;
     const editor = document.activeElement;
@@ -384,10 +427,16 @@ export function PrivateNotesToolbar({
           }}
         >
           {isWorkspace ? (
-            <p className="mx-auto mb-6 flex max-w-5xl items-center gap-2 text-sm text-muted-foreground">
-              <LockKeyhole aria-hidden="true" className="size-4 shrink-0" />
-              この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
-            </p>
+            <div className="mx-auto mb-6 max-w-5xl text-sm text-muted-foreground">
+              <p className="flex items-center justify-center gap-2 text-center">
+                <LockKeyhole aria-hidden="true" className="size-4 shrink-0" />
+                この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
+              </p>
+              <p className="mt-3 text-center text-xs">
+                （付箋追加ショートカットキー：
+                Macは⌘＋Enter、Windows等はCtrl＋Enter）
+              </p>
+            </div>
           ) : (
             <p
               className={cn(
@@ -403,7 +452,7 @@ export function PrivateNotesToolbar({
               {sharingHint}
             </p>
           ) : null}
-          {canCreateNote ? (
+          {!isWorkspace && canCreateNote ? (
             <p
               className={cn(
                 "text-xs text-muted-foreground",
@@ -420,7 +469,7 @@ export function PrivateNotesToolbar({
             className={cn(
               "grid",
               isWorkspace
-                ? "grid-cols-[repeat(auto-fill,200px)] justify-center gap-6 pb-8"
+                ? "grid-cols-[repeat(auto-fill,200px)] justify-center gap-x-3 gap-y-6 pb-8"
                 : "grid-cols-1 justify-items-center gap-3",
             )}
             data-testid="private-notes-list"
@@ -440,6 +489,25 @@ export function PrivateNotesToolbar({
                 <span>付箋を追加</span>
               </Button>
             ) : null}
+            {isWorkspace
+              ? exampleNotes.map((example, index) => (
+                  <StickyNote
+                    key={example}
+                    noteId={`example-note-${index}`}
+                    color="blue"
+                    height={getNoteHeight(example, NOTE_DEFAULT_FONT_SIZE)}
+                    className="relative w-[200px]"
+                    style={{ left: 0, top: 0 }}
+                    testId={`example-note-${index + 1}`}
+                  >
+                    <div className="flex h-full flex-col p-2">
+                      <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-sm">
+                        {example}
+                      </p>
+                    </div>
+                  </StickyNote>
+                ))
+              : null}
             {notes.map((note) =>
               dropPlaceholder?.noteId === note.id ? (
                 <div
@@ -451,51 +519,58 @@ export function PrivateNotesToolbar({
                   style={{ height: getNoteHeight(note.content, note.fontSize) }}
                 />
               ) : (
-                <NoteCard
+                <ViewTransition
                   key={`${note.id}:${rollbackRevision}`}
-                  note={note}
-                  isOwnDrag={false}
-                  isSelected={selectedNoteId === note.id}
-                  disabled={disabled}
-                  editingDisabled={editingDisabled}
-                  canDeleteNote={canDeleteNote}
-                  canEditNote={canEditNote}
-                  canMoveNote={canMoveNote}
-                  onSelect={onSelect}
-                  onDragStart={onDragStart}
-                  onContentChange={onContentChange}
-                  draftValue={draftValue?.(note.id)}
-                  onDraftChange={onDraftChange}
-                  onDraftCompositionStart={onDraftCompositionStart}
-                  onDraftCompositionEnd={onDraftCompositionEnd}
-                  onDelete={(id) => {
-                    pendingDeleteFocusRef.current = {
-                      id,
-                      index: notes.findIndex((note) => note.id === id),
-                      surface: document.activeElement,
-                    };
-                    onDelete(id);
-                  }}
-                  // 付箋の x/y はホワイトボード上の座標なので、一覧内では常に原点に置く。
-                  style={{ left: 0, top: 0 }}
-                  vote={{
-                    displayMode: "hidden",
-                    selectedKind: null,
-                    voteRemaining: { subjective: 0, objective: 0 },
-                    canVote: false,
-                    pendingOperations: [],
-                    onVote: () => {},
-                    onVoteRemove: () => {},
-                  }}
-                  autoFocusEditor={autoFocusNoteId === note.id}
-                  onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
-                  className={cn(
-                    "relative",
-                    isWorkspace && "w-[200px]",
-                    newlyAddedNoteId === note.id &&
-                      "animate-in fade-in slide-in-from-bottom-2 duration-200",
-                  )}
-                />
+                  name={`private-note-${note.id}`}
+                  default="none"
+                  share="private-note-morph"
+                  update="private-note-morph"
+                >
+                  <NoteCard
+                    note={note}
+                    isOwnDrag={false}
+                    isSelected={selectedNoteId === note.id}
+                    disabled={disabled}
+                    editingDisabled={editingDisabled}
+                    canDeleteNote={canDeleteNote}
+                    canEditNote={canEditNote}
+                    canMoveNote={canMoveNote}
+                    onSelect={onSelect}
+                    onDragStart={onDragStart}
+                    onContentChange={onContentChange}
+                    draftValue={draftValue?.(note.id)}
+                    onDraftChange={onDraftChange}
+                    onDraftCompositionStart={onDraftCompositionStart}
+                    onDraftCompositionEnd={onDraftCompositionEnd}
+                    onDelete={(id) => {
+                      pendingDeleteFocusRef.current = {
+                        id,
+                        index: notes.findIndex((note) => note.id === id),
+                        surface: document.activeElement,
+                      };
+                      onDelete(id);
+                    }}
+                    // 付箋の x/y はホワイトボード上の座標なので、一覧内では常に原点に置く。
+                    style={{ left: 0, top: 0 }}
+                    vote={{
+                      displayMode: "hidden",
+                      selectedKind: null,
+                      voteRemaining: { subjective: 0, objective: 0 },
+                      canVote: false,
+                      pendingOperations: [],
+                      onVote: () => {},
+                      onVoteRemove: () => {},
+                    }}
+                    autoFocusEditor={autoFocusNoteId === note.id}
+                    onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
+                    className={cn(
+                      "relative",
+                      isWorkspace && "w-[200px]",
+                      newlyAddedNoteId === note.id &&
+                        "animate-in fade-in slide-in-from-bottom-2 duration-200",
+                    )}
+                  />
+                </ViewTransition>
               ),
             )}
           </div>

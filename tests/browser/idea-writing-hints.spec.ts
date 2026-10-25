@@ -26,6 +26,7 @@ test("3-1の考えるヒントはデスクトップの残りの高さを使い�
   });
   try {
     await open(page, "room-roomboardlayout--phase-3-step-1");
+    await page.getByRole("button", { name: "考えるヒントを開く" }).click();
     const panel = page.getByTestId("board-help-panel").locator(":scope > div");
     const heights: number[] = [];
     for (const height of [720, 1030]) {
@@ -171,9 +172,7 @@ for (const width of [390, 1280]) {
       await page.screenshot({
         path: `${output}/after-phase-3-1-initial-${width}.png`,
       });
-      if (width < 640) {
-        await help.getByRole("button", { name: "考えるヒントを開く" }).click();
-      }
+      await help.getByRole("button", { name: "考えるヒントを開く" }).click();
       const template = help.getByRole("button", {
         name: "もっと簡単に",
         exact: true,

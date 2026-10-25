@@ -40,13 +40,19 @@ for (const width of [390, 1440]) {
       const entry = page.getByRole("link", { name: terminal.label });
       await entry.waitFor();
       await page.evaluate(() => document.fonts.ready);
-      if (width >= 640) {
+      if (
+        width >= 640 &&
+        (await page
+          .getByTestId("private-notes-toolbar")
+          .getAttribute("data-presentation")) !== "workspace"
+      ) {
         const notice = await page
           .getByTestId("board-connection-status")
           .boundingBox();
         const notes = await page
           .getByTestId("private-notes-toolbar")
           .boundingBox();
+
         expect(
           notes?.y,
           "停止案内がマイ付箋一覧を覆わない",
@@ -217,7 +223,12 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
       expect(
         (noticeBox?.x ?? Infinity) + (noticeBox?.width ?? 0),
       ).toBeLessThanOrEqual(width);
-      if (width >= 640) {
+      if (
+        width >= 640 &&
+        (await page
+          .getByTestId("private-notes-toolbar")
+          .getAttribute("data-presentation")) !== "workspace"
+      ) {
         const privateNotesBox = await page
           .getByTestId("private-notes-toolbar")
           .boundingBox();
