@@ -490,7 +490,6 @@ export function StepOneOnboardingSlide({
               ) : (
                 <Button
                   className="h-12 min-w-52 rounded-full px-8 text-base"
-                  disabled={slideTransition !== null}
                   onClick={advanceSlide}
                 >
                   次へ

@@ -4,6 +4,33 @@ import { describe, expect, it } from "vitest";
 import { StepOneOnboardingSlide } from "./step-one-onboarding-slide";
 
 describe("StepOneOnboardingSlide", () => {
+  it("次へは遷移中も有効で、連続して押してもスライドを飛ばさない", async () => {
+    render(
+      <StepOneOnboardingSlide
+        phaseKey="1-1"
+        sessionKey="transition-focus"
+        isReady
+      />,
+    );
+    const next = screen.getByRole("button", { name: "次へ" });
+    const content = screen.getByTestId("step-one-onboarding-slide-content");
+    next.focus();
+    fireEvent.click(next);
+    expect(next).toBeEnabled();
+    expect(next).toHaveFocus();
+    fireEvent.click(next);
+    expect(
+      await screen.findByLabelText("付箋を追加して書き出す操作"),
+    ).toBeVisible();
+    fireEvent.click(next);
+    await waitFor(() =>
+      expect(content).toHaveAttribute("data-slide-transition", "idle"),
+    );
+    expect(screen.getByLabelText("付箋を追加して書き出す操作")).toBeVisible();
+    expect(next).toBeEnabled();
+    expect(next).toHaveFocus();
+  });
+
   it("StrictModeでも初回案内を表示し、閉じた後の再マウントでは自動表示しない", async () => {
     const props = {
       phaseKey: "1-1",
