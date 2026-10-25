@@ -221,6 +221,7 @@ export function StepOneOnboardingSlide({
   const guideButtonRef = useRef<HTMLButtonElement>(null);
   const closeTimerRef = useRef<number | null>(null);
   const pendingSlideIndexRef = useRef(0);
+  const activeVisitRef = useRef<string | null>(null);
   const slide = STEP_ONE_ONBOARDING_SLIDES[slideIndex];
   const isLastSlide = slideIndex === STEP_ONE_ONBOARDING_SLIDES.length - 1;
 
@@ -234,11 +235,15 @@ export function StepOneOnboardingSlide({
 
   useEffect(() => {
     if (!isReady || phaseKey !== PHASE_KEY) {
+      activeVisitRef.current = null;
       setOpen(false);
       return;
     }
 
     const storageKey = `step-onboarding:${sessionKey}:${PHASE_KEY}`;
+    // StrictModeのEffect再実行では、この訪問で開いた案内を閉じない。
+    if (activeVisitRef.current === storageKey) return;
+    activeVisitRef.current = storageKey;
     try {
       if (sessionStorage.getItem(storageKey) === "seen") {
         setOpen(false);
@@ -387,6 +392,11 @@ export function StepOneOnboardingSlide({
       >
         <DialogContent
           ref={dialogRef}
+          onCloseAutoFocus={(event) => {
+            if (!guideButtonRef.current) return;
+            event.preventDefault();
+            guideButtonRef.current.focus();
+          }}
           data-closing-to-guide={isClosingToGuide ? "true" : undefined}
           className={`max-h-[calc(100dvh-5rem)] w-[calc(100%-2rem)] max-w-[56rem] gap-0 overflow-y-auto rounded-[32px] border-border bg-background p-5 text-foreground shadow-2xl sm:p-8 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}
           style={{

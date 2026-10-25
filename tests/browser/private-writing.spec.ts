@@ -246,12 +246,25 @@ test.each([390, 1280])(
     await dialog.getByRole("button", { name: "次へ" }).click();
     await dialog.getByRole("button", { name: "はじめる" }).click();
     await dialog.waitFor({ state: "hidden" });
+    const guide = page.getByRole("button", { name: "進め方", exact: true });
+    await expect
+      .poll(() =>
+        guide.evaluate((element) => document.activeElement === element),
+      )
+      .toBe(true);
 
     await page
       .getByRole("button", { name: "付箋を追加", exact: true })
       .click({ trial: true });
-    await page.getByRole("button", { name: "進め方", exact: true }).click();
+    await guide.click();
     await page.getByRole("dialog", { name: firstSlide }).waitFor();
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+    await expect
+      .poll(() =>
+        guide.evaluate((element) => document.activeElement === element),
+      )
+      .toBe(true);
   },
 );
 
