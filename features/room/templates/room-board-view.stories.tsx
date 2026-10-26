@@ -19,6 +19,7 @@ import {
   type RoomBoardInteractions,
   useRoomBoardInteractions,
 } from "../logic/use-room-board-interactions";
+import { landingBoardNotes } from "./landing-board.fixture";
 import { getBoardFitInsets, RoomBoardView } from "./room-board-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -1594,5 +1595,32 @@ export const IdeaDecidedMoveInteraction: Story = {
       y: 25 + index * 20,
       excluded: index === 2,
     })),
+  },
+};
+
+// 再生成: node scripts/capture-landing.mts（手順はdocs/development/landing-images.md）。
+export const LandingPreview: Story = {
+  ...IdeaMapVoting,
+  name: "LP撮影 / 睡眠・時間の使い方（架空）",
+  args: {
+    ...IdeaMapVoting.args,
+    notes: landingBoardNotes,
+    timer: {
+      status: "running",
+      endsAt: Date.parse("2026-10-26T00:03:00.000Z"),
+      durationMs: 180000,
+    },
+    hmwDecidedIssue: "寝る時間が日によって違う",
+    decidedHmw: "どうしたら睡眠前の時間を上手に使える？",
+    issueReference: buildCarryover({
+      phase: 1,
+      content: "寝る時間が日によって違う",
+    }),
+    hmwReference: buildCarryover({
+      phase: 2,
+      content: "どうしたら睡眠前の時間を上手に使える？",
+    }),
+    ideaMapSizeLevel: 0,
+    ideaMapSizeInitialized: true,
   },
 };
