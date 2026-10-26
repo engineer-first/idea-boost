@@ -1,4 +1,5 @@
-import { Heart } from "lucide-react";
+import { ArrowDown, Heart } from "lucide-react";
+import Image from "next/image";
 import { landingCopy as copy } from "../logic/landing-copy";
 import { landingOutcomes } from "../logic/landing-outcomes";
 import {
@@ -16,7 +17,7 @@ export function LandingFlowSection() {
     >
       <h2 id="landing-steps" className={landingHeadingClass}>
         {copy.stepsHeading.map((phrase) => (
-          <span key={phrase} className="inline-block">
+          <span key={phrase} className={`inline-block ${styles.marker}`}>
             {phrase}
           </span>
         ))}
@@ -40,7 +41,13 @@ export function LandingFlowSection() {
                 {copy.flow.prompts.map((prompt) => (
                   <li key={prompt.viewpoint}>
                     <strong>{prompt.viewpoint}</strong>
-                    <span>{prompt.detail}</span>
+                    <span>
+                      {prompt.detail.map((phrase) => (
+                        <span key={phrase} className={styles.flowPhrase}>
+                          {phrase}
+                        </span>
+                      ))}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -114,20 +121,33 @@ export function LandingFlowSection() {
           {copy.flow.diamondSource}
         </a>
       </div>
-      <div className="mt-14 sm:mt-20">
-        <h3 className="text-2xl font-bold sm:text-3xl leading-relaxed">
-          {copy.examples.heading}
-        </h3>
+      <section
+        className={styles.outcomeBand}
+        aria-labelledby="landing-outcomes"
+      >
+        <div className={styles.outcomeHeading}>
+          <h3
+            id="landing-outcomes"
+            className="text-2xl font-bold sm:text-3xl leading-relaxed"
+          >
+            <span className={styles.marker}>{copy.examples.heading}</span>
+          </h3>
+          <Image
+            src="/landing/mood-d.webp"
+            width={90}
+            height={90}
+            alt=""
+            aria-hidden="true"
+            unoptimized
+          />
+        </div>
         <p className="mt-3 text-base leading-8 sm:text-lg text-[var(--lp-body)]">
           {copy.examples.description}
         </p>
-        <div className="mt-6 grid gap-5 md:grid-cols-3">
+        <div className={styles.outcomeGrid}>
           {landingOutcomes.map((outcome) => (
-            <article
-              key={outcome.issue}
-              className="min-w-0 rounded-xl border border-[var(--lp-line)] bg-[var(--lp-paper)] p-5 sm:p-6"
-            >
-              <p className="mb-6 text-sm text-[var(--lp-body)]">
+            <article key={outcome.issue} className={styles.outcomeNote}>
+              <p className={styles.outcomeCount}>
                 {copy.examples.countPrefix}{" "}
                 <span className="font-semibold tabular-nums text-[var(--lp-ink)]">
                   {outcome.noteCount}
@@ -138,12 +158,29 @@ export function LandingFlowSection() {
                 {[outcome.issue, outcome.question, outcome.idea].map(
                   (text, index) => (
                     <div key={copy.examples.labels[index]}>
-                      <dt className="text-base sm:text-lg font-semibold text-[var(--lp-accent-hover)]">
+                      <dt className="text-base sm:text-lg font-semibold">
                         {copy.examples.labels[index]}
                       </dt>
-                      <dd className="mt-2 text-base leading-8 sm:text-lg">
-                        {text}
+                      <dd
+                        className={
+                          index === 2
+                            ? styles.outcomeIdea
+                            : "mt-2 text-base leading-8 sm:text-lg"
+                        }
+                      >
+                        {index === 2 ? (
+                          <span className={styles.marker}>{text}</span>
+                        ) : (
+                          text
+                        )}
                       </dd>
+                      {index < 2 && (
+                        <ArrowDown
+                          className={styles.outcomeArrow}
+                          size={18}
+                          aria-hidden="true"
+                        />
+                      )}
                     </div>
                   ),
                 )}
@@ -151,7 +188,7 @@ export function LandingFlowSection() {
             </article>
           ))}
         </div>
-      </div>
+      </section>
     </section>
   );
 }

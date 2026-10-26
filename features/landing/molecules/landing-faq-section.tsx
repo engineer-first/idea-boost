@@ -17,7 +17,7 @@ export function LandingFaqSection() {
     >
       <h2 id="landing-faq" className={landingHeadingClass}>
         {copy.faq.heading.map((phrase) => (
-          <span key={phrase} className="inline-block">
+          <span key={phrase} className={`inline-block ${styles.marker}`}>
             {phrase}
           </span>
         ))}
@@ -25,11 +25,24 @@ export function LandingFaqSection() {
       <div className="mt-8 max-w-3xl divide-y divide-[var(--lp-line)] border-y border-[var(--lp-line)]">
         {copy.faq.items.map((item) => (
           <details key={item.question} className="py-1">
-            <summary className="cursor-pointer py-4 pr-2 text-base sm:text-lg font-semibold leading-8 hover:text-[var(--lp-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lp-accent)]">
+            <summary
+              id={"id" in item ? item.id : undefined}
+              className="cursor-pointer py-4 pr-2 text-base sm:text-lg font-semibold leading-8 hover:text-[var(--lp-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lp-accent)]"
+            >
               {item.question}
             </summary>
             <div className="pb-5 text-base leading-8 sm:text-lg text-[var(--lp-body)]">
               <p>{item.answer}</p>
+              {"source" in item && (
+                <a
+                  href={item.source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={landingLinkClass}
+                >
+                  {item.source.label}
+                </a>
+              )}
             </div>
           </details>
         ))}

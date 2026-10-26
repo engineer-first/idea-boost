@@ -6,8 +6,22 @@ export const landingCopy = {
   description:
     "Idea Boostは、デザインスプリントの考え方を取り入れ、課題整理からアイデア決定までをチームで進めるWebアプリです。",
   heading: ["アイデア出しに", "困ったら、ここから。"],
-  subheading: "爆速で出して、チームで決めきる。",
-  origin: ["Googleで生まれた", "デザインスプリントの考え方で。"],
+  subheading: ["Googleで生まれた", "デザインスプリントを、", "アプリで。"],
+  comparison: {
+    subject: "デザインスプリント",
+    timeLabel: "で一案を決めるまで",
+    afterLabel: "IdeaBoostなら",
+    timeBefore: "通常 3日",
+    timeAfter: "約2時間",
+    guideLabel: "の進め方",
+    guideBefore: "専任の進行役が必要",
+    guideAfter: "アプリが案内",
+    timeNote: [
+      "※ 約2時間は、",
+      "実際に一案まで進めたチームの",
+      "所要時間の中央値。",
+    ],
+  },
   introduction: "ハッカソン・ビジコン・チーム制作の最初に。",
   login: "ログイン",
   join: "招待コードをお持ちの方",
@@ -23,9 +37,15 @@ export const landingCopy = {
       "切り上げられるか？",
     ],
     prompts: [
-      { viewpoint: "なぜ？", detail: "作業の切り上げどきが分からない" },
-      { viewpoint: "見方を変える", detail: "寝る時間より、やめ方の問題" },
-      { viewpoint: "答えは1つじゃない", detail: "いろんな案が出せる問いに" },
+      {
+        viewpoint: "なぜ？",
+        detail: ["作業の", "切り上げどきが", "分からない"],
+      },
+      { viewpoint: "見方を変える", detail: ["寝る時間より、", "やめ方の問題"] },
+      {
+        viewpoint: "答えは1つじゃない",
+        detail: ["いろんな案が", "出せる問いに"],
+      },
     ],
     ideas: [
       ["決まった", "時刻に", "アラームを", "鳴らす"],
@@ -61,6 +81,8 @@ export const landingCopy = {
       description: "問いからアイデアを広げ、比べて、1つの案に絞ります。",
     },
   ],
+  moodSlogan: ["ひとりで考える。", "持ち寄る。", "話して決める。"],
+  headingAccent: "困ったら",
   closing: ["アイデア出しに困ったときは、", "これ。"],
   examples: {
     heading: "実際に使ったチームが決めた内容",
@@ -197,9 +219,19 @@ export const landingCopy = {
     items: [
       { question: "料金はかかりますか？", answer: "現在は無料で使えます。" },
       {
+        id: "landing-duration",
         question: "どのくらい時間がかかりますか？",
         answer:
-          "人数や話し合いの進み方によって変わります。各ステップのタイマーを目安に進められます。",
+          "実際に一案まで進めたチームでは、約2時間（中央値）でした。人数や話し合いの進み方によって変わります。各ステップのタイマーを目安に進められます。",
+      },
+      {
+        question: "デザインスプリントを知らなくても使えますか？",
+        answer:
+          "はい。デザインスプリントは本来、試作と検証まで含めて5日間で行い、進行役がチームをリードします。IdeaBoostは、そのうち一案を決めるまで（本来3日）を対象に、各ステップのガイドとタイマーで進め方を案内します。",
+        source: {
+          label: "出典: GV The Design Sprint",
+          url: "https://www.gv.com/sprint/",
+        },
       },
       {
         question: "何を用意すればよいですか？",

@@ -12,7 +12,7 @@ export function LandingStartSection() {
       aria-labelledby="landing-start"
     >
       <h2 id="landing-start" className={landingHeadingClass}>
-        {copy.gettingStarted.heading}
+        <span className={styles.marker}>{copy.gettingStarted.heading}</span>
       </h2>
       <ol className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
         {copy.gettingStarted.steps.map((step, index) => (

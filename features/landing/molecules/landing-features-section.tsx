@@ -13,7 +13,7 @@ export function LandingFeaturesSection() {
       aria-labelledby="landing-features"
     >
       <h2 id="landing-features" className={landingHeadingClass}>
-        {copy.features.heading}
+        <span className={styles.marker}>{copy.features.heading}</span>
       </h2>
       <div className={styles.featureGrid}>
         {copy.features.items.map((item, index) => {

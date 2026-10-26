@@ -20,3 +20,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+export const SignedIn: Story = { args: { entry: getLandingEntry(true) } };
+export const Invite: Story = {
+  args: { entry: getLandingEntry(false, "/invite/ABC123") },
+};
