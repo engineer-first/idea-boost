@@ -22,8 +22,11 @@ it.each([false, true])(
     expect(screen.getAllByRole("link", { name: label })).toHaveLength(2);
     for (const link of screen.getAllByRole("link", { name: label }))
       expect(link).toHaveAttribute("href", href);
+    // main 内の footer は contentinfo ランドマークにならない。
+    const footer = screen.getByRole("main").querySelector("footer");
+    if (!footer) throw new Error("LPの末尾領域がありません");
     expect(
-      within(screen.getByRole("contentinfo")).getByRole("link", {
+      within(footer).getByRole("link", {
         name: label,
       }),
     ).toHaveAttribute("href", href);
