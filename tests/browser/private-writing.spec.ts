@@ -221,9 +221,90 @@ test.each([1440, 1280, 390])(
 
     await guide.click();
 
+    await page
+      .getByRole("dialog", { name: "最近あった困ったことを付箋に書き出そう。" })
+      .waitFor();
+  },
+);
+
+test("1-1: キーボードで次へ進めても遷移中と遷移後にフォーカスを保つ", async () => {
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardlayout--first-visit-onboarding&viewMode=story`,
+  );
+  const dialog = page.getByRole("dialog");
+  const next = dialog.getByRole("button", { name: "次へ" });
+  const content = dialog.getByTestId("step-one-onboarding-slide-content");
+  await next.focus();
+  await page.keyboard.press("Enter");
+  expect(await next.isEnabled()).toBe(true);
+  expect(
+    await next.evaluate((element) => document.activeElement === element),
+  ).toBe(true);
+  await expect
+    .poll(() => content.getAttribute("data-slide-transition"))
+    .toBe("idle");
+  expect(
+    await next.evaluate((element) => document.activeElement === element),
+  ).toBe(true);
+  await page.keyboard.press("Enter");
+  await dialog.getByRole("button", { name: "はじめる" }).waitFor();
+  await expect
+    .poll(() => content.getAttribute("data-slide-transition"))
+    .toBe("idle");
+  expect(
+    await dialog
+      .getByRole("button", { name: "はじめる" })
+      .evaluate((element) => document.activeElement === element),
+  ).toBe(true);
+});
+
+test.each([390, 1280])(
+  "1-1: %ipxで初回スライドを完了して付箋操作へ戻り、案内を再表示できる",
+  async (width) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardlayout--first-visit-onboarding&viewMode=story`,
+    );
+    const dialog = page.getByRole("dialog");
+    const firstSlide = "最近あった困ったことを付箋に書き出そう。";
+    const waitForSlide = () =>
+      expect
+        .poll(() =>
+          dialog
+            .getByTestId("step-one-onboarding-slide-content")
+            .getAttribute("data-slide-transition"),
+        )
+        .toBe("idle");
+    await page.getByRole("dialog", { name: firstSlide }).waitFor();
+    await dialog.getByRole("button", { name: "次へ" }).click();
+    await dialog.getByLabel("付箋を追加して書き出す操作").waitFor();
+    await dialog.getByRole("button", { name: "1枚目に戻る" }).click();
+    await page.getByRole("dialog", { name: firstSlide }).waitFor();
+    await waitForSlide();
+    await dialog.getByRole("button", { name: "次へ" }).click();
+    await waitForSlide();
+    await dialog.getByRole("button", { name: "次へ" }).click();
+    await dialog.getByRole("button", { name: "はじめる" }).click();
+    await dialog.waitFor({ state: "hidden" });
+    const guide = page.getByRole("button", { name: "進め方", exact: true });
     await expect
-      .poll(() => page.getByTestId("step-guide").getAttribute("data-state"))
-      .toBe("detail");
+      .poll(() =>
+        guide.evaluate((element) => document.activeElement === element),
+      )
+      .toBe(true);
+
+    await page
+      .getByRole("button", { name: "付箋を追加", exact: true })
+      .click({ trial: true });
+    await guide.click();
+    await page.getByRole("dialog", { name: firstSlide }).waitFor();
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+    await expect
+      .poll(() =>
+        guide.evaluate((element) => document.activeElement === element),
+      )
+      .toBe(true);
   },
 );
 

@@ -30,13 +30,6 @@ async function open(id: string): Promise<void> {
   await page.goto(`${origin}/iframe.html?id=${id}&viewMode=story`);
   await page.getByTestId("board-location-trigger").waitFor();
   await page.keyboard.press("Escape");
-  await expect
-    .poll(() =>
-      page
-        .getByTestId("step-guide")
-        .evaluate((el) => el.getAnimations().length),
-    )
-    .toBe(0);
   await page.evaluate(() => document.fonts.ready);
 }
 async function reachable(target: Locator): Promise<void> {
@@ -74,51 +67,56 @@ test.each([
   [1280, 720],
   [390, 844],
   [320, 568],
-])("%i×%iで全14工程の棒・現在位置・高さ44pxを保つ", async (width, height) => {
-  await page.setViewportSize({ width, height });
-  let position = 0;
-  for (const [phase, count] of [
-    [1, 5],
-    [2, 4],
-    [3, 5],
-  ]) {
-    for (let step = 1; step <= count; step++) {
-      position++;
-      await open(`room-roomboardlayout--phase-${phase}-step-${step}`);
-      const card = page.getByTestId("board-location-card");
-      expect((await card.boundingBox())?.height).toBe(44);
-      const trigger = page.getByTestId("board-location-trigger");
-      const rail = trigger.getByRole("progressbar", { name: "全工程の現在地" });
-      expect(await rail.getAttribute("aria-valuenow")).toBe(String(position));
-      expect(await rail.getAttribute("aria-valuemax")).toBe("14");
-      const bars = rail.locator(":scope > span");
-      expect(await bars.count()).toBe(14);
-      expect(await bars.nth(position - 1).getAttribute("data-current")).toBe(
-        "true",
-      );
-      const boxes = await bars.evaluateAll((elements) =>
-        elements.map((element) => {
-          const r = element.getBoundingClientRect();
-          return { width: r.width, left: r.left, right: r.right };
-        }),
-      );
-      const widths = boxes.map((box) => box.width);
-      expect(Math.min(...widths)).toBeGreaterThan(0);
-      expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(0.1);
-      const cardBox = await card.boundingBox();
-      expect(boxes[0].left).toBeGreaterThanOrEqual(cardBox?.x ?? 0);
-      expect(boxes[13].right).toBeLessThanOrEqual(
-        (cardBox?.x ?? 0) + (cardBox?.width ?? 0),
-      );
-      const textBox = await trigger
-        .getByTestId("board-location-step")
-        .boundingBox();
-      expect((await rail.boundingBox())?.y).toBeGreaterThanOrEqual(
-        (textBox?.y ?? 0) + (textBox?.height ?? 0),
-      );
+])(
+  "%i×%iで全14工程の棒・現在位置・表示幅ごとの高さを保つ",
+  async (width, height) => {
+    await page.setViewportSize({ width, height });
+    let position = 0;
+    for (const [phase, count] of [
+      [1, 5],
+      [2, 4],
+      [3, 5],
+    ]) {
+      for (let step = 1; step <= count; step++) {
+        position++;
+        await open(`room-roomboardlayout--phase-${phase}-step-${step}`);
+        const card = page.getByTestId("board-location-card");
+        expect((await card.boundingBox())?.height).toBe(width >= 901 ? 56 : 44);
+        const trigger = page.getByTestId("board-location-trigger");
+        const rail = trigger.getByRole("progressbar", {
+          name: "全工程の現在地",
+        });
+        expect(await rail.getAttribute("aria-valuenow")).toBe(String(position));
+        expect(await rail.getAttribute("aria-valuemax")).toBe("14");
+        const bars = rail.locator(":scope > span");
+        expect(await bars.count()).toBe(14);
+        expect(await bars.nth(position - 1).getAttribute("data-current")).toBe(
+          "true",
+        );
+        const boxes = await bars.evaluateAll((elements) =>
+          elements.map((element) => {
+            const r = element.getBoundingClientRect();
+            return { width: r.width, left: r.left, right: r.right };
+          }),
+        );
+        const widths = boxes.map((box) => box.width);
+        expect(Math.min(...widths)).toBeGreaterThan(0);
+        expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(0.1);
+        const cardBox = await card.boundingBox();
+        expect(boxes[0].left).toBeGreaterThanOrEqual(cardBox?.x ?? 0);
+        expect(boxes[13].right).toBeLessThanOrEqual(
+          (cardBox?.x ?? 0) + (cardBox?.width ?? 0),
+        );
+        const textBox = await trigger
+          .getByTestId("board-location-step")
+          .boundingBox();
+        expect((await rail.boundingBox())?.y).toBeGreaterThanOrEqual(
+          (textBox?.y ?? 0) + (textBox?.height ?? 0),
+        );
+      }
     }
-  }
-});
+  },
+);
 
 test.each([
   [542, 618],
@@ -186,11 +184,9 @@ test.each([
     const trigger = page.getByRole("button", { name: /現在地/ });
     const card = page.getByTestId("board-location-card");
     const reference = page.getByRole("button", { name: "決定した課題" });
-    const guide = page.getByTestId("step-guide");
     const canvas = page.getByTestId("board-canvas");
     const boxes = await Promise.all([
       reference.boundingBox(),
-      guide.boundingBox(),
       canvas.boundingBox(),
     ]);
     await reachable(trigger);
@@ -204,11 +200,7 @@ test.each([
       "価値×実現のしやすさで評価",
     );
     expect(
-      await Promise.all([
-        reference.boundingBox(),
-        guide.boundingBox(),
-        canvas.boundingBox(),
-      ]),
+      await Promise.all([reference.boundingBox(), canvas.boundingBox()]),
     ).toEqual(boxes);
     expect(
       await page
@@ -250,7 +242,7 @@ test.each([
     expect(await trigger.evaluate((el) => el === document.activeElement)).toBe(
       true,
     );
-    await reachable(page.getByRole("button", { name: "進め方", exact: true }));
+    expect(await page.getByTestId("step-guide").count()).toBe(0);
     await reachable(
       page.getByRole("button", { name: "次のステップへ", exact: true }),
     );
@@ -495,49 +487,53 @@ test.each([
   [320, 568],
   [390, 844],
   [1280, 720],
-])("%i×%iで14工程の現在地と次が44pxの同じ行に収まる", async (width, height) => {
-  await page.setViewportSize({ width, height });
-  for (const [index, labels] of nextLabels.entries()) {
-    for (const [step, label] of labels.entries()) {
-      await open(`room-roomboardlayout--phase-${index + 1}-step-${step + 1}`);
-      const trigger = page.getByTestId("board-location-trigger");
-      await expect(
-        trigger.getByText(`次：${label}`, { exact: true }).isVisible(),
-      ).resolves.toBe(true);
-      const measurements = await trigger.evaluate((element) => {
-        const action = element.firstElementChild;
-        const children = [...(action?.children ?? []), element.children[1]].map(
-          (child) => child.getBoundingClientRect(),
+])(
+  "%i×%iで14工程の現在地と次をHUD用の高さで同じ行に収める",
+  async (width, height) => {
+    await page.setViewportSize({ width, height });
+    for (const [index, labels] of nextLabels.entries()) {
+      for (const [step, label] of labels.entries()) {
+        await open(`room-roomboardlayout--phase-${index + 1}-step-${step + 1}`);
+        const trigger = page.getByTestId("board-location-trigger");
+        await expect(
+          trigger.getByText(`次：${label}`, { exact: true }).isVisible(),
+        ).resolves.toBe(true);
+        const measurements = await trigger.evaluate((element) => {
+          const action = element.firstElementChild;
+          const children = [
+            ...(action?.children ?? []),
+            element.children[1],
+          ].map((child) => child.getBoundingClientRect());
+          const rail = element.querySelector('[role="progressbar"]');
+          const railRect = rail?.getBoundingClientRect();
+          return {
+            height: element.parentElement?.getBoundingClientRect().height,
+            railCount: rail?.children.length,
+            railTop: railRect?.top,
+            rects: children.map((r) => ({
+              left: r.left,
+              right: r.right,
+              top: r.top,
+              bottom: r.bottom,
+            })),
+            overflow: element.scrollWidth > element.clientWidth,
+          };
+        });
+        expect(measurements.height).toBe(width >= 901 ? 56 : 44);
+        expect(measurements.railCount).toBe(14);
+        expect(measurements.railTop).toBeGreaterThanOrEqual(
+          Math.max(...measurements.rects.map((rect) => rect.bottom)),
         );
-        const rail = element.querySelector('[role="progressbar"]');
-        const railRect = rail?.getBoundingClientRect();
-        return {
-          height: element.parentElement?.getBoundingClientRect().height,
-          railCount: rail?.children.length,
-          railTop: railRect?.top,
-          rects: children.map((r) => ({
-            left: r.left,
-            right: r.right,
-            top: r.top,
-            bottom: r.bottom,
-          })),
-          overflow: element.scrollWidth > element.clientWidth,
-        };
-      });
-      expect(measurements.height).toBe(44);
-      expect(measurements.railCount).toBe(14);
-      expect(measurements.railTop).toBeGreaterThanOrEqual(
-        Math.max(...measurements.rects.map((rect) => rect.bottom)),
-      );
-      expect(measurements.overflow).toBe(false);
-      for (let i = 1; i < measurements.rects.length; i++) {
-        expect(measurements.rects[i].left).toBeGreaterThanOrEqual(
-          measurements.rects[i - 1].right,
-        );
-        expect(measurements.rects[i].top).toBeLessThan(
-          measurements.rects[0].bottom,
-        );
+        expect(measurements.overflow).toBe(false);
+        for (let i = 1; i < measurements.rects.length; i++) {
+          expect(measurements.rects[i].left).toBeGreaterThanOrEqual(
+            measurements.rects[i - 1].right,
+          );
+          expect(measurements.rects[i].top).toBeLessThan(
+            measurements.rects[0].bottom,
+          );
+        }
       }
     }
-  }
-});
+  },
+);

@@ -12,6 +12,9 @@
   color: var(--foreground);
   box-shadow: 0 8px 20px rgb(0 0 0 / 0.05);
 }
+.card[data-state="compact"] {
+  height: 44px;
+}
 .card[data-state="expanded"] {
   position: absolute;
   inset: 0 auto auto 0;
@@ -168,6 +171,17 @@
 .currentLabel {
   font-size: 11px;
   white-space: nowrap;
+}
+@media (width >= 901px) {
+  .slot {
+    height: 56px;
+  }
+  .card[data-state="compact"] {
+    height: 56px;
+  }
+  .trigger {
+    min-height: 54px;
+  }
 }
 @media (width < 640px) {
   .card[data-state="expanded"] {

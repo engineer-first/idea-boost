@@ -36,7 +36,7 @@ jobs:
       - uses: jdx/mise-action@v3
         with:
           install: true
-          cache: true
+          cache: false
       - run: npm ci
       - name: Record without redeploying
         run: node scripts/release-automation.mts retry --publish

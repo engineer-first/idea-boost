@@ -23,7 +23,7 @@ for (const viewport of [
     test(`${viewport.width}×${viewport.height}・${phase}-1: 個人入力では下部のキャンバスHUDを表示しない`, async () => {
       page = await browser.newPage({ viewport });
       await page.goto(
-        `${origin}/iframe.html?id=room-roomboardlayout--phase-${phase}-step-1&viewMode=story&args=initialGuideState:compact`,
+        `${origin}/iframe.html?id=room-roomboardlayout--phase-${phase}-step-1&viewMode=story`,
       );
       await page.getByTestId("private-notes-toolbar").waitFor();
       expect(await page.getByTestId("board-tools-hud").isVisible()).toBe(false);
@@ -39,10 +39,10 @@ for (const viewport of [
     });
   }
 
-  test(`${viewport.width}×${viewport.height}: 共有では案内がマイ付箋より下にあり開閉とスクロールを妨げない`, async () => {
+  test(`${viewport.width}×${viewport.height}: 共有ではマイ付箋の開閉とスクロールが操作を妨げない`, async () => {
     page = await browser.newPage({ viewport });
     await page.goto(
-      `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-2&viewMode=story&args=initialGuideState:compact`,
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-2&viewMode=story`,
     );
     const matrix = page.getByTestId("board-operation-matrix");
     await matrix.waitFor();
@@ -53,7 +53,7 @@ for (const viewport of [
     const bounds = await toolbar.boundingBox();
     expect(before).not.toBeNull();
     expect(bounds).not.toBeNull();
-    if (!before || !bounds) throw new Error("案内またはマイ付箋がありません");
+    if (!before || !bounds) throw new Error("操作欄またはマイ付箋がありません");
     expect(before.x + before.width).toBeGreaterThan(viewport.width / 2);
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(before.y);
     const scroll = page.getByRole("region", { name: "マイ付箋一覧" });

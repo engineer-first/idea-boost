@@ -1,5 +1,12 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildMembers,
@@ -8,6 +15,10 @@ import {
 import { RoomBoardHeader } from "./room-board-header";
 
 const ME = "11111111-1111-4111-8111-111111111111";
+
+beforeEach(() => {
+  sessionStorage.setItem(`step-onboarding:AB12CD:${ME}:1-1`, "seen");
+});
 
 function allReadyProgress(members: ReturnType<typeof buildMembers>) {
   return {
@@ -39,8 +50,7 @@ function setupProps(
     currentUserId: ME,
     hostUserId: ME,
     isNextPhasePending: false,
-    isNextPhaseBlocked: false,
-    initialGuideState: "detail" as const,
+    isNextPhaseBlocked: false as const,
     hasFinalDecision: false,
     outcomePublished: false,
     onPublishOutcome: vi.fn(),
@@ -65,6 +75,36 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardHeader>[0]> = {}) {
 
 function openRoomMenu() {
   fireEvent.click(screen.getByRole("button", { name: "ルームメニューを開く" }));
+}
+
+async function advanceOnboardingSlide() {
+  const dialog = screen.getByRole("dialog");
+  const currentTitle = within(dialog).getByRole("heading").textContent ?? "";
+  const slideContent = screen.getByTestId("step-one-onboarding-slide-content");
+  fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+  expect(slideContent).toHaveAttribute("data-slide-transition", "out");
+  expect(within(dialog).getByRole("heading")).toHaveTextContent(currentTitle);
+  await waitFor(() =>
+    expect(slideContent).toHaveAttribute("data-slide-transition", "in"),
+  );
+  await waitFor(() =>
+    expect(slideContent).toHaveAttribute("data-slide-transition", "idle"),
+  );
+}
+
+async function returnToOnboardingSlide(index: number, title: string) {
+  const slideContent = screen.getByTestId("step-one-onboarding-slide-content");
+  fireEvent.click(
+    screen.getByRole("button", { name: `${index + 1}枚目に戻る` }),
+  );
+  expect(slideContent).toHaveAttribute("data-slide-transition", "out");
+  await waitFor(() =>
+    expect(slideContent).toHaveAttribute("data-slide-transition", "in"),
+  );
+  await waitFor(() =>
+    expect(slideContent).toHaveAttribute("data-slide-transition", "idle"),
+  );
+  expect(screen.getByRole("dialog", { name: title })).toBeVisible();
 }
 
 describe("RoomBoardHeader", () => {
@@ -141,7 +181,6 @@ describe("RoomBoardHeader", () => {
         phase: buildPhaseStep(step, 3),
         decidedHmw: "どうすれば全員が参加できるだろうか？",
         hmwDecidedIssue: "発言する人が偏る",
-        initialGuideState: "compact",
       });
 
       const question = screen.getByRole("button", { name: "決定した問い" });
@@ -168,23 +207,240 @@ describe("RoomBoardHeader", () => {
     );
   });
 
-  it("3-3でも共通の現在地・参照情報・進め方・ルーム操作を表示する", () => {
+  it("1-1の初回に3枚の説明スライドを順に表示し、最後の「はじめる」で閉じる", async () => {
+    const inviteCode = "ONBOARD1";
+    sessionStorage.removeItem(`step-onboarding:${inviteCode}:${ME}:1-1`);
+    const props = setupProps({ inviteCode });
+    const { rerender } = render(
+      <RoomBoardHeader {...props} phase={buildPhaseStep(1, 1)} />,
+    );
+
+    expect(
+      await screen.findByRole("dialog", {
+        name: "最近あった困ったことを付箋に書き出そう。",
+      }),
+    ).toBeVisible();
+    expect(screen.queryByText("工程 1-1")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("listitem", { name: "1枚目 / 全3枚" }),
+    ).toBeVisible();
+
+    await advanceOnboardingSlide();
+    expect(
+      await screen.findByRole("dialog", {
+        name: "1枚に1つ、困ったことを書こう。",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("listitem", { name: "2枚目 / 全3枚" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/話題が変わったら、別の付箋に書きましょう/),
+    ).toBeVisible();
+    const operationVideo = screen.getByLabelText("付箋を追加して書き出す操作");
+    expect(operationVideo).toHaveAttribute(
+      "src",
+      "/onboarding/operation-guide-placeholder.webm",
+    );
+    expect(operationVideo).toHaveProperty("autoplay", true);
+    expect(operationVideo).toHaveProperty("loop", true);
+    expect(operationVideo).toHaveProperty("muted", true);
+    expect(operationVideo).toHaveProperty("playsInline", true);
+
+    await advanceOnboardingSlide();
+    expect(
+      await screen.findByRole("dialog", {
+        name: "タイマーの時間内にできるだけ多く書き出そう",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("listitem", { name: "3枚目 / 全3枚" }),
+    ).toBeVisible();
+    const dialog = screen.getByRole("dialog");
+    const guideButton = screen.getByText("進め方").closest("button");
+    if (!guideButton) throw new Error("進め方ボタンが見つかりません");
+    vi.spyOn(dialog, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 64, 800, 500),
+    );
+    vi.spyOn(guideButton, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(350, 0, 100, 36),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "はじめる" }));
+    expect(dialog).toHaveAttribute("data-closing-to-guide", "true");
+    expect(dialog.style.getPropertyValue("--guide-target-x")).toBe("0px");
+    expect(dialog.style.getPropertyValue("--guide-target-y")).toBe("-296px");
+    expect(dialog).toBeVisible();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    rerender(<RoomBoardHeader {...props} phase={buildPhaseStep(1, 1)} />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("1-1の「進め方」から初回表示後の説明スライドを再度開ける", async () => {
+    const inviteCode = "MANUAL1";
+    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    setup({ inviteCode, phase: buildPhaseStep(1, 1) });
+
+    const openGuide = screen.getByRole("button", { name: "進め方" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(openGuide);
+    expect(
+      await screen.findByRole("dialog", {
+        name: "最近あった困ったことを付箋に書き出そう。",
+      }),
+    ).toBeVisible();
+
+    await advanceOnboardingSlide();
+    await advanceOnboardingSlide();
+    expect(
+      screen.getByRole("dialog", {
+        name: "タイマーの時間内にできるだけ多く書き出そう",
+      }),
+    ).toBeVisible();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(screen.getByRole("button", { name: "はじめる" }));
+    expect(dialog).toHaveAttribute("data-closing-to-guide", "true");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(openGuide);
+    expect(
+      await screen.findByRole("dialog", {
+        name: "最近あった困ったことを付箋に書き出そう。",
+      }),
+    ).toBeVisible();
+  });
+
+  it("スライドの進捗から前のスライドへ戻れる", async () => {
+    const inviteCode = "ONBOARD-BACK";
+    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    setup({ inviteCode, phase: buildPhaseStep(1, 1) });
+
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+    await screen.findByRole("dialog", {
+      name: "最近あった困ったことを付箋に書き出そう。",
+    });
+    await advanceOnboardingSlide();
+    await advanceOnboardingSlide();
+
+    await returnToOnboardingSlide(
+      0,
+      "最近あった困ったことを付箋に書き出そう。",
+    );
+    expect(
+      screen.getByRole("listitem", { name: "1枚目 / 全3枚" }),
+    ).toHaveAttribute("aria-current", "step");
+    expect(screen.getByRole("button", { name: "次へ" })).toBeVisible();
+  });
+
+  it("スライドの進捗表示はドット列の幅を保つ", async () => {
+    const inviteCode = "ONBOARD-PROGRESS-WIDTH";
+    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    setup({ inviteCode, phase: buildPhaseStep(1, 1) });
+
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+    await screen.findByRole("dialog", {
+      name: "最近あった困ったことを付箋に書き出そう。",
+    });
+
+    const progressButtons = screen.getAllByRole("button", {
+      name: /枚目に戻る/,
+    });
+    expect(progressButtons).toHaveLength(3);
+    for (const button of progressButtons) {
+      expect(button).toHaveClass("w-fit");
+      expect(button).not.toHaveClass("w-8");
+    }
+  });
+
+  it("アニメーション終了を受け取れない環境でもスライドを長く隠さない", async () => {
+    const inviteCode = "ONBOARD-QUICK";
+    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    setup({ inviteCode, phase: buildPhaseStep(1, 1) });
+
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+    await screen.findByRole("dialog", {
+      name: "最近あった困ったことを付箋に書き出そう。",
+    });
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+      await act(async () => {
+        vi.advanceTimersByTime(235);
+      });
+
+      expect(
+        screen.getByTestId("step-one-onboarding-slide-content"),
+      ).toHaveAttribute("data-slide-transition", "in");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("はじめるのモーションが終わった時点でスライドを閉じる", async () => {
+    const inviteCode = "ONBOARD-CLOSE";
+    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    setup({ inviteCode, phase: buildPhaseStep(1, 1) });
+
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+    await screen.findByRole("dialog", {
+      name: "最近あった困ったことを付箋に書き出そう。",
+    });
+    await advanceOnboardingSlide();
+    await advanceOnboardingSlide();
+
+    const dialog = screen.getByRole("dialog");
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "はじめる" }));
+      await act(async () => {
+        vi.advanceTimersByTime(380);
+      });
+
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(dialog).toHaveStyle({ animation: "none", opacity: "0" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ["1-2", 2, 1],
+    ["1-3", 3, 1],
+    ["1-4", 4, 1],
+    ["1-5", 5, 1],
+    ["2-1", 1, 2],
+    ["3-1", 1, 3],
+    ["3-2", 2, 3],
+    ["3-3", 3, 3],
+  ] as const)("初回説明スライドは%sでは表示しない", (label, step, phase) => {
+    setup({
+      inviteCode: `ONBOARD-${label}`,
+      phase: buildPhaseStep(step, phase),
+    });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "進め方" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("各工程の進め方ガイドパネルは表示しない", () => {
+    setup({ phase: buildPhaseStep(1) });
+
+    expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
+  });
+
+  it("3-3でも共通の現在地・参照情報・ルーム操作を表示する", () => {
     setup({
       phase: buildPhaseStep(3, 3),
       decidedHmw: "どうすれば最初の一歩を踏み出せるだろうか？",
       hmwDecidedIssue: "作業を後回しにしてしまう",
-      initialGuideState: "compact",
     });
 
     expect(screen.getByRole("button", { name: /現在地/ })).toHaveTextContent(
       "③アイデア｜2軸評価",
     );
     expect(screen.getByTestId("board-control-hud")).toBeVisible();
-    expect(screen.getByTestId("step-guide")).toHaveAttribute(
-      "data-placement",
-      "floating",
-    );
-    expect(screen.getByRole("button", { name: "進め方" })).toBeVisible();
+    expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
     const question = screen.getByRole("button", { name: /決定した問い/ });
     expect(question).toHaveAttribute("aria-expanded", "false");
     expect(question).toHaveTextContent("決定した問い");
@@ -392,29 +648,7 @@ describe("RoomBoardHeader", () => {
     );
   });
 
-  describe("ファシリテーションガイド", () => {
-    it("現在地HUDと独立したひとつの枠で案内を開閉する", () => {
-      setup({ isHost: true });
-      const shell = screen.getByTestId("step-guide");
-      expect(screen.getByTestId("board-context-hud")).not.toContainElement(
-        shell,
-      );
-      expect(screen.getByText("ホストへ")).toBeVisible();
-      fireEvent.click(document.body);
-      expect(shell).toHaveAttribute("data-state", "compact");
-      fireEvent.click(screen.getByRole("button", { name: "進め方" }));
-      expect(shell).toHaveAttribute("data-state", "detail");
-    });
-
-    it("参加者にも進行補足を表示する", () => {
-      setup({ isHost: false });
-
-      expect(
-        screen.getByRole("region", { name: "ファシリテーションガイド" }),
-      ).toHaveTextContent("最近あった困ったこと");
-      expect(screen.getByText("ホストへ")).toBeVisible();
-    });
-
+  describe("タイマー推奨時間", () => {
     it.each([
       [buildPhaseStep(1), "05"],
       [buildPhaseStep(3), "04"],
@@ -451,7 +685,6 @@ describe("RoomBoardHeader", () => {
       <RoomBoardHeader
         {...setupProps({
           phase: buildPhaseStep(1),
-          initialGuideState: "compact",
         })}
       />,
     );
@@ -474,7 +707,6 @@ describe("RoomBoardHeader", () => {
       <RoomBoardHeader
         {...setupProps({
           phase: buildPhaseStep(1, 2),
-          initialGuideState: "compact",
         })}
       />,
     );
@@ -876,7 +1108,6 @@ describe("共有の進行欄", () => {
         {...setupProps({
           isHost: true,
           phase: buildPhaseStep(2),
-          initialGuideState: "compact",
         })}
         {...{ sharing, onSharingStart: vi.fn(), onSharingAdvance: vi.fn() }}
       />,
@@ -887,13 +1118,12 @@ describe("共有の進行欄", () => {
     );
     expect(screen.getAllByText("これから")).toHaveLength(2);
   });
-  it("交代中は顔と名前を案内し、計時と進行操作を待つ", () => {
+  it("交代中は顔と名前を表示し、計時と進行操作を待つ", () => {
     render(
       <RoomBoardHeader
         {...setupProps({
           isHost: true,
           phase: buildPhaseStep(2),
-          initialGuideState: "compact",
         })}
         {...{
           sharing: { ...sharing, startsAt: Date.now() + 2000 },
@@ -908,9 +1138,7 @@ describe("共有の進行欄", () => {
     expect(screen.getByRole("timer")).toHaveTextContent("03:00");
     expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "今回はパス" })).toBeDisabled();
-    expect(
-      screen.queryByRole("button", { name: "進め方" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
   });
 });
 
@@ -920,7 +1148,6 @@ it("別画面で共有が開始されたらその持ち時間で交代を表示�
     ...setupProps({
       isHost: true,
       phase: buildPhaseStep(2),
-      initialGuideState: "compact",
     }),
     sharing: ready,
     onSharingStart: vi.fn(),
@@ -957,7 +1184,6 @@ it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示�
       {...setupProps({
         currentUserId: sharing.order.at(-1)?.userId ?? ME,
         phase: buildPhaseStep(2),
-        initialGuideState: "compact",
       })}
       sharing={sharing}
     />,
@@ -984,7 +1210,6 @@ it("発表者以外の参加者も発表者の進行操作を行える", () => {
     <RoomBoardHeader
       {...setupProps({
         phase: buildPhaseStep(2),
-        initialGuideState: "compact",
       })}
       sharing={buildSharingState({ status: "active", currentIndex: 1 })}
     />,

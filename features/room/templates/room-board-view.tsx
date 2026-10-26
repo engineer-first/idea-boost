@@ -61,7 +61,6 @@ import type {
   SharingReaction,
   SharingReactionControls,
 } from "../logic/use-sharing-reactions";
-import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -209,7 +208,6 @@ export type RoomBoardViewProps = {
   isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
-  initialGuideState?: StepGuideState;
   remoteCursors: RenderedRemoteCursorPresence[];
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
@@ -399,7 +397,6 @@ export function RoomBoardView({
   onTimerResume,
   onTimerExtend,
   onTimerStop,
-  initialGuideState,
 }: RoomBoardViewProps) {
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const phaseKey =
@@ -1388,15 +1385,12 @@ export function RoomBoardView({
       "board-context-hud",
       "board-control-hud",
       "board-connection-slot",
-      "step-guide",
     ] as const;
     const helpPanelSelector = '[data-testid="board-help-panel"] > div';
     const referenceSelectors = [
       '[data-testid="board-context-references"]',
       helpPanelSelector,
     ] as const;
-    // モバイルのガイドは詳細を開くと伸びるため、この工程で最初に測った位置で上端を固定する。
-    let initialMobileGuideBottom: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1445,10 +1439,9 @@ export function RoomBoardView({
               : element.getBoundingClientRect();
           };
           let headerBottom = frame.getBoundingClientRect().top;
-          let guideBottom = 0;
           for (const testId of expandedWorkspaceHeaderSurfaces) {
             // デスクトップの上端は最上段の現在地と上部メニューの真下で決め、
-            // 進め方・接続案内・決定事項・開いた現在地カードはエリアの前面に重ねる。
+            // 接続案内・決定事項・開いた現在地カードはエリアの前面に重ねる。
             // 現在地は閉じた寸法を予約する枠で測る。モバイルは縦に積んだ欄の下から始める。
             const bounds = visibleBounds(
               testId === "board-context-hud" && isDesktop
@@ -1456,21 +1449,16 @@ export function RoomBoardView({
                 : `[data-testid="${testId}"]`,
             );
             if (!bounds) continue;
-            if (testId === "step-guide") guideBottom = bounds.bottom;
-            if (
-              isDesktop &&
-              (testId === "board-connection-slot" || testId === "step-guide")
-            )
-              continue;
-            let bottom = bounds.bottom;
             if (testId === "board-connection-slot") {
+              if (isDesktop) continue;
               // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
-              bottom = bounds.top + Math.max(38, bounds.height);
-            } else if (testId === "step-guide") {
-              initialMobileGuideBottom ??= bounds.bottom;
-              bottom = initialMobileGuideBottom;
+              headerBottom = Math.max(
+                headerBottom,
+                bounds.top + Math.max(38, bounds.height),
+              );
+              continue;
             }
-            headerBottom = Math.max(headerBottom, bottom);
+            headerBottom = Math.max(headerBottom, bounds.bottom);
           }
           // モバイルの考えるヒントは上部欄の下に重なるため、その下から始める。
           const mobileHelpPanel = isDesktop
@@ -1481,10 +1469,6 @@ export function RoomBoardView({
           root.style.setProperty(
             "--board-private-expanded-top",
             `${Math.ceil(headerBottom + 12)}px`,
-          );
-          root.style.setProperty(
-            "--board-private-guide-bottom",
-            `${Math.ceil(guideBottom)}px`,
           );
           // デスクトップの決定事項・考えるヒントは左側で前面に重なるため、
           // 付箋一覧をその右側へ寄せる。
@@ -1949,7 +1933,6 @@ export function RoomBoardView({
           hasCurrentDecision={
             phase.kind === "step" && decision?.phase === phase.phase
           }
-          initialGuideState={initialGuideState}
           hasFinalDecision={hasFinalDecision}
           outcomePublished={outcomePublished}
           onPublishOutcome={onPublishOutcome}

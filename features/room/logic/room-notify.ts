@@ -21,7 +21,7 @@ export const roomNotify = {
   },
   canvasFitUnavailable(): void {
     toast.error(
-      "進め方・ヒント・マイ付箋を閉じてから、もう一度「付箋全体を表示」を押してください。",
+      "ヒント・マイ付箋を閉じてから、もう一度「付箋全体を表示」を押してください。",
       { id: "canvas-fit-unavailable", duration: 4000, closeButton: true },
     );
   },
