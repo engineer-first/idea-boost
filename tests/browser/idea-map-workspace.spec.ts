@@ -2161,14 +2161,43 @@ test.each([
   },
 );
 
-test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベルと重ねない", async () => {
+test("ガイドを開いてもフェーズ3のマップと個人付箋領域を移動しない", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await openWorkspace(page);
+    const guide = page.getByTestId("step-guide");
+    await page.keyboard.press("Escape");
+    await expect.poll(() => guide.getAttribute("data-state")).toBe("compact");
+    const map = await page
+      .getByTestId("idea-value-feasibility-map-plane")
+      .boundingBox();
+    const privateNotes = await page
+      .getByTestId("private-notes-dock")
+      .boundingBox();
+    await page.getByRole("button", { name: "進め方", exact: true }).click();
+    await expect.poll(() => guide.getAttribute("data-state")).toBe("detail");
+    await waitForLayoutAnimations(guide);
+    expect(
+      await page.getByTestId("idea-value-feasibility-map-plane").boundingBox(),
+    ).toEqual(map);
+    expect(await page.getByTestId("private-notes-dock").boundingBox()).toEqual(
+      privateNotes,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test("周辺HUDは他フェーズと同じ縦位置に揃え、ガイドを両側のHUD間に収めて軸ラベルと重ねない", async () => {
   const viewport = { width: 1280, height: 720 };
   const page = await browser.newPage({ viewport });
   try {
     await openStory(page, "room-roomboardview--step-1-2-sharing");
     const sharedAnchors = {
       location: await readBounds(page, "board-location-card"),
-      guide: await readBounds(page, "step-guide"),
       controls: await readBounds(page, "board-control-hud"),
       tools: await readBounds(page, "board-tools-hud"),
       operations: await readBounds(page, "board-operation-matrix"),
@@ -2186,11 +2215,18 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
       phaseLoop: await readBounds(page, "phase-loop-hud"),
       mapSize: await readBounds(page, "idea-map-size-controls-hud"),
     };
-    for (const key of ["location", "guide", "operations"] as const) {
+    for (const key of ["location", "operations"] as const) {
       expect
         .soft(workspaceAnchors[key], `${key}の位置を共通HUDに揃える`)
         .toEqual(sharedAnchors[key]);
     }
+    expect(workspaceAnchors.guide.y).toBe(workspaceAnchors.controls.y);
+    expect(workspaceAnchors.guide.x).toBeGreaterThanOrEqual(
+      workspaceAnchors.location.x + workspaceAnchors.location.width + 12,
+    );
+    expect(
+      workspaceAnchors.guide.x + workspaceAnchors.guide.width,
+    ).toBeLessThanOrEqual(workspaceAnchors.controls.x - 12);
     expect(workspaceAnchors.controls.y).toBe(sharedAnchors.controls.y);
     expect(workspaceAnchors.controls.x + workspaceAnchors.controls.width).toBe(
       sharedAnchors.controls.x + sharedAnchors.controls.width,

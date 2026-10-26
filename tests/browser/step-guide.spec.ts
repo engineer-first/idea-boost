@@ -166,19 +166,35 @@ test("同じ枠の変形・キーボード・外側クリックと付箋追加�
     await open(page, "room-roomboardview--phase-1-first-step-intro");
     const shell = page.getByTestId("step-guide");
     await settled(page, "intro");
+    await expect
+      .poll(() => shell.getAttribute("data-desktop-placement"))
+      .toBe("hud-row");
     expect(await page.getByRole("dialog").count()).toBe(0);
     const intro = await shell.boundingBox();
     await page.screenshot({ path: `${output}/after-intro.png` });
     const hud = await page.getByTestId("board-context-hud").boundingBox();
+    const location = await page
+      .getByTestId("board-location-card")
+      .boundingBox();
+    const controlHud = await page
+      .getByTestId("board-control-hud")
+      .boundingBox();
     const toolbar = await page
       .getByTestId("private-notes-toolbar")
       .boundingBox();
+    const workspace = await page
+      .getByTestId("private-notes-workspace")
+      .boundingBox();
+    const canvas = await page.getByTestId("board-canvas").boundingBox();
     await vi.waitFor(
       async () =>
         expect(await shell.getAttribute("data-state")).toBe("compact"),
       { timeout: 7000 },
     );
     await settled(page, "compact");
+    await expect
+      .poll(() => shell.getAttribute("data-desktop-placement"))
+      .toBe("hud-row");
     const compact = await shell.boundingBox();
     await page.screenshot({ path: `${output}/after-compact.png` });
     await page
@@ -194,10 +210,18 @@ test("同じ枠の変形・キーボード・外側クリックと付箋追加�
     await detail.click();
     await page.mouse.move(1000, 420);
     await settled(page, "detail");
+    await expect
+      .poll(() => shell.getAttribute("data-desktop-placement"))
+      .toBe("hud-row");
     const expanded = await shell.boundingBox();
-    for (const box of [compact, expanded]) {
-      expect(box?.y).toBe(intro?.y);
-      expect((box?.x ?? 0) + (box?.width ?? 0) / 2).toBe(640);
+    for (const box of [intro, compact, expanded]) {
+      expect(box?.y).toBe(controlHud?.y);
+      expect(box?.x).toBeGreaterThanOrEqual(
+        (location?.x ?? 0) + (location?.width ?? 0) + 12,
+      );
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
+        (controlHud?.x ?? 1280) - 12,
+      );
     }
     expect(await page.getByTestId("board-context-hud").boundingBox()).toEqual(
       hud,
@@ -205,6 +229,15 @@ test("同じ枠の変形・キーボード・外側クリックと付箋追加�
     expect(
       await page.getByTestId("private-notes-toolbar").boundingBox(),
     ).toEqual(toolbar);
+    expect(
+      await page.getByTestId("private-notes-workspace").boundingBox(),
+    ).toEqual(workspace);
+    expect(await page.getByTestId("board-canvas").boundingBox()).toEqual(
+      canvas,
+    );
+    expect(await page.getByTestId("board-control-hud").boundingBox()).toEqual(
+      controlHud,
+    );
     expect(await shell.getByRole("button").count()).toBe(0);
     await page.screenshot({ path: `${output}/after-detail.png` });
     await page.keyboard.press("Escape");
@@ -274,6 +307,17 @@ test.each([1280, 1024, 768])(
       await settled(page, "detail");
       const shell = page.getByTestId("step-guide");
       const detail = await shell.boundingBox();
+      const location = await page
+        .getByTestId("board-location-card")
+        .boundingBox();
+      const controlHud = await page
+        .getByTestId("board-control-hud")
+        .boundingBox();
+      if (width >= 901) {
+        await expect
+          .poll(() => shell.getAttribute("data-desktop-placement"))
+          .toBe("hud-row");
+      }
       expect(detail?.x).toBeGreaterThanOrEqual(0);
       expect((detail?.x ?? 0) + (detail?.width ?? 0)).toBeLessThanOrEqual(
         width,
@@ -297,11 +341,23 @@ test.each([1280, 1024, 768])(
         .press("Escape");
       await settled(page, "compact");
       const compact = await shell.boundingBox();
-      expect(compact?.y).toBe(detail?.y);
-      if (width >= 1024) {
-        expect((compact?.x ?? 0) + (compact?.width ?? 0) / 2).toBe(width / 2);
+      if (width >= 901) {
+        await expect
+          .poll(() => shell.getAttribute("data-desktop-placement"))
+          .toBe("hud-row");
+        expect(detail?.y).toBe(controlHud?.y);
+        expect(compact?.y).toBe(controlHud?.y);
+        for (const box of [detail, compact]) {
+          expect(box?.x).toBeGreaterThanOrEqual(
+            (location?.x ?? 0) + (location?.width ?? 0) + 12,
+          );
+          expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
+            (controlHud?.x ?? width) - 12,
+          );
+        }
       } else {
-        // 狭い幅では左の現在地の右へ配置し、展開しても左端を動かさない。
+        expect(compact?.y).toBe(detail?.y);
+        // 900px以下では左の現在地の右へ配置し、展開しても左端を動かさない。
         expect(compact?.x).toBe(detail?.x);
       }
       expect(
@@ -312,6 +368,97 @@ test.each([1280, 1024, 768])(
     }
   },
 );
+
+test.each([
+  { zoom: 90, width: 1600 },
+  { zoom: 100, width: 1440 },
+  { zoom: 110, width: 1309 },
+  { zoom: 125, width: 1152 },
+])(
+  "$zoom%相当の表示幅で進め方を操作HUDと同じ段に保つ",
+  async ({ zoom, width }) => {
+    const page = await browser.newPage({
+      viewport: { width, height: 900 },
+      reducedMotion: "reduce",
+    });
+    try {
+      await open(page, "room-roomboardview--phase-1-first-step-intro");
+      await settled(page, "intro");
+      await page.keyboard.press("Escape");
+      await settled(page, "compact");
+      await page.getByRole("button", { name: "進め方", exact: true }).click();
+      await settled(page, "detail");
+      const shell = page.getByTestId("step-guide");
+      const detail = await shell.boundingBox();
+      const location = await page
+        .getByTestId("board-location-card")
+        .boundingBox();
+      const controls = await page
+        .getByTestId("board-control-hud")
+        .boundingBox();
+
+      await expect
+        .poll(() => shell.getAttribute("data-desktop-placement"))
+        .toBe("hud-row");
+      expect(detail?.y).toBe(controls?.y);
+      expect(detail?.x).toBeGreaterThanOrEqual(
+        (location?.x ?? 0) + (location?.width ?? 0) + 12,
+      );
+      expect((detail?.x ?? 0) + (detail?.width ?? 0)).toBeLessThanOrEqual(
+        (controls?.x ?? width) - 12,
+      );
+      await page.screenshot({ path: `${output}/zoom-${zoom}-detail.png` });
+
+      await page.keyboard.press("Escape");
+      await settled(page, "compact");
+      const compact = await shell.boundingBox();
+      expect(compact?.y).toBe(controls?.y);
+      await page.screenshot({ path: `${output}/zoom-${zoom}-compact.png` });
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test("可視性APIがないブラウザーでも操作HUDと同じ段に配置する", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-roomboardview--phase-1-first-step-intro");
+    const guide = page.getByTestId("step-guide");
+    await page.keyboard.press("Escape");
+    await settled(page, "compact");
+    await page.evaluate(() => {
+      Object.defineProperty(Element.prototype, "checkVisibility", {
+        configurable: true,
+        value: undefined,
+      });
+      const guide = document.querySelector<HTMLElement>(
+        '[data-testid="step-guide"]',
+      );
+      if (!guide) throw new Error("進め方ガイドが見つかりません");
+      delete guide.dataset.desktopPlacement;
+      for (const property of [
+        "--guide-desktop-left",
+        "--guide-desktop-width",
+        "--guide-desktop-top",
+        "--guide-desktop-max-height",
+      ])
+        guide.style.removeProperty(property);
+      window.dispatchEvent(new Event("resize"));
+    });
+    await expect
+      .poll(() => guide.getAttribute("data-desktop-placement"))
+      .toBe("hud-row");
+    expect((await guide.boundingBox())?.y).toBe(
+      (await page.getByTestId("board-control-hud").boundingBox())?.y,
+    );
+  } finally {
+    await page.close();
+  }
+});
 
 test("390pxでは初回も説明を閉じ、入口から詳細を全文参照して操作へ戻れる", async () => {
   const page = await browser.newPage({

@@ -12,7 +12,13 @@ import {
   Trash2,
   UserPlus,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +75,25 @@ import styles from "./room-board-header.module.css";
 import { RoomTimer } from "./room-timer";
 
 const IDEA_MAP_CONTEXT_GAP = 18;
+const MIN_DESKTOP_GUIDE_ROW_WIDTH = 220;
+
+function hasVisibleBox(element: HTMLElement): boolean {
+  if (element.getClientRects().length === 0) return false;
+  for (
+    let ancestor: HTMLElement | null = element;
+    ancestor;
+    ancestor = ancestor.parentElement
+  ) {
+    const style = getComputedStyle(ancestor);
+    if (
+      style.visibility === "hidden" ||
+      style.visibility === "collapse" ||
+      style.getPropertyValue("content-visibility") === "hidden"
+    )
+      return false;
+  }
+  return true;
+}
 
 export type RoomBoardHeaderProps = {
   children?: ReactNode;
@@ -200,7 +225,7 @@ export function RoomBoardHeader({
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const area = controlsAreaRef.current;
     const header = area?.closest<HTMLElement>(
       '[data-testid="board-header-row"]',
@@ -226,6 +251,11 @@ export function RoomBoardHeader({
       if (guide && context && header && window.innerWidth >= 901) {
         const headerBounds = header.getBoundingClientRect();
         const contextBounds = context.getBoundingClientRect();
+        const locationCard = header.querySelector<HTMLElement>(
+          '[data-testid="board-location-card"]',
+        );
+        const locationBounds = locationCard?.getBoundingClientRect();
+        const leftHudBounds = locationBounds ?? contextBounds;
         const controls = header.querySelector<HTMLElement>(
           '[data-testid="board-control-hud"]',
         );
@@ -236,13 +266,25 @@ export function RoomBoardHeader({
           window.innerWidth <= 1199
             ? Math.min(470, window.innerWidth - 660)
             : Math.min(470, window.innerWidth - 40);
-        const guideWidth = isCompact ? 126 : expandedWidth;
-        const gapStart = contextBounds.right + 12;
+        const requestedGuideWidth = isCompact ? 126 : expandedWidth;
+        const gapStart = leftHudBounds.right + 12;
+        const gapWidth = Math.max(
+          0,
+          (controlsBounds?.left ?? controlsAreaBounds?.left ?? gapStart) -
+            12 -
+            gapStart,
+        );
+        const minimumRowWidth = isCompact
+          ? requestedGuideWidth
+          : Math.min(MIN_DESKTOP_GUIDE_ROW_WIDTH, requestedGuideWidth);
+        const fitsOnHudRow = gapWidth >= minimumRowWidth;
+        const guideWidth = fitsOnHudRow
+          ? Math.min(requestedGuideWidth, gapWidth)
+          : requestedGuideWidth;
         const gapEnd =
           (controlsBounds?.left ?? controlsAreaBounds?.left ?? gapStart) -
           12 -
           guideWidth;
-        const fitsOnHudRow = gapEnd >= gapStart;
         const clamp = (value: number, min: number, max: number): number =>
           Math.min(max, Math.max(min, value));
         const viewportCenter = window.innerWidth / 2;
@@ -256,7 +298,7 @@ export function RoomBoardHeader({
         const y = fitsOnHudRow
           ? (controlsBounds?.top ?? controlsAreaBounds?.top ?? headerBounds.top)
           : Math.max(
-              contextBounds.bottom,
+              locationBounds?.bottom ?? contextBounds.top,
               controlsAreaBounds?.bottom ??
                 controlsBounds?.bottom ??
                 headerBounds.top,
@@ -278,6 +320,25 @@ export function RoomBoardHeader({
           if (overlapsHorizontally && bounds.top >= y)
             nextHudTop = Math.min(nextHudTop, bounds.top);
         }
+        const clearanceTargets = board?.querySelectorAll<HTMLElement>(
+          [
+            '[data-testid="board-header-row"] button',
+            '[data-testid="board-header-row"] summary',
+            '[data-testid="board-tools-hud"] button',
+            '[data-testid="idea-map-size-controls-hud"] button',
+            '[data-testid="phase-loop-hud"] button',
+            '[data-testid="vote-palette-hud"] button',
+            '[data-testid="private-notes-toolbar"] button',
+          ].join(","),
+        );
+        for (const target of clearanceTargets ?? []) {
+          if (guide.contains(target) || !hasVisibleBox(target)) continue;
+          const bounds = target.getBoundingClientRect();
+          const overlapsHorizontally =
+            x < bounds.right && x + guideWidth > bounds.left;
+          if (overlapsHorizontally && bounds.top >= y)
+            nextHudTop = Math.min(nextHudTop, bounds.top);
+        }
         const maxHeight = Math.max(
           96,
           Math.min(440, window.innerHeight - y - 200, nextHudTop - y - 12),
@@ -287,6 +348,7 @@ export function RoomBoardHeader({
           "--guide-desktop-left",
           `${x - headerBounds.left}px`,
         );
+        guide.style.setProperty("--guide-desktop-width", `${guideWidth}px`);
         guide.style.setProperty(
           "--guide-desktop-top",
           `${y - headerBounds.top}px`,
@@ -295,6 +357,7 @@ export function RoomBoardHeader({
       } else if (guide) {
         delete guide.dataset.desktopPlacement;
         guide.style.removeProperty("--guide-desktop-left");
+        guide.style.removeProperty("--guide-desktop-width");
         guide.style.removeProperty("--guide-desktop-top");
         guide.style.removeProperty("--guide-desktop-max-height");
       }
@@ -466,6 +529,7 @@ export function RoomBoardHeader({
       if (guide) {
         delete guide.dataset.desktopPlacement;
         guide.style.removeProperty("--guide-desktop-left");
+        guide.style.removeProperty("--guide-desktop-width");
         guide.style.removeProperty("--guide-desktop-top");
         guide.style.removeProperty("--guide-desktop-max-height");
       }

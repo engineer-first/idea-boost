@@ -89,6 +89,7 @@
     top: 0;
   }
   .guide[data-desktop-placement] {
+    width: var(--guide-desktop-width, var(--guide-width));
     top: var(--guide-desktop-top);
     left: var(--guide-desktop-left);
     transform: none;
