@@ -8,16 +8,21 @@
   bottom: var(--idea-map-note-bottom-compact);
 }
 
-.initialWorkspace {
+.personalWorkspace {
   --private-workspace-padding: 0.75rem;
 }
 
-.initialWorkspace [data-testid="private-notes-scroll"] {
+/* デスクトップの決定事項・考えるヒントは左側で前面に重なるため、付箋一覧をその右側から始める。 */
+.personalWorkspace [data-testid="private-notes-scroll"] {
   padding-block-start: var(--private-workspace-padding);
+  padding-inline-start: max(
+    var(--private-workspace-padding),
+    var(--board-private-reference-inset, 0px)
+  );
 }
 
 @media (min-width: 768px) {
-  .initialWorkspace {
+  .personalWorkspace {
     --private-workspace-padding: 1.25rem;
   }
 }
