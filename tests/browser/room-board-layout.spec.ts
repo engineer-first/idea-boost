@@ -1032,6 +1032,24 @@ test.each([1280, 1024, 768])(
         Number.parseFloat(getComputedStyle(e).borderRadius),
       ),
     ).toBeGreaterThanOrEqual(14);
+    const membersBox = await members.boundingBox();
+    const guide = page.getByTestId("step-guide");
+    const guideBox = await guide.boundingBox();
+    expect(membersBox).not.toBeNull();
+    expect(guideBox).not.toBeNull();
+    if (!membersBox || !guideBox) {
+      throw new Error(
+        `${width}px: ガイドまたは参加者HUDの境界を取得できません`,
+      );
+    }
+    if (width >= 901) {
+      const overlaps =
+        guideBox.x < membersBox.x + membersBox.width &&
+        guideBox.x + guideBox.width > membersBox.x &&
+        guideBox.y < membersBox.y + membersBox.height &&
+        guideBox.y + guideBox.height > membersBox.y;
+      expect(overlaps, `${width}px: 進め方ガイドと参加者HUD`).toBe(false);
+    }
     await more.click();
     const dialog = page.getByRole("dialog", { name: "参加者一覧" });
     await dialog.waitFor();

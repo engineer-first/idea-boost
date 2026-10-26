@@ -93,6 +93,7 @@
     top: var(--guide-desktop-top);
     left: var(--guide-desktop-left);
     transform: none;
+    transition-property: height, border-radius;
   }
 }
 @media (min-width: 901px) and (max-width: 1199px) {

@@ -261,6 +261,14 @@ export function RoomBoardHeader({
         );
         const controlsBounds = controls?.getBoundingClientRect();
         const controlsAreaBounds = area?.getBoundingClientRect();
+        const controlsLeft = Math.min(
+          controlsBounds?.left ?? controlsAreaBounds?.left ?? window.innerWidth,
+          ...Array.from(
+            controls?.querySelectorAll<HTMLElement>("button, summary") ?? [],
+          )
+            .filter(hasVisibleBox)
+            .map((target) => target.getBoundingClientRect().left),
+        );
         const isCompact = guide.dataset.state === "compact";
         const expandedWidth =
           window.innerWidth <= 1199
@@ -268,12 +276,7 @@ export function RoomBoardHeader({
             : Math.min(470, window.innerWidth - 40);
         const requestedGuideWidth = isCompact ? 126 : expandedWidth;
         const gapStart = leftHudBounds.right + 12;
-        const gapWidth = Math.max(
-          0,
-          (controlsBounds?.left ?? controlsAreaBounds?.left ?? gapStart) -
-            12 -
-            gapStart,
-        );
+        const gapWidth = Math.max(0, controlsLeft - 12 - gapStart);
         const minimumRowWidth = isCompact
           ? requestedGuideWidth
           : Math.min(MIN_DESKTOP_GUIDE_ROW_WIDTH, requestedGuideWidth);
@@ -281,10 +284,7 @@ export function RoomBoardHeader({
         const guideWidth = fitsOnHudRow
           ? Math.min(requestedGuideWidth, gapWidth)
           : requestedGuideWidth;
-        const gapEnd =
-          (controlsBounds?.left ?? controlsAreaBounds?.left ?? gapStart) -
-          12 -
-          guideWidth;
+        const gapEnd = controlsLeft - 12 - guideWidth;
         const clamp = (value: number, min: number, max: number): number =>
           Math.min(max, Math.max(min, value));
         const viewportCenter = window.innerWidth / 2;
