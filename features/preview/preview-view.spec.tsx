@@ -31,3 +31,12 @@ it("失敗理由を表示して、別の新規ルーム作成を試せる", () =
   fireEvent.click(screen.getByRole("button", { name: /1-1/ }));
   expect(onCreate).toHaveBeenCalledWith("1-1");
 });
+it("LPを未ログイン表示とログイン済み表示で開く入口を示す", () => {
+  render(<PreviewView pending={false} error={null} onCreate={vi.fn()} />);
+  expect(
+    screen.getByRole("link", { name: "未ログインでトップを開く" }),
+  ).toHaveAttribute("href", "/preview/signed-out");
+  expect(
+    screen.getByRole("link", { name: "ログイン済みで説明ページを開く" }),
+  ).toHaveAttribute("href", "/about");
+});

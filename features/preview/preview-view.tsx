@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import {
+  PREVIEW_SIGNED_OUT_PATH,
   type PreviewCheckpoint,
   PreviewCheckpointSchema,
 } from "@/contracts/preview";
@@ -64,6 +65,23 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
             </div>
           </section>
         ))}
+        <section aria-label="LPを確認する" className="space-y-3">
+          <h2 className="text-lg font-semibold">LPを確認する</h2>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            未ログイン表示では、このブラウザでアプリのログインがない状態として表示します。ログイン画面の「Googleでログイン」か、この画面を開くと元のログイン状態に戻ります。
+          </p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <a
+              href={PREVIEW_SIGNED_OUT_PATH}
+              className="underline underline-offset-4"
+            >
+              未ログインでトップを開く
+            </a>
+            <a href="/about" className="underline underline-offset-4">
+              ログイン済みで説明ページを開く
+            </a>
+          </div>
+        </section>
         <p className="max-w-2xl text-sm text-muted-foreground">
           参加者のマイ付箋は空から始まります。各自で付箋を追加できます。選び直すと別のルームを作り、開いているルームは切り替わりません。
         </p>

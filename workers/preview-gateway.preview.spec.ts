@@ -180,3 +180,134 @@ it("ログアウト時のPreview CookieをSecure付きで削除し、自動再�
   expect(cookies[0]).toContain("__Host-idea_boost_preview_session=;");
   expect(cookies[0]).toContain("Secure");
 });
+
+const withCookie = (req: Request, cookie: string) => {
+  req.headers.set("Cookie", `${req.headers.get("Cookie")}; ${cookie}`);
+  return req;
+};
+const SIGNED_OUT = "__Host-idea_boost_preview_signed_out=1";
+
+it("ログイン済みの/と/loginを/previewへ転送せず、本人セッション付きでアプリへ渡す", async () => {
+  certs();
+  for (const path of ["/", "/login?next=%2Finvite%2FABC123"]) {
+    const res = await previewGateway(request(await jwt(), path), config, next);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { cookie: string };
+    expect(body.cookie).toMatch(/^idea_boost_session=ey/);
+  }
+});
+it("未ログイン表示への切り替えはAccess認証後だけ受け付け、/へ戻す", async () => {
+  certs();
+  const denied = await previewGateway(
+    request(undefined, "/preview/signed-out"),
+    config,
+    next,
+  );
+  expect(denied.status).toBe(401);
+  const res = await previewGateway(
+    request(await jwt(), "/preview/signed-out"),
+    config,
+    next,
+  );
+  expect(res.status).toBe(302);
+  expect(res.headers.get("Location")).toBe("https://pr-123-preview.test/");
+  const cookies = res.headers.getSetCookie();
+  expect(cookies).toHaveLength(1);
+  expect(cookies[0]).toMatch(/^__Host-idea_boost_preview_signed_out=1;/);
+  expect(cookies[0]).toContain("Secure");
+  expect(cookies[0]).toContain("HttpOnly");
+  expect(next).not.toHaveBeenCalled();
+});
+it.each(["/", "/login?next=%2Finvite%2FABC123", "/about", "/api/rooms"])(
+  "未ログイン表示中の%sはCookieを一切渡さず、本人登録もセッション発行もしない",
+  async (path) => {
+    certs();
+    const res = await previewGateway(
+      withCookie(request(await jwt(), path), SIGNED_OUT),
+      config,
+      next,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { cookie: string | null };
+    expect(body.cookie).toBeNull();
+    expect(config.API_WORKER.fetch).not.toHaveBeenCalled();
+    expect(res.headers.getSetCookie()).toEqual([]);
+  },
+);
+it("未ログイン表示中もAccess未認証は拒否し、別originの更新操作も拒否する", async () => {
+  certs();
+  const anonymous = withCookie(request(undefined, "/"), SIGNED_OUT);
+  expect((await previewGateway(anonymous, config, next)).status).toBe(401);
+  const post = new Request("https://pr-123-preview.test/login", {
+    method: "POST",
+    headers: {
+      "Cf-Access-Jwt-Assertion": await jwt(),
+      Cookie: SIGNED_OUT,
+      Origin: "https://evil.test",
+    },
+  });
+  expect((await previewGateway(post, config, next)).status).toBe(403);
+  expect(next).not.toHaveBeenCalled();
+});
+it("未ログイン表示中にアプリが発行したセッションCookieをブラウザへ渡さない", async () => {
+  certs();
+  const issuing = async () =>
+    new Response("ok", {
+      headers: { "Set-Cookie": "idea_boost_session=forged; Path=/; HttpOnly" },
+    });
+  const res = await previewGateway(
+    withCookie(request(await jwt(), "/login"), SIGNED_OUT),
+    config,
+    issuing,
+  );
+  expect(res.headers.getSetCookie()).toEqual([]);
+});
+it("未ログイン表示中に/previewを開くと表示を解除し、本人セッション付きで渡す", async () => {
+  certs();
+  const res = await previewGateway(
+    withCookie(request(await jwt(), "/preview"), SIGNED_OUT),
+    config,
+    next,
+  );
+  const body = (await res.json()) as { cookie: string };
+  expect(body.cookie).toMatch(/^idea_boost_session=ey/);
+  expect(res.headers.getSetCookie()).toContainEqual(
+    expect.stringMatching(
+      /^__Host-idea_boost_preview_signed_out=; .*Max-Age=0/,
+    ),
+  );
+});
+it("Previewのログイン操作は未ログイン表示を解除し、同じoriginの/loginへnextを渡す", async () => {
+  certs();
+  const res = await previewGateway(
+    withCookie(
+      request(await jwt(), "/preview/sign-in?next=%2Finvite%2FABC123%3Fx%3D1"),
+      SIGNED_OUT,
+    ),
+    config,
+    next,
+  );
+  expect(res.status).toBe(302);
+  expect(res.headers.get("Location")).toBe(
+    "https://pr-123-preview.test/login?next=%2Finvite%2FABC123%3Fx%3D1",
+  );
+  expect(res.headers.getSetCookie()).toContainEqual(
+    expect.stringMatching(
+      /^__Host-idea_boost_preview_signed_out=; .*Max-Age=0/,
+    ),
+  );
+  for (const unsafe of ["https://evil.test", "//evil.test"]) {
+    const redirected = await previewGateway(
+      request(
+        await jwt(),
+        `/preview/sign-in?next=${encodeURIComponent(unsafe)}`,
+      ),
+      config,
+      next,
+    );
+    expect(new URL(redirected.headers.get("Location") ?? "").origin).toBe(
+      "https://pr-123-preview.test",
+    );
+  }
+  expect(next).not.toHaveBeenCalled();
+});

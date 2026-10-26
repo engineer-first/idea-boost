@@ -20,7 +20,7 @@ vi.mock("@/lib/session/cookie", () => ({
   OAUTH_STATE_COOKIE: "test-oauth-state",
 }));
 
-import { signInWithDevPassword, signOut } from "./actions";
+import { signInWithDevPassword, signInWithGoogle, signOut } from "./actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -90,3 +90,17 @@ it("本番のログアウトは既存のログイン画面へ戻る", async () =
   await expect(signOut()).rejects.toThrow("redirect:/login");
   expect(mocks.clearSession).toHaveBeenCalled();
 });
+
+it.each([
+  ["/invite/ABC234?x=1", "/preview/sign-in?next=%2Finvite%2FABC234%3Fx%3D1"],
+  ["//evil.example", "/preview/sign-in?next=%2F"],
+])(
+  "PreviewのGoogleログイン(next=%s)はOAuthを始めず、Access本人へ戻す入口へ進む",
+  async (next, expected) => {
+    vi.stubEnv("PREVIEW_ENABLED", "true");
+    await expect(signInWithGoogle(next)).rejects.toThrow(
+      `redirect:${expected}`,
+    );
+    expect(mocks.establish).not.toHaveBeenCalled();
+  },
+);
