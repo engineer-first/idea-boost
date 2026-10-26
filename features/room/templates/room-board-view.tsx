@@ -1502,7 +1502,10 @@ export function RoomBoardView({
                 element.getBoundingClientRect().bottom - frameTop,
               );
             }
-            top = desktopWorkspaceTopInFrame;
+            top = Math.max(
+              desktopWorkspaceTopInFrame,
+              stepGuideBottomInFrame ?? 0,
+            );
           } else {
             for (const testId of workspaceTopSurfaces) {
               const selector =
