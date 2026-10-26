@@ -312,10 +312,9 @@ export function RoomBoardCanvas({
   const isInitialPersonalEntryPhase = isPhaseStep(phase, 1, 1);
   const privateNotesInteractionBlocked =
     boardInteractionBlocked && !isInitialPersonalEntryPhase;
+  // 1-1・2-1・3-1は同じ上端から書き始められるよう、上部の操作欄の直下に固定する。
   const privateNotesContainerClassName = isPersonalNoteEntryPhase
-    ? isInitialPersonalEntryPhase
-      ? "fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 sm:top-[var(--board-private-expanded-top,5rem)] lg:inset-x-5 lg:bottom-5 lg:top-[var(--board-private-expanded-top,5rem)]"
-      : "absolute inset-x-0 top-[var(--board-private-workspace-top,12rem)] bottom-0 z-30 flex min-h-0 justify-center px-3 py-2"
+    ? "fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 sm:top-[var(--board-private-expanded-top,5rem)] lg:inset-x-5 lg:bottom-5 lg:top-[var(--board-private-expanded-top,5rem)]"
     : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
@@ -1179,13 +1178,6 @@ export function RoomBoardCanvas({
           >
             <div
               className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
-              style={
-                isPersonalNoteEntryPhase && !isInitialPersonalEntryPhase
-                  ? {
-                      top: "calc(var(--board-private-workspace-top, 12rem) - 100px)",
-                    }
-                  : undefined
-              }
               data-testid={
                 isPersonalNoteEntryPhase
                   ? "private-notes-workspace"
@@ -1249,7 +1241,7 @@ export function RoomBoardCanvas({
                 addActionRef={privateNoteAddRef}
                 className={
                   isPersonalNoteEntryPhase
-                    ? `pointer-events-auto h-full w-full rounded-2xl border border-border bg-card shadow-xl ${isInitialPersonalEntryPhase ? styles.initialWorkspace : styles.workspaceWithReference}`
+                    ? `pointer-events-auto h-full w-full rounded-2xl border border-border bg-card shadow-xl ${styles.personalWorkspace}`
                     : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
                 }
                 toolbarRef={privateToolbarRef}

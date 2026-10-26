@@ -1379,19 +1379,17 @@ export function RoomBoardView({
   useEffect(() => {
     const root = boardRootRef.current;
     if (!root) return;
-    const workspaceTopSurfaces = [
-      "board-context-hud",
-      "board-control-hud",
-      "board-connection-slot",
-      "board-help-panel",
-    ] as const;
     const isPersonalNoteEntryPhase =
       phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
-    const isInitialPersonalEntryPhase = isPhaseStep(phase, 1, 1);
     const expandedWorkspaceHeaderSurfaces = [
       "board-context-hud",
       "board-control-hud",
       "board-connection-slot",
+    ] as const;
+    const helpPanelSelector = '[data-testid="board-help-panel"] > div';
+    const referenceSelectors = [
+      '[data-testid="board-context-references"]',
+      helpPanelSelector,
     ] as const;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
@@ -1431,58 +1429,67 @@ export function RoomBoardView({
           '[data-testid="board-frame"]',
         );
         if (frame) {
-          const frameTop = frame.getBoundingClientRect().top;
-          if (isInitialPersonalEntryPhase) {
-            let headerBottom = frameTop;
-            for (const testId of expandedWorkspaceHeaderSurfaces) {
-              const element = root.querySelector<HTMLElement>(
-                `[data-testid="${testId}"]`,
-              );
-              if (
-                !element ||
-                element.getClientRects().length === 0 ||
-                getComputedStyle(element).visibility === "hidden"
-              )
-                continue;
-              const bounds = element.getBoundingClientRect();
-              // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
-              const bottom =
-                testId === "board-connection-slot"
-                  ? bounds.top + Math.max(38, bounds.height)
-                  : bounds.bottom;
-              headerBottom = Math.max(headerBottom, bottom);
-            }
-            root.style.setProperty(
-              "--board-private-expanded-top",
-              `${Math.ceil(headerBottom + 12)}px`,
-            );
-          }
-          let top = 0;
-          for (const testId of workspaceTopSurfaces) {
-            if (
-              window.innerWidth >= 640 &&
-              (testId === "board-context-hud" || testId === "board-help-panel")
-            )
-              continue;
-            const selector =
-              testId === "board-help-panel"
-                ? '[data-testid="board-help-panel"] > div'
-                : `[data-testid="${testId}"]`;
+          const isDesktop = window.innerWidth >= 640;
+          const visibleBounds = (selector: string): DOMRect | null => {
             const element = root.querySelector<HTMLElement>(selector);
-            if (
-              !element ||
+            return !element ||
               element.getClientRects().length === 0 ||
               getComputedStyle(element).visibility === "hidden"
-            )
-              continue;
-            top = Math.max(
-              top,
-              element.getBoundingClientRect().bottom - frameTop,
+              ? null
+              : element.getBoundingClientRect();
+          };
+          let headerBottom = frame.getBoundingClientRect().top;
+          for (const testId of expandedWorkspaceHeaderSurfaces) {
+            // デスクトップの上端は最上段の現在地と上部メニューの真下で決め、
+            // 接続案内・決定事項・開いた現在地カードはエリアの前面に重ねる。
+            // 現在地は閉じた寸法を予約する枠で測る。モバイルは縦に積んだ欄の下から始める。
+            const bounds = visibleBounds(
+              testId === "board-context-hud" && isDesktop
+                ? '[data-testid="board-location-slot"]'
+                : `[data-testid="${testId}"]`,
             );
+            if (!bounds) continue;
+            if (testId === "board-connection-slot") {
+              if (isDesktop) continue;
+              // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
+              headerBottom = Math.max(
+                headerBottom,
+                bounds.top + Math.max(38, bounds.height),
+              );
+              continue;
+            }
+            headerBottom = Math.max(headerBottom, bounds.bottom);
           }
+          // モバイルの考えるヒントは上部欄の下に重なるため、その下から始める。
+          const mobileHelpPanel = isDesktop
+            ? null
+            : visibleBounds(helpPanelSelector);
+          if (mobileHelpPanel)
+            headerBottom = Math.max(headerBottom, mobileHelpPanel.bottom);
           root.style.setProperty(
-            "--board-private-workspace-top",
-            `${Math.max(192, Math.ceil(top + 16))}px`,
+            "--board-private-expanded-top",
+            `${Math.ceil(headerBottom + 12)}px`,
+          );
+          // デスクトップの決定事項・考えるヒントは左側で前面に重なるため、
+          // 付箋一覧をその右側へ寄せる。
+          const workspace = root.querySelector<HTMLElement>(
+            '[data-testid="private-notes-toolbar"]',
+          );
+          const referenceRight = isDesktop
+            ? Math.max(
+                0,
+                ...referenceSelectors.map(
+                  (selector) => visibleBounds(selector)?.right ?? 0,
+                ),
+              )
+            : 0;
+          const referenceInset =
+            workspace && referenceRight > 0
+              ? referenceRight - workspace.getBoundingClientRect().left + 16
+              : 0;
+          root.style.setProperty(
+            "--board-private-reference-inset",
+            `${Math.max(0, Math.ceil(referenceInset))}px`,
           );
         }
       }
@@ -1495,13 +1502,15 @@ export function RoomBoardView({
       );
       if (element) observer?.observe(element);
     }
-    for (const testId of new Set([
-      ...workspaceTopSurfaces,
-      ...expandedWorkspaceHeaderSurfaces,
-    ])) {
-      const element = root.querySelector<HTMLElement>(
-        `[data-testid="${testId}"]`,
-      );
+    for (const selector of [
+      ...expandedWorkspaceHeaderSurfaces.map(
+        (testId) => `[data-testid="${testId}"]`,
+      ),
+      '[data-testid="board-location-slot"]',
+      '[data-testid="board-help-panel"]',
+      ...referenceSelectors,
+    ]) {
+      const element = root.querySelector<HTMLElement>(selector);
       if (element) observer?.observe(element);
     }
     update();
@@ -1763,14 +1772,9 @@ export function RoomBoardView({
               inPrivateToolbar &&
               target instanceof HTMLTextAreaElement &&
               !target.readOnly;
-            const isBackground =
-              target === interactions.boardScrollerRef.current ||
-              target.dataset.canvasBackground === "true";
+            // 個人作業で付箋を作れる場所はマイ付箋エリアだけ。背景キャンバスは起点にしない。
             if (
-              (isBackground ||
-                isPrivateSurface ||
-                isPrivateEditor ||
-                isPrivateWorkspace) &&
+              (isPrivateSurface || isPrivateEditor || isPrivateWorkspace) &&
               !target.closest(
                 '[data-board-native-control], [role="menu"], [role="dialog"]',
               )

@@ -84,6 +84,7 @@ function PhaseHandoffPreview(args: RoomBoardViewProps) {
       {...args}
       phase={phase}
       help={help}
+      interactions={{ ...args.interactions, notes: args.notes }}
       onNextPhase={() =>
         startTransition(() =>
           setPhase(buildPhaseStep(2, phase.kind === "step" ? phase.phase : 1)),
@@ -145,6 +146,8 @@ function step(
         : allReadyProgress(members),
       interactions: {
         ...boardMeta.args.interactions,
+        // 背景キャンバスの付箋は args.notes と一致させ、個人作業へ meta 既定の付箋を漏らさない。
+        notes: value === 1 ? [] : buildNotes(3),
         privateNotes: PRIVATE_NOTES,
       },
       timer: {
