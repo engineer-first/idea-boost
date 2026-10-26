@@ -33,3 +33,9 @@ export const PreviewAccessClaimsSchema = z.object({
   exp: z.int().positive(),
 });
 export type PreviewAccessClaims = z.infer<typeof PreviewAccessClaimsSchema>;
+
+// Previewでだけ使う、Access本人のまま未ログイン画面を確認する入口。
+// Gatewayが処理し、Nextのルートには渡らない。
+export const PREVIEW_SIGNED_OUT_PATH = "/preview/signed-out";
+// 未ログイン表示から本人のセッションへ戻し、`next`付きで/loginへ進める。
+export const PREVIEW_SIGN_IN_PATH = "/preview/sign-in";

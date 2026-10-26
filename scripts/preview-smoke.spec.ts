@@ -40,6 +40,19 @@ vi.mock("miniflare", () => ({
             return Response.json({ roomId: "local-room" }, { status: 201 });
           if (name === "preview-pr-13")
             return new Response(null, { status: 404 });
+          if (path === "/preview/signed-out")
+            return new Response(null, {
+              status: 302,
+              headers: { "Set-Cookie": "signed-out=1; Path=/" },
+            });
+          const cookie = new Headers(init?.headers).get("Cookie");
+          if (path === "/" && !cookie)
+            return new Response(null, {
+              status: 307,
+              headers: { Location: "/home" },
+            });
+          if (path === "/") return new Response("Googleでログインして始める");
+          if (path === "/login") return new Response("IdeaBoostとは？");
           return init?.headers
             ? new Response("確認するステップを選ぶ")
             : new Response(null, { status: 401 });

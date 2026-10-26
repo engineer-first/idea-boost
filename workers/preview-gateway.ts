@@ -1,6 +1,8 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { SyncUserResponseSchema } from "../contracts/api";
 import {
+  PREVIEW_SIGN_IN_PATH,
+  PREVIEW_SIGNED_OUT_PATH,
   type PreviewAccessClaims,
   PreviewAccessClaimsSchema,
 } from "../contracts/preview";
@@ -24,6 +26,9 @@ export type PreviewGatewayEnv = {
   API_WORKER: { fetch: typeof fetch };
 };
 const PREVIEW_COOKIE = "__Host-idea_boost_preview_session";
+// 未ログイン表示の目印。本人性を持たず、権限を減らす方向にしか働かない。
+const SIGNED_OUT_COOKIE = "__Host-idea_boost_preview_signed_out";
+const SIGNED_OUT_CLEAR = `${SIGNED_OUT_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`;
 const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 function deny(status: number, error: string): Response {
   return Response.json(
@@ -104,6 +109,31 @@ export async function previewGateway(
     request.headers.get("Origin") !== url.origin
   )
     return deny(403, "同じPreview画面から操作してください。");
+  if (
+    (url.pathname === PREVIEW_SIGNED_OUT_PATH ||
+      url.pathname === PREVIEW_SIGN_IN_PATH) &&
+    !["same-origin", "none", null].includes(
+      request.headers.get("Sec-Fetch-Site"),
+    )
+  )
+    // 別サイトのリンクから表示を切り替えさせない。
+    return deny(403, "同じPreview画面から操作してください。");
+  if (url.pathname === PREVIEW_SIGNED_OUT_PATH)
+    return redirectWithCookie(
+      `${url.origin}/`,
+      `${SIGNED_OUT_COOKIE}=1; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${Math.min(3600, identity.exp - Math.floor(Date.now() / 1000))}`,
+    );
+  if (url.pathname === PREVIEW_SIGN_IN_PATH)
+    // 行き先は常に同じoriginの/login。nextの安全化はログイン画面が行う。
+    return redirectWithCookie(
+      `${url.origin}/login?next=${encodeURIComponent(url.searchParams.get("next") ?? "/")}`,
+      SIGNED_OUT_CLEAR,
+    );
+  const signedOut =
+    getCookieValue(request.headers.get("Cookie"), SIGNED_OUT_COOKIE) === "1";
+  // 確認用の入口を開いたら、未ログイン表示を解除して本人に戻す。
+  if (signedOut && url.pathname !== "/preview")
+    return forwardSignedOut(request, url, next);
   const previewToken = getCookieValue(
     request.headers.get("Cookie"),
     PREVIEW_COOKIE,
@@ -174,10 +204,7 @@ export async function previewGateway(
   headers.set("X-Idea-Boost-Preview-Origin", url.origin);
   headers.delete("Cf-Access-Jwt-Assertion");
   const authenticated = new Request(request, { headers });
-  const response =
-    url.pathname === "/login" || url.pathname === "/"
-      ? Response.redirect(`${url.origin}/preview`, 302)
-      : await next(authenticated);
+  const response = await next(authenticated);
   // WebSocketの101を再構築するとupgradeを失うため、そのResponseを直接返す。
   if (response.status === 101) return response;
   const outgoing = new Response(response.body, response);
@@ -206,5 +233,36 @@ export async function previewGateway(
       "Set-Cookie",
       `${PREVIEW_COOKIE}=${appToken}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${ttl}`,
     );
+  if (signedOut) outgoing.headers.append("Set-Cookie", SIGNED_OUT_CLEAR);
+  return outgoing;
+}
+
+function redirectWithCookie(location: string, cookie: string): Response {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: location,
+      "Set-Cookie": cookie,
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
+
+// Access本人の検証後に、アプリのセッションを持たない訪問者として転送する。
+// 本人登録・セッション発行をせず、アプリが発行したCookieもすべて捨てる。
+async function forwardSignedOut(
+  request: Request,
+  url: URL,
+  next: (request: Request) => Promise<Response>,
+): Promise<Response> {
+  const headers = new Headers(request.headers);
+  headers.delete("Cookie");
+  headers.set("X-Idea-Boost-Preview-Origin", url.origin);
+  headers.delete("Cf-Access-Jwt-Assertion");
+  const response = await next(new Request(request, { headers }));
+  if (response.status === 101) return response;
+  const outgoing = new Response(response.body, response);
+  outgoing.headers.set("Cache-Control", "private, no-store");
+  outgoing.headers.delete("Set-Cookie");
   return outgoing;
 }

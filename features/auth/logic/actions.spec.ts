@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/session/env", () => ({
   isDevAuthEnabled: () => mocks.enabled,
+  isGoogleAuthConfigured: () => false,
 }));
 vi.mock("@/lib/session/establish", () => ({
   establishSession: mocks.establish,
@@ -20,7 +21,7 @@ vi.mock("@/lib/session/cookie", () => ({
   OAUTH_STATE_COOKIE: "test-oauth-state",
 }));
 
-import { signInWithDevPassword, signOut } from "./actions";
+import { signInWithDevPassword, signInWithGoogle, signOut } from "./actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -89,4 +90,26 @@ it("本番のログアウトは既存のログイン画面へ戻る", async () =
   vi.stubEnv("PREVIEW_ENABLED", undefined);
   await expect(signOut()).rejects.toThrow("redirect:/login");
   expect(mocks.clearSession).toHaveBeenCalled();
+});
+
+it.each([
+  ["/invite/ABC234?x=1", "/preview/sign-in?next=%2Finvite%2FABC234%3Fx%3D1"],
+  ["//evil.example", "/preview/sign-in?next=%2F"],
+  ["https://evil.example", "/preview/sign-in?next=%2F"],
+])(
+  "PreviewのGoogleログイン(next=%s)はOAuthを始めず、Access本人へ戻す入口へ進む",
+  async (next, expected) => {
+    vi.stubEnv("PREVIEW_ENABLED", "true");
+    await expect(signInWithGoogle(next)).rejects.toThrow(
+      `redirect:${expected}`,
+    );
+    expect(mocks.establish).not.toHaveBeenCalled();
+  },
+);
+
+it("PREVIEW_ENABLEDがない環境のGoogleログインはPreviewの入口へ進まない", async () => {
+  vi.stubEnv("PREVIEW_ENABLED", undefined);
+  await expect(signInWithGoogle("/invite/ABC234")).rejects.toThrow(
+    /^redirect:\/login\?next=%2Finvite%2FABC234&error=/,
+  );
 });

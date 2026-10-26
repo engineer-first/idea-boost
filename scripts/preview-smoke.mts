@@ -154,6 +154,37 @@ export async function smokePreviewBundle(
     const roomPage = await a.fetch(`${origin}/preview`, { headers });
     assert.equal(roomPage.status, 200);
     assert.match(await roomPage.text(), /確認するステップを選ぶ/);
+    // LPは本人のままの/と、未ログイン表示の/・/loginの両方で確認できる。
+    const signedIn = await a.fetch(`${origin}/`, {
+      headers,
+      redirect: "manual",
+    });
+    assert.equal(signedIn.status, 307);
+    assert.equal(
+      new URL(signedIn.headers.get("Location") ?? "", origin).pathname,
+      "/home",
+    );
+    const signedOutEntry = await a.fetch(`${origin}/preview/signed-out`, {
+      headers,
+      redirect: "manual",
+    });
+    assert.equal(signedOutEntry.status, 302);
+    const signedOutCookie = signedOutEntry.headers
+      .get("Set-Cookie")
+      ?.split(";")[0];
+    assert.ok(signedOutCookie);
+    const landing = await a.fetch(`${origin}/`, {
+      headers: { ...headers, Cookie: signedOutCookie },
+      redirect: "manual",
+    });
+    assert.equal(landing.status, 200);
+    assert.match(await landing.text(), /Googleでログインして始める/);
+    const login = await a.fetch(`${origin}/login?next=%2Fhome`, {
+      headers: { ...headers, Cookie: signedOutCookie },
+      redirect: "manual",
+    });
+    assert.equal(login.status, 200);
+    assert.match(await login.text(), /IdeaBoostとは？/);
     const otherDb = await mf.getD1Database("DB", "preview-pr-13");
     assert.equal(
       (
@@ -184,6 +215,7 @@ export async function smokePreviewBundle(
           "sample room created",
           "other PR cannot access",
           "Next page rendered",
+          "landing signed in and signed out",
           ...(options.browser
             ? ["two test identities; real UI/WebSocket"]
             : []),

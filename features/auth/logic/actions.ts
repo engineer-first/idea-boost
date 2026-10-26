@@ -11,6 +11,7 @@ import { cookies } from "next/headers";
 // ときに元のURLへ戻すため、page 側から .bind(null, next) で渡される。
 // 値は必ず sanitizeNextPath でアプリ内相対パスに限定する（オープンリダイレクト防止）。
 import { redirect } from "next/navigation";
+import { PREVIEW_SIGN_IN_PATH } from "@/contracts/preview";
 import {
   ROOM_OAUTH_RESUME_COOKIE,
   ROOM_RESUME_COOKIE,
@@ -62,6 +63,12 @@ export async function signInWithDevPassword(
 }
 
 export async function signInWithGoogle(next: string): Promise<void> {
+  // PreviewはAccessで本人確認済み。Preview Gatewayが未ログイン表示を解除して/loginへ戻す。
+  if (process.env.PREVIEW_ENABLED === "true") {
+    redirect(
+      `${PREVIEW_SIGN_IN_PATH}?next=${encodeURIComponent(sanitizeNextPath(next))}`,
+    );
+  }
   if (!isGoogleAuthConfigured()) {
     loginError("Google ログインの環境変数を設定してください。", next);
   }

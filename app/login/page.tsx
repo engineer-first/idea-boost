@@ -26,6 +26,11 @@ export default async function LoginPage({
 
   return (
     <LoginCard
+      aboutHref={
+        safeNext === "/"
+          ? "/about"
+          : `/about?next=${encodeURIComponent(safeNext)}`
+      }
       error={error}
       isConfigured={isAuthConfigured()}
       showDevAuth={isDevAuthEnabled()}
