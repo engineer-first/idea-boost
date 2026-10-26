@@ -719,6 +719,47 @@ test.each([
   },
 );
 
+test("進め方は操作HUDの上端に揃え、操作欄の下段が広くても下へ移動しない", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 900 },
+  });
+  try {
+    await openStory(page, "room-roomboardlayout--phase-1-step-1");
+    const shell = page.getByTestId("step-guide");
+    await expect.poll(() => shell.getAttribute("data-state")).not.toBeNull();
+    if ((await shell.getAttribute("data-state")) !== "compact") {
+      await page.keyboard.press("Escape");
+      await expect.poll(() => shell.getAttribute("data-state")).toBe("compact");
+      await waitForLayoutAnimations(shell);
+    }
+
+    // 下段の接続案内が操作HUDより広くても、上段HUD間の空き幅で配置を判定する。
+    await page.getByTestId("board-connection-slot").evaluate((slot) => {
+      (slot as HTMLElement).style.width = "920px";
+    });
+    await expect
+      .poll(() =>
+        page
+          .getByTestId("board-connection-slot")
+          .evaluate((slot) => Math.round(slot.getBoundingClientRect().width)),
+      )
+      .toBe(920);
+
+    const guide = await readBounds(page, "step-guide");
+    const controls = await readBounds(page, "board-control-hud");
+    const context = await readBounds(page, "board-context-hud");
+    expect(controls.x - (context.x + context.width)).toBeGreaterThanOrEqual(
+      guide.width + 24,
+    );
+    expect(
+      Math.abs(guide.y - controls.y),
+      "上下の操作領域全体ではなく、実際の上部HUDの位置へ揃える",
+    ).toBeLessThanOrEqual(1);
+  } finally {
+    await page.close();
+  }
+});
+
 test.each([
   { label: "主観", kind: "subjective", remaining: 1 },
   { label: "客観", kind: "objective", remaining: 3 },

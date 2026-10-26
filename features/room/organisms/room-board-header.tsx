@@ -226,7 +226,11 @@ export function RoomBoardHeader({
       if (guide && context && header && window.innerWidth >= 901) {
         const headerBounds = header.getBoundingClientRect();
         const contextBounds = context.getBoundingClientRect();
-        const controlsBounds = area?.getBoundingClientRect();
+        const controls = header.querySelector<HTMLElement>(
+          '[data-testid="board-control-hud"]',
+        );
+        const controlsBounds = controls?.getBoundingClientRect();
+        const controlsAreaBounds = area?.getBoundingClientRect();
         const isCompact = guide.dataset.state === "compact";
         const expandedWidth =
           window.innerWidth <= 1199
@@ -234,7 +238,10 @@ export function RoomBoardHeader({
             : Math.min(470, window.innerWidth - 40);
         const guideWidth = isCompact ? 126 : expandedWidth;
         const gapStart = contextBounds.right + 12;
-        const gapEnd = (controlsBounds?.left ?? gapStart) - 12 - guideWidth;
+        const gapEnd =
+          (controlsBounds?.left ?? controlsAreaBounds?.left ?? gapStart) -
+          12 -
+          guideWidth;
         const fitsOnHudRow = gapEnd >= gapStart;
         const clamp = (value: number, min: number, max: number): number =>
           Math.min(max, Math.max(min, value));
@@ -247,10 +254,12 @@ export function RoomBoardHeader({
               headerBounds.right - guideWidth - 12,
             );
         const y = fitsOnHudRow
-          ? (controlsBounds?.top ?? headerBounds.top)
+          ? (controlsBounds?.top ?? controlsAreaBounds?.top ?? headerBounds.top)
           : Math.max(
               contextBounds.bottom,
-              controlsBounds?.bottom ?? headerBounds.top,
+              controlsAreaBounds?.bottom ??
+                controlsBounds?.bottom ??
+                headerBounds.top,
             ) + 12;
         let nextHudTop = window.innerHeight;
         for (const testId of guideClearanceSurfaces) {
@@ -423,6 +432,10 @@ export function RoomBoardHeader({
       '[data-testid="board-context-hud"]',
     );
     if (context) observer?.observe(context);
+    const controls = header.querySelector<HTMLElement>(
+      '[data-testid="board-control-hud"]',
+    );
+    if (controls) observer?.observe(controls);
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
