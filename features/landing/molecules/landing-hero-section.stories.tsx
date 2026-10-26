@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { getLandingEntry } from "../logic/landing-entry";
+import styles from "./landing.module.css";
 import { LandingHeroSection } from "./landing-hero-section";
 
 const meta = {
@@ -8,7 +9,9 @@ const meta = {
   args: { entry: getLandingEntry(false) },
   decorators: [
     (Story) => (
-      <div className="mx-auto max-w-6xl bg-slate-50 px-6 text-slate-900 sm:px-10">
+      <div
+        className={`${styles.theme} mx-auto max-w-6xl bg-[var(--lp-surface)] px-6 text-[var(--lp-ink)] sm:px-10`}
+      >
         <Story />
       </div>
     ),

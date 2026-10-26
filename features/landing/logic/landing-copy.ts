@@ -5,44 +5,63 @@ export const landingCopy = {
   title: "Idea Boost | デザインスプリントの考え方で、チームの一案を",
   description:
     "Idea Boostは、デザインスプリントの考え方を取り入れ、課題整理からアイデア決定までをチームで進めるWebアプリです。",
-  heading: ["何を作るか、", "チームで決めきる。"],
-  origin: ["Googleで生まれた、", "デザインスプリントの", "考え方で。"],
-  introduction:
-    "ハッカソン・ビジコン・チーム制作の最初に。課題を出し、問いをつくり、アイデアを比べる。画面のガイドに沿って、チームで取り組むひとつの案を選びます。",
+  heading: ["アイデア出しに", "困ったら、ここから。"],
+  subheading: "爆速で出して、チームで決めきる。",
+  origin: ["Googleで生まれた", "デザインスプリントの考え方で。"],
+  introduction: "ハッカソン・ビジコン・チーム制作の最初に。",
   login: "ログイン",
-  startHelp: "ログイン後、ルームを作って仲間を招待できます。",
   join: "招待コードをお持ちの方",
-  joinHelp: "ログイン後、ホームでコードを入力できます。",
-  stepsHeading: ["チームの考えを、", "順番に育てる。"],
+  stepsHeading: ["案を急がず、", "問いから広げよう。"],
+  flow: {
+    intro: "課題を問いに変えてから案を広げることで、考える方向をそろえます。",
+    example: "説明用の例です。",
+    issue: "夜ふかしして、寝る時間が日によってバラバラ",
+    question: [
+      "どうしたら、",
+      "夜の作業を",
+      "気持ちよく",
+      "切り上げられるか？",
+    ],
+    prompts: [
+      { viewpoint: "なぜ？", detail: "作業の切り上げどきが分からない" },
+      { viewpoint: "見方を変える", detail: "寝る時間より、やめ方の問題" },
+      { viewpoint: "答えは1つじゃない", detail: "いろんな案が出せる問いに" },
+    ],
+    ideas: [
+      ["決まった", "時刻に", "アラームを", "鳴らす"],
+      ["明日の", "予定から", "寝る時刻を", "逆算する"],
+    ],
+    chosenIdea: [
+      "寝る30分前に、",
+      "今日の進捗と",
+      "明日の",
+      "最初の一手を",
+      "残して",
+      "作業を閉じる",
+    ],
+    alternatives: "広がる案（説明用）",
+    selected: "選ばれた案",
+    source: "出典: IDEO Design Kit — How Might We",
+    url: "https://www.designkit.org/methods/how-might-we.html",
+    diamondSource: "出典: Design Council — The Double Diamond",
+    diamondUrl:
+      "https://www.designcouncil.org.uk/resources/the-double-diamond/",
+  },
   steps: [
     {
       title: "課題を出す",
-      name: "Map",
-      outcome: "このチームで出た課題",
-      description:
-        "身近な困りごとを一人ひとりが書き出し、チームで取り組む課題を選びます。",
+      description: "身近な困りごとを出し、チームで取り組む課題を選びます。",
     },
     {
       title: "問いにする",
-      name: "How Might We",
-      outcome: "このチームで決めた問い",
-      description:
-        "選んだ課題を「どうしたら私たちは〜できる？」という問いに変えて、考える方向をそろえます。",
+      description: "課題を「どうしたら〜できる？」という問いに変えます。",
     },
     {
       title: "案を決める",
-      name: "Idea",
-      outcome: "このチームで選んだアイデア",
-      description:
-        "問いをもとにアイデアを広げ、比べて、チームで1つの案に絞ります。",
+      description: "問いからアイデアを広げ、比べて、1つの案に絞ります。",
     },
   ],
   closing: ["アイデア出しに困ったときは、", "これ。"],
-  remaining: "残るもの：",
-  image: {
-    alt: "睡眠・時間の使い方のアイデアを並べた3枚の付箋と、自分が貼った投票シールの拡大画面",
-    caption: "付箋を並べ、比べて、ひとつの案へ。画面は架空の入力例です。",
-  },
   examples: {
     heading: "実際に使ったチームが決めた内容",
     description:
@@ -51,34 +70,100 @@ export const landingCopy = {
     countPrefix: "出た付箋",
     countSuffix: "枚から",
   },
+  demo: {
+    typing: ["作業の区切りを", "知らせる"],
+    note: "寝る前の予定を、一緒に決める",
+  },
+  features: {
+    demo: {
+      code: "ABC123",
+      copy: "コピー",
+      copied: "コピーしました",
+      friend: "仲間へ共有",
+      timer: "集中する時間",
+      private: "自分だけ",
+      shared: "共有",
+      note: "気づきを書く",
+      voting: "投票中：自分の票だけ",
+      revealed: "投票終了：全員の票を公開",
+      hint: "別の場面なら？",
+      hintPrompt: "詰まったら",
+      save: "テキスト保存",
+      saved: "保存しました",
+      outcome: "課題・問い・案",
+    },
+    heading: "考える時間を、支える機能。",
+    items: [
+      {
+        title: "招待コードで集まる",
+        description: "コードを仲間に送って、同じルームへ。",
+      },
+      {
+        title: "時間を区切って集中",
+        description: "ステップごとのタイマーが、個人ワークの目安に。",
+      },
+      {
+        title: "まずは自分だけで",
+        description: "共有するまで、付箋は自分だけに見えます。",
+      },
+      {
+        title: "他人の票を見ずに選ぶ",
+        description: "主観1票・客観3票で、それぞれの視点から投票。",
+      },
+      {
+        title: "詰まったらヒント",
+        description: "発想のヒントで、別の切り口を探せます。",
+      },
+      {
+        title: "決めた成果を持ち帰る",
+        description: "全文コピーやテキスト保存で、次の制作へ。",
+      },
+    ],
+  },
   method: {
-    heading: ["あのGoogleが", "生み出した方法を、", "チームの最初の一歩に。"],
+    heading: ["なぜ、良いアイデアが", "出るのか。"],
+    introduction: "あのGoogleが生み出した方法を、チームの力に。",
     description:
-      "デザインスプリントは、GoogleでJake Knappが始め、Google Ventures（GV）で体系化された、短期間でチームが課題から解決策を決めて試す手法です。",
-    application:
-      "IdeaBoostは「課題整理〜アイデア決定」の考え方を取り入れ、専任のファシリテーターがいなくても、画面のガイドに沿って進められるようにしています。",
+      "GoogleでJake Knappが始め、GVで体系化されたデザインスプリント。その考え方を、IdeaBoostの進め方に取り入れています。",
     scope: "IdeaBoostの範囲は一案の決定まで。試作とユーザー検証はその先です。",
     source: "デザインスプリントについて（GV・英語）",
     sourceUrl: "https://www.gv.com/sprint/",
     cases:
-      "GoogleのDesign Sprint Kitでは、3M × Bontouch、H&M、Headspaceの実施事例が紹介されています。",
+      "GoogleのDesign Sprint Kitには、3M × Bontouch、H&M、Headspaceの実施事例も。",
     casesLabel: "Design Sprint Kitの事例を見る（英語）",
     casesUrl: "https://designsprintkit.withgoogle.com/case-studies",
     principles: [
       {
-        title: "個人で考えてから共有",
+        title: "解くべき",
+        accent: "課題から始める。",
+        label: "課題を見つける",
         description:
-          "まずは自分だけに見える付箋に書く。本人が共有してから、みんなで考える。一人ひとりの視点を持ち寄れます。",
+          "案を出す前に、誰のどんな困りごとを解くか。チームで取り組む課題を選びます。",
+        evidence: "市場との不適合は、スタートアップの失敗理由のひとつ。",
+        source: "出典: CB Insights",
+        url: "https://www.cbinsights.com/research/report/startup-failure-reasons-top/",
       },
       {
-        title: "時間と発表順で進む",
+        title: "一人で考えて、",
+        accent: "みんなで広げる。",
+        label: "個人ワークから共有へ",
         description:
-          "ステップごとのタイマーを目安に、一人ずつ順番に共有。今やることが画面に示されるので、進め方に迷いません。",
+          "話す順番を待たず、全員が先に書き出す。自分だけに見える付箋で、一人ひとりの考えを残します。",
+        evidence:
+          "話しながらのブレストでは、発言の順番待ちがアイデア数を減らす主な原因に。",
+        source: "出典: Diehl & Stroebe (1987)",
+        url: "https://doi.org/10.1037/0022-3514.53.3.497",
       },
       {
-        title: "他人の票を見ずに選ぶ",
+        title: "まわりに流されず、",
+        accent: "自分の視点で選ぶ。",
+        label: "ステルス投票",
         description:
-          "投票中は他の人の票を隠すステルス投票。声の大きさや先に入った票に引きずられず、自分の視点で選べます。",
+          "声の大きさや先に入った票に引きずられず、自分の視点で選ぶ。そのために、投票中は他の人の票を隠します。",
+        evidence:
+          "デザインスプリントの「無言の投票」と同じ考え方を、ステルス投票に。",
+        source: "出典: GV The Design Sprint",
+        url: "https://www.gv.com/sprint/#wednesday",
       },
     ],
   },

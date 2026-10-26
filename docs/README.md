@@ -25,7 +25,7 @@
 | 図や操作デモで理解したい                   | [公開HTMLの目次](site/index.html) / [GitHub Pages](https://engineer-first.github.io/idea-boost/)            |
 | 当時の検討を辿りたい                       | [過去資料](archive/README.md)                                                                               |
 
-LPの画面素材の更新は[LP画像の再生成](development/landing-images.md)を参照。
+LPの画面イメージの更新は[HTML/CSSモックの更新](development/landing-mock.md)を参照。
 
 ルーム作成の受付・回復・移行・GCは[運用仕様](operations/room-creation.md)を参照。
 

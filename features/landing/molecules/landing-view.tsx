@@ -7,7 +7,9 @@ import {
   landingLinkClass,
   landingSectionClass,
 } from "../logic/landing-styles";
+import styles from "./landing.module.css";
 import { LandingFaqSection } from "./landing-faq-section";
+import { LandingFeaturesSection } from "./landing-features-section";
 import { LandingFlowSection } from "./landing-flow-section";
 import { LandingHeroSection } from "./landing-hero-section";
 import { LandingMethodSection } from "./landing-method-section";
@@ -18,12 +20,12 @@ export type LandingViewProps = { isLoggedIn: boolean; entry: LandingEntry };
 export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
   return (
     <main
-      className="min-h-0 flex-1 overflow-y-auto bg-slate-50 text-slate-900 selection:bg-indigo-100 [color-scheme:light]"
+      className={`${styles.theme} min-h-0 flex-1 overflow-y-auto bg-[var(--lp-surface)] text-[var(--lp-ink)] selection:bg-[var(--lp-tint)] [color-scheme:light]`}
       data-testid="landing-scroll"
     >
       {!isLoggedIn && (
         <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4 sm:px-10">
-          <p className="text-lg font-bold tracking-tight text-indigo-600">
+          <p className="text-lg font-bold tracking-tight text-[var(--lp-accent)]">
             {copy.brand}
           </p>
           <Link href={entry.href} className={landingLinkClass}>
@@ -33,8 +35,9 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
       )}
       <div className="mx-auto max-w-6xl px-6 sm:px-10">
         <LandingHeroSection entry={entry} />
-        <LandingFlowSection />
         <LandingMethodSection />
+        <LandingFeaturesSection />
+        <LandingFlowSection />
         <LandingStartSection />
         <LandingFaqSection />
         <footer className={landingSectionClass}>
@@ -53,7 +56,7 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
               {copy.privacy}
             </Link>
           </div>
-          <p className="mt-8 max-w-3xl text-xs leading-6 text-slate-600">
+          <p className="mt-8 max-w-3xl text-xs leading-6 text-[var(--lp-body)]">
             {copy.disclaimer}
           </p>
         </footer>
