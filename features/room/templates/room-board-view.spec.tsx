@@ -1496,7 +1496,7 @@ describe("RoomBoardView", () => {
   });
 
   it.each([1, 2, 3] as const)(
-    "%i-1のパネル上端は接続案内の切替・ガイドの展開・決定事項の高さで動かない",
+    "%i-1のパネル上端は現在地と上部メニューの真下に置き、接続案内・ガイド・決定事項では動かない",
     (phaseNumber) => {
       let guideHeight = 42;
       let connectionHeight = 38;
@@ -1539,20 +1539,20 @@ describe("RoomBoardView", () => {
       const root = screen.getByTestId("room-board-view-root");
       const top = () =>
         root.style.getPropertyValue("--board-private-expanded-top");
-      // 接続案内1行（174 + 38）の下に12pxの余白を取る。
-      expect(top()).toBe("224px");
+      // 上部メニュー（110 + 56）の下に12pxの余白を取る。進め方と接続案内はパネルの前面に重ねる。
+      expect(top()).toBe("178px");
 
       // 640px以上では決定事項（board-context-hud）を測らず現在地の枠だけで決めるため、
       // 決定事項が伸びても上端は変わらない。
       guideHeight = 180;
       contextHeight = 300;
       fireEvent(window, new Event("resize"));
-      expect(top()).toBe("224px");
+      expect(top()).toBe("178px");
 
       guideHeight = 42;
       connectionHeight = 0;
       fireEvent(window, new Event("resize"));
-      expect(top()).toBe("224px");
+      expect(top()).toBe("178px");
     },
   );
 

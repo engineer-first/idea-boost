@@ -442,7 +442,7 @@ for (const phase of [1, 2, 3] as const) {
   });
 }
 
-test("1-1・2-1・3-1のマイ付箋エリアはガイドの開閉によらず同じ高さから始まる", async () => {
+test("1-1・2-1・3-1のマイ付箋エリアはガイドの開閉によらず現在地と上部メニューの真下から始まる", async () => {
   await page.setViewportSize({ width: 1280, height: 720 });
   const tops: Record<string, number> = {};
   for (const phase of [1, 2, 3] as const) {
@@ -456,8 +456,9 @@ test("1-1・2-1・3-1のマイ付箋エリアはガイドの開閉によらず�
       tops[`${phase}-1/${guide}`] = box.y;
     }
   }
-  // 1280×720では上部の操作欄（接続案内1行を含む）の直下、150pxから始める。
-  const expected = 150;
+  // 1280×720では最上段の現在地・上部メニュー（下端68px）の真下、80pxから始める。
+  // 進め方と接続案内はエリアの前面に重ねる。
+  const expected = 80;
   for (const [key, top] of Object.entries(tops)) {
     expect(
       Math.abs(top - expected),

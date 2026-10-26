@@ -1447,24 +1447,28 @@ export function RoomBoardView({
           let headerBottom = frame.getBoundingClientRect().top;
           let guideBottom = 0;
           for (const testId of expandedWorkspaceHeaderSurfaces) {
-            // デスクトップでは2-1・3-1の決定事項を左側でエリアの前面に重ね、
-            // 上端は現在地の閉じた寸法を予約する枠だけで決める（開いたカードは前面に重ねる）。
-            // モバイルは決定事項の下から始める。
+            // デスクトップの上端は最上段の現在地と上部メニューの真下で決め、
+            // 進め方・接続案内・決定事項・開いた現在地カードはエリアの前面に重ねる。
+            // 現在地は閉じた寸法を予約する枠で測る。モバイルは縦に積んだ欄の下から始める。
             const bounds = visibleBounds(
               testId === "board-context-hud" && isDesktop
                 ? '[data-testid="board-location-slot"]'
                 : `[data-testid="${testId}"]`,
             );
             if (!bounds) continue;
+            if (testId === "step-guide") guideBottom = bounds.bottom;
+            if (
+              isDesktop &&
+              (testId === "board-connection-slot" || testId === "step-guide")
+            )
+              continue;
             let bottom = bounds.bottom;
             if (testId === "board-connection-slot") {
               // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
               bottom = bounds.top + Math.max(38, bounds.height);
             } else if (testId === "step-guide") {
-              guideBottom = bounds.bottom;
-              // デスクトップのガイドはコンパクトな入口の領域を確保し、詳細はその上に重ねる。
               initialMobileGuideBottom ??= bounds.bottom;
-              bottom = isDesktop ? bounds.top + 42 : initialMobileGuideBottom;
+              bottom = initialMobileGuideBottom;
             }
             headerBottom = Math.max(headerBottom, bottom);
           }
