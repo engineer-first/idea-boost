@@ -1398,7 +1398,6 @@ export function RoomBoardView({
       "step-guide",
     ] as const;
     let stepGuideBottomInFrame: number | null = null;
-    let desktopWorkspaceTopInFrame = 0;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1482,48 +1481,27 @@ export function RoomBoardView({
                 : 0;
           }
           let top = stepGuideBottomInFrame;
-          if (window.innerWidth >= 901) {
-            // デスクトップでは個人ワークスペースの上端を一度決め、ガイドの開閉で動かさない。
-            // 左側の参照カードも実寸に含め、付箋の操作対象がカードの下へ潜らないようにする。
-            for (const testId of workspaceTopSurfaces) {
-              const selector =
-                testId === "board-help-panel"
-                  ? '[data-testid="board-help-panel"] > div'
-                  : `[data-testid="${testId}"]`;
-              const element = root.querySelector<HTMLElement>(selector);
-              if (
-                !element ||
-                element.getClientRects().length === 0 ||
-                getComputedStyle(element).visibility === "hidden"
-              )
-                continue;
-              desktopWorkspaceTopInFrame = Math.max(
-                desktopWorkspaceTopInFrame,
-                element.getBoundingClientRect().bottom - frameTop,
-              );
-            }
+          for (const testId of workspaceTopSurfaces) {
+            if (
+              window.innerWidth >= 640 &&
+              (testId === "board-context-hud" || testId === "board-help-panel")
+            )
+              continue;
+            const selector =
+              testId === "board-help-panel"
+                ? '[data-testid="board-help-panel"] > div'
+                : `[data-testid="${testId}"]`;
+            const element = root.querySelector<HTMLElement>(selector);
+            if (
+              !element ||
+              element.getClientRects().length === 0 ||
+              getComputedStyle(element).visibility === "hidden"
+            )
+              continue;
             top = Math.max(
-              desktopWorkspaceTopInFrame,
-              stepGuideBottomInFrame ?? 0,
+              top,
+              element.getBoundingClientRect().bottom - frameTop,
             );
-          } else {
-            for (const testId of workspaceTopSurfaces) {
-              const selector =
-                testId === "board-help-panel"
-                  ? '[data-testid="board-help-panel"] > div'
-                  : `[data-testid="${testId}"]`;
-              const element = root.querySelector<HTMLElement>(selector);
-              if (
-                !element ||
-                element.getClientRects().length === 0 ||
-                getComputedStyle(element).visibility === "hidden"
-              )
-                continue;
-              top = Math.max(
-                top,
-                element.getBoundingClientRect().bottom - frameTop,
-              );
-            }
           }
           root.style.setProperty(
             "--board-private-workspace-top",
