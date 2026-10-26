@@ -5,6 +5,7 @@
 // login など未ログイン画面では root layout が描画しない。
 
 import { ChevronDown, UserRound } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/popover";
 import { DisplayNameDialog, signOut, useDisplayName } from "@/features/auth";
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
+import { aboutMenuLabel } from "./app-header-copy";
 
 export type AppHeaderProps = {
   // 表示名（メールは出さない）。空ならユーザー名は描画しない。
@@ -85,6 +87,15 @@ export function AppHeader({ userName, currentUserId }: AppHeaderProps) {
                 }}
               >
                 表示名を変更
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                className="min-h-11 w-full justify-start"
+              >
+                <Link href="/about" onClick={() => setMenuOpen(false)}>
+                  {aboutMenuLabel}
+                </Link>
               </Button>
             </PopoverContent>
           </Popover>

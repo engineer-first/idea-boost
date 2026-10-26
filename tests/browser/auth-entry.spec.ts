@@ -125,6 +125,15 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
       expect(new URL(page.url()).searchParams.get("next")).toBe(invite);
       expect(await page.locator("html").getAttribute("lang")).toBe("ja");
       await capture(page, "after-login");
+      await page.getByRole("link", { name: "IdeaBoostとは？" }).click();
+      await page.waitForURL((url) => url.pathname === "/about");
+      expect(new URL(page.url()).searchParams.get("next")).toBe(invite);
+      await page
+        .getByRole("link", { name: "ログインして招待の参加確認へ" })
+        .last()
+        .click();
+      await page.waitForURL((url) => url.pathname === "/login");
+      expect(new URL(page.url()).searchParams.get("next")).toBe(invite);
       await page.getByLabel("メールアドレス").fill("member@example.test");
       await page.getByLabel("パスワード").fill("incorrect");
       await page

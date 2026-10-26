@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AppHeader } from "@/app/app-header";
 import { Toaster } from "@/components/ui/sonner";
 import { loadDisplayName } from "@/features/auth";
+import { landingCopy } from "@/features/landing";
 import { getCurrentUser } from "@/lib/session/current-user";
 import "./globals.css";
 
@@ -19,7 +20,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   applicationName: "Idea Boost",
   title: "Idea Boost",
-  description: "Idea Boost authentication",
+  description: landingCopy.description,
 };
 
 export default async function RootLayout({

@@ -72,3 +72,7 @@ export const PendingDevAuth: Story = {
     },
   },
 };
+
+export const FromInvite: Story = {
+  args: { aboutHref: "/about?next=%2Finvite%2FABC123" },
+};

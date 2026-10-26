@@ -4,6 +4,7 @@
 #   room → notes / dot-vote / vote-totaling / room-members / invite / hmw
 #          / idea-support / auth
 #   room-lifecycle → auth（再認証と入室継続）
+#   landing → auth（戻り先の安全化とログインURL）
 #   notes → dot-vote / room-members
 #   shared-outcomes → room-members（保存済みの付箋色の表示）
 #
@@ -303,6 +304,7 @@ ignores:
   - "features/idea-support/**"
   - "features/shared-outcomes/**"
   - "features/completed-rooms/**"
+  - "features/landing/**"
 message: 未登録の feature は feature を import できない。先に feature-dependencies-one-way.yml に登録する
 note: |
   新 feature の依存はまずこのファイルに明示する（葉なら leaf 規則の files に
@@ -333,6 +335,7 @@ ignores:
   - "features/idea-support/**"
   - "features/shared-outcomes/**"
   - "features/completed-rooms/**"
+  - "features/landing/**"
 message: 未登録の feature は feature を import できない。先に feature-dependencies-one-way.yml に登録する
 note: |
   新 feature の依存はまずこのファイルに明示する（葉なら leaf 規則の files に
@@ -451,6 +454,48 @@ severity: error
 files:
   - features/room-lifecycle/**
 message: room-lifecycle は auth の公開境界だけを共有する
+rule:
+  all:
+    - any:
+        - kind: import_statement
+        - kind: export_statement
+    - has:
+        field: source
+        regex: "[.@]/+features/+"
+    - not:
+        has:
+          field: source
+          regex: '^"@/features/auth"$'
+
+---
+# landing → auth の戻り先ヘルパーのみ。auth からの逆依存は禁止のまま。
+id: landing-feature-allowed-edges
+language: typescript
+severity: error
+files:
+  - features/landing/**
+message: landing は auth の公開境界だけを共有する
+rule:
+  all:
+    - any:
+        - kind: import_statement
+        - kind: export_statement
+    - has:
+        field: source
+        regex: "[.@]/+features/+"
+    - not:
+        has:
+          field: source
+          regex: '^"@/features/auth"$'
+
+---
+# landing → auth の戻り先ヘルパーのみ。auth からの逆依存は禁止のまま。
+id: landing-feature-allowed-edges-tsx
+language: tsx
+severity: error
+files:
+  - features/landing/**
+message: landing は auth の公開境界だけを共有する
 rule:
   all:
     - any:

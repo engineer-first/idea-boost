@@ -1,15 +1,18 @@
 "use client";
 
 import { KeyRound, ShieldAlert } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import type { DevAuthState } from "../logic/actions";
 import {
   DEV_AUTH_DEFAULT_EMAIL,
   DEV_AUTH_DEFAULT_PASSWORD,
 } from "../logic/dev-auth-defaults";
+import { loginAboutLabel } from "../logic/login-copy";
 
 export type LoginCardProps = {
   error?: string;
+  aboutHref?: string;
   isConfigured: boolean;
   showDevAuth: boolean;
   googleAction: (formData: FormData) => void | Promise<void>;
@@ -21,6 +24,7 @@ export type LoginCardProps = {
 
 export function LoginCard({
   error,
+  aboutHref = "/about",
   isConfigured,
   showDevAuth,
   googleAction,
@@ -40,6 +44,13 @@ export function LoginCard({
             アイデア出しをスマートに、スムーズに。
           </p>
         </div>
+
+        <Link
+          href={aboutHref}
+          className="flex min-h-11 items-center justify-center text-sm text-indigo-700 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
+        >
+          {loginAboutLabel}
+        </Link>
 
         {loginError && (
           <div

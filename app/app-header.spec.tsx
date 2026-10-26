@@ -152,3 +152,12 @@ it("メニューを開いてから別画面へ移動し、ホームへ戻って�
     screen.queryByRole("button", { name: "表示名を変更" }),
   ).not.toBeInTheDocument();
 });
+
+it("ホームのユーザーメニューから説明ページを開ける", async () => {
+  navigationMocks.pathname = "/home";
+  render(<AppHeader userName="はな" />);
+  fireEvent.click(screen.getByRole("button", { name: "ユーザーメニュー" }));
+  expect(
+    await screen.findByRole("link", { name: "IdeaBoostについて" }),
+  ).toHaveAttribute("href", "/about");
+});
