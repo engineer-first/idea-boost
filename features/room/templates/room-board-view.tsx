@@ -1398,6 +1398,7 @@ export function RoomBoardView({
       "step-guide",
     ] as const;
     let stepGuideBottomInFrame: number | null = null;
+    let desktopWorkspaceTopInFrame: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1481,6 +1482,36 @@ export function RoomBoardView({
                 : 0;
           }
           let top = stepGuideBottomInFrame;
+          if (window.innerWidth >= 901 && !isInitialPersonalEntryPhase) {
+            // 参照カードの初期位置だけを予約し、開閉や切替で付箋領域を動かさない。
+            // workspace の top は100px先行するため、その分を加えてカード下に配置する。
+            if (desktopWorkspaceTopInFrame === null) {
+              desktopWorkspaceTopInFrame = 0;
+              for (const testId of [
+                "board-context-hud",
+                "board-control-hud",
+                "board-connection-slot",
+              ] as const) {
+                const element = root.querySelector<HTMLElement>(
+                  `[data-testid="${testId}"]`,
+                );
+                if (
+                  !element ||
+                  element.getClientRects().length === 0 ||
+                  getComputedStyle(element).visibility === "hidden"
+                )
+                  continue;
+                const bounds = element.getBoundingClientRect();
+                const contextClearance =
+                  testId === "board-context-hud" ? 96 : 0;
+                desktopWorkspaceTopInFrame = Math.max(
+                  desktopWorkspaceTopInFrame,
+                  bounds.bottom - frameTop + contextClearance,
+                );
+              }
+            }
+            top = Math.max(top, desktopWorkspaceTopInFrame);
+          }
           for (const testId of workspaceTopSurfaces) {
             if (
               window.innerWidth >= 640 &&
@@ -1528,10 +1559,14 @@ export function RoomBoardView({
       if (element) observer?.observe(element);
     }
     update();
-    window.addEventListener("resize", update);
+    const handleResize = () => {
+      desktopWorkspaceTopInFrame = null;
+      update();
+    };
+    window.addEventListener("resize", handleResize);
     return () => {
       observer?.disconnect();
-      window.removeEventListener("resize", update);
+      window.removeEventListener("resize", handleResize);
     };
   }, [boardRootRef, phase, isIdeaMapWorkspaceStep]);
 

@@ -1406,7 +1406,7 @@ test.each([
 );
 
 // 固定情報との意図した部分重なりは許容し、各操作対象に到達できる可視部分が残ることを調べる。
-async function expectHudTargets(): Promise<void> {
+async function expectHudTargets(context: string): Promise<void> {
   const targets = page.locator(
     [
       '[data-testid="board-header-row"] button',
@@ -1495,7 +1495,7 @@ async function expectHudTargets(): Promise<void> {
       expect(
         Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
           Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1,
-        `${a.name} / ${b.name}`,
+        `${context}: ${a.name} / ${b.name}: ${JSON.stringify({ a, b })}`,
       ).toBe(false);
     }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
@@ -1538,7 +1538,7 @@ test.each([1280, 390])(
               .evaluate((e) => e.getAnimations({ subtree: true }).length),
           )
           .toBe(0);
-        await expectHudTargets();
+        await expectHudTargets(`${width}px ${step}, host=${isHost}, compact`);
         await page.getByRole("button", { name: "進め方", exact: true }).click();
         await expect
           .poll(() =>
@@ -1549,7 +1549,7 @@ test.each([1280, 390])(
           .toBe(0);
         const box = await page.getByTestId("step-guide").boundingBox();
         expect(box?.width).toBeGreaterThanOrEqual(width === 390 ? 280 : 100);
-        await expectHudTargets();
+        await expectHudTargets(`${width}px ${step}, host=${isHost}, detail`);
       }
   },
   60_000,
