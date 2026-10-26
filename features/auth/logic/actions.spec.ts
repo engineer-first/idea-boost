@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/session/env", () => ({
   isDevAuthEnabled: () => mocks.enabled,
+  isGoogleAuthConfigured: () => false,
 }));
 vi.mock("@/lib/session/establish", () => ({
   establishSession: mocks.establish,
@@ -94,6 +95,7 @@ it("本番のログアウトは既存のログイン画面へ戻る", async () =
 it.each([
   ["/invite/ABC234?x=1", "/preview/sign-in?next=%2Finvite%2FABC234%3Fx%3D1"],
   ["//evil.example", "/preview/sign-in?next=%2F"],
+  ["https://evil.example", "/preview/sign-in?next=%2F"],
 ])(
   "PreviewのGoogleログイン(next=%s)はOAuthを始めず、Access本人へ戻す入口へ進む",
   async (next, expected) => {
@@ -104,3 +106,10 @@ it.each([
     expect(mocks.establish).not.toHaveBeenCalled();
   },
 );
+
+it("PREVIEW_ENABLEDがない環境のGoogleログインはPreviewの入口へ進まない", async () => {
+  vi.stubEnv("PREVIEW_ENABLED", undefined);
+  await expect(signInWithGoogle("/invite/ABC234")).rejects.toThrow(
+    /^redirect:\/login\?next=%2Finvite%2FABC234&error=/,
+  );
+});

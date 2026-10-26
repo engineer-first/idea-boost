@@ -311,3 +311,78 @@ it("Previewのログイン操作は未ログイン表示を解除し、同じori
   }
   expect(next).not.toHaveBeenCalled();
 });
+it.each(["/preview/signed-out", "/preview/sign-in?next=%2F"])(
+  "%sはAccess未認証を拒否し、未ログイン表示を変更しない",
+  async (path) => {
+    certs();
+    const res = await previewGateway(request(undefined, path), config, next);
+    expect(res.status).toBe(401);
+    expect(res.headers.getSetCookie()).toEqual([]);
+  },
+);
+it.each(["cross-site", "same-site"])(
+  "別サイト(Sec-Fetch-Site=%s)から未ログイン表示を切り替えない",
+  async (site) => {
+    certs();
+    for (const path of ["/preview/signed-out", "/preview/sign-in?next=%2F"]) {
+      const req = request(await jwt(), path);
+      req.headers.set("Sec-Fetch-Site", site);
+      const res = await previewGateway(req, config, next);
+      expect(res.status).toBe(403);
+      expect(res.headers.getSetCookie()).toEqual([]);
+    }
+  },
+);
+it("未ログイン表示のCookieはAccessログインの期限までに切れる", async () => {
+  certs();
+  const res = await previewGateway(
+    request(
+      await jwt("allowed@example.test", "preview-app", 120),
+      "/preview/signed-out",
+    ),
+    config,
+    next,
+  );
+  const maxAge = Number(
+    res.headers.get("Set-Cookie")?.match(/Max-Age=(\d+)/)?.[1],
+  );
+  expect(maxAge).toBeGreaterThan(0);
+  expect(maxAge).toBeLessThanOrEqual(120);
+});
+it("未ログイン表示中はアプリが発行したCookieを一切ブラウザへ渡さない", async () => {
+  certs();
+  const issuing = async () => {
+    const headers = new Headers();
+    headers.append("Set-Cookie", "idea_boost_room_resume=x; Path=/");
+    headers.append("Set-Cookie", "future_session=y; Path=/");
+    return new Response("ok", { headers });
+  };
+  const res = await previewGateway(
+    withCookie(request(await jwt(), "/login"), SIGNED_OUT),
+    config,
+    issuing,
+  );
+  expect(res.headers.getSetCookie()).toEqual([]);
+});
+it.each([
+  [undefined, 403],
+  ["https://pr-123-preview.test", 200],
+])(
+  "未ログイン表示中のWebSocket(Origin=%s)は別originを拒否し、同じoriginはCookieなしで渡す",
+  async (origin, status) => {
+    certs();
+    const req = withCookie(
+      request(await jwt(), "/api/rooms/room/ws"),
+      SIGNED_OUT,
+    );
+    req.headers.set("Upgrade", "websocket");
+    if (origin) req.headers.set("Origin", origin);
+    const res = await previewGateway(req, config, next);
+    expect(res.status).toBe(status);
+    if (status === 200)
+      expect(
+        ((await res.json()) as { cookie: string | null }).cookie,
+      ).toBeNull();
+    else expect(next).not.toHaveBeenCalled();
+  },
+);

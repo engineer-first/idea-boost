@@ -28,7 +28,6 @@ export type PreviewGatewayEnv = {
 const PREVIEW_COOKIE = "__Host-idea_boost_preview_session";
 // 未ログイン表示の目印。本人性を持たず、権限を減らす方向にしか働かない。
 const SIGNED_OUT_COOKIE = "__Host-idea_boost_preview_signed_out";
-const SIGNED_OUT_SET = `${SIGNED_OUT_COOKIE}=1; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=3600`;
 const SIGNED_OUT_CLEAR = `${SIGNED_OUT_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`;
 const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 function deny(status: number, error: string): Response {
@@ -110,8 +109,20 @@ export async function previewGateway(
     request.headers.get("Origin") !== url.origin
   )
     return deny(403, "同じPreview画面から操作してください。");
+  if (
+    (url.pathname === PREVIEW_SIGNED_OUT_PATH ||
+      url.pathname === PREVIEW_SIGN_IN_PATH) &&
+    !["same-origin", "none", null].includes(
+      request.headers.get("Sec-Fetch-Site"),
+    )
+  )
+    // 別サイトのリンクから表示を切り替えさせない。
+    return deny(403, "同じPreview画面から操作してください。");
   if (url.pathname === PREVIEW_SIGNED_OUT_PATH)
-    return redirectWithCookie(`${url.origin}/`, SIGNED_OUT_SET);
+    return redirectWithCookie(
+      `${url.origin}/`,
+      `${SIGNED_OUT_COOKIE}=1; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${Math.min(3600, identity.exp - Math.floor(Date.now() / 1000))}`,
+    );
   if (url.pathname === PREVIEW_SIGN_IN_PATH)
     // 行き先は常に同じoriginの/login。nextの安全化はログイン画面が行う。
     return redirectWithCookie(
@@ -238,7 +249,7 @@ function redirectWithCookie(location: string, cookie: string): Response {
 }
 
 // Access本人の検証後に、アプリのセッションを持たない訪問者として転送する。
-// 本人登録・セッション発行をせず、アプリが発行したセッションCookieも捨てる。
+// 本人登録・セッション発行をせず、アプリが発行したCookieもすべて捨てる。
 async function forwardSignedOut(
   request: Request,
   url: URL,
@@ -253,11 +264,5 @@ async function forwardSignedOut(
   const outgoing = new Response(response.body, response);
   outgoing.headers.set("Cache-Control", "private, no-store");
   outgoing.headers.delete("Set-Cookie");
-  for (const cookie of response.headers.getSetCookie())
-    if (
-      !cookie.startsWith(`${SESSION_COOKIE_NAME}=`) &&
-      !cookie.startsWith(`${PREVIEW_COOKIE}=`)
-    )
-      outgoing.headers.append("Set-Cookie", cookie);
   return outgoing;
 }
