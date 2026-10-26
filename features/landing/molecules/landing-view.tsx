@@ -37,10 +37,18 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
             id="landing-heading"
             className="text-balance text-4xl font-bold leading-snug tracking-tight sm:text-6xl sm:leading-tight"
           >
-            {copy.heading}
+            {copy.heading.map((phrase) => (
+              <span key={phrase} className="inline-block">
+                {phrase}
+              </span>
+            ))}
           </h1>
           <p className="mt-7 text-balance text-xl font-semibold leading-relaxed text-indigo-700 sm:text-2xl">
-            {copy.lead}
+            {copy.lead.map((phrase) => (
+              <span key={phrase} className="inline-block">
+                {phrase}
+              </span>
+            ))}
           </p>
           <p className="mt-4 max-w-xl text-base leading-8 text-slate-600">
             {copy.introduction}
@@ -70,12 +78,16 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
             id="landing-steps"
             className="text-balance text-2xl font-bold leading-relaxed"
           >
-            {copy.stepsHeading}
+            {copy.stepsHeading.map((phrase) => (
+              <span key={phrase} className="inline-block">
+                {phrase}
+              </span>
+            ))}
           </h2>
           <ol className="mt-8 grid gap-8 md:grid-cols-3 md:gap-10">
             {copy.steps.map((step, index) => (
               <li key={step.title}>
-                <h3 className="flex items-baseline gap-3 text-lg font-semibold">
+                <h3 className="flex items-baseline gap-3 whitespace-nowrap text-lg font-semibold">
                   <span className="text-sm tabular-nums text-indigo-700">
                     {index + 1}
                   </span>
@@ -89,7 +101,13 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
           </ol>
         </section>
         <footer className="border-t border-slate-200 py-10 sm:py-14">
-          <p className="mb-6 text-xl font-semibold">{copy.closing}</p>
+          <p className="mb-6 text-xl font-semibold">
+            {copy.closing.map((phrase) => (
+              <span key={phrase} className="inline-block">
+                {phrase}
+              </span>
+            ))}
+          </p>
           <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
             <Link href={entry.href} className={ctaClass}>
               {entry.label}
