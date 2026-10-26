@@ -10,7 +10,7 @@ export const landingCopy = {
   comparison: {
     subject: "デザインスプリント",
     timeLabel: "で一案を決めるまで",
-    afterLabel: "IdeaBoostなら",
+    afterLabel: "Idea Boostなら",
     timeBefore: "通常 3日",
     timeAfter: "約2時間",
     guideLabel: "の進め方",
@@ -146,8 +146,8 @@ export const landingCopy = {
     heading: ["なぜ、良いアイデアが", "出るのか。"],
     introduction: "あのGoogleが生み出した方法を、チームの力に。",
     description:
-      "GoogleでJake Knappが始め、GVで体系化されたデザインスプリント。その考え方を、IdeaBoostの進め方に取り入れています。",
-    scope: "IdeaBoostの範囲は一案の決定まで。試作とユーザー検証はその先です。",
+      "GoogleでJake Knappが始め、GVで体系化されたデザインスプリント。その考え方を、Idea Boostの進め方に取り入れています。",
+    scope: "Idea Boostの範囲は一案の決定まで。試作とユーザー検証はその先です。",
     source: "デザインスプリントについて（GV・英語）",
     sourceUrl: "https://www.gv.com/sprint/",
     cases:
@@ -227,7 +227,7 @@ export const landingCopy = {
       {
         question: "デザインスプリントを知らなくても使えますか？",
         answer:
-          "はい。デザインスプリントは本来、試作と検証まで含めて5日間で行い、進行役がチームをリードします。IdeaBoostは、そのうち一案を決めるまで（本来3日）を対象に、各ステップのガイドとタイマーで進め方を案内します。",
+          "はい。デザインスプリントは本来、試作と検証まで含めて5日間で行い、進行役がチームをリードします。Idea Boostは、そのうち一案を決めるまで（本来3日）を対象に、各ステップのガイドとタイマーで進め方を案内します。",
         source: {
           label: "出典: GV The Design Sprint",
           url: "https://www.gv.com/sprint/",
@@ -246,14 +246,14 @@ export const landingCopy = {
       {
         question: "Googleの製品ですか？",
         answer:
-          "いいえ。IdeaBoostはGoogleの製品ではなく、Googleによる公認・提携を受けたものではありません。デザインスプリントの考え方を参考にしています。",
+          "いいえ。Idea BoostはGoogleの製品ではなく、Googleによる公認・提携を受けたものではありません。デザインスプリントの考え方を参考にしています。",
       },
     ],
     contact: "お問い合わせ（Googleフォーム）",
     contactHelp: "解決しないことや、利用についてのご相談はこちらへ。",
   },
   disclaimer:
-    "IdeaBoostはGoogleの製品ではなく、Googleによる公認・提携を受けたものではありません。GoogleはGoogle LLCの商標です。",
+    "Idea BoostはGoogleの製品ではなく、Googleによる公認・提携を受けたものではありません。GoogleはGoogle LLCの商標です。",
   privacy: "保存とプライバシー",
   cta: {
     normal: ["Googleでログインして始める", "ホームへ進む"],
