@@ -61,7 +61,6 @@ import type {
   SharingReaction,
   SharingReactionControls,
 } from "../logic/use-sharing-reactions";
-import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -209,7 +208,6 @@ export type RoomBoardViewProps = {
   isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
-  initialGuideState?: StepGuideState;
   remoteCursors: RenderedRemoteCursorPresence[];
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
@@ -399,7 +397,6 @@ export function RoomBoardView({
   onTimerResume,
   onTimerExtend,
   onTimerStop,
-  initialGuideState,
 }: RoomBoardViewProps) {
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const phaseKey =
@@ -1395,9 +1392,7 @@ export function RoomBoardView({
       "board-context-hud",
       "board-control-hud",
       "board-connection-slot",
-      "step-guide",
     ] as const;
-    let stepGuideBottomInFrame: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1439,7 +1434,6 @@ export function RoomBoardView({
           const frameTop = frame.getBoundingClientRect().top;
           if (isInitialPersonalEntryPhase) {
             let headerBottom = frameTop;
-            let guideBottom = 0;
             for (const testId of expandedWorkspaceHeaderSurfaces) {
               const element = root.querySelector<HTMLElement>(
                 `[data-testid="${testId}"]`,
@@ -1451,36 +1445,19 @@ export function RoomBoardView({
               )
                 continue;
               const bounds = element.getBoundingClientRect();
-              if (testId === "step-guide") guideBottom = bounds.bottom;
               // 通常の接続案内1行を予約し、同期完了で執筆位置を動かさない。
-              // デスクトップのガイドはコンパクトな入口の領域を確保し、詳細はその上に重ねる。
               const bottom =
                 testId === "board-connection-slot"
                   ? bounds.top + Math.max(38, bounds.height)
-                  : testId === "step-guide" && window.innerWidth >= 640
-                    ? bounds.top + 42
-                    : bounds.bottom;
+                  : bounds.bottom;
               headerBottom = Math.max(headerBottom, bottom);
             }
             root.style.setProperty(
               "--board-private-expanded-top",
               `${Math.ceil(headerBottom + 12)}px`,
             );
-            root.style.setProperty(
-              "--board-private-guide-bottom",
-              `${Math.ceil(guideBottom)}px`,
-            );
           }
-          if (stepGuideBottomInFrame === null) {
-            const stepGuide = root.querySelector<HTMLElement>(
-              '[data-testid="step-guide"]',
-            );
-            stepGuideBottomInFrame =
-              stepGuide && stepGuide.getClientRects().length > 0
-                ? stepGuide.getBoundingClientRect().bottom - frameTop
-                : 0;
-          }
-          let top = stepGuideBottomInFrame;
+          let top = 0;
           for (const testId of workspaceTopSurfaces) {
             if (
               window.innerWidth >= 640 &&
@@ -1952,7 +1929,6 @@ export function RoomBoardView({
           hasCurrentDecision={
             phase.kind === "step" && decision?.phase === phase.phase
           }
-          initialGuideState={initialGuideState}
           hasFinalDecision={hasFinalDecision}
           outcomePublished={outcomePublished}
           onPublishOutcome={onPublishOutcome}

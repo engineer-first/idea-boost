@@ -111,6 +111,18 @@ const meta = {
     participant: false,
     completed: false,
   },
+  decorators: [
+    (Story, context) => {
+      const currentUserId = context.args.participant
+        ? PREVIEW_TARGET
+        : PREVIEW_HOST;
+      window.sessionStorage.setItem(
+        `step-onboarding:ABC234:${currentUserId}:1-1`,
+        "seen",
+      );
+      return <Story />;
+    },
+  ],
 } satisfies Meta<typeof ActiveHostTransferPreview>;
 export default meta;
 type Story = StoryObj<typeof meta>;

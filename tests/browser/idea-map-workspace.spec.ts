@@ -125,7 +125,7 @@ test.each(
       const plane = await readBounds(page, "idea-value-feasibility-map-plane");
       const slot = await readBounds(page, "idea-value-feasibility-map-slot");
       expect(plane.x).toBeCloseTo(planeX, 1);
-      expect(plane.y).toBeCloseTo(118, 1);
+      expect(plane.y).toBeCloseTo(130, 1);
       expect(plane.width).toBeCloseTo(
         planeWidth + (phase === "3-2" ? 0 : 224),
         1,
@@ -569,27 +569,6 @@ test.each([
   },
 );
 
-test.each([1280, 1440])(
-  "%dpxで3-2の進め方が最新の発表者HUDを遮らない",
-  async (width) => {
-    const page = await browser.newPage({ viewport: { width, height: 800 } });
-    try {
-      await openWorkspace(page);
-      const guide = await readBounds(page, "step-guide");
-      const controls = await readBounds(page, "board-control-hud");
-      const overlapWidth =
-        Math.min(guide.x + guide.width, controls.x + controls.width) -
-        Math.max(guide.x, controls.x);
-      const overlapHeight =
-        Math.min(guide.y + guide.height, controls.y + controls.height) -
-        Math.max(guide.y, controls.y);
-      expect(overlapWidth > 0 && overlapHeight > 0).toBe(false);
-    } finally {
-      await page.close();
-    }
-  },
-);
-
 test.each([
   { label: "主観", kind: "subjective", remaining: 1 },
   { label: "客観", kind: "objective", remaining: 3 },
@@ -845,7 +824,7 @@ test.each([
     width: 768,
     height: 844,
     x: 76,
-    y: 379.4375,
+    y: 331.4375,
     widthPx: 452,
     heightPx: 265.765625,
   },
@@ -861,7 +840,7 @@ test.each([
     width: 901,
     height: 720,
     x: 76,
-    y: 118,
+    y: 130,
     widthPx: 585,
     heightPx: 339.65625,
   },
@@ -869,7 +848,7 @@ test.each([
     width: 1280,
     height: 720,
     x: 77.40625,
-    y: 118,
+    y: 130,
     widthPx: 961.1875,
     heightPx: 534,
   },
@@ -877,7 +856,7 @@ test.each([
     width: 1440,
     height: 1000,
     x: 76,
-    y: 118,
+    y: 130,
     widthPx: 1124,
     heightPx: 639.09375,
   },
@@ -1021,7 +1000,7 @@ test.each([
   },
 );
 
-test("マイ付箋だけを開閉・スクロールし、参照情報やガイドを開いてもマップが動かない", async () => {
+test("マイ付箋だけを開閉・スクロールし、参照情報を開いてもマップが動かない", async () => {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 720 },
   });
@@ -1059,12 +1038,7 @@ test("マイ付箋だけを開閉・スクロールし、参照情報やガイ�
     expect(await question.getAttribute("aria-expanded")).toBe("true");
     expect(await plane.boundingBox()).toEqual(before);
 
-    await page.getByRole("button", { name: "進め方", exact: true }).click();
-    expect(await plane.boundingBox()).toEqual(before);
-    await page.keyboard.press("Escape");
-    expect(
-      await page.getByTestId("step-guide").getAttribute("data-state"),
-    ).toBe("compact");
+    expect(await page.getByTestId("step-guide").count()).toBe(0);
   } finally {
     await page.close();
   }
@@ -1834,16 +1808,8 @@ test("上部は共通HUDを使い、決定事項を横並びにしてもマッ�
       .getByTestId("board-reference-hmw")
       .boundingBox();
     const issue = await page.getByTestId("board-reference-issue").boundingBox();
-    const guide = await page.getByTestId("step-guide").boundingBox();
     const controls = await page.getByTestId("board-control-hud").boundingBox();
-    if (
-      !initialPlane ||
-      !location ||
-      !question ||
-      !issue ||
-      !guide ||
-      !controls
-    )
+    if (!initialPlane || !location || !question || !issue || !controls)
       throw new Error("上部UIまたは2軸マップがありません");
 
     expect(location.width).toBe(360);
@@ -1851,9 +1817,6 @@ test("上部は共通HUDを使い、決定事項を横並びにしてもマッ�
     expect(Math.abs(question.y - issue.y)).toBeLessThanOrEqual(1);
     expect(Math.abs(question.height - issue.height)).toBeLessThanOrEqual(1);
     expect(await page.getByTestId("board-help-panel").count()).toBe(0);
-    expect(
-      Math.abs(guide.x + guide.width / 2 - viewport.width / 2),
-    ).toBeLessThan(100);
     expect(Math.abs(controls.y - location.y)).toBeLessThanOrEqual(2);
 
     await page.getByRole("button", { name: /決定した問い/ }).click();
@@ -1877,7 +1840,6 @@ test("上部は共通HUDを使い、決定事項を横並びにしてもマッ�
       .poll(() => page.getByTestId("board-reference-issue-content").isVisible())
       .toBe(true);
     expect(await plane.boundingBox()).toEqual(initialPlane);
-    await page.getByRole("button", { name: "進め方", exact: true }).click();
     expect(await plane.boundingBox()).toEqual(initialPlane);
   } finally {
     await page.close();
@@ -1998,7 +1960,6 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
     await openStory(page, "room-roomboardview--step-1-2-sharing");
     const sharedAnchors = {
       location: await readBounds(page, "board-location-card"),
-      guide: await readBounds(page, "step-guide"),
       controls: await readBounds(page, "board-control-hud"),
       tools: await readBounds(page, "board-tools-hud"),
       operations: await readBounds(page, "board-operation-matrix"),
@@ -2008,7 +1969,6 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
     await openWorkspace(page);
     const workspaceAnchors = {
       location: await readBounds(page, "board-location-card"),
-      guide: await readBounds(page, "step-guide"),
       controls: await readBounds(page, "board-control-hud"),
       tools: await readBounds(page, "board-tools-hud"),
       operations: await readBounds(page, "board-operation-matrix"),
@@ -2016,7 +1976,7 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
       phaseLoop: await readBounds(page, "phase-loop-hud"),
       mapSize: await readBounds(page, "idea-map-size-controls-hud"),
     };
-    for (const key of ["location", "guide", "operations"] as const) {
+    for (const key of ["location", "operations"] as const) {
       expect
         .soft(workspaceAnchors[key], `${key}の位置を共通HUDに揃える`)
         .toEqual(sharedAnchors[key]);
@@ -2033,7 +1993,7 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
     const plane = await readBounds(page, "idea-value-feasibility-map-plane");
     expect.soft(plane).toEqual({
       x: 77.40625,
-      y: 118,
+      y: 130,
       width: 961.1875,
       height: 534,
     });

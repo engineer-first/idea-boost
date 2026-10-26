@@ -57,11 +57,19 @@ const meta = {
   component: RoomBoardView,
   parameters: { layout: "fullscreen" },
   decorators: [
-    (Story) => (
-      <div style={{ height: "100dvh", overflow: "hidden" }}>
-        <Story />
-      </div>
-    ),
+    (Story, context) => {
+      const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      if (context.parameters.firstVisitOnboarding) {
+        window.sessionStorage.removeItem(sessionKey);
+      } else {
+        window.sessionStorage.setItem(sessionKey, "seen");
+      }
+      return (
+        <div style={{ height: "100dvh", overflow: "hidden" }}>
+          <Story />
+        </div>
+      );
+    },
   ],
 } satisfies Meta<typeof RoomBoardView>;
 export default meta;
@@ -144,11 +152,15 @@ function step(
         endsAt: Date.now() + 138_000,
         durationMs: 180_000,
       },
-      initialGuideState: "detail",
     },
   };
 }
 export const Phase1Step1: Story = step(1, 1);
+export const FirstVisitOnboarding: Story = {
+  ...Phase1Step1,
+  name: "1-1 初回案内",
+  parameters: { firstVisitOnboarding: true },
+};
 export const Phase1Step1ToStep2: Story = handoffStory(1);
 export const Phase1Step2: Story = step(1, 2);
 export const Phase1Step3: Story = step(1, 3);
@@ -158,16 +170,12 @@ export const Phase1Step3WithNotReadyMember: Story = {
 };
 export const Phase1Step4: Story = step(1, 4);
 export const Phase1Step5: Story = step(1, 5);
-const phase2Step1 = step(2, 1);
-export const Phase2Step1: Story = {
-  ...phase2Step1,
-  args: { ...phase2Step1.args, initialGuideState: "compact" },
-};
+export const Phase2Step1: Story = step(2, 1);
 export const Phase2Step1ToStep2: Story = handoffStory(2);
 export const Phase2Step1WithGuide: Story = {
   ...Phase2Step1,
   name: "問い作成の詳細ガイド",
-  args: { ...Phase2Step1.args, initialGuideState: "detail" },
+  args: { ...Phase2Step1.args },
 };
 export const Phase2Step2: Story = step(2, 2);
 export const Phase2Step3: Story = step(2, 3);
@@ -252,21 +260,18 @@ export const NarrowWidth: Story = {
 
 export const DecisionsAndNotes: Story = {
   ...ReferenceAndNotes,
-  name: "進め方と課題・問いを同時に参照",
+  name: "決定した課題と問いを同時に参照",
   play: async (context) => {
     await ReferenceAndNotes.play?.(context);
     await userEvent.click(
       within(context.canvasElement).getByText("決定した課題"),
     );
-    await userEvent.click(
-      within(context.canvasElement).getByRole("button", { name: "進め方" }),
-    );
   },
 };
 export const ContextCollapsed: Story = {
   ...ReferenceAndNotes,
-  name: "進め方を閉じて問いを参照しながら作業",
-  args: { ...ReferenceAndNotes.args, initialGuideState: "compact" },
+  name: "参照欄を閉じて問いを参照しながら作業",
+  args: { ...ReferenceAndNotes.args },
 };
 
 export const SingleParticipant: Story = {
@@ -321,7 +326,6 @@ export const SharingReady: Story = {
     ...step(1, 2).args,
     timer: { status: "idle" },
     sharing: buildSharingState(),
-    initialGuideState: "compact",
   },
 };
 export const SharingActive: Story = {
@@ -387,7 +391,6 @@ export const MapControls: Story = {
   args: {
     ...step(3, 3).args,
     ideaMapSizeInitialized: true,
-    initialGuideState: "compact",
   },
   render: function Render(args) {
     const [level, setLevel] = useState(1);
@@ -407,7 +410,7 @@ export const MapControls: Story = {
 export const UndoNotification: Story = {
   ...step(1, 5),
   name: "1-5 決定中の自動除外通知",
-  args: { ...step(1, 5).args, initialGuideState: "compact" },
+  args: { ...step(1, 5).args },
   render: function Render(args) {
     const help = useBoardHelp(args.phase);
     const [undone, setUndone] = useState(false);
@@ -437,13 +440,13 @@ export const UndoNotification: Story = {
 export const UndoNotificationHmw: Story = {
   ...UndoNotification,
   name: "2-4 決定中の自動除外通知",
-  args: { ...step(2, 4).args, initialGuideState: "compact" },
+  args: { ...step(2, 4).args },
 };
 
 export const UndoNotificationIdea: Story = {
   ...UndoNotification,
   name: "3-5 決定中の自動除外通知",
-  args: { ...step(3, 5).args, initialGuideState: "compact" },
+  args: { ...step(3, 5).args },
 };
 
 export const DelayedConnection: Story = {
@@ -462,7 +465,7 @@ export const Unavailable: Story = {
 };
 export const AuthRequiredLocationExpanded: Story = {
   ...AuthRequired,
-  args: { ...AuthRequired.args, initialGuideState: "compact" },
+  args: { ...AuthRequired.args },
   play: async ({ canvasElement }) => {
     await userEvent.click(
       within(canvasElement).getByRole("button", { name: /現在地/ }),
@@ -500,7 +503,6 @@ export const LongReference: Story = {
   ...step(3, 1),
   args: {
     ...step(3, 1).args,
-    initialGuideState: "compact",
     decidedHmw: "問いの全文を読みながら考える。".repeat(134).slice(0, 2000),
     hmwReference: buildCarryover({
       phase: 2,

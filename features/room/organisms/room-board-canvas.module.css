@@ -12,16 +12,8 @@
   --private-workspace-padding: 0.75rem;
 }
 
-/* ガイドを開いても外枠は動かさず、入力内容をガイドの下へ退避する。 */
 .initialWorkspace [data-testid="private-notes-scroll"] {
-  padding-block-start: max(
-    var(--private-workspace-padding),
-    calc(
-      var(--board-private-guide-bottom, 0px) -
-      var(--board-private-expanded-top, 0px) +
-      12px
-    )
-  );
+  padding-block-start: var(--private-workspace-padding);
 }
 
 @media (min-width: 768px) {

@@ -175,16 +175,15 @@ test("390pxで復旧通知を閉じると通常の付箋操作に戻れる", asy
 });
 
 for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
-  for (const guide of ["detail", "compact"] as const) {
-    test(`接続待ちの案内は進行・ガイドを覆わず、メニューへ到達できる (${width}px / ${guide})`, async () => {
+  for (const variant of ["delayed", "reconnecting"] as const) {
+    test(`接続待ちの案内は進行操作を覆わず、メニューへ到達できる (${width}px / ${variant})`, async () => {
       await page.setViewportSize({ width, height: 844 });
       await page.goto(
-        `${origin}/iframe.html?id=${guide === "detail" ? "room-roomboardlayout--delayed-connection" : "room-roomboardview--reconnecting"}&viewMode=story&args=connectionDelayed:true`,
+        `${origin}/iframe.html?id=${variant === "delayed" ? "room-roomboardlayout--delayed-connection" : "room-roomboardview--reconnecting"}&viewMode=story&args=connectionDelayed:true`,
       );
       const notice = page.getByTestId("board-connection-status");
       await notice.waitFor();
       await page.evaluate(() => document.fonts.ready);
-      await page.getByTestId("step-guide").waitFor();
       const textVisibility = await notice.evaluate((element) => {
         const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
         const lines: { text: string; visible: boolean }[] = [];
@@ -207,7 +206,7 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
         return lines;
       });
       expect(textVisibility.length).toBeGreaterThanOrEqual(3);
-      expect(textVisibility, "案内の各行が他のガイドに遮られない").toEqual(
+      expect(textVisibility, "案内の各行が表示される").toEqual(
         textVisibility.map((line) => ({ ...line, visible: true })),
       );
       expect(await notice.innerText()).toContain(
@@ -247,41 +246,7 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
         expect(contextBox?.y).toBeGreaterThanOrEqual(
           (noticeBox?.y ?? Infinity) + (noticeBox?.height ?? 0),
         );
-      if (width === 390) {
-        const guide = page.getByTestId("step-guide");
-        await guide.scrollIntoViewIfNeeded();
-        const privateNotesBox = await page
-          .getByTestId("private-notes-toolbar")
-          .boundingBox();
-        const guideBox = await guide.boundingBox();
-        if (
-          (await page
-            .getByTestId("private-notes-toolbar")
-            .getAttribute("data-presentation")) !== "workspace"
-        ) {
-          expect(
-            privateNotesBox?.y,
-            "マイ付箋一覧が進め方を覆わない",
-          ).toBeGreaterThanOrEqual(
-            // 進行欄は独立スクロールするため、実際に見える範囲で比較する。
-            Math.min(
-              (guideBox?.y ?? Infinity) + (guideBox?.height ?? 0),
-              (contextBox?.y ?? Infinity) + (contextBox?.height ?? 0),
-            ),
-          );
-        }
-        expect(
-          await guide.evaluate((element) => {
-            const rect = element.getBoundingClientRect();
-            const top = document.elementFromPoint(
-              rect.x + rect.width / 2,
-              rect.y + rect.height / 2,
-            );
-            return top !== null && element.contains(top);
-          }),
-          "スクロールして進め方へ到達できる",
-        ).toBe(true);
-      }
+      expect(await page.getByTestId("step-guide").count()).toBe(0);
       await page.getByRole("button", { name: "ルームメニューを開く" }).click();
       await page
         .getByRole("button", { name: "ルームを解散", exact: true })

@@ -7,7 +7,7 @@
 | 知りたいこと                               | 読む資料                                                                                                    |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
 | 何を作るか・誰のためか                     | [PRD](prd.md)                                                                                               |
-| ステップ・操作・ガイド・成果の振る舞い     | [進行仕様](product/sprint-flow.md)                                                                          |
+| ステップ・操作・成果の振る舞い             | [進行仕様](product/sprint-flow.md)                                                                          |
 | キャンバス操作の方針を3分で読む            | [操作概要](product/canvas-interactions.md) → [実装用詳細](product/canvas-interactions/details.md)           |
 | FigJam / Miroの画像・GIFで操作を比較したい | [参考ギャラリー](product/canvas-interactions/reference-gallery.md)                                          |
 | コードをどこに置くか                       | [開発規約](development/conventions.md)                                                                      |
