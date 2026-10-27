@@ -7,7 +7,7 @@ body:
       value: "[Issue記述ルール](https://github.com/engineer-first/idea-boost/blob/develop/docs/team/issue-writing.md) に沿って記入してください。タイトルは「PBI-ジャンル-番号 主題」。既存コードは保持し、主題は何ができるかを具体的に書いてください（例: 付箋を追加し、続けて案を書ける）。ジャンル・採番は [Issue運用](https://github.com/engineer-first/idea-boost/blob/develop/docs/team/issues.md) を参照してください。"
   - type: markdown
     attributes:
-      value: "Story points はPBIだけの任意項目です。判断できる場合はサイドバーで設定できます。未設定でも起票・採用・着手を進めてください。[見積もりの目安](https://github.com/engineer-first/idea-boost/blob/develop/docs/team/issues.md#見積もりの目安)"
+      value: "Story points はPBIだけの任意項目です。判断でき、サイドバーに Story points が表示されている場合は設定できます。未設定でも起票・採用・着手を進めてください。[見積もりの目安](https://github.com/engineer-first/idea-boost/blob/develop/docs/team/issues.md#見積もりの目安)"
   - type: textarea
     id: story
     attributes:
