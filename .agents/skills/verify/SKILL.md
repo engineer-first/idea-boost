@@ -21,6 +21,7 @@ description: このリポジトリの変更をローカルで起動して実際�
 4. 「付箋を追加」で付箋を作成。
 
 ブラウザ操作は agent-browser CLI で行う（使い方は `agent-browser skills get core`）。
+agent-browser の `click` / `keyboard type` は付箋の追加・入力にそのまま届くので、下記の合成イベントは不要。
 
 ## 検証の観測点
 

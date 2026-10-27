@@ -164,6 +164,7 @@ Node.js のバージョンは `mise.toml` で LTS に固定しています。CI 
 
 実ブラウザでの UI 確認・スクリーンショット取得には MCP ではなく [agent-browser](https://github.com/vercel-labs/agent-browser) CLI を使います。
 `npm install -g agent-browser && agent-browser install` で導入し、エージェントには `agent-browser skills get core` で使い方を読ませてください。
+`agent-browser install` はエージェント専用の Chrome for Testing を入れます。これを入れないと普段使いの Google Chrome が流用され、リンクの開き先が混ざります。
 
 ## スクラム運用
 
