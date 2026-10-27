@@ -237,7 +237,7 @@ test("共有一巡後の書き足し操作はタイマー内で選べる", async
     "共有済み付箋と下書きは残",
   );
   await trigger.press("Enter");
-  expect(await page.getByRole("alertdialog").count()).toBe(0);
+  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
 });
 
 test.each(phases)(
@@ -299,7 +299,7 @@ test("採用はキーボードで候補を選ぶと確認ダイアログなし�
   ).toBe(0);
   const candidate = page.getByRole("button", { name: /採用する付箋:/ }).first();
   await candidate.press("Enter");
-  expect(await page.getByRole("alertdialog").count()).toBe(0);
+  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
   expect(await cancel.count()).toBe(0);
   expect(
     await page
@@ -355,7 +355,7 @@ test("時間切れ後は未チェックの参加者を確認して次へ進む",
     .getByRole("button", { name: "次へ進む", exact: true })
     .press("Enter");
   expect(await page.getByTestId("phase-next-count").innerText()).toBe("1");
-  expect(await page.getByRole("alertdialog").count()).toBe(0);
+  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
 });
 
 test("課題の確定後は取消と、時間切れ後の次フェーズ進行ができる", async () => {

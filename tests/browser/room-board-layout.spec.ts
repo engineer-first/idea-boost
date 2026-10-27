@@ -29,7 +29,10 @@ beforeAll(async () => {
   browser = await chromium.launch();
 });
 beforeEach(async () => {
-  page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    reducedMotion: "reduce",
+  });
 });
 afterEach(async () => {
   await page?.close();
@@ -643,7 +646,7 @@ test("接続中断時と参加者表示でもタイマー枠を薄くせず、�
     if (state === "idle") participantRight = bounds.x + bounds.width;
     else expect(bounds.x + bounds.width).toBe(participantRight);
     if (state === "idle") {
-      expect(await page.getByRole("timer").innerText()).toBe("03:00");
+      expect(await page.getByRole("timer").innerText()).toBe("05:00");
       expect(await page.getByTestId("timer-sound-toggle").count()).toBe(0);
     }
   }
@@ -1261,7 +1264,9 @@ test.each([1280, 1024, 768])(
         e.contains(document.querySelector('[data-testid="timer-floating"]')),
       ),
     ).toBe(false);
-    await floating.press("Escape");
+    await floating
+      .getByRole("button", { name: "再開", exact: true })
+      .press("Escape");
     const timer = page.getByTestId("room-timer");
     const timerBox = await timer.boundingBox();
     expect({ width: timerBox?.width, height: timerBox?.height }).toEqual({

@@ -39,10 +39,10 @@ test.each([1280, 360])(
         .getByRole("button", { name: "次へ進む", exact: true })
         .press("Enter");
       expect(await page.getByTestId("phase-next-count").innerText()).toBe("1");
-      expect(await page.getByRole("alertdialog").count()).toBe(0);
-      expect(await next.evaluate((el) => document.activeElement === el)).toBe(
-        true,
-      );
+      await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+      await expect
+        .poll(() => next.evaluate((el) => document.activeElement === el))
+        .toBe(true);
       expect(
         await page
           .getByRole("button", { name: "できた！", exact: true })
