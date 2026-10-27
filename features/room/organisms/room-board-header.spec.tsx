@@ -18,6 +18,8 @@ const ME = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
   sessionStorage.setItem(`step-onboarding:AB12CD:${ME}:1-1`, "seen");
+  for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
+    sessionStorage.setItem(`step-onboarding:AB12CD:${ME}:${step}`, "seen");
 });
 
 function allReadyProgress(members: ReturnType<typeof buildMembers>) {
@@ -419,11 +421,10 @@ describe("RoomBoardHeader", () => {
       phase: buildPhaseStep(step, phase),
     });
 
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     if (label === "3-2") {
+      expect(screen.queryByRole("dialog")).toBeNull();
       expect(screen.queryByRole("button", { name: "進め方" })).toBeNull();
     } else {
-      fireEvent.click(screen.getByRole("button", { name: "進め方" }));
       expect(screen.getByRole("dialog")).toBeVisible();
     }
   });
@@ -1184,6 +1185,10 @@ it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示�
     status: "complete",
     results: ["done", "passed", "done"],
   });
+  sessionStorage.setItem(
+    `step-onboarding:AB12CD:${sharing.order.at(-1)?.userId ?? ME}:1-2`,
+    "seen",
+  );
   render(
     <RoomBoardHeader
       {...setupProps({

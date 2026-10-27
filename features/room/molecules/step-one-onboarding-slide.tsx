@@ -24,7 +24,6 @@ export type StepOneOnboardingSlideProps = {
   isReady: boolean;
 };
 
-const PHASE_KEY = "1-1";
 type GuideClosingStyle = CSSProperties & {
   "--guide-target-x": string;
   "--guide-target-y": string;
@@ -291,13 +290,13 @@ export function StepOneOnboardingSlide({
     pendingSlideIndexRef.current = 0;
     setIsClosingToGuide(false);
     setClosingStyle(null);
-    if (!isReady || phaseKey !== PHASE_KEY) {
+    if (!isReady || getStepGuideSlides(phaseKey).length === 0) {
       activeVisitRef.current = null;
       setOpen(false);
       return;
     }
 
-    const storageKey = `step-onboarding:${sessionKey}:${PHASE_KEY}`;
+    const storageKey = `step-onboarding:${sessionKey}:${phaseKey}`;
     // StrictModeのEffect再実行では、この訪問で開いた案内を閉じない。
     if (activeVisitRef.current === storageKey) return;
     activeVisitRef.current = storageKey;

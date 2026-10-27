@@ -51,6 +51,16 @@ test.each([
           video.evaluate((element: HTMLVideoElement) => element.currentTime),
         )
         .toBeGreaterThan(0);
+      const fitting = await video.evaluate((element: HTMLVideoElement) => {
+        const box = element.getBoundingClientRect();
+        return (
+          Math.min(
+            box.width,
+            (box.height * element.videoWidth) / element.videoHeight,
+          ) / box.width
+        );
+      });
+      expect(fitting).toBeGreaterThan(0.97);
       expect(await page.getByRole("dialog").boundingBox()).toEqual(before);
     } finally {
       await page.close();

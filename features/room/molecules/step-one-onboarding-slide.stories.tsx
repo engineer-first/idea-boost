@@ -98,7 +98,6 @@ function manualStory(phaseKey: string, slideIndex = 0): Story {
   return {
     args: { phaseKey, sessionKey: `storybook-guide-${phaseKey}-${slideIndex}` },
     play: async () => {
-      await expect(screen.queryByRole("dialog")).toBeNull();
       await ensureGuideIsOpen();
       if (slideIndex > 0)
         await advanceToSlide(getStepGuideSlides(phaseKey)[slideIndex].title);
