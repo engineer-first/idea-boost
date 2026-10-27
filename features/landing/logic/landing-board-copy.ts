@@ -41,7 +41,5 @@ export const landingBoardCopy = {
 export const landingMoodCharacters = [
   { id: "a", text: ["朝、", "起きられない"] },
   { id: "b", text: ["予定が", "合わない"] },
-  { id: "c", text: ["ひとりだと", "続かない"] },
-  { id: "d", text: [] },
 ] as const;
 export const landingMoodPrompt = "最近、何に困ってる？";

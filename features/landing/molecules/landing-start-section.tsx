@@ -1,11 +1,14 @@
+import Link from "next/link";
 import { landingCopy as copy } from "../logic/landing-copy";
+import type { LandingEntry } from "../logic/landing-entry";
 import {
+  landingCtaClass,
   landingHeadingClass,
   landingSectionClass,
 } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
-export function LandingStartSection() {
+export function LandingStartSection({ entry }: { entry: LandingEntry }) {
   return (
     <section
       className={`${styles.theme} ${landingSectionClass}`}
@@ -27,9 +30,16 @@ export function LandingStartSection() {
           </li>
         ))}
       </ol>
-      <p className="mt-8 max-w-3xl text-base leading-8 sm:text-lg text-[var(--lp-body)]">
-        {copy.gettingStarted.invited}
-      </p>
+      <div className="mt-10">
+        <Link href={entry.href} className={landingCtaClass}>
+          {entry.label}
+        </Link>
+        {entry.showStartHelp && (
+          <p className="mt-3 text-base leading-8 text-[var(--lp-body)]">
+            {copy.gettingStarted.codeHelp}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

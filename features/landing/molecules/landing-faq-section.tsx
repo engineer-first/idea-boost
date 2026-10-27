@@ -1,7 +1,4 @@
-import {
-  landingCopy as copy,
-  LANDING_CONTACT_URL,
-} from "../logic/landing-copy";
+import { landingCopy as copy } from "../logic/landing-copy";
 import {
   landingHeadingClass,
   landingLinkClass,
@@ -48,17 +45,6 @@ export function LandingFaqSection() {
           </LandingFaqItem>
         ))}
       </div>
-      <p className="mt-8 text-base leading-8 sm:text-lg text-[var(--lp-body)]">
-        {copy.faq.contactHelp}
-      </p>
-      <a
-        href={LANDING_CONTACT_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={landingLinkClass}
-      >
-        {copy.faq.contact}
-      </a>
     </section>
   );
 }

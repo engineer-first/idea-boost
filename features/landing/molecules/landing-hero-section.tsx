@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  landingBoardCopy,
   landingMoodCharacters,
   landingMoodPrompt,
 } from "../logic/landing-board-copy";
@@ -30,13 +29,11 @@ export function LandingHeroSection({ entry }: { entry: LandingEntry }) {
               alt=""
               unoptimized
             />
-            {character.text.length > 0 && (
-              <span>
-                {character.text.map((line) => (
-                  <span key={line}>{line}</span>
-                ))}
-              </span>
-            )}
+            <span>
+              {character.text.map((line) => (
+                <span key={line}>{line}</span>
+              ))}
+            </span>
           </div>
         ))}
         <p className={styles.moodPrompt}>{landingMoodPrompt}</p>
@@ -68,90 +65,7 @@ export function LandingHeroSection({ entry }: { entry: LandingEntry }) {
             </span>
           ))}
         </p>
-        <div className={styles.comparisons}>
-          <div className={styles.comparison}>
-            <p className={styles.comparisonLabel}>
-              <span className={styles.comparisonSubject}>
-                {copy.comparison.subject}
-              </span>
-              {copy.comparison.timeLabel}
-            </p>
-            <div className={styles.comparisonContent}>
-              <div className={styles.comparisonBefore}>
-                <Image
-                  className={styles.comparisonIllustration}
-                  src="/landing/mood-f.webp"
-                  width={180}
-                  height={89}
-                  alt=""
-                  aria-hidden="true"
-                  unoptimized
-                />
-                <span>{copy.comparison.timeBefore}</span>
-              </div>
-              <span className={styles.comparisonArrow} aria-hidden="true">
-                →
-              </span>
-              <div className={styles.comparisonAfter}>
-                <div
-                  className={`${styles.pieTimer} ${styles.miniTimer}`}
-                  aria-hidden="true"
-                >
-                  <span />
-                </div>
-                <div className={styles.afterWords}>
-                  <span>{copy.comparison.afterLabel}</span>
-                  <strong>{copy.comparison.timeAfter}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className={styles.comparison}>
-            <p className={styles.comparisonLabel}>
-              <span className={styles.comparisonSubject}>
-                {copy.comparison.subject}
-              </span>
-              {copy.comparison.guideLabel}
-            </p>
-            <div className={styles.comparisonContent}>
-              <div className={styles.comparisonBefore}>
-                <Image
-                  className={styles.comparisonIllustration}
-                  src="/landing/mood-g.webp"
-                  width={180}
-                  height={173}
-                  alt=""
-                  aria-hidden="true"
-                  unoptimized
-                />
-                <span>{copy.comparison.guideBefore}</span>
-              </div>
-              <span className={styles.comparisonArrow} aria-hidden="true">
-                →
-              </span>
-              <div className={styles.comparisonAfter}>
-                <div className={styles.miniProgress} aria-hidden="true">
-                  <span>{landingBoardCopy.header}</span>
-                  <i />
-                </div>
-                <div className={styles.afterWords}>
-                  <span>{copy.comparison.afterLabel}</span>
-                  <strong>{copy.comparison.guideAfter}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <p className={styles.comparisonNote}>
-          <a href="#landing-duration">
-            {copy.comparison.timeNote.map((phrase) => (
-              <span key={phrase} className="inline-block">
-                {phrase}
-              </span>
-            ))}
-          </a>
-        </p>
-        <div className="mt-3">
+        <div className="mt-6">
           <Link
             href={entry.href}
             className={`${landingCtaClass} ${styles.heroCta}`}

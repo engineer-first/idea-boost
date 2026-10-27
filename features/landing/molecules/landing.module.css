@@ -1484,25 +1484,27 @@
   line-height: 1.6;
   color: var(--lp-accent);
 }
+.strengths {
+  padding-block: 64px;
+}
 .afterWords > span {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
 }
 .comparisons {
   display: grid;
-  gap: 12px;
-  max-width: 800px;
-  margin: 16px auto 0;
+  gap: 16px;
+  margin-top: 32px;
 }
 .comparison {
-  padding: 6px 16px;
-  border-radius: 14px;
+  padding: 20px 24px;
+  border-radius: 20px;
   background: var(--lp-soft);
 }
 .comparisonLabel {
-  font-size: 12px;
+  font-size: 16px;
   line-height: 1.5;
-  font-weight: 600;
+  font-weight: 700;
   text-align: left;
 }
 .comparisonContent {
@@ -1520,11 +1522,11 @@
 }
 .comparisonBefore {
   color: var(--lp-body);
-  font-size: 12px;
+  font-size: 15px;
 }
 .comparisonAfter {
   color: var(--lp-accent);
-  font-size: 20px;
+  font-size: 32px;
 }
 .comparisonAfter strong {
   font-weight: 800;
@@ -1578,8 +1580,8 @@
   );
 }
 .comparisonNote {
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 12px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--lp-body);
 }
@@ -1587,17 +1589,23 @@
   flex-direction: column;
   gap: 4px;
 }
-@media (min-width: 640px) {
+@media (min-width: 900px) {
+  /* 比較の語句と図を折り返さずに並べられる幅になってから2列にする */
   .comparisons {
     grid-template-columns: 1fr 1fr;
   }
   .comparisonContent {
-    min-height: 58px;
+    min-height: 96px;
+  }
+}
+@media (min-width: 640px) {
+  .strengths {
+    padding-block: 96px;
   }
 }
 @media (max-width: 639px) {
   .comparison {
-    padding: 8px 12px;
+    padding: 16px;
   }
   .comparisonContent {
     grid-template-columns: 1fr 20px 1.3fr;
@@ -1606,11 +1614,9 @@
     gap: 6px;
   }
   .comparisonAfter {
-    font-size: 18px;
-  }
-  .comparisons {
-    gap: 8px;
-    margin-top: 12px;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 24px;
   }
 }
 
@@ -1711,21 +1717,6 @@
 }
 .characterb > span {
   top: 50%;
-}
-.characterc {
-  left: -24px;
-  top: 245px;
-  width: 160px;
-  transform: rotate(7deg);
-}
-.characterc > span {
-  top: 44%;
-}
-.characterd {
-  right: -20px;
-  top: 270px;
-  width: 130px;
-  transform: rotate(-8deg);
 }
 .moodPrompt {
   position: absolute;
@@ -1861,13 +1852,6 @@
     left: auto;
     right: 0;
     top: 8px;
-  }
-}
-
-@media (min-width: 1024px) and (max-width: 1199px) {
-  .characterc,
-  .characterd {
-    display: none;
   }
 }
 
@@ -2093,10 +2077,16 @@
   color: var(--lp-accent);
 }
 .comparisonIllustration {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
   flex-shrink: 0;
+}
+@media (min-width: 640px) {
+  .comparisonIllustration {
+    width: 72px;
+    height: 72px;
+  }
 }
 .afterWords {
   line-height: 1.25;
@@ -2118,4 +2108,18 @@
 .comparisonNote a:focus-visible {
   outline: 2px solid var(--lp-accent);
   outline-offset: 3px;
+}
+@media (max-width: 479px) {
+  /* 横に並べると語句が読めない幅では、Before → After を縦に並べる */
+  .comparisonContent {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .comparisonBefore {
+    flex-direction: row;
+    gap: 12px;
+  }
+  .comparisonArrow {
+    transform: rotate(90deg);
+  }
 }

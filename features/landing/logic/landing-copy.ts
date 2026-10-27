@@ -8,6 +8,7 @@ export const landingCopy = {
   heading: ["アイデア出しに", "困ったら、ここから。"],
   subheading: ["Googleで生まれた", "デザインスプリントを、", "アプリで。"],
   comparison: {
+    heading: ["進行役がいなくても、", "約2時間で一案まで。"],
     subject: "デザインスプリント",
     timeLabel: "で一案を決めるまで",
     afterLabel: "Idea Boostなら",
@@ -211,8 +212,7 @@ export const landingCopy = {
           "課題・問い・アイデアをコピー、またはテキストファイルに保存できます。",
       },
     ],
-    invited:
-      "招待された方は、招待URLを開いてログインし、参加を確認してください。コードの場合は、ログイン後のホームで入力できます。",
+    codeHelp: "招待コードをお持ちの方は、ログイン後のホームで入力できます。",
   },
   faq: {
     heading: ["始める前に、", "知っておきたいこと。"],
@@ -249,12 +249,12 @@ export const landingCopy = {
           "いいえ。Idea BoostはGoogleの製品ではなく、Googleによる公認・提携を受けたものではありません。デザインスプリントの考え方を参考にしています。",
       },
     ],
-    contact: "お問い合わせ（Googleフォーム）",
-    contactHelp: "解決しないことや、利用についてのご相談はこちらへ。",
   },
   disclaimer:
     "Idea BoostはGoogleの製品ではなく、Googleによる公認・提携を受けたものではありません。GoogleはGoogle LLCの商標です。",
   privacy: "保存とプライバシー",
+  contact: "お問い合わせ（Googleフォーム）",
+  footerNav: "サイト情報",
   cta: {
     normal: ["Googleでログインして始める", "ホームへ進む"],
     invite: ["ログインして招待の参加確認へ", "招待の参加確認へ進む"],

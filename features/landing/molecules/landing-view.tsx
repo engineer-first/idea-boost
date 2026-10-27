@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { landingCopy as copy } from "../logic/landing-copy";
+import {
+  landingCopy as copy,
+  LANDING_CONTACT_URL,
+} from "../logic/landing-copy";
 import type { LandingEntry } from "../logic/landing-entry";
 import {
   landingCtaClass,
@@ -14,6 +17,7 @@ import { LandingFlowSection } from "./landing-flow-section";
 import { LandingHeroSection } from "./landing-hero-section";
 import { LandingMethodSection } from "./landing-method-section";
 import { LandingStartSection } from "./landing-start-section";
+import { LandingStrengthsSection } from "./landing-strengths-section";
 
 export type LandingViewProps = { isLoggedIn: boolean; entry: LandingEntry };
 
@@ -46,10 +50,11 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
         </p>
       </div>
       <div className="mx-auto max-w-6xl px-6 sm:px-10">
+        <LandingStrengthsSection />
         <LandingMethodSection />
         <LandingFeaturesSection />
         <LandingFlowSection />
-        <LandingStartSection />
+        <LandingStartSection entry={entry} />
         <LandingFaqSection />
       </div>
       <footer>
@@ -81,9 +86,25 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
           </div>
         </div>
         <div className="mx-auto max-w-6xl px-6 py-10 sm:px-10">
-          <Link href="/privacy" className={landingLinkClass}>
-            {copy.privacy}
-          </Link>
+          <nav aria-label={copy.footerNav}>
+            <ul className="flex flex-wrap gap-x-8 gap-y-2">
+              <li>
+                <Link href="/privacy" className={landingLinkClass}>
+                  {copy.privacy}
+                </Link>
+              </li>
+              <li>
+                <a
+                  href={LANDING_CONTACT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={landingLinkClass}
+                >
+                  {copy.contact}
+                </a>
+              </li>
+            </ul>
+          </nav>
           <p className="mt-6 max-w-3xl text-xs leading-6 text-[var(--lp-body)]">
             {copy.disclaimer}
           </p>

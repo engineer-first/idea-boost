@@ -47,7 +47,9 @@ alphaQuality95で保存。5枚合計94,258 bytes。背景除去の後処理は�
 青・赤橙・黄・紫はCSSの `--lp-brand-*` に集約。既存 `--lp-accent` はCTA・操作表現に
 維持し、brand色は帯・幾何学片・下線へ使う。画像色を変更する場合は再生成も必要。
 
-### 比較バッジ C 案の Before 素材（F・G）
+### 強み節（比較カード）の Before 素材（F・G）
+
+ファーストビューの比較バッジ（C 案）として作成し、レビューを受けてヒーロー直後の強み節へ移した。
 
 画像生成で文字を含まない透過素材を作成し、Sharp の trim → 幅180px → WebP（quality 78 / alphaQuality 95）で保存した。
 
@@ -62,4 +64,4 @@ G のプロンプト:
 
 > A small muted slate-blue rounded geometric humanoid facilitator with dark navy dot eyes and tiny smiling mouth, standing next to a blank ivory whiteboard on an easel and pointing to it with a simple pointer stick. Flat playful paper-cut illustration, subtle paper grain, bold simple shapes, no outlines, no 3D, no shadows or glow. No text, letters or numbers anywhere. Center entire character and board in square canvas, genuinely transparent background. Same family as playful geometric mascot landing-page illustrations.
 
-After 側は既存のタイマー・現在地カードのコード表現を維持。Before は48px枠に収め、彩度を抑えて After の文言を強調する。
+After 側は既存のタイマー・現在地カードのコード表現を維持。Before は72px枠（狭い画面では56px）に収め、彩度を抑えて After の文言を強調する。
