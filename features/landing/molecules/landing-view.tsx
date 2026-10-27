@@ -27,23 +27,27 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
       className={`${styles.theme} min-h-0 flex-1 overflow-y-auto bg-[var(--lp-surface)] text-[var(--lp-ink)] selection:bg-[var(--lp-tint)] [color-scheme:light]`}
       data-testid="landing-scroll"
     >
-      {!isLoggedIn && (
-        <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-2 sm:px-10">
-          <p className="flex items-center gap-2 text-lg font-bold tracking-tight text-[var(--lp-accent)]">
-            <Image
-              src="/brand/ideaboost-icon-96.png"
-              width={32}
-              height={32}
-              alt=""
-              unoptimized
-            />
-            {copy.brand}
-          </p>
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-2 sm:px-10">
+        <p className="flex items-center gap-2 text-lg font-bold tracking-tight text-[var(--lp-accent)]">
+          <Image
+            src="/brand/ideaboost-icon-96.png"
+            width={32}
+            height={32}
+            alt=""
+            unoptimized
+          />
+          {copy.brand}
+        </p>
+        {isLoggedIn ? (
+          <Link href="/home" className={landingLinkClass}>
+            {copy.home}
+          </Link>
+        ) : (
           <Link href={entry.href} className={landingLinkClass}>
             {copy.login}
           </Link>
-        </header>
-      )}
+        )}
+      </header>
       <div className="mx-auto max-w-6xl px-6 sm:px-10">
         <LandingHeroSection entry={entry} />
       </div>

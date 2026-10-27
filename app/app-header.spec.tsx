@@ -66,6 +66,14 @@ describe("AppHeader", () => {
     expect(screen.queryByTestId("app-header")).not.toBeInTheDocument();
   });
 
+  it("LP（/about）ではLP自身のヘッダーを使うため共通ヘッダーを表示しない", () => {
+    navigationMocks.pathname = "/about";
+
+    render(<AppHeader userName="田中太郎" />);
+
+    expect(screen.queryByTestId("app-header")).not.toBeInTheDocument();
+  });
+
   it("スプリント開始前のロビーでは共通ヘッダーを表示する", () => {
     navigationMocks.pathname =
       "/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/start";

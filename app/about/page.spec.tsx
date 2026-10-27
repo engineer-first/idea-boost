@@ -33,12 +33,17 @@ it.each([false, true])(
     expect(
       screen.queryByRole("link", { name: "招待コードをお持ちの方" }),
     ).not.toBeInTheDocument();
+    // ログイン状態に関わらず、LP自身のヘッダーにサービス名を表示する。
+    const header = screen.getByRole("banner");
+    expect(within(header).getByText("Idea Boost")).toBeInTheDocument();
     if (!loggedIn)
-      expect(screen.getByRole("link", { name: "ログイン" })).toHaveAttribute(
-        "href",
-        href,
-      );
-    else expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+      expect(
+        within(header).getByRole("link", { name: "ログイン" }),
+      ).toHaveAttribute("href", href);
+    else
+      expect(
+        within(header).getByRole("link", { name: "ホーム" }),
+      ).toHaveAttribute("href", "/home");
   },
 );
 it("nextが複数指定された場合は通常開始に戻す", async () => {

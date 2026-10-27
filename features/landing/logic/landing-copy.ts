@@ -25,6 +25,7 @@ export const landingCopy = {
   },
   introduction: "ハッカソン・ビジコン・チーム制作の最初に。",
   login: "ログイン",
+  home: "ホーム",
   join: "招待コードをお持ちの方",
   stepsHeading: ["案を急がず、", "問いから広げよう。"],
   flow: {
