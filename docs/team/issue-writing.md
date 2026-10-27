@@ -18,7 +18,7 @@ Issueは担当者がAIと解決方法を考え、PRへ進むための入口で�
 
 PBIは一つの目的と利用者・運営者が観察できる体験でまとめます。Taskの作業一覧やマージ件数をPBIの成果にしません。Taskは独立して進められる範囲にし、無関係な変更を束ねたり関数ごとに機械的に分割したりしません。
 
-PBI の Story points は[Issue運用の任意見積もり](issues.md#pbiの任意-story-points)に従います。本文の必須欄にはせず、未設定でも起票・採用・着手できます。Taskには見積もり欄を増やしません。
+PBI の Story points は[Issue運用の任意見積もり](issues.md#pbiの任意-story-points)に従います。本文の必須欄にはせず、未設定でも起票・採用・着手できます。Taskの本文に見積もり必須欄は増やしません。PBI配下Taskの任意の時間は[Estimate Hoursの運用](issues.md#taskの任意-estimate-hours)に従い、本文外の数値fieldで扱います。
 
 ## 書き残す型
 

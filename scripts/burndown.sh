@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# バーンダウン集計: スプリント(= GitHub Milestone)ごとの残り作業時間を表示する。
+# バーンダウン集計: スプリント(= GitHub Milestone)ごとの未完了Issueの見積合計を表示する。
 #
-# 見積は issue に付いた `est:<N>h` ラベル(例: est:4h)。
+# PBI配下Taskは組織Number field Estimate Hoursを優先し、なければ既存est:<N>hラベル。
+# remaining_hは未完了Issueの全体見積の合計であり、実残時間・消費時間ではない。
 # 集計対象は Issue Type が Task / Bug / Spike / 種類なしの作業 Issue。
 #
 # 使い方:
@@ -46,6 +47,10 @@ query($owner: String!, $name: String!) {
           nodes {
             number title state
             issueType { name }
+            parent { issueType { name } }
+            issueFieldValues(first: 100) {
+              nodes { ... on IssueFieldNumberValue { value field { ... on IssueFieldNumber { name } } } }
+            }
             labels(first: 20) { nodes { name } }
           }
         }
@@ -56,6 +61,10 @@ query($owner: String!, $name: String!) {
       nodes {
         number title state
         issueType { name }
+        parent { issueType { name } }
+        issueFieldValues(first: 100) {
+          nodes { ... on IssueFieldNumberValue { value field { ... on IssueFieldNumber { name } } } }
+        }
         milestone { title }
         labels(first: 20) { nodes { name } }
       }
@@ -68,7 +77,12 @@ if [[ "$(jq -r '.data.repository.milestones.pageInfo.hasNextPage' <<<"$raw")" ==
 fi
 
 summary=$(jq --arg today "$(date +%F)" '
-  def est: [.labels.nodes[].name | capture("^est:(?<h>[0-9.]+)h$").h | tonumber] | first // null;
+  def legacy_est: [.labels.nodes[].name | capture("^est:(?<h>[0-9.]+)h$").h | tonumber] | first // null;
+  def est:
+    (if .issueType.name == "Task" and .parent.issueType.name == "PBI" then
+      [.issueFieldValues.nodes[]? | select(.field.name == "Estimate Hours")
+        | .value | select(type == "number" and . >= 0)] | first
+    else null end) // legacy_est;
   def is_work: (.issueType.name // "") as $t | ($t == "Task" or $t == "Bug" or $t == "Spike" or $t == "");
 
   def aggregate($tasks): {
@@ -139,10 +153,10 @@ jq -r --arg only "$ONLY_SPRINT" '
    | "== \(.title) (〜\(.due_on)) ==",
      "  総見積: \(.total_h | fmt_h) / \(.tasks_total) tasks",
      "  完了:   \(.done_h | fmt_h) / \(.tasks_total - .tasks_open) tasks",
-     "  残り:   \(.remaining_h | fmt_h) / \(.tasks_open) tasks",
+     "  未完了の全体見積: \(.remaining_h | fmt_h) / \(.tasks_open) tasks",
      (if .tasks_open > 0 then "  未完了タスク:", (.open_tasks | task_lines) else empty end),
      (if (.unestimated | length) > 0 then
-        "  ⚠ 見積ラベルなし(集計外): \([.unestimated[] | "#\(.number)"] | join(", "))"
+        "  ⚠ 見積未設定(時間集計外): \([.unestimated[] | "#\(.number)"] | join(", "))"
       else empty end),
      (if .truncated then "  ⚠ issueが100件を超えています。101件目以降は未集計です" else empty end),
      ""
@@ -150,7 +164,7 @@ jq -r --arg only "$ONLY_SPRINT" '
   (if $only == "" and (.no_milestone.tasks_open > 0) then
      .no_milestone
      | "== ⚠ マイルストーンなしの未完了タスク(どのスプリントにも入っていない) ==",
-       "  残り:   \(.remaining_h | fmt_h) / \(.tasks_open) tasks",
+       "  未完了の全体見積: \(.remaining_h | fmt_h) / \(.tasks_open) tasks",
        (.open_tasks | task_lines),
        (if .truncated then "  ⚠ open issueが100件を超えています。101件目以降は未集計です" else empty end)
    else empty end)

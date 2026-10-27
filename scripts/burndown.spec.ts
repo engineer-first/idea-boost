@@ -73,3 +73,63 @@ it("Spike・種類なしも作業時間に含め、PBI・旧DemoGoal・相談を
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it("PBI配下Taskは数値時間を優先し、他の作業は既存ラベルだけを集計する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "burndown-fields-"));
+  const issues = [
+    { type: "Task", parent: "PBI", hours: 1.5, label: "est:8h" },
+    { type: "Task", parent: "PBI", hours: null, label: "est:2h" },
+    { type: "Task", parent: null, hours: 9, label: "est:1h" },
+    { type: "Bug", parent: "PBI", hours: 9, label: "est:4h" },
+    { type: "PBI", parent: null, hours: 9, label: "est:8h" },
+    { type: "Task", parent: "PBI", hours: 0.5, label: null },
+    { type: "Task", parent: "PBI", hours: null, label: null },
+  ].map((v, i) => ({
+    number: i + 1,
+    title: "作業",
+    state: "OPEN",
+    milestone: null,
+    issueType: { name: v.type },
+    parent: v.parent ? { issueType: { name: v.parent } } : null,
+    labels: { nodes: v.label ? [{ name: v.label }] : [] },
+    issueFieldValues: {
+      nodes: [
+        { field: { name: "Story points" }, value: 13 },
+        ...(v.hours === null
+          ? []
+          : [{ field: { name: "Estimate Hours" }, value: v.hours }]),
+      ],
+    },
+  }));
+  writeFileSync(
+    join(dir, "fixture.json"),
+    JSON.stringify({
+      data: {
+        repository: {
+          milestones: { pageInfo: { hasNextPage: false }, nodes: [] },
+          noMilestone: { pageInfo: { hasNextPage: false }, nodes: issues },
+        },
+      },
+    }),
+  );
+  writeFileSync(join(dir, "gh"), '#!/bin/sh\ncat "$BURNDOWN_FIXTURE"\n', {
+    mode: 0o755,
+  });
+  try {
+    const output = execFileSync("bash", ["scripts/burndown.sh", "--json"], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${dir}:${process.env.PATH}`,
+        BURNDOWN_FIXTURE: join(dir, "fixture.json"),
+      },
+    });
+    expect(JSON.parse(output).no_milestone).toMatchObject({
+      tasks_total: 6,
+      remaining_h: 9,
+      unestimated: [{ number: 7, state: "OPEN", title: "作業" }],
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
