@@ -4,7 +4,9 @@ function resolveCurrentSprint(milestones, now) {
     const description = milestone.description ?? "";
     if (!description.includes("idea-boost-sprint:")) continue;
     const matches = [
-      ...description.matchAll(/<!--\s*idea-boost-sprint:v2\s*([\s\S]*?)-->/g),
+      ...description.matchAll(
+        /<!--\s*idea-boost-sprint:v([23])\s*([\s\S]*?)-->/g,
+      ),
     ];
     if (
       matches.length !== 1 ||
@@ -14,7 +16,7 @@ function resolveCurrentSprint(milestones, now) {
     }
     let period;
     try {
-      period = JSON.parse(matches[0][1]);
+      period = JSON.parse(matches[0][2]);
     } catch {
       return { milestone: null, reason: "invalid-sprint-period" };
     }
@@ -27,7 +29,7 @@ function resolveCurrentSprint(milestones, now) {
       );
     };
     if (
-      period?.schema_version !== 2 ||
+      period?.schema_version !== Number(matches[0][1]) ||
       period.timezone !== "Asia/Tokyo" ||
       !isDate(period.assignment_start_date)
     ) {
@@ -49,6 +51,8 @@ function resolveCurrentSprint(milestones, now) {
         .toISOString()
         .slice(0, 10);
       endAt = Date.parse(`${dueDate}T00:00:00+09:00`);
+      // v2の過去の境界は保ち、v3だけreview/demo日の翌日00:00を終了にする。
+      if (period.schema_version === 3) endAt += 24 * 60 * 60 * 1000;
       if (startAt >= endAt)
         return { milestone: null, reason: "invalid-sprint-period" };
     }
@@ -80,16 +84,18 @@ async function assignCurrentSprint({
   now = () => new Date(),
   log = () => {},
 }) {
-  const readSprint = async () =>
-    resolveCurrentSprint(
-      await github.paginate(github.rest.issues.listMilestones, {
+  const readSprint = async () => {
+    const milestones = await github.paginate(
+      github.rest.issues.listMilestones,
+      {
         owner,
         repo,
         state: "all",
         per_page: 100,
-      }),
-      now(),
+      },
     );
+    return { ...resolveCurrentSprint(milestones, now()), milestones };
+  };
   const initial = await readSprint();
   const result = {
     milestone: initial.milestone?.number ?? null,
@@ -126,10 +132,10 @@ async function assignCurrentSprint({
       result.skipped.push(number);
       continue;
     }
-    // 再読取中に期間を跨いだ場合も、旧sprintへ更新しない。
-    const beforeWrite = resolveCurrentSprint([latestSprint.milestone], now());
-    if (!beforeWrite.milestone) {
-      result.reason = beforeWrite.reason;
+    // 再読取中の境界越えや重複開始も、取得済みの全期間で再判定する。
+    const beforeWrite = resolveCurrentSprint(latestSprint.milestones, now());
+    if (beforeWrite.milestone?.number !== initial.milestone.number) {
+      result.reason = beforeWrite.reason ?? "current-sprint-changed";
       break;
     }
     const change = {
