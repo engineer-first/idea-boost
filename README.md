@@ -158,7 +158,12 @@ Node.js のバージョンは `mise.toml` で LTS に固定しています。CI 
 
 `.mcp.json` でプロジェクト共通の MCP サーバーを定義しています。
 
-- **playwright** — 実ブラウザでの UI 確認・スクリーンショット取得に使用します
+- **cloudflare-docs** — Cloudflare（Workers / D1 / Durable Objects など）の最新ドキュメント参照に使用します
+
+### ブラウザ操作 (AIエージェント向け)
+
+実ブラウザでの UI 確認・スクリーンショット取得には MCP ではなく [agent-browser](https://github.com/vercel-labs/agent-browser) CLI を使います。
+`npm install -g agent-browser && agent-browser install` で導入し、エージェントには `agent-browser skills get core` で使い方を読ませてください。
 
 ## スクラム運用
 
