@@ -49,3 +49,13 @@ python3 .agents/skills/pbi/scripts/create_planning_issues.py /tmp/pbi-spec.json
 ```
 
 `gh` にrepo / projectの権限が必要。作成済みURLが返った後に失敗したら、そのIssueの改題・Project登録を復旧する。全体を再実行して重複を作らない。
+
+## 任意の Story points
+
+AIは[見積もりの目安](../../../../docs/team/issues.md#見積もりの目安)からなるべく選び、`pbi.story_points` に数値で渡す（例: `"story_points": 2`）。省略・`null` は未設定。0.1 / 1 / 2 / 3 / 5 / 8 / 13 以外、文字列やbooleanは設定をスキップする。SPだけの入力不備で起票を止めず、既定値で補わない。
+
+`--dry-run` は本文外に候補を表示し、通信しない。実行時は作成・採番後、今回のIssueがPBIであること、組織に同名Number fieldが1つだけあること、現在値が空欄であることを確認してPOSTし、読み戻す。設定値は本文へ埋め込まない。
+
+結果は `set`（読戻し済み）、`preserved`（既存値を保持）、`skipped`（省略・不正値・対象外・field未整備）、`unconfirmed`（API失敗や読戻し不一致）。SP設定の失敗後も通常のProject登録へ進む。書込み後の通信失敗では設定済みの可能性があるため、再実行せず先に値を読む。スクリプトはフィールド新設・公開範囲変更・既存Issue再見積もりを行わない。
+
+根拠は通常の説明に一言添えればよい。数値を保存できなかった場合も起票済みURLと結果を伝え、追加入力や採用時レビューを求めない。

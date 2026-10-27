@@ -7,6 +7,42 @@ import sys
 from pathlib import Path
 
 PBI_GENRE_PATTERN = r"[A-Z][A-Z0-9]*"
+STORY_POINTS = (0.1, 1, 2, 3, 5, 8, 13)
+
+
+def valid_story_points(value):
+    return type(value) in (int, float) and value in STORY_POINTS
+
+
+def set_story_points_if_empty(repo, issue_number, value):
+    """新規起票の任意補助。既存値を保持し、失敗時も再作成・再試行しない。"""
+    if not valid_story_points(value):
+        return "skipped"
+    endpoint = f"repos/{repo}/issues/{issue_number}"
+    api = ["gh", "api", "-H", "X-GitHub-Api-Version: 2026-03-10"]
+    try:
+        fields = json.loads(run(api + [f"orgs/{repo.split('/')[0]}/issue-fields"]))
+        matches = [field for field in fields if field.get("name") == "Story points"]
+        if len(matches) != 1 or matches[0].get("data_type") != "number":
+            return "skipped"
+        field_id = matches[0]["id"]
+        issue = json.loads(run(api + [endpoint]))
+        if (issue.get("type") or {}).get("name") != "PBI" or "pull_request" in issue:
+            return "skipped"
+        values_endpoint = endpoint + "/issue-field-values"
+        values = json.loads(run(api + [values_endpoint + "?per_page=100"]))
+        if any(item["issue_field_id"] == field_id and item.get("value") is not None for item in values):
+            return "preserved"
+        # POST adds only this field; PUT would replace unrelated field values.
+        run(api + [values_endpoint, "--method", "POST", "--input", "-"], input_text=json.dumps({
+            "issue_field_values": [{"field_id": field_id, "value": value}],
+        }))
+        values = json.loads(run(api + [values_endpoint + "?per_page=100"]))
+        if any(item["issue_field_id"] == field_id and item.get("value") == value for item in values):
+            return "set"
+    except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError):
+        pass
+    return "unconfirmed"
 
 
 def run(cmd, *, input_text=None):
@@ -276,6 +312,9 @@ def create_pbi_issue(spec):
                 f"PBI was created: {created['url']}; title update failed. "
                 f"Rename it to {issue_title(pbi)!r}; do not rerun creation. {exc}"
             ) from exc
+    result = set_story_points_if_empty(spec["repo"], created["number"], pbi.get("story_points"))
+    if pbi.get("story_points") is not None:
+        print(f"Story points: {result} ({created['url']})")
     return created
 
 
@@ -310,6 +349,8 @@ def render_dry_run(spec):
     pbi = spec["pbi"]
     print(f"# {issue_title(pbi)}")
     print(pbi_body(spec))
+    value = pbi.get("story_points")
+    print(f"Story points: {value if valid_story_points(value) else '未設定'}（任意・本文外）")
 
 
 def main():
