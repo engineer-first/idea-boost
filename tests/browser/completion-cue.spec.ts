@@ -17,6 +17,12 @@ test.each([1280, 360])(
       reducedMotion: "reduce",
     });
     try {
+      await page.addInitScript(() =>
+        sessionStorage.setItem(
+          "step-onboarding:AB12CD:11111111-1111-4111-8111-111111111111:1-1",
+          "seen",
+        ),
+      );
       await page.goto(
         `${origin}/iframe.html?id=room-roomboardheader--time-up-progress&viewMode=story`,
       );
@@ -40,8 +46,8 @@ test.each([1280, 360])(
       expect(
         await page
           .getByRole("button", { name: "できた！", exact: true })
-          .count(),
-      ).toBe(0);
+          .getAttribute("aria-pressed"),
+      ).toBe("false");
     } finally {
       await page.close();
     }
@@ -50,6 +56,12 @@ test.each([1280, 360])(
 test("進行の送信中は二重操作を止める", async () => {
   const page = await browser.newPage({ reducedMotion: "reduce" });
   try {
+    await page.addInitScript(() =>
+      sessionStorage.setItem(
+        "step-onboarding:AB12CD:11111111-1111-4111-8111-111111111111:1-1",
+        "seen",
+      ),
+    );
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardheader--time-up-progress-pending&viewMode=story`,
     );

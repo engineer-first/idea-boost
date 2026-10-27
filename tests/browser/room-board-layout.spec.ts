@@ -545,28 +545,26 @@ for (const theme of ["light", "dark"]) {
             () => matchMedia("(prefers-color-scheme: dark)").matches,
           ),
         ).toBe(theme === "dark");
-        const timer = page.getByTestId("room-timer");
+        const timer = page.getByTestId("timer-floating");
         await timer.waitFor();
         await expectOpaqueAndReadable(timer);
         const bounds = await timer.boundingBox();
         expect({ width: bounds?.width, height: bounds?.height }).toEqual({
-          width: 112,
-          height: 40,
+          width: state === "paused" ? 288 : state === "ended" ? 112 : 72,
+          height: 72,
         });
-        await timer.click();
-        const panel = page.getByTestId("room-timer-panel");
-        await panel.waitFor();
-        // Radix の登場アニメーションが完了してから実効 opacity を調べる。
-        await expect
-          .poll(() =>
-            panel.evaluate((e) =>
-              e
-                .getAnimations()
-                .every((animation) => animation.playState === "finished"),
-            ),
-          )
-          .toBe(true);
-        await expectOpaqueAndReadable(panel);
+        if (state === "paused" || state === "ended") {
+          const action = page.getByRole("button", {
+            name: state === "paused" ? "再開" : "＋1分",
+            exact: true,
+          });
+          expect(await action.isVisible()).toBe(true);
+        } else {
+          expect(await page.getByTestId("room-timer").isVisible()).toBe(true);
+          expect(await page.getByRole("timer").innerText()).toMatch(
+            /\d{2}:\d{2}/,
+          );
+        }
         await page.screenshot({
           path: `${output}/timer-${theme}-${transparency}-${state}.png`,
         });
@@ -625,32 +623,28 @@ test.each([2, 3] as const)(
 );
 
 test("接続中断時と参加者表示でもタイマー枠を薄くせず、全状態で寸法を保つ", async () => {
-  let participantPosition: { x: number; y: number } | undefined;
-
+  let participantRight: number | undefined;
   for (const state of ["idle", "running", "paused", "ended"]) {
     await openStory(`room-roomtimer--${state}-host&args=disabled:true`);
-    const timer = page.getByTestId("room-timer");
+    const timer = page.getByTestId("timer-floating");
     await timer.waitFor();
-    expect(await timer.isDisabled()).toBe(true);
+    expect(await timer.getByRole("button").first().isDisabled()).toBe(true);
     await expectOpaqueAndReadable(timer);
     await openStory(`room-roomtimer--${state}-member`);
-    const memberTimer = page.getByTestId("room-timer");
+    const memberTimer = page.getByTestId("timer-floating");
     await memberTimer.waitFor();
     await expectOpaqueAndReadable(memberTimer);
     const bounds = await memberTimer.boundingBox();
-    expect(bounds).not.toBeNull();
-    expect({ width: bounds?.width, height: bounds?.height }).toEqual({
-      width: 112,
-      height: 40,
+    if (!bounds) throw new Error("タイマーが表示されません");
+    expect({ width: bounds.width, height: bounds.height }).toEqual({
+      width: state === "paused" ? 288 : state === "ended" ? 112 : 72,
+      height: 72,
     });
+    if (state === "idle") participantRight = bounds.x + bounds.width;
+    else expect(bounds.x + bounds.width).toBe(participantRight);
     if (state === "idle") {
-      participantPosition = { x: bounds?.x ?? NaN, y: bounds?.y ?? NaN };
-    } else {
-      expect({ x: bounds?.x, y: bounds?.y }).toEqual(participantPosition);
-    }
-    if (state === "idle") {
-      expect(await memberTimer.textContent()).toBe("03:00");
-      expect(await page.getByTestId("timer-sound-toggle").count()).toBe(1);
+      expect(await page.getByRole("timer").innerText()).toBe("03:00");
+      expect(await page.getByTestId("timer-sound-toggle").count()).toBe(0);
     }
   }
 });
@@ -942,8 +936,8 @@ test.each([1280, 1024, 768])(
     );
     const timer = await page.getByTestId("room-timer").boundingBox();
     expect({ width: timer?.width, height: timer?.height }).toEqual({
-      width: 112,
-      height: 40,
+      width: 72,
+      height: 72,
     });
     const next = page.getByRole("button", {
       name: "次のステップへ",
@@ -1254,23 +1248,25 @@ test("参加者1人でも現在地の詳細がマイ付箋に重ならない", a
 });
 
 test.each([1280, 1024, 768])(
-  "幅 %i の操作バーで招待とタイマーを開閉でき、寸法と主要操作を保つ",
+  "幅 %i で招待と独立タイマーを開閉しても操作バーの寸法と主要操作を保つ",
   async (width) => {
     await page.setViewportSize({ width, height: 720 });
     await openStory("room-roomboardlayout--timer-paused");
     const controls = page.getByRole("group", { name: "ルームの操作" });
     await controls.waitFor();
     const initialBox = await controls.boundingBox();
-    const timer = controls.getByTestId("room-timer");
+    const floating = page.getByTestId("timer-floating");
     expect(
-      await timer.evaluate((e) =>
-        e.parentElement?.closest(".board-hud")?.getAttribute("data-testid"),
+      await controls.evaluate((e) =>
+        e.contains(document.querySelector('[data-testid="timer-floating"]')),
       ),
-    ).toBe("board-control-hud");
+    ).toBe(false);
+    await floating.press("Escape");
+    const timer = page.getByTestId("room-timer");
     const timerBox = await timer.boundingBox();
     expect({ width: timerBox?.width, height: timerBox?.height }).toEqual({
-      width: 112,
-      height: 40,
+      width: 72,
+      height: 72,
     });
     const contextBox = await page
       .getByTestId("board-context-hud")
@@ -1296,7 +1292,7 @@ test.each([1280, 1024, 768])(
       .toBe(true);
     await page.keyboard.press("Escape");
     await timer.click();
-    await page.getByTestId("room-timer-panel").waitFor();
+    await page.getByTestId("room-timer-actions").waitFor();
     expect(
       await page.getByRole("button", { name: "再開", exact: true }).isVisible(),
     ).toBe(true);

@@ -28,6 +28,12 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   page = await browser.newPage({ viewport, reducedMotion: "reduce" });
+  await page.addInitScript(() =>
+    sessionStorage.setItem(
+      "step-onboarding:AB12CD:11111111-1111-4111-8111-111111111111:1-1",
+      "seen",
+    ),
+  );
 });
 afterEach(async () => {
   await page?.close();
@@ -336,12 +342,18 @@ test.each([true, false])(
   },
 );
 
-test("時間切れ後の進行は口頭確認を促し、承認ダイアログを追加しない", async () => {
+test("時間切れ後は未チェックの参加者を確認して次へ進む", async () => {
   await openStory("room-roomboardheader--time-up-progress");
-  const next = page.getByRole("button", { name: "次へ進む", exact: true });
+  const next = page.getByRole("button", {
+    name: "次のステップへ",
+    exact: true,
+  });
   await expectReachable(next);
-  expect(await next.getAttribute("title")).toContain("みんなに確認");
   await next.press("Enter");
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "次へ進む", exact: true })
+    .press("Enter");
   expect(await page.getByTestId("phase-next-count").innerText()).toBe("1");
   expect(await page.getByRole("alertdialog").count()).toBe(0);
 });

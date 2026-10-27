@@ -7,7 +7,10 @@ it.each([360, 375, 640, 900, 1440])(
   async (width) => {
     const browser = await chromium.launch();
     try {
-      const page = await browser.newPage({ viewport: { width, height: 1000 } });
+      const page = await browser.newPage({
+        viewport: { width, height: 1000 },
+        reducedMotion: "reduce",
+      });
       for (const scenario of [
         {
           stories: [
@@ -59,7 +62,7 @@ it.each([360, 375, 640, 900, 1440])(
           const avatar = page.getByRole("button", {
             name: `参加者 ${scenario.memberCount}人`,
           });
-          const timer = page.getByTestId("room-timer");
+          const timer = page.getByTestId("timer-floating");
           const read = async () => ({
             hudHeight: (await hud.boundingBox())?.height,
             menu: await page
@@ -107,7 +110,13 @@ it.each([360, 375, 640, 900, 1440])(
               const avatarBox = await avatar.boundingBox();
               if (!hudBox || !avatarBox)
                 throw new Error("操作バーまたは参加者ボタンがありません");
-              expect(avatarBox.x - hudBox.x).toBeLessThanOrEqual(8);
+              const complete = await page
+                .getByRole("button", { name: /できた！|準備OK！/ })
+                .boundingBox();
+              if (!complete) throw new Error("準備ボタンがありません");
+              expect(
+                avatarBox.x - (complete.x + complete.width),
+              ).toBeLessThanOrEqual(8);
             }
           }
           const next = page.getByRole("button", { name: "次へ進む" });
@@ -187,7 +196,10 @@ it.each([360, 375, 640, 900, 1440])(
   async (width) => {
     const browser = await chromium.launch();
     try {
-      const page = await browser.newPage({ viewport: { width, height: 1000 } });
+      const page = await browser.newPage({
+        viewport: { width, height: 1000 },
+        reducedMotion: "reduce",
+      });
       let reference: unknown;
       for (const story of [
         "idea-result-awaiting-decision",

@@ -182,6 +182,7 @@ const meta = {
     onLeave: fn(),
     isLeaving: false,
     onNextPhase: fn(),
+    onToggleReady: fn(),
     onTimerStart: fn(),
     onTimerPause: fn(),
     onTimerResume: fn(),
