@@ -1388,7 +1388,7 @@ test.each([1280, 1024, 768])(
   },
 );
 
-test("U03: 3-3のマップ増減と書き足しへ通常pointerで到達できる", async () => {
+test("U03: 3-3のマップ増減へ通常pointerで到達でき、書き足し操作を出さない", async () => {
   await openStory("room-roomboardlayout--map-controls");
   const map = page.getByRole("group", { name: "2軸マップの広さ操作" });
   await map.waitFor();
@@ -1399,17 +1399,20 @@ test("U03: 3-3のマップ増減と書き足しへ通常pointerで到達でき�
   expect(await map.getByRole("status").innerText()).toContain("3段階目");
   await map.getByRole("button", { name: "マップを狭くする" }).click();
   expect(await map.getByRole("status").innerText()).toContain("2段階目");
-  await page
-    .getByRole("button", { name: "もう一度付箋を書く", exact: true })
-    .click();
-  expect(await page.getByRole("alertdialog").isVisible()).toBe(true);
+  expect(
+    await page
+      .getByRole("button", { name: /もう一度付箋を書く|付箋を書き足す/ })
+      .count(),
+  ).toBe(0);
 });
 
-test("U03: 390pxでガイドを表示せず、現在の操作へ到達できる", async () => {
+test("U03: 390pxでは短い進め方の入口を表示し、現在の操作へ到達できる", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openStory("room-roomboardlayout--phase-3-step-1");
   await page.screenshot({ path: `${output}/u03-narrow.png` });
-  expect(await page.getByTestId("step-guide").count()).toBe(0);
+  expect(await page.getByTestId("step-guide").getAttribute("data-state")).toBe(
+    "compact",
+  );
   const controls = await page.getByTestId("board-control-hud").boundingBox();
   expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(390);
   expect(
@@ -1448,7 +1451,7 @@ test.each([
 );
 
 // 固定情報との意図した部分重なりは許容し、各操作対象に到達できる可視部分が残ることを調べる。
-async function expectHudTargets(): Promise<void> {
+async function expectHudTargets(context: string): Promise<void> {
   const targets = page.locator(
     [
       '[data-testid="board-header-row"] button',
@@ -1530,7 +1533,7 @@ async function expectHudTargets(): Promise<void> {
     }),
   );
   for (const target of visible)
-    expect(target.hit, String(target.name)).toBe(true);
+    expect(target.hit, `${context}: ${target.name}`).toBe(true);
   for (let index = 0; index < visible.length; index++)
     for (const b of visible.slice(index + 1)) {
       const a = visible[index];
@@ -1571,8 +1574,11 @@ test.each([1280, 390])(
             .getByRole("dialog", { name: "投票結果", exact: true })
             .count(),
         ).toBe(0);
-        expect(await page.getByTestId("step-guide").count()).toBe(0);
-        await expectHudTargets();
+        const guide = page.getByTestId("step-guide");
+        expect(await guide.count()).toBe(step === "1-1" ? 0 : 1);
+        if (width < 640 && step !== "1-1")
+          expect(await guide.getAttribute("data-state")).toBe("compact");
+        await expectHudTargets(`${step}/${isHost ? "host" : "member"}`);
       }
   },
   60_000,

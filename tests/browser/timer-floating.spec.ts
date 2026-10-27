@@ -95,6 +95,37 @@ test("延長後の時間切れでは空の円を表示しない", async () => {
   }
 });
 
+test("390pxの問い共有でタイマー下のマイ付箋が下部の操作欄を覆わない", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await story(page, "room-roomboardlayout--phase-2-step-2");
+    const notes = await rect(page, "private-notes-toolbar");
+    const operations = await rect(page, "board-operation-matrix");
+    expect(notes.y + notes.height).toBeLessThanOrEqual(operations.y - 12);
+    const close = page.getByRole("button", { name: "マイ付箋を閉じる" });
+    expect(
+      await close.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return element.contains(
+          document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          ),
+        );
+      }),
+    ).toBe(true);
+    await close.click();
+    expect(
+      await page.getByRole("button", { name: "マイ付箋を開く" }).isVisible(),
+    ).toBe(true);
+  } finally {
+    await page.close();
+  }
+});
+
 test.each([1280, 768, 390])(
   "幅%dでHUD・タイマー・開いたマイ付箋を重ねず、移動先も画面内に収める",
   async (width) => {

@@ -1611,11 +1611,10 @@ export function RoomBoardView({
             "--board-private-dock-bottom":
               "calc(var(--board-mobile-phase-bottom) + var(--board-phase-hud-height, 0px) + 0.5rem)",
             "--board-private-dock-top":
-              "max(16.5rem, calc(var(--board-connection-notice-bottom, 0px) + 3.5rem))",
-            "--board-private-dock-height": hasMoveHistory
-              ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))"
-              : connectionStatus === "open"
-                ? "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))"
+              "max(16.5rem, var(--board-timer-row-bottom, 0px), calc(var(--board-connection-notice-bottom, 0px) + 3.5rem))",
+            "--board-private-dock-height":
+              hasMoveHistory || connectionStatus === "open"
+                ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))"
                 : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)), max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))",
           } as CSSProperties
         }
