@@ -228,25 +228,25 @@ export function StepGuideIllustration({
       break;
     case "question-example":
       content = (
-        <div className="space-y-4">
-          <Note>{copy.exampleIssue}</Note>
-          <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">{copy.exampleIssue}</p>
+          <div className="grid gap-2">
             {SCAMPER_QUESTION_EXAMPLES.map((example) => (
               <div
                 key={example.perspective}
-                className="min-w-0 space-y-3 rounded-xl border bg-background p-3"
+                className="grid min-w-0 items-center gap-3 rounded-xl border bg-background p-2 sm:grid-cols-2"
               >
-                <p className="font-semibold">↓ {example.perspective}</p>
-                <p className="text-sm leading-6">{example.prompt}</p>
-                <ArrowDown
-                  aria-hidden
-                  className="mx-auto size-5 text-muted-foreground"
-                />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">
+                    {example.perspective} →
+                  </p>
+                  <p className="text-sm leading-5">{example.prompt}</p>
+                </div>
                 <Note blue>{example.question}</Note>
               </div>
             ))}
           </div>
-          <p className="text-sm leading-6 text-muted-foreground">
+          <p className="text-xs leading-5 text-muted-foreground">
             {copy.scamper}
           </p>
         </div>
@@ -321,7 +321,7 @@ export function StepGuideIllustration({
   return (
     <section
       aria-label={alt}
-      className="flex min-h-48 w-full flex-col justify-center rounded-2xl bg-muted/40 p-4 sm:p-6"
+      className={`flex min-h-48 w-full flex-col justify-center rounded-2xl bg-muted/40 ${kind === "question-example" ? "p-3" : "p-4 sm:p-6"}`}
     >
       {content}
     </section>

@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,7 +34,7 @@ type GuideClosingStyle = CSSProperties & {
   "--guide-target-scale-y": string;
 };
 
-function StepOneOnboardingIllustration({
+function StepOneOnboardingIllustrationContent({
   kind,
   alt,
 }: {
@@ -206,6 +206,46 @@ function StepOneOnboardingIllustration({
   );
 }
 
+function StepOneOnboardingIllustration(props: {
+  kind: StepGuideSlide["illustration"];
+  alt: string;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    const canvas = canvasRef.current;
+    if (!frame || !canvas) return;
+    const updateScale = () => {
+      if (canvas.offsetHeight === 0) return;
+      setScale(Math.min(1, frame.clientHeight / canvas.offsetHeight));
+    };
+    updateScale();
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateScale);
+    observer?.observe(frame);
+    observer?.observe(canvas);
+    return () => observer?.disconnect();
+  });
+  const isMedia = ["many-notes", "add-note", "operation-video"].includes(
+    props.kind,
+  );
+  return (
+    <div ref={frameRef} className={styles.illustrationFrame}>
+      <div
+        ref={canvasRef}
+        className={`${styles.illustrationCanvas} ${isMedia ? styles.mediaIllustration : ""}`}
+        style={{ "--illustration-scale": scale } as CSSProperties}
+      >
+        <StepOneOnboardingIllustrationContent {...props} />
+      </div>
+    </div>
+  );
+}
+
 export function StepOneOnboardingSlide({
   phaseKey,
   sessionKey,
@@ -213,9 +253,7 @@ export function StepOneOnboardingSlide({
 }: StepOneOnboardingSlideProps) {
   const [open, setOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [slideTransition, setSlideTransition] = useState<"out" | "in" | null>(
-    null,
-  );
+  const [slideTransition, setSlideTransition] = useState<"moving" | null>(null);
   const [slideDirection, setSlideDirection] = useState<"forward" | "backward">(
     "forward",
   );
@@ -230,6 +268,9 @@ export function StepOneOnboardingSlide({
   const activeVisitRef = useRef<string | null>(null);
   const slides = getStepGuideSlides(phaseKey);
   const slide = slides[slideIndex] ?? slides[0];
+  const previewSlide = slideTransition
+    ? slides[pendingSlideIndexRef.current]
+    : undefined;
   const isLastSlide = slideIndex === slides.length - 1;
 
   const finishCloseToGuide = () => {
@@ -275,15 +316,10 @@ export function StepOneOnboardingSlide({
   useEffect(() => {
     if (slideTransition === null) return;
 
-    const fallbackDuration = slideTransition === "out" ? 235 : 275;
     const timeoutId = window.setTimeout(() => {
-      if (slideTransition === "out") {
-        setSlideIndex(pendingSlideIndexRef.current);
-        setSlideTransition("in");
-      } else {
-        setSlideTransition(null);
-      }
-    }, fallbackDuration);
+      setSlideIndex(pendingSlideIndexRef.current);
+      setSlideTransition(null);
+    }, 300);
 
     return () => window.clearTimeout(timeoutId);
   }, [slideTransition]);
@@ -324,13 +360,59 @@ export function StepOneOnboardingSlide({
     }
     pendingSlideIndexRef.current = targetIndex;
     setSlideDirection(direction);
-    setSlideTransition("out");
+    setSlideTransition("moving");
   };
 
   const advanceSlide = () => {
     if (isLastSlide) return;
     transitionToSlide(slideIndex + 1, "forward");
   };
+
+  const renderPage = (item: StepGuideSlide, preview: boolean) => (
+    <div
+      aria-hidden={preview || undefined}
+      className={`${styles.slidePage} ${preview ? styles.previewPage : styles.currentPage}`}
+      onAnimationEnd={
+        preview
+          ? undefined
+          : (event) => {
+              if (
+                event.target !== event.currentTarget ||
+                slideTransition === null
+              )
+                return;
+              setSlideIndex(pendingSlideIndexRef.current);
+              setSlideTransition(null);
+            }
+      }
+    >
+      <figure className={styles.illustration}>
+        <StepOneOnboardingIllustration
+          kind={item.illustration}
+          alt={item.illustrationAlt}
+        />
+      </figure>
+      <DialogHeader className={styles.slideText}>
+        {preview ? (
+          <>
+            <h2 className="text-xl font-semibold leading-snug">{item.title}</h2>
+            <p className="max-w-2xl text-balance text-sm leading-6 text-muted-foreground">
+              {item.description}
+            </p>
+          </>
+        ) : (
+          <>
+            <DialogTitle className="text-xl leading-snug">
+              {item.title}
+            </DialogTitle>
+            <DialogDescription className="max-w-2xl text-balance text-sm leading-6">
+              {item.description}
+            </DialogDescription>
+          </>
+        )}
+      </DialogHeader>
+    </div>
+  );
 
   const start = () => {
     const dialogElement = dialogRef.current;
@@ -411,10 +493,10 @@ export function StepOneOnboardingSlide({
               guideButtonRef.current.focus();
             }}
             data-closing-to-guide={isClosingToGuide ? "true" : undefined}
-            className={`max-h-[calc(100dvh-5rem)] w-[calc(100%-2rem)] max-w-[56rem] gap-0 overflow-y-auto rounded-[32px] border-border bg-background p-5 text-foreground shadow-2xl sm:p-8 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}
+            className={`${styles.dialog} gap-0 rounded-[28px] border-border bg-background text-foreground shadow-2xl data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}
             style={{
-              top: "4rem",
-              translate: "-50% 0",
+              top: "50%",
+              translate: "-50% -50%",
               ...closingStyle,
               ...(isClosingToGuide && !open
                 ? { animation: "none", opacity: 0, pointerEvents: "none" }
@@ -425,26 +507,7 @@ export function StepOneOnboardingSlide({
               data-testid="step-one-onboarding-slide-content"
               data-slide-transition={slideTransition ?? "idle"}
               data-slide-direction={slideDirection}
-              className={`${styles.slideContent} ${
-                slideTransition === "out"
-                  ? slideDirection === "forward"
-                    ? styles.slideOutLeft
-                    : styles.slideOutRight
-                  : slideTransition === "in"
-                    ? slideDirection === "forward"
-                      ? styles.slideInFromRight
-                      : styles.slideInFromLeft
-                    : ""
-              }`}
-              onAnimationEnd={(event) => {
-                if (event.target !== event.currentTarget) return;
-                if (slideTransition === "out") {
-                  setSlideIndex(pendingSlideIndexRef.current);
-                  setSlideTransition("in");
-                } else if (slideTransition === "in") {
-                  setSlideTransition(null);
-                }
-              }}
+              className={styles.slideContent}
             >
               <div className="flex justify-center">
                 <ol
@@ -479,23 +542,13 @@ export function StepOneOnboardingSlide({
                   ))}
                 </ol>
               </div>
-              <figure
-                className={`mt-4 w-full rounded-[24px] bg-muted/50 p-2 sm:mt-5 sm:p-3 ${["many-notes", "add-note", "operation-video"].includes(slide.illustration) ? "aspect-[64/27] max-h-[22rem] overflow-hidden" : ""}`}
+              <div
+                className={`${styles.slideViewport} ${slideTransition ? (slideDirection === "forward" ? styles.movingForward : styles.movingBackward) : ""}`}
               >
-                <StepOneOnboardingIllustration
-                  kind={slide.illustration}
-                  alt={slide.illustrationAlt}
-                />
-              </figure>
-              <DialogHeader className="mt-5 min-h-32 items-center justify-center gap-2 text-center">
-                <DialogTitle className="text-xl leading-snug sm:text-2xl">
-                  {slide.title}
-                </DialogTitle>
-                <DialogDescription className="max-w-2xl text-balance text-sm leading-6 sm:text-base">
-                  {slide.description}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="mt-6 justify-center sm:justify-center">
+                {renderPage(slide, false)}
+                {previewSlide ? renderPage(previewSlide, true) : null}
+              </div>
+              <DialogFooter className="mt-4 shrink-0 justify-center sm:justify-center">
                 {isLastSlide ? (
                   <Button
                     className="h-12 min-w-52 rounded-full px-8 text-base"

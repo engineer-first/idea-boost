@@ -82,11 +82,8 @@ async function advanceOnboardingSlide() {
   const currentTitle = within(dialog).getByRole("heading").textContent ?? "";
   const slideContent = screen.getByTestId("step-one-onboarding-slide-content");
   fireEvent.click(screen.getByRole("button", { name: "次へ" }));
-  expect(slideContent).toHaveAttribute("data-slide-transition", "out");
+  expect(slideContent).toHaveAttribute("data-slide-transition", "moving");
   expect(within(dialog).getByRole("heading")).toHaveTextContent(currentTitle);
-  await waitFor(() =>
-    expect(slideContent).toHaveAttribute("data-slide-transition", "in"),
-  );
   await waitFor(() =>
     expect(slideContent).toHaveAttribute("data-slide-transition", "idle"),
   );
@@ -97,10 +94,7 @@ async function returnToOnboardingSlide(index: number, title: string) {
   fireEvent.click(
     screen.getByRole("button", { name: `${index + 1}枚目に戻る` }),
   );
-  expect(slideContent).toHaveAttribute("data-slide-transition", "out");
-  await waitFor(() =>
-    expect(slideContent).toHaveAttribute("data-slide-transition", "in"),
-  );
+  expect(slideContent).toHaveAttribute("data-slide-transition", "moving");
   await waitFor(() =>
     expect(slideContent).toHaveAttribute("data-slide-transition", "idle"),
   );
@@ -371,12 +365,12 @@ describe("RoomBoardHeader", () => {
     try {
       fireEvent.click(screen.getByRole("button", { name: "次へ" }));
       await act(async () => {
-        vi.advanceTimersByTime(235);
+        vi.advanceTimersByTime(300);
       });
 
       expect(
         screen.getByTestId("step-one-onboarding-slide-content"),
-      ).toHaveAttribute("data-slide-transition", "in");
+      ).toHaveAttribute("data-slide-transition", "idle");
     } finally {
       vi.useRealTimers();
     }

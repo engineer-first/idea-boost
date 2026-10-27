@@ -4,6 +4,27 @@ import { describe, expect, it } from "vitest";
 import { StepOneOnboardingSlide } from "./step-one-onboarding-slide";
 
 describe("StepOneOnboardingSlide", () => {
+  it("1-1の4枚目へ移動中に2枚構成の工程へ変わっても落ちず、案内を閉じる", async () => {
+    const props = { sessionKey: "moving-phase-change", isReady: true };
+    const { rerender } = render(
+      <StepOneOnboardingSlide {...props} phaseKey="1-1" />,
+    );
+    for (let index = 0; index < 2; index++) {
+      fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+      await waitFor(() =>
+        expect(
+          screen.getByTestId("step-one-onboarding-slide-content"),
+        ).toHaveAttribute("data-slide-transition", "idle"),
+      );
+    }
+    fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+    rerender(<StepOneOnboardingSlide {...props} phaseKey="1-4" />);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+    expect(
+      screen.getByRole("dialog", { name: "取り組みたい課題に投票しよう。" }),
+    ).toBeVisible();
+  });
   it.each(["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])(
     "%sは手動で2枚を開き、戻る・閉じる・再表示ができ、再接続や再入場では開かない",
     async (phaseKey) => {
