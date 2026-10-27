@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""新規Taskだけを起票し、PBI配下なら任意の時間を一度設定する。"""
+"""新規作業Issueを起票し、PBI配下の末端なら任意時間を一度設定する。"""
 import argparse
 import json
 import math
@@ -25,16 +25,31 @@ def valid_hours(value):
     return type(value) in (int, float) and math.isfinite(value) and value > 0
 
 
+def has_pbi_ancestor(parent):
+    # GitHub supports eight nested levels. Only inspect this parent chain.
+    for _ in range(8):
+        if "pull_request" in parent:
+            return False
+        if (parent.get("type") or {}).get("name") == "PBI":
+            return True
+        url = parent.get("parent_issue_url") or ""
+        if not url.startswith("https://api.github.com/repos/engineer-first/"):
+            return False
+        parent = api(url.removeprefix("https://api.github.com/"))
+    return False
+
+
 def set_estimate_if_empty(number, parent_id, value):
     if not parent_id or not valid_hours(value):
         return "skipped"
     endpoint = f"repos/{REPO}/issues/{number}"
     try:
         issue = api(endpoint)
-        if (issue.get("type") or {}).get("name") != "Task" or "pull_request" in issue:
+        if ((issue.get("type") or {}).get("name") == "PBI" or "pull_request" in issue
+                or (issue.get("sub_issues_summary") or {}).get("total") != 0):
             return "skipped"
         parent = api(endpoint + "/parent")
-        if parent.get("id") != parent_id or (parent.get("type") or {}).get("name") != "PBI":
+        if parent.get("id") != parent_id or not has_pbi_ancestor(parent):
             return "skipped"
         fields = api("orgs/engineer-first/issue-fields")
         matches = [f for f in fields if f.get("name") == "Estimate Hours"]
@@ -67,9 +82,12 @@ def validate(spec):
     for key in ("how", "completion"):
         if spec.get(key) is not None and not isinstance(spec[key], str):
             raise ValueError(f"{key} must be a string")
-    parent = spec.get("parent_pbi")
+    issue_type = spec.get("issue_type", "Task")
+    if issue_type is not None and (not isinstance(issue_type, str) or not issue_type.strip() or issue_type == "PBI"):
+        raise ValueError("issue_type must be a non-PBI type name, or null")
+    parent = spec.get("parent_issue")
     if parent is not None and (type(parent) is not int or parent <= 0):
-        raise ValueError("parent_pbi must be a positive Issue number")
+        raise ValueError("parent_issue must be a positive Issue number")
 
 
 def render(spec):
@@ -81,26 +99,28 @@ def render(spec):
     return "\n\n".join(parts)
 
 
-def create_task(spec):
+def create_work_issue(spec):
     body = render(spec)
-    payload = {"title": spec["title"], "body": body, "type": "Task"}
+    payload = {"title": spec["title"], "body": body}
+    if spec.get("issue_type", "Task") is not None:
+        payload["type"] = spec.get("issue_type", "Task")
     parent_id = None
-    if spec.get("parent_pbi"):
-        parent = api(f"repos/{REPO}/issues/{spec['parent_pbi']}")
-        if (parent.get("type") or {}).get("name") != "PBI" or "pull_request" in parent:
-            raise ValueError("指定した親IssueはPBIではありません。起票していません。")
+    if spec.get("parent_issue"):
+        parent = api(f"repos/{REPO}/issues/{spec['parent_issue']}")
+        if "pull_request" in parent:
+            raise ValueError("指定した親はPull Requestです。起票していません。")
         parent_id = parent["id"]
         payload["parent_issue_id"] = parent_id
     try:
         created = api(f"repos/{REPO}/issues", payload=payload)
     except (RuntimeError, OSError, ValueError) as exc:
         raise RuntimeError("起票結果が未確認です。GitHubで有無を確認するまで再実行しないでください。") from exc
-    print(f"Task created: {created['html_url']}", flush=True)
+    print(f"Work issue created: {created['html_url']}", flush=True)
     return created, set_estimate_if_empty(created["number"], parent_id, spec.get("estimate_hours"))
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create one Task with optional Estimate Hours.")
+    parser = argparse.ArgumentParser(description="Create one work issue with optional Estimate Hours.")
     parser.add_argument("spec", type=Path)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -109,10 +129,10 @@ def main():
     if args.dry_run:
         print(f"# {spec['title']}\n\n{body}")
         hours = spec.get("estimate_hours")
-        print(f"Parent PBI: {spec.get('parent_pbi') or '未整理'}")
-        print(f"Estimate Hours: {hours if spec.get('parent_pbi') and valid_hours(hours) else '未設定'}（任意・本文外）")
+        print(f"Parent Issue: {spec.get('parent_issue') or '未整理'}")
+        print(f"Estimate Hours: {hours if spec.get('parent_issue') and valid_hours(hours) else '未設定'}（任意・本文外）")
         return
-    created, result = create_task(spec)
+    created, result = create_work_issue(spec)
     print(f"Estimate Hours: {result} ({created['html_url']})")
     print("Issue Type・親子関係・Project自動追加の反映を確認してください。起票の再実行はしません。")
 

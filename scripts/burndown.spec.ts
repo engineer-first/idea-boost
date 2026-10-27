@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-it("Spike・種類なしも作業時間に含め、PBI・旧DemoGoal・相談を除外する", () => {
+it("種類を限定せずPBI配下の末端作業を含め、PBIを除外する", () => {
   const dir = mkdtempSync(join(tmpdir(), "burndown-"));
   const issues = [
     "Task",
@@ -21,6 +21,8 @@ it("Spike・種類なしも作業時間に含め、PBI・旧DemoGoal・相談を
     issueType: type ? { name: type } : null,
     labels: { nodes: [{ name: "est:2h" }] },
     milestone: null,
+    parent: { issueType: { name: "PBI" } },
+    subIssues: { totalCount: 0 },
   }));
   writeFileSync(
     join(dir, "fixture.json"),
@@ -60,21 +62,21 @@ it("Spike・種類なしも作業時間に含め、PBI・旧DemoGoal・相談を
       }),
     );
     expect(summary.sprints[0]).toMatchObject({
-      tasks_total: 4,
-      total_h: 8,
+      tasks_total: 6,
+      total_h: 12,
       done_h: 2,
-      remaining_h: 6,
+      remaining_h: 10,
     });
     expect(summary.no_milestone).toMatchObject({
-      tasks_total: 3,
-      remaining_h: 6,
+      tasks_total: 5,
+      remaining_h: 10,
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-it("PBI配下Taskは数値時間を優先し、他の作業は既存ラベルだけを集計する", () => {
+it("PBI配下の末端は種類を問わず数値優先で、親作業・対象外を除外し欠落を0にしない", () => {
   const dir = mkdtempSync(join(tmpdir(), "burndown-fields-"));
   const issues = [
     { type: "Task", parent: "PBI", hours: 1.5, label: "est:8h" },
@@ -90,6 +92,7 @@ it("PBI配下Taskは数値時間を優先し、他の作業は既存ラベルだ
     state: "OPEN",
     milestone: null,
     issueType: { name: v.type },
+    subIssues: { totalCount: i === 1 ? 1 : 0 },
     parent: v.parent ? { issueType: { name: v.parent } } : null,
     labels: { nodes: v.label ? [{ name: v.label }] : [] },
     issueFieldValues: {
@@ -125,8 +128,9 @@ it("PBI配下Taskは数値時間を優先し、他の作業は既存ラベルだ
       },
     });
     expect(JSON.parse(output).no_milestone).toMatchObject({
-      tasks_total: 6,
-      remaining_h: 9,
+      tasks_total: 4,
+      remaining_h: null,
+      known_remaining_h: 11,
       unestimated: [{ number: 7, state: "OPEN", title: "作業" }],
     });
   } finally {

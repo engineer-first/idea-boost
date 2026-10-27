@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { expect, it } from "vitest";
 
-it("Task起票の任意時間・親の確認・既存値保持・失敗時の継続を検証する", () => {
+it("作業Issue起票の任意時間・親の確認・既存値保持・失敗時の継続を検証する", () => {
   expect(() =>
     execFileSync(
       "python3",
@@ -11,7 +11,7 @@ it("Task起票の任意時間・親の確認・既存値保持・失敗時の継
         "unittest",
         "discover",
         "-s",
-        ".agents/skills/create-task/scripts",
+        ".agents/skills/create-work-issue/scripts",
         "-p",
         "test_*.py",
       ],

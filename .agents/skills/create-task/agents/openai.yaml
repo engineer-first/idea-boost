@@ -1,4 +1,0 @@
-interface:
-  display_name: "Taskを起票する"
-  short_description: "Why中心にTaskを起票し、PBI配下の任意見積時間を設定する"
-  default_prompt: "$create-task を使って、この作業をTaskとして起票してください。"
