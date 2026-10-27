@@ -387,10 +387,23 @@ export function StepOneOnboardingSlide({
       }
     >
       <figure className={styles.illustration}>
-        <StepOneOnboardingIllustration
-          kind={item.illustration}
-          alt={item.illustrationAlt}
-        />
+        {item.videoSrc ? (
+          <video
+            aria-label={item.illustrationAlt}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            className="h-full w-full object-contain"
+            src={item.videoSrc}
+          />
+        ) : (
+          <StepOneOnboardingIllustration
+            kind={item.illustration}
+            alt={item.illustrationAlt}
+          />
+        )}
       </figure>
       <DialogHeader className={styles.slideText}>
         {preview ? (

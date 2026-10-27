@@ -26,6 +26,7 @@ export type StepGuideSlide = {
     | "operation-video"
     | "add-note";
   illustrationAlt: string;
+  videoSrc?: string;
 };
 
 const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
@@ -43,6 +44,7 @@ const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
       description:
         "マイ付箋をボードへドラッグして、内容を説明します。説明が終わったら「次の人へ」で交代しましょう。",
       illustration: "share",
+      videoSrc: "/onboarding/step-1-2.webm",
       illustrationAlt:
         "マイ付箋からボードへドラッグし、説明して次の人へ交代する流れ",
     },
@@ -59,6 +61,7 @@ const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
       description:
         "付箋を移動してグループに整理します。投票はグループでなく付箋1枚ずつに行います。",
       illustration: "group",
+      videoSrc: "/onboarding/step-1-3.webm",
       illustrationAlt: "離れた付箋を近づけ、似た困りごとをまとめる流れ",
     },
   ],
@@ -75,6 +78,7 @@ const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
       description:
         "シールを付箋へドラッグします。自分のシールは押すかパレットへ戻すと取り消せます。投票中は他の人の票は見えません。",
       illustration: "vote",
+      videoSrc: "/onboarding/step-1-4.webm",
       illustrationAlt:
         "主観1票・客観3票のパレットから付箋にシールを貼り、取り消すと残票が戻る",
     },
@@ -91,6 +95,7 @@ const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
       description:
         "ボタンを押してから付箋を選ぶと、チームの決定になります。決定後に次のフェーズへ進みましょう。",
       illustration: "decision",
+      videoSrc: "/onboarding/step-1-5.webm",
       illustrationAlt:
         "票を比べ、採用する付箋を選ぶボタンを押してから1枚の付箋を選ぶ流れ",
     },
@@ -139,6 +144,7 @@ const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
       description:
         "価値が高いほど上、実現しやすいほど右に置きます。前の共有で置いた付箋の位置を見直せます。",
       illustration: "evaluation",
+      videoSrc: "/onboarding/step-3-3.webm",
       illustrationAlt:
         "上ほど価値が高く、右ほど実現しやすい2軸マップで付箋を動かす",
     },

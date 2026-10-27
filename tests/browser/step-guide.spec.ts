@@ -10,6 +10,54 @@ afterAll(async () => {
   await browser?.close();
 });
 
+test.each([
+  [1, 2],
+  [1, 3],
+  [1, 4],
+  [1, 5],
+  [3, 3],
+])(
+  "%i-%iの実操作動画が読み込まれ、固定枠で音なし再生できる",
+  async (phase, step) => {
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    });
+    try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-roomboardlayout--phase-${phase}-step-${step}&viewMode=story`,
+      );
+      await page.getByRole("button", { name: "進め方", exact: true }).click();
+      const before = await page.getByRole("dialog").boundingBox();
+      await page.getByRole("button", { name: "次へ", exact: true }).click();
+      await page
+        .getByRole("button", { name: "はじめる", exact: true })
+        .waitFor();
+      const video = page.getByRole("dialog").locator("video");
+      await expect
+        .poll(() =>
+          video.evaluate((element: HTMLVideoElement) => element.readyState),
+        )
+        .toBeGreaterThanOrEqual(2);
+      expect(
+        await video.evaluate((element: HTMLVideoElement) => ({
+          muted: element.muted,
+          loop: element.loop,
+          width: element.videoWidth,
+          height: element.videoHeight,
+        })),
+      ).toMatchObject({ muted: true, loop: true });
+      await expect
+        .poll(() =>
+          video.evaluate((element: HTMLVideoElement) => element.currentTime),
+        )
+        .toBeGreaterThan(0);
+      expect(await page.getByRole("dialog").boundingBox()).toEqual(before);
+    } finally {
+      await page.close();
+    }
+  },
+);
+
 test("通常の動きで次へ押下後も内容を白く消さず、図と説明の比率・ダイアログ寸法を保つ", async () => {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 900 },
@@ -99,7 +147,7 @@ test("工程や原稿量が違ってもデスクトップの図・説明・操�
           .find((button) => button.textContent === "はじめる")
           ?.getBoundingClientRect();
         const diagram = element
-          .querySelector("figure section")
+          .querySelector("figure section, figure video")
           ?.getBoundingClientRect();
         if (
           !figure ||

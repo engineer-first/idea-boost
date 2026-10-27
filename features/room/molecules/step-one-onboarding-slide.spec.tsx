@@ -4,6 +4,27 @@ import { describe, expect, it } from "vitest";
 import { StepOneOnboardingSlide } from "./step-one-onboarding-slide";
 
 describe("StepOneOnboardingSlide", () => {
+  it.each(["1-2", "1-3", "1-4", "1-5", "3-3"])(
+    "%sの操作スライドは実操作動画を音なしで繰り返し再生する",
+    async (phaseKey) => {
+      render(
+        <StepOneOnboardingSlide
+          phaseKey={phaseKey}
+          sessionKey={`video-${phaseKey}`}
+          isReady
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+      fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+      await screen.findByRole("button", { name: "はじめる" });
+      const video = screen.getByRole("dialog").querySelector("video");
+      expect(video).not.toBeNull();
+      expect(video).toHaveAttribute("src", `/onboarding/step-${phaseKey}.webm`);
+      expect(video).toHaveProperty("muted", true);
+      expect(video).toHaveProperty("loop", true);
+      expect(video).toHaveProperty("playsInline", true);
+    },
+  );
   it("1-1の4枚目へ移動中に2枚構成の工程へ変わっても落ちず、案内を閉じる", async () => {
     const props = { sessionKey: "moving-phase-change", isReady: true };
     const { rerender } = render(
