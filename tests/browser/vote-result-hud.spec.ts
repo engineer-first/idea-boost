@@ -110,7 +110,7 @@ it.each([360, 375, 640, 900, 1440])(
               expect(avatarBox.x - hudBox.x).toBeLessThanOrEqual(8);
             }
           }
-          const next = page.getByRole("button", { name: "次のステップへ" });
+          const next = page.getByRole("button", { name: "次へ進む" });
           if (await next.count()) {
             const nextBox = await next.boundingBox();
             if (!nextReference) nextReference = nextBox;
@@ -159,10 +159,8 @@ it.each([360, 375, 640, 900, 1440])(
             ).toBe(0);
             if (scenario.isHost && !result?.startsWith("idea"))
               expect(
-                await page
-                  .getByRole("button", { name: "次のステップへ" })
-                  .isDisabled(),
-              ).toBe(true);
+                await page.getByRole("button", { name: "次へ進む" }).count(),
+              ).toBe(0);
             else if (result?.startsWith("idea"))
               expect(
                 await page

@@ -4,6 +4,7 @@ import worker from "./api-worker";
 import {
   connectRoomAs,
   createRoomAs,
+  endTimerForTest,
   initializeTestRoom,
   joinRoomAs,
   runInRoomDO,
@@ -59,6 +60,7 @@ async function complete(prepare?: Parameters<typeof runInRoomDO>[1]) {
       );
   });
   if (prepare) await runInRoomDO(room.roomId, prepare);
+  await endTimerForTest(room.roomId);
   const socket = await connectRoomAs(host, room.roomId);
   await socket.next();
   socket.ws.send(JSON.stringify({ type: "outcome:publish" }));
@@ -193,6 +195,7 @@ it("保全だけ済んだ旧データを公開成立と見なさず、旧公開�
     ).preserveSharedOutcome(true);
     state.storage.sql.exec("UPDATE room_state SET outcome_published=0");
   });
+  await endTimerForTest(room.roomId);
   const socket = await connectRoomAs(host, room.roomId);
   await socket.next();
   socket.ws.send(JSON.stringify({ type: "outcome:publish" }));
@@ -404,6 +407,7 @@ it("必須記録の保存失敗は全体をrollbackし、再試行で完了が�
       "CREATE TRIGGER fail_completion BEFORE INSERT ON completed_room BEGIN SELECT RAISE(ABORT,'injected failure'); END",
     );
   });
+  await endTimerForTest(room.roomId);
   const socket = await connectRoomAs(host, room.roomId);
   await socket.next();
   socket.ws.send(JSON.stringify({ type: "outcome:publish" }));

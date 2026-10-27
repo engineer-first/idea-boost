@@ -12,7 +12,13 @@ import {
   Trash2,
   UserPlus,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,12 +38,10 @@ import {
 } from "@/components/ui/popover";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
-  isPersonalWritingStep,
   isPhaseStep,
   isResultStep,
   isVotingStep,
   type RoomPhase,
-  VOTING_STEP_BY_PHASE,
 } from "@/contracts/phase";
 import type {
   Carryover,
@@ -52,17 +56,21 @@ import {
 } from "@/features/room-members";
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
+import { getFacilitationGuide } from "../logic/facilitation-guide";
 import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import type { Member, PhaseProgressState } from "../logic/room-reducer";
 import { useCompletionCue } from "../logic/use-completion-cue";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
+import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
 import { SharingPresenter } from "../molecules/sharing-presenter";
+import { StepGuide } from "../molecules/step-guide";
 import { StepOneOnboardingSlide } from "../molecules/step-one-onboarding-slide";
+import { TimerSoundControl } from "../molecules/timer-sound-control";
 import styles from "./room-board-header.module.css";
 import { RoomTimer } from "./room-timer";
 
@@ -97,6 +105,7 @@ export type RoomBoardHeaderProps = {
   sharing?: SharingState | null;
   onSharingStart?: (durationMs: number) => void;
   onSharingAdvance?: (outcome: "done" | "passed") => void;
+  onRestartWriting?: () => void;
   timer: TimerState;
   timerServerOffsetMs: number;
   timerUpdateVersion?: number;
@@ -124,6 +133,7 @@ export type RoomBoardHeaderProps = {
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
   hasCurrentDecision?: boolean;
+  initialGuideState?: StepGuideState;
   hasFinalDecision: boolean;
   outcomePublished: boolean;
   isLeaving: boolean;
@@ -157,6 +167,7 @@ export function RoomBoardHeader({
   sharing = null,
   onSharingStart,
   onSharingAdvance,
+  onRestartWriting,
   timer,
   timerServerOffsetMs,
   timerUpdateVersion = 0,
@@ -188,7 +199,7 @@ export function RoomBoardHeader({
   roomNameDisabled,
   isTransferring = false,
   isNextPhaseBlocked,
-  hasCurrentDecision = false,
+  initialGuideState,
   hasFinalDecision,
   outcomePublished,
   isLeaving,
@@ -198,10 +209,8 @@ export function RoomBoardHeader({
   onLeaveClick,
   onNextPhase,
   onTimerStart,
-  onTimerPause,
   onTimerResume,
   onTimerExtend,
-  onTimerStop,
 }: RoomBoardHeaderProps) {
   const controlsAreaRef = useRef<HTMLDivElement>(null);
   const isIdeaMapWorkspaceStep =
@@ -372,15 +381,7 @@ export function RoomBoardHeader({
     activeSharing.currentIndex !== null &&
     activeSharing.currentIndex === activeSharing.order.length - 1;
   const canCompleteSharing = activeSharing?.status === "complete";
-  const [configuredDuration, setConfiguredDuration] = useState<{
-    revision: string;
-    durationMs: number;
-  } | null>(null);
-  const sharingDuration =
-    activeSharing?.status === "ready" &&
-    configuredDuration?.revision === activeSharing.revision
-      ? configuredDuration.durationMs
-      : (activeSharing?.durationMs ?? 180000);
+  const sharingDuration = activeSharing?.durationMs ?? 180000;
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const canSelectHost = isHost && !outcomePublished && onSelectHostTarget;
@@ -416,12 +417,30 @@ export function RoomBoardHeader({
       );
   }, [roomMenuOpen]);
   const isCurrentVotingStep = isVotingStep(phase);
-  const isManualProgressStep =
-    isPersonalWritingStep(phase) ||
-    (phase.kind === "step" &&
-      ((phase.phase === 1 && phase.step === 3) ||
-        (phase.phase === 3 && phase.step === 3)));
-  const isCurrentUserReady = progress.readyUserIds.includes(currentUserId);
+  const votingAllComplete =
+    !isCurrentVotingStep ||
+    (progress.connectedUserIds.length > 0 &&
+      progress.connectedUserIds.every((userId) =>
+        completedVoterIds.includes(userId),
+      ));
+  const isManualProgressStep = phase.kind === "step";
+  const isCurrentUserReady =
+    activeSharing === null && progress.readyUserIds.includes(currentUserId);
+  const canProceedByTimeOrReady = progress.allReady || timer.status === "ended";
+  const sharingCompletionDisabled =
+    activeSharing !== null &&
+    (canCompleteSharing
+      ? !canProceedByTimeOrReady || isNextPhaseBlocked
+      : activeSharing.status !== "active" ||
+        transitioning ||
+        presenter?.userId !== currentUserId ||
+        !onSharingAdvance);
+  const canPublishOutcome =
+    canProceedByTimeOrReady &&
+    hasFinalDecision &&
+    !isDisconnected &&
+    !isTransferring &&
+    !isNextPhasePending;
   const completionCue = useCompletionCue({
     scope: `${inviteCode}:${currentUserId}:${JSON.stringify(phase)}:${phaseRevision}:${hostRevision}:${completionResetVersion}`,
     disabled:
@@ -448,27 +467,14 @@ export function RoomBoardHeader({
   const notReadyMembers = members.filter((member) =>
     progress.notReadyUserIds.includes(member.userId),
   );
-  const requireProgressConfirmation =
-    isManualProgressStep || isCurrentVotingStep
-      ? !progress.allReady
-      : (phase.kind === "step" &&
-          phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1) ||
-        isResultStep(phase);
+  const requireProgressConfirmation = !progress.allReady;
   const showVotingCompletion =
     isCurrentVotingStep &&
     members.length > 0 &&
     progress.connectedUserIds.length > 0 &&
-    progress.allReady &&
+    votingAllComplete &&
     !isDisconnected;
-  const completedMemberIds = isResultStep(phase)
-    ? hasCurrentDecision
-      ? members.map(({ userId }) => userId)
-      : []
-    : isCurrentVotingStep
-      ? completedVoterIds
-      : isManualProgressStep
-        ? progress.readyUserIds
-        : [];
+  const completedMemberIds = progress.readyUserIds;
   const completionLabel = isCurrentVotingStep ? "投票完了" : "作業完了";
   const timerSoundControls = useRoomTimerSounds({
     timer,
@@ -479,10 +485,56 @@ export function RoomBoardHeader({
         isCurrentVotingStep && phase.kind === "step"
           ? `phase-${phase.phase}`
           : null,
-      isComplete: isCurrentVotingStep && progress.allReady,
+      isComplete: isCurrentVotingStep && votingAllComplete,
       isDisconnected,
     },
   });
+  const guide = getFacilitationGuide(phase);
+  const guidePhaseKey =
+    phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
+  const handleGuidePhaseReady = useCallback(
+    (readyPhaseKey: string) => {
+      if (
+        readyPhaseKey !== guidePhaseKey ||
+        phase.kind !== "step" ||
+        !isHost ||
+        isDisconnected ||
+        isTransferring ||
+        isNextPhasePending ||
+        outcomePublished ||
+        timer.status !== "idle"
+      )
+        return;
+
+      if (phase.step === 2) {
+        if (activeSharing?.status === "ready" && !transitioning)
+          onSharingStart?.(sharingDuration);
+        return;
+      }
+
+      onTimerStart((guide?.durationMinutes ?? 3) * 60_000);
+    },
+    [
+      guidePhaseKey,
+      phase,
+      isHost,
+      isDisconnected,
+      isTransferring,
+      isNextPhasePending,
+      outcomePublished,
+      timer.status,
+      activeSharing,
+      transitioning,
+      onSharingStart,
+      sharingDuration,
+      onTimerStart,
+      guide,
+    ],
+  );
+  const handleInitialOnboardingReady = useCallback(
+    () => handleGuidePhaseReady("1-1"),
+    [handleGuidePhaseReady],
+  );
   const isPhaseOnePrivateNoteEntry = isPhaseStep(phase, 1, 1);
   const isPhaseThreePrivateNoteEntry =
     phase.kind === "step" && phase.phase === 3 && phase.step === 1;
@@ -502,6 +554,21 @@ export function RoomBoardHeader({
   const sharingAnnouncement =
     transitioning && presenter ? (
       <SharingAnnouncement member={presenter} />
+    ) : null;
+  const stepGuide =
+    guide && !isPhaseStep(phase, 1, 1) && !transitioning ? (
+      <StepGuide
+        key={`${inviteCode}:${currentUserId}`}
+        sessionKey={`${inviteCode}:${currentUserId}`}
+        placement={isIdeaMapWorkspaceStep ? "floating" : undefined}
+        phaseKey={guidePhaseKey}
+        guide={guide}
+        isHost={isHost}
+        isReady={!isDisconnected}
+        timer={timer}
+        initialState={initialGuideState}
+        onPhaseReady={handleGuidePhaseReady}
+      />
     ) : null;
 
   return (
@@ -532,9 +599,11 @@ export function RoomBoardHeader({
               }
               sessionKey={`${inviteCode}:${currentUserId}`}
               isReady={!isDisconnected}
+              onReady={handleInitialOnboardingReady}
             />
           </div>
           {sharingAnnouncement}
+          {stepGuide}
           {!isIdeaMapWorkspaceStep ||
           (children !== null && children !== undefined) ? (
             <div
@@ -561,13 +630,13 @@ export function RoomBoardHeader({
             {isManualProgressStep ? (
               <span className="sr-only" aria-live="polite">
                 {completionCue.stage === "waiting"
-                  ? "完了を更新しています"
+                  ? "準備OKを更新しています"
                   : isCurrentUserReady
-                    ? "あなたの作業は完了しています"
+                    ? "あなたは次へ進む準備ができています"
                     : "あなたは作業中です"}
               </span>
             ) : null}
-            {isManualProgressStep && onToggleReady ? (
+            {isManualProgressStep && (onToggleReady || activeSharing) ? (
               <Button
                 type="button"
                 variant={isCurrentUserReady ? "secondary" : "outline"}
@@ -577,17 +646,38 @@ export function RoomBoardHeader({
                   isNextPhasePending ||
                   isTransferring ||
                   isLeaving ||
+                  sharingCompletionDisabled ||
+                  (isCurrentVotingStep &&
+                    !isCurrentUserReady &&
+                    !completedVoterIds.includes(currentUserId)) ||
                   completionCue.busy
                 }
                 aria-busy={completionCue.stage === "waiting"}
-                aria-pressed={isCurrentUserReady}
-                onClick={() =>
-                  isCurrentUserReady
-                    ? onToggleReady(false)
-                    : completionCue.request(null)
+                aria-pressed={activeSharing ? undefined : isCurrentUserReady}
+                aria-label={
+                  isCurrentUserReady ? "準備OK！を取り消す" : "できた！"
                 }
+                title={
+                  activeSharing
+                    ? canCompleteSharing || isLastPresenter
+                      ? "次のステップへ進みます"
+                      : "次の人の発表へバトンタッチします"
+                    : isCurrentUserReady
+                      ? "クリックして作業中に戻す"
+                      : "次へ進む準備ができたことをみんなに伝えます"
+                }
+                onClick={() => {
+                  if (activeSharing) {
+                    if (canCompleteSharing) onNextPhase();
+                    else onSharingAdvance?.("done");
+                  } else if (isCurrentUserReady) onToggleReady?.(false);
+                  else completionCue.request(null);
+                }}
               >
-                {isCurrentUserReady ? "完了を取り消す" : "完了"}
+                <span className={styles.completionMark} aria-hidden="true">
+                  <Check className="size-3.5" strokeWidth={2.5} />
+                </span>
+                <span>{isCurrentUserReady ? "準備OK！" : "できた！"}</span>
               </Button>
             ) : showVotingCompletion ? (
               <span
@@ -804,46 +894,6 @@ export function RoomBoardHeader({
               </Popover>
             )}
 
-            {activeSharing?.status !== "complete" && timer.status !== "idle" ? (
-              <span
-                aria-hidden="true"
-                className="mx-1 h-6 w-px shrink-0 bg-border"
-              />
-            ) : null}
-            {activeSharing?.status !== "complete" && (
-              <div className="pointer-events-auto shrink-0">
-                <RoomTimer
-                  key={
-                    phase.kind === "step"
-                      ? `${phase.phase}-${phase.step}:${hostRevision}`
-                      : `lobby:${hostRevision}`
-                  }
-                  timer={timer}
-                  serverOffsetMs={timerServerOffsetMs}
-                  soundControls={timerSoundControls}
-                  isHost
-                  disabled={isDisconnected || transitioning || isTransferring}
-                  configureOnly={activeSharing?.status === "ready"}
-                  onConfigureDuration={(durationMs) => {
-                    if (activeSharing)
-                      setConfiguredDuration({
-                        revision: activeSharing.revision,
-                        durationMs,
-                      });
-                  }}
-                  initialDurationMs={
-                    activeSharing
-                      ? sharingDuration
-                      : getRecommendedTimerDurationMs(phase)
-                  }
-                  onStart={onTimerStart}
-                  onPause={onTimerPause}
-                  onResume={onTimerResume}
-                  onExtend={onTimerExtend}
-                  onStop={onTimerStop}
-                />
-              </div>
-            )}
             {activeSharing &&
             activeSharing.status !== "complete" &&
             (activeSharing.status === "ready"
@@ -858,106 +908,76 @@ export function RoomBoardHeader({
                   最初の人を開始
                 </Button>
               ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    className="h-10 shrink-0 px-3"
-                    disabled={isDisconnected || transitioning || isTransferring}
-                    onClick={() => onSharingAdvance?.("passed")}
-                  >
-                    今回はパス
-                  </Button>
-                  <Button
-                    className="h-10 shrink-0 px-3"
-                    data-testid="sharing-advance"
-                    disabled={isDisconnected || transitioning || isTransferring}
-                    onClick={() => onSharingAdvance?.("done")}
-                  >
-                    {isLastPresenter ? "次のステップへ" : "次の人へ"}
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  className="h-10 shrink-0 px-3"
+                  disabled={
+                    isDisconnected ||
+                    transitioning ||
+                    isTransferring ||
+                    timer.status !== "ended"
+                  }
+                  onClick={() => onSharingAdvance?.("passed")}
+                >
+                  今回はパス
+                </Button>
               )
             ) : null}
-            {isResultStep(phase) ? (
-              isFinalStep ? (
-                outcomePublished && hasFinalDecision ? (
-                  <Button
-                    type="button"
-                    className="h-10 shrink-0 px-3"
-                    onClick={onShowOutcome}
-                  >
-                    成果を見る
-                  </Button>
-                ) : (
-                  <AlertDialog
-                    key={`${phaseRevision}:${isDisconnected}:${isTransferring}`}
-                  >
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        type="button"
-                        className="h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-xs"
+            {isResultStep(phase) && isFinalStep ? (
+              outcomePublished && hasFinalDecision ? (
+                <Button
+                  type="button"
+                  className="h-10 shrink-0 px-3"
+                  onClick={onShowOutcome}
+                >
+                  成果を見る
+                </Button>
+              ) : (
+                <AlertDialog
+                  key={`${phaseRevision}:${isDisconnected}:${isTransferring}`}
+                >
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={canPublishOutcome ? "default" : "ghost"}
+                      className={`h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-xs ${canPublishOutcome ? styles.nextReady : styles.nextWaiting}`}
+                      disabled={!canPublishOutcome}
+                    >
+                      <Check
+                        aria-hidden="true"
+                        className="size-4 max-[639px]:hidden"
+                      />
+                      完了して成果を表示
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        スプリントを完了しますか？
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        全員に成果を表示します。完了後は作業ボードに戻って編集できません。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                      <AlertDialogAction
                         disabled={
                           isDisconnected ||
                           isTransferring ||
                           isNextPhasePending ||
-                          !hasFinalDecision
+                          !hasFinalDecision ||
+                          !canProceedByTimeOrReady
                         }
+                        onClick={onPublishOutcome}
                       >
-                        <Check
-                          aria-hidden="true"
-                          className="size-4 max-[639px]:hidden"
-                        />
-                        完了して成果を表示
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          スプリントを完了しますか？
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          全員に成果を表示します。完了後は作業ボードに戻って編集できません。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction
-                          disabled={
-                            isDisconnected ||
-                            isTransferring ||
-                            isNextPhasePending ||
-                            !hasFinalDecision
-                          }
-                          onClick={onPublishOutcome}
-                        >
-                          完了する
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )
-              ) : !isFinalStep ? (
-                <NextPhaseConfirmDialog
-                  key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
-                  phase={phase}
-                  disabled={
-                    isDisconnected ||
-                    isNextPhasePending ||
-                    isNextPhaseBlocked ||
-                    isTransferring
-                  }
-                  requireConfirmation={requireProgressConfirmation}
-                  notReadyNames={notReadyNames}
-                  notReadyMembers={notReadyMembers}
-                  onConfirm={() =>
-                    onNextPhase(
-                      progress.allReady ? undefined : progress.progressRevision,
-                    )
-                  }
-                />
-              ) : null
-            ) : !activeSharing ||
-              (activeSharing.status === "complete" && canCompleteSharing) ? (
+                        完了する
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )
+            ) : phase.kind === "step" && !activeSharing ? (
               <NextPhaseConfirmDialog
                 key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
                 phase={phase}
@@ -965,15 +985,10 @@ export function RoomBoardHeader({
                   isDisconnected ||
                   isNextPhasePending ||
                   isNextPhaseBlocked ||
-                  (((isManualProgressStep && !onToggleReady) ||
-                    isCurrentVotingStep) &&
-                    !progress.canAdvance) ||
+                  !votingAllComplete ||
+                  (activeSharing !== null && !canCompleteSharing) ||
+                  !canProceedByTimeOrReady ||
                   isTransferring
-                }
-                onRequestAdvance={
-                  isManualProgressStep && onToggleReady
-                    ? (proceed) => completionCue.request(proceed)
-                    : undefined
                 }
                 requireConfirmation={requireProgressConfirmation}
                 notReadyNames={notReadyNames}
@@ -1076,6 +1091,10 @@ export function RoomBoardHeader({
                 ) : null}
 
                 <div className="flex flex-col gap-1">
+                  <div className="relative flex h-10 items-center px-2 pr-12 text-sm">
+                    タイマー通知音
+                    <TimerSoundControl {...timerSoundControls} />
+                  </div>
                   {isHost && !activeSharing ? (
                     <Popover>
                       <PopoverTrigger asChild>
@@ -1191,6 +1210,39 @@ export function RoomBoardHeader({
               </PopoverContent>
             </Popover>
           </fieldset>
+          {!outcomePublished && phase.kind === "step" ? (
+            <RoomTimer
+              timer={timer}
+              serverOffsetMs={timerServerOffsetMs}
+              disabled={
+                isDisconnected ||
+                transitioning ||
+                isTransferring ||
+                isNextPhasePending
+              }
+              initialDurationMs={
+                activeSharing
+                  ? sharingDuration
+                  : getRecommendedTimerDurationMs(phase)
+              }
+              onStart={
+                activeSharing?.status === "ready"
+                  ? (durationMs) => onSharingStart?.(durationMs)
+                  : onTimerStart
+              }
+              onResume={onTimerResume}
+              onExtend={onTimerExtend}
+              sharingComplete={canCompleteSharing}
+              onReplay={
+                canCompleteSharing
+                  ? () => onSharingStart?.(sharingDuration)
+                  : undefined
+              }
+              onRestartWriting={
+                canCompleteSharing ? onRestartWriting : undefined
+              }
+            />
+          ) : null}
           {/* 通常の接続案内1行を予約し、同期完了で個人入力を動かさない。 */}
           {connectionStatus !== "open" ||
           (phase.kind === "step" && phase.step === 1) ? (

@@ -927,6 +927,7 @@ export class RoomDO extends DurableObject {
 
   private async flushLeave(): Promise<void> {
     await this.completed.flush();
+    await this.advanceAfterExtendedTimer();
     await syncRoomAlarm(this.ctx.storage, this.sql);
   }
 
@@ -1426,6 +1427,7 @@ export class RoomDO extends DurableObject {
         getPhase(this.sql),
         getPhaseRevision(this.sql),
       );
+    await this.advanceAfterExtendedTimer();
   }
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
@@ -1474,8 +1476,67 @@ export class RoomDO extends DurableObject {
       broadcaster: this.broadcaster,
     });
     await handleTimerAlarm(this.sql, this.broadcaster);
+    await this.advanceAfterExtendedTimer();
     await this.flushSharedOutcome();
     await syncRoomAlarm(this.ctx.storage, this.sql);
+  }
+
+  private async advanceAfterExtendedTimer(): Promise<boolean> {
+    const timer = getTimerState(this.sql);
+    const phase = getPhase(this.sql);
+    if (
+      isRoomClosed(this.sql) ||
+      phase.kind !== "step" ||
+      timer.status !== "ended" ||
+      !timer.extensionUsed
+    )
+      return false;
+
+    const phaseRevision = getPhaseRevision(this.sql);
+    const sharing = phase.step === 2 ? getSharingState(this.sql) : null;
+    const sharingRevision = sharing?.revision;
+    // 期限到来はRoomDOの内部操作として、通常進行と同じ確定前検査を通す。
+    const ctx: HandlerCtx = {
+      ...this.createHandlerCtx({} as WebSocket, ""),
+      authorizeMutation: undefined,
+      reply: () => {},
+    };
+    if (sharing?.status === "active" && sharing.currentIndex !== null) {
+      const presenter = sharing.order[sharing.currentIndex];
+      if (presenter)
+        await sharingHandlers["sharing:advance"](
+          { ...ctx, userId: presenter.userId },
+          {
+            type: "sharing:advance",
+            revision: sharing.revision,
+            outcome: "done",
+          },
+        );
+    }
+    const currentTimer = getTimerState(this.sql);
+    if (
+      getPhaseRevision(this.sql) === phaseRevision &&
+      currentTimer.status === "ended" &&
+      currentTimer.extensionUsed
+    )
+      await phaseHandlers["phase:next"](ctx, {
+        type: "phase:next",
+        expectedPhase: phase,
+        expectedRevision: phaseRevision,
+      });
+
+    const progressed =
+      getPhaseRevision(this.sql) !== phaseRevision ||
+      (phase.step === 2 &&
+        getSharingState(this.sql)?.revision !== sharingRevision);
+    if (!progressed) return false;
+    await this.outcomes.recordSharedActivity();
+    try {
+      await this.preserveSharedOutcome();
+    } catch {
+      /* 工程の履歴は遷移と同じtransactionで保全済み。 */
+    }
+    return true;
   }
 
   private async processExpiredTransition(): Promise<boolean> {
@@ -1670,7 +1731,7 @@ export class RoomDO extends DurableObject {
       message.type !== "note:update-font-size" &&
       message.type !== "idea-map:resize" &&
       !isTimerExemptPersonalNoteMutation(phase, message) &&
-      getTimerState(this.sql).status !== "running";
+      !["running", "ended"].includes(getTimerState(this.sql).status);
 
     // inverse の拒否は専用ハンドラで終端結果として保存する。
     if (timerBlocked && message.type !== "note:move:inverse") {
@@ -1727,6 +1788,23 @@ export class RoomDO extends DurableObject {
           .one().outcome_published === 1
       ) {
         ctx.reply({ type: "outcome:published", published: true });
+        return;
+      }
+      if (
+        getTimerState(this.sql).status !== "ended" &&
+        !getProgressState(
+          this.sql,
+          this.broadcaster,
+          phase,
+          getPhaseRevision(this.sql),
+        ).allReady
+      ) {
+        ctx.reply({
+          type: "error",
+          code: "forbidden",
+          message:
+            "全員のチェックかタイマーの終了を待ってから成果を表示してください。",
+        });
         return;
       }
       try {
@@ -1844,6 +1922,7 @@ export class RoomDO extends DurableObject {
       message.type.startsWith("note:drag:")
     )
       await syncRoomAlarm(this.ctx.storage, this.sql);
+    if (!rejected && (await this.advanceAfterExtendedTimer())) return;
     const after = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
       : null;

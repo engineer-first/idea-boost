@@ -499,7 +499,8 @@ export function RoomBoardView({
         : moveHistory.redo.reason,
     },
   };
-  const boardInteractionBlocked = timer.status !== "running";
+  const boardInteractionBlocked =
+    timer.status === "idle" || timer.status === "paused";
 
   const cancelVoteDrag = useCallback((): boolean => {
     const current = voteStickerDragRef.current;
@@ -859,7 +860,7 @@ export function RoomBoardView({
     (isResultStep(phase) &&
       (decision === null || candidateNotes.length === 0)) ||
     (phase.kind === "step" &&
-      phase.step > 1 &&
+      phase.step > 2 &&
       !isResultStep(phase) &&
       candidateNotes.length === 0);
   const hasFinalDecision = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
@@ -876,7 +877,7 @@ export function RoomBoardView({
       ? null
       : (notes.find((note) => note.id === decision.noteId)?.content ??
         "確定した内容");
-  const phaseLoopControls = (
+  const phaseLoopControls = isResultStep(phase) ? (
     <PhaseLoopControls
       key={`${phaseKey}:${phaseRevision}:${hostRevision}:${connectionStatus}`}
       phase={phase}
@@ -900,7 +901,7 @@ export function RoomBoardView({
       onCancelSelection={() => setIsAdoptMode(false)}
       onClearDecision={outcomePublished ? undefined : onDecisionClear}
     />
-  );
+  ) : null;
 
   function hasActiveCanvasGesture(): boolean {
     return Boolean(
@@ -1904,6 +1905,7 @@ export function RoomBoardView({
           onRollbackPhase={onRollbackPhase}
           sharing={sharing}
           onSharingStart={onSharingStart}
+          onRestartWriting={onRestartWriting}
           onSharingAdvance={onSharingAdvance}
           timer={timer}
           timerServerOffsetMs={timerServerOffsetMs}
@@ -1965,7 +1967,9 @@ export function RoomBoardView({
         {canSendSharingReaction(phase) && !outcomePublished ? (
           <SharingReactionDisplay reactions={sharingReactions} />
         ) : null}
-        {boardInteractionBlocked &&
+        {timer.status === "idle" &&
+        sharing?.status !== "complete" &&
+        !sharing?.startsAt &&
         phase.kind === "step" &&
         !isDisconnected &&
         decision === null ? (
@@ -1977,17 +1981,11 @@ export function RoomBoardView({
               className="w-full max-w-md rounded-xl border border-border/40 bg-background/75 px-6 py-5 text-center shadow-xl backdrop-blur-[2px]"
             >
               <p className="text-lg font-semibold">
-                {timer.status === "paused"
-                  ? "タイマーが一時停止中です"
-                  : timer.status === "ended"
-                    ? "タイマーが終了しました"
-                    : "タイマーが開始されていません"}
+                タイマーが開始されていません
               </p>
 
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {timer.status === "paused"
-                  ? "タイマーを再開すると、ボードで作業できます。"
-                  : "タイマーを設定して開始すると、ボードで作業できます。"}
+                円形のタイマーを押すと、この工程の規定時間で作業を始められます。
               </p>
             </div>
           </div>

@@ -4,6 +4,7 @@ import {
   arrangeSharingComplete,
   connectRoomAs,
   createRoomAs,
+  endTimerForTest,
   type RoomSocket,
   runInRoomDO,
 } from "./test-helpers";
@@ -287,6 +288,7 @@ it("完了は一度だけ既存成果を参照し、盤面・outbox本文を二�
       owner.sub,
     );
   });
+  await endTimerForTest(room.roomId);
   const socket = await connectRoomAs(owner, room.roomId);
   await socket.next();
   for (let i = 0; i < 2; i++) {
@@ -505,6 +507,7 @@ it("盤面outboxの書込だけ失敗した場合は欠落で進行し、WSで�
   const revision = await runInRoomDO(room.roomId, (_, state) =>
     getPhaseRevision(state.storage.sql),
   );
+  await endTimerForTest(room.roomId);
   socket.ws.send(
     JSON.stringify({
       type: "phase:next",
@@ -625,10 +628,12 @@ it("同一ルームのWSで開始から14ステップ完了まで訪問順の13�
       return { phase, revision: getPhaseRevision(state.storage.sql) };
     });
     if (index === 13) {
+      await endTimerForTest(room.roomId);
       socket.ws.send(JSON.stringify({ type: "outcome:publish" }));
       expect(await socket.next()).toMatchObject({ type: "outcome:published" });
       break;
     }
+    await endTimerForTest(room.roomId);
     await arrangeMembersReady(room.roomId, [owner.sub]);
     if (current.phase.kind === "step" && current.phase.step === 2)
       await arrangeSharingComplete(room.roomId);

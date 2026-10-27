@@ -52,13 +52,14 @@ export function captureRollbackCheckpoint(
   const now = Date.now();
   const timer = getTimerState(sql, now);
   const sharing = getSharingState(sql);
-  // 進行を再開せず、保存時点の残り時間と発表者を返す。
+  // 戻った時点から計時を再開できるよう、保存時点の残り時間を保持する。
   const pausedTimer: TimerState =
     timer.status === "running"
       ? {
           status: "paused",
           durationMs: timer.durationMs,
           remainingMs: Math.max(0, timer.endsAt - now),
+          ...(timer.extensionUsed ? { extensionUsed: true } : {}),
         }
       : timer;
   if (
@@ -67,7 +68,7 @@ export function captureRollbackCheckpoint(
     sharing.status === "active" &&
     timer.status === "idle"
   ) {
-    // 交代待ちの発表も、復元後に明示的な再開が必要。
+    // 交代待ちの発表は、復元後に規定時間から始める。
     saveCheckpoint({
       status: "paused",
       durationMs: sharing.durationMs,
@@ -150,7 +151,17 @@ export const rollbackHandlers: MessageHandlers<"phase:rollback"> = {
       ctx.sql.exec(
         "UPDATE room_state SET rollback_revision=phase_revision WHERE id=1",
       );
-      saveTimerState(ctx.sql, snapshot.timer);
+      saveTimerState(
+        ctx.sql,
+        snapshot.timer.status === "paused"
+          ? {
+              status: "running",
+              endsAt: Date.now() + snapshot.timer.remainingMs,
+              durationMs: snapshot.timer.durationMs,
+              ...(snapshot.timer.extensionUsed ? { extensionUsed: true } : {}),
+            }
+          : snapshot.timer,
+      );
       ctx.sql.exec("DELETE FROM sharing_state");
       const currentMembers = listMembers(ctx.sql);
       if (snapshot.sharing) {

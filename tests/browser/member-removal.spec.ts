@@ -32,7 +32,7 @@ async function open(mode = "success", lobby = false) {
   await page
     .getByRole("button", { name: "Hana Sato", exact: true })
     .waitFor({ state: lobby ? "visible" : "hidden" });
-  if (!lobby) await page.getByTestId("room-timer").getByText("02:18").waitFor();
+  if (!lobby) await page.getByRole("timer").getByText("02:18").waitFor();
 }
 async function select(lobby = false) {
   if (!lobby)
@@ -84,7 +84,7 @@ test.each([
     await page.getByRole("alertdialog").waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "参加者 1人" }).click();
     expect(await page.getByText("Hana Sato", { exact: true }).count()).toBe(0);
-    expect(await page.getByTestId("room-timer").innerText()).toContain("02:18");
+    expect(await page.getByRole("timer").innerText()).toContain("02:18");
   },
 );
 test("ロビーでも確認・拒否・再試行を通して退出できる", async () => {

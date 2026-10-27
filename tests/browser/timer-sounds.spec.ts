@@ -137,7 +137,7 @@ afterAll(async () => {
 });
 
 describe("RoomTimer の実ブラウザ音声経路", () => {
-  it("パネル表示中も音の1クリックが届き、一時停止後のEnterは終了しない", async () => {
+  it("円形タイマーから開始し、動作中も音の切替をキーボード操作できる", async () => {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       reducedMotion: "reduce",
@@ -145,36 +145,15 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
     const page = await context.newPage();
     try {
       await openStory(page);
-      await page.getByTestId("room-timer").click();
-      await page.getByTestId("timer-sound-toggle").click();
-      await vi.waitFor(async () => {
-        expect(
-          await page
-            .getByTestId("timer-sound-toggle")
-            .getAttribute("aria-pressed"),
-        ).toBe("true");
-      });
-      expect(await page.getByTestId("room-timer-panel").isVisible()).toBe(true);
-      await page.getByRole("button", { name: "開始", exact: true }).click();
-      const pause = page.getByRole("button", { name: "一時停止", exact: true });
-      await pause.focus();
-      await page.keyboard.press("Enter");
-      await page.waitForFunction(
-        () =>
-          document
-            .querySelector('[data-testid="room-timer"]')
-            ?.getAttribute("data-status") === "paused",
-      );
-      expect(
-        await page
-          .getByTestId("room-timer")
-          .evaluate((element) => element === document.activeElement),
-      ).toBe(true);
-      await page.keyboard.press("Enter");
+      const toggle = page.getByTestId("timer-sound-toggle");
+      await toggle.press("Space");
+      expect(await toggle.getAttribute("aria-pressed")).toBe("true");
+      await page.getByTestId("room-timer").press("Enter");
       expect(
         await page.getByTestId("room-timer").getAttribute("data-status"),
-      ).toBe("paused");
-      await page.getByTestId("room-timer-panel").waitFor({ state: "hidden" });
+      ).toBe("running");
+      await toggle.press("Space");
+      expect(await toggle.getAttribute("aria-pressed")).toBe("false");
     } finally {
       await context.close();
     }
@@ -198,7 +177,7 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       const enabledProbe = await readAudioProbe(page);
       expect(enabledProbe.contextStates).toContain("running");
       expect(enabledProbe.starts.map(({ frequencyHz }) => frequencyHz)).toEqual(
-        [523.25, 659.25],
+        [523.25, 659.25, 783.99],
       );
 
       await page.evaluate(() => {
@@ -207,38 +186,36 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       });
 
       await page.getByTestId("room-timer").click();
-      await page.getByLabel("タイマー時間（分）").fill("00");
-      await page.getByLabel("タイマー時間（秒）").fill("08");
-      await page.getByRole("button", { name: "開始", exact: true }).click();
-      await page.getByTestId("room-timer").click();
-      await page.getByTestId("room-timer-panel").waitFor({ state: "hidden" });
       expect(
         await page.getByTestId("room-timer").getAttribute("data-status"),
       ).toBe("running");
 
       try {
         await page.waitForFunction(
-          () => window.__timerAudioProbe?.starts.length === 9,
+          () => window.__timerAudioProbe?.starts.length === 12,
           undefined,
           { timeout: 16_000 },
         );
       } catch (error) {
         const probe = await readAudioProbe(page);
         const status = await page
-          .getByTestId("room-timer")
-          .getAttribute("data-status");
+          .getByTestId("timer-floating")
+          .getAttribute("data-timer-expanded");
         throw new Error(
           `${error instanceof Error ? error.message : String(error)}; status=${status}; audio=${JSON.stringify(probe)}`,
         );
       }
       expect(
-        await page.getByTestId("room-timer").getAttribute("data-status"),
-      ).toBe("ended");
+        await page
+          .getByTestId("timer-floating")
+          .getAttribute("data-timer-expanded"),
+      ).toBe("true");
 
       const playback = await readAudioProbe(page);
       expect(playback.contextStates).toContain("running");
       expect(playback.starts.map(({ frequencyHz }) => frequencyHz)).toEqual([
-        523.25, 659.25, 880, 880, 880, 880, 880, 392, 329.63,
+        523.25, 659.25, 783.99, 523.25, 587.33, 659.25, 783.99, 880, 523.25,
+        659.25, 783.99, 1046.5,
       ]);
       expect(playback.starts.every(({ state }) => state === "running")).toBe(
         true,
@@ -250,7 +227,7 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       ).toBe(true);
 
       const warningTimes = playback.starts
-        .filter(({ frequencyHz }) => frequencyHz === 880)
+        .slice(3, 8)
         .map(({ wallTimeMs }) => wallTimeMs);
       expect(warningTimes).toHaveLength(5);
       for (let index = 1; index < warningTimes.length; index += 1) {
@@ -265,7 +242,8 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
           Math.round(((stopAt ?? startAt) - startAt) * 1_000) / 1_000,
       );
       expect(soundDurations).toEqual([
-        0.11, 0.13, 0.085, 0.085, 0.085, 0.085, 0.085, 0.17, 0.23,
+        0.105, 0.115, 0.155, 0.085, 0.085, 0.085, 0.085, 0.085, 0.09, 0.1, 0.12,
+        0.22,
       ]);
     } finally {
       await context.close();
@@ -330,7 +308,7 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       });
       await page.getByRole("status").waitFor({ state: "hidden" });
       const retried = await readAudioProbe(page);
-      expect(retried.starts).toHaveLength(2);
+      expect(retried.starts).toHaveLength(3);
       expect(retried.starts.every(({ state }) => state === "running")).toBe(
         true,
       );

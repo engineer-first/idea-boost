@@ -211,7 +211,7 @@ describe("検証用の初期状態", () => {
     const next = await Promise.race([closed, owner.next()]);
     expect(next).toMatchObject({
       type: "error",
-      code: "phase-not-ready",
+      code: "forbidden",
     });
     owner.close();
   });

@@ -4,6 +4,7 @@ import { PERMISSIONS } from "../contracts/access";
 import worker from "./api-worker";
 import {
   createRoomAs,
+  endTimerForTest,
   initializeTestRoom,
   joinRoomAs,
   runInRoomDO,
@@ -268,6 +269,7 @@ it("完了保全の失敗は成功通知せず、投影だけの失敗では参�
         new Date().toISOString(),
       );
   });
+  await endTimerForTest(room.roomId);
   const hostSocket = await connectRoomAs(owner, room.roomId);
   const memberSocket = await connectRoomAs(member, room.roomId);
   await hostSocket.next();
@@ -536,6 +538,7 @@ it("共有開始と交代の受理で最終利用を更新し、古い版の再�
   const active = await socket.next();
   if (active.type !== "sharing:updated")
     throw new Error("共有開始通知がありません");
+  await endTimerForTest(room.roomId);
   socket.ws.send(
     JSON.stringify({
       type: "sharing:advance",

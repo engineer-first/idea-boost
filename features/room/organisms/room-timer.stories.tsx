@@ -1,218 +1,167 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useEffect, useRef, useState } from "react";
-import { fn, userEvent, within } from "storybook/test";
+import { useEffect, useState } from "react";
+import { fn } from "storybook/test";
 import type { TimerState } from "@/contracts/room-protocol";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
-import { RoomTimer, TIMER_DEFAULT_DURATION_MS } from "./room-timer";
+import { TimerSoundControl } from "../molecules/timer-sound-control";
+import { RoomTimer } from "./room-timer";
 import {
   buildEndedTimer,
   buildPausedTimer,
   buildRunningTimer,
   ROOM_TIMER_FIXTURE_NOW,
-  ROOM_TIMER_IDLE_MAX_ADJUST_DURATION_MS,
-  ROOM_TIMER_IDLE_MIN_DURATION_MS,
 } from "./room-timer.fixture";
 
 const meta = {
   title: "Room/RoomTimer",
   component: RoomTimer,
+  parameters: { layout: "fullscreen" },
   args: {
     timer: { status: "idle" },
     serverOffsetMs: 0,
-    isHost: true,
     disabled: false,
+    initialDurationMs: 300_000,
     onStart: fn(),
-    onPause: fn(),
     onResume: fn(),
     onExtend: fn(),
-    onStop: fn(),
-    soundControls: {
-      enabled: false,
-      playbackBlocked: false,
-      onEnable: fn(async () => undefined),
-      onMute: fn(),
-    },
     now: () => ROOM_TIMER_FIXTURE_NOW,
   },
 } satisfies Meta<typeof RoomTimer>;
-
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const IdleHost: Story = {};
-export const IdleHostPanelOpen: Story = {
-  args: { defaultPanelOpen: true },
-};
-export const FullWidthInput: Story = {
-  name: "全角入力を12:30として受け付ける",
-  args: { defaultPanelOpen: true },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement.ownerDocument.body);
-    const minutes = canvas.getByLabelText("タイマー時間（分）");
-    const seconds = canvas.getByLabelText("タイマー時間（秒）");
-    await userEvent.clear(minutes);
-    await userEvent.type(minutes, "１２");
-    await userEvent.clear(seconds);
-    await userEvent.type(seconds, "３０");
-    await userEvent.tab();
-  },
-};
-export const IdleHostMinimum: Story = {
-  args: { initialDurationMs: ROOM_TIMER_IDLE_MIN_DURATION_MS },
-};
-export const IdleHostMaximum: Story = {
-  args: { initialDurationMs: ROOM_TIMER_IDLE_MAX_ADJUST_DURATION_MS },
-};
-export const IdleMember: Story = { args: { isHost: false } };
+export const IdleMember: Story = {};
 export const RunningHost: Story = {
   args: {
-    timer: buildRunningTimer(),
+    timer: buildRunningTimer({ durationMs: 300_000, remainingMs: 240_000 }),
   },
 };
-export const RunningHostPanelOpen: Story = {
-  args: { ...RunningHost.args, defaultPanelOpen: true },
-};
-export const RunningMember: Story = {
-  args: { ...RunningHost.args, isHost: false },
-};
-export const PausedHost: Story = {
+export const HalfTime: Story = {
   args: {
-    timer: buildPausedTimer(),
+    timer: buildRunningTimer({ durationMs: 300_000, remainingMs: 150_000 }),
   },
 };
-export const PausedHostPanelOpen: Story = {
-  args: { ...PausedHost.args, defaultPanelOpen: true },
-};
-export const PausedMember: Story = {
-  args: { ...PausedHost.args, isHost: false },
-};
-export const EndedHost: Story = {
+export const NearlyEnded: Story = {
   args: {
-    timer: buildEndedTimer(),
+    timer: buildRunningTimer({ durationMs: 300_000, remainingMs: 30_000 }),
   },
 };
-export const EndedHostPanelOpen: Story = {
-  args: { ...EndedHost.args, defaultPanelOpen: true },
+export const RunningMember: Story = RunningHost;
+export const PausedHost: Story = { args: { timer: buildPausedTimer() } };
+export const PausedMember: Story = PausedHost;
+export const PausedDisconnected: Story = {
+  args: { timer: buildPausedTimer(), disabled: true },
 };
-export const ExpiredHostPanelOpen: Story = {
+export const EndedHost: Story = { args: { timer: buildEndedTimer() } };
+export const EndedMember: Story = EndedHost;
+export const EndedAfterExtension: Story = {
+  args: { timer: { status: "ended", durationMs: 60_000, extensionUsed: true } },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "延長終了後は空の円を表示しません。ルームでは必須条件が揃うと自動で次の工程へ進みます。",
+      },
+    },
+  },
+};
+export const SharingComplete: Story = {
   args: {
-    timer: buildRunningTimer({ remainingMs: 0, durationMs: 5 * 60_000 }),
-    defaultPanelOpen: true,
+    timer: { status: "idle" },
+    sharingComplete: true,
+    onRestartWriting: fn(),
+    onReplay: fn(),
   },
 };
-export const EndedHostReconfigure: Story = {
-  args: { ...EndedHost.args, defaultPanelOpen: true },
-  play: async ({ canvasElement }) => {
-    await userEvent.click(
-      await within(canvasElement.ownerDocument.body).findByRole("button", {
-        name: "設定し直す",
-      }),
-    );
-  },
-};
-export const EndedMember: Story = {
-  args: { ...EndedHost.args, isHost: false },
+export const Disconnected: Story = {
+  args: { ...EndedHost.args, disabled: true },
 };
 
-function TimerSoundPlayground() {
+function InteractiveTimer({
+  sound = false,
+  durationMs = 3_000,
+}: {
+  sound?: boolean;
+  durationMs?: number;
+}) {
   const [timer, setTimer] = useState<TimerState>({ status: "idle" });
-  const [timerUpdateVersion, setTimerUpdateVersion] = useState(0);
-  const expiryRef = useRef<number | null>(null);
-  const runTokenRef = useRef(0);
-  const soundControls = useRoomTimerSounds({
+  const [version, setVersion] = useState(0);
+  const sounds = useRoomTimerSounds({
     timer,
     serverOffsetMs: 0,
-    timerUpdateVersion,
+    timerUpdateVersion: version,
   });
-
-  useEffect(
-    () => () => {
-      if (expiryRef.current !== null) window.clearTimeout(expiryRef.current);
-    },
-    [],
-  );
-
-  const publish = (nextTimer: TimerState) => {
-    setTimer(nextTimer);
-    setTimerUpdateVersion((version) => version + 1);
-  };
-  const clearExpiry = () => {
-    runTokenRef.current += 1;
-    if (expiryRef.current !== null) window.clearTimeout(expiryRef.current);
-    expiryRef.current = null;
-  };
-  const scheduleExpiry = (
-    nextTimer: Extract<TimerState, { status: "running" }>,
-  ) => {
-    clearExpiry();
-    const token = runTokenRef.current;
-    expiryRef.current = window.setTimeout(
+  useEffect(() => {
+    if (timer.status !== "running") return;
+    const timeout = window.setTimeout(
       () => {
-        if (runTokenRef.current !== token) return;
-        publish({ status: "ended", durationMs: nextTimer.durationMs });
-        expiryRef.current = null;
-      },
-      Math.max(0, nextTimer.endsAt - Date.now()),
-    );
-  };
-  const start = (durationMs: number) => {
-    const nextTimer: Extract<TimerState, { status: "running" }> = {
-      status: "running",
-      endsAt: Date.now() + durationMs,
-      durationMs,
-    };
-    publish(nextTimer);
-    scheduleExpiry(nextTimer);
-  };
-
-  return (
-    <RoomTimer
-      timer={timer}
-      serverOffsetMs={0}
-      soundControls={soundControls}
-      isHost
-      disabled={false}
-      onStart={start}
-      onPause={() => {
-        if (timer.status !== "running") return;
-        const remainingMs = Math.max(0, timer.endsAt - Date.now());
-        clearExpiry();
-        publish({
-          status: "paused",
-          remainingMs,
+        setTimer({
+          status: "ended",
           durationMs: timer.durationMs,
+          ...(timer.extensionUsed ? { extensionUsed: true } : {}),
         });
-      }}
-      onResume={() => {
-        if (timer.status !== "paused") return;
-        const nextTimer: Extract<TimerState, { status: "running" }> = {
-          status: "running",
-          endsAt: Date.now() + timer.remainingMs,
-          durationMs: timer.durationMs,
-        };
-        publish(nextTimer);
-        scheduleExpiry(nextTimer);
-      }}
-      onExtend={() => {
-        if (timer.status !== "running") return;
-        const nextTimer = {
-          ...timer,
-          endsAt: timer.endsAt + 60_000,
-          durationMs: timer.durationMs + 60_000,
-        };
-        publish(nextTimer);
-        scheduleExpiry(nextTimer);
-      }}
-      onStop={() => {
-        if (timer.status !== "paused") return;
-        clearExpiry();
-        publish({ status: "ended", durationMs: timer.durationMs });
-      }}
-      initialDurationMs={TIMER_DEFAULT_DURATION_MS}
-    />
+        setVersion((v) => v + 1);
+      },
+      Math.max(0, timer.endsAt - Date.now()),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [timer]);
+  return (
+    <>
+      <RoomTimer
+        timer={timer}
+        serverOffsetMs={0}
+        disabled={false}
+        initialDurationMs={sound ? 8_000 : durationMs}
+        onStart={(durationMs) => {
+          setTimer({
+            status: "running",
+            endsAt: Date.now() + durationMs,
+            durationMs,
+          });
+          setVersion((v) => v + 1);
+        }}
+        onExtend={() => {
+          setTimer({
+            status: "running",
+            endsAt: Date.now() + 60_000,
+            durationMs: 60_000,
+            extensionUsed: true,
+          });
+          setVersion((v) => v + 1);
+        }}
+        onResume={() => {
+          if (timer.status !== "paused") return;
+          setTimer({
+            status: "running",
+            endsAt: Date.now() + timer.remainingMs,
+            durationMs: timer.durationMs,
+          });
+          setVersion((v) => v + 1);
+        }}
+      />
+      {sound ? (
+        <div className="fixed left-4 top-4 h-10 w-32">
+          <TimerSoundControl {...sounds} />
+        </div>
+      ) : null}
+    </>
   );
 }
-
+export const Interactive: Story = {
+  render: () => <InteractiveTimer />,
+  parameters: {
+    docs: {
+      description: {
+        story: "円を押すと3秒で時間切れになり、1分延長を選べます。",
+      },
+    },
+  },
+};
+export const InteractiveRunning: Story = {
+  render: () => <InteractiveTimer durationMs={300_000} />,
+};
 export const SoundPlayground: Story = {
-  render: () => <TimerSoundPlayground />,
+  render: () => <InteractiveTimer sound />,
 };
