@@ -19,7 +19,7 @@ it.each([false, true])(
     const label = loggedIn
       ? "招待の参加確認へ進む"
       : "ログインして招待の参加確認へ";
-    expect(screen.getAllByRole("link", { name: label })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: label })).toHaveLength(3);
     for (const link of screen.getAllByRole("link", { name: label }))
       expect(link).toHaveAttribute("href", href);
     // main 内の footer は contentinfo ランドマークにならない。
