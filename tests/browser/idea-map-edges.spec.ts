@@ -93,6 +93,7 @@ test.each(
           );
           await page.getByTestId("idea-map-viewport-plane").waitFor();
           await page.evaluate(() => document.fonts.ready);
+          await page.keyboard.press("Escape");
           if (phase === "3-2")
             await page
               .getByRole("button", { name: "マイ付箋を閉じる", exact: true })
@@ -240,6 +241,10 @@ test.each([
       `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story`,
     );
     await page.getByTestId("idea-value-feasibility-map-plane").waitFor();
+    await page.keyboard.press("Escape");
+    // 角のグリッドを測る前に、重なるフローティングタイマーを内側へ移す。
+    for (let index = 0; index < 4; index++)
+      await page.getByTestId("room-timer").press("Alt+ArrowLeft");
     const plane = await bounds(page, "idea-value-feasibility-map-plane");
     for (const corner of [
       {

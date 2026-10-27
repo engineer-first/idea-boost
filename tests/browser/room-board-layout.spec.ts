@@ -1576,8 +1576,12 @@ test.each([1280, 390])(
         ).toBe(0);
         const guide = page.getByTestId("step-guide");
         expect(await guide.count()).toBe(step === "1-1" ? 0 : 1);
-        if (width < 640 && step !== "1-1")
-          expect(await guide.getAttribute("data-state")).toBe("compact");
+        if (step !== "1-1") {
+          await page.keyboard.press("Escape");
+          await expect
+            .poll(() => guide.getAttribute("data-state"))
+            .toBe("compact");
+        }
         await expectHudTargets(`${step}/${isHost ? "host" : "member"}`);
       }
   },

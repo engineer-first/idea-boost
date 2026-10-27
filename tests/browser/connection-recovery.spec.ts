@@ -246,7 +246,13 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
         expect(contextBox?.y).toBeGreaterThanOrEqual(
           (noticeBox?.y ?? Infinity) + (noticeBox?.height ?? 0),
         );
-      expect(await page.getByTestId("step-guide").count()).toBe(0);
+      expect(await page.getByTestId("step-guide").count()).toBe(
+        variant === "delayed" ? 1 : 0,
+      );
+      if (variant === "delayed")
+        expect(
+          await page.getByTestId("step-guide").getAttribute("data-state"),
+        ).toBe("compact");
       await page.getByRole("button", { name: "ルームメニューを開く" }).click();
       await page
         .getByRole("button", { name: "ルームを解散", exact: true })

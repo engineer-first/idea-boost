@@ -25,7 +25,7 @@ test.each([
   "room-leaveconfirmdialog--discard",
   "room-leaveconfirmdialog--completed-discard",
   "room-roomboardcanvas--excluded-candidate",
-  "room-roomtimer--ended-host-reconfigure",
+  "room-roomtimer--ended-host",
   "room-roomboardlayout--reference-and-notes",
   "room-roomboardlayout--laptop-width",
   "room-roomboardlayout--narrow-width",

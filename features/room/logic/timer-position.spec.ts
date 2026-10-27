@@ -36,4 +36,19 @@ describe("タイマーの配置", () => {
       top: 12,
     });
   });
+  it("狭く低い画面では現在地の下かつ操作欄の左の空きへ収める", () => {
+    expect(
+      placeRoomTimer(
+        { right: 308, top: 114 },
+        72,
+        { left: 0, top: 0, right: 320, bottom: 618 },
+        [
+          { left: 12, top: 12, right: 308, bottom: 102 },
+          { left: 12, top: 110, right: 308, bottom: 364 },
+          { left: 12, top: 522, right: 291, bottom: 606 },
+          { left: 204, top: 456, right: 308, bottom: 514 },
+        ],
+      ),
+    ).toEqual({ right: 192, top: 376 });
+  });
 });

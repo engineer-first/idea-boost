@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useEffect, useState } from "react";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import type { TimerState } from "@/contracts/room-protocol";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import { TimerSoundControl } from "../molecules/timer-sound-control";
@@ -53,7 +53,14 @@ export const PausedMember: Story = PausedHost;
 export const PausedDisconnected: Story = {
   args: { timer: buildPausedTimer(), disabled: true },
 };
-export const EndedHost: Story = { args: { timer: buildEndedTimer() } };
+export const EndedHost: Story = {
+  args: { timer: buildEndedTimer() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "＋1分" }));
+    await expect(args.onExtend).toHaveBeenCalledOnce();
+  },
+};
 export const EndedMember: Story = EndedHost;
 export const EndedAfterExtension: Story = {
   args: { timer: { status: "ended", durationMs: 60_000, extensionUsed: true } },

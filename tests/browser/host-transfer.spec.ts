@@ -52,7 +52,7 @@ async function openStory(id: string): Promise<void> {
 }
 async function openActive(mode = "success"): Promise<void> {
   await openStory(`room-activehosttransferflow--${mode}`);
-  await page.getByRole("timer").getByText("02:18").waitFor();
+  await expect.poll(() => page.getByRole("timer").innerText()).toBe("02:18");
 }
 function membersTrigger(sharing = false): Locator {
   return page.getByRole("button", {
@@ -93,9 +93,9 @@ async function boardContents() {
   return {
     phase: await page.getByTestId("board-context-hud").innerText(),
     timer: await page.getByRole("timer").innerText(),
-    timerStatus: await page
-      .getByTestId("room-timer")
-      .getAttribute("data-status"),
+    timerCanResume: await page
+      .getByRole("button", { name: "再開", exact: true })
+      .isVisible(),
     notes: await page
       .locator('[data-testid^="board-note-"]')
       .evaluateAll((nodes) =>
@@ -113,8 +113,8 @@ async function expectTransferred(): Promise<void> {
   await vi.waitFor(async () => {
     expect(await page.getByTestId("timer-floating").count()).toBeGreaterThan(0);
     expect(
-      await page.getByTestId("room-timer").evaluate((el) => el.tagName),
-    ).toBe("BUTTON");
+      await page.getByRole("button", { name: "再開", exact: true }).isVisible(),
+    ).toBe(true);
   });
 }
 

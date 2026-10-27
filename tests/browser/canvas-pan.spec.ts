@@ -57,7 +57,7 @@ test("右上の操作バーの開閉後は移動だけでパンせず、背景�
   for (const name of [
     "参加者 3人",
     "ルームメニューを開く",
-    "タイマー 未開始 06:00。設定を開く",
+    "タイマー 未開始 06:00。規定時間で開始",
   ]) {
     await page.getByRole("button", { name, exact: true }).click();
     await page.mouse.move(600, 620);

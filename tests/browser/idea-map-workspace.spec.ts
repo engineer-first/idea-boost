@@ -1038,7 +1038,7 @@ test("マイ付箋だけを開閉・スクロールし、参照情報を開い�
     expect(await question.getAttribute("aria-expanded")).toBe("true");
     expect(await plane.boundingBox()).toEqual(before);
 
-    expect(await page.getByTestId("step-guide").count()).toBe(0);
+    expect(await page.getByTestId("step-guide").isVisible()).toBe(true);
   } finally {
     await page.close();
   }

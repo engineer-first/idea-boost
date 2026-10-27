@@ -84,7 +84,10 @@ const meta = {
         window.sessionStorage.setItem(sessionKey, "seen");
       }
       return (
-        <div className="relative h-96 overflow-hidden bg-muted/20">
+        <div
+          data-testid="room-board-view-root"
+          className="relative min-h-screen overflow-hidden bg-muted/20"
+        >
           <Story />
         </div>
       );
@@ -265,6 +268,7 @@ export const IdeaResultAwaitingDecision: Story = {
 export const IdeaResultDecided: Story = {
   args: {
     ...IdeaResultAwaitingDecision.args,
+    timer: { status: "ended", durationMs: 180_000 },
     hasFinalDecision: true,
     hasCurrentDecision: true,
     isNextPhaseBlocked: false,

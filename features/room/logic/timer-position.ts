@@ -39,6 +39,10 @@ export function placeRoomTimer(
       clamp({ right: origin.right, top: r.bottom + gap }),
     );
   }
+  const rights = [...new Set(candidates.map((p) => p.right))];
+  const tops = [...new Set(candidates.map((p) => p.top))];
+  for (const right of rights)
+    for (const top of tops) candidates.push({ right, top });
   return (
     candidates
       .filter((p) => obstacles.every((r) => !overlaps(p, r)))

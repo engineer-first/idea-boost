@@ -30,6 +30,11 @@ async function settled(page: Page, state: string): Promise<void> {
   });
 }
 
+async function openDetail(page: Page): Promise<void> {
+  await page.getByRole("button", { name: /^(進め方|進め方を見る)$/ }).click();
+  await settled(page, "detail");
+}
+
 test.each([1440, 390])(
   "%ipxで案内内は縦だけスクロールでき、開いたまま背景の移動・ズームもできる",
   async (width) => {
@@ -39,7 +44,7 @@ test.each([1440, 390])(
     });
     try {
       await open(page, "room-roomboardview--voting-guide-scroll-interaction");
-      await settled(page, "detail");
+      await openDetail(page);
       const canvas = page.getByTestId("board-canvas");
       const transform = () =>
         canvas.evaluate(async (element) => {
@@ -163,7 +168,7 @@ test("同じ枠の変形・キーボード・外側クリックと付箋追加�
   });
   const page = await context.newPage();
   try {
-    await open(page, "room-roomboardview--phase-1-first-step-intro");
+    await open(page, "room-roomboardview--step-intro");
     const shell = page.getByTestId("step-guide");
     await settled(page, "intro");
     expect(await page.getByRole("dialog").count()).toBe(0);
@@ -223,7 +228,9 @@ test("同じ枠の変形・キーボード・外側クリックと付箋追加�
     ).toBe(false);
     await page.getByRole("button", { name: "進め方", exact: true }).click();
     await settled(page, "detail");
-    await page.getByRole("button", { name: "付箋を追加", exact: true }).click();
+    await page
+      .getByRole("button", { name: "付箋を追加", exact: true })
+      .click({ position: { x: 24, y: 24 } });
     await settled(page, "compact");
     expect(
       await page
@@ -242,7 +249,7 @@ test("付箋への最初のクリックでガイドを閉じてその付箋を�
   });
   try {
     await open(page, "room-roomboardview--guide-phase-1-step-3");
-    await settled(page, "detail");
+    await openDetail(page);
     const note = page.getByTestId("note-card").last();
     // 左上の現在地に重ならない、付箋下部の露出した部分を最初にクリックする。
     const bounds = await note.boundingBox();
@@ -266,7 +273,7 @@ test.each([1280, 1024, 768])(
     });
     try {
       await open(page, "room-roomboardview--guide-phase-2-step-1");
-      await settled(page, "detail");
+      await openDetail(page);
       await page.getByRole("button", { name: "決定した課題" }).click();
       // 参照欄への外側クリックで閉じたガイドを再度開いて同時表示を検証する。
       await settled(page, "compact");
@@ -319,7 +326,7 @@ test("390pxでは初回も説明を閉じ、入口から詳細を全文参照し
     reducedMotion: "reduce",
   });
   try {
-    await open(page, "room-roomboardview--phase-1-first-step-intro");
+    await open(page, "room-roomboardview--step-intro");
     await settled(page, "compact");
     const shell = page.getByTestId("step-guide");
     expect(
@@ -378,7 +385,7 @@ test.each([
   });
   try {
     await open(page, `room-roomboardlayout--${story}`);
-    await settled(page, "detail");
+    await openDetail(page);
     const detail = page.getByRole("region", {
       name: "ファシリテーションガイド",
     });
@@ -418,32 +425,26 @@ test.each([390, 1280])(
       reducedMotion: "reduce",
     });
     try {
-      await open(page, "room-roomboardview--phase-1-first-step-intro");
-      await page
-        .getByRole("button", {
-          name: width <= 639 ? "進め方" : "進め方を見る",
-          exact: true,
-        })
-        .click();
-      await settled(page, "detail");
+      await open(page, "room-roomboardlayout--phase-2-step-1");
+      await openDetail(page);
       const detail = page.getByRole("region", {
         name: "ファシリテーションガイド",
       });
       expect(
         await detail
-          .getByRole("heading", { name: "困ったことを書く" })
+          .getByRole("heading", { name: "課題を質問に変える" })
           .isVisible(),
       ).toBe(true);
       expect(
         await detail
-          .getByText("「付箋を追加」を押し、最近あった困ったことを1つ書く。")
+          .getByText("決定した課題を読み、「付箋を追加」を押す。")
           .isVisible(),
       ).toBe(true);
       await page.screenshot({
         path: `${output}/clear-first-step-${width}.png`,
       });
       const actionBounds = await detail
-        .getByText("「付箋を追加」を押し、最近あった困ったことを1つ書く。")
+        .getByText("決定した課題を読み、「付箋を追加」を押す。")
         .boundingBox();
       const detailBounds = await detail.boundingBox();
       if (!actionBounds || !detailBounds)
@@ -472,7 +473,7 @@ test.each([390, 1280])(
       await settled(page, "detail");
       await page
         .getByRole("button", { name: "付箋を追加", exact: true })
-        .click();
+        .click({ position: { x: 24, y: 24 } });
       await settled(page, "compact");
       expect(
         await page

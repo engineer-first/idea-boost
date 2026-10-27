@@ -242,7 +242,7 @@ test.each([
     expect(await trigger.evaluate((el) => el === document.activeElement)).toBe(
       true,
     );
-    expect(await page.getByTestId("step-guide").count()).toBe(0);
+    expect(await page.getByTestId("step-guide").isVisible()).toBe(true);
     await reachable(
       page.getByRole("button", { name: "次のステップへ", exact: true }),
     );
