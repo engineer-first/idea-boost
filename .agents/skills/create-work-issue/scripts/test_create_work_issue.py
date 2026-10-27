@@ -26,10 +26,15 @@ class TaskTests(unittest.TestCase):
                 self.assertTrue(all(not c.kwargs for c in api.call_args_list))
 
     def test_invalid_or_absent_estimate_never_calls_api(self):
-        for value in [None, True, 0, -1, "3", float("nan"), float("inf")]:
+        for value in [None, True, 0, -1, "3", float("nan"), float("inf"), 10**400]:
             with self.subTest(value=value), patch.object(m, "api") as api:
                 self.assertEqual(m.set_estimate_if_empty(42, 1234, value), "skipped")
                 api.assert_not_called()
+
+    def test_huge_optional_integer_preserves_successful_creation(self):
+        with patch.object(m, "api", side_effect=[PARENT, TASK]) as api:
+            self.assertEqual(m.create_work_issue({"title": "題", "why": "理由", "parent_issue": 7, "estimate_hours": 10**400}), (TASK, "skipped"))
+            self.assertEqual(api.call_count, 2)
 
     def test_wrong_type_parent_or_field_never_writes(self):
         cases = [[{"type": {"name": "PBI"}}], [TASK, {"id": 99, "type": {"name": "PBI"}}], [TASK, {"id": 1234, "type": {"name": "Task"}}], [TASK, PARENT, []], [TASK, PARENT, [FIELD, FIELD]], [TASK, PARENT, [{**FIELD, "data_type": "text"}]], [TASK, PARENT, [{**FIELD, "visibility": "org"}]], [TASK, PARENT, [{**FIELD, "id": None}]], [TASK, PARENT, [{**FIELD, "id": True}]]]

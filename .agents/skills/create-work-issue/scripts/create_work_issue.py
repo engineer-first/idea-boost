@@ -22,7 +22,10 @@ def api(endpoint, *, payload=None):
 
 
 def valid_hours(value):
-    return type(value) in (int, float) and math.isfinite(value) and value > 0
+    try:
+        return type(value) in (int, float) and math.isfinite(value) and value > 0
+    except (OverflowError, ValueError):
+        return False
 
 
 def has_pbi_ancestor(parent):

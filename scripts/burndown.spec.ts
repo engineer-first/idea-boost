@@ -47,9 +47,13 @@ it("種類を限定せずPBI配下の末端作業を含め、PBIを除外する"
       },
     }),
   );
-  writeFileSync(join(dir, "gh"), '#!/bin/sh\ncat "$BURNDOWN_FIXTURE"\n', {
-    mode: 0o755,
-  });
+  writeFileSync(
+    join(dir, "gh"),
+    '#!/bin/sh\nif [ "$2" = graphql ]; then cat "$BURNDOWN_FIXTURE"; else printf \'%s\\n\' "$BURNDOWN_FIELDS"; fi\n',
+    {
+      mode: 0o755,
+    },
+  );
   try {
     const summary = JSON.parse(
       execFileSync("bash", ["scripts/burndown.sh", "--all", "--json"], {
@@ -58,6 +62,7 @@ it("種類を限定せずPBI配下の末端作業を含め、PBIを除外する"
           ...process.env,
           PATH: `${dir}:${process.env.PATH}`,
           BURNDOWN_FIXTURE: join(dir, "fixture.json"),
+          BURNDOWN_FIELDS: "[]",
         },
       }),
     );
@@ -76,7 +81,10 @@ it("種類を限定せずPBI配下の末端作業を含め、PBIを除外する"
   }
 });
 
-it("PBI配下の末端は種類を問わず数値優先で、親作業・対象外を除外し欠落を0にしない", () => {
+it.each([
+  false,
+  true,
+])("正式fieldの空欄は旧ラベルへ戻さず、親作業と対象外も集計しない（明示null=%s）", (explicitNull) => {
   const dir = mkdtempSync(join(tmpdir(), "burndown-fields-"));
   const issues = [
     { type: "Task", parent: "PBI", hours: 1.5, label: "est:8h" },
@@ -85,7 +93,7 @@ it("PBI配下の末端は種類を問わず数値優先で、親作業・対象�
     { type: "Bug", parent: "PBI", hours: 9, label: "est:4h" },
     { type: "PBI", parent: null, hours: 9, label: "est:8h" },
     { type: "Task", parent: "PBI", hours: 0.5, label: null },
-    { type: "Task", parent: "PBI", hours: null, label: null },
+    { type: "Task", parent: "PBI", hours: null, label: "est:16h" },
   ].map((v, i) => ({
     number: i + 1,
     title: "作業",
@@ -98,9 +106,11 @@ it("PBI配下の末端は種類を問わず数値優先で、親作業・対象�
     issueFieldValues: {
       nodes: [
         { field: { name: "Story points" }, value: 13 },
-        ...(v.hours === null
+        ...(v.hours === null && !explicitNull
           ? []
-          : [{ field: { name: "Estimate Hours" }, value: v.hours }]),
+          : [
+              { field: { id: "IF55", name: "Estimate Hours" }, value: v.hours },
+            ]),
       ],
     },
   }));
@@ -115,9 +125,13 @@ it("PBI配下の末端は種類を問わず数値優先で、親作業・対象�
       },
     }),
   );
-  writeFileSync(join(dir, "gh"), '#!/bin/sh\ncat "$BURNDOWN_FIXTURE"\n', {
-    mode: 0o755,
-  });
+  writeFileSync(
+    join(dir, "gh"),
+    '#!/bin/sh\nif [ "$2" = graphql ]; then cat "$BURNDOWN_FIXTURE"; else printf \'%s\\n\' "$BURNDOWN_FIELDS"; fi\n',
+    {
+      mode: 0o755,
+    },
+  );
   try {
     const output = execFileSync("bash", ["scripts/burndown.sh", "--json"], {
       encoding: "utf8",
@@ -125,6 +139,14 @@ it("PBI配下の末端は種類を問わず数値優先で、親作業・対象�
         ...process.env,
         PATH: `${dir}:${process.env.PATH}`,
         BURNDOWN_FIXTURE: join(dir, "fixture.json"),
+        BURNDOWN_FIELDS: JSON.stringify([
+          {
+            name: "Estimate Hours",
+            data_type: "number",
+            visibility: "all",
+            node_id: "IF55",
+          },
+        ]),
       },
     });
     expect(JSON.parse(output).no_milestone).toMatchObject({
@@ -133,6 +155,50 @@ it("PBI配下の末端は種類を問わず数値優先で、親作業・対象�
       known_remaining_h: 11,
       unestimated: [{ number: 7, state: "OPEN", title: "作業" }],
     });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it.each([
+  {
+    fields: [
+      {
+        name: "Estimate Hours",
+        data_type: "text",
+        visibility: "all",
+        node_id: "IF55",
+      },
+    ],
+    fail: false,
+  },
+  {
+    fields: [{ name: "Estimate Hours" }, { name: "Estimate Hours" }],
+    fail: false,
+  },
+  { fields: [], fail: true },
+])("field定義の不正・重複・取得失敗を旧ラベルへ置き換えない（%j）", ({
+  fields,
+  fail,
+}) => {
+  const dir = mkdtempSync(join(tmpdir(), "burndown-metadata-"));
+  writeFileSync(
+    join(dir, "gh"),
+    '#!/bin/sh\nif [ "$2" = graphql ]; then echo unexpected-query >&2; exit 99; fi\nif [ "$METADATA_FAIL" = true ]; then exit 1; fi\nprintf \'%s\\n\' "$METADATA"\n',
+    { mode: 0o755 },
+  );
+  try {
+    expect(() =>
+      execFileSync("bash", ["scripts/burndown.sh", "--json"], {
+        stdio: "pipe",
+        env: {
+          ...process.env,
+          PATH: `${dir}:${process.env.PATH}`,
+          METADATA: JSON.stringify(fields),
+          METADATA_FAIL: String(fail),
+        },
+      }),
+    ).toThrow();
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

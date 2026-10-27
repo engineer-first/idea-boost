@@ -60,7 +60,7 @@ AIは[create-work-issue Skill](../../.agents/skills/create-work-issue/SKILL.md)�
 
 作成スクリプトはfieldのIDを固定せず、組織field一覧から完全一致名とNumber型で解決し、Public（`visibility: all`）と正の整数IDを確認する。重複名なら書き込まない。一覧APIはpin対象を返さないため、各作業typeへのpinは組織設定UIで確認する。未作成なら管理者が上記設定を作成し、Projectには独自の同名欄を作らず組織fieldを追加する。fieldが存在してもAIの実行権限が不足する場合は空欄を許容し、認証や権限を追加しない。
 
-新しい見積もりに `est:<N>h` ラベルは付けない。既存ラベル・Issueは削除・移行しない。[バーンダウン集計](../../scripts/burndown.sh)はPBI配下の末端作業Issueだけを対象に、数値fieldを優先し、値がなければ既存ラベルを読む。Task・Bug・調査などの列挙で制限せず、未知type・種類なしも同じ親子関係で判定する。PBIと、子Issueを持つ途中の親作業は集計しない。親に既存の見積値があっても消さず、末端だけを数えて二重計上を防ぐ。PBIのない作業Issueは時間集計の対象外とする。
+新しい見積もりに `est:<N>h` ラベルは付けない。既存ラベル・Issueは削除・移行しない。[バーンダウン集計](../../scripts/burndown.sh)はPBI配下の末端作業Issueだけを対象に、組織field定義を一度確認し、正式なNumber/Public fieldがあればそのIDの値だけを読む。未入力・clear後のnull・値エントリ欠落はいずれも未設定であり、既存ラベルで補わない。組織field自体が未作成と確認できる場合だけ旧ラベルを読む。定義取得失敗・権限不足・重複名・型や公開範囲の不一致では集計を停止し、旧ラベルへ切り替えない。Task・Bug・調査などの列挙で制限せず、未知type・種類なしも同じ親子関係で判定する。PBIと、子Issueを持つ途中の親作業は集計しない。親に既存の見積値があっても消さず、末端だけを数えて二重計上を防ぐ。PBIのない作業Issueは時間集計の対象外とする。
 
 `remaining_h` は未完了の末端作業Issueの全体見積合計であり、実残時間ではない。未設定が1件でも含まれる合計は `null`（未確定）とし、0扱いしない。既知分は `known_total_h`・`known_remaining_h` に分け、未設定Issueと全件数も残す。祖先は[GitHubの最大8段の階層](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/adding-sub-issues)を確認する。見積根拠を集める関連Issue巡回はせず、対象判定に必要な親チェーンだけを読む。
 
