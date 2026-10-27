@@ -1,0 +1,4 @@
+interface:
+  display_name: "作業Issueを起票する"
+  short_description: "Why中心に作業Issueを起票し、PBI配下の任意見積時間を設定する"
+  default_prompt: "$create-work-issue を使って、この作業をIssueとして起票してください。"

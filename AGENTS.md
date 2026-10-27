@@ -29,6 +29,7 @@
 | D1 / RoomDO のスキーマ・migration                  | [Migration](docs/development/conventions.md#migration)                           |
 | Issue の作成・編集・振り分け・調査・状態判断       | [Issue 運用](docs/team/issues.md)、[Issue記述ルール](docs/team/issue-writing.md) |
 | 実績・要望・TaskからPBIを一緒に考える・直す        | [pbi](.agents/skills/pbi/SKILL.md)                                               |
+| 作業Issueの作成                                    | [create-work-issue](.agents/skills/create-work-issue/SKILL.md)                   |
 | PR 作成・本文更新                                  | [write-pr](.agents/skills/write-pr/SKILL.md)                                     |
 | 重要な設計判断の追加・変更                         | [ADR運用](docs/adr/README.md)                                                    |
 | エージェント指示・ハーネスの保守                   | [保守記録](docs/development/agent-maintenance.md)                                |
