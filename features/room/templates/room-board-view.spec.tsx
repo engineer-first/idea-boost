@@ -1371,7 +1371,7 @@ describe("初回の画面表示", () => {
     );
     expect(
       await screen.findByRole("dialog", {
-        name: "最近あった困ったことを付箋に書き出そう。",
+        name: "時間を守って取り組もう。",
       }),
     ).toBeVisible();
     expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();

@@ -13,6 +13,25 @@ afterAll(async () => {
 
 // DOMの描画だけではplayの失敗を検出できない。storyの操作を最後まで実行する。
 test.each([
+  "room-steponeonboardingslide--first-visit",
+  "room-steponeonboardingslide--second-slide",
+  "room-steponeonboardingslide--third-slide",
+  "room-steponeonboardingslide--fourth-slide",
+  "room-steponeonboardingslide--sharing-purpose",
+  "room-steponeonboardingslide--sharing-operation",
+  "room-steponeonboardingslide--grouping-purpose",
+  "room-steponeonboardingslide--grouping-operation",
+  "room-steponeonboardingslide--voting-purpose",
+  "room-steponeonboardingslide--voting-operation",
+  "room-steponeonboardingslide--decision-purpose",
+  "room-steponeonboardingslide--decision-operation",
+  "room-steponeonboardingslide--question-purpose",
+  "room-steponeonboardingslide--question-example",
+  "room-steponeonboardingslide--solution-purpose",
+  "room-steponeonboardingslide--solution-example",
+  "room-steponeonboardingslide--evaluation-purpose",
+  "room-steponeonboardingslide--evaluation-operation",
+  "room-steponeonboardingslide--unsupported-step",
   "room-nextphaseconfirmdialog--all-ready",
   "notes-notecard--excluded-for-host",
   "notes-notecard--excluded-for-participant",
@@ -92,9 +111,14 @@ test.each([
       () => (window as unknown as { storyErrors: string[] }).storyErrors,
     );
     expect([...errors, ...storyErrors]).toEqual([]);
-    expect(
-      await page.locator("#storybook-root > *, [role=alertdialog]").count(),
-    ).toBeGreaterThan(0);
+    const rootCount = await page
+      .locator("#storybook-root > *, [role=alertdialog]")
+      .count();
+    if (id === "room-steponeonboardingslide--unsupported-step") {
+      expect(rootCount).toBe(0);
+    } else {
+      expect(rootCount).toBeGreaterThan(0);
+    }
   } finally {
     await page.close();
   }
