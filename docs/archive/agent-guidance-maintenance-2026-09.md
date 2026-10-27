@@ -180,7 +180,7 @@ Markdown のローカルリンク・アンカー、YAML、整形、lint、`git d
 
 ## 2026-10-04: 全open Issueのsprint割当
 
-- 未着手・全Typeを含むopen Issueを現在sprintへ移し、closedは最後の割当を保つ合意を、Issue運用と定期workflowへ反映した。Project/Appには依存せず、workflowのGITHUB_TOKENだけでIssueを更新する。
+- 未着手・全Typeを含むopen Issueを現在sprintへ移し、closedは最後の割当を保つ合意を、Issue運用と定期workflowへ反映した。Project/Appには依存せず、workflowのGITHUB\_TOKENだけでIssueを更新する。
 - Milestone説明の登録済み `idea-boost-sprint:v1` JSONを読み、JSTの明示期間を使う。空白日・未登録・重複・不正は保留する。履歴はGitHub標準のMilestone変更履歴に残す。
 - 外部書込なしのテストで全Type、繰越し、PR除外、closed保持、dry-run、期間境界・再読取競合・API失敗を検証した。実データは読み取りとdry-runだけで確認し、merge前のIssue割当は変更しない。
 
@@ -273,7 +273,7 @@ Issue #579 に合わせ、人の確認前に CodeRabbit のトークンを消費
 - 共通実体と既存Claude用symlinkを維持。[Codex](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)、[OpenCode](https://opencode.ai/docs/skills/)、[Claude Code](https://code.claude.com/docs/en/skills#choose-where-skills-load)の公式仕様を確認し、新しいコピーや設定は増やしていない。
 - 自動採番はジャンルとIssue番号を組み合わせ、並行作成の競合回避を維持。明示した既存コードは保持する。旧形式も明示入力の互換性を保ち、ジャンル未指定・コード形式不正・IDとジャンルの不一致は作成前に拒否する。6ジャンルは基本とし、目的が直接合わない場合は理由を示して追加できる。JSON入力の変更点は[作成spec](../../.agents/skills/pbi/references/creation-spec.md)へ示した。
 - 既存Pythonテストで変更前の失敗を確認した後、実装し17件成功。基本6ジャンルと追加ジャンルのCLI dry-runで仮IDと入力不変を確認した。実際のIssue作成・変更は検証に使っていない。
-- skill-creatorのquick_validate、YAML FormとUIメタデータの構文・既存必須欄の維持、両経路の文書/付属ファイル参照、Markdown再整形の差分ゼロ、git diff --checkを確認。OpenCode 1.18.34のdebug skillでpbiが1件、正本から読み込まれることを確認した。
+- skill-creatorのquick\_validate、YAML FormとUIメタデータの構文・既存必須欄の維持、両経路の文書/付属ファイル参照、Markdown再整形の差分ゼロ、git diff --checkを確認。OpenCode 1.18.34のdebug skillでpbiが1件、正本から読み込まれることを確認した。
 - Codex 0.162.0のdebug prompt-inputとClaude Code 2.1.295の通常モードの/skillsで、pbiが一覧に1件現れることを追加確認。独立レビューで全差分と公式読込仕様を照合した。
 - フォーム名はGitHub公式の3文字を超える[表示条件](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository#creating-issue-forms)へ合わせて「PBIを作る」に変更し、正式TypeはPBIを保持。GitHub上の変更後フォーム描画はdefault branchへ反映前のため未確認。形式・一覧検証は、モデルが実際の相談で良い判断をすることを保証しない。
 
@@ -349,3 +349,11 @@ PBI冒頭ストーリーは必須のまま保持する意図に合わせ、フ�
 変更前にストーリー必須・Bot案内・入力例配置の回帰テストが失敗し、変更後に成功することを確認した。
 
 項目を「必須／任意」のラベルで案内する表現を見直し、各欄の目的・書く内容・具体例を中心とする案内へ整えた。PBI冒頭ストーリー、Whyと具体例を維持し、フォームのrequired・機械検査契約・検証ロジックは変更していない。
+
+## 2026-10-27: PBIの任意Story points
+
+Why中心の軽い起票を保ち、PBIだけの7段階の相対見積もりをIssue運用へ追加した。AIは既に得た情報からなるべく設定し、8/13を分割の任意判断材料にする。SPだけの質問待ち・既定値埋め・未設定催促は設けない。共有pbi Skill・作成spec・フォームの案内から同じ基準へ到達する。
+
+作成スクリプトは組織Number fieldを名前と型で解決し、今回作成したPBIの空欄だけへPOSTする。省略・不正値・権限不足・読戻し失敗は起票を止めず、既存値・他fieldを保持する。外部通信をmockしたPythonテストをVitestから実行し、変更前の失敗と変更後の成功を確認した。共有スキル検査・変更Markdown整形・差分検査も成功。既存ローカル依存では通常Vitestの共通setupが `z.int is not a function` で停止するため、対象PythonテストのVitest実行は一時のnode環境設定で確認した。共有の検査設定は変更していない。
+
+ルーブリックを境界例で読み合わせ、多ファイルの同型軽微変更を件数だけで8にしない、数行でも権限・再接続・複数人の検証負担を含める、広い同期・移行・複数条件の検証なら8/13を許す、対象不明の「使いやすく」は空欄、高優先度の小変更でもSPを上げないことを確認した。これは文書の整合レビューであり、別モデルによる評価や実績に基づく校正ではない。実IssueへのQA書込み・一括見積もりは行っていない。
