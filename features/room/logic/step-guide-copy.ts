@@ -40,13 +40,13 @@ const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
       illustrationAlt: "一人ひとりの困りごとをチームで伝え合う",
     },
     {
-      title: "自分の番に、付箋を共有して説明しよう。",
+      title: "自分の番が来たら発表して、次の人へ交代しよう。",
       description:
-        "マイ付箋をボードへドラッグして、内容を説明します。説明が終わったら「次の人へ」で交代しましょう。",
+        "発表する順番は画面上部で確認できます。自分の番が来たら、マイ付箋をボードへドラッグして内容を説明しましょう。発表が終わったら「次の人へ」を押して交代します。",
       illustration: "share",
       videoSrc: "/onboarding/step-1-2.webm",
       illustrationAlt:
-        "マイ付箋からボードへドラッグし、説明して次の人へ交代する流れ",
+        "前の人の発表を待ち、自分の番に付箋を共有して発表し、次の人へ交代する流れ",
     },
   ],
   "1-3": [
