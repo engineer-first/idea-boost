@@ -34,6 +34,9 @@
 - spec / stories / fixture は実装と同居させる。役割は `-view`、`-card`、`-dialog`、
   `-section`、`use-` 等のファイル名で表す。container と view はステムを揃える
   （`room-board.tsx` / `room-board-view.tsx`）。
+- 読込時に登録・初期化などの副作用を起こすモジュールを追加したら、
+  `package.json` の `sideEffects` に列挙する。CSS・計測・テストの初期化が
+  未使用 export の削除に巻き込まれることを防ぐ。関数を呼んだ時だけの処理は対象外。
 
 ## UI
 
