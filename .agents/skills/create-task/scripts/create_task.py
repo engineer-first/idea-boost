@@ -38,9 +38,12 @@ def set_estimate_if_empty(number, parent_id, value):
             return "skipped"
         fields = api("orgs/engineer-first/issue-fields")
         matches = [f for f in fields if f.get("name") == "Estimate Hours"]
-        if len(matches) != 1 or matches[0].get("data_type") != "number":
+        if (len(matches) != 1 or matches[0].get("data_type") != "number"
+                or matches[0].get("visibility") != "all"):
             return "skipped"
         field_id = matches[0]["id"]
+        if type(field_id) is not int or field_id <= 0:
+            return "skipped"
         values_endpoint = endpoint + "/issue-field-values"
         values = api(values_endpoint + "?per_page=100")
         if any(v["issue_field_id"] == field_id and v.get("value") is not None for v in values):

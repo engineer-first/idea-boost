@@ -5,7 +5,7 @@ import create_task as m
 REPO = "engineer-first/idea-boost"
 PARENT = {"id": 1234, "type": {"name": "PBI"}}
 TASK = {"number": 42, "html_url": "https://github.com/engineer-first/idea-boost/issues/42", "type": {"name": "Task"}}
-FIELD = {"id": 55, "name": "Estimate Hours", "data_type": "number"}
+FIELD = {"id": 55, "name": "Estimate Hours", "data_type": "number", "visibility": "all"}
 
 class TaskTests(unittest.TestCase):
     def test_create_and_estimate_preserves_other_field(self):
@@ -32,7 +32,7 @@ class TaskTests(unittest.TestCase):
                 api.assert_not_called()
 
     def test_wrong_type_parent_or_field_never_writes(self):
-        cases = [[{"type": {"name": "PBI"}}], [TASK, {"id": 99, "type": {"name": "PBI"}}], [TASK, {"id": 1234, "type": {"name": "Task"}}], [TASK, PARENT, []], [TASK, PARENT, [FIELD, FIELD]], [TASK, PARENT, [{**FIELD, "data_type": "text"}]]]
+        cases = [[{"type": {"name": "PBI"}}], [TASK, {"id": 99, "type": {"name": "PBI"}}], [TASK, {"id": 1234, "type": {"name": "Task"}}], [TASK, PARENT, []], [TASK, PARENT, [FIELD, FIELD]], [TASK, PARENT, [{**FIELD, "data_type": "text"}]], [TASK, PARENT, [{**FIELD, "visibility": "org"}]], [TASK, PARENT, [{**FIELD, "id": None}]], [TASK, PARENT, [{**FIELD, "id": True}]]]
         for responses in cases:
             with self.subTest(responses=responses), patch.object(m, "api", side_effect=responses) as api:
                 self.assertEqual(m.set_estimate_if_empty(42, 1234, 2), "skipped")

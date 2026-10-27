@@ -33,6 +33,8 @@ python3 .agents/skills/create-task/scripts/create_task.py /tmp/task-spec.json
 
 作成先は `engineer-first/idea-boost` 固定。スクリプトは指定親を一度取得しPBIであることを確認後、公式[Create an issue](https://docs.github.com/en/rest/issues/issues#create-an-issue)の `type` と `parent_issue_id`（Issue番号ではなくdatabase ID）で作成する。親指定が誤っている場合は誤接続を避け起票前に止まる。作成結果が不明なら、GitHubで有無を確認するまで再実行しない。
 
-任意見積もりは起票後の別処理にする。作成APIは `issue_field_values` の同梱にも対応するが、見積もり権限・設定不備で起票を妨げないため同梱しない。今回作ったIssueのTypeと直上の親PBIを読み戻し、組織の `Estimate Hours / number` が一意に見つかり、既存値が空のときだけ[POST](https://docs.github.com/en/rest/issues/issue-field-values#add-issue-field-values-to-an-issue)で1fieldを送る。PUTは他fieldを消すため使わない。読戻しの間に人が入力する競合を原子的に防ぐAPIではないため、新規起票直後の一度に限定し、失敗・不明時に書込みを再試行しない。
+任意見積もりは起票後の別処理にする。作成APIは `issue_field_values` の同梱にも対応するが、見積もり権限・設定不備で起票を妨げないため同梱しない。今回作ったIssueのTypeと直上の親PBIを読み戻し、組織の `Estimate Hours / number` が一意に見つかり、Public（RESTの `visibility: all`）と正の整数IDを確認でき、既存値が空のときだけ[POST](https://docs.github.com/en/rest/issues/issue-field-values#add-issue-field-values-to-an-issue)で1fieldを送る。PUTは他fieldを消すため使わない。読戻しの間に人が入力する競合を原子的に防ぐAPIではないため、新規起票直後の一度に限定し、失敗・不明時に書込みを再試行しない。
 
 `set` は読戻し一致、`preserved` は既存値保持、`skipped` は材料・対象・fieldの条件不足、`unconfirmed` はAPI失敗または読戻し未確認を示す。既存Taskへの補充・ラベル移行・field作成・権限拡大は行わない。既存時間ラベルを新規追加しない。
+
+field作成後は `gh api orgs/engineer-first/issue-fields` の `id`・`node_id`・`name`・`data_type`・`visibility` を管理者の作成結果と照合する。この一覧APIはpin対象を返さないため、Taskへのpinは組織設定UIで別途確認する。pinが適用対象を制限するわけではないので、自動設定前のTask Type・直上親PBIの確認は省略しない。

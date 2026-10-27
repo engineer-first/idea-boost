@@ -58,7 +58,7 @@ AIは[create-task Skill](../../.agents/skills/create-task/SKILL.md)で起票す�
 
 ### 設定と既存ラベルの扱い
 
-作成スクリプトはfieldのIDを固定せず、組織field一覧から完全一致名とNumber型で解決する。未作成なら管理者が上記設定を作成し、Projectには独自の同名欄を作らず組織fieldを追加する。fieldが存在してもAIの実行権限が不足する場合は空欄を許容し、認証や権限を追加しない。
+作成スクリプトはfieldのIDを固定せず、組織field一覧から完全一致名とNumber型で解決し、Public（`visibility: all`）と正の整数IDを確認する。重複名なら書き込まない。一覧APIはpin対象を返さないため、Taskへのpinは組織設定UIで確認する。未作成なら管理者が上記設定を作成し、Projectには独自の同名欄を作らず組織fieldを追加する。fieldが存在してもAIの実行権限が不足する場合は空欄を許容し、認証や権限を追加しない。
 
 新しい見積もりに `est:<N>h` ラベルは付けない。既存ラベル・Issueは削除・移行しない。[バーンダウン集計](../../scripts/burndown.sh)はPBI配下Taskの数値fieldを優先し、値がなければ既存ラベルを読む。他の作業Issueは従来のラベルを読む。同じIssueの時間を足し合わせない。`remaining_h` は未完了Issueの全体見積の合計であり、作業の進捗に応じた実残時間ではない。空欄は時間合計から除外するが、件数には残す。
 
