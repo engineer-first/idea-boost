@@ -1,24 +1,38 @@
 "use client";
 
 // ログイン後画面共通のヘッダー。
+// login など未ログイン画面では root layout が描画しない。
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/features/auth";
 import { clearStoredLastRoom } from "@/lib/room-client/last-room-storage-cleanup";
 
-// ホーム専用の編集UIと検証スキーマを、匿名LPの初期依存から外す。
-const HomeUserMenu = dynamic(() =>
-  import("./home-user-menu").then((module) => module.HomeUserMenu),
+// root layoutがAppHeaderを描画しない匿名LPでは、ホーム専用chunkを取得しない。
+// /homeの初回はSSRし、client遷移の取得待ちではメニューの操作領域を確保する。
+const HomeUserMenu = dynamic(
+  () => import("./home-user-menu").then((module) => module.HomeUserMenu),
+  {
+    loading: () => (
+      <span
+        aria-hidden="true"
+        data-testid="home-user-menu-placeholder"
+        className="block min-h-11 min-w-11"
+      />
+    ),
+  },
 );
 
 export type AppHeaderProps = {
+  // 表示名（メールは出さない）。空ならユーザー名は描画しない。
   userName: string;
   currentUserId?: string;
 };
 
 export function AppHeader({ userName, currentUserId }: AppHeaderProps) {
   const pathname = usePathname();
+  // スプリント開始後のボードだけは、進行レールへ統合してキャンバスを広く保つ。
+  // /start のロビーなど、前後の画面では共通ヘッダーを維持する。
   if (/^\/rooms\/[^/]+$/.test(pathname)) return null;
 
   return (
