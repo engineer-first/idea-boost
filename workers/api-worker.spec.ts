@@ -4,6 +4,7 @@
 // - 非メンバーにはルームの存在自体を見せない (404)
 // - join は冪等（複数回呼んでもメンバーは重複しない）
 import { env, exports } from "cloudflare:workers";
+import { base64url } from "jose";
 import { describe, expect, it } from "vitest";
 import { buildLobbyPhase } from "../contracts/phase.fixture";
 import { issueCreationId } from "../contracts/room-creation";
@@ -1078,5 +1079,182 @@ describe("作成要求の再送", () => {
       });
     const responses = await Promise.all([send(), send()]);
     expect(await responses[0].json()).toEqual(await responses[1].json());
+  });
+});
+
+describe("ゲスト本人の同期と永続化", () => {
+  async function sync(assertion: string | Record<string, unknown>) {
+    return exports.default.fetch("https://api.test/api/auth/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assertion }),
+    });
+  }
+  async function signed(userId: string, displayName = "はな", options = {}) {
+    return signToken(
+      { kind: "guest", userId, displayName },
+      {
+        secret: env.SESSION_SECRET,
+        audience: TOKEN_AUDIENCE.loginAssertion,
+        expiresInSeconds: 60,
+        ...options,
+      },
+    );
+  }
+  async function row(id: string) {
+    return env.DB.prepare("SELECT * FROM users WHERE id=?").bind(id).first();
+  }
+  it("署名したゲスト主張でemailとnameがNULL・表示名と更新番号が設定された本人を登録する", async () => {
+    const id = crypto.randomUUID();
+    await env.DB.prepare("DELETE FROM user_permissions").run();
+    const response = await sync(await signed(id));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ userId: id });
+    expect(await row(id)).toMatchObject({
+      id,
+      email: null,
+      name: null,
+      google_sub: null,
+      display_name: "はな",
+      display_name_revision: 1,
+    });
+    expect(
+      (await env.DB.prepare("SELECT * FROM user_permissions").all()).results,
+    ).toEqual([]);
+  });
+  it("同じ主張の再送や別の表示名を含む再送でも本人と保存済み表示名を維持する", async () => {
+    const id = crypto.randomUUID();
+    const assertion = await signed(id);
+    expect((await sync(assertion)).status).toBe(200);
+    await env.DB.prepare(
+      "UPDATE users SET display_name='保存済み', display_name_revision=7 WHERE id=?",
+    )
+      .bind(id)
+      .run();
+    const before = await row(id);
+    for (const token of [assertion, await signed(id, "別の名前")]) {
+      const response = await sync(token);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ userId: id });
+      expect(await row(id)).toEqual(before);
+    }
+  });
+  it("同じ名前でも異なるIDの主張は2人の本人として登録する", async () => {
+    const ids = [crypto.randomUUID(), crypto.randomUUID()];
+    for (const id of ids) {
+      const response = await sync(await signed(id));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ userId: id });
+    }
+    expect(
+      (
+        await env.DB.prepare(
+          "SELECT id FROM users WHERE id IN (?,?) AND display_name='はな'",
+        )
+          .bind(...ids)
+          .all()
+      ).results,
+    ).toHaveLength(2);
+  });
+  it.each(["メールあり", "Google連携あり"])(
+    "%sのアカウントIDと衝突したら409で全列を保持する",
+    async (condition) => {
+      const id = crypto.randomUUID();
+      // email NULLのGoogle行も、ゲスト化の対象にならない。
+      await env.DB.prepare(
+        "INSERT INTO users(id,email,name,google_sub,display_name,display_name_revision) VALUES(?,?,?,?,?,?)",
+      )
+        .bind(
+          id,
+          condition === "メールあり" ? `${id}@example.test` : null,
+          "本人",
+          condition === "Google連携あり" ? `google:${id}` : null,
+          "保存済み",
+          3,
+        )
+        .run();
+      const before = await row(id);
+      expect((await sync(await signed(id))).status).toBe(409);
+      expect(await row(id)).toEqual(before);
+    },
+  );
+  it("assertionがJSONオブジェクトなら400でユーザーを作らない", async () => {
+    const id = crypto.randomUUID();
+    const response = await sync({
+      kind: "guest",
+      userId: id,
+      displayName: "はな",
+    });
+    expect(response.status).toBe(400);
+    expect(await row(id)).toBeNull();
+  });
+  it.each(["無署名", "別秘密", "別audience"])(
+    "%sのゲスト主張は401でユーザーを作らない",
+    async (condition) => {
+      const id = crypto.randomUUID();
+      const assertion =
+        condition === "無署名"
+          ? `${base64url.encode(JSON.stringify({ alg: "none", typ: "JWT" }))}.${base64url.encode(
+              JSON.stringify({
+                iss: "idea-boost",
+                aud: TOKEN_AUDIENCE.loginAssertion,
+                exp: Math.floor(Date.now() / 1000) + 60,
+                kind: "guest",
+                userId: id,
+                displayName: "はな",
+              }),
+            )}.`
+          : await signed(
+              id,
+              "はな",
+              condition === "別秘密"
+                ? { secret: "other-test-session-secret-long-enough" }
+                : { audience: TOKEN_AUDIENCE.session },
+            );
+      expect((await sync(assertion)).status).toBe(401);
+      expect(await row(id)).toBeNull();
+    },
+  );
+  it("期限切れの署名済みゲスト主張は401で本人行を作らない", async () => {
+    const id = crypto.randomUUID();
+    const assertion = await signed(id, "はな", {
+      expiresAtSeconds: Math.floor(Date.now() / 1000) - 60,
+    });
+    expect((await sync(assertion)).status).toBe(401);
+    expect(await row(id)).toBeNull();
+  });
+  it("D1に本人行がないゲストCookieからルームを作成してもFK違反にならない", async () => {
+    const id = crypto.randomUUID();
+    expect(await row(id)).toBeNull();
+    const token = await signToken(
+      { kind: "guest", sub: id, email: null },
+      {
+        secret: env.SESSION_SECRET,
+        audience: TOKEN_AUDIENCE.session,
+        expiresInSeconds: 600,
+      },
+    );
+    const response = await exports.default.fetch("https://api.test/api/rooms", {
+      method: "POST",
+      headers: {
+        Cookie: `idea_boost_session=${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        requestId: issueCreationId().requestId,
+        expectedPrincipal: id,
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await row(id)).toMatchObject({ id, email: null });
+    const room = await response.json<{ roomId: string }>();
+    expect(
+      await env.DB.prepare("SELECT host_id FROM rooms WHERE id=?")
+        .bind(room.roomId)
+        .first(),
+    ).toEqual({ host_id: id });
+    expect(
+      (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
+    ).toEqual([]);
   });
 });

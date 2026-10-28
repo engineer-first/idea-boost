@@ -119,7 +119,8 @@ async function handleAuthSync(
   request: Request,
   env: ApiWorkerEnv,
 ): Promise<Response> {
-  const body = SyncRequestSchema.safeParse(await readJsonBody(request));
+  const input = await readJsonBody(request);
+  const body = SyncRequestSchema.safeParse(input);
   if (!body.success) {
     return error(400, "リクエスト形式が不正です。");
   }
@@ -134,6 +135,8 @@ async function handleAuthSync(
   }
 
   const userId = await upsertUserFromAssertion(env.DB, assertion);
+  if (typeof userId !== "string")
+    return error(409, "本人情報が競合しています。");
   if (assertion.kind === "dev") await seedDevOwnerAccess(env.DB);
   return json({ userId });
 }

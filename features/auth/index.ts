@@ -13,6 +13,11 @@ export {
   saveDisplayName,
 } from "./logic/display-name-actions";
 export { isEmailVerified } from "./logic/google-claims";
+export {
+  type PreparedPrincipal,
+  type PrepareGuestIdentityResult,
+  prepareGuestIdentity,
+} from "./logic/guest-identity-actions";
 export { getLoginPath, sanitizeNextPath } from "./logic/redirects";
 export { RoomAdmissionContext } from "./logic/room-admission-context";
 export {
@@ -26,4 +31,8 @@ export {
   useDisplayName,
 } from "./logic/use-display-name";
 export { DisplayNameDialog } from "./molecules/display-name-dialog";
+export {
+  GuestNameForm,
+  type GuestNameFormProps,
+} from "./molecules/guest-name-form";
 export { LoginCard } from "./molecules/login-card";
