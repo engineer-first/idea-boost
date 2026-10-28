@@ -4,22 +4,15 @@
 // せず ok: false で返すこと。
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  apiFetchMock,
-  getCurrentUserMock,
-  redirectMock,
-  lookupRoomByInviteCodeMock,
-} = vi.hoisted(() => ({
+const { apiFetchMock, getCurrentUserMock, redirectMock } = vi.hoisted(() => ({
   apiFetchMock:
     vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(),
   getCurrentUserMock: vi.fn(),
   redirectMock: vi.fn<(url: string) => never>(),
-  lookupRoomByInviteCodeMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api-client", () => ({
   apiFetch: apiFetchMock,
-  lookupRoomByInviteCode: lookupRoomByInviteCodeMock,
 }));
 vi.mock("@/lib/session/current-user", () => ({
   getCurrentUser: getCurrentUserMock,
@@ -30,12 +23,7 @@ vi.mock("@/lib/session/room-entry", async (original) => ({
   issueRoomEntry: vi.fn().mockResolvedValue("entry-admission"),
 }));
 
-import {
-  createRoom,
-  joinRoom,
-  lookupInviteRoom,
-  returnToRoom,
-} from "./actions";
+import { createRoom, joinRoom, returnToRoom } from "./actions";
 
 // 実物の redirect() は例外を投げて以降の処理を打ち切る。同じ制御フローを再現する。
 class RedirectSignal extends Error {
@@ -176,50 +164,6 @@ describe("createRoom", () => {
       error: "作成結果を確認できません。同じ作成を確認・再試行してください。",
     });
     expect(redirectMock).not.toHaveBeenCalled();
-  });
-});
-
-describe("lookupInviteRoom", () => {
-  it("形式不正の招待コードは ok: false を返す", async () => {
-    await expect(lookupInviteRoom("bad")).resolves.toEqual({
-      ok: false,
-      error: "招待コードは英数字6桁で入力してください。",
-    });
-    expect(lookupRoomByInviteCodeMock).not.toHaveBeenCalled();
-  });
-
-  it("ルームが無ければ ok: false を返す", async () => {
-    lookupRoomByInviteCodeMock.mockResolvedValueOnce({ kind: "not_found" });
-    await expect(lookupInviteRoom("ABC123")).resolves.toEqual({
-      ok: false,
-      error:
-        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
-    });
-  });
-
-  it("lookup が unavailable なら専用のエラー文言を返す", async () => {
-    lookupRoomByInviteCodeMock.mockResolvedValueOnce({ kind: "unavailable" });
-    await expect(lookupInviteRoom("ABC123")).resolves.toEqual({
-      ok: false,
-      error:
-        "ルーム情報を取得できませんでした。しばらくしてから再度お試しください。",
-    });
-  });
-
-  it("見つかれば hostName を返す", async () => {
-    lookupRoomByInviteCodeMock.mockResolvedValueOnce({
-      kind: "found",
-      room: {
-        roomId: "123e4567-e89b-42d3-a456-426614174000",
-        inviteCode: "ABC123",
-        hostName: "田中太郎",
-      },
-    });
-    await expect(lookupInviteRoom("ABC123")).resolves.toEqual({
-      ok: true,
-      hostName: "田中太郎",
-      inviteCode: "ABC123",
-    });
   });
 });
 

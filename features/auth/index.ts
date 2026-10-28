@@ -35,4 +35,8 @@ export {
   GuestNameForm,
   type GuestNameFormProps,
 } from "./molecules/guest-name-form";
+export {
+  GuestNameFormView,
+  type GuestNameFormViewProps,
+} from "./molecules/guest-name-form-view";
 export { LoginCard } from "./molecules/login-card";

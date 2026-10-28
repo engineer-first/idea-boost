@@ -684,15 +684,78 @@ it("完了と参加・退出・解散の競合をRoomDOの成立順で確定す�
   }
 });
 
-it("完了後の古い招待コード照会はホスト名・招待情報を返さない", async () => {
+it("セッション無しの実在招待コード照会は401を返し、ホスト名・招待コードを返さない", async () => {
+  const room = await createRoomAs(host);
+  const response = await worker.fetch(
+    new Request(`https://api.test/api/rooms/lookup?code=${room.inviteCode}`),
+    env,
+  );
+  expect(response.status).toBe(401);
+  const body = await response.text();
+  expect(body).not.toContain(host.name);
+  expect(body).not.toContain(room.inviteCode);
+});
+
+it("完了後の古い招待コード照会は410とendedを返し、ホスト名・招待情報を返さない", async () => {
   const room = await complete();
+  try {
+    const response = await request(
+      `rooms/lookup?code=${room.inviteCode}`,
+      outsider,
+    );
+    expect.soft(response.status).toBe(410);
+    const body = await response.json();
+    expect.soft(body).toEqual({
+      error: "このルームは終了しています。",
+      reason: "ended",
+    });
+    expect(JSON.stringify(body)).not.toContain(host.name);
+    expect(JSON.stringify(body)).not.toContain(room.inviteCode);
+    expect(JSON.stringify(body)).not.toContain(room.roomId);
+  } finally {
+    room.socket.close();
+  }
+});
+
+it("D1にコードが残る解散済みルームの照会は410とendedを返し、ホスト名・招待情報を返さない", async () => {
+  const room = await createRoomAs(host);
+  // D1削除前でもRoomDOの終了状態を優先する。
+  await runInRoomDO(room.roomId, async (instance) => {
+    expect(await instance.disband(host.sub, host.sub)).toBe(true);
+    expect(instance.isJoinable()).toBe(false);
+  });
+  expect(
+    await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
+      .bind(room.roomId)
+      .first(),
+  ).not.toBeNull();
   const response = await request(
     `rooms/lookup?code=${room.inviteCode}`,
     outsider,
   );
+  expect.soft(response.status).toBe(410);
+  const body = await response.json();
+  expect.soft(body).toEqual({
+    error: "このルームは終了しています。",
+    reason: "ended",
+  });
+  expect(JSON.stringify(body)).not.toContain(host.name);
+  expect(JSON.stringify(body)).not.toContain(room.inviteCode);
+  expect(JSON.stringify(body)).not.toContain(room.roomId);
+});
+
+it("存在しない招待コードの照会は404を返す", async () => {
+  const code = "ZZZ999";
+  expect(
+    await env.DB.prepare("SELECT id FROM rooms WHERE invite_code=?")
+      .bind(code)
+      .first(),
+  ).toBeNull();
+  const response = await request(`rooms/lookup?code=${code}`, outsider);
   expect(response.status).toBe(404);
-  expect(await response.text()).not.toContain(host.name);
-  room.socket.close();
+  expect(await response.json()).toEqual({
+    error: "ルームが見つかりませんでした。",
+  });
 });
 
 it("A15: 初回完了由来の期限1ms前・等値・1ms後で、本文と索引が残っていても全取得経路が期限を守る", async () => {

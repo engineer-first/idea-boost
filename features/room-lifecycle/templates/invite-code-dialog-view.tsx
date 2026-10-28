@@ -14,6 +14,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/dialog";
 
+import { inviteCopy } from "../logic/invite-copy";
+
 export type InviteCodeDialogViewProps = {
   inviteCode: string;
   hostName: string;
@@ -40,7 +42,7 @@ export function InviteCodeDialogView({
             {hostName} さんが作成したルームに参加しますか？
           </AlertDialogTitle>
           <AlertDialogDescription>
-            招待コード{" "}
+            {inviteCopy.codeLabel}{" "}
             <span className="font-mono font-semibold">{inviteCode}</span>{" "}
             のルームに参加します。
           </AlertDialogDescription>

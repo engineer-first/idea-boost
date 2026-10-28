@@ -1,44 +1,113 @@
 // @vitest-environment node
-import { beforeEach, expect, it, vi } from "vitest";
+import { isValidElement } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { VerifiedSession } from "@/contracts/session";
 
-const mocks = vi.hoisted(() => ({ lookup: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  lookup: vi.fn(),
+  currentUser: vi.fn(),
+  redirect: vi.fn((url: string): never => {
+    throw new Error(`redirect: ${url}`);
+  }),
+  InviteCodeDialog: vi.fn(),
+  InviteGuestName: vi.fn(),
+  InviteStatusView: vi.fn(),
+}));
 vi.mock("@/lib/api-client", () => ({ lookupRoomByInviteCode: mocks.lookup }));
 vi.mock("@/lib/session/current-user", () => ({
-  getCurrentUser: async () => ({ sub: "user" }),
+  getCurrentUser: mocks.currentUser,
 }));
 vi.mock("@/features/auth", () => ({
-  getLoginPath: vi.fn(),
-  sanitizeNextPath: vi.fn(),
+  getLoginPath: (next: string) => `/login?next=${encodeURIComponent(next)}`,
+  sanitizeNextPath: (path: string) => path,
 }));
-vi.mock("@/features/room-lifecycle", () => ({ InviteCodeDialog: vi.fn() }));
-vi.mock("next/navigation", () => ({
-  redirect: (url: string) => {
-    throw new Error(decodeURIComponent(url));
-  },
+vi.mock("@/features/room-lifecycle", () => ({
+  InviteCodeDialog: mocks.InviteCodeDialog,
+  InviteGuestName: mocks.InviteGuestName,
+  InviteStatusView: mocks.InviteStatusView,
 }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
 import InvitePage from "./page";
 
-beforeEach(() => vi.clearAllMocks());
-it("終了済みを含む404では終了の可能性と招待元への確認を案内する", async () => {
-  mocks.lookup.mockResolvedValue({ kind: "not_found" });
-  await expect(
-    InvitePage({ params: Promise.resolve({ inviteCode: "ABC123" }) }),
-  ).rejects.toThrow(
-    "ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
-  );
+const account: VerifiedSession = {
+  kind: "account",
+  sub: "11111111-1111-4111-8111-111111111111",
+  email: "account@example.test",
+  name: "本人",
+  exp: 2000000000,
+};
+const guest: VerifiedSession = { ...account, kind: "guest", email: null };
+const room = {
+  roomId: "123e4567-e89b-42d3-a456-426614174000",
+  inviteCode: "ABC234",
+  hostName: "ホスト",
+};
+function page(inviteCode = " abc234 ") {
+  return InvitePage({ params: Promise.resolve({ inviteCode }) });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.currentUser.mockResolvedValue(account);
+  mocks.lookup.mockResolvedValue({ kind: "found", room });
 });
-it("通信障害では終了・無効と案内せず再試行を促す", async () => {
-  mocks.lookup.mockResolvedValue({ kind: "unavailable" });
-  await expect(
-    InvitePage({ params: Promise.resolve({ inviteCode: "ABC123" }) }),
-  ).rejects.toThrow(
-    "ルーム情報を取得できませんでした。しばらくしてから再度お試しください。",
+
+describe("招待ページ", () => {
+  it("形式不正なら本人情報もルームも照会せず invalid を描画する", async () => {
+    const element = await page("invalid");
+    expect(element.type).toBe(mocks.InviteStatusView);
+    expect(element.props).toMatchObject({ kind: "invalid" });
+    expect(mocks.currentUser).not.toHaveBeenCalled();
+    expect(mocks.lookup).not.toHaveBeenCalled();
+    expect(mocks.redirect).not.toHaveBeenCalled();
+  });
+
+  it("本人なしなら照会もリダイレクトもせず正規化コードでゲスト名入力を描画する", async () => {
+    mocks.currentUser.mockResolvedValue(null);
+    const element = await page();
+    expect(element.type).toBe(mocks.InviteGuestName);
+    expect(element.props).toMatchObject({ inviteCode: "ABC234" });
+    expect(mocks.lookup).not.toHaveBeenCalled();
+    expect(mocks.redirect).not.toHaveBeenCalled();
+  });
+
+  it.each(["not_found", "ended", "unavailable"] as const)(
+    "照会結果 %s を同じ kind の状態画面として描画する",
+    async (kind) => {
+      mocks.lookup.mockResolvedValue({ kind });
+      const element = await page();
+      expect(element.type).toBe(mocks.InviteStatusView);
+      expect(element.props).toMatchObject({ kind });
+      expect(mocks.lookup).toHaveBeenCalledExactlyOnceWith("ABC234");
+      expect(mocks.redirect).not.toHaveBeenCalled();
+    },
   );
-});
-it("形式不正の招待リンクは照会せず入力形式を案内する", async () => {
-  await expect(
-    InvitePage({ params: Promise.resolve({ inviteCode: "invalid" }) }),
-  ).rejects.toThrow("招待コードは英数字6桁で入力してください。");
-  expect(mocks.lookup).not.toHaveBeenCalled();
+
+  it("通信障害の再試行先に正規化済みの招待コードを保持する", async () => {
+    mocks.lookup.mockResolvedValue({ kind: "unavailable" });
+    const element = await page();
+    expect(element.type).toBe(mocks.InviteStatusView);
+    expect(element.props).toMatchObject({
+      kind: "unavailable",
+      retryHref: "/invite/ABC234",
+    });
+  });
+
+  it.each([account, guest])(
+    "$kind 本人の照会が成功すれば本人ID・招待コード・ホスト名を確認画面へ渡す",
+    async (user) => {
+      mocks.currentUser.mockResolvedValue(user);
+      const element = await page();
+      expect(isValidElement(element)).toBe(true);
+      expect(element.type).toBe(mocks.InviteCodeDialog);
+      expect(element.props).toEqual({
+        currentUserId: user.sub,
+        inviteCode: "ABC234",
+        hostName: "ホスト",
+      });
+      expect(mocks.lookup).toHaveBeenCalledExactlyOnceWith("ABC234");
+      expect(mocks.redirect).not.toHaveBeenCalled();
+    },
+  );
 });

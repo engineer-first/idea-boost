@@ -37,7 +37,7 @@ import type {
   ParticipationConfirmation,
   ParticipationResult,
 } from "@/contracts/room-participation";
-import { apiFetch, lookupRoomByInviteCode } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { hasRoomEntryTime, issueRoomEntry } from "@/lib/session/room-entry";
 import {
@@ -79,50 +79,6 @@ export type JoinRoomResult =
       pendingOperation?: Extract<ParticipationResult, { kind: "pending" }>;
       failedOperation?: Extract<ParticipationResult, { kind: "rejected" }>;
     };
-
-// 参加確認 Dialog 用。ホスト名を先に解決し、存在しないコードは Dialog を開かない。
-export type LookupInviteResult =
-  | { ok: true; hostName: string; inviteCode: string }
-  | { ok: false; error: string; reason?: string };
-
-export async function lookupInviteRoom(
-  code: string,
-): Promise<LookupInviteResult> {
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/login");
-  }
-
-  const parsedInput = JoinRoomInputSchema.safeParse({ code });
-  if (!parsedInput.success) {
-    return {
-      ok: false,
-      error: "招待コードは英数字6桁で入力してください。",
-    };
-  }
-
-  const lookup = await lookupRoomByInviteCode(parsedInput.data.code);
-  if (lookup.kind === "not_found") {
-    return {
-      ok: false,
-      error:
-        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
-    };
-  }
-  if (lookup.kind === "unavailable") {
-    return {
-      ok: false,
-      error:
-        "ルーム情報を取得できませんでした。しばらくしてから再度お試しください。",
-    };
-  }
-
-  return {
-    ok: true,
-    hostName: lookup.room.hostName,
-    inviteCode: lookup.room.inviteCode,
-  };
-}
 
 export async function createRoom(
   input: z.infer<typeof CreateRoomInputSchema>,

@@ -52,7 +52,7 @@ export function HomeView({ error, currentUserId }: HomeViewProps) {
 
         <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
           <CreateRoomSection currentUserId={currentUserId} />
-          <JoinRoomSection currentUserId={currentUserId} />
+          <JoinRoomSection />
         </div>
         <nav
           aria-label="過去の成果"

@@ -34,6 +34,7 @@ vi.mock("../logic/lifecycle-notify", () => ({
 }));
 
 import { readLastRoom } from "@/lib/room-client/last-room-storage";
+import { switchConfirmation } from "../logic/participation.fixture";
 import { InviteCodeDialog } from "./invite-code-dialog";
 
 function renderDialog() {
@@ -57,6 +58,7 @@ describe("InviteCodeDialog", () => {
 
   it("招待コードとホスト名付きタイトルで Dialog が開く", () => {
     renderDialog();
+    expect(JOIN_ROOM).not.toHaveBeenCalled();
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(screen.getByText("ABC234")).toBeInTheDocument();
     expect(
@@ -102,7 +104,39 @@ describe("InviteCodeDialog", () => {
     expect(PUSH).not.toHaveBeenCalled();
   });
 
-  it("「キャンセル」クリックで /home へ戻る", async () => {
+  it("他ルーム参加中の確認結果なら退出確認を表示し、同意なしに移動しない", async () => {
+    JOIN_ROOM.mockResolvedValueOnce({
+      ok: false,
+      reason: "confirmation_required",
+      error: "確認が必要です",
+      confirmation: switchConfirmation(),
+    });
+    renderDialog();
+    await userEvent.click(screen.getByTestId("invite-join-action"));
+    expect(
+      await screen.findByRole("button", { name: "退出して参加する" }),
+    ).toBeInTheDocument();
+    expect(JOIN_ROOM).toHaveBeenCalledOnce();
+    expect(PUSH).not.toHaveBeenCalled();
+  });
+
+  it("認証の残り時間不足なら招待コードを保持して再ログイン案内を表示する", async () => {
+    JOIN_ROOM.mockResolvedValueOnce({
+      ok: false,
+      reason: "reauth_required",
+      error: "ログインし直してください",
+    });
+    renderDialog();
+    await userEvent.click(screen.getByTestId("invite-join-action"));
+    expect(
+      await screen.findByRole("button", { name: "Googleでログインして続ける" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/招待コード ABC234/)).toBeInTheDocument();
+    expect(JOIN_ROOM).toHaveBeenCalledOnce();
+    expect(PUSH).not.toHaveBeenCalled();
+  });
+
+  it("「キャンセル」クリックで参加せず /home へ戻る", async () => {
     const user = userEvent.setup();
     const originalLocation = window.location;
     Object.defineProperty(window, "location", {
@@ -114,6 +148,7 @@ describe("InviteCodeDialog", () => {
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(window.location.href).toBe("/home");
+    expect(JOIN_ROOM).not.toHaveBeenCalled();
     Object.defineProperty(window, "location", {
       value: originalLocation,
       configurable: true,
