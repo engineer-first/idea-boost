@@ -1,4 +1,5 @@
 import { loadDisplayName } from "@/features/auth";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 
 vi.mock("@/features/auth/logic/display-name-actions", () => ({
   loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
@@ -173,8 +174,7 @@ it("本人確認不可ではActionの説明を通知しGoogle再認証へ進ま�
   notifyMocks.error.mockClear();
   const user = userEvent.setup();
   renderDialog();
-  const error =
-    "このブラウザでは、以前の参加者として確認できませんでした。新しく始めると別の参加者になり、以前のホスト権限・付箋・投票は引き継がれません。";
+  const error = GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE;
   JOIN_ROOM.mockResolvedValueOnce({
     ok: false,
     reason: "identity_unavailable",

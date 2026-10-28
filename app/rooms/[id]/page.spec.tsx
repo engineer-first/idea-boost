@@ -32,13 +32,7 @@ vi.mock("@/features/room-lifecycle", async () => ({
     </span>
   ),
   GuestIdentityUnavailable: ({ returnHref }: { returnHref: string }) => (
-    <div>
-      <h1>このブラウザでは、以前の参加者として確認できません</h1>
-      <a href="/">新しく始める</a>
-      <a href={`/login?next=${encodeURIComponent(returnHref)}`}>
-        Googleと連携済みの方はログイン
-      </a>
-    </div>
+    <span data-testid="identity-unavailable" data-return-href={returnHref} />
   ),
   ParticipationSwitch: ({
     pendingOperation,
@@ -227,19 +221,11 @@ it.each(["board", "start"])(
       kind === "board" ? RoomPage : (await import("./start/page")).default;
     render(await Page({ params: Promise.resolve({ id }) }));
     expect(mocks.redirect).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("heading", {
-        name: "このブラウザでは、以前の参加者として確認できません",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "新しく始める" })).toHaveAttribute(
-      "href",
-      "/",
-    );
     const path = `/rooms/${id}${kind === "start" ? "/start" : ""}`;
-    expect(
-      screen.getByRole("link", { name: "Googleと連携済みの方はログイン" }),
-    ).toHaveAttribute("href", `/login?next=${encodeURIComponent(path)}`);
+    expect(screen.getByTestId("identity-unavailable")).toHaveAttribute(
+      "data-return-href",
+      path,
+    );
     expect(mocks.api).not.toHaveBeenCalled();
     expect(mocks.prepare).not.toHaveBeenCalled();
   },

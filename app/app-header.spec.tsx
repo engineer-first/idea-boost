@@ -223,9 +223,7 @@ describe("本人情報の削除確認", () => {
     "%sのゲストは確認して消すまでsignOutを送信しない",
     async (pathname) => {
       navigationMocks.pathname = pathname;
-      await renderHeader(
-        <AppHeader userName="はな" {...{ sessionKind: "guest" as const }} />,
-      );
+      await renderHeader(<AppHeader userName="はな" sessionKind="guest" />);
       expect(
         screen.queryByRole("button", { name: "ログアウト" }),
       ).not.toBeInTheDocument();
@@ -250,9 +248,7 @@ describe("本人情報の削除確認", () => {
     "%sの削除確認をキャンセルすると本人情報を維持する",
     async (pathname) => {
       navigationMocks.pathname = pathname;
-      await renderHeader(
-        <AppHeader userName="はな" {...{ sessionKind: "guest" as const }} />,
-      );
+      await renderHeader(<AppHeader userName="はな" sessionKind="guest" />);
       fireEvent.click(
         screen.getByRole("button", { name: "このブラウザから本人情報を消す" }),
       );
@@ -270,9 +266,7 @@ describe("本人情報の削除確認", () => {
     "%sのaccountは確認なしでログアウトを送信する",
     async (pathname) => {
       navigationMocks.pathname = pathname;
-      await renderHeader(
-        <AppHeader userName="はな" {...{ sessionKind: "account" as const }} />,
-      );
+      await renderHeader(<AppHeader userName="はな" sessionKind="account" />);
       fireEvent.click(screen.getByRole("button", { name: "ログアウト" }));
       await waitFor(() => expect(signOut).toHaveBeenCalledOnce());
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();

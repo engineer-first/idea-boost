@@ -1,7 +1,11 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { consumeRoomEntry, RoomAdmissionContext } from "@/features/auth";
+import {
+  consumeRoomEntry,
+  type GuestRoomEntryResult,
+  RoomAdmissionContext,
+} from "@/features/auth";
 import { takePendingRoomEntry } from "@/lib/room-client/entry-tab-storage";
 import {
   getRoomEntryTabId,
@@ -14,6 +18,7 @@ export type RoomAdmissionGateProps = {
   roomId: string;
   sessionKind?: "guest" | "account";
   onRefreshed?: () => void;
+  refreshAction?: (roomId: string) => Promise<GuestRoomEntryResult>;
   stage?: "lobby" | "board";
   entryToken?: string;
   entryTabId?: string;
@@ -27,6 +32,7 @@ export function RoomAdmissionGate({
   roomId,
   sessionKind,
   onRefreshed,
+  refreshAction,
   stage = "board",
   entryToken,
   entryTabId,
@@ -106,6 +112,7 @@ export function RoomAdmissionGate({
             roomId={roomId}
             stage={stage}
             onRefreshed={onRefreshed}
+            refreshAction={refreshAction}
           />
         ) : (
           <RoomReauthentication operation={{ kind: "return", roomId }} />

@@ -15,6 +15,7 @@ vi.mock("@/features/auth", async () => {
 });
 
 import { rememberPendingRoomEntry } from "@/lib/room-client/entry-tab-storage";
+import { GUEST_IDENTITY_UNAVAILABLE_MESSAGE } from "../logic/guest-identity-message";
 import { RoomAdmissionGate } from "./room-admission-gate";
 
 const roomId = "11111111-1111-4111-8111-111111111111";
@@ -151,7 +152,8 @@ describe("ゲストの入室前確認", () => {
       <StrictMode>
         <RoomAdmissionGate
           roomId={roomId}
-          {...{ sessionKind: "guest" as const, onRefreshed }}
+          sessionKind="guest"
+          onRefreshed={onRefreshed}
         >
           <p>ルーム本文</p>
         </RoomAdmissionGate>
@@ -178,7 +180,8 @@ describe("ゲストの入室前確認", () => {
     render(
       <RoomAdmissionGate
         roomId={roomId}
-        {...{ sessionKind: "guest" as const, onRefreshed }}
+        sessionKind="guest"
+        onRefreshed={onRefreshed}
       >
         <p>ルーム本文</p>
       </RoomAdmissionGate>,
@@ -198,7 +201,7 @@ describe("ゲストの入室前確認", () => {
       reason: "identity_unavailable",
     });
     render(
-      <RoomAdmissionGate roomId={roomId} {...{ sessionKind: "guest" as const }}>
+      <RoomAdmissionGate roomId={roomId} sessionKind="guest">
         <p>ルーム本文</p>
       </RoomAdmissionGate>,
     );
@@ -212,7 +215,7 @@ describe("ゲストの入室前確認", () => {
       "/",
     );
     expect(
-      screen.getByText(/以前のホスト権限・付箋・投票は引き継がれません/),
+      screen.getByText(GUEST_IDENTITY_UNAVAILABLE_MESSAGE),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Googleでログインして続ける" }),
@@ -221,7 +224,7 @@ describe("ゲストの入室前確認", () => {
   it("更新結果が再認証要求ならGoogle再認証を表示する", async () => {
     refreshGuest.mockResolvedValue({ ok: false, reason: "reauth_required" });
     render(
-      <RoomAdmissionGate roomId={roomId} {...{ sessionKind: "guest" as const }}>
+      <RoomAdmissionGate roomId={roomId} sessionKind="guest">
         <p>ルーム本文</p>
       </RoomAdmissionGate>,
     );
@@ -232,10 +235,7 @@ describe("ゲストの入室前確認", () => {
   });
   it("accountの残り時間不足ではゲスト更新を呼ばずGoogle再認証を表示する", async () => {
     render(
-      <RoomAdmissionGate
-        roomId={roomId}
-        {...{ sessionKind: "account" as const }}
-      >
+      <RoomAdmissionGate roomId={roomId} sessionKind="account">
         <p>ルーム本文</p>
       </RoomAdmissionGate>,
     );
@@ -244,4 +244,30 @@ describe("ゲストの入室前確認", () => {
     ).toBeInTheDocument();
     expect(refreshGuest).not.toHaveBeenCalled();
   });
+});
+
+it("注入したゲスト更新ActionにroomIdを渡し、待機・再試行中も背景を残す", async () => {
+  refreshGuest.mockResolvedValue({ ok: false, reason: "retry" });
+  const refreshAction = vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "retry" });
+  render(
+    <RoomAdmissionGate
+      roomId={roomId}
+      sessionKind="guest"
+      refreshAction={refreshAction}
+      fallback={<p>ルームの枠</p>}
+    >
+      <p>ルーム本文</p>
+    </RoomAdmissionGate>,
+  );
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "ルームを確認しています…",
+  );
+  expect(screen.getByText("ルームの枠")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "もう一度試す" }));
+  await waitFor(() => expect(refreshAction).toHaveBeenCalledTimes(2));
+  expect(refreshAction).toHaveBeenCalledWith(roomId);
+  expect(screen.getByText("ルームの枠")).toBeInTheDocument();
+  expect(screen.queryByText("ルーム本文")).not.toBeInTheDocument();
 });

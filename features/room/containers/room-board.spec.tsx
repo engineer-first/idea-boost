@@ -217,7 +217,14 @@ function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
   };
 }
 
-function renderBoard(options: { open?: boolean; isHost?: boolean } = {}) {
+function renderBoard(
+  options: {
+    open?: boolean;
+    isHost?: boolean;
+    sessionKind?: "guest" | "account";
+    signOutAction?: () => Promise<void>;
+  } = {},
+) {
   FakeWebSocket.instances = [];
   sessionStorage.setItem(`step-onboarding:AB12CD:${USER_ID}:1-1`, "seen");
   const factory = (url: string) =>
@@ -233,6 +240,8 @@ function renderBoard(options: { open?: boolean; isHost?: boolean } = {}) {
       initialMembers={[]}
       initialPhase={buildPhaseStep(1)}
       webSocketFactory={factory}
+      sessionKind={options.sessionKind}
+      signOutAction={options.signOutAction}
     />,
   );
   const socket = FakeWebSocket.instances.at(-1);
@@ -4644,5 +4653,56 @@ it("採用後に移動した付箋を画面のUndoから元に戻せる", () => 
   expectSent(socket, {
     type: "note:move:inverse",
     sourceOperationId: start.operationId,
+  });
+});
+
+describe("ルームメニューの本人情報操作", () => {
+  it("ゲストは削除確認をキャンセルすると送信せず、消すを選ぶとsignOutActionを呼ぶ", async () => {
+    const signOutAction = vi.fn().mockResolvedValue(undefined);
+    renderBoard({ sessionKind: "guest", signOutAction });
+    fireEvent.click(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+    );
+    const menu = screen.getByRole("dialog", { name: "ルームメニュー" });
+    expect(
+      within(menu).queryByRole("button", { name: "ログアウト" }),
+    ).not.toBeInTheDocument();
+    const remove = within(menu).getByRole("button", {
+      name: "このブラウザから本人情報を消す",
+    });
+    fireEvent.click(remove);
+    let confirmation = screen.getByRole("alertdialog", {
+      name: "本人情報を消しますか？",
+    });
+    expect(signOutAction).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(confirmation).getByRole("button", { name: "キャンセル" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    expect(signOutAction).not.toHaveBeenCalled();
+    fireEvent.click(remove);
+    confirmation = screen.getByRole("alertdialog", {
+      name: "本人情報を消しますか？",
+    });
+    fireEvent.click(within(confirmation).getByRole("button", { name: "消す" }));
+    await waitFor(() => expect(signOutAction).toHaveBeenCalledOnce());
+  });
+  it("accountはログアウトを表示しsignOutActionを呼ぶ", async () => {
+    const signOutAction = vi.fn().mockResolvedValue(undefined);
+    renderBoard({ sessionKind: "account", signOutAction });
+    fireEvent.click(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+    );
+    const menu = screen.getByRole("dialog", { name: "ルームメニュー" });
+    expect(
+      within(menu).queryByRole("button", {
+        name: "このブラウザから本人情報を消す",
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("button", { name: "ログアウト" }));
+    await waitFor(() => expect(signOutAction).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 "use server";
+
 import {
   ParticipationCommitSchema,
   type ParticipationResult,
@@ -8,6 +9,7 @@ import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { issueRoomEntry } from "@/lib/session/room-entry";
 import { prepareRoomEntrySession } from "@/lib/session/room-entry-session";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "./guest-identity-message";
 export type ParticipationActionResult = ParticipationResult & {
   entryToken?: string;
 };
@@ -30,7 +32,7 @@ async function requestParticipation(
       reason: prepared.reason,
       error:
         prepared.reason === "identity_unavailable"
-          ? "このブラウザでは、以前の参加者として確認できませんでした。新しく始めると別の参加者になり、以前のホスト権限・付箋・投票は引き継がれません。"
+          ? GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE
           : prepared.reason === "retry"
             ? "通信を確認して、もう一度お試しください。"
             : "ログインし直して続けてください。",

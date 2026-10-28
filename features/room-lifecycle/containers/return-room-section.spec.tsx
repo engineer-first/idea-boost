@@ -10,6 +10,7 @@ import {
   readLastRoom,
   rememberLastRoom,
 } from "@/lib/room-client/last-room-storage";
+import { GUEST_IDENTITY_UNAVAILABLE_MESSAGE } from "../logic/guest-identity-message";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -308,12 +309,8 @@ it.each(["初期確認", "クリック時の再確認"])(
         await screen.findByRole("button", { name: "前のルームに戻る" }),
       );
     expect(
-      await screen.findByText(
-        /本人確認の情報が見つからないか、期限が切れています/,
-      ),
-    ).toHaveTextContent(
-      "新しく始めると別の参加者になり、以前のホスト権限・付箋・投票は引き継がれません。",
-    );
+      await screen.findByText(GUEST_IDENTITY_UNAVAILABLE_MESSAGE),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Googleでログインして続ける" }),
     ).not.toBeInTheDocument();

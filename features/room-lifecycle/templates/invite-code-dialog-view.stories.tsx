@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 import { InviteCodeDialogView } from "./invite-code-dialog-view";
 
 const meta = {
@@ -31,7 +32,6 @@ export const Joining: Story = {
 
 export const IdentityUnavailable: Story = {
   args: {
-    message:
-      "このブラウザでは、以前の参加者として確認できませんでした。新しく始めると別の参加者になり、以前のホスト権限・付箋・投票は引き継がれません。",
+    message: GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE,
   },
 };
