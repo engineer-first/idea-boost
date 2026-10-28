@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 import {
   GuestNameFormView,
   type GuestNameFormViewProps,
   guestIdentityFailure,
 } from "@/features/auth";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 import {
   CreateRoomSectionView,
   type CreateRoomSectionViewProps,
