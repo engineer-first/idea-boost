@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,22 +12,25 @@ import {
 import {
   DisplayNameDialog,
   SignOutControl,
-  signOut,
   useDisplayName,
 } from "@/features/auth";
 import { aboutMenuLabel } from "./app-header-copy";
 
-export type HomeUserMenuProps = {
+export type UserMenuProps = {
   userName: string;
+  signOutAction: () => Promise<void>;
+  isHome: boolean;
   sessionKind?: "guest" | "account";
   currentUserId?: string;
 };
 
-export function HomeUserMenu({
+export function UserMenu({
   userName,
+  isHome,
   currentUserId,
   sessionKind,
-}: HomeUserMenuProps) {
+  signOutAction,
+}: UserMenuProps) {
   const displayName = useDisplayName({ currentUserId });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
@@ -58,29 +61,47 @@ export function HomeUserMenu({
             />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-48 p-1">
-          <Button
-            variant="ghost"
-            className="min-h-11 w-full justify-start"
-            onClick={() => {
-              setMenuOpen(false);
-              void displayName.request();
+        <PopoverContent
+          align="end"
+          className="w-72 max-w-[calc(100vw-2rem)] p-1"
+        >
+          {isHome && (
+            <>
+              <Button
+                variant="ghost"
+                className="min-h-11 w-full justify-start gap-3 px-2"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void displayName.request();
+                }}
+              >
+                表示名を変更
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                className="min-h-11 w-full justify-start gap-3 px-2"
+              >
+                <Link href="/about" onClick={() => setMenuOpen(false)}>
+                  {aboutMenuLabel}
+                </Link>
+              </Button>
+              <hr className="my-1 border-t border-border" />
+            </>
+          )}
+          <SignOutControl
+            sessionKind={sessionKind}
+            signOutAction={signOutAction}
+            onConfirmationClosed={() => {
+              requestAnimationFrame(() => menuTrigger.current?.focus());
             }}
-          >
-            表示名を変更
-          </Button>
-          <Button
-            asChild
             variant="ghost"
-            className="min-h-11 w-full justify-start"
-          >
-            <Link href="/about" onClick={() => setMenuOpen(false)}>
-              {aboutMenuLabel}
-            </Link>
-          </Button>
+            size="default"
+            className="h-auto min-h-11 w-full justify-start gap-3 whitespace-normal px-2 text-left"
+            icon={<LogOut className="size-4" aria-hidden="true" />}
+          />
         </PopoverContent>
       </Popover>
-      <SignOutControl sessionKind={sessionKind} signOutAction={signOut} />
       <DisplayNameDialog
         controls={displayName}
         onClosed={() => menuTrigger.current?.focus()}

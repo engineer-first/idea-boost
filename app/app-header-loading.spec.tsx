@@ -9,16 +9,16 @@ const gate = vi.hoisted(() => {
   return { ready, finish };
 });
 vi.mock("next/navigation", () => ({ usePathname: () => "/home" }));
-vi.mock("./home-user-menu", async () => {
+vi.mock("./user-menu", async () => {
   await gate.ready;
   return {
-    HomeUserMenu: () => <button type="button">ユーザーメニュー</button>,
+    UserMenu: () => <button type="button">ユーザーメニュー</button>,
   };
 });
 
 import { AppHeader } from "./app-header";
 
-it("ホームの操作を取得中もブランドと操作領域をヘッダー内に保つ", async () => {
+it("ユーザーメニューを取得中もブランドと操作領域をヘッダー内に保つ", async () => {
   try {
     await act(async () => {
       render(<AppHeader userName="はな" />);
@@ -26,7 +26,7 @@ it("ホームの操作を取得中もブランドと操作領域をヘッダー�
     expect(screen.getByTestId("app-header-brand")).toHaveTextContent(
       "Idea Boost",
     );
-    expect(screen.getByTestId("home-user-menu-placeholder")).toHaveAttribute(
+    expect(screen.getByTestId("user-menu-placeholder")).toHaveAttribute(
       "aria-hidden",
       "true",
     );

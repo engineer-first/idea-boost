@@ -250,6 +250,7 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
       await page.waitForURL(`${app}${invite}`);
       results.authenticatedRevisit = true;
       await page.goto(`${app}/home`);
+      await page.getByRole("button", { name: "ユーザーメニュー" }).click();
       await page.getByRole("button", { name: "ログアウト" }).click();
       await page.waitForURL(`${app}/login`);
       // ログアウト・再訪の扱いは #853 で更新される可能性がある（現時点の develop の挙動）。
@@ -264,6 +265,9 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
       ).toBe(0);
       expect(
         await page.getByRole("button", { name: "ログアウト" }).count(),
+      ).toBe(0);
+      expect(
+        await page.getByRole("button", { name: "ユーザーメニュー" }).count(),
       ).toBe(0);
       expect(
         await page.getByText("member@example.test", { exact: true }).count(),

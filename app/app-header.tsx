@@ -4,17 +4,17 @@
 // login など未ログイン画面では root layout が描画しない。
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { SignOutControl, signOut } from "@/features/auth";
+import { signOut } from "@/features/auth";
 
-// root layoutがAppHeaderを描画しない匿名LPでは、ホーム専用chunkを取得しない。
-// /homeの初回はSSRし、client遷移の取得待ちではメニューの操作領域を確保する。
-const HomeUserMenu = dynamic(
-  () => import("./home-user-menu").then((module) => module.HomeUserMenu),
+// root layoutがAppHeaderを描画しない匿名LPでは、ユーザーメニューのchunkを取得しない。
+// 初回はSSRし、client遷移の取得待ちではメニューの操作領域を確保する。
+const UserMenu = dynamic(
+  () => import("./user-menu").then((module) => module.UserMenu),
   {
     loading: () => (
       <span
         aria-hidden="true"
-        data-testid="home-user-menu-placeholder"
+        data-testid="user-menu-placeholder"
         className="block min-h-11 min-w-11"
       />
     ),
@@ -49,32 +49,16 @@ export function AppHeader({
       >
         Idea Boost
       </p>
-      <div
-        className={
-          sessionKind === "guest"
-            ? "flex min-w-0 flex-wrap items-center justify-end gap-3"
-            : "flex min-w-0 items-center gap-3"
-        }
-      >
-        {pathname === "/home" ? (
-          <HomeUserMenu
-            userName={userName}
-            currentUserId={currentUserId}
-            sessionKind={sessionKind}
-          />
-        ) : (
-          <>
-            {userName ? (
-              <span
-                className="max-w-48 truncate text-sm text-muted-foreground"
-                data-testid="app-header-user-name"
-              >
-                {userName}
-              </span>
-            ) : null}
-            <SignOutControl sessionKind={sessionKind} signOutAction={signOut} />
-          </>
-        )}
+      <div className="flex min-w-0 items-center gap-3">
+        {/* 画面を移ったらメニューと確認の開閉状態を初期化する。 */}
+        <UserMenu
+          key={pathname}
+          signOutAction={signOut}
+          userName={userName}
+          currentUserId={currentUserId}
+          sessionKind={sessionKind}
+          isHome={pathname === "/home"}
+        />
       </div>
     </header>
   );
