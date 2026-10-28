@@ -15,10 +15,8 @@ it.each([false, true])(
         searchParams: Promise.resolve({ next: "/invite/ABC123" }),
       }),
     );
-    const href = loggedIn ? "/invite/ABC123" : "/login?next=%2Finvite%2FABC123";
-    const label = loggedIn
-      ? "招待の参加確認へ進む"
-      : "ログインして招待の参加確認へ";
+    const href = "/invite/ABC123";
+    const label = "招待の参加確認へ進む";
     expect(screen.getAllByRole("link", { name: label })).toHaveLength(3);
     for (const link of screen.getAllByRole("link", { name: label }))
       expect(link).toHaveAttribute("href", href);
@@ -36,7 +34,7 @@ it.each([false, true])(
     if (!loggedIn)
       expect(screen.getByRole("link", { name: "ログイン" })).toHaveAttribute(
         "href",
-        href,
+        "/login?next=%2Finvite%2FABC123",
       );
     else expect(screen.queryByRole("banner")).not.toBeInTheDocument();
   },
@@ -50,5 +48,5 @@ it("nextが複数指定された場合は通常開始に戻す", async () => {
   );
   expect(
     screen.getByRole("link", { name: "招待コードをお持ちの方" }),
-  ).toHaveAttribute("href", "/login?next=%2Fhome");
+  ).toHaveAttribute("href", "/home");
 });

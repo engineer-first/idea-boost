@@ -3,6 +3,7 @@ import { landingCopy } from "./landing-copy";
 
 export type LandingEntry = {
   href: string;
+  loginHref: string;
   label: string;
   showStartHelp: boolean;
 };
@@ -25,7 +26,11 @@ export function getLandingEntry(
         ? "invite"
         : "return";
   return {
-    href: isLoggedIn ? destination : getLoginPath(destination),
+    href:
+      isLoggedIn || context !== "return"
+        ? destination
+        : getLoginPath(destination),
+    loginHref: getLoginPath(destination),
     label: landingCopy.cta[context][isLoggedIn ? 1 : 0],
     showStartHelp: context === "normal" && !isLoggedIn,
   };

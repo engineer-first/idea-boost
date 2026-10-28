@@ -1,6 +1,5 @@
 // ホーム（/home）の Server Component。
 // 認証・searchParams・Server Action 配線のみ。UI は同ディレクトリの home-view。
-import { redirect } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -47,13 +46,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
 
-  if (!user) {
-    redirect("/login");
-  }
-
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <HomeView error={params.error} currentUserId={user.sub} />
+      <HomeView error={params.error} currentUserId={user?.sub} />
     </main>
   );
 }

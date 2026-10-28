@@ -121,3 +121,16 @@ export const WithReturnRoom: Story = {
     return () => clearLastRoom();
   },
 };
+
+export const WithoutIdentity: Story = {
+  name: "本人なし（名前入力から作成）",
+  args: { currentUserId: undefined },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "container をそのまま描画するため、「次へ」を押すと実際の名前登録処理を呼びます。見た目の状態は RoomLifecycle/CreateRoomSection の名前入力 stories で確認してください。",
+      },
+    },
+  },
+};
