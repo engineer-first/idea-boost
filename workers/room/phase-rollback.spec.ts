@@ -398,7 +398,7 @@ describe("復元の競合と連続進行", () => {
     });
     const [snapshot] = await rollback(roomId, a, b);
     expect(snapshot).toMatchObject({
-      timer: { status: "ended" },
+      timer: { status: "running" },
       sharing: { status: "complete", currentIndex: null, startsAt: null },
       groups: [{ id: groupId, name: "保存時のグループ" }],
       notes: expect.arrayContaining([
@@ -418,7 +418,7 @@ describe("復元の競合と連続進行", () => {
         (_room, state) =>
           state.storage.sql.exec("SELECT status FROM timer_state").one().status,
       ),
-    ).toBe("ended");
+    ).toBe("running");
   });
   it.each(["phase:restart-writing", "phase:revote"])(
     "%sはそれ以前の復元履歴を破棄する",

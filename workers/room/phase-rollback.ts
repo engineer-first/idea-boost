@@ -153,10 +153,14 @@ export const rollbackHandlers: MessageHandlers<"phase:rollback"> = {
       );
       saveTimerState(
         ctx.sql,
-        snapshot.timer.status === "paused"
+        snapshot.timer.status === "paused" || snapshot.timer.status === "ended"
           ? {
               status: "running",
-              endsAt: Date.now() + snapshot.timer.remainingMs,
+              endsAt:
+                Date.now() +
+                (snapshot.timer.status === "paused"
+                  ? snapshot.timer.remainingMs
+                  : snapshot.timer.durationMs),
               durationMs: snapshot.timer.durationMs,
               ...(snapshot.timer.extensionUsed ? { extensionUsed: true } : {}),
             }

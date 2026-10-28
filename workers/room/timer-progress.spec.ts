@@ -423,6 +423,69 @@ describe("タイマーと完了条件に応じた進行", () => {
       extensionUsed: true,
     });
   });
+  it.each([1, 2] as const)(
+    "工程1-%dを延長終了による進行後に戻すと1分を再計時し、新たな終了時だけ再び進む",
+    async (step) => {
+      const roomId = await setup(step);
+      await runInRoomDO(roomId, async (instance, state) => {
+        const sql = state.storage.sql;
+        if (step === 2) {
+          const sharing = getSharingState(sql);
+          if (!sharing) throw new Error("共有状態がありません");
+          saveSharingState(sql, {
+            ...sharing,
+            status: "active",
+            currentIndex: 1,
+            results: ["done"],
+            startsAt: null,
+          });
+        }
+        saveTimerState(sql, {
+          status: "running",
+          endsAt: Date.now() - 1,
+          durationMs: 60_000,
+          extensionUsed: true,
+        });
+        await instance.alarm();
+        const nextPhase = getPhase(sql);
+        expect(nextPhase).toEqual({ kind: "step", phase: 1, step: step + 1 });
+        const ctx: HandlerCtx = {
+          sql,
+          storage: state.storage,
+          userId: member.sub,
+          ws: new WebSocketPair()[0],
+          reply: () => {},
+          broadcaster: new RoomBroadcaster(state),
+          refreshSnapshots: () => {},
+        };
+        const restoredAt = Date.now();
+        await rollbackHandlers["phase:rollback"](ctx, {
+          type: "phase:rollback",
+          expectedPhase: nextPhase,
+          expectedRevision: getPhaseRevision(sql),
+        });
+        const restored = getTimerState(sql);
+        expect(restored).toMatchObject({
+          status: "running",
+          durationMs: 60_000,
+          extensionUsed: true,
+        });
+        if (restored.status !== "running")
+          throw new Error("計時が再開されていません");
+        expect(restored.endsAt).toBeGreaterThanOrEqual(restoredAt + 60_000);
+        await instance.alarm();
+        expect(getPhase(sql)).toEqual({ kind: "step", phase: 1, step });
+        if (step === 2)
+          expect(getSharingState(sql)).toMatchObject({
+            status: "complete",
+            currentIndex: null,
+          });
+        sql.exec("UPDATE timer_state SET ends_at=? WHERE id=1", Date.now() - 1);
+        await instance.alarm();
+        expect(getPhase(sql)).toEqual(nextPhase);
+      });
+    },
+  );
   it("時間切れ後も投票が未完了なら結果ステップに進めない", async () => {
     const roomId = await setup();
     const result = await runInRoomDO(roomId, async (_, state) => {

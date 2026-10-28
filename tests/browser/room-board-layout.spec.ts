@@ -1406,13 +1406,11 @@ test("U03: 3-3のマップ増減へ通常pointerで到達でき、書き足し�
   ).toBe(0);
 });
 
-test("U03: 390pxでは短い進め方の入口を表示し、現在の操作へ到達できる", async () => {
+test("U03: 390pxで旧ガイドを表示せず、現在の操作へ到達できる", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openStory("room-roomboardlayout--phase-3-step-1");
   await page.screenshot({ path: `${output}/u03-narrow.png` });
-  expect(await page.getByTestId("step-guide").getAttribute("data-state")).toBe(
-    "compact",
-  );
+  expect(await page.getByTestId("step-guide").count()).toBe(0);
   const controls = await page.getByTestId("board-control-hud").boundingBox();
   expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(390);
   expect(
@@ -1574,14 +1572,7 @@ test.each([1280, 390])(
             .getByRole("dialog", { name: "投票結果", exact: true })
             .count(),
         ).toBe(0);
-        const guide = page.getByTestId("step-guide");
-        expect(await guide.count()).toBe(step === "1-1" ? 0 : 1);
-        if (step !== "1-1") {
-          await page.keyboard.press("Escape");
-          await expect
-            .poll(() => guide.getAttribute("data-state"))
-            .toBe("compact");
-        }
+        expect(await page.getByTestId("step-guide").count()).toBe(0);
         await expectHudTargets(`${step}/${isHost ? "host" : "member"}`);
       }
   },

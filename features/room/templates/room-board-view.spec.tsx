@@ -1709,11 +1709,11 @@ describe("RoomBoardView", () => {
   });
 
   describe("進め方ガイド", () => {
-    it("工程を移動して案内を更新する", () => {
+    it("1-1以外の工程に移動しても旧ガイドを表示しない", () => {
       const { props, rerender } = setup({ phase: buildPhaseStep(1, 2) });
-      expect(screen.getByTestId("step-guide")).toBeInTheDocument();
+      expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
       rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 2)} />);
-      expect(screen.getByTestId("step-guide")).toBeInTheDocument();
+      expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });

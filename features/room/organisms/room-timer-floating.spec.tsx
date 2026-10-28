@@ -1,4 +1,10 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { RoomTimer } from "./room-timer";
 import {
@@ -31,6 +37,87 @@ function props() {
 }
 
 describe("フローティングタイマー", () => {
+  it("後から現れるHUDを避け、そのHUDのサイズ変更にも追従し、監視を解除する", async () => {
+    const observed = new Set<Element>();
+    let resize: () => void = () => {};
+    let hudRect = new DOMRect(1160, 80, 108, 240);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          resize = callback;
+        }
+        observe(element: Element) {
+          observed.add(element);
+        }
+        disconnect() {
+          observed.clear();
+        }
+      },
+    );
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.dataset.testid === "room-board-view-root")
+          return new DOMRect(0, 0, 1280, 720);
+        if (this.dataset.testid === "board-control-hud")
+          return new DOMRect(900, 12, 368, 56);
+        if (this.dataset.testid === "idea-map-size-controls-hud")
+          return hudRect;
+        return originalRect.call(this);
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().width;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().height;
+      },
+    );
+    const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
+    const observe = vi.spyOn(MutationObserver.prototype, "observe");
+    const p = props();
+    const board = (showHud: boolean) => (
+      <div data-testid="room-board-view-root">
+        <div data-testid="board-control-hud" />
+        <RoomTimer {...p} />
+        {showHud ? <div data-testid="idea-map-size-controls-hud" /> : null}
+      </div>
+    );
+    const view = render(board(false));
+    try {
+      const floating = screen.getByTestId("timer-floating");
+      const mutationObserver =
+        observe.mock.contexts[
+          observe.mock.calls.findIndex(
+            ([target]) => target === screen.getByTestId("room-board-view-root"),
+          )
+        ];
+      expect(mutationObserver).toBeDefined();
+      expect(floating.style.left).toBe("1196px");
+      view.rerender(board(true));
+      const hud = screen.getByTestId("idea-map-size-controls-hud");
+      await waitFor(() => expect(observed.has(hud)).toBe(true));
+      expect(Number.parseFloat(floating.style.left) + 72).toBeLessThanOrEqual(
+        hudRect.left - 12,
+      );
+      hudRect = new DOMRect(0, 80, 1280, 240);
+      act(() => resize());
+      expect(Number.parseFloat(floating.style.top)).toBeGreaterThanOrEqual(
+        hudRect.bottom + 12,
+      );
+      view.unmount();
+      expect(observed.size).toBe(0);
+      expect(disconnect.mock.contexts).toContain(mutationObserver);
+    } finally {
+      view.unmount();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
+  });
   it("稼働中は残り時間を読み上げられ、時間設定や延長・進行操作を表示しない", () => {
     render(<RoomTimer {...props()} />);
     expect(screen.getByRole("timer")).toHaveAccessibleName(/02:30/);

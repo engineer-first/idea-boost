@@ -61,30 +61,20 @@ import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import type { Member, PhaseProgressState } from "../logic/room-reducer";
 import { useCompletionCue } from "../logic/use-completion-cue";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
-import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
 import { SharingPresenter } from "../molecules/sharing-presenter";
-import { StepGuide } from "../molecules/step-guide";
 import { StepOneOnboardingSlide } from "../molecules/step-one-onboarding-slide";
 import { TimerSoundControl } from "../molecules/timer-sound-control";
 import styles from "./room-board-header.module.css";
 import { RoomTimer } from "./room-timer";
 
 const IDEA_MAP_CONTEXT_GAP = 18;
-const TIMER_DURATIONS_MINUTES = {
-  1: [5, 6, 4, 3, 10],
-  2: [3, 6, 4, 10],
-  3: [5, 6, 7, 3, 10],
-} as const;
-
 function getRecommendedTimerDurationMs(phase: RoomPhase): number {
-  if (phase.kind === "lobby") return 3 * 60_000;
-  const minutes = TIMER_DURATIONS_MINUTES[phase.phase][phase.step - 1] ?? 3;
-  return minutes * 60_000;
+  return (getFacilitationGuide(phase)?.durationMinutes ?? 3) * 60_000;
 }
 
 export type RoomBoardHeaderProps = {
@@ -133,7 +123,6 @@ export type RoomBoardHeaderProps = {
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
   hasCurrentDecision?: boolean;
-  initialGuideState?: StepGuideState;
   hasFinalDecision: boolean;
   outcomePublished: boolean;
   isLeaving: boolean;
@@ -199,7 +188,6 @@ export function RoomBoardHeader({
   roomNameDisabled,
   isTransferring = false,
   isNextPhaseBlocked,
-  initialGuideState,
   hasFinalDecision,
   outcomePublished,
   isLeaving,
@@ -489,48 +477,73 @@ export function RoomBoardHeader({
       isDisconnected,
     },
   });
-  const guide = getFacilitationGuide(phase);
   const guidePhaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
+  const automaticStarterId = progress.connectedUserIds.includes(hostUserId)
+    ? hostUserId
+    : [...progress.connectedUserIds].sort()[0];
+  const isAutomaticStarter = automaticStarterId
+    ? automaticStarterId === currentUserId
+    : isHost;
+  const [readyGuidePhaseKey, setReadyGuidePhaseKey] = useState<string | null>(
+    null,
+  );
+  const requestedTimerStart = useRef<string | null>(null);
   const handleGuidePhaseReady = useCallback(
     (readyPhaseKey: string) => {
-      if (
-        readyPhaseKey !== guidePhaseKey ||
-        phase.kind !== "step" ||
-        !isHost ||
-        isDisconnected ||
-        isTransferring ||
-        isNextPhasePending ||
-        outcomePublished ||
-        timer.status !== "idle"
-      )
-        return;
-
-      if (phase.step === 2) {
-        if (activeSharing?.status === "ready" && !transitioning)
-          onSharingStart?.(sharingDuration);
-        return;
-      }
-
-      onTimerStart((guide?.durationMinutes ?? 3) * 60_000);
+      if (readyPhaseKey === guidePhaseKey) setReadyGuidePhaseKey(readyPhaseKey);
     },
-    [
-      guidePhaseKey,
-      phase,
-      isHost,
-      isDisconnected,
-      isTransferring,
-      isNextPhasePending,
-      outcomePublished,
-      timer.status,
-      activeSharing,
-      transitioning,
-      onSharingStart,
-      sharingDuration,
-      onTimerStart,
-      guide,
-    ],
+    [guidePhaseKey],
   );
+  useEffect(() => {
+    if (isDisconnected) {
+      requestedTimerStart.current = null;
+      return;
+    }
+    if (
+      (isPhaseStep(phase, 1, 1) && readyGuidePhaseKey !== guidePhaseKey) ||
+      phase.kind !== "step" ||
+      !isAutomaticStarter ||
+      isTransferring ||
+      isNextPhasePending ||
+      outcomePublished ||
+      timer.status !== "idle"
+    )
+      return;
+    const startKey = `${inviteCode}:${currentUserId}:${phaseRevision}:${guidePhaseKey}:${activeSharing?.revision ?? ""}`;
+    if (requestedTimerStart.current === startKey) return;
+    if (phase.step === 2) {
+      if (
+        activeSharing?.status === "ready" &&
+        !transitioning &&
+        onSharingStart
+      ) {
+        requestedTimerStart.current = startKey;
+        onSharingStart(sharingDuration);
+      }
+      return;
+    }
+    requestedTimerStart.current = startKey;
+    onTimerStart(getRecommendedTimerDurationMs(phase));
+  }, [
+    guidePhaseKey,
+    phase,
+    isAutomaticStarter,
+    readyGuidePhaseKey,
+    inviteCode,
+    currentUserId,
+    phaseRevision,
+    isDisconnected,
+    isTransferring,
+    isNextPhasePending,
+    outcomePublished,
+    timer.status,
+    activeSharing,
+    transitioning,
+    onSharingStart,
+    sharingDuration,
+    onTimerStart,
+  ]);
   const handleInitialOnboardingReady = useCallback(
     () => handleGuidePhaseReady("1-1"),
     [handleGuidePhaseReady],
@@ -554,21 +567,6 @@ export function RoomBoardHeader({
   const sharingAnnouncement =
     transitioning && presenter ? (
       <SharingAnnouncement member={presenter} />
-    ) : null;
-  const stepGuide =
-    guide && !isPhaseStep(phase, 1, 1) && !transitioning ? (
-      <StepGuide
-        key={`${inviteCode}:${currentUserId}`}
-        sessionKey={`${inviteCode}:${currentUserId}`}
-        placement={isIdeaMapWorkspaceStep ? "floating" : undefined}
-        phaseKey={guidePhaseKey}
-        guide={guide}
-        isHost={isHost}
-        isReady={!isDisconnected}
-        timer={timer}
-        initialState={initialGuideState}
-        onPhaseReady={handleGuidePhaseReady}
-      />
     ) : null;
 
   return (
@@ -603,7 +601,6 @@ export function RoomBoardHeader({
             />
           </div>
           {sharingAnnouncement}
-          {stepGuide}
           {!isIdeaMapWorkspaceStep ||
           (children !== null && children !== undefined) ? (
             <div

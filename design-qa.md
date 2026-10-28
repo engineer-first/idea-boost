@@ -63,11 +63,11 @@ final result: passed
 
 ### 比較対象と正規化
 
-- source visual truth: `/Users/hasimotorion/.codex/generated_images/01a13d66-ee38-7a60-ba39-72d9e3841f5b/exec-383d9882-89f9-4441-8c7e-33fc1fe1cc17.png`。選択された「やわらかな波紋」、1774×887pxの3コマの動きの絵コンテ。
-- implementation screenshot: `/Users/hasimotorion/.codex/visualizations/2026/10/22/timer-wave-implementation/desktop-wave.jpg`、`desktop-quiet.jpg`、`desktop-board-wave.jpg`、`mobile-wave.jpg`、`mobile-board-quiet.jpg`。
+- source visual truth: [選択した絵コンテ](docs/archive/timer-wave-20261022/source.png)。選択された「やわらかな波紋」、1774×887pxの3コマの動きの絵コンテ。
+- implementation screenshot: [PCの波紋](docs/archive/timer-wave-20261022/desktop-wave.jpg)、[PCの静止状態](docs/archive/timer-wave-20261022/desktop-quiet.jpg)、[PCの盤面](docs/archive/timer-wave-20261022/desktop-board-wave.jpg)、[モバイルの波紋](docs/archive/timer-wave-20261022/mobile-wave.jpg)、[モバイルの盤面](docs/archive/timer-wave-20261022/mobile-board-quiet.jpg)。
 - viewport: デスクトップ1280×720 CSS px、モバイル390×844 CSS px。キャプチャはdeviceScaleFactor 1で、盤面全体はそれぞれ1280×720px・390×844px。
-- 全体比較: 同ディレクトリの`comparison-context.png`（1790×500px）。左に絵コンテを幅887px、右に実装の盤面を幅887pxへ縮小して同じ入力に配置した。絵コンテとアプリ全体の枠は同一viewportではないため、位置の関係と操作の階層を確認し、ページ全体のピクセル差とは扱わない。
-- 詳細比較: 同ディレクトリの`comparison-detail.png`（640×136px）。左は絵コンテの静止状態を520×150pxで切り出して312×90pxへ正規化、右は実装の静止状態296×96px（本体256×56 CSS pxと周辺余白）。同じ「もう5分／次へ進む」の状態を同じ入力で比較した。
+- 全体比較: [全体の比較画像](docs/archive/timer-wave-20261022/comparison-context.png)（1790×500px）。左に絵コンテを幅887px、右に実装の盤面を幅887pxへ縮小して同じ入力に配置した。絵コンテとアプリ全体の枠は同一viewportではないため、位置の関係と操作の階層を確認し、ページ全体のピクセル差とは扱わない。
+- 詳細比較: [詳細の比較画像](docs/archive/timer-wave-20261022/comparison-detail.png)（640×136px）。左は絵コンテの静止状態を520×150pxで切り出して312×90pxへ正規化、右は実装の静止状態296×96px（本体256×56 CSS pxと周辺余白）。同じ「もう5分／次へ進む」の状態を同じ入力で比較した。
 - 動く輪はデスクトップ2択と共有一巡後の3択で実際に再生し、390pxでも2択の波紋と、開いたマイ付箋を伴う3択の静止状態を撮影した。3秒の単体プレビューだけは再実行の表記が「もう3秒」になる。
 
 ### 指摘と5項目の評価
@@ -103,7 +103,7 @@ P3の追加修正はない。合図の淡さは実際に使った際の反応を
 上の「タイマー終了の波紋」は2026-10-22時点の検証記録。以下がその後の合意を反映した仕様です。
 
 - タイマーはHUD直下の72pxの円。時計回りに残量が減り、緑・黄・赤で残り時間を示す。ドラッグとAlt＋矢印で移動でき、マイ付箋の初期位置はタイマーの下に置く。
-- 進め方の初回案内が閉じるとホストの画面から計時を開始する。狭い画面や案内を見た工程は案内を展開せずに開始する。新たな一時停止操作は設けない。
+- 1-1では初回説明が閉じた時点、その他の工程では入った時点で計時を開始する。ホスト不在時は接続中の代表参加者が自動開始を引き継ぐ。新たな一時停止操作は設けない。
 - 通常工程は「できた！」で本人の準備を伝え、チェック後は「準備OK！」を表示する。全員のチェックまたは時間切れでHUDの次へ進む操作を有効にする。投票・採用などの必須条件は維持する。
 - 共有中は発表者本人の「できた！」で次の人へ交代し、最後の人なら次工程へ進む。
 - 時間切れ後は112px幅の「＋1分」だけを表示し、波紋は出さない。延長は工程ごと、共有中は発表者ごとに1回。延長終了後は必須条件が揃い次第、自動で進む。最終成果は手動で公開する。

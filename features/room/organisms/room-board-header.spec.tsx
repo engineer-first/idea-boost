@@ -12,6 +12,7 @@ import {
   buildMembers,
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
+import * as facilitationGuide from "../logic/facilitation-guide";
 import { RoomBoardHeader } from "./room-board-header";
 import styles from "./room-board-header.module.css";
 
@@ -109,6 +110,94 @@ async function returnToOnboardingSlide(index: number, title: string) {
 }
 
 describe("RoomBoardHeader", () => {
+  it("1-1以外は進め方ガイドを表示せず、規定時間で自動開始する", async () => {
+    const props = setup({ phase: buildPhaseStep(3), isHost: true });
+    expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(props.onTimerStart).toHaveBeenCalledWith(240_000),
+    );
+  });
+  it("ホスト不在なら接続中の参加者が案内終了後に規定時間で自動開始する", async () => {
+    const props = setupProps({
+      phase: buildPhaseStep(3),
+      hostUserId: "33333333-3333-4333-8333-333333333333",
+      progress: {
+        ...allReadyProgress(buildMembers(1, ME)),
+        readyUserIds: [],
+        allReady: false,
+        canAdvance: false,
+      },
+    });
+    render(<RoomBoardHeader {...props} />);
+    await waitFor(() =>
+      expect(props.onTimerStart).toHaveBeenCalledExactlyOnceWith(240_000),
+    );
+  });
+  it("案内終了後にホストが切断しても代表参加者だけが開始を引き継ぐ", async () => {
+    const hostUserId = "33333333-3333-4333-8333-333333333333";
+    const members = buildMembers(2, ME);
+    const progress = {
+      ...allReadyProgress(members),
+      connectedUserIds: [hostUserId, ME],
+      readyUserIds: [],
+      allReady: false,
+      canAdvance: false,
+    };
+    const props = setupProps({
+      phase: buildPhaseStep(3),
+      hostUserId,
+      progress,
+    });
+    const view = render(<RoomBoardHeader {...props} />);
+    expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
+    expect(props.onTimerStart).not.toHaveBeenCalled();
+    view.rerender(
+      <RoomBoardHeader
+        {...props}
+        progress={{ ...progress, connectedUserIds: [ME] }}
+      />,
+    );
+    await waitFor(() =>
+      expect(props.onTimerStart).toHaveBeenCalledExactlyOnceWith(240_000),
+    );
+    view.rerender(
+      <RoomBoardHeader
+        {...props}
+        progress={{ ...progress, connectedUserIds: [ME], progressRevision: 3 }}
+      />,
+    );
+    expect(props.onTimerStart).toHaveBeenCalledTimes(1);
+  });
+  it("ホスト不在でも別の参加者が開始担当なら自動開始を送らない", async () => {
+    const props = setupProps({
+      phase: buildPhaseStep(3),
+      hostUserId: "33333333-3333-4333-8333-333333333333",
+      progress: {
+        ...allReadyProgress(buildMembers(2, ME)),
+        connectedUserIds: [ME, "00000000-0000-4000-8000-000000000000"],
+      },
+    });
+    render(<RoomBoardHeader {...props} />);
+    expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
+    expect(props.onTimerStart).not.toHaveBeenCalled();
+  });
+  it("規定時間の案内を変更すると未開始の表示と手動開始も同じ時間になる", () => {
+    const guide = facilitationGuide.getFacilitationGuide(buildPhaseStep(3));
+    if (!guide) throw new Error("工程の案内がありません");
+    const spy = vi
+      .spyOn(facilitationGuide, "getFacilitationGuide")
+      .mockReturnValue({ ...guide, durationMinutes: 9 });
+    try {
+      const props = setup({
+        phase: buildPhaseStep(3),
+      });
+      expect(screen.getByRole("timer")).toHaveTextContent("09:00");
+      fireEvent.click(screen.getByTestId("room-timer"));
+      expect(props.onTimerStart).toHaveBeenCalledWith(540_000);
+    } finally {
+      spy.mockRestore();
+    }
+  });
   it("共有中は発表者の完了で即時交代し、独立した交代ボタンを表示しない", () => {
     const props = setup({
       phase: buildPhaseStep(2),
@@ -619,7 +708,7 @@ describe("RoomBoardHeader", () => {
       "③アイデア｜2軸評価",
     );
     expect(screen.getByTestId("board-control-hud")).toBeVisible();
-    expect(screen.getByTestId("step-guide")).toBeVisible();
+    expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
     const question = screen.getByRole("button", { name: /決定した問い/ });
     expect(question).toHaveAttribute("aria-expanded", "false");
     expect(question).toHaveTextContent("決定した問い");

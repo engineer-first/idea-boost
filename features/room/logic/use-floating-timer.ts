@@ -137,14 +137,25 @@ export function useFloatingTimer(
     update();
     const observer =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
-    if (root) {
+    const observeObstacles = () => {
+      if (!root) return;
+      observer?.disconnect();
       observer?.observe(root);
       for (const node of root.querySelectorAll<HTMLElement>(OBSTACLES))
         observer?.observe(node);
-    }
+    };
+    observeObstacles();
+    const mutations = root
+      ? new MutationObserver(() => {
+          observeObstacles();
+          update();
+        })
+      : null;
+    if (root) mutations?.observe(root, { childList: true, subtree: true });
     window.addEventListener("resize", update);
     return () => {
       observer?.disconnect();
+      mutations?.disconnect();
       window.removeEventListener("resize", update);
       root?.style.removeProperty("--board-timer-row-bottom");
     };

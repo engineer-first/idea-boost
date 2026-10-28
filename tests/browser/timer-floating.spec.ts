@@ -95,6 +95,50 @@ test("延長後の時間切れでは空の円を表示しない", async () => {
   }
 });
 
+test("工程の途中で操作欄が現れるとタイマーが避け、操作できる", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await story(page, "room-roomboardlayout--phase-1-step-3");
+    const before = await rect(page, "timer-floating");
+    await page.getByTestId("room-board-view-root").evaluate((root, box) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.testid = "idea-map-size-controls-hud";
+      button.textContent = "追加された操作欄";
+      Object.assign(button.style, {
+        position: "fixed",
+        left: `${box.x}px`,
+        top: `${box.y}px`,
+        width: `${box.width}px`,
+        height: `${box.height}px`,
+        zIndex: "40",
+      });
+      root.appendChild(button);
+    }, before);
+    const added = page.getByRole("button", { name: "追加された操作欄" });
+    await expect
+      .poll(async () => {
+        const timer = await rect(page, "timer-floating");
+        return (
+          timer.x + timer.width <= before.x ||
+          timer.x >= before.x + before.width ||
+          timer.y + timer.height <= before.y ||
+          timer.y >= before.y + before.height
+        );
+      })
+      .toBe(true);
+    await added.click();
+    expect(
+      await added.evaluate((element) => element === document.activeElement),
+    ).toBe(true);
+  } finally {
+    await page.close();
+  }
+});
+
 test("390pxの問い共有でタイマー下のマイ付箋が下部の操作欄を覆わない", async () => {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 },
