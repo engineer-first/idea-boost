@@ -12,7 +12,7 @@ export type GuestEntryRefreshProps = {
   roomId: string;
   stage?: "lobby" | "board";
   onRefreshed?: () => void;
-  refreshAction?: () => Promise<GuestRoomEntryResult>;
+  refreshAction?: (roomId: string) => Promise<GuestRoomEntryResult>;
 };
 
 function reloadPage(): void {
@@ -38,7 +38,10 @@ export function GuestEntryRefresh({
     if (request.current?.attempt !== attempt) {
       request.current = {
         attempt,
-        promise: refreshAction().catch(() => ({ ok: false, reason: "retry" })),
+        promise: refreshAction(roomId).catch(() => ({
+          ok: false,
+          reason: "retry",
+        })),
       };
     }
     void request.current.promise.then((value) => {
@@ -52,7 +55,7 @@ export function GuestEntryRefresh({
     return () => {
       active = false;
     };
-  }, [attempt, onRefreshed, refreshAction]);
+  }, [attempt, onRefreshed, refreshAction, roomId]);
   if (result && !result.ok && result.reason === "reauth_required")
     return <RoomReauthentication operation={{ kind: "return", roomId }} />;
   return (

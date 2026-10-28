@@ -158,6 +158,7 @@ describe("ゲストの入室前確認", () => {
       </StrictMode>,
     );
     await waitFor(() => expect(refreshGuest).toHaveBeenCalledOnce());
+    expect(refreshGuest).toHaveBeenCalledWith(roomId);
     expect(screen.getByRole("status")).toHaveTextContent(
       "ルームを確認しています…",
     );

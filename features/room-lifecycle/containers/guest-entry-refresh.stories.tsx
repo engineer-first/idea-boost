@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import type { GuestRoomEntryResult } from "@/features/auth";
 import { GuestEntryRefresh } from "./guest-entry-refresh";
 
 const meta = {
@@ -8,7 +9,8 @@ const meta = {
   args: {
     roomId: "11111111-1111-4111-8111-111111111111",
     onRefreshed: fn(),
-    refreshAction: () => new Promise(() => {}),
+    refreshAction: (_roomId: string): Promise<GuestRoomEntryResult> =>
+      new Promise(() => {}),
   },
 } satisfies Meta<typeof GuestEntryRefresh>;
 export default meta;

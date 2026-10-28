@@ -9,7 +9,7 @@ import {
 } from "@/contracts/session";
 import { SESSION_TTL_SECONDS } from "./cookie";
 import { prepareRoomEntrySession } from "./room-entry-session";
-import { signToken, verifyToken } from "./token";
+import { verifyToken } from "./token";
 
 const mocks = vi.hoisted(() => ({
   api: vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(),
@@ -35,27 +35,12 @@ const ACCOUNT: VerifiedSession = {
   email: "hana@example.test",
 };
 
-async function currentCookie(user: VerifiedSession | null) {
-  mocks.get.mockReturnValue(
-    user === null
-      ? undefined
-      : {
-          value: await signToken(user, {
-            secret: SECRET,
-            audience: TOKEN_AUDIENCE.session,
-            expiresInSeconds: user.exp - NOW,
-          }),
-        },
-  );
-}
-
-beforeEach(async () => {
+beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(NOW * 1000);
   vi.stubEnv("SESSION_SECRET", SECRET);
   vi.stubEnv("PREVIEW_ENABLED", "false");
   vi.resetAllMocks();
-  await currentCookie(GUEST);
   mocks.api.mockResolvedValue(Response.json({ userId: GUEST.sub }));
 });
 afterEach(() => {
@@ -83,7 +68,6 @@ describe("入室前のゲストセッション準備", () => {
     expect(mocks.api).toHaveBeenCalledWith("/api/auth/guest/refresh", {
       method: "POST",
     });
-    expect(mocks.get).toHaveBeenCalledWith(SESSION_COOKIE_NAME);
     expect(mocks.set).toHaveBeenCalledOnce();
     const [name, token, options] = mocks.set.mock.calls[0];
     expect(name).toBe(SESSION_COOKIE_NAME);
@@ -132,25 +116,6 @@ describe("入室前のゲストセッション準備", () => {
     });
     expect(mocks.set).not.toHaveBeenCalled();
   });
-
-  it.each([
-    ["別sub", { ...GUEST, sub: "22222222-2222-4222-8222-222222222222" }],
-    ["同じsubのaccount", ACCOUNT],
-    ["本人なし", null],
-  ] as const)(
-    "Worker応答待ちにCookieが%sへ変わったら上書きしない",
-    async (_condition, user) => {
-      mocks.api.mockImplementation(async () => {
-        await currentCookie(user);
-        return Response.json({ userId: GUEST.sub });
-      });
-      expect(await prepareRoomEntrySession(GUEST, NOW)).toEqual({
-        ok: false,
-        reason: "identity_unavailable",
-      });
-      expect(mocks.set).not.toHaveBeenCalled();
-    },
-  );
 
   it.each(["通信例外", "503", "不正JSON", "不正UUID", "余分なフィールド"])(
     "%sなら再試行を返しCookieを書かない",

@@ -5,7 +5,6 @@ import {
 } from "@/contracts/session";
 import { apiFetch } from "@/lib/api-client";
 import { SESSION_TTL_SECONDS, setSessionCookie } from "./cookie";
-import { getCurrentUser } from "./current-user";
 import { getSessionSecret } from "./env";
 import { hasRoomEntryTime } from "./room-entry";
 import { signToken } from "./token";
@@ -41,10 +40,6 @@ export async function prepareRoomEntrySession(
       ),
       expiresAtSeconds: updated.exp,
     });
-    // 応答待ちに切り替わった本人のCookieを上書きしない。
-    const current = await getCurrentUser();
-    if (current?.kind !== "guest" || current.sub !== user.sub)
-      return { ok: false, reason: "identity_unavailable" };
     await setSessionCookie(token);
     return { ok: true, user: updated };
   } catch {
