@@ -45,7 +45,12 @@ export function AccountLinkSectionView({
         <p className="text-muted-foreground">{accountLinkedNotice}</p>
       ) : null}
       {result ? (
-        <p ref={resultRef} role="status" tabIndex={-1}>
+        <p
+          ref={resultRef}
+          role="status"
+          tabIndex={-1}
+          className="focus:outline-none"
+        >
           {getAccountLinkResultMessage(result)}
         </p>
       ) : null}
