@@ -96,13 +96,10 @@ export const AllStates: Story = {
                     }
                   />
                   <JoinRoomSectionView
+                    canSubmit={false}
                     code=""
                     onCodeChange={fn()}
-                    dialogOpen={false}
-                    onDialogOpenChange={fn()}
-                    hostName=""
                     onSubmit={fn()}
-                    onConfirm={fn()}
                   />
                 </div>
               </div>

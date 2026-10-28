@@ -7,7 +7,10 @@ import {
   ManagedReadPermissionSchema,
   PERMISSIONS,
 } from "../contracts/access";
-import { CreateRoomInputSchema } from "../contracts/api";
+import {
+  CreateRoomInputSchema,
+  RoomLookupFailureSchema,
+} from "../contracts/api";
 import { LeaveRoomRequestSchema } from "../contracts/completed-rooms";
 import { SetDisplayNameInputSchema } from "../contracts/display-name";
 import { isUuid } from "../contracts/ids";
@@ -388,7 +391,8 @@ async function handleLeaveRoom(
 // GET /api/rooms/lookup?code=XXX — 招待コードからルーム解決して hostname を返す。
 // 招待URL ページ (/invite/[code]) で、入室確認 Dialog の文言に
 // 「hostname さんが作成したルームに参加しますか？」を出すために使う。
-// 未ログインは 401（招待URL ページ側でリダイレクト済みなので到達しない）。
+// 未認証は401。招待URLページは本人準備が完了してから照会する。
+// 解散済みはD1行が削除されるため404（not_found）、完了・期限切れ等で行が残るものは410。
 async function handleLookupRoom(
   request: Request,
   env: ApiWorkerEnv,
@@ -404,8 +408,15 @@ async function handleLookupRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
   const stub = roomStub(env, room.roomId);
-  if (!(await stub.isJoinable()))
-    return error(404, "ルームが見つかりませんでした。");
+  if (!(await stub.isJoinable())) {
+    return json(
+      RoomLookupFailureSchema.parse({
+        reason: "ended",
+        error: "このルームは終了しています。",
+      }),
+      410,
+    );
+  }
   const creator = (await stub.listMembers()).find(
     (member) => member.userId === room.hostId,
   );
