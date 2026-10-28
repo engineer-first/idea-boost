@@ -168,6 +168,11 @@ function setup(
   };
 
   if (!options.showOnboarding) {
+    for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
+      sessionStorage.setItem(
+        `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:${step}`,
+        "seen",
+      );
     sessionStorage.setItem(
       `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:1-1`,
       "seen",
@@ -1371,7 +1376,7 @@ describe("初回の画面表示", () => {
     );
     expect(
       await screen.findByRole("dialog", {
-        name: "最近あった困ったことを付箋に書き出そう。",
+        name: "時間を守って取り組もう。",
       }),
     ).toBeVisible();
     expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();

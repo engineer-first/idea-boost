@@ -18,6 +18,8 @@ const ME = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
   sessionStorage.setItem(`step-onboarding:AB12CD:${ME}:1-1`, "seen");
+  for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
+    sessionStorage.setItem(`step-onboarding:AB12CD:${ME}:${step}`, "seen");
 });
 
 function allReadyProgress(members: ReturnType<typeof buildMembers>) {
@@ -82,11 +84,8 @@ async function advanceOnboardingSlide() {
   const currentTitle = within(dialog).getByRole("heading").textContent ?? "";
   const slideContent = screen.getByTestId("step-one-onboarding-slide-content");
   fireEvent.click(screen.getByRole("button", { name: "次へ" }));
-  expect(slideContent).toHaveAttribute("data-slide-transition", "out");
+  expect(slideContent).toHaveAttribute("data-slide-transition", "moving");
   expect(within(dialog).getByRole("heading")).toHaveTextContent(currentTitle);
-  await waitFor(() =>
-    expect(slideContent).toHaveAttribute("data-slide-transition", "in"),
-  );
   await waitFor(() =>
     expect(slideContent).toHaveAttribute("data-slide-transition", "idle"),
   );
@@ -97,10 +96,7 @@ async function returnToOnboardingSlide(index: number, title: string) {
   fireEvent.click(
     screen.getByRole("button", { name: `${index + 1}枚目に戻る` }),
   );
-  expect(slideContent).toHaveAttribute("data-slide-transition", "out");
-  await waitFor(() =>
-    expect(slideContent).toHaveAttribute("data-slide-transition", "in"),
-  );
+  expect(slideContent).toHaveAttribute("data-slide-transition", "moving");
   await waitFor(() =>
     expect(slideContent).toHaveAttribute("data-slide-transition", "idle"),
   );
@@ -207,7 +203,7 @@ describe("RoomBoardHeader", () => {
     );
   });
 
-  it("1-1の初回に3枚の説明スライドを順に表示し、最後の「はじめる」で閉じる", async () => {
+  it("1-1の初回に4枚の説明スライドを順に表示し、最後の「はじめる」で閉じる", async () => {
     const inviteCode = "ONBOARD1";
     sessionStorage.removeItem(`step-onboarding:${inviteCode}:${ME}:1-1`);
     const props = setupProps({ inviteCode });
@@ -217,12 +213,21 @@ describe("RoomBoardHeader", () => {
 
     expect(
       await screen.findByRole("dialog", {
+        name: "時間を守って取り組もう。",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("listitem", { name: "1枚目 / 全4枚" }),
+    ).toBeVisible();
+    await advanceOnboardingSlide();
+    expect(
+      await screen.findByRole("dialog", {
         name: "最近あった困ったことを付箋に書き出そう。",
       }),
     ).toBeVisible();
     expect(screen.queryByText("工程 1-1")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("listitem", { name: "1枚目 / 全3枚" }),
+      screen.getByRole("listitem", { name: "2枚目 / 全4枚" }),
     ).toBeVisible();
 
     await advanceOnboardingSlide();
@@ -232,7 +237,7 @@ describe("RoomBoardHeader", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByRole("listitem", { name: "2枚目 / 全3枚" }),
+      screen.getByRole("listitem", { name: "3枚目 / 全4枚" }),
     ).toBeVisible();
     expect(
       screen.getByText(/話題が変わったら、別の付箋に書きましょう/),
@@ -254,7 +259,7 @@ describe("RoomBoardHeader", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByRole("listitem", { name: "3枚目 / 全3枚" }),
+      screen.getByRole("listitem", { name: "4枚目 / 全4枚" }),
     ).toBeVisible();
     const dialog = screen.getByRole("dialog");
     const guideButton = screen.getByText("進め方").closest("button");
@@ -285,10 +290,11 @@ describe("RoomBoardHeader", () => {
     fireEvent.click(openGuide);
     expect(
       await screen.findByRole("dialog", {
-        name: "最近あった困ったことを付箋に書き出そう。",
+        name: "時間を守って取り組もう。",
       }),
     ).toBeVisible();
 
+    await advanceOnboardingSlide();
     await advanceOnboardingSlide();
     await advanceOnboardingSlide();
     expect(
@@ -303,7 +309,7 @@ describe("RoomBoardHeader", () => {
     fireEvent.click(openGuide);
     expect(
       await screen.findByRole("dialog", {
-        name: "最近あった困ったことを付箋に書き出そう。",
+        name: "時間を守って取り組もう。",
       }),
     ).toBeVisible();
   });
@@ -315,17 +321,14 @@ describe("RoomBoardHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     await screen.findByRole("dialog", {
-      name: "最近あった困ったことを付箋に書き出そう。",
+      name: "時間を守って取り組もう。",
     });
     await advanceOnboardingSlide();
     await advanceOnboardingSlide();
 
-    await returnToOnboardingSlide(
-      0,
-      "最近あった困ったことを付箋に書き出そう。",
-    );
+    await returnToOnboardingSlide(0, "時間を守って取り組もう。");
     expect(
-      screen.getByRole("listitem", { name: "1枚目 / 全3枚" }),
+      screen.getByRole("listitem", { name: "1枚目 / 全4枚" }),
     ).toHaveAttribute("aria-current", "step");
     expect(screen.getByRole("button", { name: "次へ" })).toBeVisible();
   });
@@ -337,13 +340,13 @@ describe("RoomBoardHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     await screen.findByRole("dialog", {
-      name: "最近あった困ったことを付箋に書き出そう。",
+      name: "時間を守って取り組もう。",
     });
 
     const progressButtons = screen.getAllByRole("button", {
       name: /枚目に戻る/,
     });
-    expect(progressButtons).toHaveLength(3);
+    expect(progressButtons).toHaveLength(4);
     for (const button of progressButtons) {
       expect(button).toHaveClass("w-fit");
       expect(button).not.toHaveClass("w-8");
@@ -357,19 +360,19 @@ describe("RoomBoardHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     await screen.findByRole("dialog", {
-      name: "最近あった困ったことを付箋に書き出そう。",
+      name: "時間を守って取り組もう。",
     });
 
     vi.useFakeTimers();
     try {
       fireEvent.click(screen.getByRole("button", { name: "次へ" }));
       await act(async () => {
-        vi.advanceTimersByTime(235);
+        vi.advanceTimersByTime(300);
       });
 
       expect(
         screen.getByTestId("step-one-onboarding-slide-content"),
-      ).toHaveAttribute("data-slide-transition", "in");
+      ).toHaveAttribute("data-slide-transition", "idle");
     } finally {
       vi.useRealTimers();
     }
@@ -382,12 +385,13 @@ describe("RoomBoardHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     await screen.findByRole("dialog", {
-      name: "最近あった困ったことを付箋に書き出そう。",
+      name: "時間を守って取り組もう。",
     });
     await advanceOnboardingSlide();
     await advanceOnboardingSlide();
 
     const dialog = screen.getByRole("dialog");
+    await advanceOnboardingSlide();
     vi.useFakeTimers();
     try {
       fireEvent.click(screen.getByRole("button", { name: "はじめる" }));
@@ -417,10 +421,12 @@ describe("RoomBoardHeader", () => {
       phase: buildPhaseStep(step, phase),
     });
 
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "進め方" }),
-    ).not.toBeInTheDocument();
+    if (label === "3-2") {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByRole("button", { name: "進め方" })).toBeNull();
+    } else {
+      expect(screen.getByRole("dialog")).toBeVisible();
+    }
   });
 
   it("各工程の進め方ガイドパネルは表示しない", () => {
@@ -1179,6 +1185,10 @@ it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示�
     status: "complete",
     results: ["done", "passed", "done"],
   });
+  sessionStorage.setItem(
+    `step-onboarding:AB12CD:${sharing.order.at(-1)?.userId ?? ME}:1-2`,
+    "seen",
+  );
   render(
     <RoomBoardHeader
       {...setupProps({

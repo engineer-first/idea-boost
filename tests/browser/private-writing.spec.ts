@@ -222,7 +222,7 @@ test.each([1440, 1280, 390])(
     await guide.click();
 
     await page
-      .getByRole("dialog", { name: "最近あった困ったことを付箋に書き出そう。" })
+      .getByRole("dialog", { name: "時間を守って取り組もう。" })
       .waitFor();
   },
 );
@@ -247,6 +247,10 @@ test("1-1: キーボードで次へ進めても遷移中と遷移後にフォー
     await next.evaluate((element) => document.activeElement === element),
   ).toBe(true);
   await page.keyboard.press("Enter");
+  await expect
+    .poll(() => content.getAttribute("data-slide-transition"))
+    .toBe("idle");
+  await page.keyboard.press("Enter");
   await dialog.getByRole("button", { name: "はじめる" }).waitFor();
   await expect
     .poll(() => content.getAttribute("data-slide-transition"))
@@ -266,7 +270,7 @@ test.each([390, 1280])(
       `${origin}/iframe.html?id=room-roomboardlayout--first-visit-onboarding&viewMode=story`,
     );
     const dialog = page.getByRole("dialog");
-    const firstSlide = "最近あった困ったことを付箋に書き出そう。";
+    const firstSlide = "時間を守って取り組もう。";
     const waitForSlide = () =>
       expect
         .poll(() =>
@@ -277,9 +281,13 @@ test.each([390, 1280])(
         .toBe("idle");
     await page.getByRole("dialog", { name: firstSlide }).waitFor();
     await dialog.getByRole("button", { name: "次へ" }).click();
+    await waitForSlide();
+    await dialog.getByRole("button", { name: "次へ" }).click();
     await dialog.getByLabel("付箋を追加して書き出す操作").waitFor();
     await dialog.getByRole("button", { name: "1枚目に戻る" }).click();
     await page.getByRole("dialog", { name: firstSlide }).waitFor();
+    await waitForSlide();
+    await dialog.getByRole("button", { name: "次へ" }).click();
     await waitForSlide();
     await dialog.getByRole("button", { name: "次へ" }).click();
     await waitForSlide();

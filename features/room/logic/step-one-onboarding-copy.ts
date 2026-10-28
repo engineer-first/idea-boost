@@ -1,5 +1,11 @@
 export const STEP_ONE_ONBOARDING_SLIDES = [
   {
+    title: "時間を守って取り組もう。",
+    description: "各ステップでは、タイマーの時間内に取り組みましょう。",
+    illustration: "timer",
+    illustrationAlt: "タイマーを見ながら付箋に取り組む様子",
+  },
+  {
     title: "最近あった困ったことを付箋に書き出そう。",
     description:
       "少し気になったことでも大丈夫。思いつくまま付箋に並べてみましょう。",

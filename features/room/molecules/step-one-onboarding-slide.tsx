@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { STEP_ONE_ONBOARDING_SLIDES } from "../logic/step-one-onboarding-copy";
+import {
+  getStepGuideSlides,
+  type StepGuideSlide,
+} from "../logic/step-guide-copy";
+import { StepGuideIllustration } from "./step-guide-illustration";
 import styles from "./step-one-onboarding-slide.module.css";
 
 export type StepOneOnboardingSlideProps = {
@@ -20,9 +24,6 @@ export type StepOneOnboardingSlideProps = {
   isReady: boolean;
 };
 
-const PHASE_KEY = "1-1";
-type IllustrationKind =
-  (typeof STEP_ONE_ONBOARDING_SLIDES)[number]["illustration"];
 type GuideClosingStyle = CSSProperties & {
   "--guide-target-x": string;
   "--guide-target-y": string;
@@ -32,11 +33,11 @@ type GuideClosingStyle = CSSProperties & {
   "--guide-target-scale-y": string;
 };
 
-function StepOneOnboardingIllustration({
+function StepOneOnboardingIllustrationContent({
   kind,
   alt,
 }: {
-  kind: IllustrationKind;
+  kind: StepGuideSlide["illustration"];
   alt: string;
 }) {
   if (kind === "operation-video") {
@@ -52,6 +53,10 @@ function StepOneOnboardingIllustration({
         src="/onboarding/operation-guide-placeholder.webm"
       />
     );
+  }
+
+  if (kind !== "many-notes" && kind !== "add-note") {
+    return <StepGuideIllustration kind={kind} alt={alt} />;
   }
 
   return (
@@ -200,6 +205,46 @@ function StepOneOnboardingIllustration({
   );
 }
 
+function StepOneOnboardingIllustration(props: {
+  kind: StepGuideSlide["illustration"];
+  alt: string;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    const canvas = canvasRef.current;
+    if (!frame || !canvas) return;
+    const updateScale = () => {
+      if (canvas.offsetHeight === 0) return;
+      setScale(Math.min(1, frame.clientHeight / canvas.offsetHeight));
+    };
+    updateScale();
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateScale);
+    observer?.observe(frame);
+    observer?.observe(canvas);
+    return () => observer?.disconnect();
+  });
+  const isMedia = ["many-notes", "add-note", "operation-video"].includes(
+    props.kind,
+  );
+  return (
+    <div ref={frameRef} className={styles.illustrationFrame}>
+      <div
+        ref={canvasRef}
+        className={`${styles.illustrationCanvas} ${isMedia ? styles.mediaIllustration : ""}`}
+        style={{ "--illustration-scale": scale } as CSSProperties}
+      >
+        <StepOneOnboardingIllustrationContent {...props} />
+      </div>
+    </div>
+  );
+}
+
 export function StepOneOnboardingSlide({
   phaseKey,
   sessionKey,
@@ -207,9 +252,7 @@ export function StepOneOnboardingSlide({
 }: StepOneOnboardingSlideProps) {
   const [open, setOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [slideTransition, setSlideTransition] = useState<"out" | "in" | null>(
-    null,
-  );
+  const [slideTransition, setSlideTransition] = useState<"moving" | null>(null);
   const [slideDirection, setSlideDirection] = useState<"forward" | "backward">(
     "forward",
   );
@@ -222,8 +265,12 @@ export function StepOneOnboardingSlide({
   const closeTimerRef = useRef<number | null>(null);
   const pendingSlideIndexRef = useRef(0);
   const activeVisitRef = useRef<string | null>(null);
-  const slide = STEP_ONE_ONBOARDING_SLIDES[slideIndex];
-  const isLastSlide = slideIndex === STEP_ONE_ONBOARDING_SLIDES.length - 1;
+  const slides = getStepGuideSlides(phaseKey);
+  const slide = slides[slideIndex] ?? slides[0];
+  const previewSlide = slideTransition
+    ? slides[pendingSlideIndexRef.current]
+    : undefined;
+  const isLastSlide = slideIndex === slides.length - 1;
 
   const finishCloseToGuide = () => {
     if (closeTimerRef.current !== null) {
@@ -234,13 +281,22 @@ export function StepOneOnboardingSlide({
   };
 
   useEffect(() => {
-    if (!isReady || phaseKey !== PHASE_KEY) {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setSlideTransition(null);
+    setSlideIndex(0);
+    pendingSlideIndexRef.current = 0;
+    setIsClosingToGuide(false);
+    setClosingStyle(null);
+    if (!isReady || getStepGuideSlides(phaseKey).length === 0) {
       activeVisitRef.current = null;
       setOpen(false);
       return;
     }
 
-    const storageKey = `step-onboarding:${sessionKey}:${PHASE_KEY}`;
+    const storageKey = `step-onboarding:${sessionKey}:${phaseKey}`;
     // StrictModeのEffect再実行では、この訪問で開いた案内を閉じない。
     if (activeVisitRef.current === storageKey) return;
     activeVisitRef.current = storageKey;
@@ -253,25 +309,16 @@ export function StepOneOnboardingSlide({
     } catch {
       // ストレージを使えない環境では、この表示中だけ一度表示する。
     }
-    setIsClosingToGuide(false);
-    setClosingStyle(null);
-    pendingSlideIndexRef.current = 0;
-    setSlideIndex(0);
     setOpen(true);
   }, [isReady, phaseKey, sessionKey]);
 
   useEffect(() => {
     if (slideTransition === null) return;
 
-    const fallbackDuration = slideTransition === "out" ? 235 : 275;
     const timeoutId = window.setTimeout(() => {
-      if (slideTransition === "out") {
-        setSlideIndex(pendingSlideIndexRef.current);
-        setSlideTransition("in");
-      } else {
-        setSlideTransition(null);
-      }
-    }, fallbackDuration);
+      setSlideIndex(pendingSlideIndexRef.current);
+      setSlideTransition(null);
+    }, 300);
 
     return () => window.clearTimeout(timeoutId);
   }, [slideTransition]);
@@ -305,20 +352,79 @@ export function StepOneOnboardingSlide({
     if (
       slideTransition !== null ||
       targetIndex < 0 ||
-      targetIndex >= STEP_ONE_ONBOARDING_SLIDES.length ||
+      targetIndex >= slides.length ||
       targetIndex === slideIndex
     ) {
       return;
     }
     pendingSlideIndexRef.current = targetIndex;
     setSlideDirection(direction);
-    setSlideTransition("out");
+    setSlideTransition("moving");
   };
 
   const advanceSlide = () => {
     if (isLastSlide) return;
     transitionToSlide(slideIndex + 1, "forward");
   };
+
+  const renderPage = (item: StepGuideSlide, preview: boolean) => (
+    <div
+      aria-hidden={preview || undefined}
+      className={`${styles.slidePage} ${preview ? styles.previewPage : styles.currentPage}`}
+      onAnimationEnd={
+        preview
+          ? undefined
+          : (event) => {
+              if (
+                event.target !== event.currentTarget ||
+                slideTransition === null
+              )
+                return;
+              setSlideIndex(pendingSlideIndexRef.current);
+              setSlideTransition(null);
+            }
+      }
+    >
+      <figure className={styles.illustration}>
+        {item.videoSrc ? (
+          <video
+            aria-label={item.illustrationAlt}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            className="h-full w-full object-contain"
+            src={item.videoSrc}
+          />
+        ) : (
+          <StepOneOnboardingIllustration
+            kind={item.illustration}
+            alt={item.illustrationAlt}
+          />
+        )}
+      </figure>
+      <DialogHeader className={styles.slideText}>
+        {preview ? (
+          <>
+            <h2 className="text-xl font-semibold leading-snug">{item.title}</h2>
+            <p className="max-w-2xl text-balance text-sm leading-6 text-muted-foreground">
+              {item.description}
+            </p>
+          </>
+        ) : (
+          <>
+            <DialogTitle className="text-xl leading-snug">
+              {item.title}
+            </DialogTitle>
+            <DialogDescription className="max-w-2xl text-balance text-sm leading-6">
+              {item.description}
+            </DialogDescription>
+          </>
+        )}
+      </DialogHeader>
+    </div>
+  );
 
   const start = () => {
     const dialogElement = dialogRef.current;
@@ -366,7 +472,7 @@ export function StepOneOnboardingSlide({
 
   return (
     <>
-      {isReady && phaseKey === PHASE_KEY ? (
+      {isReady && slides.length > 0 ? (
         <Button
           ref={guideButtonRef}
           type="button"
@@ -378,7 +484,7 @@ export function StepOneOnboardingSlide({
         </Button>
       ) : null}
       <Dialog
-        open={open}
+        open={open && isReady && slide !== undefined}
         onOpenChange={(nextOpen) => {
           if (!nextOpen && closeTimerRef.current !== null) {
             window.clearTimeout(closeTimerRef.current);
@@ -390,114 +496,91 @@ export function StepOneOnboardingSlide({
           setOpen(nextOpen);
         }}
       >
-        <DialogContent
-          ref={dialogRef}
-          onCloseAutoFocus={(event) => {
-            if (!guideButtonRef.current) return;
-            event.preventDefault();
-            guideButtonRef.current.focus();
-          }}
-          data-closing-to-guide={isClosingToGuide ? "true" : undefined}
-          className={`max-h-[calc(100dvh-5rem)] w-[calc(100%-2rem)] max-w-[56rem] gap-0 overflow-y-auto rounded-[32px] border-border bg-background p-5 text-foreground shadow-2xl sm:p-8 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}
-          style={{
-            top: "4rem",
-            translate: "-50% 0",
-            ...closingStyle,
-            ...(isClosingToGuide && !open
-              ? { animation: "none", opacity: 0, pointerEvents: "none" }
-              : {}),
-          }}
-        >
-          <div
-            data-testid="step-one-onboarding-slide-content"
-            data-slide-transition={slideTransition ?? "idle"}
-            data-slide-direction={slideDirection}
-            className={`${styles.slideContent} ${
-              slideTransition === "out"
-                ? slideDirection === "forward"
-                  ? styles.slideOutLeft
-                  : styles.slideOutRight
-                : slideTransition === "in"
-                  ? slideDirection === "forward"
-                    ? styles.slideInFromRight
-                    : styles.slideInFromLeft
-                  : ""
-            }`}
-            onAnimationEnd={(event) => {
-              if (event.target !== event.currentTarget) return;
-              if (slideTransition === "out") {
-                setSlideIndex(pendingSlideIndexRef.current);
-                setSlideTransition("in");
-              } else if (slideTransition === "in") {
-                setSlideTransition(null);
-              }
+        {slide ? (
+          <DialogContent
+            ref={dialogRef}
+            onCloseAutoFocus={(event) => {
+              if (!guideButtonRef.current) return;
+              event.preventDefault();
+              guideButtonRef.current.focus();
+            }}
+            data-closing-to-guide={isClosingToGuide ? "true" : undefined}
+            className={`${styles.dialog} gap-0 rounded-[28px] border-border bg-background text-foreground shadow-2xl data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}
+            style={{
+              top: "50%",
+              translate: "-50% -50%",
+              ...closingStyle,
+              ...(isClosingToGuide && !open
+                ? { animation: "none", opacity: 0, pointerEvents: "none" }
+                : {}),
             }}
           >
-            <div className="flex justify-center">
-              <ol
-                aria-label="スライドの進捗"
-                className="m-0 flex list-none items-center gap-1.5 p-0"
-              >
-                {STEP_ONE_ONBOARDING_SLIDES.map((item, index) => (
-                  <li
-                    key={item.title}
-                    aria-current={index === slideIndex ? "step" : undefined}
-                    aria-label={`${index + 1}枚目 / 全${STEP_ONE_ONBOARDING_SLIDES.length}枚`}
-                  >
-                    <button
-                      aria-label={`${index + 1}枚目に戻る`}
-                      className="flex h-8 w-fit items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      disabled={slideTransition !== null || index >= slideIndex}
-                      onClick={() => transitionToSlide(index, "backward")}
-                      type="button"
+            <div
+              data-testid="step-one-onboarding-slide-content"
+              data-slide-transition={slideTransition ?? "idle"}
+              data-slide-direction={slideDirection}
+              className={styles.slideContent}
+            >
+              <div className="flex justify-center">
+                <ol
+                  aria-label="スライドの進捗"
+                  className="m-0 flex list-none items-center gap-1.5 p-0"
+                >
+                  {slides.map((item, index) => (
+                    <li
+                      key={item.title}
+                      aria-current={index === slideIndex ? "step" : undefined}
+                      aria-label={`${index + 1}枚目 / 全${slides.length}枚`}
                     >
-                      <span
-                        aria-hidden="true"
-                        className={`block h-1.5 rounded-full ${
-                          index === slideIndex
-                            ? "w-6 bg-primary"
-                            : "w-3 bg-muted-foreground/25"
-                        }`}
-                      />
-                    </button>
-                  </li>
-                ))}
-              </ol>
+                      <button
+                        aria-label={`${index + 1}枚目に戻る`}
+                        className="flex h-8 w-fit items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        disabled={
+                          slideTransition !== null || index >= slideIndex
+                        }
+                        onClick={() => transitionToSlide(index, "backward")}
+                        type="button"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`block h-1.5 rounded-full ${
+                            index === slideIndex
+                              ? "w-6 bg-primary"
+                              : "w-3 bg-muted-foreground/25"
+                          }`}
+                        />
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <div
+                className={`${styles.slideViewport} ${slideTransition ? (slideDirection === "forward" ? styles.movingForward : styles.movingBackward) : ""}`}
+              >
+                {renderPage(slide, false)}
+                {previewSlide ? renderPage(previewSlide, true) : null}
+              </div>
+              <DialogFooter className="mt-4 shrink-0 justify-center sm:justify-center">
+                {isLastSlide ? (
+                  <Button
+                    className="h-12 min-w-52 rounded-full px-8 text-base"
+                    disabled={isClosingToGuide}
+                    onClick={start}
+                  >
+                    はじめる
+                  </Button>
+                ) : (
+                  <Button
+                    className="h-12 min-w-52 rounded-full px-8 text-base"
+                    onClick={advanceSlide}
+                  >
+                    次へ
+                  </Button>
+                )}
+              </DialogFooter>
             </div>
-            <figure className="mt-4 aspect-[64/27] max-h-[22rem] w-full overflow-hidden rounded-[24px] bg-muted/50 p-2 sm:mt-5 sm:p-3">
-              <StepOneOnboardingIllustration
-                kind={slide.illustration}
-                alt={slide.illustrationAlt}
-              />
-            </figure>
-            <DialogHeader className="mt-5 min-h-32 items-center justify-center gap-2 text-center">
-              <DialogTitle className="text-xl leading-snug sm:text-2xl">
-                {slide.title}
-              </DialogTitle>
-              <DialogDescription className="max-w-2xl text-balance text-sm leading-6 sm:text-base">
-                {slide.description}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="mt-6 justify-center sm:justify-center">
-              {isLastSlide ? (
-                <Button
-                  className="h-12 min-w-52 rounded-full px-8 text-base"
-                  disabled={isClosingToGuide}
-                  onClick={start}
-                >
-                  はじめる
-                </Button>
-              ) : (
-                <Button
-                  className="h-12 min-w-52 rounded-full px-8 text-base"
-                  onClick={advanceSlide}
-                >
-                  次へ
-                </Button>
-              )}
-            </DialogFooter>
-          </div>
-        </DialogContent>
+          </DialogContent>
+        ) : null}
       </Dialog>
     </>
   );
