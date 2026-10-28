@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { refreshGuestRoomEntry } from "@/features/auth";
+import { refreshGuestRoomEntry } from "./guest-room-entry-actions";
 
 const mocks = vi.hoisted(() => ({ user: vi.fn(), prepare: vi.fn() }));
 vi.mock("@/lib/session/current-user", () => ({ getCurrentUser: mocks.user }));

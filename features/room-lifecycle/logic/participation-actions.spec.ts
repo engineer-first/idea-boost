@@ -4,14 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   api: vi.fn(),
   user: vi.fn(),
-  enough: vi.fn(),
   prepare: vi.fn(),
   issue: vi.fn(),
 }));
 vi.mock("@/lib/api-client", () => ({ apiFetch: mocks.api }));
 vi.mock("@/lib/session/current-user", () => ({ getCurrentUser: mocks.user }));
 vi.mock("@/lib/session/room-entry", () => ({
-  hasRoomEntryTime: mocks.enough,
   issueRoomEntry: mocks.issue,
 }));
 
@@ -37,13 +35,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.api.mockReset();
   mocks.issue.mockResolvedValue("admission");
-  mocks.prepare.mockImplementation(async (user) =>
-    mocks.enough()
-      ? { ok: true, user }
-      : { ok: false, reason: "reauth_required" },
-  );
+  mocks.prepare.mockImplementation(async (user) => ({ ok: true, user }));
   mocks.user.mockResolvedValue({ sub: principal });
-  mocks.enough.mockReturnValue(true);
 });
 it("本人が変わったときはcommitをサーバーへ送らない", async () => {
   mocks.user.mockResolvedValue({ sub: "changed" });
@@ -58,7 +51,7 @@ it("本人が変わったときはcommitをサーバーへ送らない", async (
   expect(mocks.api).not.toHaveBeenCalled();
 });
 it("再認証が必要なら移動を開始しない", async () => {
-  mocks.enough.mockReturnValue(false);
+  mocks.prepare.mockResolvedValue({ ok: false, reason: "reauth_required" });
   expect(
     await commitParticipation(
       switchConfirmation().operationId,
@@ -163,7 +156,6 @@ describe("ゲスト更新後の参加切替", () => {
     vi.useFakeTimers();
     vi.setSystemTime(now * 1000);
     vi.stubEnv("SESSION_SECRET", secret);
-    mocks.enough.mockReturnValue(false);
     mocks.user.mockResolvedValue(guest);
     mocks.prepare.mockResolvedValue({
       ok: true,

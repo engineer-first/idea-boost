@@ -4,18 +4,14 @@
 // せず ok: false で返すこと。
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  prepareSessionMock,
-  apiFetchMock,
-  getCurrentUserMock,
-  redirectMock,
-} = vi.hoisted(() => ({
-  prepareSessionMock: vi.fn(),
-  apiFetchMock:
-    vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(),
-  getCurrentUserMock: vi.fn(),
-  redirectMock: vi.fn<(url: string) => never>(),
-}));
+const { prepareSessionMock, apiFetchMock, getCurrentUserMock, redirectMock } =
+  vi.hoisted(() => ({
+    prepareSessionMock: vi.fn(),
+    apiFetchMock:
+      vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(),
+    getCurrentUserMock: vi.fn(),
+    redirectMock: vi.fn<(url: string) => never>(),
+  }));
 
 vi.mock("@/lib/api-client", () => ({
   apiFetch: apiFetchMock,
@@ -39,15 +35,10 @@ import {
 } from "@/contracts/room-entry";
 import type { VerifiedSession } from "@/contracts/session";
 import { SESSION_TTL_SECONDS } from "@/lib/session/cookie";
-import { hasRoomEntryTime, issueRoomEntry } from "@/lib/session/room-entry";
+import { issueRoomEntry } from "@/lib/session/room-entry";
 import { verifyToken } from "@/lib/session/token";
 
-import {
-  createRoom,
-  joinRoom,
-  returnToRoom,
-} from "./actions";
-
+import { createRoom, joinRoom, returnToRoom } from "./actions";
 
 // 実物の redirect() は例外を投げて以降の処理を打ち切る。同じ制御フローを再現する。
 class RedirectSignal extends Error {
@@ -76,12 +67,11 @@ function joinFormData(code: string): FormData {
   return formData;
 }
 
-beforeEach(() => {
-  prepareSessionMock.mockImplementation(async (user: VerifiedSession) =>
-    hasRoomEntryTime(user)
-      ? { ok: true, user }
-      : { ok: false, reason: "reauth_required" },
-  );
+beforeEach(async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/session/room-entry-session")
+  >("@/lib/session/room-entry-session");
+  prepareSessionMock.mockImplementation(actual.prepareRoomEntrySession);
   vi.mocked(issueRoomEntry).mockResolvedValue("entry-admission");
   redirectMock.mockImplementation((url: string) => {
     throw new RedirectSignal(url);

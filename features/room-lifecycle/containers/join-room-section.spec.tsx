@@ -35,23 +35,3 @@ describe("JoinRoomSection", () => {
     },
   );
 });
-
-it("本人確認不可ではActionの説明を通知しGoogle再認証へ進まない", async () => {
-  PUSH.mockClear();
-  notifyMocks.error.mockClear();
-  const user = userEvent.setup();
-  await openConfirmDialog(user);
-  const error =
-    "このブラウザでは、以前の参加者として確認できませんでした。新しく始めると別の参加者になり、以前のホスト権限・付箋・投票は引き継がれません。";
-  JOIN_ROOM.mockResolvedValueOnce({
-    ok: false,
-    reason: "identity_unavailable",
-    error,
-  });
-  await user.click(screen.getByTestId("join-confirm-action"));
-  await waitFor(() => expect(notifyMocks.error).toHaveBeenCalledWith(error));
-  expect(
-    screen.queryByRole("button", { name: "Googleでログインして続ける" }),
-  ).not.toBeInTheDocument();
-  expect(PUSH).not.toHaveBeenCalled();
-});

@@ -4234,9 +4234,14 @@ it.each([401, 404])(
     await act(async () => socket.simulateUnexpectedClose());
     expect(
       screen.getByRole("link", {
-        name: status === 401 ? "ログインする" : "ホームへ戻る",
+        name: status === 401 ? "再読み込みして続ける" : "ホームへ戻る",
       }),
-    ).toBeVisible();
+    ).toHaveAttribute("href", status === 401 ? `/rooms/${ROOM_ID}` : "/home");
+    if (status === 401) {
+      expect(screen.getByText("接続を止めました")).toBeVisible();
+      expect(document.querySelector('a[href^="/login"]')).toBeNull();
+      expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
+    }
     fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
     expect(screen.getByRole("textbox", { name: "未反映の文章 1" })).toHaveValue(
       "保存前に切れた文章",
@@ -4266,10 +4271,11 @@ it.each(["blur", "compositionEnd", "change"] as const)(
       target: { value: "期限切れでも残す入力文" },
     });
     await act(async () => socket.simulateAuthRequiredClose());
-    expect(screen.getByRole("link", { name: "ログインする" })).toHaveAttribute(
-      "href",
-      `/login?next=${encodeURIComponent(`/rooms/${ROOM_ID}`)}`,
-    );
+    expect(screen.getByText("接続を止めました")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "再読み込みして続ける" }),
+    ).toHaveAttribute("href", `/rooms/${ROOM_ID}`);
+    expect(document.querySelector('a[href^="/login"]')).toBeNull();
     expect(navigationMocks.replace).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
