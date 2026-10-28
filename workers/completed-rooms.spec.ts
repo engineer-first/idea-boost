@@ -8,6 +8,7 @@ import {
   joinRoomAs,
   runInRoomDO,
   sessionCookieFor,
+  type TestUser,
 } from "./test-helpers";
 
 const host = {
@@ -27,7 +28,7 @@ const outsider = {
 };
 async function request(
   path: string,
-  user = host,
+  user: TestUser = host,
   method = "GET",
   body?: unknown,
 ) {
@@ -43,23 +44,27 @@ async function request(
     env,
   );
 }
-async function complete(prepare?: Parameters<typeof runInRoomDO>[1]) {
-  const room = await createRoomAs(host);
-  await joinRoomAs(guest, room.inviteCode);
+async function complete(
+  prepare?: Parameters<typeof runInRoomDO>[1],
+  participant: TestUser = guest,
+  creator: TestUser = host,
+) {
+  const room = await createRoomAs(creator);
+  await joinRoomAs(participant, room.inviteCode);
   await runInRoomDO(room.roomId, async (instance, state) => {
-    await instance.setPhase({ kind: "step", phase: 3, step: 5 }, host.sub);
+    await instance.setPhase({ kind: "step", phase: 3, step: 5 }, creator.sub);
     for (const phase of [1, 2, 3])
       state.storage.sql.exec(
         "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,?)",
         phase,
         crypto.randomUUID(),
         `決定${phase}`,
-        host.sub,
+        creator.sub,
         new Date().toISOString(),
       );
   });
   if (prepare) await runInRoomDO(room.roomId, prepare);
-  const socket = await connectRoomAs(host, room.roomId);
+  const socket = await connectRoomAs(creator, room.roomId);
   await socket.next();
   socket.ws.send(JSON.stringify({ type: "outcome:publish" }));
   expect(await socket.next()).toMatchObject({ type: "outcome:published" });
@@ -1027,4 +1032,116 @@ it("完了期限を過ぎた退出の清掃でもルーム内の表示名を消�
     ).toEqual([]);
   });
   room.socket.close();
+});
+
+describe("ゲスト本人の完了成果", () => {
+  const principal: TestUser = {
+    kind: "guest",
+    sub: crypto.randomUUID(),
+    email: null,
+    name: "ゲスト",
+  };
+  const other: TestUser = {
+    kind: "guest",
+    sub: crypto.randomUUID(),
+    email: null,
+    name: "別のゲスト",
+  };
+  it("ゲストがホストとして作成・完了したルームを本人の一覧・詳細で取得できる", async () => {
+    const room = await complete(undefined, guest, principal);
+    try {
+      await runInRoomDO(room.roomId, (instance) => instance.alarm());
+      const list = await request("completed-rooms", principal);
+      expect(list.status).toBe(200);
+      expect(await list.json()).toMatchObject({
+        rooms: expect.arrayContaining([
+          expect.objectContaining({ roomId: room.roomId, idea: "決定3" }),
+        ]),
+      });
+      const detail = await request(`completed-rooms/${room.roomId}`, principal);
+      expect(detail.status).toBe(200);
+      expect(await detail.json()).toMatchObject({
+        roomId: room.roomId,
+        idea: "決定3",
+        decisions: expect.any(Array),
+      });
+    } finally {
+      room.socket.close();
+    }
+  });
+  it("本人は一覧・詳細・場面をprivate, no-storeで取得し、別のゲストには返さない", async () => {
+    const room = await complete(undefined, principal);
+    await runInRoomDO(room.roomId, (instance) => instance.alarm());
+    try {
+      for (const path of [
+        "completed-rooms",
+        `completed-rooms/${room.roomId}`,
+        `completed-rooms/${room.roomId}/scenes/problem-grouping`,
+      ]) {
+        const response = await request(path, principal);
+        expect(response.status).toBe(200);
+        expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+        if (path === "completed-rooms")
+          expect(await response.json()).toMatchObject({
+            rooms: expect.arrayContaining([
+              expect.objectContaining({ roomId: room.roomId }),
+            ]),
+          });
+      }
+      for (const suffix of ["", "/scenes/problem-grouping"])
+        expect(
+          (await request(`completed-rooms/${room.roomId}${suffix}`, other))
+            .status,
+        ).toBe(404);
+      expect(
+        await (await request("completed-rooms", other)).json(),
+      ).toMatchObject({ rooms: [] });
+    } finally {
+      room.socket.close();
+    }
+  });
+  it.each(["discard", "期限外"])(
+    "%sのゲストには一覧・詳細・場面を返さない",
+    async (condition) => {
+      const room = await complete(undefined, principal);
+      await runInRoomDO(room.roomId, (instance) => instance.alarm());
+      try {
+        if (condition === "discard") {
+          expect(
+            (
+              await request(`rooms/${room.roomId}/leave`, principal, "POST", {
+                intent: "self",
+                outcomeAccess: "discard",
+              })
+            ).status,
+          ).toBe(204);
+        } else {
+          await runInRoomDO(room.roomId, (_instance, state) => {
+            state.storage.sql.exec(
+              "UPDATE completed_room SET expires_at=?",
+              Date.now() - 1,
+            );
+          });
+        }
+        for (const suffix of ["", "/scenes/problem-grouping"])
+          expect(
+            (
+              await request(
+                `completed-rooms/${room.roomId}${suffix}`,
+                principal,
+              )
+            ).status,
+          ).toBe(404);
+        const list = await request("completed-rooms", principal);
+        expect(list.status).toBe(200);
+        expect(await list.json()).toMatchObject({
+          rooms: expect.not.arrayContaining([
+            expect.objectContaining({ roomId: room.roomId }),
+          ]),
+        });
+      } finally {
+        room.socket.close();
+      }
+    },
+  );
 });

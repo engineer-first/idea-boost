@@ -38,6 +38,20 @@ const detail = {
 };
 afterEach(() => vi.unstubAllGlobals());
 describe("本人の完了ルーム", () => {
+  it("閲覧対象と成果の保存期限を分けて案内する", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
+    );
+    render(<CompletedRooms />);
+    await screen.findByText("以前のルームはまだありません。");
+    // 本人Cookieの有効期間とは異なるため、30日を閲覧保証として案内しない。
+    expect(
+      screen.getByText(
+        "完了時に参加していたルームと、成果を残して途中退出したルームを見返せます。成果の保存期限は完了から30日間です。",
+      ),
+    ).toBeVisible();
+  });
   it("正常空から一覧を開き直さず、遅れて反映された同じルームを再取得できる", async () => {
     let resolveIndexed!: (response: Response) => void;
     const indexed = new Promise<Response>((resolve) => {
@@ -431,4 +445,17 @@ describe("read-only成果から感想へ", () => {
       "退出後の入力を残す",
     );
   });
+});
+
+it("一覧の401では同じブラウザの案内を表示しログインを要求しない", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(Response.json({}, { status: 401 })),
+  );
+  render(<CompletedRooms />);
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent(
+    "本人情報を確認できないため、成果を表示できません。成果を残したときと同じブラウザで開いてください。",
+  );
+  expect(alert).not.toHaveTextContent(/ログイン|Google/);
 });

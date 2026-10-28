@@ -4,6 +4,7 @@ import {
   type CompletedRoomSummary,
   CompletedRoomsResponseSchema,
 } from "@/contracts/completed-rooms";
+import { COMPLETED_ROOMS_IDENTITY_ERROR } from "./completed-rooms-content";
 import { CompletedRoomsView } from "./completed-rooms-view";
 export function CompletedRooms() {
   const [rooms, setRooms] = useState<CompletedRoomSummary[]>([]);
@@ -27,11 +28,12 @@ export function CompletedRooms() {
       if (request.signal.aborted) return;
       if (!response.ok) {
         if (response.status === 401 || response.status === 404) setRooms([]);
-        throw new Error(
+        setError(
           response.status === 401
-            ? "ログインし直してから再取得してください。"
-            : "以前のルームを取得できませんでした。",
+            ? COMPLETED_ROOMS_IDENTITY_ERROR
+            : "以前のルームを取得できませんでした。再取得をお試しください。",
         );
+        return;
       }
       const result = CompletedRoomsResponseSchema.parse(await response.json());
       if (request.signal.aborted) return;
@@ -46,12 +48,10 @@ export function CompletedRooms() {
           : result.rooms,
       );
       setCursor(result.nextCursor);
-    } catch (cause) {
+    } catch {
       if (!request.signal.aborted)
         setError(
-          cause instanceof Error && cause.message.startsWith("ログイン")
-            ? cause.message
-            : "以前のルームを取得できませんでした。再取得をお試しください。",
+          "以前のルームを取得できませんでした。再取得をお試しください。",
         );
     } finally {
       if (!request.signal.aborted) setLoading(false);
