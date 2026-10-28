@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 import { InviteCodeDialogView } from "./invite-code-dialog-view";
 
 const meta = {
@@ -26,5 +27,11 @@ export const Default: Story = {};
 export const Joining: Story = {
   args: {
     pending: true,
+  },
+};
+
+export const IdentityUnavailable: Story = {
+  args: {
+    message: GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE,
   },
 };

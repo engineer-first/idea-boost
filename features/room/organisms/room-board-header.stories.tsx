@@ -415,3 +415,7 @@ export const CompletionUpdateFailed: Story = {
   ...CompletionCue,
   render: (args) => <RoomBoardHeader {...args} onToggleReady={() => false} />,
 };
+
+export const GuestSession: Story = {
+  args: { sessionKind: "guest", signOutAction: fn() },
+};

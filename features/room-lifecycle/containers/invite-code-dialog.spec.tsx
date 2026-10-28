@@ -1,4 +1,5 @@
 import { loadDisplayName } from "@/features/auth";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 
 vi.mock("@/features/auth/logic/display-name-actions", () => ({
   loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
@@ -166,4 +167,23 @@ it("共通表示名が未設定でも表示名の設定を要求せず招待に�
   await userEvent.click(screen.getByTestId("invite-join-action"));
   await waitFor(() => expect(JOIN_ROOM).toHaveBeenCalledOnce());
   expect(loadDisplayName).not.toHaveBeenCalled();
+});
+
+it("本人確認不可ではActionの説明を通知しGoogle再認証へ進まない", async () => {
+  PUSH.mockClear();
+  notifyMocks.error.mockClear();
+  const user = userEvent.setup();
+  renderDialog();
+  const error = GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE;
+  JOIN_ROOM.mockResolvedValueOnce({
+    ok: false,
+    reason: "identity_unavailable",
+    error,
+  });
+  await user.click(screen.getByTestId("invite-join-action"));
+  await waitFor(() => expect(notifyMocks.error).toHaveBeenCalledWith(error));
+  expect(
+    screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+  ).not.toBeInTheDocument();
+  expect(PUSH).not.toHaveBeenCalled();
 });

@@ -49,6 +49,9 @@ export const GuestIdentityInputSchema = z.strictObject({
 });
 export type GuestIdentityInput = z.infer<typeof GuestIdentityInputSchema>;
 
+export const GuestRefreshResponseSchema = z.strictObject({ userId: z.guid() });
+export type GuestRefreshResponse = z.infer<typeof GuestRefreshResponseSchema>;
+
 // ログイン確定時に Next から api-worker へ渡す本人性の主張。
 // SESSION_SECRET で署名した短命トークンとして送るため、api-worker は
 // 内容を信頼してユーザーを D1 へ upsert できる（無認証の書き込み口を作らない）。

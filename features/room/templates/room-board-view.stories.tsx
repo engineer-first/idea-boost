@@ -1596,3 +1596,7 @@ export const IdeaDecidedMoveInteraction: Story = {
     })),
   },
 };
+
+export const GuestSession: Story = {
+  args: { sessionKind: "guest", signOutAction: fn() },
+};

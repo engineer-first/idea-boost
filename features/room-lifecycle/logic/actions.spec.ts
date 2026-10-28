@@ -4,12 +4,14 @@
 // せず ok: false で返すこと。
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { apiFetchMock, getCurrentUserMock, redirectMock } = vi.hoisted(() => ({
-  apiFetchMock:
-    vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(),
-  getCurrentUserMock: vi.fn(),
-  redirectMock: vi.fn<(url: string) => never>(),
-}));
+const { prepareSessionMock, apiFetchMock, getCurrentUserMock, redirectMock } =
+  vi.hoisted(() => ({
+    prepareSessionMock: vi.fn(),
+    apiFetchMock:
+      vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(),
+    getCurrentUserMock: vi.fn(),
+    redirectMock: vi.fn<(url: string) => never>(),
+  }));
 
 vi.mock("@/lib/api-client", () => ({
   apiFetch: apiFetchMock,
@@ -22,6 +24,19 @@ vi.mock("@/lib/session/room-entry", async (original) => ({
   ...(await original<typeof import("@/lib/session/room-entry")>()),
   issueRoomEntry: vi.fn().mockResolvedValue("entry-admission"),
 }));
+
+vi.mock("@/lib/session/room-entry-session", () => ({
+  prepareRoomEntrySession: prepareSessionMock,
+}));
+
+import {
+  ROOM_ENTRY_AUDIENCE,
+  RoomAdmissionSchema,
+} from "@/contracts/room-entry";
+import type { VerifiedSession } from "@/contracts/session";
+import { SESSION_TTL_SECONDS } from "@/lib/session/cookie";
+import { issueRoomEntry } from "@/lib/session/room-entry";
+import { verifyToken } from "@/lib/session/token";
 
 import { createRoom, joinRoom, returnToRoom } from "./actions";
 
@@ -52,7 +67,12 @@ function joinFormData(code: string): FormData {
   return formData;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/session/room-entry-session")
+  >("@/lib/session/room-entry-session");
+  prepareSessionMock.mockImplementation(actual.prepareRoomEntrySession);
+  vi.mocked(issueRoomEntry).mockResolvedValue("entry-admission");
   redirectMock.mockImplementation((url: string) => {
     throw new RedirectSignal(url);
   });
@@ -550,4 +570,145 @@ it("通常の受付失効と認証拒否・不存在を参加操作の回復へ�
       ),
     ).toBeNull();
   }
+});
+
+describe("ゲスト更新後の作成・参加・再入室", () => {
+  const now = 1_800_000_000;
+  const secret = "action-refresh-test-secret-at-least-32-bytes";
+  const roomId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const guest: VerifiedSession = {
+    kind: "guest",
+    sub: "123e4567-e89b-12d3-a456-426614174000",
+    email: null,
+    exp: now + 17999,
+  };
+  const updated = { ...guest, exp: now + SESSION_TTL_SECONDS };
+  const cases = [
+    {
+      name: "createRoom",
+      run: () =>
+        createRoom({
+          requestId: "11111111-1111-4111-8111-111111111111",
+          expectedPrincipal: guest.sub,
+        }),
+    },
+    {
+      name: "joinRoom",
+      run: () => joinRoom(joinFormData("ABC234"), guest.sub),
+    },
+    { name: "returnToRoom", run: () => returnToRoom(roomId, guest.sub) },
+  ];
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now * 1000);
+    vi.stubEnv("SESSION_SECRET", secret);
+    vi.stubEnv("PREVIEW_ENABLED", "false");
+    getCurrentUserMock.mockResolvedValue(guest);
+    prepareSessionMock.mockResolvedValue({ ok: true, user: updated });
+    const actual = await vi.importActual<
+      typeof import("@/lib/session/room-entry")
+    >("@/lib/session/room-entry");
+    vi.mocked(issueRoomEntry).mockImplementation(actual.issueRoomEntry);
+    apiFetchMock.mockImplementation(async (path) =>
+      path.startsWith("/api/completed-rooms/")
+        ? new Response(null, { status: 404 })
+        : Response.json({
+            roomId,
+            inviteCode: "ABC234",
+            isHost: true,
+            hostUserId: guest.sub,
+            phase: { kind: "lobby" },
+          }),
+    );
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  });
+
+  it.each(cases)(
+    "$name は残り5時間未満のguestを更新して成功し入室証明に更新後のexpを使う",
+    async ({ name, run }) => {
+      const result = await run();
+      expect(result).toMatchObject(
+        name === "returnToRoom" ? { kind: "ready" } : { ok: true },
+      );
+      expect(prepareSessionMock).toHaveBeenCalledWith(guest);
+      expect(result).toHaveProperty("entryToken", expect.any(String));
+      const token = "entryToken" in result ? result.entryToken : undefined;
+      expect(
+        await verifyToken(token ?? "", RoomAdmissionSchema, {
+          secret,
+          audience: ROOM_ENTRY_AUDIENCE.admission,
+        }),
+      ).toMatchObject({
+        principal: guest.sub,
+        roomId,
+        sessionExp: updated.exp,
+      });
+    },
+  );
+
+  it.each(cases)(
+    "$name は更新で本人確認不可ならidentity_unavailableを返し入室証明を発行しない",
+    async ({ name, run }) => {
+      prepareSessionMock.mockResolvedValue({
+        ok: false,
+        reason: "identity_unavailable",
+      });
+      const result = await run();
+      expect(result).toMatchObject(
+        name === "returnToRoom"
+          ? { kind: "identity_unavailable" }
+          : { ok: false, reason: "identity_unavailable" },
+      );
+      expect(result).not.toHaveProperty("entryToken");
+      expect(issueRoomEntry).not.toHaveBeenCalled();
+      expect(
+        apiFetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+      ).toEqual([]);
+    },
+  );
+
+  it.each(cases)(
+    "$name はaccountの残り5時間未満ならreauth_requiredを返す",
+    async ({ name, run }) => {
+      getCurrentUserMock.mockResolvedValue({
+        ...guest,
+        kind: "account",
+        email: "account@example.test",
+      });
+      prepareSessionMock.mockResolvedValue({
+        ok: false,
+        reason: "reauth_required",
+      });
+      expect(await run()).toMatchObject(
+        name === "returnToRoom"
+          ? { kind: "reauth_required" }
+          : { ok: false, reason: "reauth_required" },
+      );
+      expect(issueRoomEntry).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(cases)(
+    "$name は更新の通信失敗なら再試行を案内し入室証明を発行しない",
+    async ({ name, run }) => {
+      prepareSessionMock.mockResolvedValue({ ok: false, reason: "retry" });
+      const result = await run();
+      if (name === "returnToRoom") expect(result).toEqual({ kind: "retry" });
+      else {
+        expect(result).toMatchObject({
+          ok: false,
+          ...(name === "createRoom" ? { outcome: "rejected" } : {}),
+        });
+        expect(result).not.toMatchObject({ reason: "reauth_required" });
+        expect(result).toHaveProperty("error", expect.stringMatching(/再|試/));
+      }
+      expect(issueRoomEntry).not.toHaveBeenCalled();
+      expect(
+        apiFetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+      ).toEqual([]);
+    },
+  );
 });

@@ -9,16 +9,25 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DisplayNameDialog, signOut, useDisplayName } from "@/features/auth";
-import { clearStoredLastRoom } from "@/lib/room-client/last-room-storage-cleanup";
+import {
+  DisplayNameDialog,
+  SignOutControl,
+  signOut,
+  useDisplayName,
+} from "@/features/auth";
 import { aboutMenuLabel } from "./app-header-copy";
 
 export type HomeUserMenuProps = {
   userName: string;
+  sessionKind?: "guest" | "account";
   currentUserId?: string;
 };
 
-export function HomeUserMenu({ userName, currentUserId }: HomeUserMenuProps) {
+export function HomeUserMenu({
+  userName,
+  currentUserId,
+  sessionKind,
+}: HomeUserMenuProps) {
   const displayName = useDisplayName({ currentUserId });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
@@ -71,11 +80,7 @@ export function HomeUserMenu({ userName, currentUserId }: HomeUserMenuProps) {
           </Button>
         </PopoverContent>
       </Popover>
-      <form action={signOut} onSubmit={() => clearStoredLastRoom()}>
-        <Button type="submit" variant="outline" size="sm">
-          ログアウト
-        </Button>
-      </form>
+      <SignOutControl sessionKind={sessionKind} signOutAction={signOut} />
       <DisplayNameDialog
         controls={displayName}
         onClosed={() => menuTrigger.current?.focus()}

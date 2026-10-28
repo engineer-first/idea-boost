@@ -1258,3 +1258,131 @@ describe("ゲスト本人の同期と永続化", () => {
     ).toEqual([]);
   });
 });
+
+describe("ゲストの入室前更新API", () => {
+  const url = "https://api.test/api/auth/guest/refresh";
+  async function seed(
+    email: string | null = null,
+    googleSub: string | null = null,
+  ) {
+    const sub = crypto.randomUUID();
+    await env.DB.prepare(
+      "INSERT INTO users(id,email,google_sub,display_name,display_name_revision) VALUES(?,?,?,?,?)",
+    )
+      .bind(sub, email, googleSub, "保存済みの名前", 7)
+      .run();
+    return { kind: "guest" as const, sub, email: null };
+  }
+  async function rows() {
+    return (await env.DB.prepare("SELECT * FROM users ORDER BY id").all())
+      .results;
+  }
+  async function cookie(payload: Record<string, unknown>, options = {}) {
+    return `idea_boost_session=${await signToken(payload, {
+      secret: env.SESSION_SECRET,
+      audience: TOKEN_AUDIENCE.session,
+      expiresInSeconds: 600,
+      ...options,
+    })}`;
+  }
+
+  it.each(["本文なし", "別人のIDを含む本文", "不正JSONの本文"])(
+    "%sでも署名済みゲストsubだけを返しD1を変更しない",
+    async (condition) => {
+      const guest = await seed();
+      const other = await seed();
+      const before = await rows();
+      const response = await exports.default.fetch(url, {
+        method: "POST",
+        headers: {
+          Cookie: await cookie(guest),
+          "Content-Type": "application/json",
+        },
+        ...(condition === "本文なし"
+          ? {}
+          : {
+              body:
+                condition === "不正JSONの本文"
+                  ? "{"
+                  : JSON.stringify({ userId: other.sub, exp: 9999999999 }),
+            }),
+      });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ userId: guest.sub });
+      expect(await rows()).toEqual(before);
+    },
+  );
+
+  it.each(["セッションなし", "期限切れ", "別秘密"])(
+    "%sは401でD1を変更しない",
+    async (condition) => {
+      const guest = await seed();
+      const before = await rows();
+      const token =
+        condition === "セッションなし"
+          ? undefined
+          : await cookie(
+              guest,
+              condition === "期限切れ"
+                ? { expiresInSeconds: -1 }
+                : { secret: "another-secret-with-more-than-32-bytes" },
+            );
+      const response = await exports.default.fetch(url, {
+        method: "POST",
+        headers: token ? { Cookie: token } : {},
+      });
+      expect(response.status).toBe(401);
+      expect(await rows()).toEqual(before);
+    },
+  );
+
+  it("accountセッションは403でD1を変更しない", async () => {
+    const guest = await seed();
+    const before = await rows();
+    const response = await exports.default.fetch(url, {
+      method: "POST",
+      headers: {
+        Cookie: await cookie({
+          ...guest,
+          kind: "account",
+          email: "account@example.test",
+        }),
+      },
+    });
+    expect(response.status).toBe(403);
+    expect(await rows()).toEqual(before);
+  });
+
+  it("D1に行がなければ404で本人行を作らない", async () => {
+    const before = await rows();
+    const response = await exports.default.fetch(url, {
+      method: "POST",
+      headers: {
+        Cookie: await cookie({
+          kind: "guest",
+          sub: crypto.randomUUID(),
+          email: null,
+        }),
+      },
+    });
+    expect(response.status).toBe(404);
+    expect(await rows()).toEqual(before);
+  });
+
+  it.each(["email", "google_sub"])(
+    "D1の%sが設定済みなら409で全行を変更しない",
+    async (column) => {
+      const guest = await seed(
+        column === "email" ? "linked@example.test" : null,
+        column === "google_sub" ? "linked-google-sub" : null,
+      );
+      const before = await rows();
+      const response = await exports.default.fetch(url, {
+        method: "POST",
+        headers: { Cookie: await cookie(guest) },
+      });
+      expect(response.status).toBe(409);
+      expect(await rows()).toEqual(before);
+    },
+  );
+});

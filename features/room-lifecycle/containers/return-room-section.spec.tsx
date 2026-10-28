@@ -10,6 +10,7 @@ import {
   readLastRoom,
   rememberLastRoom,
 } from "@/lib/room-client/last-room-storage";
+import { GUEST_IDENTITY_UNAVAILABLE_MESSAGE } from "../logic/guest-identity-message";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -291,3 +292,28 @@ it("以前のルームを開く途中の保存通知は自動補完で移動を�
   expect(mocks.push).toHaveBeenCalledWith(`/rooms/${roomId}/start`);
   expect(mocks.confirm).toHaveBeenCalledTimes(1);
 });
+
+it.each(["初期確認", "クリック時の再確認"])(
+  "%sで本人確認不可なら引継ぎできない説明を表示しGoogle再認証へ進まない",
+  async (timing) => {
+    rememberLastRoom(userId, roomId);
+    if (timing === "初期確認")
+      mocks.confirm.mockResolvedValue({ kind: "identity_unavailable" });
+    else
+      mocks.confirm
+        .mockResolvedValueOnce({ kind: "ready", href: `/rooms/${roomId}` })
+        .mockResolvedValueOnce({ kind: "identity_unavailable" });
+    render(<ReturnRoomSection currentUserId={userId} />);
+    if (timing === "クリック時の再確認")
+      fireEvent.click(
+        await screen.findByRole("button", { name: "前のルームに戻る" }),
+      );
+    expect(
+      await screen.findByText(GUEST_IDENTITY_UNAVAILABLE_MESSAGE),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+    ).not.toBeInTheDocument();
+    expect(mocks.push).not.toHaveBeenCalled();
+  },
+);

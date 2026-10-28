@@ -5,6 +5,7 @@ import {
   type GuestNameFormViewProps,
   guestIdentityFailure,
 } from "@/features/auth";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 import {
   CreateRoomSectionView,
   type CreateRoomSectionViewProps,
@@ -168,4 +169,10 @@ export const IdentityPending: Story = {
 export const IdentityFailed: Story = {
   name: "名前の登録失敗",
   args: { identityStep: identityStates[2].props.identityStep },
+};
+
+export const IdentityUnavailable: Story = {
+  args: {
+    message: GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE,
+  },
 };

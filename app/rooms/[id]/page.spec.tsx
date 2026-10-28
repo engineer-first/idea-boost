@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   api: vi.fn(),
   enabled: vi.fn(),
   enough: vi.fn(),
+  user: vi.fn(),
+  redirect: vi.fn(),
+  prepare: vi.fn(),
 }));
 vi.mock("@/features/verification", () => ({
   isVerificationEnabled: mocks.enabled,
@@ -12,7 +15,7 @@ vi.mock("@/features/verification", () => ({
 }));
 vi.mock("@/lib/api-client", () => ({ apiFetch: mocks.api }));
 vi.mock("@/lib/session/current-user", () => ({
-  getCurrentUser: async () => ({ sub: "11111111-1111-4111-8111-111111111111" }),
+  getCurrentUser: mocks.user,
 }));
 vi.mock("@/features/auth", () => ({ signOut: vi.fn() }));
 vi.mock("@/lib/session/room-entry", () => ({
@@ -23,7 +26,14 @@ vi.mock("@/features/room-lifecycle", async () => ({
   readParticipationRecovery: (
     await import("@/features/room-lifecycle/logic/participation-recovery")
   ).readParticipationRecovery,
-  RoomAdmissionGate: () => <span>入室前の認証確認</span>,
+  RoomAdmissionGate: ({ sessionKind }: { sessionKind?: string }) => (
+    <span data-testid="admission-gate" data-session-kind={sessionKind}>
+      入室前の認証確認
+    </span>
+  ),
+  GuestIdentityUnavailable: ({ returnHref }: { returnHref: string }) => (
+    <span data-testid="identity-unavailable" data-return-href={returnHref} />
+  ),
   ParticipationSwitch: ({
     pendingOperation,
     failedOperation,
@@ -42,20 +52,30 @@ vi.mock("@/features/room-lifecycle", async () => ({
 vi.mock("@/features/room", () => ({
   RoomEntryPreview: () => <span>ルームの背景</span>,
   RoomBoard: () => <span>通常のボード</span>,
+  RoomLobby: () => <span>通常のロビー</span>,
 }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("404");
   },
-  redirect: () => {
-    throw new Error("redirect");
-  },
+  redirect: mocks.redirect,
 }));
 
 import RoomPage from "./page";
 
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+vi.mock("@/lib/session/room-entry-session", () => ({
+  prepareRoomEntrySession: mocks.prepare,
+}));
+vi.mock("@/lib/session/request-base-url", () => ({
+  getRequestBaseUrl: async () => "https://example.test",
+}));
 beforeEach(() => {
+  mocks.user.mockResolvedValue({ sub: "11111111-1111-4111-8111-111111111111" });
+  mocks.prepare.mockClear();
+  mocks.redirect.mockReset().mockImplementation(() => {
+    throw new Error("redirect");
+  });
   mocks.api.mockClear();
   mocks.enough.mockReturnValue(true);
   mocks.enabled.mockReturnValue(true);
@@ -190,5 +210,57 @@ it.each(["board", "start"])(
       failedParticipation().failure.operationId,
     );
     expect(screen.queryByText("通常のボード")).not.toBeInTheDocument();
+  },
+);
+
+it.each(["board", "start"])(
+  "%sで本人がなければログインへ強制遷移せず本人確認不可を描画する",
+  async (kind) => {
+    mocks.user.mockResolvedValue(null);
+    const Page =
+      kind === "board" ? RoomPage : (await import("./start/page")).default;
+    render(await Page({ params: Promise.resolve({ id }) }));
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    const path = `/rooms/${id}${kind === "start" ? "/start" : ""}`;
+    expect(screen.getByTestId("identity-unavailable")).toHaveAttribute(
+      "data-return-href",
+      path,
+    );
+    expect(mocks.api).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+  },
+);
+it.each(["board", "start"])(
+  "%sでゲストの時間が不足したら種別をgateへ渡し描画中にCookieを更新しない",
+  async (kind) => {
+    mocks.user.mockResolvedValue({
+      kind: "guest",
+      sub: "11111111-1111-4111-8111-111111111111",
+      email: null,
+      exp: 1800000000,
+    });
+    mocks.enough.mockReturnValue(false);
+    if (kind === "start")
+      mocks.api.mockImplementation(async (path: string) =>
+        Response.json(
+          path.endsWith("/members")
+            ? { members: [] }
+            : {
+                roomId: id,
+                inviteCode: "ABCDEF",
+                isHost: true,
+                hostUserId: "11111111-1111-4111-8111-111111111111",
+                phase: { kind: "lobby" },
+              },
+        ),
+      );
+    const Page =
+      kind === "board" ? RoomPage : (await import("./start/page")).default;
+    render(await Page({ params: Promise.resolve({ id }) }));
+    expect(screen.getByTestId("admission-gate")).toHaveAttribute(
+      "data-session-kind",
+      "guest",
+    );
+    expect(mocks.prepare).not.toHaveBeenCalled();
   },
 );

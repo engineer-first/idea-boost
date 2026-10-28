@@ -17,6 +17,7 @@ import {
   ROOM_RESUME_COOKIE,
 } from "@/contracts/room-entry";
 import { clearSessionCookie } from "@/lib/session/cookie";
+import { getCurrentUser } from "@/lib/session/current-user";
 import { DEV_PASSWORD, findDevUser } from "@/lib/session/dev-users";
 import { isDevAuthEnabled, isGoogleAuthConfigured } from "@/lib/session/env";
 import { establishSession } from "@/lib/session/establish";
@@ -84,7 +85,9 @@ export async function signInWithGoogle(next: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  const user = await getCurrentUser();
   await clearSessionCookie();
+  if (user?.kind === "guest") redirect("/");
   redirect(
     process.env.PREVIEW_ENABLED === "true"
       ? "/cdn-cgi/access/logout"

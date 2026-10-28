@@ -11,6 +11,7 @@ export { RoomAdmissionGate } from "./containers/room-admission-gate";
 export { RoomOperationResume } from "./containers/room-operation-resume";
 export { RoomReauthentication } from "./containers/room-reauthentication";
 export { readParticipationRecovery } from "./logic/participation-recovery";
+export { GuestIdentityUnavailable } from "./molecules/guest-identity-unavailable";
 export { CreateRoomSectionView } from "./templates/create-room-section-view";
 export { InviteCodeDialogView } from "./templates/invite-code-dialog-view";
 export { InviteLoadingView } from "./templates/invite-loading-view";

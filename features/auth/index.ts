@@ -1,6 +1,8 @@
 // auth feature（ログイン・ログアウト・OAuth コールバック支援）の公開境界。
 // lib/session（Cookie / JWT の発行・検証）はインフラとして別レイヤーに置き、
 // ここは「ログイン UI と認証フローの配線」だけを持つ。
+
+export { SignOutControl } from "./containers/sign-out-control";
 export {
   type DevAuthState,
   signInWithDevPassword,
@@ -18,7 +20,13 @@ export {
   type PrepareGuestIdentityResult,
   prepareGuestIdentity,
 } from "./logic/guest-identity-actions";
+
 export { guestIdentityFailure } from "./logic/guest-identity-copy";
+export {
+  type GuestRoomEntryResult,
+  refreshGuestRoomEntry,
+} from "./logic/guest-room-entry-actions";
+
 export { getLoginPath, sanitizeNextPath } from "./logic/redirects";
 export { RoomAdmissionContext } from "./logic/room-admission-context";
 export {

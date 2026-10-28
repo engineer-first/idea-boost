@@ -4,9 +4,7 @@
 // login など未ログイン画面では root layout が描画しない。
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { signOut } from "@/features/auth";
-import { clearStoredLastRoom } from "@/lib/room-client/last-room-storage-cleanup";
+import { SignOutControl, signOut } from "@/features/auth";
 
 // root layoutがAppHeaderを描画しない匿名LPでは、ホーム専用chunkを取得しない。
 // /homeの初回はSSRし、client遷移の取得待ちではメニューの操作領域を確保する。
@@ -26,10 +24,15 @@ const HomeUserMenu = dynamic(
 export type AppHeaderProps = {
   // 表示名（メールは出さない）。空ならユーザー名は描画しない。
   userName: string;
+  sessionKind?: "guest" | "account";
   currentUserId?: string;
 };
 
-export function AppHeader({ userName, currentUserId }: AppHeaderProps) {
+export function AppHeader({
+  userName,
+  currentUserId,
+  sessionKind,
+}: AppHeaderProps) {
   const pathname = usePathname();
   // スプリント開始後のボードだけは、進行レールへ統合してキャンバスを広く保つ。
   // /start のロビーなど、前後の画面では共通ヘッダーを維持する。
@@ -41,14 +44,24 @@ export function AppHeader({ userName, currentUserId }: AppHeaderProps) {
       data-testid="app-header"
     >
       <p
-        className="text-base font-semibold tracking-tight"
+        className="shrink-0 whitespace-nowrap text-base font-semibold tracking-tight"
         data-testid="app-header-brand"
       >
         Idea Boost
       </p>
-      <div className="flex min-w-0 items-center gap-3">
+      <div
+        className={
+          sessionKind === "guest"
+            ? "flex min-w-0 flex-wrap items-center justify-end gap-3"
+            : "flex min-w-0 items-center gap-3"
+        }
+      >
         {pathname === "/home" ? (
-          <HomeUserMenu userName={userName} currentUserId={currentUserId} />
+          <HomeUserMenu
+            userName={userName}
+            currentUserId={currentUserId}
+            sessionKind={sessionKind}
+          />
         ) : (
           <>
             {userName ? (
@@ -59,11 +72,7 @@ export function AppHeader({ userName, currentUserId }: AppHeaderProps) {
                 {userName}
               </span>
             ) : null}
-            <form action={signOut} onSubmit={() => clearStoredLastRoom()}>
-              <Button type="submit" variant="outline" size="sm">
-                ログアウト
-              </Button>
-            </form>
+            <SignOutControl sessionKind={sessionKind} signOutAction={signOut} />
           </>
         )}
       </div>

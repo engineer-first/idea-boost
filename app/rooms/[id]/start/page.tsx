@@ -9,6 +9,7 @@ import type { ProtocolMember } from "@/contracts/room-protocol";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomEntryPreview, RoomLobby } from "@/features/room";
 import {
+  GuestIdentityUnavailable,
   ParticipationSwitch,
   RoomAdmissionGate,
   readParticipationRecovery,
@@ -48,7 +49,9 @@ export default async function StartPage({
 
   const user = await getCurrentUser();
   if (!user) {
-    redirect(`/login?next=${encodeURIComponent(`/rooms/${id}${suffix}`)}`);
+    return (
+      <GuestIdentityUnavailable returnHref={`/rooms/${id}/start${suffix}`} />
+    );
   }
 
   // セッション必須・メンバー必須（api-worker 側で判定、404 なら notFound）。
@@ -142,6 +145,7 @@ export default async function StartPage({
       <RoomAdmissionGate
         key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
         roomId={id}
+        sessionKind={user.kind}
         fallback={
           <RoomEntryPreview
             phase={parsed.data.phase}

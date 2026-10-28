@@ -209,6 +209,7 @@ export type RoomBoardViewProps = {
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
   remoteCursors: RenderedRemoteCursorPresence[];
+  sessionKind?: "guest" | "account";
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
@@ -353,6 +354,7 @@ export function RoomBoardView({
   help,
   remoteCursors,
   signOutAction,
+  sessionKind,
   hmwDecidedIssue,
   decidedHmw,
   issueReference,
@@ -1938,6 +1940,7 @@ export function RoomBoardView({
           onPublishOutcome={onPublishOutcome}
           onShowOutcome={() => setOutcomeDismissed(false)}
           signOutAction={signOutAction}
+          sessionKind={sessionKind}
           isLeaving={isLeaving}
           onLeaveClick={() => setLeaveDialogOpen(true)}
           onNextPhase={onNextPhase}
