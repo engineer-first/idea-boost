@@ -693,9 +693,23 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
           `/completed-rooms/${completedRoomFixture().roomId}`,
         ]) {
           await page.goto(`${app}${path}`);
-          await page.waitForURL(
-            `${app}/login?next=${encodeURIComponent(path)}`,
-          );
+          await page
+            .getByRole("heading", { name: "成果を表示できません", exact: true })
+            .waitFor();
+          expect(page.url()).toBe(`${app}${path}`);
+          expect(
+            await page
+              .getByRole("link", {
+                name: "Googleでログインして使っていた場合はこちら",
+                exact: true,
+              })
+              .getAttribute("href"),
+          ).toBe(`/login?next=${encodeURIComponent(path)}`);
+          expect(
+            await page
+              .getByRole("link", { name: "ホームへ", exact: true })
+              .getAttribute("href"),
+          ).toBe("/home");
         }
         await page.goto(`${app}/login?next=%2Fhome`);
         await page.getByLabel("メールアドレス").fill("owner@example.test");
