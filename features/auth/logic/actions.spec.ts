@@ -4,15 +4,24 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   enabled: true,
   user: vi.fn(),
+  googleConfigured: false,
+  deleteCookie: vi.fn(),
+  google: vi.fn(),
   establish: vi.fn(),
   redirect: vi.fn(),
   clearSession: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/session/current-user", () => ({ getCurrentUser: mocks.user }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ delete: mocks.deleteCookie }),
+}));
+vi.mock("./google-authorization", () => ({
+  startGoogleAuthorization: mocks.google,
+}));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/session/env", () => ({
   isDevAuthEnabled: () => mocks.enabled,
-  isGoogleAuthConfigured: () => false,
+  isGoogleAuthConfigured: () => mocks.googleConfigured,
 }));
 vi.mock("@/lib/session/establish", () => ({
   establishSession: mocks.establish,
@@ -23,6 +32,7 @@ vi.mock("@/lib/session/cookie", () => ({
   OAUTH_STATE_COOKIE: "test-oauth-state",
 }));
 
+import { ACCOUNT_LINK_INTENT_COOKIE } from "@/contracts/account-link";
 import { signInWithDevPassword, signInWithGoogle, signOut } from "./actions";
 
 beforeEach(() => {
@@ -34,6 +44,7 @@ beforeEach(() => {
     email: "hana@example.test",
     exp: 1800000000,
   });
+  mocks.googleConfigured = false;
   mocks.establish.mockResolvedValue({ ok: true });
   mocks.redirect.mockImplementation((url: string) => {
     throw new Error(`redirect:${url}`);
@@ -133,4 +144,17 @@ it("ゲストの本人情報を消した後は新しく始められるトップ�
   await expect(signOut()).rejects.toThrow(/^redirect:\/$/);
   expect(mocks.clearSession).toHaveBeenCalledOnce();
   expect(mocks.user).toHaveBeenCalledOnce();
+});
+it("通常のGoogleログイン開始時に連携intent Cookieを消してからOAuthを開始する", async () => {
+  vi.stubEnv("PREVIEW_ENABLED", undefined);
+  mocks.googleConfigured = true;
+  await signInWithGoogle("/rooms");
+  expect(mocks.deleteCookie).toHaveBeenCalledWith(ACCOUNT_LINK_INTENT_COOKIE);
+  expect(mocks.google).toHaveBeenCalledOnce();
+  const deletion = mocks.deleteCookie.mock.calls.findIndex(
+    ([name]) => name === ACCOUNT_LINK_INTENT_COOKIE,
+  );
+  expect(mocks.deleteCookie.mock.invocationCallOrder[deletion]).toBeLessThan(
+    mocks.google.mock.invocationCallOrder[0],
+  );
 });

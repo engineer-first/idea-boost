@@ -459,3 +459,33 @@ it("一覧の401では同じブラウザの案内を表示しログインを要�
   );
   expect(alert).not.toHaveTextContent(/ログイン|Google/);
 });
+
+it("一覧コンテナは成果の操作より下へ任意の連携スロットを渡す", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
+  );
+  render(<CompletedRooms accountLink={<aside>連携の補助領域</aside>} />);
+  const content = await screen.findByText("以前のルームはまだありません。");
+  const slot = screen.getByText("連携の補助領域");
+  expect(
+    content.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
+it("詳細コンテナは成果の内容より下へ任意の連携スロットを渡す", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(detail)));
+  render(
+    <CompletedRoomDetail
+      roomId={roomId}
+      accountLink={<aside>連携の補助領域</aside>}
+    />,
+  );
+  const content = await screen.findByRole("button", {
+    name: "検討の経緯を見る",
+  });
+  const slot = screen.getByText("連携の補助領域");
+  expect(
+    content.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});

@@ -23,7 +23,11 @@ export function sanitizeNextPath(
     if (parsed.origin !== "http://localhost") {
       return "/";
     }
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    if (normalized.startsWith("//") || normalized.includes("\\")) {
+      return "/";
+    }
+    return normalized;
   } catch {
     return "/";
   }

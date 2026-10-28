@@ -8,6 +8,12 @@ import {
   PERMISSIONS,
 } from "../contracts/access";
 import {
+  ACCOUNT_LINK_AUDIENCE,
+  AccountLinkAssertionSchema,
+  LinkGoogleRequestSchema,
+  type LinkGoogleResponse,
+} from "../contracts/account-link";
+import {
   CreateRoomInputSchema,
   RoomLookupFailureSchema,
 } from "../contracts/api";
@@ -53,6 +59,7 @@ import {
   findRoomById,
   findUserDisplayNameById,
   findUserIdentityById,
+  linkGoogleToGuest,
   upsertUserFromAssertion,
 } from "./lib/db";
 import {
@@ -144,6 +151,36 @@ async function handleAuthSync(
     return error(409, "本人情報が競合しています。");
   if (assertion.kind === "dev") await seedDevOwnerAccess(env.DB);
   return json({ userId });
+}
+
+async function handleLinkGoogle(
+  request: Request,
+  env: ApiWorkerEnv,
+  session: VerifiedSession,
+): Promise<Response> {
+  const body = LinkGoogleRequestSchema.safeParse(await readJsonBody(request));
+  if (!body.success) return error(400, "リクエスト形式が不正です。");
+  const assertion = await verifyToken(
+    body.data.assertion,
+    AccountLinkAssertionSchema,
+    {
+      secret: env.SESSION_SECRET,
+      audience: ACCOUNT_LINK_AUDIENCE.assertion,
+    },
+  );
+  if (!assertion) return error(401, "連携主張を検証できませんでした。");
+  if (session.kind !== "guest") {
+    const result: LinkGoogleResponse = { ok: false, reason: "not_guest" };
+    return json(result, 409);
+  }
+  if (assertion.principal !== session.sub)
+    return error(403, "本人が一致しません。");
+  const result = await linkGoogleToGuest(env.DB, {
+    userId: session.sub,
+    googleSub: assertion.googleSub,
+    email: assertion.email,
+  });
+  return json(result, result.ok ? 200 : 409);
 }
 
 // POST /api/rooms — ルーム作成。D1 に行を作り、RoomDO に host を登録する。
@@ -513,6 +550,9 @@ export function createApiWorker(
       const session = await getSessionFromRequest(request, env.SESSION_SECRET);
       if (!session) {
         return error(401, "ログインが必要です。");
+      }
+      if (method === "POST" && pathname === "/api/auth/link-google") {
+        return handleLinkGoogle(request, env, session);
       }
 
       if (method === "POST" && pathname === "/api/auth/guest/refresh") {

@@ -186,3 +186,17 @@ export const IdentityUnavailable: Story = {
 export const AccessUnavailable: Story = {
   args: { room: null, error: COMPLETED_ROOMS_UNAVAILABLE_ERROR },
 };
+
+export const WithAccountLinkSlot: Story = {
+  name: "末尾に連携の補助領域あり",
+  args: {
+    accountLink: (
+      <aside
+        aria-label="連携スロット"
+        className="text-sm text-muted-foreground"
+      >
+        ページから渡された連携の補助領域
+      </aside>
+    ),
+  },
+};

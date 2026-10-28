@@ -77,3 +77,23 @@ describe("upsertUserFromAssertion（Google 分岐の UNIQUE 競合）", () => {
     );
   });
 });
+
+describe("ゲスト行へのGoogle連携", () => {
+  it("同じusers行へGoogleを追加してもname・表示名・revisionを上書きしない", async () => {
+    const { env } = await import("cloudflare:workers");
+    const { linkGoogleToGuest } = await import("./db");
+    const userId = crypto.randomUUID();
+    await upsertUserFromAssertion(env.DB, {
+      kind: "guest",
+      userId,
+      displayName: "自分で選んだ名前",
+    });
+    const read = () =>
+      env.DB.prepare("SELECT * FROM users WHERE id=?").bind(userId).first();
+    const before = await read();
+    const googleSub = `google-${crypto.randomUUID()}`;
+    const email = `${crypto.randomUUID()}@example.test`;
+    await linkGoogleToGuest(env.DB, { userId, googleSub, email });
+    expect(await read()).toEqual({ ...before, google_sub: googleSub, email });
+  });
+});

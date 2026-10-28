@@ -1,5 +1,11 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   type CompletedBoardResponse,
   CompletedBoardResponseSchema,
@@ -13,7 +19,13 @@ import {
   COMPLETED_ROOMS_IDENTITY_ERROR,
   COMPLETED_ROOMS_UNAVAILABLE_ERROR,
 } from "./completed-rooms-content";
-export function CompletedRoomDetail({ roomId }: { roomId: string }) {
+export function CompletedRoomDetail({
+  roomId,
+  accountLink,
+}: {
+  roomId: string;
+  accountLink?: ReactNode;
+}) {
   const feedback = useFeedback(roomId, submitFeedback);
   const [room, setRoom] = useState<CompletedRoom | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +123,7 @@ export function CompletedRoomDetail({ roomId }: { roomId: string }) {
     <CompletedRoomDetailView
       feedback={feedback}
       room={room}
+      accountLink={accountLink}
       loading={loading}
       error={error}
       expanded={expanded}
