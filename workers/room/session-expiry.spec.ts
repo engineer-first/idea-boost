@@ -3,6 +3,7 @@ import { env, exports } from "cloudflare:workers";
 import { SignJWT } from "jose";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
+import { issueCreationId } from "../../contracts/room-creation";
 import { TOKEN_AUDIENCE } from "../../contracts/session";
 import { getSessionFromRequest } from "../lib/session";
 import {
@@ -418,3 +419,150 @@ it("DOへの引継ぎの非同期待機中に署名済み期限を横断した�
     }
   });
 });
+
+it.each(["受信", "配信"])(
+  "同じゲストの更新後Cookieで再接続しても旧WSは期限到達後の%sで4002となり、新WSは在籍・ホスト・付箋・投票を維持する",
+  async (trigger) => {
+    const guest = { kind: "guest", sub: crypto.randomUUID(), email: null };
+    const expiry = Math.floor(Date.now() / 1000) + 60;
+    const freshExpiry = expiry + 7 * 24 * 60 * 60;
+    const cookie = async (exp: number) => {
+      const token = await new SignJWT(guest)
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuer("idea-boost")
+        .setAudience(TOKEN_AUDIENCE.session)
+        .setExpirationTime(exp)
+        .sign(new TextEncoder().encode(env.SESSION_SECRET));
+      return `idea_boost_session=${token}`;
+    };
+    const oldCookie = await cookie(expiry);
+    const created = await exports.default.fetch("https://api.test/api/rooms", {
+      method: "POST",
+      headers: { Cookie: oldCookie, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: issueCreationId().requestId,
+        expectedPrincipal: guest.sub,
+      }),
+    });
+    expect(created.status).toBe(200);
+    const { roomId } = await created.json<{ roomId: string }>();
+    await runInRoomDO(roomId, async (instance, state) => {
+      await instance.setPhase(buildPhaseStep(1), guest.sub);
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        "INSERT INTO notes (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at) VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', ?1, 'ゲストの保存済み付箋', 'private', 'yellow', 0, 0, 1, ?2, ?2)",
+        guest.sub,
+        now,
+      );
+      state.storage.sql.exec(
+        "INSERT INTO note_vote_stickers (id,note_id,user_id,kind,x,y,created_at) VALUES ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','dddddddd-dddd-4ddd-8ddd-dddddddddddd',?1,'subjective',0.5,0.5,?2)",
+        guest.sub,
+        now,
+      );
+    });
+    // Cookieを実際にWorkerで検証し、DOへ署名済みの異なるexpを引き継ぐ。
+    async function connect(sessionCookie: string) {
+      const response = await exports.default.fetch(
+        `https://api.test/api/rooms/${roomId}/ws`,
+        {
+          headers: { Upgrade: "websocket", Cookie: sessionCookie },
+        },
+      );
+      expect(response.status).toBe(101);
+      const ws = response.webSocket;
+      if (!ws) throw new Error("WebSocketがありません");
+      const messages: Record<string, unknown>[] = [];
+      const waiters: ((message: Record<string, unknown>) => void)[] = [];
+      ws.accept();
+      ws.addEventListener("message", (event) => {
+        const message = JSON.parse(String(event.data));
+        const waiter = waiters.shift();
+        if (waiter) waiter(message);
+        else messages.push(message);
+      });
+      return {
+        ws,
+        messages,
+        next: () =>
+          messages.length
+            ? Promise.resolve(messages.shift())
+            : new Promise<Record<string, unknown>>((resolve) =>
+                waiters.push(resolve),
+              ),
+      };
+    }
+    const old = await connect(oldCookie);
+    const before = await old.next();
+    const fresh = await connect(await cookie(freshExpiry));
+    const snapshot = await fresh.next();
+    expect(before).toMatchObject({
+      type: "snapshot",
+      hostUserId: guest.sub,
+      isHost: true,
+      members: [{ userId: guest.sub }],
+      notes: [
+        {
+          authorId: guest.sub,
+          content: "ゲストの保存済み付箋",
+          dotVotes: { subjective: { count: 1, votedByMe: true, ownCount: 1 } },
+        },
+      ],
+    });
+    expect(snapshot).toMatchObject({
+      type: "snapshot",
+      members: before?.members,
+      hostUserId: before?.hostUserId,
+      isHost: true,
+      notes: before?.notes,
+    });
+    const closed = new Promise<number>((resolve) =>
+      old.ws.addEventListener("close", (event) => resolve(event.code), {
+        once: true,
+      }),
+    );
+    try {
+      await runInRoomDO(roomId, async (instance, state) => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(expiry * 1000);
+        try {
+          const sockets = state.getWebSockets();
+          const expired = sockets.find(
+            (ws) => ws.deserializeAttachment().sessionExpiresAt === expiry,
+          );
+          const valid = sockets.find(
+            (ws) => ws.deserializeAttachment().sessionExpiresAt === freshExpiry,
+          );
+          if (!expired || !valid)
+            throw new Error("署名済み期限の接続がありません");
+          if (trigger === "受信")
+            await instance.webSocketMessage(
+              expired,
+              JSON.stringify({ type: "note:create", content: "失効後の本文" }),
+            );
+          new RoomBroadcaster(state).broadcastToAll({
+            type: "error",
+            code: "forbidden",
+            message: "更新後の接続だけへ配信",
+          });
+          expect(expired.readyState).not.toBe(WebSocket.OPEN);
+          expect(valid.readyState).toBe(WebSocket.OPEN);
+          expect(
+            state.storage.sql.exec("SELECT content FROM notes").toArray(),
+          ).toEqual([{ content: "ゲストの保存済み付箋" }]);
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+      expect(await closed).toBe(4002);
+      expect(await fresh.next()).toMatchObject({
+        type: "error",
+        message: "更新後の接続だけへ配信",
+      });
+      expect(old.messages).toEqual([]);
+      expect(await listMemberIds(roomId)).toEqual([guest.sub]);
+    } finally {
+      old.ws.close();
+      fresh.ws.close();
+    }
+  },
+);

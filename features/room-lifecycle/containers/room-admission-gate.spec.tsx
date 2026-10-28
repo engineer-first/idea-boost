@@ -1,11 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const consume = vi.hoisted(() => vi.fn());
+const refreshGuest = vi.hoisted(() => vi.fn());
 vi.mock("@/features/auth", async () => {
   const { createContext } = await import("react");
   return {
     consumeRoomEntry: consume,
+    refreshGuestRoomEntry: refreshGuest,
     startRoomReauthentication: vi.fn(),
     RoomAdmissionContext: createContext<string | undefined>(undefined),
   };
@@ -128,4 +131,116 @@ it("認証待ちはルームの背景を残し、接続する子はマウント�
   expect(screen.getByText("ルームの枠")).toBeInTheDocument();
   expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   expect(connected).not.toHaveBeenCalled();
+});
+
+describe("ゲストの入室前確認", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    refreshGuest.mockReset();
+  });
+  it("StrictModeでも更新は一度だけで待機中はGoogle再認証を出さず、成功後に再読み込みする", async () => {
+    let finish!: (value: { ok: true }) => void;
+    refreshGuest.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const onRefreshed = vi.fn();
+    render(
+      <StrictMode>
+        <RoomAdmissionGate
+          roomId={roomId}
+          {...{ sessionKind: "guest" as const, onRefreshed }}
+        >
+          <p>ルーム本文</p>
+        </RoomAdmissionGate>
+      </StrictMode>,
+    );
+    await waitFor(() => expect(refreshGuest).toHaveBeenCalledOnce());
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "ルームを確認しています…",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+    ).not.toBeInTheDocument();
+    finish({ ok: true });
+    await waitFor(() => expect(onRefreshed).toHaveBeenCalledOnce());
+    expect(refreshGuest).toHaveBeenCalledOnce();
+    expect(screen.queryByText("ルーム本文")).not.toBeInTheDocument();
+  });
+  it("通信失敗では手動で再試行し成功後に再読み込みする", async () => {
+    refreshGuest
+      .mockResolvedValueOnce({ ok: false, reason: "retry" })
+      .mockResolvedValueOnce({ ok: true });
+    const onRefreshed = vi.fn();
+    render(
+      <RoomAdmissionGate
+        roomId={roomId}
+        {...{ sessionKind: "guest" as const, onRefreshed }}
+      >
+        <p>ルーム本文</p>
+      </RoomAdmissionGate>,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "もう一度試す" }),
+    );
+    await waitFor(() => expect(onRefreshed).toHaveBeenCalledOnce());
+    expect(refreshGuest).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+    ).not.toBeInTheDocument();
+  });
+  it("本人確認不可では別人として始める説明とホームへのリンクを表示する", async () => {
+    refreshGuest.mockResolvedValue({
+      ok: false,
+      reason: "identity_unavailable",
+    });
+    render(
+      <RoomAdmissionGate roomId={roomId} {...{ sessionKind: "guest" as const }}>
+        <p>ルーム本文</p>
+      </RoomAdmissionGate>,
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "このブラウザでは、以前の参加者として確認できません",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "新しく始める" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(
+      screen.getByText(/以前のホスト権限・付箋・投票は引き継がれません/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+    ).not.toBeInTheDocument();
+  });
+  it("更新結果が再認証要求ならGoogle再認証を表示する", async () => {
+    refreshGuest.mockResolvedValue({ ok: false, reason: "reauth_required" });
+    render(
+      <RoomAdmissionGate roomId={roomId} {...{ sessionKind: "guest" as const }}>
+        <p>ルーム本文</p>
+      </RoomAdmissionGate>,
+    );
+    await waitFor(() => expect(refreshGuest).toHaveBeenCalledOnce());
+    expect(
+      await screen.findByRole("button", { name: "Googleでログインして続ける" }),
+    ).toBeInTheDocument();
+  });
+  it("accountの残り時間不足ではゲスト更新を呼ばずGoogle再認証を表示する", async () => {
+    render(
+      <RoomAdmissionGate
+        roomId={roomId}
+        {...{ sessionKind: "account" as const }}
+      >
+        <p>ルーム本文</p>
+      </RoomAdmissionGate>,
+    );
+    expect(
+      await screen.findByRole("button", { name: "Googleでログインして続ける" }),
+    ).toBeInTheDocument();
+    expect(refreshGuest).not.toHaveBeenCalled();
+  });
 });

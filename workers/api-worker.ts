@@ -32,6 +32,7 @@ import {
   RoomOAuthResumeSchema,
 } from "../contracts/room-entry";
 import {
+  type GuestRefreshResponse,
   LoginAssertionSchema,
   TOKEN_AUDIENCE,
   type VerifiedSession,
@@ -51,6 +52,7 @@ import {
   findRoomByCode,
   findRoomById,
   findUserDisplayNameById,
+  findUserIdentityById,
   upsertUserFromAssertion,
 } from "./lib/db";
 import {
@@ -511,6 +513,16 @@ export function createApiWorker(
       const session = await getSessionFromRequest(request, env.SESSION_SECRET);
       if (!session) {
         return error(401, "ログインが必要です。");
+      }
+
+      if (method === "POST" && pathname === "/api/auth/guest/refresh") {
+        if (session.kind !== "guest")
+          return error(403, "ゲストの本人情報が必要です。");
+        const identity = await findUserIdentityById(env.DB, session.sub);
+        if (!identity) return error(404, "本人情報が見つかりません。");
+        if (identity.email !== null || identity.google_sub !== null)
+          return error(409, "本人情報が競合しています。");
+        return json({ userId: session.sub } satisfies GuestRefreshResponse);
       }
 
       if (pathname.startsWith("/api/room-participation/"))

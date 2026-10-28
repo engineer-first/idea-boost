@@ -79,5 +79,6 @@ export const ReturnToRoomResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("unavailable_room") }),
   z.object({ kind: z.literal("retry") }),
   z.object({ kind: z.literal("reauth_required") }),
+  z.object({ kind: z.literal("identity_unavailable") }),
 ]);
 export type ReturnToRoomResult = z.infer<typeof ReturnToRoomResultSchema>;

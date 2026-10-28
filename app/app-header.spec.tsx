@@ -1,5 +1,12 @@
 // 共通ヘッダーのプレゼンテーション層テスト。
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,6 +31,7 @@ vi.mock("@/features/auth", async (importOriginal) => ({
 }));
 
 import { AppHeader } from "@/app/app-header";
+import { signOut } from "@/features/auth";
 import {
   readLastRoom,
   rememberLastRoom,
@@ -205,4 +213,69 @@ it("ホームのユーザーメニューから説明ページを開ける", asyn
   expect(
     await screen.findByRole("link", { name: "IdeaBoostについて" }),
   ).toHaveAttribute("href", "/about");
+});
+
+describe("本人情報の削除確認", () => {
+  beforeEach(() => {
+    vi.mocked(signOut).mockClear();
+  });
+  it.each(["/home", "/about"])(
+    "%sのゲストは確認して消すまでsignOutを送信しない",
+    async (pathname) => {
+      navigationMocks.pathname = pathname;
+      await renderHeader(
+        <AppHeader userName="はな" {...{ sessionKind: "guest" as const }} />,
+      );
+      expect(
+        screen.queryByRole("button", { name: "ログアウト" }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole("button", { name: "このブラウザから本人情報を消す" }),
+      );
+      const dialog = await screen.findByRole("alertdialog", {
+        name: "本人情報を消しますか？",
+      });
+      expect(dialog).toHaveTextContent(
+        "消すと、同じ本人としてこのブラウザからルームや成果に戻れなくなります。",
+      );
+      expect(dialog).toHaveTextContent(
+        "ルームから抜けるだけなら「ルームを退出」を使ってください。",
+      );
+      expect(signOut).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "消す" }));
+      await waitFor(() => expect(signOut).toHaveBeenCalledOnce());
+    },
+  );
+  it.each(["/home", "/about"])(
+    "%sの削除確認をキャンセルすると本人情報を維持する",
+    async (pathname) => {
+      navigationMocks.pathname = pathname;
+      await renderHeader(
+        <AppHeader userName="はな" {...{ sessionKind: "guest" as const }} />,
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "このブラウザから本人情報を消す" }),
+      );
+      const dialog = await screen.findByRole("alertdialog", {
+        name: "本人情報を消しますか？",
+      });
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: "キャンセル" }),
+      );
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(signOut).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["/home", "/about"])(
+    "%sのaccountは確認なしでログアウトを送信する",
+    async (pathname) => {
+      navigationMocks.pathname = pathname;
+      await renderHeader(
+        <AppHeader userName="はな" {...{ sessionKind: "account" as const }} />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "ログアウト" }));
+      await waitFor(() => expect(signOut).toHaveBeenCalledOnce());
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    },
+  );
 });

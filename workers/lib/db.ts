@@ -12,6 +12,16 @@ export type RoomRecord = {
   createdAt?: number;
 };
 
+export async function findUserIdentityById(
+  db: D1Database,
+  userId: string,
+): Promise<{ email: string | null; google_sub: string | null } | null> {
+  return db
+    .prepare("SELECT email, google_sub FROM users WHERE id = ?1")
+    .bind(userId)
+    .first<{ email: string | null; google_sub: string | null }>();
+}
+
 export async function findUserDisplayNameById(
   db: D1Database,
   userId: string,
