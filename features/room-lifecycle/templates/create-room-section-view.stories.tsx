@@ -169,3 +169,10 @@ export const IdentityFailed: Story = {
   name: "名前の登録失敗",
   args: { identityStep: identityStates[2].props.identityStep },
 };
+
+export const IdentityUnavailable: Story = {
+  args: {
+    message:
+      "このブラウザでは、以前の参加者として確認できませんでした。新しく始めると別の参加者になり、以前のホスト権限・付箋・投票は引き継がれません。",
+  },
+};

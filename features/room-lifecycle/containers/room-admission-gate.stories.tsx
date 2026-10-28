@@ -12,3 +12,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const AuthenticationRequired: Story = {};
+
+export const AccountAuthenticationRequired: Story = {
+  args: { sessionKind: "account" },
+};

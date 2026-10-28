@@ -15,6 +15,7 @@ import {
   returnToRoom,
 } from "./actions";
 import { entryDestination } from "./entry-destination";
+import { GUEST_IDENTITY_UNAVAILABLE_MESSAGE } from "./guest-identity-message";
 import { lifecycleNotify } from "./lifecycle-notify";
 import {
   discardRoomCreationRecords,
@@ -400,6 +401,10 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             }
           : await returnToRoom(roomId);
         if (!(await selected())) return;
+        if (destination.kind === "identity_unavailable") {
+          setMessage(GUEST_IDENTITY_UNAVAILABLE_MESSAGE);
+          return;
+        }
         if (destination.kind === "reauth_required") {
           setReauthentication({ kind: "return", roomId });
           return;

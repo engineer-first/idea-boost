@@ -28,3 +28,10 @@ export const Joining: Story = {
     pending: true,
   },
 };
+
+export const IdentityUnavailable: Story = {
+  args: {
+    message:
+      "このブラウザでは、以前の参加者として確認できませんでした。新しく始めると別の参加者になり、以前のホスト権限・付箋・投票は引き継がれません。",
+  },
+};

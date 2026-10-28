@@ -65,6 +65,7 @@ export type RoomBoardProps = {
   // SSR 時にサーバーから取得した初期状態。再接続時の flicker を抑える。
   initialMembers: Member[];
   initialPhase: RoomPhase;
+  sessionKind?: "guest" | "account";
   signOutAction?: () => Promise<void>;
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
@@ -104,6 +105,7 @@ export function RoomBoard({
   initialMembers,
   initialPhase,
   signOutAction,
+  sessionKind,
   webSocketFactory,
   saveDisplayNameAction,
 }: RoomBoardProps) {
@@ -792,6 +794,7 @@ export function RoomBoard({
         isNextPhasePending={isNextPhasePending}
         isSavingBeforeShare={drafts.sharingSavePending}
         signOutAction={signOutAction}
+        sessionKind={sessionKind}
         interactions={boardInteractions}
         help={help}
         remoteCursors={cursorPresence.remoteCursors}

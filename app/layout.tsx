@@ -42,6 +42,7 @@ export default async function RootLayout({
         {user ? (
           <AppHeader
             currentUserId={user.sub}
+            sessionKind={user.kind}
             userName={displayName?.ok ? (displayName.name ?? "") : ""}
           />
         ) : null}

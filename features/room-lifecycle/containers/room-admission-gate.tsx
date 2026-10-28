@@ -7,10 +7,13 @@ import {
   getRoomEntryTabId,
   matchesRoomEntryTab,
 } from "../logic/room-entry-tab";
+import { GuestEntryRefresh } from "./guest-entry-refresh";
 import { RoomReauthentication } from "./room-reauthentication";
 
 export type RoomAdmissionGateProps = {
   roomId: string;
+  sessionKind?: "guest" | "account";
+  onRefreshed?: () => void;
   stage?: "lobby" | "board";
   entryToken?: string;
   entryTabId?: string;
@@ -22,6 +25,8 @@ export type RoomAdmissionGateProps = {
 
 export function RoomAdmissionGate({
   roomId,
+  sessionKind,
+  onRefreshed,
   stage = "board",
   entryToken,
   entryTabId,
@@ -89,16 +94,27 @@ export function RoomAdmissionGate({
       </>
     );
   }
-  if (!result?.ok) {
+  const admission =
+    result ??
+    (!entryToken ? { ok: allowFreshEntry, admission: freshAdmission } : null);
+  if (!admission?.ok) {
     return (
       <>
         {fallback}
-        <RoomReauthentication operation={{ kind: "return", roomId }} />
+        {sessionKind === "guest" ? (
+          <GuestEntryRefresh
+            roomId={roomId}
+            stage={stage}
+            onRefreshed={onRefreshed}
+          />
+        ) : (
+          <RoomReauthentication operation={{ kind: "return", roomId }} />
+        )}
       </>
     );
   }
   return (
-    <RoomAdmissionContext.Provider value={result.admission}>
+    <RoomAdmissionContext.Provider value={admission.admission}>
       {children}
     </RoomAdmissionContext.Provider>
   );

@@ -21,3 +21,5 @@ export const Lobby: Story = {
     },
   },
 };
+
+export const Guest: Story = { args: { sessionKind: "guest" } };

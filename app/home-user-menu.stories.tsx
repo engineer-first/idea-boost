@@ -18,3 +18,5 @@ type Story = StoryObj<typeof meta>;
 export const SavedName: Story = {};
 export const Unset: Story = { args: { userName: "" } };
 export const LongName: Story = { args: { userName: "あ".repeat(40) } };
+
+export const Guest: Story = { args: { sessionKind: "guest" } };
