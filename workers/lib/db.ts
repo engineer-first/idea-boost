@@ -31,7 +31,7 @@ export async function findUserDisplayNameById(
 // 既に同じ id の行があれば何もしない（email の更新は sync の責務）。
 export async function ensureUser(
   db: D1Database,
-  user: { id: string; email: string; name?: string },
+  user: { id: string; email: string | null; name?: string },
 ): Promise<void> {
   await db
     .prepare(
@@ -42,12 +42,30 @@ export async function ensureUser(
 }
 
 // ログイン主張からユーザーを upsert し、内部ユーザーIDを返す。
+// - guest: 本人が選んだ表示名を初回だけ保存し、アカウントとのID衝突を拒否する
 // - dev: 主張が持つ固定IDで冪等に upsert する
 // - google: googleSub → email の順で既存ユーザーに解決し、なければ新規作成する
 export async function upsertUserFromAssertion(
   db: D1Database,
   assertion: LoginAssertion,
-): Promise<string> {
+): Promise<string | { ok: false; reason: "identity_conflict" }> {
+  if (assertion.kind === "guest") {
+    // revision=1 は本人による初回設定。入室時の名前同期で適用し、再送では更新しない。
+    await db
+      .prepare(
+        `INSERT INTO users(id,email,name,display_name,display_name_revision)
+       VALUES(?1,NULL,NULL,?2,1) ON CONFLICT(id) DO NOTHING`,
+      )
+      .bind(assertion.userId, assertion.displayName)
+      .run();
+    const guest = await db
+      .prepare(
+        "SELECT id FROM users WHERE id = ?1 AND email IS NULL AND google_sub IS NULL",
+      )
+      .bind(assertion.userId)
+      .first<{ id: string }>();
+    return guest ? guest.id : { ok: false, reason: "identity_conflict" };
+  }
   if (assertion.kind === "dev") {
     await db
       .prepare(

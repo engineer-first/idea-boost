@@ -2,28 +2,62 @@
 // Next (Cookie発行側) と api-worker (検証・D1書き込み側) の両方から参照される
 // コントラクト層。実装がどう変わっても、この形だけは互換を保つ。
 import { z } from "zod";
+import { RoomDisplayNameSchema } from "./room-protocol";
 
-// セッショントークン (HS256 JWT) のペイロード。ブラウザの HttpOnly Cookie に入る。
-// guid は Zod 3 の UUID 受理範囲を維持する。既存の本人 ID を RFC variant で拒否しない。
-export const SessionPayloadSchema = z.object({
+// ゲスト判定は kind で行い、email や name の有無で判定しない。
+// guid は既存の本人 ID の受理範囲を維持する。
+export const AccountSessionPayloadSchema = z.object({
+  kind: z.literal("account"),
   sub: z.guid(),
   email: z.email(),
   name: z.string().optional(),
 });
-
-// 検証済みJWTだけが持つ期限。発行時の本人情報とは分離する。
-export const SessionExpiresAtSchema = z.int().positive();
-export const VerifiedSessionSchema = SessionPayloadSchema.extend({
-  exp: SessionExpiresAtSchema,
+export const GuestSessionPayloadSchema = z.object({
+  kind: z.literal("guest"),
+  sub: z.guid(),
+  email: z.null(),
+  name: z.string().optional(),
 });
-export type VerifiedSession = z.infer<typeof VerifiedSessionSchema>;
 
+// 既存ユーザーを一斉ログアウトさせないため、kind がない旧形式だけを補完する。
+const normalizeLegacySession = z.unknown().transform((input) => {
+  if (typeof input === "object" && input !== null && !("kind" in input))
+    return { ...input, kind: "account" };
+  return input;
+});
+export const SessionPayloadSchema = normalizeLegacySession.pipe(
+  z.discriminatedUnion("kind", [
+    AccountSessionPayloadSchema,
+    GuestSessionPayloadSchema,
+  ]),
+);
+
+export const SessionExpiresAtSchema = z.int().positive();
+export const VerifiedSessionSchema = normalizeLegacySession.pipe(
+  z.discriminatedUnion("kind", [
+    AccountSessionPayloadSchema.extend({ exp: SessionExpiresAtSchema }),
+    GuestSessionPayloadSchema.extend({ exp: SessionExpiresAtSchema }),
+  ]),
+);
 export type SessionPayload = z.infer<typeof SessionPayloadSchema>;
+export type VerifiedSession = z.infer<typeof VerifiedSessionSchema>;
+export type GuestSession = Extract<VerifiedSession, { kind: "guest" }>;
+export type AccountSession = Extract<VerifiedSession, { kind: "account" }>;
+
+export const GuestIdentityInputSchema = z.strictObject({
+  name: RoomDisplayNameSchema,
+});
+export type GuestIdentityInput = z.infer<typeof GuestIdentityInputSchema>;
 
 // ログイン確定時に Next から api-worker へ渡す本人性の主張。
 // SESSION_SECRET で署名した短命トークンとして送るため、api-worker は
 // 内容を信頼してユーザーを D1 へ upsert できる（無認証の書き込み口を作らない）。
 export const LoginAssertionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("guest"),
+    userId: z.guid(),
+    displayName: RoomDisplayNameSchema,
+  }),
   z.object({
     kind: z.literal("google"),
     googleSub: z.string().min(1),

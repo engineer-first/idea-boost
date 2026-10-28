@@ -53,11 +53,19 @@ export async function establishSession(
     return { ok: false, error: "ユーザー情報の同期結果が不正です。" };
   }
 
-  const user: SessionPayload = {
-    sub: parsed.data.userId,
-    email: assertion.email,
-    name: assertion.name,
-  };
+  if (assertion.kind !== "google" && parsed.data.userId !== assertion.userId) {
+    return { ok: false, error: "ユーザー情報の同期結果が不正です。" };
+  }
+
+  const user: SessionPayload =
+    assertion.kind === "guest"
+      ? { kind: "guest", sub: parsed.data.userId, email: null }
+      : {
+          kind: "account",
+          sub: parsed.data.userId,
+          email: assertion.email,
+          name: assertion.name,
+        };
 
   const sessionToken = await signToken(user, {
     secret,
