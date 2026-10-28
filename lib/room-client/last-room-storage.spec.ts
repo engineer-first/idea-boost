@@ -40,4 +40,13 @@ describe("直前ルーム候補", () => {
     expect(() => rememberLastRoom(userId, roomId)).not.toThrow();
     spy.mockRestore();
   });
+  it("保存領域の削除を拒否されてもログアウト操作を止めない", () => {
+    const spy = vi
+      .spyOn(Storage.prototype, "removeItem")
+      .mockImplementation(() => {
+        throw new Error("denied");
+      });
+    expect(() => clearLastRoom()).not.toThrow();
+    spy.mockRestore();
+  });
 });
