@@ -6,6 +6,7 @@
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { getLoginPath } from "@/features/auth";
 import {
   CreateRoomSection,
   JoinRoomSection,
@@ -55,18 +56,27 @@ export function HomeView({ error, currentUserId }: HomeViewProps) {
           <JoinRoomSection />
         </div>
         <nav
-          aria-label="過去の成果"
+          aria-label={currentUserId ? "過去の成果" : "ログイン"}
           className="flex justify-end border-t border-border/60 pt-2"
         >
-          <Link
-            href="/completed-rooms"
-            className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            <span className="underline underline-offset-4">
-              過去の成果を見る
-            </span>
-            <ArrowRight className="size-4 shrink-0" aria-hidden />
-          </Link>
+          {currentUserId ? (
+            <Link
+              href="/completed-rooms"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              <span className="underline underline-offset-4">
+                過去の成果を見る
+              </span>
+              <ArrowRight className="size-4 shrink-0" aria-hidden />
+            </Link>
+          ) : (
+            <Link
+              href={getLoginPath("/home")}
+              className="inline-flex min-h-11 items-center rounded-md px-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              Googleでログインして使っていた場合はこちら
+            </Link>
+          )}
         </nav>
       </div>
     </div>

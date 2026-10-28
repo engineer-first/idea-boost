@@ -18,6 +18,7 @@ export {
   type PrepareGuestIdentityResult,
   prepareGuestIdentity,
 } from "./logic/guest-identity-actions";
+export { guestIdentityFailure } from "./logic/guest-identity-copy";
 export { getLoginPath, sanitizeNextPath } from "./logic/redirects";
 export { RoomAdmissionContext } from "./logic/room-admission-context";
 export {

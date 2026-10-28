@@ -1,5 +1,5 @@
 // ホーム template の単体テスト。
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
@@ -75,4 +75,38 @@ it("過去の成果はホーム内に取得せず、同じタブの専用一覧�
     screen.queryByRole("button", { name: "最新の一覧を取得" }),
   ).not.toBeInTheDocument();
   expect(fetch).not.toHaveBeenCalled();
+});
+
+it("本人がいなくても作成カードで名前を入力でき、招待コードも入力できる", () => {
+  renderView({ currentUserId: undefined });
+  expect(screen.getByRole("textbox", { name: "招待コード" })).toBeEnabled();
+  expect(
+    within(screen.getByTestId("home-create-room")).getByRole("textbox", {
+      name: "仲間に表示される名前",
+    }),
+  ).toBeEnabled();
+});
+
+it("本人がいない場合は過去の成果の代わりにGoogleで使っていた人のログイン入口を表示する", () => {
+  renderView({ currentUserId: undefined });
+  expect(
+    screen.queryByRole("link", { name: "過去の成果を見る" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("link", {
+      name: "Googleでログインして使っていた場合はこちら",
+    }),
+  ).toHaveAttribute("href", "/login?next=%2Fhome");
+});
+
+it("本人がいる場合は過去の成果を表示しGoogleのログイン補助リンクを表示しない", () => {
+  renderView();
+  expect(
+    screen.getByRole("link", { name: "過去の成果を見る" }),
+  ).toHaveAttribute("href", "/completed-rooms");
+  expect(
+    screen.queryByRole("link", {
+      name: "Googleでログインして使っていた場合はこちら",
+    }),
+  ).not.toBeInTheDocument();
 });
