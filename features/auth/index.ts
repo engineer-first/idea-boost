@@ -2,7 +2,16 @@
 // lib/session（Cookie / JWT の発行・検証）はインフラとして別レイヤーに置き、
 // ここは「ログイン UI と認証フローの配線」だけを持つ。
 
+export type { AccountLinkResult } from "@/contracts/account-link";
 export { SignOutControl } from "./containers/sign-out-control";
+export { completeGoogleAccountLink } from "./logic/account-link";
+export { startGoogleAccountLink } from "./logic/account-link-actions";
+export { classifyAccountLinkCallback } from "./logic/account-link-callback";
+export {
+  getAccountLinkResultMessage,
+  parseAccountLinkResult,
+} from "./logic/account-link-copy";
+export { accountLinkResultPath } from "./logic/account-link-redirects";
 export {
   type DevAuthState,
   signInWithDevPassword,
@@ -39,6 +48,10 @@ export {
   type DisplayNameControls,
   useDisplayName,
 } from "./logic/use-display-name";
+export {
+  AccountLinkSection,
+  type AccountLinkSectionProps,
+} from "./molecules/account-link-section";
 export { DisplayNameDialog } from "./molecules/display-name-dialog";
 export {
   GuestNameForm,

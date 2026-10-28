@@ -1,6 +1,7 @@
 // D1（ロビー層）へのクエリ。ルームの中身（メンバー・付箋）の真実は RoomDO が
 // 持つため、ここにあるのは「ユーザー」と「招待コード → ルーム解決」だけ。
 
+import type { LinkGoogleResponse } from "../../contracts/account-link";
 import { generateInviteCode } from "../../contracts/invite-code";
 import type { LoginAssertion } from "../../contracts/session";
 import { SHARED_OUTCOME_RETENTION_MS } from "../../contracts/shared-outcomes";
@@ -225,4 +226,26 @@ function isUniqueViolation(error: unknown): boolean {
   return (
     error instanceof Error && error.message.includes("UNIQUE constraint failed")
   );
+}
+
+// 本人の行だけを原子的に更新し、表示名とルーム内の本人性を保つ。
+export async function linkGoogleToGuest(
+  db: D1Database,
+  input: { userId: string; googleSub: string; email: string },
+): Promise<LinkGoogleResponse> {
+  try {
+    const result = await db
+      .prepare(
+        "UPDATE users SET google_sub=?2, email=?3 WHERE id=?1 AND ((google_sub IS NULL AND email IS NULL) OR google_sub=?2)",
+      )
+      .bind(input.userId, input.googleSub, input.email)
+      .run();
+    return result.meta.changes > 0
+      ? { ok: true, userId: input.userId }
+      : { ok: false, reason: "already_linked" };
+  } catch (error) {
+    if (isUniqueViolation(error))
+      return { ok: false, reason: "google_account_in_use" };
+    throw error;
+  }
 }

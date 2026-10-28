@@ -8,6 +8,11 @@ import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  ACCOUNT_LINK_AUDIENCE,
+  ACCOUNT_LINK_INTENT_COOKIE,
+  AccountLinkIntentSchema,
+} from "@/contracts/account-link";
+import {
   ROOM_ENTRY_AUDIENCE,
   ROOM_OAUTH_RESUME_COOKIE,
   ROOM_REAUTH_TTL_SECONDS,
@@ -15,6 +20,9 @@ import {
   RoomOAuthResumeSchema,
 } from "@/contracts/room-entry";
 import {
+  accountLinkResultPath,
+  classifyAccountLinkCallback,
+  completeGoogleAccountLink,
   getLoginPath,
   isEmailVerified,
   sanitizeNextPath,
@@ -37,6 +45,7 @@ const GOOGLE_JWKS = createRemoteJWKSet(
 const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 
 const OauthStateSchema = z.object({
+  purpose: z.literal("account_link").optional(),
   state: z.string().min(1),
   nonce: z.string().min(1),
   next: z.string().optional(),
@@ -92,6 +101,25 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   cookieStore.delete(OAUTH_STATE_COOKIE);
   const resumeToken = cookieStore.get(ROOM_OAUTH_RESUME_COOKIE)?.value;
   cookieStore.delete(ROOM_OAUTH_RESUME_COOKIE);
+  const linkToken = cookieStore.get(ACCOUNT_LINK_INTENT_COOKIE)?.value;
+  cookieStore.delete(ACCOUNT_LINK_INTENT_COOKIE);
+  const intent = linkToken
+    ? await verifyToken(linkToken, AccountLinkIntentSchema, {
+        secret: getSessionSecret(),
+        audience: ACCOUNT_LINK_AUDIENCE.intent,
+      })
+    : null;
+  const linkRoute = classifyAccountLinkCallback(
+    linkToken,
+    intent,
+    state,
+    oauthState,
+  );
+  if (linkRoute === "failed")
+    return NextResponse.redirect(
+      new URL(accountLinkResultPath("/", "failed"), origin),
+    );
+  const linking = linkRoute === "link" && intent !== null;
   const resume = resumeToken
     ? await verifyToken(resumeToken, RoomOAuthResumeSchema, {
         secret: getSessionSecret(),
@@ -103,16 +131,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     !state ||
     !oauthState ||
     state !== oauthState.state ||
-    (resumeToken &&
+    (!linking &&
+      resumeToken &&
       (!resume || resume.state !== state || resume.nonce !== oauthState.nonce))
   ) {
     return redirectToLogin(origin, "ログインをやり直してください。");
   }
 
   // 戻り先は state を照合できた Cookie からだけ復元する。
-  const next = sanitizeNextPath(oauthState.next);
+  const next = sanitizeNextPath(linking ? intent.next : oauthState.next);
+  const failed = (message: string): NextResponse =>
+    linking
+      ? NextResponse.redirect(
+          new URL(accountLinkResultPath(next, "failed"), origin),
+        )
+      : redirectToLogin(origin, message, next);
   if (!code) {
-    return redirectToLogin(origin, "ログインをやり直してください。", next);
+    return linking
+      ? NextResponse.redirect(
+          new URL(accountLinkResultPath(next, "cancelled"), origin),
+        )
+      : failed("ログインをやり直してください。");
   }
 
   try {
@@ -130,14 +169,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     if (!tokenResponse.ok) {
       console.error("Google token exchange failed:", tokenResponse.status);
-      return redirectToLogin(origin, "ログインに失敗しました。", next);
+      return failed("ログインに失敗しました。");
     }
 
     const { id_token: idToken } = (await tokenResponse.json()) as {
       id_token?: string;
     };
     if (!idToken) {
-      return redirectToLogin(origin, "ログインに失敗しました。", next);
+      return failed("ログインに失敗しました。");
     }
 
     let claims: z.infer<typeof GoogleClaimsSchema>;
@@ -153,19 +192,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       claims = parsed.data;
     } catch {
       console.error("Failed to verify Google id_token");
-      return redirectToLogin(origin, "ログインに失敗しました。", next);
+      return failed("ログインに失敗しました。");
     }
 
     if (claims.nonce !== oauthState.nonce) {
-      return redirectToLogin(origin, "ログインをやり直してください。", next);
+      return failed("ログインをやり直してください。");
     }
 
     // クレーム欠落も未検証扱い（fail-closed）。email でのアカウントリンクがあるため。
     if (!isEmailVerified(claims)) {
-      return redirectToLogin(
-        origin,
-        "メールアドレスが確認されていません。",
-        next,
+      return failed("メールアドレスが確認されていません。");
+    }
+
+    if (linking) {
+      const result = await completeGoogleAccountLink(intent, {
+        sub: claims.sub,
+        email: claims.email,
+        name: claims.name,
+      });
+      return NextResponse.redirect(
+        new URL(accountLinkResultPath(next, result), origin),
       );
     }
 
@@ -213,7 +259,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   } catch {
     // 通信・JSON読取・セッション確立の例外でも認証成功には進めない。
     console.error("Google login processing failed");
-    return redirectToLogin(origin, "ログインに失敗しました。", next);
+    return failed("ログインに失敗しました。");
   }
 
   // ログイン開始時に保存した戻り先（招待URL 等）へ戻す。安全化済みだが二重で通す。

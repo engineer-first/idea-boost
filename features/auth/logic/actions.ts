@@ -11,6 +11,7 @@ import { cookies } from "next/headers";
 // ときに元のURLへ戻すため、page 側から .bind(null, next) で渡される。
 // 値は必ず sanitizeNextPath でアプリ内相対パスに限定する（オープンリダイレクト防止）。
 import { redirect } from "next/navigation";
+import { ACCOUNT_LINK_INTENT_COOKIE } from "@/contracts/account-link";
 import { PREVIEW_SIGN_IN_PATH } from "@/contracts/preview";
 import {
   ROOM_OAUTH_RESUME_COOKIE,
@@ -75,6 +76,7 @@ export async function signInWithGoogle(next: string): Promise<void> {
   }
 
   const store = await cookies();
+  store.delete(ACCOUNT_LINK_INTENT_COOKIE);
   store.delete(ROOM_OAUTH_RESUME_COOKIE);
   store.delete(ROOM_RESUME_COOKIE);
   await startGoogleAuthorization(
