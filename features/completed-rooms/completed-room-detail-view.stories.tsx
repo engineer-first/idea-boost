@@ -9,6 +9,10 @@ import {
 } from "@/contracts/completed-rooms.fixture";
 import { useFeedback } from "@/features/feedback";
 import { CompletedRoomDetailView } from "./completed-room-detail-view";
+import {
+  COMPLETED_ROOMS_IDENTITY_ERROR,
+  COMPLETED_ROOMS_UNAVAILABLE_ERROR,
+} from "./completed-rooms-content";
 
 const meta = {
   title: "CompletedRooms/Detail",
@@ -174,4 +178,11 @@ export const FeedbackAfterLeave: Story = {
     );
     return <CompletedRoomDetailView {...args} feedback={feedback} />;
   },
+};
+
+export const IdentityUnavailable: Story = {
+  args: { room: null, error: COMPLETED_ROOMS_IDENTITY_ERROR },
+};
+export const AccessUnavailable: Story = {
+  args: { room: null, error: COMPLETED_ROOMS_UNAVAILABLE_ERROR },
 };

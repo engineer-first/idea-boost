@@ -43,9 +43,8 @@ export async function arrangeSharingPresenter(
 
 export type TestUser = {
   sub: string;
-  email: string;
   name: string;
-};
+} & ({ kind?: "account"; email: string } | { kind: "guest"; email: null });
 
 // RoomDO のインスタンスメソッド（と、必要なら DurableObjectState）を
 // 直接呼び出して内部状態を検査する。

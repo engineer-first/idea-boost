@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
 import { completedRoomFixture } from "@/contracts/completed-rooms.fixture";
+import { COMPLETED_ROOMS_IDENTITY_ERROR } from "./completed-rooms-content";
 import { CompletedRoomsView } from "./completed-rooms-view";
 
 const meta = {
@@ -88,4 +89,8 @@ export const EmptyThenIndexed: Story = {
 };
 export const Refreshing: Story = {
   args: { loading: true },
+};
+
+export const IdentityUnavailable: Story = {
+  args: { rooms: [], hasMore: false, error: COMPLETED_ROOMS_IDENTITY_ERROR },
 };

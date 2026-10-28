@@ -1,6 +1,9 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { isUuid } from "@/contracts/ids";
-import { CompletedRoomDetail } from "@/features/completed-rooms";
+import {
+  CompletedRoomDetail,
+  CompletedRoomsUnavailableView,
+} from "@/features/completed-rooms";
 import { getCurrentUser } from "@/lib/session/current-user";
 export const dynamic = "force-dynamic";
 export default async function CompletedRoomPage({
@@ -12,6 +15,8 @@ export default async function CompletedRoomPage({
   if (!isUuid(id)) notFound();
   const user = await getCurrentUser();
   if (!user)
-    redirect(`/login?next=${encodeURIComponent(`/completed-rooms/${id}`)}`);
+    return (
+      <CompletedRoomsUnavailableView returnPath={`/completed-rooms/${id}`} />
+    );
   return <CompletedRoomDetail key={`${user.sub}:${id}`} roomId={id} />;
 }
