@@ -1,8 +1,10 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import type { CompletedRoomSummary } from "@/contracts/completed-rooms";
 import { formatCompletedDate } from "./completed-rooms-content";
 export type CompletedRoomsViewProps = {
+  accountLink?: ReactNode;
   rooms: CompletedRoomSummary[];
   loading: boolean;
   error: string | null;
@@ -13,6 +15,7 @@ export type CompletedRoomsViewProps = {
 };
 export function CompletedRoomsView({
   rooms,
+  accountLink,
   loading,
   error,
   hasMore,
@@ -128,6 +131,9 @@ export function CompletedRoomsView({
             次のルームを表示
           </Button>
         )}
+        {accountLink ? (
+          <div className="border-t pt-6">{accountLink}</div>
+        ) : null}
       </div>
     </main>
   );

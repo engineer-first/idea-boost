@@ -14,8 +14,19 @@ import { HomeView } from "./home-view";
 const meta = {
   title: "Home/HomeView",
   component: HomeView,
-  parameters: { layout: "fullscreen" },
-  args: { currentUserId: "11111111-1111-4111-8111-111111111111" },
+  parameters: {
+    layout: "fullscreen",
+    docs: {
+      description: {
+        component:
+          "AccountLinkSection は container をそのまま描画するため、連携ボタンを押すと実際の Server Action を呼びます。操作は Auth/AccountLinkSection で確認してください。",
+      },
+    },
+  },
+  args: {
+    currentUserId: "11111111-1111-4111-8111-111111111111",
+    accountLinkStatus: undefined,
+  },
   decorators: [
     (Story) => (
       <div style={{ height: "100vh" }}>
@@ -133,4 +144,24 @@ export const WithoutIdentity: Story = {
       },
     },
   },
+};
+
+export const Guest: Story = {
+  name: "ゲスト（任意のGoogle連携）",
+  args: { accountLinkStatus: "guest" },
+};
+export const Account: Story = {
+  name: "Google連携済み",
+  args: { accountLinkStatus: "linked" },
+};
+export const AccountLinkConflict: Story = {
+  name: "別の記録で使用中のGoogleアカウント",
+  args: {
+    accountLinkStatus: "guest",
+    accountLinkResult: "google_account_in_use",
+  },
+};
+export const AccountLinkSuccess: Story = {
+  name: "Google連携完了",
+  args: { accountLinkStatus: "linked", accountLinkResult: "linked" },
 };

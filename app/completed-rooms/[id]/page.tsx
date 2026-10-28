@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
+import { ACCOUNT_LINK_RESULT_PARAM } from "@/contracts/account-link";
 import { isUuid } from "@/contracts/ids";
+import { AccountLinkSection, parseAccountLinkResult } from "@/features/auth";
 import {
   CompletedRoomDetail,
   CompletedRoomsUnavailableView,
@@ -8,8 +10,10 @@ import { getCurrentUser } from "@/lib/session/current-user";
 export const dynamic = "force-dynamic";
 export default async function CompletedRoomPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ account_link?: string | string[] }>;
 }) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
@@ -18,5 +22,18 @@ export default async function CompletedRoomPage({
     return (
       <CompletedRoomsUnavailableView returnPath={`/completed-rooms/${id}`} />
     );
-  return <CompletedRoomDetail key={`${user.sub}:${id}`} roomId={id} />;
+  const query = await searchParams;
+  return (
+    <CompletedRoomDetail
+      key={`${user.sub}:${id}`}
+      roomId={id}
+      accountLink={
+        <AccountLinkSection
+          status={user.kind === "guest" ? "guest" : "linked"}
+          next={`/completed-rooms/${id}`}
+          result={parseAccountLinkResult(query[ACCOUNT_LINK_RESULT_PARAM])}
+        />
+      }
+    />
+  );
 }

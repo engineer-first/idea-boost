@@ -18,6 +18,7 @@ const messages: Record<AccountLinkResult, string> = {
 };
 export const accountLinkButtonLabel =
   "Googleと連携して、別の端末からも記録を見返す";
+export const accountLinkPendingLabel = "Googleへ移動しています…";
 export const accountLinkGuestNotice =
   "このままでも閲覧・保存できます。成果の保存期限は変わりません";
 export const accountLinkedNotice =

@@ -6,7 +6,11 @@
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { getLoginPath } from "@/features/auth";
+import {
+  type AccountLinkResult,
+  AccountLinkSection,
+  getLoginPath,
+} from "@/features/auth";
 import {
   CreateRoomSection,
   JoinRoomSection,
@@ -17,9 +21,16 @@ import { HomeErrorAlert } from "./home-error-alert";
 export type HomeViewProps = {
   error?: string;
   currentUserId?: string;
+  accountLinkStatus?: "guest" | "linked";
+  accountLinkResult?: AccountLinkResult;
 };
 
-export function HomeView({ error, currentUserId }: HomeViewProps) {
+export function HomeView({
+  error,
+  currentUserId,
+  accountLinkStatus,
+  accountLinkResult,
+}: HomeViewProps) {
   return (
     <div
       className="relative flex h-full min-h-0 flex-1 items-start justify-center overflow-y-auto p-4 sm:p-6"
@@ -78,6 +89,13 @@ export function HomeView({ error, currentUserId }: HomeViewProps) {
             </Link>
           )}
         </nav>
+        {currentUserId && accountLinkStatus ? (
+          <AccountLinkSection
+            status={accountLinkStatus}
+            next="/home"
+            result={accountLinkResult}
+          />
+        ) : null}
       </div>
     </div>
   );

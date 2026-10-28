@@ -151,7 +151,7 @@ describe("Google連携専用callback", () => {
       if (failure === "用途不正") await intentCookie({}, "idea-boost:session");
       if (failure === "state不一致")
         await intentCookie({ state: crypto.randomUUID() });
-      result(await GET(request()), "failed", "/");
+      result(await GET(request()), "failed", "/home");
       expect(mocks.session).not.toHaveBeenCalled();
       expect(mocks.complete).not.toHaveBeenCalled();
       expect(mocks.fetch).not.toHaveBeenCalled();
@@ -159,7 +159,7 @@ describe("Google連携専用callback", () => {
   );
   it("一致する連携intentがあってもOAuthに連携用途がなければ拒否する", async () => {
     mocks.store.set(OAUTH_STATE_COOKIE, JSON.stringify({ state, nonce, next }));
-    result(await GET(request()), "failed", "/");
+    result(await GET(request()), "failed", "/home");
     expect(mocks.session).not.toHaveBeenCalled();
     expect(mocks.complete).not.toHaveBeenCalled();
     expect(mocks.fetch).not.toHaveBeenCalled();
@@ -192,7 +192,7 @@ describe("Google連携専用callback", () => {
         JSON.stringify({ state, nonce: crypto.randomUUID(), next }),
       );
     if (failure === "oauthなし") mocks.store.delete(OAUTH_STATE_COOKIE);
-    result(await GET(input), "failed", "/");
+    result(await GET(input), "failed", "/home");
     expect(mocks.fetch).not.toHaveBeenCalled();
     expect(mocks.complete).not.toHaveBeenCalled();
     expect(mocks.session).not.toHaveBeenCalled();

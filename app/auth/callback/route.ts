@@ -117,7 +117,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   );
   if (linkRoute === "failed")
     return NextResponse.redirect(
-      new URL(accountLinkResultPath("/", "failed"), origin),
+      new URL(accountLinkResultPath("/home", "failed"), origin),
     );
   const linking = linkRoute === "link" && intent !== null;
   const resume = resumeToken

@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { fn } from "storybook/test";
 import { AccountLinkSectionView } from "./account-link-section-view";
 
 const meta = {
   title: "Auth/AccountLinkSection",
   component: AccountLinkSectionView,
-  args: { status: "guest", action: () => {} },
+  args: { status: "guest", action: fn() },
   parameters: { layout: "padded" },
 } satisfies Meta<typeof AccountLinkSectionView>;
 export default meta;
@@ -21,6 +22,9 @@ export const GoogleAccountInUse: Story = {
   args: { result: "google_account_in_use" },
 };
 export const Cancelled: Story = { args: { result: "cancelled" } };
-export const AlreadyLinked: Story = { args: { result: "already_linked" } };
+export const AlreadyLinked: Story = {
+  name: "別のGoogleアカウントと連携済み（結果のみ）",
+  args: { result: "already_linked" },
+};
 export const SessionChanged: Story = { args: { result: "session_changed" } };
 export const Unavailable: Story = { args: { result: "unavailable" } };

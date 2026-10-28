@@ -6,6 +6,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  accountLinkButtonLabel,
+  accountLinkGuestNotice,
+} from "../logic/account-link-copy";
 
 const mocks = vi.hoisted(() => ({ start: vi.fn() }));
 vi.mock("../logic/account-link-actions", () => ({
@@ -22,8 +26,11 @@ describe("Google連携の案内", () => {
       <AccountLinkSection status="guest" next="/rooms?from=guest#result" />,
     );
     const button = screen.getByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
+      name: accountLinkButtonLabel,
     });
+    expect(
+      screen.getByRole("region", { name: "Googleとの連携" }),
+    ).toBeVisible();
     expect(button).toBeEnabled();
     fireEvent.click(button);
     await waitFor(() =>
@@ -36,9 +43,12 @@ describe("Google連携の案内", () => {
     const pending = Promise.withResolvers<void>();
     mocks.start.mockReturnValue(pending.promise);
     render(<AccountLinkSection status="guest" next="/rooms" />);
-    const button = screen.getByRole("button");
+    const button = screen.getByRole("button", { name: accountLinkButtonLabel });
     fireEvent.click(button);
     await waitFor(() => expect(button).toBeDisabled());
+    expect(
+      screen.getByRole("button", { name: "Googleへ移動しています…" }),
+    ).toBe(button);
     fireEvent.click(button);
     expect(mocks.start).toHaveBeenCalledOnce();
     await act(async () => pending.resolve());
@@ -46,6 +56,9 @@ describe("Google連携の案内", () => {
   });
   it("連携済みでは説明だけを表示しボタンを出さない", () => {
     render(<AccountLinkSection status="linked" next="/rooms" />);
+    expect(
+      screen.getByRole("region", { name: "Googleとの連携" }),
+    ).toBeVisible();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByText(/Googleと連携済みです/)).toBeInTheDocument();
   });
@@ -67,4 +80,45 @@ describe("Google連携の案内", () => {
       "Googleとの連携をやめました。このまま引き続き使えます。",
     );
   });
+});
+
+it.each(["guest", "linked"] as const)(
+  "%sでもalready_linkedなら結果だけを表示する",
+  (status) => {
+    render(
+      <AccountLinkSection
+        status={status}
+        next="/home"
+        result="already_linked"
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "この記録はすでに別のGoogleアカウントと連携しています。",
+    );
+    expect(
+      screen.queryByRole("button", { name: accountLinkButtonLabel }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(accountLinkGuestNotice)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Googleと連携済みです/)).not.toBeInTheDocument();
+  },
+);
+it("結果ありでマウントすると結果段落へ一度だけフォーカスする", () => {
+  const { rerender } = render(
+    <AccountLinkSection status="guest" next="/home" result="failed" />,
+  );
+  const result = screen.getByRole("status");
+  expect(result).toHaveFocus();
+  const button = screen.getByRole("button", { name: accountLinkButtonLabel });
+  button.focus();
+  rerender(
+    <AccountLinkSection status="guest" next="/home" result="cancelled" />,
+  );
+  expect(button).toHaveFocus();
+});
+it("結果なしでマウントするとほかの操作からフォーカスを奪わない", () => {
+  render(<button type="button">別の操作</button>);
+  const other = screen.getByRole("button", { name: "別の操作" });
+  other.focus();
+  render(<AccountLinkSection status="guest" next="/home" />);
+  expect(other).toHaveFocus();
 });

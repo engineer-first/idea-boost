@@ -1,12 +1,18 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   type CompletedRoomSummary,
   CompletedRoomsResponseSchema,
 } from "@/contracts/completed-rooms";
 import { COMPLETED_ROOMS_IDENTITY_ERROR } from "./completed-rooms-content";
 import { CompletedRoomsView } from "./completed-rooms-view";
-export function CompletedRooms() {
+export function CompletedRooms({ accountLink }: { accountLink?: ReactNode }) {
   const [rooms, setRooms] = useState<CompletedRoomSummary[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +70,7 @@ export function CompletedRooms() {
   return (
     <CompletedRoomsView
       rooms={rooms}
+      accountLink={accountLink}
       loading={loading}
       error={error}
       hasMore={cursor !== null}

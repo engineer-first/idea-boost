@@ -110,3 +110,19 @@ it("本人がいる場合は過去の成果を表示しGoogleのログイン補�
     }),
   ).not.toBeInTheDocument();
 });
+
+it("ゲストの連携入口より前に作成・参加の主操作と成果のリンクを配置する", async () => {
+  renderView({ accountLinkStatus: "guest" });
+  const link = screen.getByRole("button", {
+    name: "Googleと連携して、別の端末からも記録を見返す",
+  });
+  for (const primary of [
+    await screen.findByRole("button", { name: "新しいルームを作成" }),
+    screen.getByRole("button", { name: "参加する" }),
+    screen.getByRole("navigation", { name: "過去の成果" }),
+  ]) {
+    expect(
+      primary.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  }
+});
