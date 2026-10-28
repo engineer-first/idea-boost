@@ -12,10 +12,12 @@ export type SignOutControlProps = Pick<
   "sessionKind" | "variant" | "size" | "className" | "icon"
 > & {
   signOutAction: () => Promise<void>;
+  onConfirmationClosed?: () => void;
 };
 
 export function SignOutControl({
   signOutAction,
+  onConfirmationClosed,
   ...props
 }: SignOutControlProps) {
   const [confirming, setConfirming] = useState(false);
@@ -23,7 +25,10 @@ export function SignOutControl({
     <SignOutControlView
       {...props}
       confirming={confirming}
-      onConfirmingChange={setConfirming}
+      onConfirmingChange={(open) => {
+        setConfirming(open);
+        if (!open) onConfirmationClosed?.();
+      }}
       onSignOut={signOutAction}
       onSubmit={clearStoredLastRoom}
     />

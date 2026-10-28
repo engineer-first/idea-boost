@@ -23,3 +23,13 @@ export const Lobby: Story = {
 };
 
 export const Guest: Story = { args: { sessionKind: "guest" } };
+
+export const Account: Story = { args: { sessionKind: "account" } };
+export const AboutGuest: Story = {
+  args: { sessionKind: "guest" },
+  parameters: { nextjs: { navigation: { pathname: "/about" } } },
+};
+export const InviteAccount: Story = {
+  args: { sessionKind: "account" },
+  parameters: { nextjs: { navigation: { pathname: "/invite/ABC123" } } },
+};

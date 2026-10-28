@@ -5,7 +5,11 @@ import { SignOutControl } from "./sign-out-control";
 const meta = {
   title: "Auth/SignOutControl",
   component: SignOutControl,
-  args: { sessionKind: "guest", signOutAction: fn() },
+  args: {
+    sessionKind: "guest",
+    signOutAction: fn(),
+    onConfirmationClosed: fn(),
+  },
 } satisfies Meta<typeof SignOutControl>;
 export default meta;
 type Story = StoryObj<typeof meta>;
