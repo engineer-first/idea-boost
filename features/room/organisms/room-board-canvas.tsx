@@ -278,12 +278,9 @@ export function RoomBoardCanvas({
   onNoteVoteRemove,
   onNoteVoteStickerRemove,
   onNoteVoteStickerDragStart,
-  presenterView,
   isFollowingPresenterView = false,
   canFollowPresenterView = false,
   onFollowPresenterView,
-  onPresenterViewChange,
-  onManualPanStart,
   isAdoptMode,
   adoptionFocusNoteId = null,
   onAdoptionFocusChange = () => undefined,
@@ -850,10 +847,10 @@ export function RoomBoardCanvas({
         style={{
           outline:
             showPresenterViewFrame && presenterFrameColor
-              ? `2px solid ${presenterFrameColor}`
+              ? `7px solid ${presenterFrameColor}`
               : undefined,
           outlineOffset:
-            showPresenterViewFrame && presenterFrameColor ? "-2px" : undefined,
+            showPresenterViewFrame && presenterFrameColor ? "-7px" : undefined,
           borderRadius:
             showPresenterViewFrame && presenterFrameColor
               ? "0.75rem"

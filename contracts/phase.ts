@@ -99,11 +99,7 @@ export function isVotingStep(phase: RoomPhase): boolean {
 }
 
 export function isPresenterViewFollowStep(phase: RoomPhase): boolean {
-  return (
-    isPhaseStep(phase, 1, 2) ||
-    isPhaseStep(phase, 2, 2) ||
-    isPhaseStep(phase, 3, 2)
-  );
+  return isPhaseStep(phase, 1, 2) || isPhaseStep(phase, 2, 2);
 }
 
 // リアルタイムカーソルは共有作業中だけ扱う。各フェーズの Step 1 は個人執筆、
