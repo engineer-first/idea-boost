@@ -48,17 +48,17 @@ child.stdout.on("data", (data) => {
           value?.event === "pbi_priority_synced" &&
           Number.isFinite(value.scheduledTime)
         )
-          times.add(value.scheduledTime);
+          times.add(Math.floor(value.scheduledTime / 300_000));
       }
     }
     const sorted = [...times].sort((a, b) => a - b);
     if (
-      sorted.some(
-        (time, index) => index > 0 && time - sorted[index - 1] === 300_000,
-      )
+      sorted.some((time, index) => index > 0 && time - sorted[index - 1] === 1)
     ) {
       verified = true;
-      console.log("Verified: two successful cron ticks five minutes apart");
+      console.log(
+        "Verified: two successful consecutive five-minute cron windows",
+      );
       child.kill("SIGTERM");
     }
   }

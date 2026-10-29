@@ -11,6 +11,10 @@ on:
         description: 'Cloudflareの定期同期Workerをデプロイする（dry_runとは別操作）'
         type: boolean
         default: false
+      verify_scheduler:
+        description: 'デプロイせず稼働中Workerの定期同期を確認する'
+        type: boolean
+        default: false
   push:
     branches: [develop]
     paths:
@@ -30,7 +34,7 @@ concurrency:
 
 jobs:
   sync:
-    if: github.event_name == 'workflow_dispatch' && !inputs.deploy_scheduler
+    if: github.event_name == 'workflow_dispatch' && !inputs.deploy_scheduler && !inputs.verify_scheduler
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -71,7 +75,7 @@ jobs:
   deploy:
     if: github.event_name == 'push' || inputs.deploy_scheduler
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -82,7 +86,7 @@ jobs:
           cache: false
       - run: npm ci
       - run: cp workers/.dev.vars.example workers/.dev.vars
-      - run: npm run test -- .github/scripts/sync-pbi-priority.spec.ts
+      - run: npm run test -- .github/scripts/sync-pbi-priority.spec.ts scripts/check-pbi-priority-cron.spec.ts
       - run: npm run test:workers -- workers/pbi-priority/worker.spec.ts
       - run: npm run typecheck
       - name: Deploy priority scheduler
@@ -109,7 +113,22 @@ jobs:
           }), { mode: 0o600 });
           NODE
           npx wrangler deploy --config workers/pbi-priority/wrangler.jsonc --secrets-file "$PRIORITY_SECRETS_PATH"
-      - name: Verify two scheduled syncs five minutes apart
+
+  verify:
+    needs: deploy
+    if: always() && (needs.deploy.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.verify_scheduler))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: false
+      - run: npm ci
+      - name: Verify two consecutive scheduled syncs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

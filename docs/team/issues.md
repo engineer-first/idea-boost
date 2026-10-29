@@ -216,9 +216,9 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 
 認証は状態同期と同じ `ISSUE_PROJECT_APP_CLIENT_ID` / `ISSUE_PROJECT_APP_PRIVATE_KEY` を使い、新しい秘密鍵や権限は追加しない。Workerは同期ごとに短期トークンを発行し、終了時に失効する。App秘密鍵はデプロイ時にPKCS#8へ変換し、CloudflareのSecretへ格納する。HTTP公開URLは設けない。
 
-[Sync PBI Priority](../../.github/workflows/sync-pbi-priority.yml) は、対象ファイルの `develop` への反映時にWorkerをデプロイする。既存のGitHub SecretsのCloudflare認証とApp認証を使う。手動で再デプロイする場合は Actions → Sync PBI Priority → Run workflow の `deploy_scheduler` を有効にする。この操作は `dry_run` とは独立したデプロイ操作。
+[Sync PBI Priority](../../.github/workflows/sync-pbi-priority.yml) は、対象ファイルの `develop` への反映時にWorkerをデプロイする。既存のGitHub SecretsのCloudflare認証とApp認証を使う。手動で再デプロイする場合は Actions → Sync PBI Priority → Run workflow の `deploy_scheduler` を有効にする。この操作は `dry_run` とは独立したデプロイ操作。稼働中Workerの定期同期だけを再検証する場合は `verify_scheduler` を有効にする。検証ジョブは連続する5分枠の成功を2回確認する。
 
-手動同期は `deploy_scheduler` を無効にし、`dry_run` を有効にして変更予定だけを確認できる。`dry_run` も無効にするとその場で同期する。自動同期を止める場合はCloudflareの `idea-boost-pbi-priority` のCron Triggerを削除し、構成の `triggers.crons` も空にする。Actions workflowを無効にしてもWorkerの同期は止まらない。
+手動同期は `deploy_scheduler` と `verify_scheduler` を無効にし、`dry_run` を有効にして変更予定だけを確認できる。`dry_run` も無効にするとその場で同期する。自動同期を止める場合はCloudflareの `idea-boost-pbi-priority` のCron Triggerを削除し、構成の `triggers.crons` も空にする。Actions workflowを無効にしてもWorkerの同期は止まらない。
 
 定期実行はCloudflare Workersの `idea-boost-pbi-priority` → Observability / Cron Triggersで確認する。成功ログ `pbi_priority_synced` に予定時刻・更新件数・変更前後を記録する。HTTP / GraphQLエラーや更新後の不一致はCronの失敗として残る。各HTTPリクエストの上限は15秒、同期全体は4分で打ち切り、次の5分周期との重なりを避ける。
 
