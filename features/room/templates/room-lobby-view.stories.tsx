@@ -257,6 +257,17 @@ export const HostTwenty: Story = {
   },
 };
 
+export const BackgroundSolo: Story = {
+  name: "背景・1人",
+  args: {
+    ...HostFour.args,
+    roomName: buildRoomNameControls({ name: null }),
+    members: [
+      { ...buildLobbyMembers(1, ME)[0], name: "りおまる", avatarId: "face-04" },
+    ],
+  },
+};
+
 export const LongNames: Story = {
   name: "20人・長い同名と通信切断",
   args: {

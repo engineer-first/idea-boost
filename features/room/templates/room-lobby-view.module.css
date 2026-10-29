@@ -1,4 +1,5 @@
 .lobby {
+  --lobby-gutter: 16px;
   position: relative;
   display: flex;
   flex: 1;
@@ -17,8 +18,15 @@
   flex: 1;
   gap: 12px;
   width: 100%;
-  max-width: 1380px;
   margin: 0 auto;
+}
+.header,
+.connectionSlot,
+.inviteShelf,
+.footer {
+  width: 100%;
+  max-width: 1380px;
+  margin-inline: auto;
 }
 .header {
   display: flex;
@@ -71,6 +79,8 @@
 }
 
 .stage {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex: 1;
   min-width: 0;
@@ -78,6 +88,34 @@
   justify-content: center;
   gap: 12px;
   padding-block: 12px;
+}
+.stage::before,
+.stage::after {
+  position: absolute;
+  z-index: -1;
+  top: -40px;
+  bottom: 0;
+  width: clamp(40px, 14vw, 72px);
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.55;
+  pointer-events: none;
+  content: "";
+}
+.stage::before {
+  left: calc(-1 * var(--lobby-gutter));
+  background-image: url("/room/lobby-geometric-left.webp");
+  background-position: left center;
+}
+.stage::after {
+  right: calc(-1 * var(--lobby-gutter));
+  background-image: url("/room/lobby-geometric-right.webp");
+  background-position: right center;
+}
+.stage[data-density="compact"]::before,
+.stage[data-density="compact"]::after {
+  width: clamp(28px, 8vw, 48px);
+  opacity: 0.4;
 }
 .stageHeading {
   display: flex;
@@ -242,6 +280,7 @@
     grid-template-columns: minmax(0, 1fr) 130px;
   }
   .lobby {
+    --lobby-gutter: 32px;
     padding-inline: 32px;
   }
   .roomTitle h1 {
@@ -254,6 +293,17 @@
 }
 
 @media (min-width: 1024px) {
+  .stage::before,
+  .stage::after {
+    top: -120px;
+    width: clamp(160px, 18vw, 280px);
+    opacity: 1;
+  }
+  .stage[data-density="compact"]::before,
+  .stage[data-density="compact"]::after {
+    width: clamp(80px, 12vw, 200px);
+    opacity: 0.65;
+  }
   .lobby {
     padding-bottom: 8px;
   }

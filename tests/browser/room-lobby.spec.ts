@@ -207,3 +207,84 @@ test("タッチ端末では顔と名前の操作を常時示し、長い同名�
     path: "test-results/board-layout/lobby-long-names-mobile.png",
   });
 });
+
+test.each([
+  { story: "host-four", width: 1440, height: 800, touch: false },
+  { story: "host-twenty", width: 1440, height: 800, touch: false },
+  { story: "host-twenty", width: 1812, height: 900, touch: false },
+  { story: "host-four", width: 390, height: 844, touch: true },
+  { story: "host-twenty", width: 320, height: 568, touch: true },
+])(
+  "背景の装飾を読み込み、$width px・$story でも名前・招待・開始を覆わない",
+  async ({ story, width, height, touch }) => {
+    await open(story, width, height, touch);
+    const stage = page.getByRole("region", {
+      name:
+        story === "host-twenty"
+          ? "参加メンバー"
+          : "メンバーが揃ったら、はじめよう。",
+      exact: true,
+    });
+    const backgrounds = await stage.evaluate((element) =>
+      ["::before", "::after"].map((pseudo) => {
+        const style = getComputedStyle(element, pseudo);
+        return {
+          image: style.backgroundImage,
+          pointerEvents: style.pointerEvents,
+        };
+      }),
+    );
+    for (const background of backgrounds) {
+      expect(background.image).not.toBe("none");
+      expect(background.pointerEvents).toBe("none");
+    }
+    expect(
+      await stage.evaluate(async (element) =>
+        Promise.all(
+          ["::before", "::after"].map(async (pseudo) => {
+            const url = getComputedStyle(element, pseudo).backgroundImage.match(
+              /url\(["']?(.*?)["']?\)/,
+            )?.[1];
+            if (!url) return false;
+            const image = new Image();
+            image.src = url;
+            await image.decode();
+            return image.naturalWidth > 0 && image.naturalHeight > 0;
+          }),
+        ),
+      ),
+    ).toEqual([true, true]);
+    expect(
+      await page
+        .getByTestId("room-lobby-view")
+        .evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
+    for (const control of [
+      page.getByRole("button", { name: /：表示名を変更/ }),
+      page.getByRole("button", { name: "招待コードをコピー" }),
+      page.getByTestId("start-phase-button"),
+    ]) {
+      // 固定の開始操作と重なる画面下端から、操作面を中央へスクロールする。
+      await control.evaluate((element) =>
+        element.scrollIntoView({ block: "center" }),
+      );
+      const hit = await control.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const target = document.elementFromPoint(
+          rect.x + rect.width / 2,
+          rect.y + rect.height / 2,
+        );
+        return {
+          matches: element.contains(target),
+          label: element.getAttribute("aria-label") ?? element.textContent,
+          target: target?.textContent,
+          rect: rect.toJSON(),
+        };
+      });
+      expect(hit.matches, JSON.stringify(hit)).toBe(true);
+    }
+    await page.screenshot({
+      path: `test-results/board-layout/lobby-background-${width}-${story}.png`,
+    });
+  },
+);
