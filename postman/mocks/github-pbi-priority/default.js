@@ -25,6 +25,30 @@ http
       await pm.state.set("github-priority.items", seed());
       return send(200, { reset: true });
     }
+    // Synthetic GitHub App authentication for the dedicated cron Worker.
+    if (
+      req.method === "GET" &&
+      req.url === "/repos/engineer-first/idea-boost/installation"
+    )
+      return send(200, { id: 123 });
+    if (
+      req.method === "POST" &&
+      req.url === "/app/installations/123/access_tokens"
+    ) {
+      if (
+        JSON.stringify(req.body) !==
+        JSON.stringify({
+          repositories: ["idea-boost"],
+          permissions: { issues: "read", organization_projects: "write" },
+        })
+      )
+        return send(422, { message: "Unexpected token scope" });
+      return send(201, { token: "synthetic-installation-token" });
+    }
+    if (req.method === "DELETE" && req.url === "/installation/token") {
+      res.writeHead(204);
+      return res.end();
+    }
     if (req.method !== "POST" || req.url !== "/graphql")
       return send(501, { error: "Unsupported endpoint" });
     const { query, variables } = req.body ?? {};

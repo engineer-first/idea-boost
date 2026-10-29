@@ -7,8 +7,19 @@ on:
         description: '変更予定だけを確認する'
         type: boolean
         default: true
-  schedule:
-    - cron: '*/5 * * * *'
+      deploy_scheduler:
+        description: 'Cloudflareの定期同期Workerをデプロイする（dry_runとは別操作）'
+        type: boolean
+        default: false
+  push:
+    branches: [develop]
+    paths:
+      - 'workers/pbi-priority/**'
+      - 'scripts/check-pbi-priority-cron.mjs'
+      - '.github/scripts/sync-pbi-priority.*'
+      - '.github/workflows/sync-pbi-priority.yml'
+      - 'package.json'
+      - 'package-lock.json'
 
 permissions:
   contents: read
@@ -19,6 +30,7 @@ concurrency:
 
 jobs:
   sync:
+    if: github.event_name == 'workflow_dispatch' && !inputs.deploy_scheduler
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -55,3 +67,50 @@ jobs:
                 [{data: 'Issue', header: true}, {data: '変更前', header: true}, {data: '変更後', header: true}],
                 ...result.planned.map(change => [`#${change.number}`, String(change.from ?? '未設定'), String(change.to)]),
               ]).write();
+
+  deploy:
+    if: github.event_name == 'push' || inputs.deploy_scheduler
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: false
+      - run: npm ci
+      - run: cp workers/.dev.vars.example workers/.dev.vars
+      - run: npm run test -- .github/scripts/sync-pbi-priority.spec.ts
+      - run: npm run test:workers -- workers/pbi-priority/worker.spec.ts
+      - run: npm run typecheck
+      - name: Deploy priority scheduler
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ISSUE_PROJECT_APP_CLIENT_ID: ${{ vars.ISSUE_PROJECT_APP_CLIENT_ID }}
+          ISSUE_PROJECT_APP_PRIVATE_KEY: ${{ secrets.ISSUE_PROJECT_APP_PRIVATE_KEY }}
+          PRIORITY_SECRETS_PATH: ${{ runner.temp }}/pbi-priority-secrets.json
+        run: |
+          trap 'rm -f "$PRIORITY_SECRETS_PATH"' EXIT
+          node --input-type=module <<'NODE'
+          import { createPrivateKey } from 'node:crypto';
+          import { writeFileSync } from 'node:fs';
+          if (!process.env.ISSUE_PROJECT_APP_CLIENT_ID || !process.env.ISSUE_PROJECT_APP_PRIVATE_KEY) {
+            throw new Error('GitHub App credentials are missing');
+          }
+          // GitHub emits PKCS#1 keys; Web Crypto consumes PKCS#8.
+          const key = createPrivateKey(process.env.ISSUE_PROJECT_APP_PRIVATE_KEY)
+            .export({ type: 'pkcs8', format: 'pem' }).toString();
+          writeFileSync(process.env.PRIORITY_SECRETS_PATH, JSON.stringify({
+            ISSUE_PROJECT_APP_CLIENT_ID: process.env.ISSUE_PROJECT_APP_CLIENT_ID,
+            ISSUE_PROJECT_APP_PRIVATE_KEY: key,
+          }), { mode: 0o600 });
+          NODE
+          npx wrangler deploy --config workers/pbi-priority/wrangler.jsonc --secrets-file "$PRIORITY_SECRETS_PATH"
+      - name: Verify two scheduled syncs five minutes apart
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/check-pbi-priority-cron.mjs

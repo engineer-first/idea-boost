@@ -142,13 +142,14 @@ describe("PBIの優先順位同期", () => {
   });
 });
 
-it("優先順位同期は5分ごとと手動実行に限定し、既存Appを使う", () => {
+it("定期同期はActionsのscheduleに依存せず、手動同期では既存Appを使う", () => {
   const workflow = parse(
     readFileSync(".github/workflows/sync-pbi-priority.yml", "utf8"),
   );
-  expect(workflow.on.schedule).toEqual([{ cron: "*/5 * * * *" }]);
+  expect(workflow.on.schedule).toBeUndefined();
+  expect(workflow.on.push.branches).toEqual(["develop"]);
   expect(Object.keys(workflow.on).sort()).toEqual([
-    "schedule",
+    "push",
     "workflow_dispatch",
   ]);
   expect(workflow.concurrency["cancel-in-progress"]).toBe(false);
@@ -202,5 +203,27 @@ it("更新後の読み取りで数字が反映されていなければ失敗す�
     .mockResolvedValueOnce(page(snapshot()));
   await expect(syncPbiPriority({ graphql, dryRun: false })).rejects.toThrow(
     /verification failed/,
+  );
+});
+
+it("専用WorkerのCronだけが5分周期を持ち、デプロイは秘密を同じバージョンへ注入する", () => {
+  const config = JSON.parse(
+    readFileSync("workers/pbi-priority/wrangler.jsonc", "utf8"),
+  );
+  expect(config.triggers.crons).toEqual(["*/5 * * * *"]);
+  expect(config.workers_dev).toBe(false);
+  expect(config.preview_urls).toBe(false);
+  expect(config.observability.enabled).toBe(true);
+  const workflow = parse(
+    readFileSync(".github/workflows/sync-pbi-priority.yml", "utf8"),
+  );
+  expect(workflow.jobs.deploy.if).toContain("inputs.deploy_scheduler");
+  expect(workflow.jobs.sync.if).toContain("!inputs.deploy_scheduler");
+  const deploy = workflow.jobs.deploy.steps.find(
+    (step: { name?: string }) => step.name === "Deploy priority scheduler",
+  );
+  expect(deploy.run).toContain("--secrets-file");
+  expect(deploy.env.ISSUE_PROJECT_APP_PRIVATE_KEY).toContain(
+    "secrets.ISSUE_PROJECT_APP_PRIVATE_KEY",
   );
 });
