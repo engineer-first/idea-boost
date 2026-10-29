@@ -131,12 +131,15 @@ export function RoomLobbyView({
           </span>
         </header>
 
-        <RoomConnectionNotice
-          returnHref={loginReturnHref}
-          status={connectionStatus}
-          delayed={connectionDelayed}
-          className={styles.connection}
-        />
+        <div className={styles.connectionSlot}>
+          <RoomConnectionNotice
+            returnHref={loginReturnHref}
+            status={connectionStatus}
+            delayed={connectionDelayed}
+            className={styles.connection}
+            testId="lobby-connection-status"
+          />
+        </div>
 
         <section
           className={styles.stage}

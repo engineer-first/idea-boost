@@ -663,17 +663,13 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         { timeout: 5000 },
       );
       await page
-        .getByRole("heading", { name: "メンバーが揃ったら開始" })
+        .getByRole("heading", { name: "次の会", exact: true })
         .waitFor();
       expect(new URL(page.url()).pathname).toBe(second.pathname);
       // 前の単独ホストルームは同意して解散済み。保存URLで権限を復活させない。
       await page.goto(first.origin + first.pathname);
       await page.getByRole("heading", { name: "404", exact: true }).waitFor();
-      expect(
-        await page
-          .getByRole("heading", { name: "メンバーが揃ったら開始" })
-          .count(),
-      ).toBe(0);
+      expect(await page.getByTestId("room-lobby-view").count()).toBe(0);
     } finally {
       await browser.close();
     }

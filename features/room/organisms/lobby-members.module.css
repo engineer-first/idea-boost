@@ -200,6 +200,9 @@ button.peer:hover {
   .members {
     --lobby-avatar-size: 96px;
   }
+  .members[data-density="compact"] {
+    row-gap: 4px;
+  }
   .members[data-density="medium"] {
     --lobby-avatar-size: 112px;
   }
