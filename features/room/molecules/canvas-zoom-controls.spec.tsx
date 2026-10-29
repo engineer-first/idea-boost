@@ -9,8 +9,39 @@ import { useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { useCanvasCamera } from "../logic/use-canvas-camera";
 import { CanvasZoomControls } from "./canvas-zoom-controls";
+import { SharingReactionControls } from "./sharing-reaction-controls";
 
 describe("CanvasZoomControls", () => {
+  it("盤面操作中は開いているリアクションからの送信を止め、解除後に再送できる", () => {
+    const onSendReaction = vi.fn();
+    const props = {
+      zoom: 1,
+      onZoomOut: vi.fn(),
+      onResetZoom: vi.fn(),
+      onZoomIn: vi.fn(),
+      onFitToNotes: vi.fn(),
+      reactionControls: (disabled: boolean) => (
+        <SharingReactionControls
+          disabled={disabled}
+          onSendReaction={onSendReaction}
+        />
+      ),
+    };
+    const { rerender } = render(<CanvasZoomControls {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
+    const question = screen.getByRole("button", {
+      name: "どうして？のリアクションを送る",
+    });
+    rerender(<CanvasZoomControls {...props} toolDisabled />);
+    expect(question).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(question);
+    expect(onSendReaction).not.toHaveBeenCalled();
+    rerender(<CanvasZoomControls {...props} toolDisabled={false} />);
+    expect(question).toHaveAttribute("aria-disabled", "false");
+    fireEvent.click(question);
+    expect(onSendReaction).toHaveBeenCalledExactlyOnceWith("question");
+  });
+
   it("固定マップでは視野操作を隠し、移動履歴だけを残す", () => {
     const moveHistory = {
       undo: { label: "付箋の移動", reason: null, disabled: false },

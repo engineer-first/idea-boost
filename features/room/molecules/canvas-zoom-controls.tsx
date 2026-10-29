@@ -1,7 +1,7 @@
 "use client";
 
 import { Hand, Maximize2, Minus, MousePointer2, Plus } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -9,15 +9,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { SharingReactionControls as SharingReactionControlsOptions } from "../logic/use-sharing-reactions";
 import {
   MoveHistoryControls,
   type MoveHistoryControlsProps,
 } from "./move-history-controls";
-import { SharingReactionControls } from "./sharing-reaction-controls";
 
 export type CanvasZoomControlsProps = {
-  reactionControls?: SharingReactionControlsOptions;
+  reactionControls?: (disabled: boolean) => ReactNode;
   moveHistory?: MoveHistoryControlsProps;
   showNavigationControls?: boolean;
   interactionTool?: "select" | "hand";
@@ -202,12 +200,7 @@ export function CanvasZoomControls({
                 付箋全体を表示（自分だけの表示）
               </TooltipContent>
             </Tooltip>
-            {reactionControls ? (
-              <SharingReactionControls
-                {...reactionControls}
-                disabled={reactionControls.disabled || toolDisabled}
-              />
-            ) : null}
+            {reactionControls?.(toolDisabled)}
             <details
               ref={helpRef}
               data-canvas-help="true"

@@ -13,6 +13,7 @@ import {
 import type { Note } from "@/features/notes";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
+import { SharingReactionDisplay } from "../molecules/sharing-reaction-display";
 import {
   getBoardFitInsets,
   RoomBoardView,
@@ -186,15 +187,11 @@ describe("共有中のいいねの表示", () => {
     (phase) => {
       const { props, rerender } = setup({
         phase: buildPhaseStep(2, phase),
-        sharingReactions: [
-          {
-            id: ME,
-            senderId: ME,
-            kind: "like",
-            slot: 0,
-            expiresAt: Date.now() + 3_000,
-          },
-        ],
+        sharingReactionDisplay: (
+          <SharingReactionDisplay
+            reactions={[{ id: ME, kind: "like", slot: 0 }]}
+          />
+        ),
       });
       expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
 
@@ -208,15 +205,11 @@ describe("共有中のいいねの表示", () => {
   it("成果公開後は残っているいいねの受信propsを表示しない", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(2),
-      sharingReactions: [
-        {
-          id: ME,
-          senderId: ME,
-          kind: "like",
-          slot: 0,
-          expiresAt: Date.now() + 3_000,
-        },
-      ],
+      sharingReactionDisplay: (
+        <SharingReactionDisplay
+          reactions={[{ id: ME, kind: "like", slot: 0 }]}
+        />
+      ),
     });
     expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
 

@@ -50,8 +50,17 @@ import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
 import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
-import { useSharingReactions } from "../logic/use-sharing-reactions";
 import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
+import {
+  RoomSharingReactionControls,
+  RoomSharingReactionDisplay,
+  RoomSharingReactions,
+  type SharingReactionMessageHandler,
+} from "./room-sharing-reactions";
+
+const renderSharingReactionControls = (disabled: boolean) => (
+  <RoomSharingReactionControls disabled={disabled} />
+);
 
 export type RoomBoardProps = {
   roomId: string;
@@ -249,13 +258,7 @@ export function RoomBoard({
     connectionStatus,
     send,
   });
-  const sharingReactions = useSharingReactions({
-    phase: roomState.phase,
-    phaseRevision: roomState.phaseRevision,
-    connectionStatus,
-    blocked: isLeaving || isNextPhasePending || roomState.outcomePublished,
-    send,
-  });
+  const sharingReactionMessageRef = useRef<SharingReactionMessageHandler>(null);
 
   function clearCandidateNotices(): void {
     bulkUndoIdsRef.current.clear();
@@ -421,7 +424,7 @@ export function RoomBoard({
       roomState.applyMessage(message, receivedAt);
     }
     cursorPresence.applyMessage(message, receivedAt);
-    sharingReactions.applyMessage(message, receivedAt);
+    sharingReactionMessageRef.current?.applyMessage(message, receivedAt);
   }
 
   const handleNextPhase = useCallback(
@@ -698,14 +701,18 @@ export function RoomBoard({
   ]);
 
   return (
-    <>
+    <RoomSharingReactions
+      phase={roomState.phase}
+      phaseRevision={roomState.phaseRevision}
+      connectionStatus={connectionStatus}
+      blocked={isLeaving || isNextPhasePending || roomState.outcomePublished}
+      send={send}
+      messageRef={sharingReactionMessageRef}
+    >
       <RoomBoardView
         isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
-        sharingReactions={sharingReactions.reactions}
-        reactionControls={{
-          disabled: !sharingReactions.canSendReaction,
-          onSendReaction: sharingReactions.sendReaction,
-        }}
+        sharingReactionDisplay={<RoomSharingReactionDisplay />}
+        reactionControls={renderSharingReactionControls}
         loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
           undo: moveHistory.undoState,
@@ -840,6 +847,6 @@ export function RoomBoard({
         isLeaving={isLeaving}
       />
       <NoteDraftRecovery items={drafts.recoveries} />
-    </>
+    </RoomSharingReactions>
   );
 }
