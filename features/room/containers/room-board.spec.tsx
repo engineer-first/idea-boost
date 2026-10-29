@@ -395,6 +395,8 @@ it.each([
       const { socket } = connectWithSnapshot([protocolNote()], {
         phase: buildPhaseStep(2),
       });
+      // 実際の受信と同じく時刻を進め、同値のstate更新による見逃しを避ける。
+      act(() => vi.advanceTimersByTime(1));
       noteCommitProbe.onRender.mockClear();
       act(() =>
         socket.simulateServerMessage({

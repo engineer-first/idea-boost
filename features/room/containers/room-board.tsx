@@ -322,6 +322,10 @@ export function RoomBoard({
   );
 
   function handleServerMessage(message: ServerMessage) {
+    if (message.type === "reaction:received") {
+      sharingReactionMessageRef.current?.applyMessage(message, Date.now());
+      return;
+    }
     if (message.type === "sharing:updated") sharingGenerationRef.current += 1;
     if (roomName.applyMessage(message)) return;
     if (displayName.applyMessage(message)) return;
