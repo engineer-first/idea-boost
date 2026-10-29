@@ -289,6 +289,24 @@ export const CursorPresenceSchema = z.object({
 });
 export type CursorPresence = z.infer<typeof CursorPresenceSchema>;
 
+// 発表者が現在見ているホワイトボードの視点。
+// 付箋の座標やサイズそのものではなく、表示の中心とズーム倍率だけを扱う。
+export const PresenterViewSchema = z.discriminatedUnion("coordinateSpace", [
+  z.strictObject({
+    coordinateSpace: z.literal("canvas"),
+    centerX: CanvasCoordinateSchema,
+    centerY: CanvasCoordinateSchema,
+    zoom: z.number().finite().positive().max(4),
+  }),
+  z.strictObject({
+    coordinateSpace: z.literal("map"),
+    centerX: CanvasCoordinateSchema,
+    centerY: CanvasCoordinateSchema,
+    zoom: z.number().finite().positive().max(4),
+  }),
+]);
+export type PresenterView = z.infer<typeof PresenterViewSchema>;
+
 export const DecisionSchema = z.object({
   phase: z.int().min(1).max(3),
   noteId: z.guid(),
@@ -379,6 +397,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     ...NotePositionSchema,
     // null はドラッグ終了後もカーソル自体は表示し続けることを明示する。
     draggingNoteId: z.guid().nullable().optional(),
+  }),
+  z.strictObject({
+    type: z.literal("view:update"),
+    view: PresenterViewSchema,
+  }),
+  z.strictObject({
+    type: z.literal("presenter-follow:update"),
+    isFollowing: z.boolean(),
   }),
   z.object({ type: z.literal("cursor:leave") }),
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
@@ -937,6 +963,17 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     userId: z.guid(),
   }),
   z.object({ type: z.literal("cursor:left"), userId: z.guid() }),
+  // 発表者の視点を参加者へ一時的に中継する。視点は永続化しない。
+  z.strictObject({
+    type: z.literal("view:updated"),
+    userId: z.guid(),
+    view: PresenterViewSchema,
+  }),
+  z.strictObject({
+    type: z.literal("presenter-follow:status"),
+    presenterUserId: z.guid(),
+    isFollowed: z.boolean(),
+  }),
   // start_phase 成功時（ロビー離脱）にも phase:next 成功時にも使う。
   z.object({
     type: z.literal("phase:updated"),

@@ -269,6 +269,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
       return true;
     case "reaction:send":
     case "cursor:update":
+    case "view:update":
+    case "presenter-follow:update":
     case "note:share:status":
     case "note:move:status":
     case "note:move:cancel":
