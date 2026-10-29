@@ -2,22 +2,24 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import { buildLobbyPhase } from "@/contracts/phase.fixture";
 import { buildMembers } from "@/contracts/room-protocol.fixture";
-import { ROOM_MEMBERS_MAX_VISIBLE } from "@/features/room-members";
 import { buildRoomNameControls } from "../logic/room-name.fixture";
+import { buildLobbyMembers } from "../organisms/lobby-members.fixture";
 import { RoomLobbyView, type RoomLobbyViewProps } from "./room-lobby-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const LOBBY_PHASE = buildLobbyPhase();
 
+const avatarControls = {
+  pending: false,
+  disabled: false,
+  unavailable: false,
+  error: null,
+  randomize: fn(),
+};
+
 const baseArgs: RoomLobbyViewProps = {
   roomName: buildRoomNameControls(),
-  avatarChange: {
-    pending: false,
-    disabled: false,
-    unavailable: false,
-    error: null,
-    randomize: fn(),
-  },
+  avatarChange: avatarControls,
   members: buildMembers(3, ME),
   currentUserId: ME,
   isHost: true,
@@ -113,8 +115,8 @@ export const AllParticipationStates: Story = {
       { label: "ホスト・1 人", count: 1 },
       { label: "ホスト・3 人", count: 3 },
       { label: "ホスト・6 人", count: 6 },
-      { label: "ホスト・12 人（4×3 上限）", count: ROOM_MEMBERS_MAX_VISIBLE },
-      { label: "ホスト・15 人（+N）", count: 15 },
+      { label: "ホスト・12 人", count: 12 },
+      { label: "ホスト・20 人", count: 20 },
       { label: "参加者・2 人", count: 2, isHost: false },
       { label: "参加者・6 人", count: 6, isHost: false },
       { label: "参加者・15 人", count: 15, isHost: false },
@@ -222,3 +224,60 @@ export const AvatarChanging: Story = {
     },
   },
 };
+
+export const HostFour: Story = {
+  name: "円卓風・4人",
+  args: {
+    members: buildLobbyMembers(4, ME),
+    roomName: buildRoomNameControls({ name: "チームのアイデア会議" }),
+    displayName: {
+      open: false,
+      draft: "はな",
+      pending: false,
+      error: null,
+      disabled: false,
+      request: fn(),
+      onDraftChange: fn(),
+      onOpenChange: fn(),
+      onConfirm: fn(),
+    },
+  },
+};
+
+export const HostTwenty: Story = {
+  name: "最大20人・変更先なし",
+  args: {
+    ...HostFour.args,
+    members: buildLobbyMembers(20, ME),
+    avatarChange: {
+      ...avatarControls,
+      disabled: true,
+      unavailable: true,
+    },
+  },
+};
+
+export const LongNames: Story = {
+  name: "20人・長い同名と通信切断",
+  args: {
+    ...HostTwenty.args,
+    members: buildLobbyMembers(20, ME).map((member) => ({
+      ...member,
+      name: "アイデアを考えているメンバー",
+    })),
+    connectedUserIds: [ME],
+  },
+};
+
+export const AvatarError: Story = {
+  name: "顔の変更に失敗",
+  args: {
+    ...HostFour.args,
+    avatarChange: {
+      ...avatarControls,
+      error: "送信できませんでした。もう一度お試しください。",
+    },
+  },
+};
+
+export const Empty: Story = { args: { members: [] } };
