@@ -52,36 +52,48 @@ export const presenceHandlers: MessageHandlers<
       ctx.userId,
     );
   },
-  "presenter-follow:update": (ctx, message) => {
-    // 以前のフォロー先を先に解除する。
-    // 新しい発表者へ切り替える場合も、古い発表者の状態を更新できる。
-    const previousPresenterId = ctx.broadcaster.setPresenterFollow(
-      ctx.ws,
-      null,
-    );
 
+  "presenter-follow:update": (ctx, message) => {
+    // ユーザーが明示的にフォローを外した場合だけ、直ちに解除する。
     if (!message.isFollowing) {
+      const previousPresenterId = ctx.broadcaster.setPresenterFollow(
+        ctx.ws,
+        null,
+      );
+
       if (previousPresenterId) {
         ctx.broadcaster.broadcastPresenterFollowStatus(previousPresenterId);
       }
+
       return;
     }
 
     const phase = getPhase(ctx.sql);
     const sharing = getSharingState(ctx.sql);
 
-    const isSharingActive =
+    // 次の発表者への切り替え待ち中は、既存のフォロー先を維持する。
+    // startsAt が null になるまでは、新しい発表者を確定しない。
+    const isWaitingForNextPresenter =
+      isPresenterViewFollowStep(phase) &&
+      sharing !== null &&
+      sharing.status === "active" &&
+      sharing.startsAt !== null;
+
+    if (isWaitingForNextPresenter) {
+      return;
+    }
+
+    const presenter =
       sharing !== null &&
       sharing.status === "active" &&
       sharing.startsAt === null &&
-      sharing.currentIndex !== null;
+      sharing.currentIndex !== null
+        ? (sharing.order[sharing.currentIndex] ?? null)
+        : null;
 
-    const presenter = isSharingActive
-      ? (sharing.order[sharing.currentIndex!] ?? null)
-      : null;
+    const isSharingActive = presenter !== null;
 
-    // 対象フェーズ外、共有開始前、発表者不在、
-    // または発表者自身からのフォロー要求は受け付けない。
+    // 新しいフォロー先が有効かを、変更前に検証する。
     if (
       !isPresenterViewFollowStep(phase) ||
       !isSharingActive ||
@@ -89,15 +101,25 @@ export const presenceHandlers: MessageHandlers<
       presenter.userId === ctx.userId ||
       !findMember(ctx.sql, ctx.userId)
     ) {
+      const previousPresenterId = ctx.broadcaster.setPresenterFollow(
+        ctx.ws,
+        null,
+      );
+
       if (previousPresenterId) {
         ctx.broadcaster.broadcastPresenterFollowStatus(previousPresenterId);
       }
+
       return;
     }
 
-    ctx.broadcaster.setPresenterFollow(ctx.ws, presenter.userId);
+    // 有効な発表者が確定してからフォロー先を切り替える。
+    // 既存のフォロー先は、ここで新しい発表者へ置き換わる。
+    const previousPresenterId = ctx.broadcaster.setPresenterFollow(
+      ctx.ws,
+      presenter.userId,
+    );
 
-    // 発表者が変わった場合は、以前の発表者にも解除状態を通知する。
     if (previousPresenterId && previousPresenterId !== presenter.userId) {
       ctx.broadcaster.broadcastPresenterFollowStatus(previousPresenterId);
     }
