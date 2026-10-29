@@ -17,7 +17,11 @@ import {
   useState,
 } from "react";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
-import { isResultStep, type RoomPhase } from "@/contracts/phase";
+import {
+  isPresenterViewFollowStep,
+  isResultStep,
+  type RoomPhase,
+} from "@/contracts/phase";
 import {
   type ClientMessage,
   needsHostRevision,
@@ -37,6 +41,8 @@ import {
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { getBoardPermissions } from "../logic/board-permissions";
+import { screenToWorld } from "../logic/canvas-camera";
+import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
@@ -45,6 +51,7 @@ import { useCursorPresence } from "../logic/use-cursor-presence";
 import { useHostTransfer } from "../logic/use-host-transfer";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useMemberRemoval } from "../logic/use-member-removal";
+import { usePresenterView } from "../logic/use-presenter-view";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
@@ -258,6 +265,82 @@ export function RoomBoard({
     connectionStatus,
     send,
   });
+  const presenterViewPresence = usePresenterView({
+    currentUserId,
+    phase: roomState.phase,
+    connectionStatus,
+    send,
+  });
+
+  const [isFollowingPresenterView, setIsFollowingPresenterView] =
+    useState(true);
+
+  const _phaseKey =
+    roomState.phase.kind === "lobby"
+      ? "lobby"
+      : `${roomState.phase.phase}-${roomState.phase.step}`;
+
+  const activePresenterId =
+    isPresenterViewFollowStep(roomState.phase) &&
+    roomState.sharing?.status === "active" &&
+    roomState.sharing.startsAt === null &&
+    roomState.sharing.currentIndex !== null
+      ? (roomState.sharing.order[roomState.sharing.currentIndex]?.userId ??
+        null)
+      : null;
+
+  const activePresenter =
+    activePresenterId === null
+      ? null
+      : (roomState.sharing?.order.find(
+          (member) => member.userId === activePresenterId,
+        ) ?? null);
+
+  const isCurrentUserPresenter =
+    activePresenterId !== null && activePresenterId === currentUserId;
+
+  const remotePresenterView =
+    activePresenterId !== null &&
+    activePresenterId !== currentUserId &&
+    presenterViewPresence.remoteView?.userId === activePresenterId
+      ? presenterViewPresence.remoteView
+      : null;
+
+  const canFollowPresenterView = remotePresenterView !== null;
+
+  const shouldPublishPresenterFollow =
+    connectionStatus === "open" &&
+    isFollowingPresenterView &&
+    canFollowPresenterView &&
+    activePresenterId !== null &&
+    activePresenterId !== currentUserId;
+
+  const lastPublishedFollowRef = useRef(false);
+
+  useEffect(() => {
+    // 接続切断時はサーバー側の webSocketClose で解除される。
+    if (connectionStatus !== "open") {
+      lastPublishedFollowRef.current = false;
+      return;
+    }
+
+    if (lastPublishedFollowRef.current === shouldPublishPresenterFollow) {
+      return;
+    }
+
+    lastPublishedFollowRef.current = shouldPublishPresenterFollow;
+
+    send({
+      type: "presenter-follow:update",
+      isFollowing: shouldPublishPresenterFollow,
+    });
+  }, [connectionStatus, send, shouldPublishPresenterFollow]);
+
+  useEffect(() => {
+    // 対象フェーズへ入ったときはフォローを開始できる状態にする。
+    // 同じフェーズ内で発表者が交代しても、手動解除の状態は維持する。
+    setIsFollowingPresenterView(isPresenterViewFollowStep(roomState.phase));
+  }, [roomState.phase]);
   const sharingReactionMessageRef = useRef<SharingReactionMessageHandler>(null);
 
   function clearCandidateNotices(): void {
@@ -428,6 +511,7 @@ export function RoomBoard({
       roomState.applyMessage(message, receivedAt);
     }
     cursorPresence.applyMessage(message, receivedAt);
+    presenterViewPresence.applyMessage(message);
     sharingReactionMessageRef.current?.applyMessage(message, receivedAt);
   }
 
@@ -672,6 +756,8 @@ export function RoomBoard({
     ideaMapSizeLevel: roomState.ideaMap.sizeLevel,
     sharing: roomState.sharing,
     ideaMapSizeInitialized: roomState.ideaMap.initialized,
+    presenterView: remotePresenterView,
+    isFollowingPresenter: isFollowingPresenterView,
     onNoteDragStart: notes.startNoteDrag,
     onNoteDragMove: notes.moveNote,
     onNoteDragEnd: notes.endNoteDrag,
@@ -680,7 +766,51 @@ export function RoomBoard({
     onPrivateNoteUnpublish: notes.unpublishNote,
     onCursorMove: cursorPresence.updateCursor,
     onCursorLeave: cursorPresence.leaveCanvas,
+    onManualPanStart: () => setIsFollowingPresenterView(false),
   });
+
+  useEffect(() => {
+    if (
+      !isCurrentUserPresenter ||
+      connectionStatus !== "open" ||
+      !isPresenterViewFollowStep(roomState.phase) ||
+      isIdeaMapViewportStep(roomState.phase)
+    ) {
+      return;
+    }
+
+    const viewport = boardInteractions.boardScrollerRef.current;
+    if (!viewport) return;
+
+    const rect = viewport.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const insets = getBoardFitInsets(viewport);
+
+    const centerScreen = {
+      x: (insets.left + rect.width - insets.right) / 2,
+      y: (insets.top + rect.height - insets.bottom) / 2,
+    };
+
+    const center = screenToWorld(centerScreen, boardInteractions.camera);
+
+    presenterViewPresence.updateView({
+      coordinateSpace: "canvas",
+      centerX: center.x,
+      centerY: center.y,
+      zoom: boardInteractions.camera.zoom,
+    });
+  }, [
+    isCurrentUserPresenter,
+    connectionStatus,
+    boardInteractions.camera.x,
+    boardInteractions.camera.y,
+    boardInteractions.camera.zoom,
+    boardInteractions.boardScrollerRef,
+    presenterViewPresence.updateView,
+    roomState.phase,
+    boardInteractions.camera,
+  ]);
 
   useEffect(() => {
     if (connectionStatus === "open") return;
@@ -809,6 +939,27 @@ export function RoomBoard({
         interactions={boardInteractions}
         help={help}
         remoteCursors={cursorPresence.remoteCursors}
+        presenterView={remotePresenterView}
+        isFollowingPresenterView={
+          isFollowingPresenterView && canFollowPresenterView
+        }
+        canFollowPresenterView={
+          !isFollowingPresenterView && canFollowPresenterView
+        }
+        isPresenterViewOwner={isCurrentUserPresenter}
+        isPresenterViewFollowedByOthers={
+          presenterViewPresence.isFollowedByOthers
+        }
+        presenterViewName={
+          remotePresenterView ? (activePresenter?.name ?? null) : null
+        }
+        presenterViewColor={activePresenter?.color ?? null}
+        onFollowPresenterView={() => setIsFollowingPresenterView(true)}
+        onUnfollowPresenterView={() => setIsFollowingPresenterView(false)}
+        onPresenterViewChange={
+          isCurrentUserPresenter ? presenterViewPresence.updateView : undefined
+        }
+        onManualPanStart={() => setIsFollowingPresenterView(false)}
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}
