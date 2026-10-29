@@ -357,43 +357,52 @@ function openPrivateNotesToolbar() {
   return toolbar;
 }
 
-it("共有中のいいねをツールバーから送信し、配信を受けて画面に表示する", () => {
-  const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(2) });
-  const toolbar = screen.getByTestId("canvas-zoom-controls");
-  fireEvent.click(
-    within(toolbar).getByRole("button", { name: "リアクション" }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "いいねを送る" }));
-  expectSent(socket, {
-    type: "reaction:send",
-    kind: "like",
-    phaseRevision: 0,
-  });
-  expect(screen.queryByRole("img", { name: "いいね" })).not.toBeInTheDocument();
-
-  act(() =>
-    socket.simulateServerMessage({
-      type: "reaction:received",
-      id: STICKER_ID,
-      senderId: "22222222-2222-4222-8222-222222222222",
+it.each([1, 2, 3] as const)(
+  "%i-2のツールバーからいいねを送信し、配信を画面に表示する",
+  (phase) => {
+    const { socket } = connectWithSnapshot([], {
+      phase: buildPhaseStep(2, phase),
+    });
+    const toolbar = screen.getByTestId("canvas-zoom-controls");
+    fireEvent.click(
+      within(toolbar).getByRole("button", { name: "リアクション" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "いいねを送る" }));
+    expectSent(socket, {
+      type: "reaction:send",
       kind: "like",
       phaseRevision: 0,
-    }),
-  );
-  expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
-});
+    });
+    expect(
+      screen.queryByRole("img", { name: "いいね" }),
+    ).not.toBeInTheDocument();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "reaction:received",
+        id: STICKER_ID,
+        senderId: "22222222-2222-4222-8222-222222222222",
+        kind: "like",
+        phaseRevision: 0,
+      }),
+    );
+    expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
+  },
+);
 
 it.each([
-  ["like", "いいね", "いいねを送る"],
-  ["question", "どうして？", "どうして？のリアクションを送る"],
+  [1, "like", "いいね", "いいねを送る"],
+  [1, "question", "どうして？", "どうして？のリアクションを送る"],
+  [3, "like", "いいね", "いいねを送る"],
+  [3, "question", "どうして？", "どうして？のリアクションを送る"],
 ] as const)(
-  "%sの受信・送信待機・消去では付箋の描画をやり直さない",
-  (kind, label, sendLabel) => {
+  "%i-2で%sの受信・送信待機・消去では付箋の描画をやり直さない",
+  (phase, kind, label, sendLabel) => {
     vi.useFakeTimers();
     noteCommitProbe.enabled = true;
     try {
       const { socket } = connectWithSnapshot([protocolNote()], {
-        phase: buildPhaseStep(2),
+        phase: buildPhaseStep(2, phase),
       });
       // 実際の受信と同じく時刻を進め、同値のstate更新による見逃しを避ける。
       act(() => vi.advanceTimersByTime(1));

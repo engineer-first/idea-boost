@@ -49,7 +49,10 @@ describe("共有中のリアクション", () => {
     { kind: "step", phase: 1, step: 1 },
     { kind: "step", phase: 1, step: 4 },
     { kind: "step", phase: 2, step: 3 },
-    { kind: "step", phase: 3, step: 2 },
+    { kind: "step", phase: 3, step: 1 },
+    { kind: "step", phase: 3, step: 3 },
+    { kind: "step", phase: 3, step: 4 },
+    { kind: "step", phase: 3, step: 5 },
   ] as const)("対象外の工程 $phase-$step からは送れない", async (phase) => {
     const { owner, member, revision } = await setup(phase);
     try {
@@ -70,71 +73,85 @@ describe("共有中のリアクション", () => {
     }
   });
 
-  it("古い工程からのどうして？の送信を拒否する", async () => {
-    const { owner, member, revision } = await setup();
-    try {
-      member.ws.send(
-        JSON.stringify({
-          type: "reaction:send",
-          kind: "question",
-          phaseRevision: revision + 1,
-        }),
-      );
-      expect(await member.next()).toMatchObject({
-        type: "error",
-        code: "forbidden",
+  it.each([1, 3] as const)(
+    "%i-2で古い工程からのどうして？の送信を拒否する",
+    async (phase) => {
+      const { owner, member, revision } = await setup({
+        kind: "step",
+        phase,
+        step: 2,
       });
-    } finally {
-      owner.close();
-      member.close();
-    }
-  });
-
-  it("退出した接続はどうして？を送信も受信もできない", async () => {
-    const { roomId, owner, member, revision } = await setup();
-    try {
-      await runInRoomDO(roomId, (_, state) => {
-        state.storage.sql.exec(
-          "DELETE FROM members WHERE user_id=?",
-          listener.sub,
+      try {
+        member.ws.send(
+          JSON.stringify({
+            type: "reaction:send",
+            kind: "question",
+            phaseRevision: revision + 1,
+          }),
         );
+        expect(await member.next()).toMatchObject({
+          type: "error",
+          code: "forbidden",
+        });
+      } finally {
+        owner.close();
+        member.close();
+      }
+    },
+  );
+
+  it.each([1, 3] as const)(
+    "%i-2で退出した接続はどうして？を送信も受信もできない",
+    async (phase) => {
+      const { roomId, owner, member, revision } = await setup({
+        kind: "step",
+        phase,
+        step: 2,
       });
-      member.ws.send(
-        JSON.stringify({
-          type: "reaction:send",
-          kind: "question",
-          phaseRevision: revision,
-        }),
-      );
-      expect(await member.next()).toMatchObject({
-        type: "error",
-        code: "forbidden",
-      });
-      owner.ws.send(
-        JSON.stringify({
-          type: "reaction:send",
-          kind: "like",
-          phaseRevision: revision,
-        }),
-      );
-      await until(owner, "reaction:received");
-      // 有効な送信の処理後に返信を要求し、退出した接続に配信されていないことを確かめる。
-      member.ws.send(
-        JSON.stringify({
-          type: "reaction:send",
-          kind: "invalid",
-          phaseRevision: revision,
-        }),
-      );
-      expect(await member.next()).toMatchObject({
-        type: "error",
-        code: "invalid-message",
-      });
-    } finally {
-      owner.close();
-      member.close();
-    }
-  });
+      try {
+        await runInRoomDO(roomId, (_, state) => {
+          state.storage.sql.exec(
+            "DELETE FROM members WHERE user_id=?",
+            listener.sub,
+          );
+        });
+        member.ws.send(
+          JSON.stringify({
+            type: "reaction:send",
+            kind: "question",
+            phaseRevision: revision,
+          }),
+        );
+        expect(await member.next()).toMatchObject({
+          type: "error",
+          code: "forbidden",
+        });
+        owner.ws.send(
+          JSON.stringify({
+            type: "reaction:send",
+            kind: "like",
+            phaseRevision: revision,
+          }),
+        );
+        await until(owner, "reaction:received");
+        // 有効な送信の処理後に返信を要求し、退出した接続に配信されていないことを確かめる。
+        member.ws.send(
+          JSON.stringify({
+            type: "reaction:send",
+            kind: "invalid",
+            phaseRevision: revision,
+          }),
+        );
+        expect(await member.next()).toMatchObject({
+          type: "error",
+          code: "invalid-message",
+        });
+      } finally {
+        owner.close();
+        member.close();
+      }
+    },
+  );
 
   it("未認証・非メンバーはリアクション用の接続を持てない", async () => {
     const { roomId } = await createRoomAs(host);
@@ -469,7 +486,7 @@ describe("共有中のリアクション", () => {
   });
 
   it.each(
-    ([1, 2] as const).flatMap((phase) =>
+    ([1, 2, 3] as const).flatMap((phase) =>
       ["like", "clap", "surprised", "insight", "question"].map((kind) => ({
         phase,
         kind,
@@ -491,7 +508,7 @@ describe("共有中のリアクション", () => {
             phaseRevision: revision,
           }),
         );
-        const event = await until(owner, "reaction:received");
+        const event = await until(member, "reaction:received");
         expect(event).toEqual({
           type: "reaction:received",
           id: expect.any(String),
@@ -499,7 +516,7 @@ describe("共有中のリアクション", () => {
           kind,
           phaseRevision: revision,
         });
-        expect(await until(member, "reaction:received")).toEqual(event);
+        expect(await until(owner, "reaction:received")).toEqual(event);
         const reconnect = await connectRoomAs(listener, roomId);
         try {
           expect(await reconnect.next()).not.toHaveProperty("reactions");

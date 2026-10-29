@@ -1,5 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { ClientMessageSchema, ServerMessageSchema } from "./room-protocol";
+import { canSendSharingReaction } from "./sharing-reactions";
+
+describe("リアクションを使える工程", () => {
+  it.each([1, 2, 3] as const)("%i-2では送信できる", (phase) => {
+    expect(canSendSharingReaction({ kind: "step", phase, step: 2 })).toBe(true);
+  });
+
+  it.each([
+    { kind: "lobby" },
+    { kind: "step", phase: 1, step: 1 },
+    { kind: "step", phase: 1, step: 3 },
+    { kind: "step", phase: 1, step: 4 },
+    { kind: "step", phase: 1, step: 5 },
+    { kind: "step", phase: 2, step: 1 },
+    { kind: "step", phase: 2, step: 3 },
+    { kind: "step", phase: 2, step: 4 },
+    { kind: "step", phase: 3, step: 1 },
+    { kind: "step", phase: 3, step: 3 },
+    { kind: "step", phase: 3, step: 4 },
+    { kind: "step", phase: 3, step: 5 },
+  ] as const)("$kind $phase-$stepでは送信できない", (phase) => {
+    expect(canSendSharingReaction(phase)).toBe(false);
+  });
+});
 
 describe("共有中のリアクションの送受信", () => {
   const request = { type: "reaction:send", kind: "like", phaseRevision: 3 };

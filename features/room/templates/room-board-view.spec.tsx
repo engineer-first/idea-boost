@@ -182,7 +182,7 @@ function setup(
 }
 
 describe("共有中のいいねの表示", () => {
-  it.each([1, 2] as const)(
+  it.each([1, 2, 3] as const)(
     "%i-2で受信したいいねを表示し、対象外工程へ進むと消す",
     (phase) => {
       const { props, rerender } = setup({
