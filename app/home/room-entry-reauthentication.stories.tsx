@@ -4,8 +4,7 @@ import { buildLobbyPhase, buildPhaseStep } from "@/contracts/phase.fixture";
 import { buildMembers } from "@/contracts/room-protocol.fixture";
 import { RoomEntryPreview } from "@/features/room";
 import {
-  CreateRoomSectionView,
-  JoinRoomSectionView,
+  InviteCodeDialogView,
   RoomAdmissionGate,
   RoomReauthentication,
 } from "@/features/room-lifecycle";
@@ -36,37 +35,17 @@ const meta = {
 } satisfies Meta<typeof RoomReauthentication>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Home: Story = {
+export const Invite: Story = {
   render: (args) => (
     <>
-      <AppHeader userName="Owner" />
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-muted/40 p-4 sm:p-6">
-        <div className="my-auto flex w-full max-w-2xl flex-col gap-6">
-          <header className="space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              アイデア出しを始めましょう
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              新しいルームを作成するか、招待コードを入力して参加できます。
-            </p>
-          </header>
-          <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
-            <CreateRoomSectionView
-              intentName="新しいサービスの相談"
-              onSubmit={fn()}
-            />
-            <JoinRoomSectionView
-              code="AB12CD"
-              onCodeChange={fn()}
-              dialogOpen={false}
-              onDialogOpenChange={fn()}
-              hostName="Owner"
-              onSubmit={fn()}
-              onConfirm={fn()}
-            />
-          </div>
-        </div>
-      </div>
+      <InviteCodeDialogView
+        inviteCode="AB12CD"
+        hostName="Owner"
+        open
+        pending={false}
+        onOpenChange={fn()}
+        onConfirm={fn()}
+      />
       <RoomReauthentication {...args} onBack={fn()} />
     </>
   ),

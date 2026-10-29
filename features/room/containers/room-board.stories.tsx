@@ -22,6 +22,7 @@ const ACTIVE_PHASE = buildPhaseStep(3);
 
 type ActiveHostTransferPreviewProps = {
   mode: HostPreviewMode;
+  sessionKind?: "guest" | "account";
   phase: RoomPhase;
   participant: boolean;
   completed: boolean;
@@ -29,6 +30,7 @@ type ActiveHostTransferPreviewProps = {
 
 function ActiveHostTransferPreview({
   mode,
+  sessionKind,
   phase,
   participant,
   completed,
@@ -92,6 +94,8 @@ function ActiveHostTransferPreview({
         initialMembers={ACTIVE_PREVIEW_MEMBERS}
         webSocketFactory={server.factory}
         saveDisplayNameAction={server.saveDisplayName}
+        sessionKind={sessionKind}
+        signOutAction={async () => {}}
       />
       <Toaster />
     </div>
@@ -156,4 +160,8 @@ export const Phase3Step5: Story = phaseStory(3, 5);
 
 export const Phase1Step1Participant: Story = {
   args: { phase: buildPhaseStep(1), participant: true },
+};
+
+export const GuestSession: Story = {
+  args: { sessionKind: "guest" },
 };

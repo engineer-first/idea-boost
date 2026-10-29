@@ -273,7 +273,7 @@ export function RoomOutcomeView({
         <p className="pb-8 text-xs leading-5 text-muted-foreground">
           {authorized
             ? "閲覧期限までは、ホームの「過去の成果を見る」から再び確認できます。"
-            : "完了したルームは、ホームの「過去の成果を見る」から完了後30日間見返せます。"}
+            : "完了したルームは、ホームの「過去の成果を見る」から見返せます。保存期限は完了から30日間です。"}
         </p>
       </div>
     </main>

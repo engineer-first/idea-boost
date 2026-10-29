@@ -39,7 +39,7 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
             />
             {copy.brand}
           </p>
-          <Link href={entry.href} className={landingLinkClass}>
+          <Link href={entry.loginHref} className={landingLinkClass}>
             {copy.login}
           </Link>
         </header>

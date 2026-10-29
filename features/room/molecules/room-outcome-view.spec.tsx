@@ -205,3 +205,18 @@ it("コピー後の保存失敗では前の成功表示を残さない", async (
     URL.createObjectURL = original;
   }
 });
+
+it("完了直後は本人の保持期間と混同せず成果の保存期限を案内する", () => {
+  render(
+    <RoomOutcomeView
+      outcome={{ issue: "課題", hmw: "問い", idea: "案" }}
+      connected
+    />,
+  );
+  expect(
+    screen.getByText(
+      "完了したルームは、ホームの「過去の成果を見る」から見返せます。保存期限は完了から30日間です。",
+    ),
+  ).toBeVisible();
+  expect(screen.queryByText(/完了後30日間見返せます/)).not.toBeInTheDocument();
+});

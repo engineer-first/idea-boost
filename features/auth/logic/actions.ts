@@ -11,12 +11,14 @@ import { cookies } from "next/headers";
 // ときに元のURLへ戻すため、page 側から .bind(null, next) で渡される。
 // 値は必ず sanitizeNextPath でアプリ内相対パスに限定する（オープンリダイレクト防止）。
 import { redirect } from "next/navigation";
+import { ACCOUNT_LINK_INTENT_COOKIE } from "@/contracts/account-link";
 import { PREVIEW_SIGN_IN_PATH } from "@/contracts/preview";
 import {
   ROOM_OAUTH_RESUME_COOKIE,
   ROOM_RESUME_COOKIE,
 } from "@/contracts/room-entry";
 import { clearSessionCookie } from "@/lib/session/cookie";
+import { getCurrentUser } from "@/lib/session/current-user";
 import { DEV_PASSWORD, findDevUser } from "@/lib/session/dev-users";
 import { isDevAuthEnabled, isGoogleAuthConfigured } from "@/lib/session/env";
 import { establishSession } from "@/lib/session/establish";
@@ -74,6 +76,7 @@ export async function signInWithGoogle(next: string): Promise<void> {
   }
 
   const store = await cookies();
+  store.delete(ACCOUNT_LINK_INTENT_COOKIE);
   store.delete(ROOM_OAUTH_RESUME_COOKIE);
   store.delete(ROOM_RESUME_COOKIE);
   await startGoogleAuthorization(
@@ -84,7 +87,9 @@ export async function signInWithGoogle(next: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  const user = await getCurrentUser();
   await clearSessionCookie();
+  if (user?.kind === "guest") redirect("/");
   redirect(
     process.env.PREVIEW_ENABLED === "true"
       ? "/cdn-cgi/access/logout"

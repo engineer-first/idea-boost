@@ -48,13 +48,13 @@ import type {
   SharingState,
   TimerState,
 } from "@/contracts/room-protocol";
+import { SignOutControl } from "@/features/auth";
 import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
 import {
   MemberAvatar,
   MemberSelection,
   NOTE_COLOR_NAMES,
 } from "@/features/room-members";
-import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
 import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
@@ -126,6 +126,7 @@ export type RoomBoardHeaderProps = {
   hasFinalDecision: boolean;
   outcomePublished: boolean;
   isLeaving: boolean;
+  sessionKind?: "guest" | "account";
   signOutAction?: () => Promise<void>;
   onShowOutcome?: () => void;
   onPublishOutcome: () => void;
@@ -192,6 +193,7 @@ export function RoomBoardHeader({
   outcomePublished,
   isLeaving,
   signOutAction,
+  sessionKind,
   onShowOutcome,
   onPublishOutcome,
   onLeaveClick,
@@ -1189,19 +1191,14 @@ export function RoomBoardHeader({
                     {leaveLabel}
                   </Button>
                   {signOutAction ? (
-                    <form
-                      action={signOutAction}
-                      onSubmit={() => clearLastRoom()}
-                    >
-                      <Button
-                        type="submit"
-                        variant="ghost"
-                        className="h-10 w-full justify-start gap-3 px-2 font-normal"
-                      >
-                        <LogOut className="size-4" aria-hidden="true" />
-                        ログアウト
-                      </Button>
-                    </form>
+                    <SignOutControl
+                      sessionKind={sessionKind}
+                      signOutAction={signOutAction}
+                      variant="ghost"
+                      size="default"
+                      className="h-auto min-h-11 w-full justify-start gap-3 whitespace-normal px-2 text-left font-normal"
+                      icon={<LogOut className="size-4" aria-hidden="true" />}
+                    />
                   ) : null}
                 </div>
               </PopoverContent>

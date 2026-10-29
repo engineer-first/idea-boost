@@ -10,6 +10,7 @@ import {
 } from "@/lib/room-client/last-room-storage";
 import { queryRoomCreation, returnToRoom } from "../logic/actions";
 import { entryDestination } from "../logic/entry-destination";
+import { GUEST_IDENTITY_UNAVAILABLE_MESSAGE } from "../logic/guest-identity-message";
 import {
   listRoomCreationIntents,
   notifyRoomCreations,
@@ -68,7 +69,9 @@ export function ReturnRoomSection({
               ? "completed"
               : "active",
           );
-        else if (result.kind === "reauth_required") setStatus("active");
+        else if (result.kind === "identity_unavailable") {
+          setStatus("identity_unavailable");
+        } else if (result.kind === "reauth_required") setStatus("active");
         else if (result.kind === "unavailable_room") {
           clearLastRoom(roomId);
           setStatus("unavailable");
@@ -175,6 +178,13 @@ export function ReturnRoomSection({
       if (!roomId) return;
       const result = await returnToRoom(roomId);
       if (!current()) return;
+      if (result.kind === "identity_unavailable") {
+        setStatus("identity_unavailable");
+        setHistoryMessage(
+          record ? GUEST_IDENTITY_UNAVAILABLE_MESSAGE : undefined,
+        );
+        return;
+      }
       if (result.kind === "reauth_required") {
         setReauthRoom(roomId);
         setStatus(previousStatus);

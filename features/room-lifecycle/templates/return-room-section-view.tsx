@@ -1,6 +1,8 @@
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GUEST_IDENTITY_UNAVAILABLE_MESSAGE } from "../logic/guest-identity-message";
 export type ReturnRoomStatus =
+  | "identity_unavailable"
   | "idle"
   | "checking"
   | "active"
@@ -42,20 +44,22 @@ export function ReturnRoomSectionView({
               role="status"
               className="text-sm leading-relaxed text-muted-foreground"
             >
-              {status === "checking"
-                ? "ルームを確認しています…"
-                : status === "retry"
-                  ? "前のルームを確認できません。しばらくしてから、もう一度お試しください。"
-                  : status === "unavailable"
-                    ? "このルームには戻れません。ルームが終了したか、参加・閲覧できなくなっています。"
-                    : status === "completed"
-                      ? "前回の会は完了しています。成果を見返せます。"
-                      : status === "active"
-                        ? "前のルームに戻って作業を続けられます。"
-                        : "以前のルームを確認して開きます。"}
+              {status === "identity_unavailable"
+                ? GUEST_IDENTITY_UNAVAILABLE_MESSAGE
+                : status === "checking"
+                  ? "ルームを確認しています…"
+                  : status === "retry"
+                    ? "前のルームを確認できません。しばらくしてから、もう一度お試しください。"
+                    : status === "unavailable"
+                      ? "このルームには戻れません。ルームが終了したか、参加・閲覧できなくなっています。"
+                      : status === "completed"
+                        ? "前回の会は完了しています。成果を見返せます。"
+                        : status === "active"
+                          ? "前のルームに戻って作業を続けられます。"
+                          : "以前のルームを確認して開きます。"}
             </p>
           </div>
-          {status !== "unavailable" && (
+          {status !== "unavailable" && status !== "identity_unavailable" && (
             <Button
               variant="outline"
               className="min-h-11 shrink-0"

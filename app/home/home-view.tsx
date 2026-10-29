@@ -7,6 +7,11 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import {
+  type AccountLinkResult,
+  AccountLinkSection,
+  getLoginPath,
+} from "@/features/auth";
+import {
   CreateRoomSection,
   JoinRoomSection,
   ReturnRoomSection,
@@ -16,9 +21,16 @@ import { HomeErrorAlert } from "./home-error-alert";
 export type HomeViewProps = {
   error?: string;
   currentUserId?: string;
+  accountLinkStatus?: "guest" | "linked";
+  accountLinkResult?: AccountLinkResult;
 };
 
-export function HomeView({ error, currentUserId }: HomeViewProps) {
+export function HomeView({
+  error,
+  currentUserId,
+  accountLinkStatus,
+  accountLinkResult,
+}: HomeViewProps) {
   return (
     <div
       className="relative flex h-full min-h-0 flex-1 items-start justify-center overflow-y-auto p-4 sm:p-6"
@@ -52,22 +64,38 @@ export function HomeView({ error, currentUserId }: HomeViewProps) {
 
         <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
           <CreateRoomSection currentUserId={currentUserId} />
-          <JoinRoomSection currentUserId={currentUserId} />
+          <JoinRoomSection />
         </div>
         <nav
-          aria-label="過去の成果"
+          aria-label={currentUserId ? "過去の成果" : "ログイン"}
           className="flex justify-end border-t border-border/60 pt-2"
         >
-          <Link
-            href="/completed-rooms"
-            className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            <span className="underline underline-offset-4">
-              過去の成果を見る
-            </span>
-            <ArrowRight className="size-4 shrink-0" aria-hidden />
-          </Link>
+          {currentUserId ? (
+            <Link
+              href="/completed-rooms"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              <span className="underline underline-offset-4">
+                過去の成果を見る
+              </span>
+              <ArrowRight className="size-4 shrink-0" aria-hidden />
+            </Link>
+          ) : (
+            <Link
+              href={getLoginPath("/home")}
+              className="inline-flex min-h-11 items-center rounded-md px-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              Googleでログインして使っていた場合はこちら
+            </Link>
+          )}
         </nav>
+        {currentUserId && accountLinkStatus ? (
+          <AccountLinkSection
+            status={accountLinkStatus}
+            next="/home"
+            result={accountLinkResult}
+          />
+        ) : null}
       </div>
     </div>
   );

@@ -1,8 +1,10 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import type { CompletedRoomSummary } from "@/contracts/completed-rooms";
 import { formatCompletedDate } from "./completed-rooms-content";
 export type CompletedRoomsViewProps = {
+  accountLink?: ReactNode;
   rooms: CompletedRoomSummary[];
   loading: boolean;
   error: string | null;
@@ -13,6 +15,7 @@ export type CompletedRoomsViewProps = {
 };
 export function CompletedRoomsView({
   rooms,
+  accountLink,
   loading,
   error,
   hasMore,
@@ -32,7 +35,7 @@ export function CompletedRoomsView({
         <header>
           <h1 className="text-3xl font-bold">以前のルーム</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            完了時に参加していたルームと、成果を残して途中退出したルームを、完了から30日間見返せます。
+            完了時に参加していたルームと、成果を残して途中退出したルームを見返せます。成果の保存期限は完了から30日間です。
           </p>
           <Button
             className="mt-4 min-h-11"
@@ -128,6 +131,9 @@ export function CompletedRoomsView({
             次のルームを表示
           </Button>
         )}
+        {accountLink ? (
+          <div className="border-t pt-6">{accountLink}</div>
+        ) : null}
       </div>
     </main>
   );

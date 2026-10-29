@@ -9,6 +9,10 @@ import {
 } from "@/contracts/completed-rooms.fixture";
 import { useFeedback } from "@/features/feedback";
 import { CompletedRoomDetailView } from "./completed-room-detail-view";
+import {
+  COMPLETED_ROOMS_IDENTITY_ERROR,
+  COMPLETED_ROOMS_UNAVAILABLE_ERROR,
+} from "./completed-rooms-content";
 
 const meta = {
   title: "CompletedRooms/Detail",
@@ -173,5 +177,26 @@ export const FeedbackAfterLeave: Story = {
       }),
     );
     return <CompletedRoomDetailView {...args} feedback={feedback} />;
+  },
+};
+
+export const IdentityUnavailable: Story = {
+  args: { room: null, error: COMPLETED_ROOMS_IDENTITY_ERROR },
+};
+export const AccessUnavailable: Story = {
+  args: { room: null, error: COMPLETED_ROOMS_UNAVAILABLE_ERROR },
+};
+
+export const WithAccountLinkSlot: Story = {
+  name: "末尾に連携の補助領域あり",
+  args: {
+    accountLink: (
+      <aside
+        aria-label="連携スロット"
+        className="text-sm text-muted-foreground"
+      >
+        ページから渡された連携の補助領域
+      </aside>
+    ),
   },
 };

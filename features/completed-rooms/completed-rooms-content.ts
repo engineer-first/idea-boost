@@ -29,3 +29,13 @@ export function formatCompletedDate(value: number): string {
   }).format(value);
   return `${date} ${time}`;
 }
+
+export const COMPLETED_ROOMS_IDENTITY_ERROR =
+  "本人情報を確認できないため、成果を表示できません。成果を残したときと同じブラウザで開いてください。";
+export const COMPLETED_ROOMS_UNAVAILABLE_ERROR =
+  "保存期限が過ぎたか、この成果を閲覧できる本人ではありません。";
+
+export const COMPLETED_ROOMS_UNAVAILABLE_TITLE = "成果を表示できません";
+export const COMPLETED_ROOMS_HOME_LABEL = "ホームへ";
+export const COMPLETED_ROOMS_LOGIN_LABEL =
+  "Googleでログインして使っていた場合はこちら";

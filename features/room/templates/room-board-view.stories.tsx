@@ -1718,3 +1718,7 @@ export const FloatingTimerSharingEmpty: Story = {
   },
   render: (args) => <FloatingTimerPreview args={args} complete />,
 };
+
+export const GuestSession: Story = {
+  args: { sessionKind: "guest", signOutAction: fn() },
+};

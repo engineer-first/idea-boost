@@ -1,6 +1,5 @@
 // ホーム（/home）の Server Component。
 // 認証・searchParams・Server Action 配線のみ。UI は同ディレクトリの home-view。
-import { redirect } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -8,6 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ACCOUNT_LINK_RESULT_PARAM } from "@/contracts/account-link";
+import { parseAccountLinkResult } from "@/features/auth";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { isAuthConfigured } from "@/lib/session/env";
 import { HomeView } from "./home-view";
@@ -15,7 +16,7 @@ import { HomeView } from "./home-view";
 export const dynamic = "force-dynamic";
 
 type HomePageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; account_link?: string | string[] }>;
 };
 
 export default async function HomePage({ searchParams }: HomePageProps) {
@@ -47,13 +48,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
 
-  if (!user) {
-    redirect("/login");
-  }
-
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <HomeView error={params.error} currentUserId={user.sub} />
+      <HomeView
+        error={params.error}
+        currentUserId={user?.sub}
+        accountLinkStatus={
+          user ? (user.kind === "guest" ? "guest" : "linked") : undefined
+        }
+        accountLinkResult={parseAccountLinkResult(
+          params[ACCOUNT_LINK_RESULT_PARAM],
+        )}
+      />
     </main>
   );
 }

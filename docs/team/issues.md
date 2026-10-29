@@ -120,7 +120,9 @@ sprint の日程・全体の成果は GitHub Milestone を正本とする。Mile
 
 既存割当が以前・将来の sprint や非sprint Milestone でも、現在の sprint へ付け替える。次の sprint でも open なら繰り越し、closed Issue は最後の Milestone を保持する。繰越しは GitHub 標準の Milestone 変更履歴に残し、コメントや別台帳は追加しない。割当は着手・完了の判断ではなく、実作業の状態は Status で区別する。
 
-自動割当は Milestone の説明内の `idea-boost-sprint:v2` JSON コメントに記録した `schema_version: 2`・`timezone: Asia/Tokyo`・`assignment_start_date` と、Milestone の `due_on` を使う。割当開始はJST 00:00、終了はdue日のJST 00:00未満とし、終了日は説明へ複製しない。次Milestoneの割当開始を前Milestoneのdue日へ登録すると、review/demoとplanning当日のJST 00:00から、新しいIssueと未完了のopen Issueを次期として扱う。実際の付け替えは定期実行時に反映される。
+自動割当は Milestone の説明内の `idea-boost-sprint:v2` または `idea-boost-sprint:v3` JSON コメントに記録した version・`timezone: Asia/Tokyo`・`assignment_start_date` と、Milestone の `due_on` を使う。コメントのversionと`schema_version`は一致させ、終了日は説明へ複製しない。実際の付け替えは定期実行時に反映される。
+
+既存の**v2は意味を変えない**。割当開始はJST 00:00、終了はdue日のJST 00:00未満。次Milestoneの割当開始を前Milestoneのdue日へ登録すると、review/demoとplanning当日のJST 00:00から、新しいIssueと未完了のopen Issueを次期として扱う。
 
 `assignment_start_date` は `YYYY-MM-DD` 形式で登録する。
 
@@ -130,9 +132,28 @@ sprint の日程・全体の成果は GitHub Milestone を正本とする。Mile
 -->
 ```
 
-次Milestoneが未登録なら作らず、該当なし・不正／旧schema・期間重複・対象がclosedの場合は自動割当だけを保留し、Actions Summaryに理由を残す。明示登録した開始日があれば、due未確定（null）のMilestoneは期限を捏造せず使える。後続を登録する際は前期のdueと次期の割当開始を揃え、期間を重ねない。titleや番号から日程を推測しない。
+### review日を含むv3（運用採用は別途判断）
 
-手動実行は default branch の `workflow_dispatch` から行い、`dry_run` は既定で true。更新前に Milestone と Issue を再取得し、現在割当と同じ・closed化・PRの場合は保持する。API 失敗は実行失敗として報告する。最終読取と更新の間に起きる手動操作との競合は、GitHub API の制約上完全には排除できない。
+v3は開始日のJST 00:00から、**due翌日のJST 00:00未満**を割当期間にする。review/demo当日いっぱいは前期として扱い、翌日から未完了のopen Issueを次期へ繰り越す。開始日とdueが同じなら1日の期間になる。v2からv3への読み替えやmetadataの自動更新は行わない。判断の背景と代償は[ADR 0020](../adr/0020-sprint-review-day-policy.md)に記録する。
+
+```html
+<!-- idea-boost-sprint:v3
+{"schema_version":3,"timezone":"Asia/Tokyo","assignment_start_date":"YYYY-MM-DD"}
+-->
+```
+
+`assignment_start_date`は予定日ではなく**実際に割当を始める日**。前期がv3なら、次期の開始を前期dueの翌日へ明示登録する。例えば両方をv3とするfixtureでは、Sprint 9のdueが10/28なら10/28いっぱいは9、Sprint 10の開始は10/29とする。10/28開始のまま重ねた場合、9優先／10優先を番号・並び順・titleから推測せず、重複する時間帯の割当を保留する。この例は実Milestoneの変更指示ではない。
+
+運用へ採用する前に、以下を確認する。コードのマージだけでは既存v2の期間も実Issueの割当も変更しない。
+
+1. v3採用と将来の適用対象を別途合意する。終了済み・既存v2のmetadataや過去の割当履歴を一括で書き換えない。
+2. 日程を読む全利用先を対応させる。**whiteboardの現行releaseはv2 strict parserのみ**のため、v3 metadataの実適用前に、whiteboard側のv3対応も別途揃える。未対応versionの終了日を推測しない。終了済みSprintのpin済み境界は保持し、未pinのactive Sprintは、正式な新しい期間を読めるようにしてから移行を判断する。
+3. 隣接期間を確認する。前期がv2なら終了はdue日00:00なので次期開始はdue日、前期がv3ならdue翌日00:00なので次期開始はdue翌日。v2/v3混在を理由に前期の境界を延ばさない。due未確定の前期に後続を追加する場合は、明示した期間が重ならないよう先に日程を決める。
+4. 承認した将来metadataの登録後、default branchの手動dry-runで選択先と予定だけを確認してから通常運用へ進む。この変更の検証ではfixtureだけを使い、実Issueを移動しない。
+
+次Milestoneが未登録なら作らず、該当なし・不正／未対応schema・期間重複・対象がclosedの場合は自動割当だけを保留し、Actions Summaryに理由を残す。明示登録した開始日があれば、due未確定（null）のMilestoneは期限を捏造せず使える。titleや番号から日程を推測しない。
+
+手動実行は default branch の `workflow_dispatch` から行い、`dry_run` は既定で true。更新前に Milestone と Issue を再取得し、現在割当と同じ・closed化・PRの場合は保持する。Issueの再読取中に期間の境界を跨いだ場合も、取得済みの全Milestoneから現在期間を再判定し、選択先の変更・期間重複なら更新を止める。API 失敗は実行失敗として報告する。最終読取と更新の間に起きる手動操作との競合は、GitHub API の制約上完全には排除できない。
 
 この workflow だけに `GITHUB_TOKEN` の `contents: read` と `issues: write` を指定する。既存 Project 用 App の権限変更・新しい PAT・secret は不要。default branch のコードだけを実行し、PR ブランチでは実行しない。定期実行は default branch へマージした後に有効になる。権限の根拠は [Issue更新API](https://docs.github.com/en/rest/issues/issues#update-an-issue)。
 

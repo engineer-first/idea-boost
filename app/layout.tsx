@@ -13,6 +13,7 @@ const geistSans = Geist({
 });
 
 const geistMono = Geist_Mono({
+  preload: false,
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
@@ -41,6 +42,7 @@ export default async function RootLayout({
         {user ? (
           <AppHeader
             currentUserId={user.sub}
+            sessionKind={user.kind}
             userName={displayName?.ok ? (displayName.name ?? "") : ""}
           />
         ) : null}

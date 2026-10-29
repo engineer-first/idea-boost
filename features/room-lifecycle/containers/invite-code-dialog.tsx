@@ -41,6 +41,7 @@ export function InviteCodeDialog({
     | Extract<ParticipationResult, { kind: "pending" | "rejected" }>
   >();
   const [reauth, setReauth] = useState(false);
+  const [identityMessage, setIdentityMessage] = useState<string>();
   const [open, setOpen] = useState(true);
   const [pending, startTransition] = useTransition();
 
@@ -53,6 +54,7 @@ export function InviteCodeDialog({
   }, [open]);
 
   function joinConfirmed() {
+    setIdentityMessage(undefined);
     startTransition(async () => {
       const formData = new FormData();
       formData.append("code", inviteCode);
@@ -74,6 +76,8 @@ export function InviteCodeDialog({
           setReauth(true);
           return;
         }
+        if (result.reason === "identity_unavailable")
+          setIdentityMessage(result.error);
         notify.error(result.error);
         return;
       }
@@ -117,6 +121,7 @@ export function InviteCodeDialog({
     );
   return (
     <InviteCodeDialogView
+      message={identityMessage}
       inviteCode={inviteCode}
       hostName={hostName}
       open={open}

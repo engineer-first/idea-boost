@@ -470,3 +470,7 @@ export const TimeUpProgressPending: Story = {
   ...TimeUpProgress,
   args: { ...TimeUpProgress.args, isNextPhasePending: true },
 };
+
+export const GuestSession: Story = {
+  args: { sessionKind: "guest", signOutAction: fn() },
+};

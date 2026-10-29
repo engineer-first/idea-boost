@@ -7,6 +7,27 @@ describe("sanitizeNextPath", () => {
     expect(sanitizeNextPath("/rooms/xyz?tab=1")).toBe("/rooms/xyz?tab=1");
   });
 
+  it.each(["/.//evil.com", "/a/..//evil.com", "/%2e%2e//evil.com"])(
+    "正規化後にプロトコル相対となる%sを拒否する",
+    (value) => {
+      expect(sanitizeNextPath(value)).toBe("/");
+    },
+  );
+  it.each([
+    "/.//evil.com",
+    "/a/..//evil.com",
+    "/%2e%2e//evil.com",
+    "/rooms/../invite/ABC234?from=guest#result",
+    "/rooms?tab=1#result",
+    "/\\evil.com",
+    "//evil.com",
+  ])("%sは繰り返し安全化しても結果が変わらない", (value) => {
+    const safe = sanitizeNextPath(value);
+    expect(sanitizeNextPath(safe)).toBe(safe);
+    expect(new URL(safe, "https://example.test").origin).toBe(
+      "https://example.test",
+    );
+  });
   it("文字列でなければ / に落とす", () => {
     expect(sanitizeNextPath(null)).toBe("/");
     expect(sanitizeNextPath(undefined)).toBe("/");

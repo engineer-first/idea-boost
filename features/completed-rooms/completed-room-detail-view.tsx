@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRef } from "react";
+import { type ReactNode, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import type {
   CompletedBoardResponse,
@@ -20,6 +20,7 @@ import {
   SCENE_STATUS,
 } from "./completed-rooms-content";
 export type CompletedRoomDetailViewProps = {
+  accountLink?: ReactNode;
   feedback?: FeedbackControls;
   room: CompletedRoom | null;
   loading: boolean;
@@ -37,6 +38,7 @@ export type CompletedRoomDetailViewProps = {
 export function CompletedRoomDetailView({
   feedback,
   room,
+  accountLink,
   loading,
   error,
   expanded,
@@ -70,6 +72,9 @@ export function CompletedRoomDetailView({
               </Button>
             </>
           )}
+          {accountLink ? (
+            <div className="border-t pt-6">{accountLink}</div>
+          ) : null}
         </div>
       </main>
     );
@@ -200,6 +205,9 @@ export function CompletedRoomDetailView({
             </div>
           )}
         </section>
+        {accountLink ? (
+          <div className="mt-8 border-t pt-6">{accountLink}</div>
+        ) : null}
       </RoomOutcomeView>
       {feedback ? <FeedbackPanel feedback={feedback} /> : null}
     </>
