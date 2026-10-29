@@ -9,6 +9,7 @@ import {
   connectRoomAs,
   createRoomAs,
   currentPhaseExpectation,
+  endTimerForTest,
   initializeTestRoom,
   joinRoomAs,
   type RoomSocket,
@@ -215,6 +216,7 @@ describe("本文保存を待たない進行", () => {
     await untilType(memberSocket, "note:content-saved");
     await untilType(ownerSocket, "note:updated");
 
+    await endTimerForTest(roomId);
     ownerSocket.ws.send(JSON.stringify({ type: "phase:next", ...expectation }));
     const [ownerSnapshot, memberSnapshot] = await Promise.all([
       untilType(ownerSocket, "snapshot"),
@@ -353,7 +355,7 @@ describe("本文保存を待たない進行", () => {
           );
         }
       });
-      await startTimerForTest(roomId);
+      await endTimerForTest(roomId);
       ownerSocket.ws.send(
         JSON.stringify({
           type: "phase:next",
@@ -470,7 +472,7 @@ describe("本文保存を待たない進行", () => {
             "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
           ),
         );
-        await startTimerForTest(roomId);
+        await endTimerForTest(roomId);
         ownerSocket.ws.send(
           JSON.stringify({
             type: "phase:next",
@@ -625,13 +627,10 @@ describe("本文保存を待たない進行", () => {
   });
 });
 
-describe("整理・評価の自動タイマー", () => {
-  it.each([
-    [1, 240000],
-    [3, 420000],
-  ] as const)(
-    "phase %iの共有から進む確定時だけ開始する",
-    async (phase, durationMs) => {
+describe("整理・評価ステップのタイマー", () => {
+  it.each([1, 3] as const)(
+    "phase %iの共有から進んでもタイマーはidleのまま",
+    async (phase) => {
       const host = { sub: hostId, name: "Host", email: "host@example.test" };
       const { roomId } = await createRoomAs(host);
       const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
@@ -678,7 +677,7 @@ describe("整理・評価の自動タイマー", () => {
       const snapshot = await untilType(socket, "snapshot");
       expect(snapshot).toMatchObject({
         phase: buildPhaseStep(3, phase),
-        timer: { status: "running", durationMs, endsAt: expect.any(Number) },
+        timer: { status: "idle" },
       });
       socket.ws.send(JSON.stringify({ type: "phase:next", ...expectation }));
       await untilType(socket, "phase:updated");
@@ -723,6 +722,7 @@ describe("整理・評価の自動タイマー", () => {
           "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
         ),
       );
+      await endTimerForTest(roomId);
       reconnected.ws.send(
         JSON.stringify({
           type: "phase:next",
@@ -732,16 +732,8 @@ describe("整理・評価の自動タイマー", () => {
       const reentered = await untilType(reconnected, "snapshot");
       expect(reentered).toMatchObject({
         phase: buildPhaseStep(3, phase),
-        timer: { status: "running", durationMs },
+        timer: { status: "idle" },
       });
-      if (
-        reentered.type === "snapshot" &&
-        reentered.timer.status === "running" &&
-        snapshot.type === "snapshot" &&
-        snapshot.timer.status === "running"
-      ) {
-        expect(reentered.timer.endsAt).toBeGreaterThan(snapshot.timer.endsAt);
-      }
       reconnected.close();
     },
   );

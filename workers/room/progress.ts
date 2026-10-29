@@ -1,27 +1,17 @@
-import {
-  isPersonalWritingStep,
-  isVotingStep,
-  type RoomPhase as Phase,
-} from "../../contracts/phase";
+import type { RoomPhase as Phase } from "../../contracts/phase";
 import type { PhaseProgress } from "../../contracts/room-protocol";
 import type { RoomBroadcaster } from "./broadcast";
 import { isMember } from "./members";
-import { listCompletedVoterIds } from "./votes";
 
-export function hasStrictMajority(
+export function hasUnanimousReady(
   readyCount: number,
   connectedCount: number,
 ): boolean {
-  return connectedCount > 0 && readyCount >= connectedCount / 2;
+  return connectedCount > 0 && readyCount === connectedCount;
 }
 
 export function isManualProgressStep(phase: Phase): boolean {
-  return (
-    isPersonalWritingStep(phase) ||
-    (phase.kind === "step" &&
-      ((phase.phase === 1 && phase.step === 3) ||
-        (phase.phase === 3 && phase.step === 3)))
-  );
+  return phase.kind === "step";
 }
 
 export function getProgressState(
@@ -34,23 +24,18 @@ export function getProgressState(
     isMember(sql, userId),
   );
   const connected = new Set(connectedUserIds);
-  const readyUserIds =
-    phase.kind === "step" && isVotingStep(phase)
-      ? listCompletedVoterIds(sql, phase.phase).filter((userId) =>
-          connected.has(userId),
-        )
-      : isManualProgressStep(phase)
-        ? (
-            sql
-              .exec(
-                "SELECT user_id FROM phase_progress_ready WHERE phase_revision = ?1 AND ready = 1 ORDER BY user_id",
-                phaseRevision,
-              )
-              .toArray() as Array<{ user_id: string }>
+  const readyUserIds = isManualProgressStep(phase)
+    ? (
+        sql
+          .exec(
+            "SELECT user_id FROM phase_progress_ready WHERE phase_revision = ?1 AND ready = 1 ORDER BY user_id",
+            phaseRevision,
           )
-            .map(({ user_id }) => user_id)
-            .filter((userId) => connected.has(userId))
-        : [];
+          .toArray() as Array<{ user_id: string }>
+      )
+        .map(({ user_id }) => user_id)
+        .filter((userId) => connected.has(userId))
+    : [];
   const ready = new Set(readyUserIds);
   const notReadyUserIds = connectedUserIds.filter(
     (userId) => !ready.has(userId),
@@ -65,10 +50,8 @@ export function getProgressState(
     connectedUserIds,
     readyUserIds,
     notReadyUserIds,
-    canAdvance: hasStrictMajority(readyUserIds.length, connectedUserIds.length),
-    allReady:
-      connectedUserIds.length > 0 &&
-      readyUserIds.length === connectedUserIds.length,
+    canAdvance: hasUnanimousReady(readyUserIds.length, connectedUserIds.length),
+    allReady: hasUnanimousReady(readyUserIds.length, connectedUserIds.length),
   };
 }
 

@@ -8,6 +8,7 @@ import {
   arrangeSharingPresenter,
   connectRoomAs,
   createRoomAs,
+  endTimerForTest,
   listMemberIds,
   type RoomSocket,
   runInRoomDO,
@@ -309,9 +310,10 @@ describe("ゲスト本人へのGoogle連携", () => {
       isHost: true,
     });
     expect(await readWork()).toEqual(before);
-    reconnected.ws.send(JSON.stringify({ type: "timer:pause" }));
+    await endTimerForTest(roomId);
+    reconnected.ws.send(JSON.stringify({ type: "timer:extend" }));
     expect(await receive(reconnected, "timer:updated")).toMatchObject({
-      timer: { status: "paused" },
+      timer: { status: "running", durationMs: 60_000, extensionUsed: true },
     });
     await runInRoomDO(roomId, async (room, state) => {
       await room.setPhase({ kind: "step", phase: 3, step: 5 }, user.sub);

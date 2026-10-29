@@ -1,6 +1,6 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RoomTimer, TIMER_DEFAULT_DURATION_MS } from "./room-timer";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { RoomTimer } from "./room-timer";
 import {
   buildEndedTimer,
   buildPausedTimer,
@@ -8,875 +8,235 @@ import {
   ROOM_TIMER_FIXTURE_NOW,
 } from "./room-timer.fixture";
 
-const handlers = {
-  onStart: vi.fn(),
-  onPause: vi.fn(),
-  onResume: vi.fn(),
-  onExtend: vi.fn(),
-  onStop: vi.fn(),
-  soundControls: {
-    enabled: false,
-    playbackBlocked: false,
-    onEnable: vi.fn(async () => undefined),
-    onMute: vi.fn(),
-  },
-};
+function props() {
+  return {
+    timer: buildRunningTimer(),
+    serverOffsetMs: 0,
+    now: () => ROOM_TIMER_FIXTURE_NOW,
+    disabled: false,
+    initialDurationMs: 300_000,
+    onStart: vi.fn(),
+    onPause: vi.fn(),
+    onResume: vi.fn(),
+    onExtend: vi.fn(),
+    onNext: vi.fn(),
+  };
+}
 
 describe("RoomTimer", () => {
-  it("ホストと参加者の両方に端末ごとの通知音トグルを表示する", () => {
-    for (const isHost of [true, false]) {
-      const { unmount } = render(
-        <RoomTimer
-          timer={{ status: "idle" }}
-          serverOffsetMs={0}
-          isHost={isHost}
-          disabled={false}
-          {...handlers}
-        />,
-      );
-
-      expect(
-        screen.getByRole("button", { name: "タイマー通知音" }),
-      ).toHaveAttribute("aria-pressed", "false");
-      expect(screen.queryByTestId("timer-sound-panel")).not.toBeInTheDocument();
-      unmount();
-    }
+  it("延長終了後の自動進行は工程の必須条件が揃ってからと案内する", () => {
+    render(<RoomTimer {...props()} timer={buildEndedTimer()} />);
+    expect(screen.getByText(/進行条件が揃うと/)).toBeInTheDocument();
+    expect(screen.queryByText(/次へ進めます/)).not.toBeInTheDocument();
   });
-
-  it.each([
-    { status: "idle" } as const,
-    buildRunningTimer(),
-    buildPausedTimer(),
-    buildEndedTimer(),
-  ])("$status の背景は不透明で、文字や面を点滅させない", (timer) => {
+  it("時間切れに1分延長を選べ、稼働中の円では一時停止しない", () => {
+    const p = { ...props(), onExtend: vi.fn() };
+    const { rerender } = render(<RoomTimer {...p} />);
+    fireEvent.click(screen.getByTestId("room-timer"));
+    expect(p.onPause).not.toHaveBeenCalled();
+    rerender(<RoomTimer {...p} timer={buildEndedTimer()} />);
+    const extend = screen.getByRole("button", { name: "＋1分" });
+    expect(extend.querySelector("svg")).toBeNull();
+    fireEvent.click(extend);
+    expect(p.onExtend).toHaveBeenCalledOnce();
+  });
+  it("サーバーとの時刻差を残り時間へ反映する", () => {
     render(
       <RoomTimer
-        timer={timer}
-        serverOffsetMs={0}
-        isHost
-        disabled
-        defaultPanelOpen
-        {...handlers}
+        {...props()}
+        timer={buildRunningTimer({ remainingMs: 150_000, durationMs: 300_000 })}
+        serverOffsetMs={30_000}
       />,
     );
-    const chip = screen.getByTestId("room-timer");
-    expect(chip).toHaveClass("bg-muted", "disabled:opacity-100");
-    expect(chip).not.toHaveClass("animate-pulse");
-    expect(screen.getByTestId("room-timer-panel")).toHaveClass("bg-background");
+    expect(screen.getByRole("timer")).toHaveAccessibleName(/02:00/);
   });
-  beforeEach(() => {
+  it("時間切れでは選択肢を表示するが次へ自動で進まない", () => {
     vi.useFakeTimers();
     vi.setSystemTime(ROOM_TIMER_FIXTURE_NOW);
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => vi.useRealTimers());
-
-  const openPanel = () => {
-    fireEvent.click(screen.getByTestId("room-timer"));
-    expect(screen.getByTestId("room-timer")).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
-  };
-
-  it("最初の外側クリック全体を消費し、次の独立クリックは通す", () => {
-    const onOutsidePointerDown = vi.fn();
-    const onOutsidePointerUp = vi.fn();
-    const onOutsideClick = vi.fn();
-    render(
-      <>
-        <RoomTimer
-          timer={{ status: "idle" }}
-          serverOffsetMs={0}
-          isHost
-          disabled={false}
-          defaultPanelOpen
-          {...handlers}
-        />
-        <button
-          type="button"
-          data-testid="outside"
-          onPointerDown={onOutsidePointerDown}
-          onPointerUp={onOutsidePointerUp}
-          onClick={onOutsideClick}
-        >
-          外側操作
-        </button>
-      </>,
-    );
-
-    const outside = screen.getByTestId("outside");
-    fireEvent.pointerDown(outside, {
-      button: 0,
-      pointerId: 1,
-    });
-    fireEvent.pointerUp(outside, { button: 0, pointerId: 1 });
-    fireEvent.click(outside);
-
-    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
-    expect(onOutsidePointerDown).not.toHaveBeenCalled();
-    expect(onOutsidePointerUp).not.toHaveBeenCalled();
-    expect(onOutsideClick).not.toHaveBeenCalled();
-
-    fireEvent.pointerDown(outside, { button: 0, pointerId: 2 });
-    fireEvent.pointerUp(outside, { button: 0, pointerId: 2 });
-    fireEvent.click(outside);
-
-    expect(onOutsidePointerDown).toHaveBeenCalledOnce();
-    expect(onOutsidePointerUp).toHaveBeenCalledOnce();
-    expect(onOutsideClick).toHaveBeenCalledOnce();
-  });
-
-  it("パネル表示中も端末通知音は最初のクリックで切り替えられる", () => {
-    const onEnable = vi.fn(async () => undefined);
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        {...handlers}
-        soundControls={{ ...handlers.soundControls, onEnable }}
-      />,
-    );
-    const sound = screen.getByRole("button", { name: "タイマー通知音" });
-    fireEvent.pointerDown(sound, { button: 0, pointerId: 1 });
-    fireEvent.pointerUp(sound, { button: 0, pointerId: 1 });
-    fireEvent.click(sound);
-    expect(onEnable).toHaveBeenCalledOnce();
-    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
-  });
-
-  it("一時停止への切り替えでフォーカスを終了へ引き継がない", () => {
-    const props = {
-      serverOffsetMs: 0,
-      isHost: true,
-      disabled: false,
-      defaultPanelOpen: true,
-      ...handlers,
-    };
-    const { rerender } = render(
-      <RoomTimer {...props} timer={buildRunningTimer()} />,
-    );
-    const pause = screen.getByRole("button", { name: "一時停止" });
-    pause.focus();
-    fireEvent.click(pause);
-    rerender(<RoomTimer {...props} timer={buildPausedTimer()} />);
-    expect(screen.getByTestId("room-timer")).toHaveFocus();
-    expect(screen.getByRole("button", { name: "終了" })).not.toHaveFocus();
-    expect(handlers.onStop).not.toHaveBeenCalled();
-  });
-
-  it("外側操作がclickを生成しない場合はpointerup後に抑止を解除する", () => {
-    const onOutsideClick = vi.fn();
-    render(
-      <>
-        <RoomTimer
-          timer={{ status: "idle" }}
-          serverOffsetMs={0}
-          isHost
-          disabled={false}
-          defaultPanelOpen
-          {...handlers}
-        />
-        <button type="button" data-testid="outside" onClick={onOutsideClick}>
-          外側操作
-        </button>
-      </>,
-    );
-
-    const outside = screen.getByTestId("outside");
-    fireEvent.pointerDown(outside, { button: 0, pointerId: 1 });
-    fireEvent.pointerUp(outside, { button: 0, pointerId: 1 });
-    vi.runOnlyPendingTimers();
-    fireEvent.click(outside);
-
-    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
-    expect(onOutsideClick).toHaveBeenCalledOnce();
-  });
-
-  it("時間入力とパネル内ボタンの pointer 操作では閉じない", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        {...handlers}
-      />,
-    );
-
-    const minutes = screen.getByLabelText("タイマー時間（分）");
-    fireEvent.pointerDown(minutes, { button: 0, pointerId: 1 });
-    fireEvent.change(minutes, { target: { value: "4" } });
-    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
-
-    const increase = screen.getByRole("button", { name: "+1分" });
-    fireEvent.pointerDown(increase, { button: 0, pointerId: 2 });
-    fireEvent.click(increase);
-    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
-    expect(minutes).toHaveValue("05");
-  });
-
-  it("Escape で閉じ、タイマーのトリガーボタンへフォーカスを戻す", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        {...handlers}
-      />,
-    );
-    const trigger = screen.getByTestId("room-timer");
-    openPanel();
-    screen.getByLabelText("タイマー時間（分）").focus();
-
-    fireEvent.keyDown(document, { key: "Escape" });
-
-    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
-  });
-
-  it("デフォルトのセット時間は定数化された 03:00", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        {...handlers}
-      />,
-    );
-    expect(TIMER_DEFAULT_DURATION_MS).toBe(180_000);
-    const chip = screen.getByTestId("room-timer");
-    expect(chip).toHaveTextContent("03:00");
-    expect(chip).toHaveAttribute("aria-expanded", "false");
-    expect(chip).toHaveClass("h-10", "w-28");
-    expect(screen.getByRole("timer")).toHaveTextContent("03:00");
-    expect(screen.queryByRole("button", { name: "1分" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "3分" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "5分" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "10分" })).toBeNull();
-    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("タイマー時間（分）")).toBeNull();
-    openPanel();
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("03");
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("00");
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveAttribute(
-      "placeholder",
-      "00",
-    );
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveAttribute(
-      "placeholder",
-      "00",
-    );
-    fireEvent.click(chip);
-    expect(chip).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
-  });
-
-  it("00:00 は開始できない", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        initialDurationMs={0}
-        {...handlers}
-      />,
-    );
-    openPanel();
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("00");
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("00");
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
-    expect(screen.getByRole("button", { name: "開始" })).toBeDisabled();
-  });
-
-  it("全角・半角の数字を混ぜて入力しても分秒を保持し、開始時間へ渡す", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        {...handlers}
-      />,
-    );
-    const minutes = screen.getByLabelText("タイマー時間（分）");
-    const seconds = screen.getByLabelText("タイマー時間（秒）");
-    fireEvent.change(minutes, { target: { value: "１2" } });
-    fireEvent.change(seconds, { target: { value: "３０" } });
-    fireEvent.blur(minutes);
-    fireEvent.blur(seconds);
-    expect(minutes).toHaveValue("12");
-    expect(seconds).toHaveValue("30");
-    fireEvent.click(screen.getByRole("button", { name: "開始" }));
-    expect(handlers.onStart).toHaveBeenCalledWith(750_000);
-  });
-
-  it("IME変換中の文字を消さず、確定するまで開始・時間調整を無効にする", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        {...handlers}
-      />,
-    );
-    const minutes = screen.getByLabelText("タイマー時間（分）");
-    fireEvent.compositionStart(minutes);
-    fireEvent.change(minutes, { target: { value: "あ" } });
-    expect(minutes).toHaveValue("あ");
-    expect(screen.getByRole("button", { name: "開始" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "+1分" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "-1分" })).toBeDisabled();
-    fireEvent.change(minutes, { target: { value: "１２" } });
-    expect(minutes).toHaveValue("１２");
-    fireEvent.compositionEnd(minutes, { data: "１２" });
-    // compositionend の後に input/change が届くブラウザも同じ値を保つ。
-    fireEvent.change(minutes, { target: { value: "１２" } });
-    expect(minutes).toHaveValue("12");
-    fireEvent.click(screen.getByRole("button", { name: "開始" }));
-    expect(handlers.onStart).toHaveBeenCalledWith(720_000);
-  });
-
-  it("全角入力でも秒は59を上限とし、00:00は開始できない", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        {...handlers}
-      />,
-    );
-    const minutes = screen.getByLabelText("タイマー時間（分）");
-    const seconds = screen.getByLabelText("タイマー時間（秒）");
-    fireEvent.change(minutes, { target: { value: "００" } });
-    fireEvent.change(seconds, { target: { value: "９９" } });
-    expect(seconds).toHaveValue("59");
-    fireEvent.change(seconds, { target: { value: "００" } });
-    expect(screen.getByRole("button", { name: "開始" })).toBeDisabled();
-  });
-
-  it.each(["外側", "Escape"])(
-    "IME変換中に%sで閉じても再表示後に開始できる",
-    (close) => {
+    try {
+      const p = props();
       render(
         <RoomTimer
-          timer={{ status: "idle" }}
-          serverOffsetMs={0}
-          isHost
-          disabled={false}
-          defaultPanelOpen
-          {...handlers}
+          {...p}
+          now={Date.now}
+          timer={buildRunningTimer({ remainingMs: 500 })}
         />,
       );
-      const minutes = screen.getByLabelText("タイマー時間（分）");
-      fireEvent.compositionStart(minutes);
-      fireEvent.change(minutes, { target: { value: "１２" } });
-      if (close === "外側") {
-        fireEvent.pointerDown(document.body, { button: 0, pointerId: 1 });
-        fireEvent.pointerUp(document.body, { button: 0, pointerId: 1 });
-        fireEvent.click(document.body);
-      } else fireEvent.keyDown(document, { key: "Escape" });
-      openPanel();
-      expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("12");
-      expect(screen.getByRole("button", { name: "開始" })).toBeEnabled();
-      fireEvent.click(screen.getByRole("button", { name: "開始" }));
-      expect(handlers.onStart).toHaveBeenCalledWith(720_000);
-    },
-  );
-
-  it("IME変換中にサーバーから実行状態が届いて入力が消えても、再設定で開始できる", () => {
-    const props = {
-      serverOffsetMs: 0,
-      isHost: true,
-      disabled: false,
-      defaultPanelOpen: true,
-      ...handlers,
-    };
-    const { rerender } = render(
-      <RoomTimer {...props} timer={{ status: "idle" }} />,
-    );
-    const minutes = screen.getByLabelText("タイマー時間（分）");
-    fireEvent.compositionStart(minutes);
-    fireEvent.change(minutes, { target: { value: "１２" } });
-    rerender(<RoomTimer {...props} timer={buildRunningTimer()} />);
-    rerender(<RoomTimer {...props} timer={buildEndedTimer()} />);
-    fireEvent.click(screen.getByRole("button", { name: "設定し直す" }));
-    expect(screen.getByRole("button", { name: "開始" })).toBeEnabled();
+      act(() => vi.advanceTimersByTime(600));
+      expect(screen.getByRole("button", { name: "＋1分" })).toBeInTheDocument();
+      expect(p.onNext).not.toHaveBeenCalled();
+      expect(p.onStart).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
-
-  it("分は99、秒は59を上限に入力値を正規化する", () => {
-    render(
+  it("時間切れの延長には波紋を出さず、付箋の入力フォーカスを保つ", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(ROOM_TIMER_FIXTURE_NOW);
+    try {
+      const p = props();
+      const view = (timer = buildRunningTimer({ remainingMs: 500 })) => (
+        <>
+          <input aria-label="付箋の本文" />
+          <RoomTimer {...p} timer={timer} now={Date.now} />
+        </>
+      );
+      const { rerender } = render(view());
+      const input = screen.getByRole("textbox");
+      input.focus();
+      const floating = screen.getByTestId("timer-floating");
+      expect(floating).toHaveAttribute("data-timer-attention", "none");
+      act(() => vi.advanceTimersByTime(600));
+      expect(floating).toHaveAttribute("data-timer-attention", "none");
+      expect(input).toHaveFocus();
+      expect(p.onNext).not.toHaveBeenCalled();
+      fireEvent.pointerDown(screen.getByRole("button", { name: "＋1分" }));
+      expect(floating).toHaveAttribute("data-timer-attention", "none");
+      rerender(view(buildEndedTimer()));
+      expect(floating).toHaveAttribute("data-timer-attention", "none");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("共有の一巡で選択肢に注意を促し、操作を始めると合図を消す", () => {
+    const p = props();
+    const { rerender } = render(<RoomTimer {...p} timer={buildEndedTimer()} />);
+    rerender(
       <RoomTimer
+        {...p}
         timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        {...handlers}
+        sharingComplete
+        onRestartWriting={vi.fn()}
       />,
     );
-    openPanel();
-    fireEvent.change(screen.getByLabelText("タイマー時間（分）"), {
-      target: { value: "100" },
-    });
-    fireEvent.change(screen.getByLabelText("タイマー時間（秒）"), {
-      target: { value: "60" },
-    });
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("99");
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("59");
+    const floating = screen.getByTestId("timer-floating");
+    expect(floating).toHaveAttribute("data-timer-attention", "pulse");
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "付箋を書き足す" }),
+    );
+    expect(floating).toHaveAttribute("data-timer-attention", "none");
   });
-
-  it("編集中は空文字を許容し、00:00 は開始不可のまま blur で 00 に正規化する", () => {
+  it("終了状態の復元でも延長ボタンに合図を出さない", () => {
+    const p = props();
+    render(<RoomTimer {...p} timer={buildEndedTimer()} />);
+    const floating = screen.getByTestId("timer-floating");
+    expect(floating).toHaveAttribute("data-timer-attention", "none");
+    act(() => screen.getByRole("button", { name: "＋1分" }).focus());
+    expect(floating).toHaveAttribute("data-timer-attention", "none");
+  });
+  it("一時停止から再開したタイマーが終了しても延長に波紋を出さない", () => {
+    const p = props();
+    const { rerender } = render(<RoomTimer {...p} />);
+    const floating = screen.getByTestId("timer-floating");
+    rerender(<RoomTimer {...p} timer={buildPausedTimer()} />);
+    expect(floating).toHaveAttribute("data-timer-attention", "none");
+    rerender(<RoomTimer {...p} />);
+    rerender(<RoomTimer {...p} timer={buildEndedTimer()} />);
+    expect(floating).toHaveAttribute("data-timer-attention", "none");
+  });
+  it("切断中は合図を消し、再接続では波紋を繰り返さない", () => {
+    const p = props();
+    const { rerender } = render(<RoomTimer {...p} />);
+    const floating = screen.getByTestId("timer-floating");
+    rerender(<RoomTimer {...p} timer={buildEndedTimer()} />);
+    expect(floating).toHaveAttribute("data-timer-attention", "none");
+    rerender(<RoomTimer {...p} timer={buildEndedTimer()} disabled />);
+    expect(floating).toHaveAttribute("data-timer-attention", "none");
+    rerender(<RoomTimer {...p} timer={buildEndedTimer()} />);
+    expect(floating).toHaveAttribute("data-timer-attention", "none");
+  });
+  it("切断・送信中は延長を実行しない", () => {
+    const p = props();
+    render(<RoomTimer {...p} timer={buildEndedTimer()} disabled />);
+    fireEvent.click(screen.getByRole("button", { name: "＋1分" }));
+    expect(p.onStart).not.toHaveBeenCalled();
+    expect(p.onNext).not.toHaveBeenCalled();
+    expect(p.onExtend).not.toHaveBeenCalled();
+  });
+  it("1分延長後の時間切れでは空の円を残さずタイマーを隠す", () => {
+    const p = props();
     render(
       <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        initialDurationMs={0}
-        {...handlers}
+        {...p}
+        timer={{ status: "ended", durationMs: 60_000, extensionUsed: true }}
       />,
     );
-    openPanel();
-    const minutes = screen.getByLabelText("タイマー時間（分）");
-    const seconds = screen.getByLabelText("タイマー時間（秒）");
-
-    fireEvent.change(minutes, { target: { value: "" } });
-    fireEvent.change(seconds, { target: { value: "" } });
-    expect(minutes).toHaveValue("");
-    expect(seconds).toHaveValue("");
-    expect(minutes).toHaveAttribute("placeholder", "00");
-    expect(seconds).toHaveAttribute("placeholder", "00");
-    expect(minutes).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByRole("button", { name: "開始" })).toBeDisabled();
-
-    fireEvent.blur(minutes);
-    fireEvent.blur(seconds);
-    expect(minutes).toHaveValue("00");
-    expect(seconds).toHaveValue("00");
+    expect(screen.queryByRole("button", { name: "＋1分" })).toBeNull();
+    expect(screen.getByTestId("timer-floating")).not.toBeVisible();
   });
-
-  it("1桁の入力は編集中そのまま保ち、blur でゼロ埋めする", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        {...handlers}
-      />,
-    );
-    openPanel();
-    const minutes = screen.getByLabelText("タイマー時間（分）");
-    fireEvent.change(minutes, { target: { value: "5" } });
-    expect(minutes).toHaveValue("5");
-    fireEvent.blur(minutes);
-    expect(minutes).toHaveValue("05");
+  it("ホバーや円を押しても計時を止めない", () => {
+    const p = props();
+    render(<RoomTimer {...p} />);
+    const circle = screen.getByTestId("room-timer");
+    fireEvent.mouseEnter(circle);
+    expect(p.onPause).not.toHaveBeenCalled();
+    expect(circle).toHaveAccessibleName(/ドラッグして移動/);
+    fireEvent.click(circle);
+    expect(p.onPause).not.toHaveBeenCalled();
   });
-
-  it("±1分は空の入力を 0 として調整する", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        initialDurationMs={0}
-        {...handlers}
-      />,
-    );
-    openPanel();
-    const minutes = screen.getByLabelText("タイマー時間（分）");
-    const seconds = screen.getByLabelText("タイマー時間（秒）");
-    fireEvent.change(minutes, { target: { value: "" } });
-    fireEvent.change(seconds, { target: { value: "" } });
-
-    fireEvent.click(screen.getByRole("button", { name: "+1分" }));
-    expect(minutes).toHaveValue("01");
-    expect(seconds).toHaveValue("00");
-    fireEvent.change(minutes, { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "-1分" }));
-    expect(minutes).toHaveValue("00");
-    expect(seconds).toHaveValue("00");
-  });
-
-  it("ホストは分・秒の自由入力から開始できる", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        {...handlers}
-      />,
-    );
-
-    openPanel();
-
-    fireEvent.change(screen.getByLabelText("タイマー時間（分）"), {
-      target: { value: "1" },
-    });
-    fireEvent.change(screen.getByLabelText("タイマー時間（秒）"), {
-      target: { value: "30" },
-    });
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("1");
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("30");
-    fireEvent.click(screen.getByRole("button", { name: "開始" }));
-    expect(handlers.onStart).toHaveBeenCalledWith(90_000);
-  });
-
-  it("-1分は 00:00 を下限にクランプする", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        initialDurationMs={60_000}
-        {...handlers}
-      />,
-    );
-    openPanel();
-    fireEvent.click(screen.getByRole("button", { name: "-1分" }));
-    fireEvent.click(screen.getByRole("button", { name: "-1分" }));
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("00");
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("00");
-  });
-
-  it("+1分は自由入力と同じ 99:59 を上限にクランプする", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        initialDurationMs={98 * 60_000 + 30_000}
-        {...handlers}
-      />,
-    );
-    openPanel();
-    fireEvent.click(screen.getByRole("button", { name: "+1分" }));
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("99");
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("30");
-    fireEvent.click(screen.getByRole("button", { name: "+1分" }));
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("99");
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("59");
-  });
-
-  it("+1分は上限付近の自由入力値（99:59）を減少させない", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        {...handlers}
-      />,
-    );
-    openPanel();
-    fireEvent.change(screen.getByLabelText("タイマー時間（分）"), {
-      target: { value: "99" },
-    });
-    fireEvent.change(screen.getByLabelText("タイマー時間（秒）"), {
-      target: { value: "59" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "+1分" }));
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("99");
-    expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("59");
-  });
-
-  it("参加者もタイマーを操作できる", () => {
-    render(
-      <RoomTimer
-        timer={buildPausedTimer({ remainingMs: 30_000, durationMs: 60_000 })}
-        serverOffsetMs={0}
-        isHost={false}
-        disabled={false}
-        {...handlers}
-      />,
-    );
-
-    const chip = screen.getByTestId("room-timer");
-    expect(screen.getByRole("timer")).toHaveTextContent("00:30");
-    expect(chip).toHaveTextContent("00:30");
-    expect(screen.getByRole("timer")).toHaveAttribute(
-      "aria-label",
-      "タイマー 一時停止中 00:30。設定を開く",
-    );
-    fireEvent.click(chip);
-    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "再開" })).toBeInTheDocument();
-  });
-
-  it("参加者も未設定タイマーを開いて開始できる", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "idle" }}
-        serverOffsetMs={0}
-        isHost={false}
-        disabled={false}
-        {...handlers}
-      />,
-    );
-    const chip = screen.getByTestId("room-timer");
-    expect(chip).toHaveTextContent("03:00");
-    expect(screen.getByRole("timer")).toHaveAttribute(
-      "aria-label",
-      "タイマー 未開始 03:00。設定を開く",
-    );
-    expect(chip).toHaveClass("h-10", "w-28");
-    fireEvent.click(chip);
-    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "タイマー通知音" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "開始" })).toBeInTheDocument();
-  });
-
-  it("実行中は補正済みサーバー時刻を基準に減り、ホスト操作を送る", () => {
-    const now = Date.now();
-    render(
-      <RoomTimer
-        timer={buildRunningTimer({ now, remainingMs: 65_000 })}
-        serverOffsetMs={5_000}
-        isHost
-        disabled={false}
-        {...handlers}
-      />,
-    );
-
-    expect(screen.getByRole("timer")).toHaveTextContent("01:00");
-    expect(screen.getByTestId("room-timer")).toHaveClass("h-10", "w-28");
-    openPanel();
-    fireEvent.click(screen.getByRole("button", { name: "+1分" }));
-    expect(handlers.onExtend).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("button", { name: "一時停止" }));
-    expect(handlers.onPause).toHaveBeenCalledOnce();
-  });
-
-  it("一時停止中は再開できる", () => {
-    render(
-      <RoomTimer
-        timer={buildPausedTimer({ remainingMs: 42_000, durationMs: 60_000 })}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        {...handlers}
-      />,
-    );
-    expect(screen.getByTestId("room-timer")).toHaveAttribute(
-      "data-status",
-      "paused",
-    );
-    openPanel();
+  it("以前の一時停止状態は残り時間から再開できる", () => {
+    const p = props();
+    render(<RoomTimer {...p} timer={buildPausedTimer()} />);
+    expect(screen.getByRole("timer")).toHaveTextContent("02:30");
+    expect(screen.queryByRole("button", { name: "＋1分" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "再開" }));
-    expect(handlers.onResume).toHaveBeenCalledOnce();
+    expect(p.onResume).toHaveBeenCalledOnce();
+    expect(p.onStart).not.toHaveBeenCalled();
   });
-
-  it("実行中は +1分 と一時停止の2操作だけを表示する", () => {
-    render(
-      <RoomTimer
-        timer={buildRunningTimer()}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        {...handlers}
-      />,
+  it("停止中のEscapeは残り時間を保って円へ畳み、再クリックで選択肢を開く", () => {
+    const p = props();
+    render(<RoomTimer {...p} timer={buildPausedTimer()} />);
+    fireEvent.keyDown(screen.getByTestId("timer-floating"), { key: "Escape" });
+    expect(screen.queryByRole("button", { name: "再開" })).toBeNull();
+    fireEvent.click(screen.getByTestId("room-timer"));
+    expect(screen.getByRole("button", { name: "再開" })).toBeVisible();
+    expect(p.onResume).not.toHaveBeenCalled();
+    expect(screen.getByRole("timer")).toHaveTextContent("02:30");
+  });
+  it("以前の一時停止状態を再開した際は円へフォーカスを引き継ぐ", () => {
+    const p = props();
+    const { rerender } = render(
+      <RoomTimer {...p} timer={buildPausedTimer()} />,
     );
-
-    expect(screen.getByRole("button", { name: "+1分" })).toBeInTheDocument();
+    const resume = screen.getByRole("button", { name: "再開" });
+    resume.focus();
+    fireEvent.click(resume);
+    rerender(<RoomTimer {...p} />);
+    expect(screen.getByTestId("room-timer")).toHaveFocus();
+  });
+  it("他の参加者による停止・再開では入力中のフォーカスを奪わない", () => {
+    const p = props();
+    const view = (timer = p.timer) => (
+      <>
+        <input aria-label="付箋の本文" />
+        <RoomTimer {...p} timer={timer} />
+      </>
+    );
+    const { rerender } = render(view());
+    const input = screen.getByRole("textbox");
+    input.focus();
+    rerender(view(buildPausedTimer()));
+    expect(input).toHaveFocus();
+    rerender(view());
+    expect(input).toHaveFocus();
+  });
+  it("以前の一時停止状態でも切断中は再開できない", () => {
+    const p = props();
+    const { rerender } = render(
+      <RoomTimer {...p} timer={buildPausedTimer()} />,
+    );
+    expect(screen.getByRole("button", { name: "再開" })).toBeEnabled();
+    rerender(<RoomTimer {...p} timer={buildPausedTimer()} disabled />);
+    fireEvent.click(screen.getByRole("button", { name: "再開" }));
+    expect(p.onResume).not.toHaveBeenCalled();
+  });
+  it("Escapeで楕円を畳み、円を押すと開き直せる", () => {
+    render(<RoomTimer {...props()} timer={buildEndedTimer()} />);
+    fireEvent.keyDown(screen.getByTestId("timer-floating"), { key: "Escape" });
     expect(
-      screen.getByRole("button", { name: "一時停止" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "停止" }),
+      screen.queryByRole("button", { name: "＋1分" }),
     ).not.toBeInTheDocument();
-    const panel = within(screen.getByTestId("room-timer-panel"));
-    expect(panel.queryByText("実行中")).not.toBeInTheDocument();
-    expect(panel.queryByText("05:00")).not.toBeInTheDocument();
-    expect(panel.getAllByRole("button")).toHaveLength(2);
-  });
-
-  it("一時停止中は再開と終了の2操作だけを表示し、終了で onStop を呼ぶ", () => {
-    render(
-      <RoomTimer
-        timer={buildPausedTimer()}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        {...handlers}
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "再開" })).toBeInTheDocument();
-    const endButton = screen.getByRole("button", { name: "終了" });
-    expect(endButton).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "+1分" }),
-    ).not.toBeInTheDocument();
-    const panel = within(screen.getByTestId("room-timer-panel"));
-    expect(panel.queryByText("一時停止中")).not.toBeInTheDocument();
-    expect(panel.queryByText("05:00")).not.toBeInTheDocument();
-    fireEvent.click(endButton);
-    expect(handlers.onStop).toHaveBeenCalledOnce();
-    expect(screen.getByTestId("timer-resume-icon")).toBeInTheDocument();
-    expect(screen.getByTestId("timer-end-icon")).toBeInTheDocument();
-  });
-
-  it("終了後は直前と同じ時間でもう一度開始する操作と設定し直す操作だけを示す", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "ended", durationMs: 60_000 }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        {...handlers}
-      />,
-    );
-
-    const panel = within(screen.getByTestId("room-timer-panel"));
-    expect(screen.getByTestId("room-timer")).toHaveTextContent("00:00");
-    expect(screen.getByTestId("room-timer")).not.toHaveTextContent("終了");
-    expect(panel.queryByText("終了")).not.toBeInTheDocument();
-    expect(panel.queryByText("00:00")).not.toBeInTheDocument();
-    expect(panel.queryByText("時間になりました。")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "もう一度" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "設定し直す" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "開始" }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "もう一度" }));
-    expect(handlers.onStart).toHaveBeenCalledWith(60_000);
-  });
-
-  it("終了後に設定し直すと推奨時間の見出しなし設定UIへ戻り、自動開始しない", () => {
-    render(
-      <RoomTimer
-        timer={{ status: "ended", durationMs: 10 * 60_000 }}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        initialDurationMs={3 * 60_000}
-        {...handlers}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "設定し直す" }));
-    expect(screen.getByRole("button", { name: "開始" })).toBeInTheDocument();
-    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("03");
-    expect(screen.queryByText("タイマー設定")).not.toBeInTheDocument();
-    expect(handlers.onStart).not.toHaveBeenCalled();
-  });
-
-  it("ローカルで 00:00 になった実行中タイマーも終了パネルになり、自動開始しない", () => {
-    render(
-      <RoomTimer
-        timer={buildRunningTimer({
-          now: Date.now(),
-          remainingMs: 1,
-          durationMs: 60_000,
-        })}
-        serverOffsetMs={0}
-        isHost
-        disabled={false}
-        defaultPanelOpen
-        initialDurationMs={60_000}
-        {...handlers}
-      />,
-    );
-
-    act(() => vi.advanceTimersByTime(250));
-
-    expect(screen.getByRole("timer")).toHaveTextContent("00:00");
-    expect(
-      screen.getByRole("button", { name: "もう一度" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "+1分" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "一時停止" }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "もう一度" }));
-    expect(handlers.onStart).toHaveBeenCalledWith(60_000);
-  });
-
-  it("00:00 到達時は音を出さず視覚通知する", () => {
-    render(
-      <RoomTimer
-        timer={buildEndedTimer()}
-        serverOffsetMs={0}
-        isHost={false}
-        disabled={false}
-        {...handlers}
-      />,
-    );
-    expect(screen.getByRole("timer")).toHaveTextContent("00:00");
-    expect(screen.getByRole("timer")).not.toHaveAttribute("aria-live");
-    expect(screen.getByText(/タイマーが終了しました。/)).toHaveAttribute(
-      "aria-live",
-      "polite",
-    );
-    expect(screen.getByTestId("room-timer")).toHaveAttribute(
-      "data-ended",
-      "true",
-    );
-  });
-
-  it("時間経過で表示が減り、00:00 到達時に ended になって interval を止める", () => {
-    render(
-      <RoomTimer
-        timer={buildRunningTimer({
-          now: Date.now(),
-          remainingMs: 60_000,
-        })}
-        serverOffsetMs={0}
-        isHost={false}
-        disabled={false}
-        {...handlers}
-      />,
-    );
-    expect(screen.getByRole("timer")).toHaveTextContent("01:00");
-
-    act(() => vi.advanceTimersByTime(1_000));
-    expect(screen.getByRole("timer")).toHaveTextContent("00:59");
-
-    act(() => vi.advanceTimersByTime(59_000));
-    expect(screen.getByRole("timer")).toHaveTextContent("00:00");
-    expect(screen.getByTestId("room-timer")).toHaveAttribute(
-      "data-ended",
-      "true",
-    );
-    expect(vi.getTimerCount()).toBe(0);
+    fireEvent.click(screen.getByTestId("room-timer"));
+    expect(screen.getByRole("button", { name: "＋1分" })).toBeInTheDocument();
   });
 });

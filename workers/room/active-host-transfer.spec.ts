@@ -8,6 +8,7 @@ import {
   connectRoomAs,
   createRoomAs,
   currentPhaseExpectation,
+  endTimerForTest,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
@@ -307,6 +308,7 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     const before = await readProgress(roomId);
     await transfer(a, b, B.sub, 0);
     expect(await readProgress(roomId)).toEqual(before);
+    await endTimerForTest(roomId);
     send(a, {
       type: "sharing:advance",
       revision: sharing.revision,
@@ -447,7 +449,7 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
   });
 
   it("移譲直後も参加者のタイマー操作を受理し、旧ホストからの再移譲は拒否する", async () => {
-    const { stub, a, b } = await setup();
+    const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
     send(a, {
       type: "host:transfer",
@@ -470,8 +472,9 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     await receive(b, "timer:updated");
     expect(await receive(a, "error")).toMatchObject({ code: "forbidden" });
     expect(await stub.getTimerState()).toMatchObject({ status: "running" });
+    await endTimerForTest(roomId);
     send(b, {
-      type: "timer:pause",
+      type: "timer:extend",
       expectedHostRevision: 1,
     });
     await receive(a, "timer:updated");

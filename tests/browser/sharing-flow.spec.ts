@@ -25,9 +25,11 @@ describe("共有HUD", () => {
       expect(box?.width).toBeGreaterThanOrEqual(220);
       const timer = await page.getByTestId("room-timer").boundingBox();
       if (!box || !timer) throw new Error("共有HUDがない");
-      expect(box.x + box.width).toBeLessThanOrEqual(timer.x);
+      const hud = await page.getByTestId("board-control-hud").boundingBox();
+      if (!hud) throw new Error("操作HUDがありません");
+      expect(timer.y).toBeGreaterThanOrEqual(hud.y + hud.height + 11);
       const next = await page
-        .getByRole("button", { name: "次の人へ", exact: true })
+        .getByRole("button", { name: "できた！", exact: true })
         .boundingBox();
       if (!next) throw new Error("進行ボタンがない");
       expect(next.x + next.width).toBeLessThan(width);
@@ -55,7 +57,7 @@ describe("共有HUD", () => {
     expect(await page.getByRole("timer").innerText()).toBe("03:00");
     expect(
       await page
-        .getByRole("button", { name: "次の人へ", exact: true })
+        .getByRole("button", { name: "できた！", exact: true })
         .isDisabled(),
     ).toBe(true);
     await page.close();

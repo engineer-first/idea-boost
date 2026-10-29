@@ -335,7 +335,11 @@ export const SharingActive: Story = {
   ...SharingReady,
   args: {
     ...SharingReady.args,
-    timer: { status: "paused", remainingMs: 138000, durationMs: 180000 },
+    timer: {
+      status: "running",
+      endsAt: Date.now() + 138000,
+      durationMs: 180000,
+    },
     sharing: buildSharingState({
       status: "active",
       currentIndex: 1,

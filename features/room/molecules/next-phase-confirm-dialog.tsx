@@ -25,6 +25,7 @@ import {
 import { MemberAvatar } from "@/features/room-members";
 import { getPhaseLabel } from "../logic/phase-labels";
 import type { Member } from "../logic/room-reducer";
+import styles from "./next-phase-confirm-dialog.module.css";
 
 export type NextPhaseConfirmDialogProps = {
   phase: RoomPhase;
@@ -58,7 +59,8 @@ export function NextPhaseConfirmDialog({
   const trigger = (
     <Button
       type="button"
-      className="h-10 px-4 max-[900px]:px-2 max-[900px]:text-xs"
+      variant={disabled ? "ghost" : "default"}
+      className={`h-10 px-4 max-[900px]:px-2 max-[900px]:text-xs ${disabled ? styles.pending : styles.ready}`}
       disabled={disabled}
       onClick={(event) => {
         if (onRequestAdvance) {
@@ -146,7 +148,9 @@ export function NextPhaseConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>キャンセル</AlertDialogCancel>
 
-          <AlertDialogAction onClick={onConfirm}>次へ進む</AlertDialogAction>
+          <AlertDialogAction disabled={disabled} onClick={onConfirm}>
+            次へ進む
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

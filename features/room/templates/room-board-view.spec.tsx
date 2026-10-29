@@ -8,6 +8,7 @@ import {
   buildMembers,
   buildNote,
   buildNotes,
+  buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import type { Note } from "@/features/notes";
 import { useBoardHelp } from "../logic/use-board-help";
@@ -338,10 +339,9 @@ describe("2軸評価画面の周辺操作", () => {
       notes: [buildNote({ id: "shared-idea" })],
     });
 
-    const phaseHud = screen.getByTestId("phase-loop-hud");
     expect(
-      within(phaseHud).getByRole("button", { name: "もう一度付箋を書く" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "もう一度付箋を書く" }),
+    ).toBeNull();
     const mapSizeHud = screen.getByTestId("idea-map-size-controls-hud");
     expect(mapSizeHud).toContainElement(
       screen.getByRole("group", { name: "2軸マップの広さ操作" }),
@@ -377,9 +377,6 @@ describe("2軸評価画面の周辺操作", () => {
     expect(
       screen.queryByTestId("idea-map-unplaced-tray"),
     ).not.toBeInTheDocument();
-    expect(screen.getByTestId("idea-map-workspace-rail")).not.toContainElement(
-      phaseHud,
-    );
   });
 });
 
@@ -1474,7 +1471,8 @@ describe("RoomBoardView", () => {
     expect(screen.getByTestId("board-header-row")).toBeInTheDocument();
     expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
     expect(screen.getByTestId("board-control-hud")).toBeInTheDocument();
-    expect(screen.getByTestId("room-timer")).toHaveTextContent("00:30");
+    expect(screen.getByTestId("timer-floating")).toBeInTheDocument();
+    expect(screen.getByRole("timer")).toHaveTextContent("00:30");
     expect(screen.getByTestId("phase-loop-hud")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
@@ -1710,11 +1708,11 @@ describe("RoomBoardView", () => {
     expect(interactions.onPointerEnd).not.toHaveBeenCalled();
   });
 
-  describe("進め方ガイドを表示しない", () => {
-    it("工程を移動してもガイドを表示しない", () => {
-      const { props, rerender } = setup({ phase: buildPhaseStep(1) });
+  describe("進め方ガイド", () => {
+    it("1-1以外の工程に移動しても旧ガイドを表示しない", () => {
+      const { props, rerender } = setup({ phase: buildPhaseStep(1, 2) });
       expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
-      rerender(<TestBoardView {...props} phase={buildPhaseStep(2)} />);
+      rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 2)} />);
       expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -1879,17 +1877,17 @@ describe("RoomBoardView", () => {
     expect(onLeave).not.toHaveBeenCalled();
   });
 
-  it("非ホストにはタイマー状態だけを表示し操作を出さない", () => {
+  it("非ホストもタイマーを一時停止・再開できる", () => {
     setup({
       isHost: false,
       timer: { status: "paused", remainingMs: 30_000, durationMs: 60_000 },
       timerServerOffsetMs: 0,
     });
     expect(screen.getByRole("timer")).toHaveTextContent("00:30");
-    expect(screen.queryByRole("button", { name: "再開" })).toBeNull();
+    expect(screen.getByRole("button", { name: "再開" })).toBeVisible();
   });
 
-  it("ホストのタイマー開始操作を onTimerStart へ渡す", () => {
+  it("タイマーを押すと工程に定めた時間で開始する", () => {
     const onTimerStart = vi.fn();
 
     setup({
@@ -1899,67 +1897,23 @@ describe("RoomBoardView", () => {
     });
 
     fireEvent.click(screen.getByTestId("room-timer"));
-    fireEvent.change(screen.getByLabelText("タイマー時間（分）"), {
-      target: { value: "1" },
-    });
-    fireEvent.change(screen.getByLabelText("タイマー時間（秒）"), {
-      target: { value: "30" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "開始" }));
 
-    expect(onTimerStart).toHaveBeenCalledWith(90_000);
+    expect(onTimerStart).toHaveBeenCalledWith(360_000);
   });
 
-  it("タイマー設定中に空白ボードをクリックすると閉じ、ボード操作を開始しない", () => {
+  it("タイマーに時間設定パネルを表示しない", () => {
     const notes = buildNotes(2);
     const interactions = buildInteractions(notes, []);
     const onNoteDecide = vi.fn();
-    setup({ isHost: true, notes, interactions, onNoteDecide });
-    fireEvent.click(screen.getByTestId("room-timer"));
-    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
-
-    const canvas = screen.getByTestId("board-canvas");
-    fireEvent.pointerDown(canvas, {
-      button: 0,
-      pointerId: 1,
-      clientX: 320,
-      clientY: 240,
-    });
-    fireEvent.pointerUp(canvas, {
-      button: 0,
-      pointerId: 1,
-      clientX: 320,
-      clientY: 240,
-    });
-    fireEvent.click(canvas);
-
-    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
-    expect(interactions.onCanvasPointerDown).not.toHaveBeenCalled();
-    expect(interactions.onCanvasPointerEnd).not.toHaveBeenCalled();
-    expect(interactions.onNoteDragStart).not.toHaveBeenCalled();
-    expect(interactions.onPrivateNoteDragStart).not.toHaveBeenCalled();
-    expect(onNoteDecide).not.toHaveBeenCalled();
-  });
-
-  it("タイマー設定中の最初の採用クリックはパネルを閉じるだけにする", async () => {
-    const onNoteDecide = vi.fn();
     setup({
-      phase: buildPhaseStep(5),
       isHost: true,
+      notes,
+      interactions,
       onNoteDecide,
+      timer: { status: "idle" },
     });
-    await userEvent.click(
-      screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
-    );
-    const decide = screen.getAllByRole("button", {
-      name: /採用する付箋:/,
-    })[0];
-    await userEvent.click(screen.getByTestId("room-timer"));
-    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
-
-    await userEvent.click(decide);
-
-    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("room-timer"));
+    expect(screen.queryByTestId("room-timer-panel")).toBeNull();
     expect(onNoteDecide).not.toHaveBeenCalled();
   });
 
@@ -2028,7 +1982,21 @@ describe("RoomBoardView", () => {
     expect(onAddPrivateNote).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["idle", "paused", "ended"] as const)(
+  it("時間切れ後も投票を完了できる", () => {
+    setup({
+      phase: buildPhaseStep(4),
+      timer: { status: "ended", durationMs: 60_000, extensionUsed: true },
+      notes: buildNotes(1),
+    });
+    const palette = screen.getByRole("region", { name: "投票パレット" });
+    expect(
+      within(palette)
+        .getAllByRole("button")
+        .some((button) => !button.hasAttribute("disabled")),
+    ).toBe(true);
+  });
+
+  it.each(["idle", "paused"] as const)(
     "タイマーが%sのときは接続待ちを表示せず投票操作を無効にする",
     (status) => {
       setup({
@@ -2036,9 +2004,7 @@ describe("RoomBoardView", () => {
         timer:
           status === "idle"
             ? { status }
-            : status === "paused"
-              ? { status, remainingMs: 30_000, durationMs: 60_000 }
-              : { status, durationMs: 60_000 },
+            : { status, remainingMs: 30_000, durationMs: 60_000 },
       });
 
       const palette = screen.getByRole("region", { name: "投票パレット" });
@@ -2050,7 +2016,7 @@ describe("RoomBoardView", () => {
     },
   );
 
-  it("投票シールのドラッグ中にタイマーが停止したら、ドラッグを解除して投票しない", () => {
+  it("投票シールのドラッグ中にタイマーが未開始に戻ると、ドラッグを解除して投票しない", () => {
     const onNoteVote = vi.fn();
     const { props, rerender } = setup({
       phase: buildPhaseStep(4),
@@ -2116,13 +2082,8 @@ describe("RoomBoardView", () => {
       clientY: 80,
     });
 
-    // ドラッグ中にタイマーが終了する。
-    rerender(
-      <TestBoardView
-        {...props}
-        timer={{ status: "ended", durationMs: 60_000 }}
-      />,
-    );
+    // 工程変更等でタイマーが未開始に戻る。
+    rerender(<TestBoardView {...props} timer={{ status: "idle" }} />);
 
     expect(releasePointerCapture).toHaveBeenCalledWith(91);
 
@@ -2781,7 +2742,12 @@ describe("RoomBoardView", () => {
   });
 
   it("Step 1-4 のホストは Step 1-5 へ進める", () => {
-    setup({ isHost: true, phase: buildPhaseStep(4) });
+    setup({
+      isHost: true,
+      phase: buildPhaseStep(4),
+      completedVoterIds: [ME, "22222222-2222-4222-8222-222222222222"],
+      timer: { status: "ended", durationMs: 300_000 },
+    });
 
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
@@ -3095,19 +3061,29 @@ describe("RoomBoardView", () => {
       [2, 4, false],
       [3, 5, false],
     ] as const)(
-      "%i-%iで確定・取消を全員の完了表示に反映する（ホスト=%s）",
+      "%i-%iで完了チェックを保ち、採用の確定・取消に応じて進行を切り替える（ホスト=%s）",
       (phase, step, isHost) => {
         const members = buildMembers(3, ME);
         const { props, rerender } = setup({
           phase: buildPhaseStep(step, phase),
+          timer: { status: "ended", durationMs: 300_000 },
           notes: [buildNote({ id: "note-1" })],
           members,
+          progress: {
+            phaseRevision: 0,
+            progressRevision: 1,
+            connectedUserIds: members.map(({ userId }) => userId),
+            readyUserIds: members.map(({ userId }) => userId),
+            notReadyUserIds: [],
+            canAdvance: true,
+            allReady: true,
+          },
           isHost,
           decision: null,
         });
         const actionName =
           phase === 3 ? "完了して成果を表示" : "次のステップへ";
-        const assertCompletion = (complete: boolean) => {
+        const assertCompletion = (complete: boolean, decided: boolean) => {
           expect(
             within(
               screen.getByRole("button", { name: "参加者 3人" }),
@@ -3120,35 +3096,33 @@ describe("RoomBoardView", () => {
               }).length,
             ).toBeGreaterThan(0);
           }
-          if (isHost) {
-            if (complete)
-              expect(
-                screen.getByRole("button", { name: actionName }),
-              ).toBeEnabled();
-            else
-              expect(
-                screen.getByRole("button", { name: actionName }),
-              ).toBeDisabled();
-          }
+          if (decided)
+            expect(
+              screen.getByRole("button", { name: actionName }),
+            ).toBeEnabled();
+          else
+            expect(
+              screen.getByRole("button", { name: actionName }),
+            ).toBeDisabled();
         };
         fireEvent.click(screen.getByRole("button", { name: "参加者 3人" }));
-        assertCompletion(false);
+        assertCompletion(true, false);
         rerender(
           <TestBoardView
             {...props}
             decision={buildDecision({ phase, noteId: "note-1" })}
           />,
         );
-        assertCompletion(true);
+        assertCompletion(true, true);
         rerender(<TestBoardView {...props} decision={null} />);
-        assertCompletion(false);
+        assertCompletion(true, false);
       },
     );
   });
 
   describe("ステップ移行", () => {
     it("ホストの場合のみ「次のステップへ」ボタンを表示する", () => {
-      setup({ isHost: true });
+      setup({ isHost: true, timer: { status: "idle" } });
 
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),
@@ -3157,7 +3131,7 @@ describe("RoomBoardView", () => {
 
     it("全員完了済みなら確認なしでonNextPhaseを呼ぶ", () => {
       const onNextPhase = vi.fn();
-      setup({ isHost: true, onNextPhase });
+      setup({ isHost: true, onNextPhase, timer: { status: "idle" } });
 
       fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
@@ -3165,7 +3139,12 @@ describe("RoomBoardView", () => {
     });
 
     it("Step 1-5 は未決定なら次への操作を無効にする", () => {
-      setup({ isHost: true, phase: buildPhaseStep(5), decision: null });
+      setup({
+        isHost: true,
+        phase: buildPhaseStep(5),
+        decision: null,
+        timer: { status: "ended", durationMs: 300_000 },
+      });
 
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),
@@ -3177,6 +3156,7 @@ describe("RoomBoardView", () => {
         isHost: true,
         phase: buildPhaseStep(5),
         decision: buildDecision({ noteId: "note-1" }),
+        timer: { status: "ended", durationMs: 300_000 },
       });
 
       expect(
@@ -3185,7 +3165,12 @@ describe("RoomBoardView", () => {
     });
 
     it("Step 2-1 では次のステップ(2-2)へ進める", () => {
-      setup({ isHost: true, phase: buildPhaseStep(1, 2), notes: [] });
+      setup({
+        isHost: true,
+        phase: buildPhaseStep(1, 2),
+        notes: [],
+        timer: { status: "ended", durationMs: 300_000 },
+      });
 
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),
@@ -3593,24 +3578,51 @@ describe("ステップに結び付いた決定事項", () => {
 });
 
 describe("反復ワークフロー", () => {
-  it.each([
-    [1, 2],
-    [1, 3],
-    [2, 2],
-    [3, 2],
-    [3, 3],
-  ] as const)("%i-%iで追加作業を下中央から確認する", (phase, step) => {
-    setup({ phase: buildPhaseStep(step, phase), isHost: true });
-    fireEvent.click(screen.getByRole("button", { name: "もう一度付箋を書く" }));
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "共有済み付箋と下書きは残ります",
-    );
-    expect(
-      screen.getByRole("button", { name: "個人作業へ戻る" }),
-    ).toBeEnabled();
-  });
+  it.each([1, 2, 3] as const)(
+    "フェーズ%dの共有一巡後は共有付箋が0枚でも次へ進める",
+    (phase) => {
+      const { props } = setup({
+        phase: buildPhaseStep(2, phase),
+        notes: [],
+        sharing: buildSharingState({
+          status: "complete",
+          currentIndex: null,
+          results: ["passed", "passed", "passed"],
+        }),
+        timer: { status: "ended", durationMs: 180_000 },
+      });
+      const next = screen.getByRole("button", { name: "できた！" });
+      expect(next).toBeEnabled();
+      fireEvent.click(next);
+      expect(props.onNextPhase).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([1, 2, 3] as const)(
+    "フェーズ%dの共有一巡後に、タイマーから付箋を書き足す",
+    (phase) => {
+      const { props } = setup({
+        phase: buildPhaseStep(2, phase),
+        sharing: buildSharingState({
+          status: "complete",
+          results: ["done", "done", "done"],
+        }),
+        timer: { status: "idle" },
+        onRestartWriting: vi.fn(),
+      });
+      const addMore = screen.getByRole("button", { name: "付箋を書き足す" });
+      expect(addMore).toBeEnabled();
+      fireEvent.click(addMore);
+      expect(props.onRestartWriting).toHaveBeenCalledOnce();
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+    },
+  );
   it("採用前は次への操作を無効にして再投票を確認できる", () => {
-    setup({ phase: buildPhaseStep(5), isHost: true });
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      timer: { status: "ended", durationMs: 300_000 },
+    });
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeDisabled();

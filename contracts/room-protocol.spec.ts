@@ -63,6 +63,22 @@ describe("NoteColorSchema", () => {
 });
 
 describe("TimerStateSchema", () => {
+  it("延長済みの状態を共有し、真偽値以外は拒否する", () => {
+    expect(
+      TimerStateSchema.parse({
+        status: "ended",
+        durationMs: 60_000,
+        extensionUsed: true,
+      }),
+    ).toMatchObject({ extensionUsed: true });
+    expect(
+      TimerStateSchema.safeParse({
+        status: "ended",
+        durationMs: 60_000,
+        extensionUsed: "yes",
+      }).success,
+    ).toBe(false);
+  });
   it("負数や有限でない時刻・時間を拒否する", () => {
     expect(
       TimerStateSchema.safeParse({

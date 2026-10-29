@@ -72,6 +72,21 @@ export async function startTimerForTest(roomId: string): Promise<void> {
   });
 }
 
+// 工程進行の前提となる時間切れを用意する。操作中のfixtureとは分ける。
+export async function endTimerForTest(roomId: string): Promise<void> {
+  await runInRoomDO(roomId, async (_room, state) => {
+    const timer = getTimerState(state.storage.sql);
+    saveTimerState(state.storage.sql, {
+      status: "ended",
+      durationMs: timer.status === "idle" ? 60000 : timer.durationMs,
+      ...(timer.status !== "idle" && timer.extensionUsed
+        ? { extensionUsed: true }
+        : {}),
+    });
+    await syncRoomAlarm(state.storage, state.storage.sql);
+  });
+}
+
 // members テーブルを参加順（joined_at 昇順）で直接読む。
 // 「メンバーIDの一覧を返す」は本番の RPC としては使われておらず、この検査
 // のためだけに RoomDO の公開面を広げるのは避けたいので、DurableObjectState
@@ -283,6 +298,10 @@ export async function arrangeSharingComplete(roomId: string): Promise<void> {
   await runInRoomDO(roomId, (_room, state) => {
     const sharing = getSharingState(state.storage.sql);
     if (!sharing) throw new Error("共有状態がありません。");
+    saveTimerState(state.storage.sql, {
+      status: "ended",
+      durationMs: sharing.durationMs,
+    });
     saveSharingState(state.storage.sql, {
       ...sharing,
       status: "complete",
