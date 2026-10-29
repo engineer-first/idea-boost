@@ -28,6 +28,41 @@ async function frame(reaction: Locator, time: number) {
   }, time);
 }
 
+test("5種類の受信画像を読み込み、読み上げ名と表示する種類を一致させる", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+  });
+  try {
+    await page.goto(
+      `${origin}/iframe.html?id=room-sharingreactiondisplay--all-kinds&viewMode=story`,
+    );
+    for (const [label, kind] of [
+      ["いいね", "like"],
+      ["拍手", "clap"],
+      ["おお！", "surprised"],
+      ["なるほど", "insight"],
+      ["どうして？", "question"],
+    ]) {
+      const reaction = page.getByRole("img", { name: label, exact: true });
+      await reaction.waitFor({ state: "attached" });
+      const image = reaction.locator("img");
+      expect(
+        await image.evaluate(async (element: HTMLImageElement) => {
+          await element.decode();
+          return element.naturalWidth;
+        }),
+      ).toBeGreaterThan(0);
+      expect(
+        decodeURIComponent((await image.getAttribute("src")) ?? ""),
+      ).toContain(`/reactions/${kind}-3d.webp`);
+      expect((await frame(reaction, 2250)).opacity).toBeGreaterThan(0.8);
+      expect((await frame(reaction, 2999)).opacity).toBeLessThan(0.02);
+    }
+  } finally {
+    await page.close();
+  }
+});
+
 test.each([
   { width: 1280, height: 800 },
   { width: 375, height: 812 },

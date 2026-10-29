@@ -187,7 +187,13 @@ describe("共有中のいいねの表示", () => {
       const { props, rerender } = setup({
         phase: buildPhaseStep(2, phase),
         sharingReactions: [
-          { id: ME, senderId: ME, slot: 0, expiresAt: Date.now() + 3_000 },
+          {
+            id: ME,
+            senderId: ME,
+            kind: "like",
+            slot: 0,
+            expiresAt: Date.now() + 3_000,
+          },
         ],
       });
       expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
@@ -203,7 +209,13 @@ describe("共有中のいいねの表示", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(2),
       sharingReactions: [
-        { id: ME, senderId: ME, slot: 0, expiresAt: Date.now() + 3_000 },
+        {
+          id: ME,
+          senderId: ME,
+          kind: "like",
+          slot: 0,
+          expiresAt: Date.now() + 3_000,
+        },
       ],
     });
     expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();

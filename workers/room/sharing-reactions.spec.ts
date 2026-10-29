@@ -44,7 +44,7 @@ async function setup(phase: RoomPhase = { kind: "step", phase: 1, step: 2 }) {
   return { roomId, owner, member, revision: expectedRevision };
 }
 
-describe("共有中のいいね", () => {
+describe("共有中のリアクション", () => {
   it.each([
     { kind: "step", phase: 1, step: 1 },
     { kind: "step", phase: 1, step: 4 },
@@ -56,7 +56,7 @@ describe("共有中のいいね", () => {
       member.ws.send(
         JSON.stringify({
           type: "reaction:send",
-          kind: "like",
+          kind: "question",
           phaseRevision: revision,
         }),
       );
@@ -70,13 +70,13 @@ describe("共有中のいいね", () => {
     }
   });
 
-  it("古い工程の送信を拒否する", async () => {
+  it("古い工程からのどうして？の送信を拒否する", async () => {
     const { owner, member, revision } = await setup();
     try {
       member.ws.send(
         JSON.stringify({
           type: "reaction:send",
-          kind: "like",
+          kind: "question",
           phaseRevision: revision + 1,
         }),
       );
@@ -90,7 +90,7 @@ describe("共有中のいいね", () => {
     }
   });
 
-  it("退出した接続は送信も受信もできない", async () => {
+  it("退出した接続はどうして？を送信も受信もできない", async () => {
     const { roomId, owner, member, revision } = await setup();
     try {
       await runInRoomDO(roomId, (_, state) => {
@@ -102,7 +102,7 @@ describe("共有中のいいね", () => {
       member.ws.send(
         JSON.stringify({
           type: "reaction:send",
-          kind: "like",
+          kind: "question",
           phaseRevision: revision,
         }),
       );
@@ -151,7 +151,42 @@ describe("共有中のいいね", () => {
     }
   });
 
-  it("同じアカウントの複数接続でも4件目は配信せず、3秒後に再び送れる", async () => {
+  it("どうして？を別のルームへ配信しない", async () => {
+    const { owner, member, revision } = await setup();
+    const otherUser = {
+      sub: "33333333-3333-4333-8333-333333333333",
+      name: "別ルームの参加者",
+      email: "other-room@example.test",
+    };
+    const { roomId } = await createRoomAs(otherUser);
+    const other = await connectRoomAs(otherUser, roomId);
+    await other.next();
+    try {
+      member.ws.send(
+        JSON.stringify({
+          type: "reaction:send",
+          kind: "question",
+          phaseRevision: revision,
+        }),
+      );
+      expect(await until(owner, "reaction:received")).toMatchObject({
+        kind: "question",
+        senderId: listener.sub,
+      });
+      await until(member, "reaction:received");
+      other.ws.send(JSON.stringify({ type: "reaction:send", kind: "invalid" }));
+      expect(await other.next()).toMatchObject({
+        type: "error",
+        code: "invalid-message",
+      });
+    } finally {
+      owner.close();
+      member.close();
+      other.close();
+    }
+  });
+
+  it("種類を変えて複数接続から送っても4件目は配信せず、3秒後に再び送れる", async () => {
     const { roomId, owner, member, revision } = await setup();
     const second = await connectRoomAs(listener, roomId);
     await second.next();
@@ -173,25 +208,26 @@ describe("共有中のいいね", () => {
           ).length;
         const start = Date.now();
         vi.useFakeTimers({ toFake: ["Date"] });
-        const send = (ws: WebSocket) =>
+        const send = (ws: WebSocket, kind = "like") =>
           instance.webSocketMessage(
             ws,
             JSON.stringify({
               type: "reaction:send",
-              kind: "like",
+              kind,
               phaseRevision: revision,
             }),
           );
         try {
-          for (let index = 0; index < 4; index++) {
+          const kinds = ["like", "question", "clap", "insight"];
+          for (let index = 0; index < kinds.length; index++) {
             vi.setSystemTime(start + index * 400);
-            await send(senders[index % 2]);
+            await send(senders[index % 2], kinds[index]);
           }
           expect(count()).toBe(3);
           await send(recipient);
           expect(count()).toBe(4);
           vi.setSystemTime(start + 3_000);
-          await send(senders[0]);
+          await send(senders[0], "surprised");
           expect(count()).toBe(5);
         } finally {
           wire.mockRestore();
@@ -235,13 +271,13 @@ describe("共有中のいいね", () => {
         const start = Date.now();
         vi.useFakeTimers({ toFake: ["Date"] });
         try {
-          for (const sentAt of scenario.sentAt) {
+          for (const [index, sentAt] of scenario.sentAt.entries()) {
             vi.setSystemTime(start + sentAt);
             await instance.webSocketMessage(
               sender,
               JSON.stringify({
                 type: "reaction:send",
-                kind: "like",
+                kind: ["like", "clap", "question"][index],
                 phaseRevision: revision,
               }),
             );
@@ -293,7 +329,7 @@ describe("共有中のいいね", () => {
             sender,
             JSON.stringify({
               type: "reaction:send",
-              kind: "like",
+              kind: "insight",
               phaseRevision: revision,
             }),
           );
@@ -377,7 +413,7 @@ describe("共有中のいいね", () => {
     }
   });
 
-  it("参加先確認の非同期待機中にセッション期限を越えたいいねを配信しない", async () => {
+  it("参加先確認の非同期待機中にセッション期限を越えたどうして？を配信しない", async () => {
     const { roomId, owner, member, revision } = await setup();
     try {
       await runInRoomDO(roomId, async (instance, state) => {
@@ -409,7 +445,7 @@ describe("共有中のいいね", () => {
             sender,
             JSON.stringify({
               type: "reaction:send",
-              kind: "like",
+              kind: "question",
               phaseRevision: revision,
             }),
           );
@@ -432,9 +468,16 @@ describe("共有中のいいね", () => {
     }
   });
 
-  it.each([1, 2] as const)(
-    "%i-2では聞き手のいいねが発表者と本人に届き、再接続には残らない",
-    async (phase) => {
+  it.each(
+    ([1, 2] as const).flatMap((phase) =>
+      ["like", "clap", "surprised", "insight", "question"].map((kind) => ({
+        phase,
+        kind,
+      })),
+    ),
+  )(
+    "$phase-2 : 聞き手の $kind が発表者と本人に届き、再接続には残らない",
+    async ({ phase, kind }) => {
       const { roomId, owner, member, revision } = await setup({
         kind: "step",
         phase,
@@ -444,7 +487,7 @@ describe("共有中のいいね", () => {
         member.ws.send(
           JSON.stringify({
             type: "reaction:send",
-            kind: "like",
+            kind,
             phaseRevision: revision,
           }),
         );
@@ -453,7 +496,7 @@ describe("共有中のいいね", () => {
           type: "reaction:received",
           id: expect.any(String),
           senderId: listener.sub,
-          kind: "like",
+          kind,
           phaseRevision: revision,
         });
         expect(await until(member, "reaction:received")).toEqual(event);

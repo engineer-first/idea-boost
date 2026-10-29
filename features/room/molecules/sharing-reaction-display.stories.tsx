@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { SHARING_REACTION_MAX_VISIBLE } from "@/contracts/sharing-reactions";
+import {
+  SHARING_REACTION_KINDS,
+  SHARING_REACTION_MAX_VISIBLE,
+} from "@/contracts/sharing-reactions";
 import { SharingReactionDisplay } from "./sharing-reaction-display";
 import { buildSharingReactionDisplayFixture } from "./sharing-reaction-display.fixture";
 
@@ -44,6 +47,19 @@ export const SimultaneousLikes: Story = {
   args: {
     reactions: buildSharingReactionDisplayFixture(SHARING_REACTION_MAX_VISIBLE),
   },
+};
+
+export const AllKinds: Story = {
+  args: {
+    reactions: buildSharingReactionDisplayFixture(
+      SHARING_REACTION_KINDS.length,
+      SHARING_REACTION_KINDS,
+    ),
+  },
+};
+
+export const SingleQuestion: Story = {
+  args: { reactions: buildSharingReactionDisplayFixture(1, ["question"]) },
 };
 
 export const Empty: Story = {

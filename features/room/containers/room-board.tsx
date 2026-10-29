@@ -703,8 +703,8 @@ export function RoomBoard({
         isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
         sharingReactions={sharingReactions.reactions}
         reactionControls={{
-          disabled: !sharingReactions.canSendLike,
-          onSendLike: sharingReactions.sendLike,
+          disabled: !sharingReactions.canSendReaction,
+          onSendReaction: sharingReactions.sendReaction,
         }}
         loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
