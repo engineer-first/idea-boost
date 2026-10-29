@@ -13,22 +13,74 @@ function ControlsWithSendLimit({
 }: {
   send: (message: ClientMessage) => boolean;
 }) {
-  const { canSendLike, sendLike } = useSharingReactions({
+  const { canSendReaction, sendReaction } = useSharingReactions({
     phase: sharingPhase,
     phaseRevision: 3,
     connectionStatus: "open",
     send,
   });
   return (
-    <SharingReactionControls disabled={!canSendLike} onSendLike={sendLike} />
+    <SharingReactionControls
+      disabled={!canSendReaction}
+      onSendReaction={sendReaction}
+    />
   );
 }
 
 afterEach(() => vi.useRealTimers());
 
 describe("SharingReactionControls", () => {
+  it("5種類を固定順で選べ、選んだ種類を送信してバーを維持する", () => {
+    const onSendReaction = vi.fn();
+    render(
+      <SharingReactionControls
+        onSendReaction={onSendReaction}
+        disabled={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
+    const choices = [
+      ["いいねを送る", "like"],
+      ["拍手を送る", "clap"],
+      ["おお！を送る", "surprised"],
+      ["なるほどを送る", "insight"],
+      ["どうして？のリアクションを送る", "question"],
+    ] as const;
+    const buttons = screen
+      .getAllByRole("button")
+      .filter((button) =>
+        choices.some(([name]) => button.getAttribute("aria-label") === name),
+      );
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(
+      choices.map(([name]) => name),
+    );
+    for (const [name, kind] of choices) {
+      fireEvent.click(screen.getByRole("button", { name }));
+      expect(onSendReaction).toHaveBeenLastCalledWith(kind);
+      expect(screen.getByRole("button", { name })).toBeVisible();
+    }
+  });
+
+  it("どうして？のヒントが理由や背景への関心を示し、Escapeで閉じられる", async () => {
+    render(
+      <SharingReactionControls onSendReaction={vi.fn()} disabled={false} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
+    const question = screen.getByRole("button", {
+      name: "どうして？のリアクションを送る",
+    });
+    fireEvent.focus(question);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      /^どうして？$/u,
+    );
+    fireEvent.keyDown(question, { key: "Escape" });
+    expect(question).not.toBeInTheDocument();
+  });
+
   it("いいねのヒントが開いていてもEscape1回でバーを閉じる", async () => {
-    render(<SharingReactionControls onSendLike={vi.fn()} disabled={false} />);
+    render(
+      <SharingReactionControls onSendReaction={vi.fn()} disabled={false} />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
     const like = screen.getByRole("button", { name: "いいねを送る" });
     fireEvent.focus(like);
@@ -40,19 +92,22 @@ describe("SharingReactionControls", () => {
   });
 
   it("いいねを送った後もバーを開いたまま続けて送れ、Escapeで閉じる", () => {
-    const onSendLike = vi.fn();
+    const onSendReaction = vi.fn();
     render(
-      <SharingReactionControls onSendLike={onSendLike} disabled={false} />,
+      <SharingReactionControls
+        onSendReaction={onSendReaction}
+        disabled={false}
+      />,
     );
     expect(
       screen.queryByRole("button", { name: "いいねを送る" }),
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
     fireEvent.click(screen.getByRole("button", { name: "いいねを送る" }));
-    expect(onSendLike).toHaveBeenCalledTimes(1);
+    expect(onSendReaction).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "いいねを送る" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "いいねを送る" }));
-    expect(onSendLike).toHaveBeenCalledTimes(2);
+    expect(onSendReaction).toHaveBeenCalledTimes(2);
     fireEvent.keyDown(screen.getByRole("button", { name: "いいねを送る" }), {
       key: "Escape",
     });
@@ -63,29 +118,37 @@ describe("SharingReactionControls", () => {
 
   it("送信後の待機中もバーとフォーカスを保ち、キーとクリックを拒否してから再送できる", async () => {
     const user = userEvent.setup();
-    const onSendLike = vi.fn();
+    const onSendReaction = vi.fn();
     const { rerender } = render(
-      <SharingReactionControls onSendLike={onSendLike} disabled={false} />,
+      <SharingReactionControls
+        onSendReaction={onSendReaction}
+        disabled={false}
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
     const like = screen.getByRole("button", { name: "いいねを送る" });
     act(() => like.focus());
     fireEvent.click(like);
-    rerender(<SharingReactionControls onSendLike={onSendLike} disabled />);
+    rerender(
+      <SharingReactionControls onSendReaction={onSendReaction} disabled />,
+    );
     expect(like).toBeVisible();
     expect(like).toBeEnabled();
     expect(like).toHaveFocus();
     expect(like).toHaveAttribute("aria-disabled", "true");
     await user.keyboard("{Enter} ");
     fireEvent.click(like);
-    expect(onSendLike).toHaveBeenCalledTimes(1);
+    expect(onSendReaction).toHaveBeenCalledTimes(1);
     rerender(
-      <SharingReactionControls onSendLike={onSendLike} disabled={false} />,
+      <SharingReactionControls
+        onSendReaction={onSendReaction}
+        disabled={false}
+      />,
     );
     expect(like).toBeEnabled();
     expect(like).toHaveAttribute("aria-disabled", "false");
     await user.keyboard(" ");
-    expect(onSendLike).toHaveBeenCalledTimes(2);
+    expect(onSendReaction).toHaveBeenCalledTimes(2);
   });
 
   it("400ms以内と3件上限の待機中は送らず、解除後は同じバーから再送できる", () => {
@@ -135,11 +198,13 @@ describe("SharingReactionControls", () => {
   });
 
   it("送信できないときはバーを開いて送信できない", () => {
-    const onSendLike = vi.fn();
-    render(<SharingReactionControls onSendLike={onSendLike} disabled />);
+    const onSendReaction = vi.fn();
+    render(
+      <SharingReactionControls onSendReaction={onSendReaction} disabled />,
+    );
     expect(screen.getByRole("button", { name: "リアクション" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
-    expect(onSendLike).not.toHaveBeenCalled();
+    expect(onSendReaction).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("button", { name: "いいねを送る" }),
     ).not.toBeInTheDocument();

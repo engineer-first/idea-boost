@@ -10,6 +10,7 @@
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -57,10 +58,6 @@ import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
-import type {
-  SharingReaction,
-  SharingReactionControls,
-} from "../logic/use-sharing-reactions";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -70,7 +67,6 @@ import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
 import { RoomNameDialog } from "../molecules/room-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
-import { SharingReactionDisplay } from "../molecules/sharing-reaction-display";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
@@ -150,8 +146,8 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
 }
 
 export type RoomBoardViewProps = {
-  sharingReactions?: SharingReaction[];
-  reactionControls?: SharingReactionControls;
+  sharingReactionDisplay?: ReactNode;
+  reactionControls?: (disabled: boolean) => ReactNode;
   feedback?: FeedbackControls;
   moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
@@ -290,7 +286,7 @@ type VoteStampPointer = {
 };
 
 export function RoomBoardView({
-  sharingReactions = [],
+  sharingReactionDisplay,
   reactionControls,
   feedback,
   moveHistory,
@@ -1966,9 +1962,9 @@ export function RoomBoardView({
             />
           ) : null}
         </RoomBoardHeader>
-        {canSendSharingReaction(phase) && !outcomePublished ? (
-          <SharingReactionDisplay reactions={sharingReactions} />
-        ) : null}
+        {canSendSharingReaction(phase) && !outcomePublished
+          ? sharingReactionDisplay
+          : null}
         {timer.status === "idle" &&
         sharing?.status !== "complete" &&
         !sharing?.startsAt &&

@@ -15,15 +15,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  SHARING_REACTION_KINDS,
+  type SharingReactionKind,
+} from "@/contracts/sharing-reactions";
+import { SHARING_REACTION_OPTIONS } from "../logic/sharing-reaction-options";
 
 export type SharingReactionControlsProps = {
   disabled: boolean;
-  onSendLike: () => void;
+  onSendReaction: (kind: SharingReactionKind) => void;
 };
 
 export function SharingReactionControls({
   disabled,
-  onSendLike,
+  onSendReaction,
 }: SharingReactionControlsProps) {
   const [open, setOpen] = useState(false);
 
@@ -50,36 +55,44 @@ export function SharingReactionControls({
           side="top"
           align="center"
           aria-label="リアクションを選ぶ"
-          className="flex min-w-24 items-center justify-center rounded-xl border-border bg-background p-1 shadow-lg shadow-black/5"
+          className="flex w-max items-center justify-center gap-1 rounded-[14px] border-border bg-background p-1 shadow-lg shadow-black/5"
         >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="いいねを送る"
-                aria-disabled={disabled}
-                className="aria-disabled:opacity-50 aria-disabled:hover:bg-transparent"
-                onClick={() => {
-                  if (!disabled) onSendLike();
-                }}
-              >
-                <Image
-                  src="/reactions/like-3d.webp"
-                  alt=""
-                  width={28}
-                  height={28}
-                  loading="eager"
-                  draggable={false}
-                  className="h-auto w-7 max-w-none shrink-0"
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" onEscapeKeyDown={() => setOpen(false)}>
-              いいね
-            </TooltipContent>
-          </Tooltip>
+          {SHARING_REACTION_KINDS.map((kind) => {
+            const option = SHARING_REACTION_OPTIONS[kind];
+            return (
+              <Tooltip key={kind}>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={option.sendLabel}
+                    aria-disabled={disabled}
+                    className="aria-disabled:opacity-50 aria-disabled:hover:bg-transparent"
+                    onClick={() => {
+                      if (!disabled) onSendReaction(kind);
+                    }}
+                  >
+                    <Image
+                      src={option.imageSrc}
+                      alt=""
+                      width={28}
+                      height={28}
+                      loading="eager"
+                      draggable={false}
+                      className="h-auto w-7 max-w-none shrink-0"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  onEscapeKeyDown={() => setOpen(false)}
+                >
+                  {option.tooltip}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
         </PopoverContent>
       </Popover>
     </TooltipProvider>

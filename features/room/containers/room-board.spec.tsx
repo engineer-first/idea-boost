@@ -10,7 +10,29 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const noteCommitProbe = vi.hoisted(() => ({
+  enabled: false,
+  onRender: vi.fn(),
+}));
+
+vi.mock("@/features/notes", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/features/notes")>();
+  const { Profiler } = await import("react");
+  return {
+    ...actual,
+    NoteCard: (props: ComponentProps<typeof actual.NoteCard>) =>
+      noteCommitProbe.enabled ? (
+        <Profiler id="note-card" onRender={noteCommitProbe.onRender}>
+          <actual.NoteCard {...props} />
+        </Profiler>
+      ) : (
+        <actual.NoteCard {...props} />
+      ),
+  };
+});
 
 const reactTransitionProbe = vi.hoisted(() => ({ start: vi.fn() }));
 vi.mock("react", async (importOriginal) => {
@@ -335,31 +357,89 @@ function openPrivateNotesToolbar() {
   return toolbar;
 }
 
-it("共有中のいいねをツールバーから送信し、配信を受けて画面に表示する", () => {
-  const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(2) });
-  const toolbar = screen.getByTestId("canvas-zoom-controls");
-  fireEvent.click(
-    within(toolbar).getByRole("button", { name: "リアクション" }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "いいねを送る" }));
-  expectSent(socket, {
-    type: "reaction:send",
-    kind: "like",
-    phaseRevision: 0,
-  });
-  expect(screen.queryByRole("img", { name: "いいね" })).not.toBeInTheDocument();
-
-  act(() =>
-    socket.simulateServerMessage({
-      type: "reaction:received",
-      id: STICKER_ID,
-      senderId: "22222222-2222-4222-8222-222222222222",
+it.each([1, 2, 3] as const)(
+  "%i-2のツールバーからいいねを送信し、配信を画面に表示する",
+  (phase) => {
+    const { socket } = connectWithSnapshot([], {
+      phase: buildPhaseStep(2, phase),
+    });
+    const toolbar = screen.getByTestId("canvas-zoom-controls");
+    fireEvent.click(
+      within(toolbar).getByRole("button", { name: "リアクション" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "いいねを送る" }));
+    expectSent(socket, {
+      type: "reaction:send",
       kind: "like",
       phaseRevision: 0,
-    }),
-  );
-  expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
-});
+    });
+    expect(
+      screen.queryByRole("img", { name: "いいね" }),
+    ).not.toBeInTheDocument();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "reaction:received",
+        id: STICKER_ID,
+        senderId: "22222222-2222-4222-8222-222222222222",
+        kind: "like",
+        phaseRevision: 0,
+      }),
+    );
+    expect(screen.getByRole("img", { name: "いいね" })).toBeVisible();
+  },
+);
+
+it.each([
+  [1, "like", "いいね", "いいねを送る"],
+  [1, "question", "どうして？", "どうして？のリアクションを送る"],
+  [3, "like", "いいね", "いいねを送る"],
+  [3, "question", "どうして？", "どうして？のリアクションを送る"],
+] as const)(
+  "%i-2で%sの受信・送信待機・消去では付箋の描画をやり直さない",
+  (phase, kind, label, sendLabel) => {
+    vi.useFakeTimers();
+    noteCommitProbe.enabled = true;
+    try {
+      const { socket } = connectWithSnapshot([protocolNote()], {
+        phase: buildPhaseStep(2, phase),
+      });
+      // 実際の受信と同じく時刻を進め、同値のstate更新による見逃しを避ける。
+      act(() => vi.advanceTimersByTime(1));
+      noteCommitProbe.onRender.mockClear();
+      act(() =>
+        socket.simulateServerMessage({
+          type: "reaction:received",
+          id: STICKER_ID,
+          senderId: OTHER_USER_ID,
+          kind,
+          phaseRevision: 0,
+        }),
+      );
+      expect(screen.getByRole("img", { name: label })).toBeVisible();
+      expect(noteCommitProbe.onRender).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
+      const choice = screen.getByRole("button", { name: sendLabel });
+      fireEvent.click(choice);
+      expectSent(socket, { type: "reaction:send", kind, phaseRevision: 0 });
+      expect(choice).toHaveAttribute("aria-disabled", "true");
+      expect(noteCommitProbe.onRender).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(400));
+      expect(choice).toHaveAttribute("aria-disabled", "false");
+      expect(noteCommitProbe.onRender).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(2_600));
+      expect(
+        screen.queryByRole("img", { name: label }),
+      ).not.toBeInTheDocument();
+      expect(noteCommitProbe.onRender).not.toHaveBeenCalled();
+      expect(screen.getByDisplayValue("最初の付箋")).toBeInTheDocument();
+    } finally {
+      noteCommitProbe.enabled = false;
+      vi.useRealTimers();
+    }
+  },
+);
 
 describe("問いの投票中の付箋移動", () => {
   it.each([true, false])(
