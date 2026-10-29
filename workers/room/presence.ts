@@ -1,7 +1,10 @@
 // 名前付きカーソルの非永続中継。受信者に送る本人情報は、クライアント入力では
 // なく認証済みソケットと members テーブルから組み立てる。
 
-import { isCursorSharingAllowed } from "../../contracts/phase";
+import {
+  isCursorSharingAllowed,
+  isPresenterViewFollowStep,
+} from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
 import type { MessageHandlers } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
@@ -13,10 +16,116 @@ import {
 } from "./move-operations";
 import { broadcastNoteUpdated, canEdit, findNote } from "./notes";
 import { getBoardMutationForbiddenMessage, getPhase } from "./phase";
+import { getSharingState } from "./sharing-state";
 
 export const presenceHandlers: MessageHandlers<
-  "cursor:update" | "cursor:leave"
+  "cursor:update" | "cursor:leave" | "view:update" | "presenter-follow:update"
 > = {
+  "view:update": (ctx, message) => {
+    const phase = getPhase(ctx.sql);
+
+    // 視点共有は対象フェーズでのみ受け付ける。
+    if (!isPresenterViewFollowStep(phase)) return;
+
+    const sharing = getSharingState(ctx.sql);
+
+    // 発表が実際に進行中で、発表者が確定していることを確認する。
+    if (
+      sharing?.status !== "active" ||
+      sharing.startsAt !== null ||
+      sharing.currentIndex === null
+    ) {
+      return;
+    }
+
+    const presenter = sharing.order[sharing.currentIndex];
+
+    // 発表者本人から送信された視点だけを中継する。
+    if (!presenter || presenter.userId !== ctx.userId) return;
+
+    ctx.broadcaster.broadcastToAllExcept(
+      {
+        type: "view:updated",
+        userId: ctx.userId,
+        view: message.view,
+      },
+      ctx.userId,
+    );
+  },
+
+  "presenter-follow:update": (ctx, message) => {
+    // ユーザーが明示的にフォローを外した場合だけ、直ちに解除する。
+    if (!message.isFollowing) {
+      const previousPresenterId = ctx.broadcaster.setPresenterFollow(
+        ctx.ws,
+        null,
+      );
+
+      if (previousPresenterId) {
+        ctx.broadcaster.broadcastPresenterFollowStatus(previousPresenterId);
+      }
+
+      return;
+    }
+
+    const phase = getPhase(ctx.sql);
+    const sharing = getSharingState(ctx.sql);
+
+    // 次の発表者への切り替え待ち中は、既存のフォロー先を維持する。
+    // startsAt が null になるまでは、新しい発表者を確定しない。
+    const isWaitingForNextPresenter =
+      isPresenterViewFollowStep(phase) &&
+      sharing !== null &&
+      sharing.status === "active" &&
+      sharing.startsAt !== null;
+
+    if (isWaitingForNextPresenter) {
+      return;
+    }
+
+    const presenter =
+      sharing !== null &&
+      sharing.status === "active" &&
+      sharing.startsAt === null &&
+      sharing.currentIndex !== null
+        ? (sharing.order[sharing.currentIndex] ?? null)
+        : null;
+
+    const isSharingActive = presenter !== null;
+
+    // 新しいフォロー先が有効かを、変更前に検証する。
+    if (
+      !isPresenterViewFollowStep(phase) ||
+      !isSharingActive ||
+      !presenter ||
+      presenter.userId === ctx.userId ||
+      !findMember(ctx.sql, ctx.userId)
+    ) {
+      const previousPresenterId = ctx.broadcaster.setPresenterFollow(
+        ctx.ws,
+        null,
+      );
+
+      if (previousPresenterId) {
+        ctx.broadcaster.broadcastPresenterFollowStatus(previousPresenterId);
+      }
+
+      return;
+    }
+
+    // 有効な発表者が確定してからフォロー先を切り替える。
+    // 既存のフォロー先は、ここで新しい発表者へ置き換わる。
+    const previousPresenterId = ctx.broadcaster.setPresenterFollow(
+      ctx.ws,
+      presenter.userId,
+    );
+
+    if (previousPresenterId && previousPresenterId !== presenter.userId) {
+      ctx.broadcaster.broadcastPresenterFollowStatus(previousPresenterId);
+    }
+
+    ctx.broadcaster.broadcastPresenterFollowStatus(presenter.userId);
+  },
   "cursor:update": (ctx, message) => {
     const phase = getPhase(ctx.sql);
     if (!isCursorSharingAllowed(phase)) return;

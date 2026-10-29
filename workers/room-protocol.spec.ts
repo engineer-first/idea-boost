@@ -141,8 +141,9 @@ async function expectType<T extends ServerMessage["type"]>(
 ): Promise<Extract<ServerMessage, { type: T }>> {
   let message = await socket.next();
   while (
-    message.type === "note:content-saved" &&
-    type !== "note:content-saved"
+    (message.type === "note:content-saved" && type !== "note:content-saved") ||
+    (message.type === "presenter-follow:status" &&
+      type !== "presenter-follow:status")
   ) {
     message = await socket.next();
   }

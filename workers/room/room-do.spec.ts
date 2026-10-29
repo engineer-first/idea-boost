@@ -3074,23 +3074,25 @@ describe("RoomDO phase:next", () => {
     await startTimerForTest(roomName);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
-    const hostDragging = nextJson(host);
+    const hostDragging = nextJsonOfType(host, "idea-map:state");
+
     member.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
-    expect(await nextJson(member)).toMatchObject({
+
+    expect(await nextJsonOfType(member, "note:drag:result")).toMatchObject({
       type: "note:drag:result",
       dragId,
       accepted: true,
     });
+
     expect(await hostDragging).toMatchObject({
       type: "idea-map:state",
       isDragging: true,
     });
-
-    const hostDeleted = nextJson(host);
+    const hostDeleted = nextJsonOfType(host, "note:deleted");
     member.send(JSON.stringify({ type: "note:unpublish", noteId }));
     expect(await hostDeleted).toMatchObject({ type: "note:deleted", noteId });
 
-    const hostIdleState = nextJson(host);
+    const hostIdleState = nextJsonOfType(host, "idea-map:state");
     member.send(
       JSON.stringify({ type: "note:drag:end", noteId, dragId, position: null }),
     );

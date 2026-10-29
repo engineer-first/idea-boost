@@ -17,7 +17,11 @@ import {
   useState,
 } from "react";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
-import { isResultStep, type RoomPhase } from "@/contracts/phase";
+import {
+  isPresenterViewFollowStep,
+  isResultStep,
+  type RoomPhase,
+} from "@/contracts/phase";
 import {
   type ClientMessage,
   needsHostRevision,
@@ -37,6 +41,8 @@ import {
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { getBoardPermissions } from "../logic/board-permissions";
+import { screenToWorld } from "../logic/canvas-camera";
+import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
@@ -45,6 +51,7 @@ import { useCursorPresence } from "../logic/use-cursor-presence";
 import { useHostTransfer } from "../logic/use-host-transfer";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useMemberRemoval } from "../logic/use-member-removal";
+import { usePresenterView } from "../logic/use-presenter-view";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
@@ -249,6 +256,144 @@ export function RoomBoard({
     connectionStatus,
     send,
   });
+  const presenterViewPresence = usePresenterView({
+    currentUserId,
+    phase: roomState.phase,
+    connectionStatus,
+    send,
+  });
+
+  const [isFollowingPresenterView, setIsFollowingPresenterView] =
+    useState(true);
+
+  const _phaseKey =
+    roomState.phase.kind === "lobby"
+      ? "lobby"
+      : `${roomState.phase.phase}-${roomState.phase.step}`;
+
+  const activePresenterId =
+    isPresenterViewFollowStep(roomState.phase) &&
+    roomState.sharing?.status === "active" &&
+    roomState.sharing.startsAt === null &&
+    roomState.sharing.currentIndex !== null
+      ? (roomState.sharing.order[roomState.sharing.currentIndex]?.userId ??
+        null)
+      : null;
+  // 発表者の切り替え待ち時間中も、次の発表者の表示情報は保持する。
+  // activePresenterId は実際に発表が始まるまで null になるため、
+  // UI 表示用には startsAt を条件に含めず別途取得する。
+  const displayPresenterId =
+    isPresenterViewFollowStep(roomState.phase) &&
+    roomState.sharing?.status === "active" &&
+    roomState.sharing.currentIndex !== null
+      ? (roomState.sharing.order[roomState.sharing.currentIndex]?.userId ??
+        null)
+      : null;
+
+  const displayPresenter =
+    displayPresenterId === null
+      ? null
+      : (roomState.sharing?.order.find(
+          (member) => member.userId === displayPresenterId,
+        ) ?? null);
+
+  const isCurrentUserPresenter =
+    activePresenterId !== null && activePresenterId === currentUserId;
+
+  const remotePresenterView =
+    activePresenterId !== null &&
+    activePresenterId !== currentUserId &&
+    presenterViewPresence.remoteView?.userId === activePresenterId
+      ? presenterViewPresence.remoteView
+      : null;
+
+  const canFollowPresenterView = remotePresenterView !== null;
+
+  // 最後にサーバーへフォロー先として通知した発表者。
+  const lastPublishedFollowPresenterIdRef = useRef<string | null>(null);
+
+  // 次の発表者への切り替え待ち状態。
+  // この間は activePresenterId が null でも、フォロー解除を送らない。
+  const isWaitingForNextPresenter =
+    isPresenterViewFollowStep(roomState.phase) &&
+    roomState.sharing?.status === "active" &&
+    roomState.sharing.startsAt !== null;
+
+  useEffect(() => {
+    // 切断時はサーバー側の WebSocket クローズ処理でフォローが解除される。
+    if (connectionStatus !== "open") {
+      lastPublishedFollowPresenterIdRef.current = null;
+      return;
+    }
+
+    const clearPublishedFollow = () => {
+      if (lastPublishedFollowPresenterIdRef.current === null) {
+        return;
+      }
+
+      lastPublishedFollowPresenterIdRef.current = null;
+
+      send({
+        type: "presenter-follow:update",
+        isFollowing: false,
+      });
+    };
+
+    // 対象フェーズ外、またはユーザーが手動でフォローを解除した場合。
+    if (
+      !isPresenterViewFollowStep(roomState.phase) ||
+      !isFollowingPresenterView
+    ) {
+      clearPublishedFollow();
+      return;
+    }
+
+    // 次の発表者が開始するまで、現在のフォロー状態を維持する。
+    if (isWaitingForNextPresenter) {
+      return;
+    }
+
+    // 発表者がいない場合は、切り替え待ち以外ではフォローを終了する。
+    if (activePresenterId === null) {
+      clearPublishedFollow();
+      return;
+    }
+
+    // 自分が発表者になった場合、自分自身へのフォローは解除する。
+    // フォローする意思（isFollowingPresenterView）は維持するので、
+    // 次に別の人が発表者になれば自動的にフォローを再開できる。
+    if (activePresenterId === currentUserId) {
+      clearPublishedFollow();
+      return;
+    }
+
+    // 同じ発表者への通知は重複して送らない。
+    if (lastPublishedFollowPresenterIdRef.current === activePresenterId) {
+      return;
+    }
+
+    // 新しい発表者へのフォローをサーバーに通知する。
+    lastPublishedFollowPresenterIdRef.current = activePresenterId;
+
+    send({
+      type: "presenter-follow:update",
+      isFollowing: true,
+    });
+  }, [
+    connectionStatus,
+    isFollowingPresenterView,
+    isWaitingForNextPresenter,
+    activePresenterId,
+    currentUserId,
+    roomState.phase,
+    send,
+  ]);
+
+  useEffect(() => {
+    // 対象フェーズへ入ったときはフォローを開始できる状態にする。
+    // 同じフェーズ内で発表者が交代しても、手動解除の状態は維持する。
+    setIsFollowingPresenterView(isPresenterViewFollowStep(roomState.phase));
+  }, [roomState.phase]);
   const sharingReactions = useSharingReactions({
     phase: roomState.phase,
     phaseRevision: roomState.phaseRevision,
@@ -421,6 +566,7 @@ export function RoomBoard({
       roomState.applyMessage(message, receivedAt);
     }
     cursorPresence.applyMessage(message, receivedAt);
+    presenterViewPresence.applyMessage(message);
     sharingReactions.applyMessage(message, receivedAt);
   }
 
@@ -665,6 +811,8 @@ export function RoomBoard({
     ideaMapSizeLevel: roomState.ideaMap.sizeLevel,
     sharing: roomState.sharing,
     ideaMapSizeInitialized: roomState.ideaMap.initialized,
+    presenterView: remotePresenterView,
+    isFollowingPresenter: isFollowingPresenterView,
     onNoteDragStart: notes.startNoteDrag,
     onNoteDragMove: notes.moveNote,
     onNoteDragEnd: notes.endNoteDrag,
@@ -673,7 +821,96 @@ export function RoomBoard({
     onPrivateNoteUnpublish: notes.unpublishNote,
     onCursorMove: cursorPresence.updateCursor,
     onCursorLeave: cursorPresence.leaveCanvas,
+    onManualPanStart: () => setIsFollowingPresenterView(false),
   });
+
+  useEffect(() => {
+    if (
+      !isCurrentUserPresenter ||
+      connectionStatus !== "open" ||
+      !isPresenterViewFollowStep(roomState.phase) ||
+      isIdeaMapViewportStep(roomState.phase)
+    ) {
+      return;
+    }
+
+    const viewport = boardInteractions.boardScrollerRef.current;
+    if (!viewport) return;
+
+    let frameId: number | null = null;
+    let observer: ResizeObserver | null = null;
+    let disposed = false;
+
+    const publishView = (): boolean => {
+      if (disposed) return true;
+
+      const rect = viewport.getBoundingClientRect();
+
+      // 表示領域がまだレイアウトされていない場合は、
+      // サイズが決まったあとで再試行する。
+      if (rect.width <= 0 || rect.height <= 0) {
+        return false;
+      }
+
+      const insets = getBoardFitInsets(viewport);
+
+      const centerScreen = {
+        x: (insets.left + rect.width - insets.right) / 2,
+        y: (insets.top + rect.height - insets.bottom) / 2,
+      };
+
+      const center = screenToWorld(centerScreen, boardInteractions.camera);
+
+      presenterViewPresence.updateView({
+        coordinateSpace: "canvas",
+        centerX: center.x,
+        centerY: center.y,
+        zoom: boardInteractions.camera.zoom,
+      });
+
+      return true;
+    };
+
+    const disconnectObserver = () => {
+      observer?.disconnect();
+      observer = null;
+    };
+
+    // 発表者の切り替え直後ではなく、レイアウトが反映された
+    // 次のフレームで表示領域を測定する。
+    frameId = window.requestAnimationFrame(() => {
+      frameId = null;
+
+      if (publishView()) return;
+
+      // まだサイズが取得できなかった場合は、表示領域の
+      // サイズが確定するまで待ち、確定したら一度だけ送信する。
+      observer = new ResizeObserver(() => {
+        if (publishView()) {
+          disconnectObserver();
+        }
+      });
+
+      observer.observe(viewport);
+    });
+
+    return () => {
+      disposed = true;
+
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      disconnectObserver();
+    };
+  }, [
+    isCurrentUserPresenter,
+    connectionStatus,
+    roomState.phase,
+    boardInteractions.camera,
+    boardInteractions.boardScrollerRef,
+    presenterViewPresence.updateView,
+  ]);
 
   useEffect(() => {
     if (connectionStatus === "open") return;
@@ -798,6 +1035,27 @@ export function RoomBoard({
         interactions={boardInteractions}
         help={help}
         remoteCursors={cursorPresence.remoteCursors}
+        presenterView={remotePresenterView}
+        isFollowingPresenterView={
+          isFollowingPresenterView &&
+          displayPresenterId !== null &&
+          displayPresenterId !== currentUserId
+        }
+        canFollowPresenterView={
+          !isFollowingPresenterView && canFollowPresenterView
+        }
+        isPresenterViewOwner={isCurrentUserPresenter}
+        isPresenterViewFollowedByOthers={
+          presenterViewPresence.isFollowedByOthers
+        }
+        presenterViewName={displayPresenter?.name ?? null}
+        presenterViewColor={displayPresenter?.color ?? null}
+        onFollowPresenterView={() => setIsFollowingPresenterView(true)}
+        onUnfollowPresenterView={() => setIsFollowingPresenterView(false)}
+        onPresenterViewChange={
+          isCurrentUserPresenter ? presenterViewPresence.updateView : undefined
+        }
+        onManualPanStart={() => setIsFollowingPresenterView(false)}
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}
