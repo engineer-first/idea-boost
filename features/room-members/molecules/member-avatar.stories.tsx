@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { MEMBER_AVATAR_IDS } from "@/contracts/member-avatar";
+import { NOTE_COLOR_PALETTE } from "@/contracts/room-protocol";
 import { MemberAvatar } from "./member-avatar";
 
 const meta = {
@@ -54,4 +56,33 @@ export const Large: Story = {
 
 export const Small: Story = {
   args: { size: 24 },
+};
+
+export const AllFaces: Story = {
+  name: "顔20種類と付箋20色",
+  render: () => (
+    <div className="grid grid-cols-5 gap-6 p-6">
+      {MEMBER_AVATAR_IDS.map((avatarId, index) => (
+        <div key={avatarId} className="flex flex-col items-center gap-2">
+          <MemberAvatar
+            name={`参加者${index + 1}`}
+            avatarId={avatarId}
+            color={NOTE_COLOR_PALETTE[index]}
+            size={64}
+          />
+          <span className="text-xs">{avatarId}</span>
+        </div>
+      ))}
+    </div>
+  ),
+};
+export const DisconnectedWithCompletion: Story = {
+  name: "切断中・完了表示あり",
+  args: {
+    name: "はな",
+    avatarId: "face-07",
+    color: "pink",
+    isConnected: false,
+    isVotingComplete: true,
+  },
 };

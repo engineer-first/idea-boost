@@ -159,11 +159,13 @@ describe("メンバー一覧（GET /api/rooms/:id/members）", () => {
           userId: OWNER.sub,
           name: OWNER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
         {
           userId: MEMBER.sub,
           name: MEMBER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
       ],
     });

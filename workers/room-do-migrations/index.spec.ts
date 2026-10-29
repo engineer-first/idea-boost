@@ -28,6 +28,7 @@ const ALL_TABLES = [
   "groups",
   "legacy_note_drag_leases",
   "member_account_name_revisions",
+  "member_avatar_assignments",
   "member_color_assignments",
   "member_display_names",
   "members",
@@ -706,4 +707,67 @@ describe("RoomDO constructor の配線", () => {
       expect(tableNames(state.storage)).toEqual(ALL_TABLES);
     });
   });
+});
+
+it("既存ルームの退出者を含む20人に一意な顔を割り当て、再移行でも保つ", async () => {
+  await runInRoomDO(
+    `avatar-migration-${crypto.randomUUID()}`,
+    (_room, state) => {
+      dropAllTables(state.storage);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.filter((m) => m.id < "20261029052422"),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      const colors = [
+        "yellow",
+        "green",
+        "blue",
+        "pink",
+        "orange",
+        "purple",
+        "red",
+        "lime",
+        "teal",
+        "cyan",
+        "indigo",
+        "violet",
+        "fuchsia",
+        "rose",
+        "amber",
+        "emerald",
+        "sky",
+        "slate",
+        "stone",
+        "zinc",
+      ];
+      colors.forEach((color, index) => {
+        state.storage.sql.exec(
+          "INSERT INTO member_color_assignments(user_id,color) VALUES(?,?)",
+          `user-${index}`,
+          color,
+        );
+      });
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      const rows = state.storage.sql
+        .exec("SELECT * FROM member_avatar_assignments ORDER BY user_id")
+        .toArray();
+      expect(rows).toHaveLength(20);
+      expect(new Set(rows.map((r) => r.avatar_id)).size).toBe(20);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      expect(
+        state.storage.sql
+          .exec("SELECT * FROM member_avatar_assignments ORDER BY user_id")
+          .toArray(),
+      ).toEqual(rows);
+    },
+  );
 });

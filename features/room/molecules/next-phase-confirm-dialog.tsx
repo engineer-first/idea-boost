@@ -34,7 +34,9 @@ export type NextPhaseConfirmDialogProps = {
   onRequestAdvance?: (proceed: () => void) => void;
   requireConfirmation?: boolean;
   notReadyNames?: ReadonlyArray<string>;
-  notReadyMembers?: ReadonlyArray<Pick<Member, "userId" | "name" | "color">>;
+  notReadyMembers?: ReadonlyArray<
+    Pick<Member, "userId" | "name" | "color" | "avatarId">
+  >;
 };
 
 export function NextPhaseConfirmDialog({
@@ -126,6 +128,7 @@ export function NextPhaseConfirmDialog({
                       userId: `not-ready-${index}`,
                       name,
                       color: "stone" as const,
+                      avatarId: undefined,
                     }))
                 ).map((member) => (
                   <div
@@ -134,6 +137,7 @@ export function NextPhaseConfirmDialog({
                   >
                     <MemberAvatar
                       name={member.name}
+                      avatarId={member.avatarId}
                       color={member.color}
                       size={28}
                     />

@@ -220,3 +220,38 @@ it.each([true, false])(
     expect(request).toHaveBeenCalledOnce();
   },
 );
+
+describe("待機中のアイコン変更", () => {
+  it("変更操作だけでランダム変更を要求し、保存・取消は求めない", async () => {
+    const randomize = vi.fn();
+    renderView({
+      avatarChange: {
+        randomize,
+        pending: false,
+        disabled: false,
+        unavailable: false,
+        error: null,
+      },
+    });
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "自分のアイコンを変更" }));
+    expect(randomize).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  it("未使用候補がない場合は変更できない理由を表示する", () => {
+    renderView({
+      avatarChange: {
+        randomize: vi.fn(),
+        pending: false,
+        disabled: true,
+        unavailable: true,
+        error: null,
+      },
+    });
+    expect(
+      screen.getByRole("button", { name: "自分のアイコンを変更" }),
+    ).toBeDisabled();
+    expect(screen.getByText(/未使用のアイコンがない/)).toBeVisible();
+  });
+});

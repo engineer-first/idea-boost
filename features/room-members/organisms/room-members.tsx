@@ -27,6 +27,7 @@ export const ROOM_MEMBERS_MAX_VISIBLE = ROOM_MEMBERS_COLS * ROOM_MEMBERS_ROWS;
 
 export type RoomMembersProps = {
   members: ProtocolMember[];
+  connectedUserIds?: readonly string[];
   currentUserId: string;
   // ホストの userId。該当メンバーの名前下に「ホスト」を表示する。
   hostUserId?: string;
@@ -42,6 +43,7 @@ export type RoomMembersProps = {
 
 export function RoomMembers({
   members,
+  connectedUserIds,
   currentUserId,
   hostUserId,
   maxVisible = ROOM_MEMBERS_MAX_VISIBLE,
@@ -95,6 +97,8 @@ export function RoomMembers({
               >
                 <MemberAvatar
                   name={member.name}
+                  avatarId={member.avatarId}
+                  isConnected={connectedUserIds?.includes(member.userId)}
                   color={member.color}
                   isMe={isMe}
                   isVotingComplete={completedVoterIds.includes(member.userId)}
@@ -189,6 +193,8 @@ export function RoomMembers({
                 >
                   <MemberAvatar
                     name={member.name}
+                    avatarId={member.avatarId}
+                    isConnected={connectedUserIds?.includes(member.userId)}
                     color={member.color}
                     isMe={member.userId === currentUserId}
                     isVotingComplete={completedVoterIds.includes(member.userId)}

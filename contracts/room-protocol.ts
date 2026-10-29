@@ -18,6 +18,10 @@ import {
   NOTE_FONT_SIZE_RANGE,
 } from "./board";
 import { UUID_PATTERN } from "./ids";
+import {
+  AvailableAvatarCountSchema,
+  MemberAvatarIdSchema,
+} from "./member-avatar";
 import { RoomPhaseSchema } from "./phase";
 import { RoomNameSchema } from "./room-name";
 import { SharingReactionKindSchema } from "./sharing-reactions";
@@ -265,6 +269,8 @@ export const MemberSchema = z.object({
   userId: z.guid(),
   name: z.string(),
   color: NoteColorSchema,
+  // 段階的なWorker更新中は、顔IDを持たないスナップショットも読める。
+  avatarId: MemberAvatarIdSchema.optional(),
 });
 export type ProtocolMember = z.infer<typeof MemberSchema>;
 
@@ -348,6 +354,10 @@ export const RoomDisplayNameSchema = z
   );
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z.strictObject({
+    type: z.literal("member:randomize-avatar"),
+    operationId: z.guid(),
+  }),
   z.strictObject({
     type: z.literal("reaction:send"),
     kind: SharingReactionKindSchema,
@@ -777,6 +787,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("snapshot"),
+    availableAvatarCount: AvailableAvatarCountSchema.optional(),
     roomName: z.string().nullable().optional(),
     moveProtocolVersion: z.literal(1).optional(),
     shareProtocolVersion: z.literal(1).optional(),
@@ -924,6 +935,13 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("member_joined"),
     member: MemberSchema,
+    availableAvatarCount: AvailableAvatarCountSchema.optional(),
+  }),
+  z.strictObject({
+    type: z.literal("member:avatar-updated"),
+    member: MemberSchema,
+    availableAvatarCount: AvailableAvatarCountSchema,
+    operationId: z.guid(),
   }),
   z.object({
     type: z.literal("member_left"),
@@ -981,6 +999,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("error"),
     code: z.enum([
+      "avatar-unavailable",
       "invalid-message",
       "forbidden",
       "not-found",
