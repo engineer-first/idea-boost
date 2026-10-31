@@ -31,7 +31,6 @@ export {
   prepareGuestIdentity,
 } from "./logic/guest-identity-actions";
 
-export { guestIdentityFailure } from "./logic/guest-identity-copy";
 export {
   type GuestRoomEntryResult,
   refreshGuestRoomEntry,

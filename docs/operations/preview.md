@@ -62,6 +62,7 @@ Previewは通常、Accessで確認した本人のアプリセッションを常�
 
 - 「未ログインでトップを開く」（`/preview/signed-out`）：このブラウザだけを未ログイン表示に切り替え、`/`を開きます。LP、CTAの行き先（`/login?next=…`）、ログイン画面の「IdeaBoostとは？」を確認できます。
 - 未ログイン表示のログイン画面で「Googleではじめる」を押すと、Google OAuthは始めず`/preview/sign-in`で未ログイン表示を解除し、`next`の戻り先へ進みます。`/preview`を開いても解除されます。
+- 未ログイン表示で「ゲストではじめる」から名前を送っても、Gatewayがセッションを捨てるため`/home`から選択画面へ戻ります。ゲストの通し確認はローカルで行います。
 - 「ログイン済みで説明ページを開く」（`/about`）とログイン済みの`/`（`/home`へ移動）は、通常のPreviewのまま確認できます。
 
 未ログイン表示でもAccessのJWT検証・許可一覧・Origin検査は変わりません。Gatewayは本人登録とセッション発行をせず、ブラウザのCookieをNext/APIへ渡さず、アプリが返したSet-Cookieも捨てます。目印のCookie（`__Host-idea_boost_preview_signed_out`）は本人性を持たず、権限を減らす方向にしか働きません。Accessログインの期限（最大1時間）で切れます。切り替えと解除の入口は、別サイトからのリンク（`Sec-Fetch-Site`がcross-site・same-site）を拒否します。
