@@ -13,6 +13,7 @@ const ISSUE_CONTEXT_QUERY = `
         id
         number
         state
+        stateReason
         issueType { name }
         subIssuesSummary { total }
         assignees(first: 100) { nodes { login } }
@@ -177,12 +178,12 @@ async function syncIssueProjectStatus({
   const { owner, repo } = context.repo;
   const event = context.payload;
   const repository = `${owner}/${repo}`;
-  const isAssignment =
-    event.action === "assigned" &&
+  const isIssueEvent =
+    ["assigned", "closed", "reopened"].includes(event.action) &&
     Boolean(event.issue) &&
     !event.issue.pull_request;
   const supported =
-    isAssignment ||
+    isIssueEvent ||
     (Boolean(event.pull_request) &&
       [
         "opened",
@@ -199,8 +200,12 @@ async function syncIssueProjectStatus({
     event.action === "closed" &&
     event.pull_request?.merged === true &&
     event.pull_request.base?.ref === event.repository?.default_branch;
+  // Issue の close/reopen は GitHub が操作を認可済み。作者やProjectsのBotも扱い、
+  // 判定にはイベント本文ではなく再取得した最新のIssue状態を使う。
+  const trustedIssueLifecycle =
+    isIssueEvent && ["closed", "reopened"].includes(event.action);
   let permission = { permission: "none" };
-  if (!trustedMergedClose) {
+  if (!trustedMergedClose && !trustedIssueLifecycle) {
     ({ data: permission } =
       await github.rest.repos.getCollaboratorPermissionLevel({
         owner,
@@ -209,14 +214,14 @@ async function syncIssueProjectStatus({
       }));
   }
   let pullRequest = null;
-  if (!isAssignment) {
+  if (!isIssueEvent) {
     ({ data: pullRequest } = await github.rest.pulls.get({
       owner,
       repo,
       pull_number: event.pull_request.number,
     }));
   }
-  const issueNumber = isAssignment
+  const issueNumber = isIssueEvent
     ? event.issue.number
     : resolvePullRequestIssue(pullRequest, repository);
   // Agent が同一リポジトリの実装ブランチから Draft PR を作った場合も着手できる。
@@ -228,7 +233,8 @@ async function syncIssueProjectStatus({
   if (
     !["write", "maintain", "admin"].includes(permission.permission) &&
     !trustedDraftBranch &&
-    !trustedMergedClose
+    !trustedMergedClose &&
+    !trustedIssueLifecycle
   ) {
     return { updated: false, reason: "actor-not-authorized" };
   }
@@ -306,6 +312,7 @@ async function syncIssueProjectStatus({
         issue: {
           number: issueNumber,
           state: issue?.state,
+          stateReason: issue?.stateReason,
           type: issue?.issueType?.name,
           subIssueCount: issue?.subIssuesSummary?.total,
           assignees: (issue?.assignees?.nodes ?? []).map((user) => user.login),
@@ -336,16 +343,6 @@ async function syncIssueProjectStatus({
   let decision = decideStatusTransition(snapshot.input);
   if (!decision.allowed)
     return { updated: false, issueNumber, reason: decision.reason };
-  if (decision.to === "レビュー中" && !recordField)
-    throw new Error(
-      "Project にテキストフィールド「自動レビュー元」が必要です。",
-    );
-  const option = statusField.options.find(
-    (value) => value.name === decision.to,
-  );
-  if (!option)
-    throw new Error(`Project の状態「${decision.to}」がありません。`);
-
   // キュー待ちや API 読取中の変更を再確認する。人の操作との原子的 CAS は GitHub API にない。
   if (pullRequest) {
     ({ data: pullRequest } = await github.rest.pulls.get({
@@ -378,6 +375,15 @@ async function syncIssueProjectStatus({
   decision = decideStatusTransition(snapshot.input);
   if (!decision.allowed)
     return { updated: false, issueNumber, reason: decision.reason };
+  if (decision.to === "レビュー中" && !recordField)
+    throw new Error(
+      "Project にテキストフィールド「自動レビュー元」が必要です。",
+    );
+  const option = statusField.options.find(
+    (value) => value.name === decision.to,
+  );
+  if (!option)
+    throw new Error(`Project の状態「${decision.to}」がありません。`);
   const result = await github.graphql(UPDATE_PROJECT_STATUS_MUTATION, {
     projectId: project.id,
     itemId: snapshot.item.id,

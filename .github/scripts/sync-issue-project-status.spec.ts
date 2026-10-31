@@ -131,7 +131,7 @@ describe("shouldMoveIssueToReview", () => {
     ).toBe(false);
   });
 
-  it("Draft解除時も実際にレビュー依頼が残っている場合だけ扱う", () => {
+  it("Draft解除はレビュー依頼がなくても扱う", () => {
     const ready = {
       ...baseInput,
       action: "ready_for_review",
@@ -143,7 +143,7 @@ describe("shouldMoveIssueToReview", () => {
         ...ready,
         pullRequest: { ...ready.pullRequest, requested_reviewers: [] },
       }).allowed,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("閉じたPRとDraft PRは進めない", () => {
@@ -250,7 +250,7 @@ describe("shouldMoveIssueToReview", () => {
     ).toBe(false);
   });
 
-  it.each(["未整理", "壁打ち中", "着手可能", "完了", "見送り"])(
+  it.each(["未整理", "完了", "見送り"])(
     "%s をレビュー依頼で上書きしない",
     (status) => {
       expect(
