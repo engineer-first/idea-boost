@@ -3,6 +3,7 @@
 // ここは「ログイン UI と認証フローの配線」だけを持つ。
 
 export type { AccountLinkResult } from "@/contracts/account-link";
+export { LoginChoice, type LoginChoiceProps } from "./containers/login-choice";
 export { SignOutControl } from "./containers/sign-out-control";
 export { completeGoogleAccountLink } from "./logic/account-link";
 export { startGoogleAccountLink } from "./logic/account-link-actions";

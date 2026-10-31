@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import {
-  LoginCard,
+  LoginChoice,
   sanitizeNextPath,
   signInWithDevPassword,
   signInWithGoogle,
@@ -21,11 +21,12 @@ export default async function LoginPage({
     redirect(sanitizeNextPath(next));
   }
 
-  // next を各アクションに束縛して渡す（LoginCard の API は変えない）。
+  // next を各アクションに束縛して渡す。
   const safeNext = sanitizeNextPath(next);
 
   return (
-    <LoginCard
+    <LoginChoice
+      next={safeNext}
       aboutHref={
         safeNext === "/"
           ? "/about"

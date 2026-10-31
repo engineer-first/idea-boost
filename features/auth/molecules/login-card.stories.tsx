@@ -1,5 +1,20 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { fn, userEvent, within } from "storybook/test";
+import { guestIdentityFailure } from "../logic/guest-identity-copy";
+import { guestStartLabel } from "../logic/login-copy";
+import {
+  GuestNameFormView,
+  type GuestNameFormViewProps,
+} from "./guest-name-form-view";
 import { LoginCard } from "./login-card";
+
+const formProps: GuestNameFormViewProps = {
+  name: "",
+  pending: false,
+  error: null,
+  onNameChange: fn(),
+  onSubmit: fn(),
+};
 
 const meta: Meta<typeof LoginCard> = {
   title: "Auth/LoginCard",
@@ -15,6 +30,7 @@ const meta: Meta<typeof LoginCard> = {
     ),
   ],
   args: {
+    guestForm: <GuestNameFormView {...formProps} />,
     googleAction: async () => {},
     passwordAction: async () => ({}),
   },
@@ -75,4 +91,33 @@ export const PendingDevAuth: Story = {
 
 export const FromInvite: Story = {
   args: { aboutHref: "/about?next=%2Finvite%2FABC123" },
+};
+
+export const GuestName: Story = {
+  args: { isConfigured: true, showDevAuth: false },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: guestStartLabel }),
+    );
+  },
+};
+export const GuestNamePending: Story = {
+  ...GuestName,
+  args: {
+    ...GuestName.args,
+    guestForm: <GuestNameFormView {...formProps} name="はな" pending />,
+  },
+};
+export const GuestNameError: Story = {
+  ...GuestName,
+  args: {
+    ...GuestName.args,
+    guestForm: (
+      <GuestNameFormView
+        {...formProps}
+        name="はな"
+        error={guestIdentityFailure}
+      />
+    ),
+  },
 };
