@@ -110,7 +110,6 @@ export function RoomAdmissionGate({
         {sessionKind === "guest" ? (
           <GuestEntryRefresh
             roomId={roomId}
-            stage={stage}
             onRefreshed={onRefreshed}
             refreshAction={refreshAction}
           />

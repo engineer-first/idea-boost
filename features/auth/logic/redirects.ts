@@ -33,10 +33,15 @@ export function sanitizeNextPath(
   }
 }
 
-export function getLoginPath(next?: string): string {
+export function getLoginPath(next?: string, guestNext?: string): string {
   const safeNext = sanitizeNextPath(next);
-  if (safeNext === "/") {
-    return "/login";
+  const safeGuestNext = sanitizeNextPath(guestNext ?? next);
+  if (safeGuestNext === safeNext) {
+    return safeNext === "/"
+      ? "/login"
+      : `/login?next=${encodeURIComponent(safeNext)}`;
   }
-  return `/login?next=${encodeURIComponent(safeNext)}`;
+  const query = new URLSearchParams({ next: safeNext });
+  query.set("guest_next", safeGuestNext);
+  return `/login?${query}`;
 }

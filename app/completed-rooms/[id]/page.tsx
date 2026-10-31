@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
 import { ACCOUNT_LINK_RESULT_PARAM } from "@/contracts/account-link";
 import { isUuid } from "@/contracts/ids";
-import { AccountLinkSection, parseAccountLinkResult } from "@/features/auth";
+import {
+  AccountLinkSection,
+  getLoginPath,
+  parseAccountLinkResult,
+} from "@/features/auth";
 import {
   CompletedRoomDetail,
   CompletedRoomsUnavailableView,
@@ -20,7 +24,9 @@ export default async function CompletedRoomPage({
   const user = await getCurrentUser();
   if (!user)
     return (
-      <CompletedRoomsUnavailableView returnPath={`/completed-rooms/${id}`} />
+      <CompletedRoomsUnavailableView
+        loginHref={getLoginPath(`/completed-rooms/${id}`, "/home")}
+      />
     );
   const query = await searchParams;
   return (

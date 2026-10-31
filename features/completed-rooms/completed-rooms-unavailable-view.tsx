@@ -1,18 +1,18 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
-  COMPLETED_ROOMS_HOME_LABEL,
+  COMPLETED_ROOMS_CHOICE_LABEL,
+  COMPLETED_ROOMS_IDENTITY_CHOICE_MESSAGE,
   COMPLETED_ROOMS_IDENTITY_ERROR,
-  COMPLETED_ROOMS_LOGIN_LABEL,
   COMPLETED_ROOMS_UNAVAILABLE_TITLE,
 } from "./completed-rooms-content";
 
 export type CompletedRoomsUnavailableViewProps = {
-  returnPath: string;
+  loginHref: string;
 };
 
 export function CompletedRoomsUnavailableView({
-  returnPath,
+  loginHref,
 }: CompletedRoomsUnavailableViewProps) {
   return (
     <main className="h-full min-h-0 overflow-y-auto bg-background px-4 py-8 sm:px-8 sm:py-12">
@@ -24,14 +24,10 @@ export function CompletedRoomsUnavailableView({
           {COMPLETED_ROOMS_IDENTITY_ERROR}
         </p>
         <Button asChild className="mt-6 min-h-11">
-          <Link href="/home">{COMPLETED_ROOMS_HOME_LABEL}</Link>
+          <Link href={loginHref}>{COMPLETED_ROOMS_CHOICE_LABEL}</Link>
         </Button>
         <p className="mt-6 text-sm text-muted-foreground">
-          <Button asChild variant="link" className="min-h-11">
-            <Link href={`/login?next=${encodeURIComponent(returnPath)}`}>
-              {COMPLETED_ROOMS_LOGIN_LABEL}
-            </Link>
-          </Button>
+          {COMPLETED_ROOMS_IDENTITY_CHOICE_MESSAGE}
         </p>
       </div>
     </main>

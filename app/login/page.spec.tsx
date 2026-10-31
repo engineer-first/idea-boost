@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ replace: vi.fn(), prepare: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  replace: vi.fn(),
+  prepare: vi.fn(),
+  google: vi.fn(),
+}));
 vi.mock("next/navigation", async (importOriginal) => {
   const navigation = await importOriginal<typeof import("next/navigation")>();
   return {
@@ -12,6 +16,12 @@ vi.mock("next/navigation", async (importOriginal) => {
 });
 vi.mock("@/features/auth/logic/guest-identity-actions", () => ({
   prepareGuestIdentity: mocks.prepare,
+}));
+
+vi.mock("@/features/auth/logic/actions", () => ({
+  signInWithGoogle: mocks.google,
+  signInWithDevPassword: vi.fn(),
+  signOut: vi.fn(),
 }));
 
 vi.mock("@/lib/session/current-user", () => ({
@@ -74,5 +84,34 @@ it.each([
       expect(mocks.replace).toHaveBeenCalledExactlyOnceWith(expected),
     );
     expect(mocks.prepare).toHaveBeenCalledExactlyOnceWith({ name: "はな" });
+  },
+);
+
+it.each([
+  { guestNext: "/home", expected: "/home" },
+  { guestNext: "https://evil.com", expected: "/" },
+  { guestNext: "//evil.com", expected: "/" },
+])(
+  "ゲストの戻り先$guestNextで名前を登録すると$expectedへ進みGoogleは元の画面へ戻る",
+  async ({ guestNext, expected }) => {
+    const next = "/rooms/room-id?tab=1";
+    render(
+      await LoginPage({
+        searchParams: Promise.resolve({ next, guest_next: guestNext }),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Googleではじめる" }));
+    await waitFor(() =>
+      expect(mocks.google).toHaveBeenCalledWith(next, expect.any(FormData)),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "ゲストではじめる" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "仲間に表示される名前" }),
+      { target: { value: "はな" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "この名前ではじめる" }));
+    await waitFor(() =>
+      expect(mocks.replace).toHaveBeenCalledExactlyOnceWith(expected),
+    );
   },
 );

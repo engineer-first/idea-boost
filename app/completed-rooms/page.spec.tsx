@@ -33,7 +33,7 @@ it("ゲスト本人は成果コンテナを描画する", async () => {
   ).toBeVisible();
   expect(mocks.redirect).not.toHaveBeenCalled();
 });
-it("本人情報が無いときは自動遷移せず説明とホーム・任意ログインの導線を表示する", async () => {
+it("本人情報が無いときは自動遷移せず、Googleは元の成果へ・ゲストはホームへ進む始め方の選択へ案内する", async () => {
   mocks.user.mockResolvedValue(null);
   render(await Page({ searchParams: Promise.resolve({}) }));
   expect(mocks.redirect).not.toHaveBeenCalled();
@@ -48,18 +48,13 @@ it("本人情報が無いときは自動遷移せず説明とホーム・任意�
       "本人情報を確認できないため、成果を表示できません。成果を残したときと同じブラウザで開いてください。",
     ),
   ).toBeVisible();
-  expect(screen.getByRole("link", { name: "ホームへ" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "始め方を選ぶ" })).toHaveAttribute(
     "href",
-    "/home",
+    `/login?next=${encodeURIComponent("/completed-rooms")}&guest_next=%2Fhome`,
   );
   expect(
-    screen.getByRole("link", {
-      name: "Googleでログインして使っていた場合はこちら",
-    }),
-  ).toHaveAttribute(
-    "href",
-    `/login?next=${encodeURIComponent("/completed-rooms")}`,
-  );
+    screen.queryByRole("link", { name: "ホームへ" }),
+  ).not.toBeInTheDocument();
 });
 
 it("アカウント本人には連携済み表示を出して連携ボタンを出さない", async () => {

@@ -6,7 +6,7 @@ import {
 import { isUuid } from "@/contracts/ids";
 import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
-import { signOut } from "@/features/auth";
+import { getLoginPath, signOut } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomBoard, RoomEntryPreview } from "@/features/room";
 import {
@@ -50,7 +50,11 @@ export default async function RoomPage({
 
   const user = await getCurrentUser();
   if (!user) {
-    return <GuestIdentityUnavailable returnHref={`/rooms/${id}${suffix}`} />;
+    return (
+      <GuestIdentityUnavailable
+        loginHref={getLoginPath(`/rooms/${id}${suffix}`, "/home")}
+      />
+    );
   }
 
   // 完了時の閲覧権は退出後も残るため、現在の在籍より先に確認する。

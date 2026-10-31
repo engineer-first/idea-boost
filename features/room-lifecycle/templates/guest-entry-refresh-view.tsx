@@ -3,19 +3,17 @@ import { GuestIdentityUnavailable } from "../molecules/guest-identity-unavailabl
 
 export type GuestEntryRefreshViewProps = {
   state: "checking" | "retry" | "identity_unavailable";
-  returnHref: string;
   onRetry: () => void;
 };
 
 export function GuestEntryRefreshView({
   state,
-  returnHref,
   onRetry,
 }: GuestEntryRefreshViewProps) {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4">
       {state === "identity_unavailable" ? (
-        <GuestIdentityUnavailable returnHref={returnHref} />
+        <GuestIdentityUnavailable />
       ) : (
         <section className="relative mx-auto my-8 w-full max-w-md space-y-4 rounded-xl border bg-background p-6">
           <p role="status" className="leading-relaxed">

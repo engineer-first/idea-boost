@@ -13,9 +13,9 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; guest_next?: string }>;
 }) {
-  const { error, next } = await searchParams;
+  const { error, next, guest_next } = await searchParams;
   if (await getCurrentUser()) {
     // 既にログイン済みなら戻り先（招待URL 等）へ直行する。
     redirect(sanitizeNextPath(next));
@@ -26,7 +26,8 @@ export default async function LoginPage({
 
   return (
     <LoginChoice
-      next={safeNext}
+      // ゲストは名前登録後にguest_nextへ進む。Google・ログイン済み時はnextのまま。
+      next={sanitizeNextPath(guest_next ?? next)}
       aboutHref={
         safeNext === "/"
           ? "/about"

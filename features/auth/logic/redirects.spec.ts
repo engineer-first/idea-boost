@@ -66,3 +66,30 @@ describe("getLoginPath", () => {
     expect(getLoginPath("https://evil.example")).toBe("/login");
   });
 });
+
+describe("ログインの戻り先", () => {
+  it("Googleとゲストの戻り先が異なる場合は順にクエリへ載せる", () => {
+    expect(getLoginPath("/rooms/id?tab=1", "/home")).toBe(
+      "/login?next=%2Frooms%2Fid%3Ftab%3D1&guest_next=%2Fhome",
+    );
+    expect(getLoginPath("/", "/home")).toBe(
+      "/login?next=%2F&guest_next=%2Fhome",
+    );
+  });
+  it.each(["//evil.com", "https://evil.com"])(
+    "ゲストの戻り先%sはルートへ安全化する",
+    (guestNext) => {
+      expect(getLoginPath("/rooms/id", guestNext)).toBe(
+        "/login?next=%2Frooms%2Fid&guest_next=%2F",
+      );
+    },
+  );
+  it("ゲストの戻り先が省略または同じ場合は追加しない", () => {
+    expect(getLoginPath("/rooms/id")).toBe("/login?next=%2Frooms%2Fid");
+    expect(getLoginPath("/rooms/id", "/rooms/id")).toBe(
+      "/login?next=%2Frooms%2Fid",
+    );
+    expect(getLoginPath("/", "/")).toBe("/login");
+    expect(getLoginPath("/")).toBe("/login");
+  });
+});
