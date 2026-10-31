@@ -260,6 +260,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "member:remove":
     case "room:rename":
     case "member:rename":
+    case "member:randomize-avatar":
     case "start_phase":
     case "phase:rollback":
     case "phase:next":

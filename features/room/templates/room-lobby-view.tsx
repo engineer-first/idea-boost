@@ -1,6 +1,6 @@
 "use client";
 
-import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
+import { DoorOpen, Link2, Pencil, Play, Shuffle, Users } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { RoomMembers } from "@/features/room-members";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
+import type { RoomAvatarControls } from "../logic/use-room-avatar";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
@@ -57,6 +58,8 @@ export type RoomLobbyViewProps = {
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
   roomName?: RoomNameControls;
+  avatarChange?: RoomAvatarControls;
+  connectedUserIds?: readonly string[];
 };
 
 export function RoomLobbyView({
@@ -80,6 +83,8 @@ export function RoomLobbyView({
   memberRemoval,
   displayName,
   roomName,
+  avatarChange,
+  connectedUserIds,
 }: RoomLobbyViewProps) {
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const isDisconnected = connectionStatus !== "open";
@@ -183,6 +188,7 @@ export function RoomLobbyView({
             </CardHeader>
             <CardContent className="flex flex-1 flex-col items-center justify-start pt-0">
               <RoomMembers
+                connectedUserIds={connectedUserIds}
                 onEditSelf={displayName?.request}
                 members={members}
                 currentUserId={currentUserId}
@@ -251,7 +257,50 @@ export function RoomLobbyView({
                 />
               ) : null}
             </CardContent>
-            <CardFooter className="justify-center border-t border-border/60 pt-4">
+            <CardFooter className="flex-col gap-2 border-t border-border/60 pt-4">
+              {avatarChange && isLobby(phase) ? (
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={avatarChange.randomize}
+                    disabled={
+                      avatarChange.disabled ||
+                      isDisconnected ||
+                      isStarting ||
+                      isLeaving ||
+                      isTransferring
+                    }
+                    aria-describedby={
+                      avatarChange.unavailable
+                        ? "avatar-unavailable"
+                        : undefined
+                    }
+                  >
+                    <Shuffle className="size-4" aria-hidden="true" />
+                    {avatarChange.pending
+                      ? "アイコンを変更中…"
+                      : "自分のアイコンを変更"}
+                  </Button>
+                  {avatarChange.unavailable ? (
+                    <p
+                      id="avatar-unavailable"
+                      className="text-center text-xs text-muted-foreground"
+                    >
+                      未使用のアイコンがないため変更できません。
+                    </p>
+                  ) : null}
+                  {avatarChange.error ? (
+                    <p
+                      role="alert"
+                      className="text-center text-xs text-destructive"
+                    >
+                      {avatarChange.error}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               <span
                 className="text-xs text-muted-foreground"
                 data-testid="room-lobby-view-member-count"

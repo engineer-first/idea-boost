@@ -24,6 +24,7 @@ export type SharingPresenterProps = {
   onSelectHostTarget?: (userId: string) => void;
   selectionDisabled?: boolean;
   members?: ProtocolMember[];
+  connectedUserIds?: readonly string[];
 };
 
 export function SharingPresenter({
@@ -34,8 +35,10 @@ export function SharingPresenter({
   onEditSelf,
   selectionDisabled = false,
   members = sharing.order,
+  connectedUserIds,
 }: SharingPresenterProps) {
   const descriptionId = useId();
+  const presentIds = new Set(members.map((member) => member.userId));
   const orderRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const current = sharing.order[sharing.currentIndex ?? sharing.results.length];
@@ -89,6 +92,12 @@ export function SharingPresenter({
                   >
                     <MemberAvatar
                       name={member.name}
+                      avatarId={member.avatarId}
+                      isConnected={
+                        presentIds.has(member.userId)
+                          ? connectedUserIds?.includes(member.userId)
+                          : undefined
+                      }
                       color={member.color}
                       size={isCurrent ? 30 : 26}
                       isVotingComplete={result === "done"}
@@ -165,6 +174,12 @@ export function SharingPresenter({
               >
                 <MemberAvatar
                   name={member.name}
+                  avatarId={member.avatarId}
+                  isConnected={
+                    presentIds.has(member.userId)
+                      ? connectedUserIds?.includes(member.userId)
+                      : undefined
+                  }
                   color={member.color}
                   size={28}
                 />
@@ -180,13 +195,15 @@ export function SharingPresenter({
                   )}
                 </span>
                 <span className="shrink-0">
-                  {sharing.results[index] === "passed"
-                    ? "今回はパス"
-                    : sharing.results[index] === "done"
-                      ? "発表済み"
-                      : index === sharing.currentIndex
-                        ? "発表中"
-                        : "これから"}
+                  {!presentIds.has(member.userId)
+                    ? "退出済み"
+                    : sharing.results[index] === "passed"
+                      ? "今回はパス"
+                      : sharing.results[index] === "done"
+                        ? "発表済み"
+                        : index === sharing.currentIndex
+                          ? "発表中"
+                          : "これから"}
                 </span>
               </MemberSelection>
             </li>
@@ -221,6 +238,12 @@ export function SharingPresenter({
               >
                 <MemberAvatar
                   name={member.name}
+                  avatarId={member.avatarId}
+                  isConnected={
+                    presentIds.has(member.userId)
+                      ? connectedUserIds?.includes(member.userId)
+                      : undefined
+                  }
                   color={member.color}
                   size={28}
                 />

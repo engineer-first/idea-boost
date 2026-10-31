@@ -1,16 +1,20 @@
 // メンバーシップ（誰がこのルームに入れるか）と表示色の割当、
 // ルームオーナー（room_owner = ホスト）の真実。
+
+import type { MemberAvatarId } from "../../contracts/member-avatar";
 import {
   MEMBER_COLOR_ASSIGNMENT_ORDER,
   type NoteColor,
   type ProtocolMember,
 } from "../../contracts/room-protocol";
 import type { RoomBroadcaster } from "./broadcast";
+import { assignMemberAvatar, availableMemberAvatars } from "./member-avatars";
 
 type MemberRow = {
   user_id: string;
   name: string;
   color: NoteColor;
+  avatar_id?: MemberAvatarId;
 };
 
 export function findMember(
@@ -18,9 +22,19 @@ export function findMember(
   userId: string,
 ): ProtocolMember | null {
   const row = sql
-    .exec("SELECT user_id, name, color FROM members WHERE user_id = ?1", userId)
+    .exec(
+      "SELECT m.user_id, m.name, m.color, a.avatar_id FROM members m LEFT JOIN member_avatar_assignments a ON a.user_id=m.user_id WHERE m.user_id = ?1",
+      userId,
+    )
     .toArray()[0] as unknown as MemberRow | undefined;
-  return row ? { userId: row.user_id, name: row.name, color: row.color } : null;
+  return row
+    ? {
+        userId: row.user_id,
+        name: row.name,
+        color: row.color,
+        ...(row.avatar_id ? { avatarId: row.avatar_id } : {}),
+      }
+    : null;
 }
 
 export type UpsertMemberResult =
@@ -79,6 +93,7 @@ export function upsertMember(
     );
   }
 
+  const avatarId = assignMemberAvatar(sql, userId);
   sql.exec(
     `INSERT INTO members (user_id, name, color) VALUES (?1, ?2, ?3)
      ON CONFLICT (user_id) DO UPDATE SET name = ?2, color = ?3`,
@@ -94,7 +109,8 @@ export function upsertMember(
     broadcaster.broadcastToAllExcept(
       {
         type: "member_joined",
-        member: { userId, name: safeName, color },
+        member: { userId, name: safeName, color, avatarId },
+        availableAvatarCount: availableMemberAvatars(sql).length,
       },
       userId,
     );
@@ -115,12 +131,17 @@ export function removeMember(sql: SqlStorage, userId: string): void {
 export function listMembers(sql: SqlStorage): ProtocolMember[] {
   const rows = sql
     .exec(
-      "SELECT user_id, name, color FROM members ORDER BY joined_at, user_id",
+      "SELECT m.user_id, m.name, m.color, a.avatar_id FROM members m LEFT JOIN member_avatar_assignments a ON a.user_id=m.user_id ORDER BY m.joined_at, m.user_id",
     )
     .toArray();
   return rows.map((row) => {
     const member = row as unknown as MemberRow;
-    return { userId: member.user_id, name: member.name, color: member.color };
+    return {
+      userId: member.user_id,
+      name: member.name,
+      color: member.color,
+      ...(member.avatar_id ? { avatarId: member.avatar_id } : {}),
+    };
   });
 }
 

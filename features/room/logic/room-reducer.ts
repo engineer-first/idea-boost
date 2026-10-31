@@ -85,13 +85,10 @@ export function applyMemberServerMessage(
 ): Member[] {
   switch (message.type) {
     case "snapshot": {
-      return message.members.map((m) => ({
-        userId: m.userId,
-        name: m.name,
-        color: m.color,
-      }));
+      return message.members.map((member) => ({ ...member }));
     }
     case "member:renamed":
+    case "member:avatar-updated":
       return members.map((m) =>
         m.userId === message.member.userId ? message.member : m,
       );
@@ -219,6 +216,7 @@ export function applyVotingCompletionServerMessage(
     case "cursor:left":
     case "reaction:received":
     case "member:renamed":
+    case "member:avatar-updated":
     case "member:removed":
     case "phase:progress":
     case "room:renamed":
@@ -302,6 +300,7 @@ export function applyDecisionServerMessage(
     case "cursor:left":
     case "reaction:received":
     case "member:renamed":
+    case "member:avatar-updated":
     case "member:removed":
     case "phase:progress":
     case "room:renamed":
@@ -399,6 +398,7 @@ export function applyPhaseServerMessage(
     case "cursor:left":
     case "reaction:received":
     case "member:renamed":
+    case "member:avatar-updated":
     case "member:removed":
     case "phase:progress":
     case "room:renamed":

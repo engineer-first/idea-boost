@@ -11,6 +11,13 @@ const LOBBY_PHASE = buildLobbyPhase();
 
 const baseArgs: RoomLobbyViewProps = {
   roomName: buildRoomNameControls(),
+  avatarChange: {
+    pending: false,
+    disabled: false,
+    unavailable: false,
+    error: null,
+    randomize: fn(),
+  },
   members: buildMembers(3, ME),
   currentUserId: ME,
   isHost: true,
@@ -185,4 +192,33 @@ export const DelayedReconnecting: Story = {
 
 export const UnnamedRoom: Story = {
   args: { roomName: buildRoomNameControls({ name: null, draft: "" }) },
+};
+
+export const AvatarUnavailable: Story = {
+  name: "顔の変更先なし",
+  args: {
+    avatarChange: {
+      pending: false,
+      disabled: true,
+      unavailable: true,
+      error: null,
+      randomize: fn(),
+    },
+  },
+};
+export const MemberDisconnected: Story = {
+  name: "参加者が通信切断中",
+  args: { connectedUserIds: [ME] },
+};
+export const AvatarChanging: Story = {
+  name: "顔を変更中",
+  args: {
+    avatarChange: {
+      pending: true,
+      disabled: true,
+      unavailable: false,
+      error: null,
+      randomize: fn(),
+    },
+  },
 };

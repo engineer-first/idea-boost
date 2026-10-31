@@ -698,6 +698,11 @@ export function RoomBoardHeader({
             ) : null}
             {activeSharing ? (
               <SharingPresenter
+                connectedUserIds={
+                  progress.progressRevision > 0
+                    ? progress.connectedUserIds
+                    : undefined
+                }
                 onEditSelf={outcomePublished ? undefined : onEditSelf}
                 sharing={activeSharing}
                 hostUserId={hostUserId}
@@ -745,6 +750,7 @@ export function RoomBoardHeader({
                         >
                           <MemberAvatar
                             name={member.name}
+                            avatarId={member.avatarId}
                             color={member.color}
                             size={28}
                             isMe={member.userId === currentUserId}
@@ -756,6 +762,13 @@ export function RoomBoardHeader({
                               )
                             }
                             completionLabel={completionLabel}
+                            isConnected={
+                              progress.progressRevision > 0
+                                ? progress.connectedUserIds.includes(
+                                    member.userId,
+                                  )
+                                : undefined
+                            }
                           />
                         </span>
                       ))}
@@ -847,6 +860,7 @@ export function RoomBoardHeader({
                         >
                           <MemberAvatar
                             name={member.name}
+                            avatarId={member.avatarId}
                             color={member.color}
                             size={32}
                             isMe={member.userId === currentUserId}
@@ -854,6 +868,13 @@ export function RoomBoardHeader({
                               member.userId,
                             )}
                             completionLabel={completionLabel}
+                            isConnected={
+                              progress.progressRevision > 0
+                                ? progress.connectedUserIds.includes(
+                                    member.userId,
+                                  )
+                                : undefined
+                            }
                           />
                           <span className="min-w-0 flex-1 truncate text-sm">
                             {member.name}
@@ -1068,9 +1089,17 @@ export function RoomBoardHeader({
                   >
                     <MemberAvatar
                       name={currentMember.name}
+                      avatarId={currentMember.avatarId}
                       color={currentMember.color}
                       size={32}
                       isMe
+                      isConnected={
+                        progress.progressRevision > 0
+                          ? progress.connectedUserIds.includes(
+                              currentMember.userId,
+                            )
+                          : undefined
+                      }
                     />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">
                       {currentMember.name}

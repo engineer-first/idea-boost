@@ -89,7 +89,11 @@ export function HostTransferDialog({
           {target ? (
             <div className="flex min-w-0 items-center gap-3">
               <TooltipProvider>
-                <MemberAvatar name={target.name} color={target.color} />
+                <MemberAvatar
+                  name={target.name}
+                  avatarId={target.avatarId}
+                  color={target.color}
+                />
               </TooltipProvider>
               <div className="min-w-0">
                 <p className="break-all text-base font-semibold">
