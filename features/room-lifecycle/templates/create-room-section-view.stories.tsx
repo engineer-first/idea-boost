@@ -1,42 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import {
-  GuestNameFormView,
-  type GuestNameFormViewProps,
-  guestIdentityFailure,
-} from "@/features/auth";
 import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 import {
   CreateRoomSectionView,
   type CreateRoomSectionViewProps,
 } from "./create-room-section-view";
-
-const guestNameProps: GuestNameFormViewProps = {
-  name: "はな",
-  pending: false,
-  error: null,
-  submitLabel: "次へ",
-  onNameChange: fn(),
-  onSubmit: fn(),
-};
-const identityStates: { label: string; props: CreateRoomSectionViewProps }[] = [
-  {
-    label: "名前入力（未準備）",
-    props: { identityStep: <GuestNameFormView {...guestNameProps} name="" /> },
-  },
-  {
-    label: "名前送信中",
-    props: { identityStep: <GuestNameFormView {...guestNameProps} pending /> },
-  },
-  {
-    label: "名前の登録失敗",
-    props: {
-      identityStep: (
-        <GuestNameFormView {...guestNameProps} error={guestIdentityFailure} />
-      ),
-    },
-  },
-];
 
 const meta = {
   title: "RoomLifecycle/CreateRoomSection",
@@ -69,7 +37,6 @@ export const Pending: Story = {
 export const AllStates: Story = {
   render: () => {
     const states: { label: string; props: CreateRoomSectionViewProps }[] = [
-      ...identityStates,
       { label: "Default", props: { pending: false, onSubmit: fn() } },
       { label: "Pending", props: { pending: true, onSubmit: fn() } },
     ];
@@ -156,19 +123,6 @@ export const CreatingPreparedIntent: Story = {
     intentName: "サービスの相談",
     onNewIntent: fn(),
   },
-};
-
-export const IdentityUnprepared: Story = {
-  name: "名前入力（未準備）",
-  args: { identityStep: identityStates[0].props.identityStep },
-};
-export const IdentityPending: Story = {
-  name: "名前送信中",
-  args: { identityStep: identityStates[1].props.identityStep },
-};
-export const IdentityFailed: Story = {
-  name: "名前の登録失敗",
-  args: { identityStep: identityStates[2].props.identityStep },
 };
 
 export const IdentityUnavailable: Story = {

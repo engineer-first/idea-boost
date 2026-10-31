@@ -48,5 +48,5 @@ it("nextが複数指定された場合は通常開始に戻す", async () => {
   );
   expect(
     screen.getByRole("link", { name: "招待コードをお持ちの方" }),
-  ).toHaveAttribute("href", "/home");
+  ).toHaveAttribute("href", "/login?next=%2Fhome");
 });
