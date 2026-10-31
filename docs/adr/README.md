@@ -28,6 +28,7 @@ ADR（Architecture Decision Record）は、重要な設計を「どの前提・�
 | [0005](0005-shared-skills.md)              | 共有スキルの正本を .agents/skills に統一する  | 採用                   |
 | [0012](0012-pr-preview-full-stack.md)      | PRの画面・API・保存先をPRごとに分ける         | 採用                   |
 | [0013](0013-pr-preview-migration-reset.md) | PR Previewはmigration変更時に保存先を作り直す | 採用                   |
+| [0024](0024-pbi-shared-manual-order.md)    | PBIの優先順をProjectの共通手動順で管理する    | 採用                   |
 
 前の方式：[0011: PR Previewの本人認証と共通API](0011-pr-preview-identity.md)（0012に後継あり）。
 
