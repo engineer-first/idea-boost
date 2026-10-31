@@ -132,7 +132,7 @@ test("ログイン方法をキーボードで選ぶと見出しから名前入�
 // CIのStorybook検証と実Worker/Next検証を区別し、後者は専用dev:verifyのURL指定時だけ実行する。
 // dev:verifyへの準備操作は新しい検証ルームだけを作り、通常DBや既存ルームを変更しない。
 describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
-  test("招待URLからログインなしで参加でき、アカウント利用者はログインして同じ招待へ戻れる", async () => {
+  test("招待URLから選択画面へ進み、ゲストはそこで名前を入力して参加でき、アカウント利用者はログインして同じ招待へ戻れる", async () => {
     const browser = await chromium.launch();
     const results: Record<string, unknown> = {};
     try {
@@ -163,45 +163,45 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
       const guest = await browser.newContext();
       const guestPage = await guest.newPage();
       await guestPage.goto(`${app}${invite}`);
+      const loginUrl = `${app}/login?next=${encodeURIComponent(invite)}`;
+      await guestPage.waitForURL(loginUrl);
+      expect(await guestPage.locator("html").getAttribute("lang")).toBe("ja");
+      const googleChoice = guestPage.getByRole("button", {
+        name: "Googleではじめる",
+        exact: true,
+      });
+      const guestChoice = guestPage.getByRole("button", {
+        name: "ゲストではじめる",
+        exact: true,
+      });
+      await googleChoice.waitFor();
+      await guestChoice.waitFor();
+      expect(await googleChoice.count()).toBe(1);
+      expect(await guestChoice.count()).toBe(1);
+      expect(await googleChoice.isVisible()).toBe(true);
+      expect(await guestChoice.isVisible()).toBe(true);
+      await capture(guestPage, "guest-invite-choice");
+      await guestChoice.click();
       const guestName = guestPage.getByRole("textbox", {
         name: "仲間に表示される名前",
       });
       await guestName.waitFor();
-      expect(guestPage.url()).toBe(`${app}${invite}`);
-      expect(await guestPage.locator("html").getAttribute("lang")).toBe("ja");
-      expect(
-        await guestPage
-          .getByRole("button", { name: "Googleではじめる" })
-          .count(),
-      ).toBe(0);
-      expect(
-        await guestPage
-          .getByRole("button", { name: "ゲストではじめる" })
-          .count(),
-      ).toBe(0);
-      expect(await guestPage.getByLabel("メールアドレス").count()).toBe(0);
-      expect(await guestPage.getByLabel("パスワード").count()).toBe(0);
-      expect(
-        await guestPage
-          .getByRole("button", { name: "開発用ユーザーでログイン" })
-          .count(),
-      ).toBe(0);
-      await capture(guestPage, "guest-invite-name");
       await guestName.fill("   ");
       await guestPage
-        .getByRole("button", { name: "次へ", exact: true })
+        .getByRole("button", { name: "この名前ではじめる", exact: true })
         .click();
       await guestPage
         .getByRole("alert")
         .filter({ hasText: "表示名を入力してください。" })
         .waitFor();
       expect(await guestName.inputValue()).toBe("   ");
-      expect(guestPage.url()).toBe(`${app}${invite}`);
+      expect(guestPage.url()).toBe(loginUrl);
       await capture(guestPage, "guest-invite-name-error");
       await guestName.fill("招待ゲスト");
       await guestPage
-        .getByRole("button", { name: "次へ", exact: true })
+        .getByRole("button", { name: "この名前ではじめる", exact: true })
         .click();
+      await guestPage.waitForURL(`${app}${invite}`);
       const guestConfirmation = guestPage.getByRole("alertdialog");
       await guestConfirmation.waitFor();
       await capture(guestPage, "guest-invite-confirm");
