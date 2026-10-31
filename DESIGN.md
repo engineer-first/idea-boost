@@ -41,27 +41,32 @@ typography:
     fontSize: 18px
     fontWeight: 700
     lineHeight: 1.5
-  body-lg:
+  body-md:
     fontFamily: Noto Sans JP
     fontSize: 16px
     fontWeight: 400
     lineHeight: 1.75
-  body-md:
+  body-sm:
     fontFamily: Noto Sans JP
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.7
   note-body:
     fontFamily: Noto Sans JP
-    fontSize: 14px
+    fontSize: 16px
     fontWeight: 400
-    lineHeight: 21px
+    lineHeight: 24px
   label-md:
+    fontFamily: Noto Sans JP
+    fontSize: 16px
+    fontWeight: 700
+    lineHeight: 1.4
+  label-sm:
     fontFamily: Noto Sans JP
     fontSize: 14px
     fontWeight: 700
     lineHeight: 1.4
-  label-sm:
+  label-xs:
     fontFamily: Noto Sans JP
     fontSize: 12px
     fontWeight: 700
@@ -95,17 +100,17 @@ components:
   badge-decided:
     backgroundColor: "{colors.state-decided}"
     textColor: "{colors.on-primary}"
-    typography: "{typography.label-sm}"
+    typography: "{typography.label-xs}"
     rounded: "{rounded.full}"
   badge-focus:
     backgroundColor: "{colors.state-focus}"
     textColor: "{colors.on-primary}"
-    typography: "{typography.label-sm}"
+    typography: "{typography.label-xs}"
     rounded: "{rounded.full}"
   badge-excluded:
     backgroundColor: "{colors.state-excluded}"
     textColor: "{colors.on-primary}"
-    typography: "{typography.label-sm}"
+    typography: "{typography.label-xs}"
     rounded: "{rounded.full}"
 ---
 
@@ -160,9 +165,11 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 
 - **アプリ内は Noto Sans JP の1書体。** 見出しも本文もラベルも同じ書体にし、太さとサイズだけで差をつけます。書体が混ざると画面の印象がばらつくためです。小さいサイズでも潰れにくく、OS による見え方の差も小さい書体です。
 - **LP の大見出しだけ Zen Maru Gothic。** 丸ゴシックで、硬すぎない楽しさを最初の印象に出します。
-- **サイズは 12・14・16・18・20・24px の6段階。** 今のコードでよく使われているサイズ（Tailwind の `text-xs`〜`text-2xl`）に合わせています。本文とボタンは 14px、補足やバッジは 12px が基本です。LP の大見出しだけ 30px 以上を使います。
-- **最小は 12px。** これより小さい文字は、縮小表示のボードでは読めなくなるためです。
-- **付箋の本文：** 14px、行の高さ 21px。
+- **標準は 16px。** 本文・ボタン・入力欄は 16px にします。デジタル庁・SmartHR・Miro がそろって 16px を標準にしており、初学者が迷わず読めることを優先します。スマホのブラウザは 16px 未満の入力欄で画面を拡大するため、入力欄はどこでも 16px 以上にします。
+- **場所が足りない部品だけ 14px。** ボード上のツールバーや HUD など、付箋の領域を圧迫したくない部品に使います。Miro の小さい部品と同じ考え方です。
+- **最小は 12px。** 補足やバッジに使います。これより小さい文字は、縮小表示のボードでは読めなくなるためです。
+- **段階は 12・14・16・18・20・24px。** Tailwind の `text-xs`〜`text-2xl` と同じです。LP の大見出しだけ 30px 以上を使います。
+- **付箋の本文も 16px（行の高さ 24px）。** FigJam のボードの標準と同じです。1枚に入る文字は減りますが、短く書くほどブレストは進むので、それでよしとします。Miro のように文字を自動で縮めることはしません。付箋ごとに大きさがばらつくためです。
 - **太さ：** 400 と 700 の2つに絞ります。
 - **足りない段階は追加してよい。** 既存の段階で用途に合わないときは、用途と一緒にこのファイルへ追加します。画面ごとに任意のサイズを書くより、段階を1つ増やす方が全体がそろいます。
 
@@ -214,4 +221,5 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 | 選択枠を付箋から離して描く         | 付箋に接して描いている（青い付箋の上で見えにくい） | #876         |
 | 部品の型（ダイアログ・ボタン）     | 未記載                                             | #841 Phase 2 |
 | 12px 未満の文字をなくす            | `text-[10px]` などが数か所                         | #876         |
+| 文字の標準を 16px にする           | 14px が中心。付箋の本文も 14px                     | #876         |
 | 決定の見た目を目立たせる           | 太い緑の枠                                         | #841 Phase 2 |
