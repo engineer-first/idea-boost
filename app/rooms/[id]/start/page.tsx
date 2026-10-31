@@ -6,6 +6,7 @@ import {
 import { isUuid } from "@/contracts/ids";
 import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
+import { getLoginPath } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomEntryPreview, RoomLobby } from "@/features/room";
 import {
@@ -50,7 +51,9 @@ export default async function StartPage({
   const user = await getCurrentUser();
   if (!user) {
     return (
-      <GuestIdentityUnavailable returnHref={`/rooms/${id}/start${suffix}`} />
+      <GuestIdentityUnavailable
+        loginHref={getLoginPath(`/rooms/${id}/start${suffix}`, "/home")}
+      />
     );
   }
 

@@ -1,5 +1,9 @@
 import { ACCOUNT_LINK_RESULT_PARAM } from "@/contracts/account-link";
-import { AccountLinkSection, parseAccountLinkResult } from "@/features/auth";
+import {
+  AccountLinkSection,
+  getLoginPath,
+  parseAccountLinkResult,
+} from "@/features/auth";
 import {
   CompletedRooms,
   CompletedRoomsUnavailableView,
@@ -13,7 +17,11 @@ export default async function CompletedRoomsPage({
 }) {
   const user = await getCurrentUser();
   if (!user)
-    return <CompletedRoomsUnavailableView returnPath="/completed-rooms" />;
+    return (
+      <CompletedRoomsUnavailableView
+        loginHref={getLoginPath("/completed-rooms", "/home")}
+      />
+    );
   const query = await searchParams;
   return (
     <CompletedRooms
