@@ -8,7 +8,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   AlertDialog,
@@ -23,6 +22,7 @@ import {
 import { ROOM_CREATION_NAME_MAX } from "@/contracts/room-creation";
 import { createRoomCopy } from "../logic/create-room-copy";
 import { RoomEntryField } from "../molecules/room-entry-field";
+import styles from "./room-entry-section.module.css";
 
 export type CreateRoomSectionViewProps = {
   identityStep?: ReactNode;
@@ -58,24 +58,16 @@ export function CreateRoomSectionView({
 }: CreateRoomSectionViewProps) {
   const [confirmationName, setConfirmationName] = useState<string | null>(null);
   return (
-    <Card
-      className="flex flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
-      data-testid="home-create-room"
-    >
-      <CardHeader className="gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-          <Plus className="size-5" aria-hidden />
-        </div>
-        <div className="space-y-1.5">
-          <CardTitle className="text-base">ルームを作成</CardTitle>
-          <CardDescription className="leading-relaxed">
-            {identityStep !== undefined
-              ? createRoomCopy.identityDescription
-              : createRoomCopy.description}
-          </CardDescription>
-        </div>
+    <Card className={styles.create} data-testid="home-create-room">
+      <CardHeader className={styles.createHeader}>
+        <h2>ルームを作成</h2>
+        <CardDescription className={styles.description}>
+          {identityStep !== undefined
+            ? createRoomCopy.identityDescription
+            : createRoomCopy.description}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="mt-auto">
+      <CardContent className={styles.createContent}>
         {identityStep !== undefined ? (
           identityStep
         ) : (
@@ -105,7 +97,7 @@ export function CreateRoomSectionView({
               <Button
                 type="submit"
                 size="lg"
-                className="h-11 w-full"
+                className={styles.primaryAction}
                 disabled={pending || storageError}
                 data-icon="inline-start"
               >
