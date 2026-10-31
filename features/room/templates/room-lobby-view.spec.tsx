@@ -32,10 +32,10 @@ function renderView(
 }
 
 describe("RoomLobbyView", () => {
-  it("ホストのとき「開始する」ボタンが表示される", () => {
+  it("ホストのときセッションの開始操作を表示する", () => {
     renderView();
     expect(screen.getByTestId("start-phase-button")).toHaveTextContent(
-      "開始する",
+      "セッションを開始",
     );
   });
 
@@ -61,6 +61,11 @@ describe("RoomLobbyView", () => {
 
   it("接続が切れているときはボタンが disabled になる", () => {
     renderView({ connectionStatus: "closed" });
+    expect(screen.getByTestId("start-phase-button")).toBeDisabled();
+  });
+
+  it("退出処理中にはセッションを開始できない", () => {
+    renderView({ isLeaving: true });
     expect(screen.getByTestId("start-phase-button")).toBeDisabled();
   });
 
@@ -186,17 +191,19 @@ it("招待URLの共有は明示操作からURLだけを送る", async () => {
   }
 });
 
-it("省略された参加者から確認を開いて取消すと一覧の入口へ戻る", async () => {
-  const members = buildMembers(14, ME);
+it("20人全員を省略せず表示し、ホスト操作を取消すと選んだ参加者へ戻る", async () => {
+  const members = buildMembers(20, ME);
   const onTransferHost = vi.fn();
   const user = userEvent.setup();
   renderView({ members, onTransferHost });
-  const overflow = screen.getByRole("button", { name: "他 3 名" });
-  await user.click(overflow);
-  await user.click(screen.getByRole("button", { name: members[13].name }));
+  expect(screen.queryByTestId("room-members-overflow")).not.toBeInTheDocument();
+  for (const member of members)
+    expect(screen.getByText(member.name)).toBeVisible();
+  const target = screen.getByRole("button", { name: members[19].name });
+  await user.click(target);
   expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "キャンセル" }));
-  await vi.waitFor(() => expect(overflow).toHaveFocus());
+  await vi.waitFor(() => expect(target).toHaveFocus());
   expect(onTransferHost).not.toHaveBeenCalled();
 });
 
@@ -222,6 +229,51 @@ it.each([true, false])(
 );
 
 describe("待機中のアイコン変更", () => {
+  it("自分の顔だけを変更操作にし、名前の編集とは別に操作できる", async () => {
+    const randomize = vi.fn();
+    const request = vi.fn();
+    const member = buildMembers(3, ME)[0];
+    renderView({
+      avatarChange: {
+        randomize,
+        pending: false,
+        disabled: false,
+        unavailable: false,
+        error: null,
+      },
+      displayName: {
+        draft: member.name,
+        onDraftChange: vi.fn(),
+        open: false,
+        pending: false,
+        disabled: false,
+        error: null,
+        request,
+        onOpenChange: vi.fn(),
+        onConfirm: vi.fn(),
+      },
+    });
+    const user = userEvent.setup();
+    const face = screen.getByRole("button", { name: "自分のアイコンを変更" });
+    expect(face).toContainElement(
+      screen.getByRole("img", { name: member.name }),
+    );
+    await user.hover(face);
+    expect(randomize).not.toHaveBeenCalled();
+    await user.click(face);
+    expect(randomize).toHaveBeenCalledOnce();
+    expect(request).not.toHaveBeenCalled();
+    const name = screen.getByRole("button", {
+      name: `${member.name}：表示名を変更`,
+    });
+    expect(name.querySelector('[data-testid="avatar"]')).toBeNull();
+    name.focus();
+    await user.keyboard("{Enter}");
+    expect(request).toHaveBeenCalledOnce();
+    expect(
+      screen.getAllByRole("button", { name: "自分のアイコンを変更" }),
+    ).toHaveLength(1);
+  });
   it("変更操作だけでランダム変更を要求し、保存・取消は求めない", async () => {
     const randomize = vi.fn();
     renderView({

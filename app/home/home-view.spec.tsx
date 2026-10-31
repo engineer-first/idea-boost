@@ -126,3 +126,12 @@ it("ゲストの連携入口より前に作成・参加の主操作と成果の�
     ).toBeTruthy();
   }
 });
+
+it("ホームの主要内容をmainランドマークから辿れる", () => {
+  renderView();
+  const main = screen.getByRole("main");
+  expect(within(main).getByRole("heading", { level: 1 })).toBeInTheDocument();
+  expect(
+    within(main).getByRole("textbox", { name: "招待コード" }),
+  ).toBeInTheDocument();
+});

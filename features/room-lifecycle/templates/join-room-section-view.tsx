@@ -7,10 +7,10 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { inviteCopy } from "../logic/invite-copy";
 import { RoomEntryField } from "../molecules/room-entry-field";
+import styles from "./room-entry-section.module.css";
 
 export type JoinRoomSectionViewProps = {
   code: string;
@@ -32,52 +32,51 @@ export function JoinRoomSectionView({
   onSubmit,
 }: JoinRoomSectionViewProps) {
   return (
-    <Card
-      className="flex flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
-      data-testid="home-join-room"
-    >
-      <CardHeader className="gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
-          <LogIn className="size-5" aria-hidden />
-        </div>
-        <div className="space-y-1.5">
-          <CardTitle className="text-base">ルームに参加</CardTitle>
-          <CardDescription className="leading-relaxed">
-            ホストから共有された 6 桁の招待コードを入力します。
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="mt-auto">
-        <form
-          onSubmit={onSubmit}
-          className="flex w-full flex-col gap-1"
-          data-testid="join-room-form"
-        >
-          <RoomEntryField
-            id="code"
-            label={inviteCopy.codeLabel}
-            name="code"
-            value={code}
-            onChange={(event) => onCodeChange(event.target.value)}
-            onBlur={onCodeBlur}
-            error={codeError}
-            placeholder="AB12CD"
-            autoComplete="off"
-            required
-            spellCheck={false}
-            className="font-mono text-center tracking-[0.35em] uppercase"
-          />
-          <Button
-            type="submit"
-            variant="outline"
-            size="lg"
-            disabled={!canSubmit || moving}
-            className="h-11 w-full"
+    <Card className={styles.join} data-testid="home-join-room">
+      <div className={styles.joinLayout}>
+        <CardHeader className={styles.joinHeader}>
+          <div className={styles.joinIcon}>
+            <LogIn className="size-5" aria-hidden />
+          </div>
+          <div className="space-y-1.5">
+            <h2>ルームに参加</h2>
+            <CardDescription className={styles.description}>
+              ホストから共有された 6 桁の招待コードを入力します。
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className={styles.joinContent}>
+          <form
+            onSubmit={onSubmit}
+            className={styles.joinForm}
+            data-testid="join-room-form"
           >
-            {moving ? "移動中…" : "参加する"}
-          </Button>
-        </form>
-      </CardContent>
+            <RoomEntryField
+              id="code"
+              label={inviteCopy.codeLabel}
+              name="code"
+              value={code}
+              onChange={(event) => onCodeChange(event.target.value)}
+              onBlur={onCodeBlur}
+              error={codeError}
+              placeholder="AB12CD"
+              autoComplete="off"
+              required
+              spellCheck={false}
+              className="font-mono text-center tracking-[0.35em] uppercase"
+            />
+            <Button
+              type="submit"
+              variant="outline"
+              size="lg"
+              disabled={!canSubmit || moving}
+              className={styles.joinAction}
+            >
+              {moving ? "移動中…" : "参加する"}
+            </Button>
+          </form>
+        </CardContent>
+      </div>
     </Card>
   );
 }
