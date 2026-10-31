@@ -15,8 +15,8 @@ it.each([
   "/\\evil.example",
 ])("通常開始に正規化する: %s", (next) => {
   expect.soft(getLandingEntry(false, next)).toEqual({
-    href: "/home",
-    label: "ログインなしで始める",
+    href: "/login?next=%2Fhome",
+    label: "無料で始める",
     showStartHelp: true,
     loginHref: "/login?next=%2Fhome",
   });
@@ -50,7 +50,7 @@ it.each([
   });
 });
 it("明示されたホームは通常の開始導線として扱う", () => {
-  expect(getLandingEntry(false, "/home").label).toBe("ログインなしで始める");
+  expect(getLandingEntry(false, "/home").label).toBe("無料で始める");
 });
 
 it("未ログインでも招待の参加確認へ直接進み、ログイン導線には招待先を保持する", () => {

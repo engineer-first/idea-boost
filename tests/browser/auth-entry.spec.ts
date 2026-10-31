@@ -132,7 +132,7 @@ test("ログイン方法をキーボードで選ぶと見出しから名前入�
 // CIのStorybook検証と実Worker/Next検証を区別し、後者は専用dev:verifyのURL指定時だけ実行する。
 // dev:verifyへの準備操作は新しい検証ルームだけを作り、通常DBや既存ルームを変更しない。
 describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
-  test("招待URLからログインなしで参加でき、アカウント利用者はログインして同じ招待へ戻れる", async () => {
+  test("招待URLから選択画面へ進み、ゲストはそこで名前を入力して参加でき、アカウント利用者はログインして同じ招待へ戻れる", async () => {
     const browser = await chromium.launch();
     const results: Record<string, unknown> = {};
     try {
@@ -163,45 +163,45 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
       const guest = await browser.newContext();
       const guestPage = await guest.newPage();
       await guestPage.goto(`${app}${invite}`);
+      const loginUrl = `${app}/login?next=${encodeURIComponent(invite)}`;
+      await guestPage.waitForURL(loginUrl);
+      expect(await guestPage.locator("html").getAttribute("lang")).toBe("ja");
+      const googleChoice = guestPage.getByRole("button", {
+        name: "Googleではじめる",
+        exact: true,
+      });
+      const guestChoice = guestPage.getByRole("button", {
+        name: "ゲストではじめる",
+        exact: true,
+      });
+      await googleChoice.waitFor();
+      await guestChoice.waitFor();
+      expect(await googleChoice.count()).toBe(1);
+      expect(await guestChoice.count()).toBe(1);
+      expect(await googleChoice.isVisible()).toBe(true);
+      expect(await guestChoice.isVisible()).toBe(true);
+      await capture(guestPage, "guest-invite-choice");
+      await guestChoice.click();
       const guestName = guestPage.getByRole("textbox", {
         name: "仲間に表示される名前",
       });
       await guestName.waitFor();
-      expect(guestPage.url()).toBe(`${app}${invite}`);
-      expect(await guestPage.locator("html").getAttribute("lang")).toBe("ja");
-      expect(
-        await guestPage
-          .getByRole("button", { name: "Googleではじめる" })
-          .count(),
-      ).toBe(0);
-      expect(
-        await guestPage
-          .getByRole("button", { name: "ゲストではじめる" })
-          .count(),
-      ).toBe(0);
-      expect(await guestPage.getByLabel("メールアドレス").count()).toBe(0);
-      expect(await guestPage.getByLabel("パスワード").count()).toBe(0);
-      expect(
-        await guestPage
-          .getByRole("button", { name: "開発用ユーザーでログイン" })
-          .count(),
-      ).toBe(0);
-      await capture(guestPage, "guest-invite-name");
       await guestName.fill("   ");
       await guestPage
-        .getByRole("button", { name: "次へ", exact: true })
+        .getByRole("button", { name: "この名前ではじめる", exact: true })
         .click();
       await guestPage
         .getByRole("alert")
         .filter({ hasText: "表示名を入力してください。" })
         .waitFor();
       expect(await guestName.inputValue()).toBe("   ");
-      expect(guestPage.url()).toBe(`${app}${invite}`);
+      expect(guestPage.url()).toBe(loginUrl);
       await capture(guestPage, "guest-invite-name-error");
       await guestName.fill("招待ゲスト");
       await guestPage
-        .getByRole("button", { name: "次へ", exact: true })
+        .getByRole("button", { name: "この名前ではじめる", exact: true })
         .click();
+      await guestPage.waitForURL(`${app}${invite}`);
       const guestConfirmation = guestPage.getByRole("alertdialog");
       await guestConfirmation.waitFor();
       await capture(guestPage, "guest-invite-confirm");
@@ -301,13 +301,12 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
       await page.getByRole("button", { name: "ユーザーメニュー" }).click();
       await page.getByRole("button", { name: "ログアウト" }).click();
       await page.waitForURL(`${app}/login`);
-      // ログアウト・再訪の扱いは #853 で更新される可能性がある（現時点の develop の挙動）。
+      // 本人のいない /home は始め方の選択画面へ送る（#886）。
       await page.goto(`${app}/home`);
+      await page.waitForURL(`${app}/login?next=%2Fhome`);
       await page
-        .getByTestId("home-create-room")
-        .getByRole("textbox", { name: "仲間に表示される名前" })
+        .getByRole("button", { name: "ゲストではじめる", exact: true })
         .waitFor();
-      expect(page.url()).toBe(`${app}/home`);
       expect(
         await page.getByRole("button", { name: "前のルームに戻る" }).count(),
       ).toBe(0);
@@ -328,7 +327,7 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
       expect(workerApi.status()).toBe(401);
       results.afterLogout = {
         homeUrl: page.url(),
-        guestNameInputVisible: true,
+        loginChoiceVisible: true,
         previousIdentityVisible: false,
         nextApi: nextApi.status(),
         workerApi: workerApi.status(),
@@ -362,19 +361,22 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
     }
   }, 90_000);
 
-  test("LPの開始ボタンからログインなしで名前とルーム名を入れてロビーに入り、招待コードを共有できる", async () => {
+  test("LPの開始ボタンから選択画面でゲストを選び、名前を入れてホームでルームを作成し、招待コードを共有できる", async () => {
     const browser = await chromium.launch();
     try {
       const context = await browser.newContext();
       const page = await context.newPage();
       await page.goto(`${app}/`);
       await page
-        .getByRole("link", { name: "ログインなしで始める", exact: true })
+        .getByRole("link", { name: "無料で始める", exact: true })
         .first()
         .click();
-      await page.waitForURL(`${app}/home`);
-      const createCard = page.getByTestId("home-create-room");
-      const guestName = createCard.getByRole("textbox", {
+      await page.waitForURL(`${app}/login?next=%2Fhome`);
+      await capture(page, "guest-login-choice");
+      await page
+        .getByRole("button", { name: "ゲストではじめる", exact: true })
+        .click();
+      const guestName = page.getByRole("textbox", {
         name: "仲間に表示される名前",
       });
       await guestName.waitFor();
@@ -383,21 +385,18 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
           (cookie) => cookie.name === "idea_boost_session",
         ),
       ).toBe(false);
-      await capture(page, "guest-home-name");
+      await capture(page, "guest-login-name");
       await guestName.fill("作成ゲスト");
-      await createCard
-        .getByRole("button", { name: "次へ", exact: true })
+      await page
+        .getByRole("button", { name: "この名前ではじめる", exact: true })
         .click();
+      await page.waitForURL(`${app}/home`);
+      const createCard = page.getByTestId("home-create-room");
       const roomName = createCard.getByRole("textbox", {
         name: "ルーム名（任意）",
       });
       await roomName.waitFor();
-      await expect
-        .poll(() =>
-          roomName.evaluate((element) => element === document.activeElement),
-        )
-        .toBe(true);
-      await roomName.fill("ログインなしのルーム作成検査");
+      await roomName.fill("ゲストのルーム作成検査");
       await capture(page, "guest-home-room-name");
       await createCard
         .getByRole("button", { name: "新しいルームを作成", exact: true })

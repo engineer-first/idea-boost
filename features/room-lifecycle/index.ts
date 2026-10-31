@@ -3,7 +3,6 @@
 // この feature のコンテナだけが使う内部実装なので公開しない。
 export { CreateRoomSection } from "./containers/create-room-section";
 export { InviteCodeDialog } from "./containers/invite-code-dialog";
-export { InviteGuestName } from "./containers/invite-guest-name";
 export { JoinRoomSection } from "./containers/join-room-section";
 export { ParticipationSwitch } from "./containers/participation-switch";
 export { ReturnRoomSection } from "./containers/return-room-section";

@@ -27,7 +27,7 @@ export function getLandingEntry(
         : "return";
   return {
     href:
-      isLoggedIn || context !== "return"
+      isLoggedIn || context === "invite"
         ? destination
         : getLoginPath(destination),
     loginHref: getLoginPath(destination),
