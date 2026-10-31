@@ -5,12 +5,12 @@ import type { VerifiedSession } from "@/contracts/session";
 
 const mocks = vi.hoisted(() => ({
   lookup: vi.fn(),
+  getLoginPath: vi.fn((next: string) => `login:${next}`),
   currentUser: vi.fn(),
   redirect: vi.fn((url: string): never => {
     throw new Error(`redirect: ${url}`);
   }),
   InviteCodeDialog: vi.fn(),
-  InviteGuestName: vi.fn(),
   InviteStatusView: vi.fn(),
 }));
 vi.mock("@/lib/api-client", () => ({ lookupRoomByInviteCode: mocks.lookup }));
@@ -18,12 +18,11 @@ vi.mock("@/lib/session/current-user", () => ({
   getCurrentUser: mocks.currentUser,
 }));
 vi.mock("@/features/auth", () => ({
-  getLoginPath: (next: string) => `/login?next=${encodeURIComponent(next)}`,
+  getLoginPath: mocks.getLoginPath,
   sanitizeNextPath: (path: string) => path,
 }));
 vi.mock("@/features/room-lifecycle", () => ({
   InviteCodeDialog: mocks.InviteCodeDialog,
-  InviteGuestName: mocks.InviteGuestName,
   InviteStatusView: mocks.InviteStatusView,
 }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
@@ -63,13 +62,16 @@ describe("招待ページ", () => {
     expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
-  it("本人なしなら照会もリダイレクトもせず正規化コードでゲスト名入力を描画する", async () => {
+  it("本人なしなら照会せず正規化コードを戻り先にして選択画面へリダイレクトする", async () => {
     mocks.currentUser.mockResolvedValue(null);
-    const element = await page();
-    expect(element.type).toBe(mocks.InviteGuestName);
-    expect(element.props).toMatchObject({ inviteCode: "ABC234" });
+    await expect(page()).rejects.toThrow("redirect: login:/invite/ABC234");
+    expect(mocks.getLoginPath).toHaveBeenCalledExactlyOnceWith(
+      "/invite/ABC234",
+    );
+    expect(mocks.redirect).toHaveBeenCalledExactlyOnceWith(
+      "login:/invite/ABC234",
+    );
     expect(mocks.lookup).not.toHaveBeenCalled();
-    expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
   it.each(["not_found", "ended", "unavailable"] as const)(
