@@ -21,7 +21,9 @@ test.each([320, 1024, 1280])(
         name: "新しいルームを作成",
         exact: true,
       });
-      await expect.poll(() => create.isEnabled()).toBe(true);
+      // 保存中の作成情報を読み終えると、準備中からこのラベルへ切り替わる。
+      await create.waitFor({ state: "visible" });
+      expect(await create.isEnabled()).toBe(true);
       const art = home.locator('[aria-hidden="true"]').first();
       expect(
         await art.evaluate(async (element) => {
