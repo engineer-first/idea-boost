@@ -161,31 +161,48 @@ v3は開始日のJST 00:00から、**due翌日のJST 00:00未満**を割当期�
 
 Project の組み込み単一選択フィールド名は GitHub の仕様上 `Status`（画面によって英語表示）で、値は次の通り。会話・文書では「状態」と呼ぶ。
 
-| 状態         | 意味と設定基準                                       |
-| ------------ | ---------------------------------------------------- |
-| `未整理`     | 作成直後。背景や優先度の確認がまだ必要               |
-| `壁打ち中`   | 方針・要件・優先度を相談・整理している               |
-| `着手可能`   | 問題と望む変化が分かり、調査・壁打ちから開始できる   |
-| `作業中`     | 担当者が実作業を開始した                             |
-| `レビュー中` | 直接紐づく単一 PR に対して、実際にレビューを依頼した |
-| `完了`       | 成果を確認し、完了と判断した                         |
-| `見送り`     | 今回は対応しないと判断した。完了とは区別する         |
+| 状態         | 意味と設定基準                                      |
+| ------------ | --------------------------------------------------- |
+| `未整理`     | 作成直後。背景や優先度の確認がまだ必要              |
+| `壁打ち中`   | 方針・要件・優先度を相談・整理している              |
+| `着手可能`   | 問題と望む変化が分かり、調査・壁打ちから開始できる  |
+| `作業中`     | 担当者が実作業を開始した                            |
+| `レビュー中` | 直接紐づく単一PRをDraftでなく公開し、確認できる状態 |
+| `完了`       | 成果を確認し、完了と判断した                        |
+| `見送り`     | 今回は対応しないと判断した。完了とは区別する        |
 
 How・具体仕様・詳細テストの未決定だけで着手を止めない。
 
-すべての新規 Issue は `未整理` から始める。問題と望む変化を確認して `着手可能` にした後、次の GitHub 操作に状態更新を連動させる。
+すべての新規 Issue は `未整理` から始める。Issue画面とProjects画面のどちらから操作しても、次のルールで状態を更新する。
 
-| GitHub の操作                                           | 状態の更新              | 対象・条件                                                                              |
-| ------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
-| Assignees → Assign yourself                             | `着手可能` → `作業中`   | open で子 Issue のない Task / Bug。実行者と追加された担当者が一致し、現在も担当している |
-| 対応する Draft PR を作成                                | `着手可能` → `作業中`   | 同じ2 Type、直接対応する PR が1件、現在も open / Draft                                  |
-| PR の Reviewers から依頼、または依頼が残る Draft の解除 | `作業中` → `レビュー中` | 下記のレビュー条件を満たす                                                              |
-| PR を Convert to draft                                  | `レビュー中` → `作業中` | 同じ単一 PR による自動更新の記録と、現在の状態更新時刻が一致する                        |
-| `Closes #番号` のある PR を `develop` へマージ          | 現在の状態 → `完了`     | GitHub の closing reference が対象 Issue と一致する。Issue は GitHub 標準機能で閉じる   |
-| Issue の Status → 完了                                  | Issue をクローズ        | 人が成果を確認した後に操作。Project の標準 automation を使う                            |
+| GitHub の操作                                   | 状態の更新                                        | 対象・条件                                                                              |
+| ----------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 担当者を追加（自己アサイン・他人への割当て）    | `未整理` → `壁打ち中`                             | openで現在も追加された担当者がいる。Type・子Issueの有無を問わず、未整理以外は変更しない |
+| 対応するDraft PRを作成                          | `壁打ち中` / `着手可能` → `作業中`                | openで子IssueのないTask / Bug / Spike。直接対応するPRが1件、現在もopen / Draft          |
+| 通常PRを作成、Draftを解除、またはレビューを依頼 | `壁打ち中` / `着手可能` / `作業中` → `レビュー中` | 下記のレビュー条件を満たす。作成・Draft解除ではレビュー依頼先の指定は不要               |
+| PRをConvert to draft                            | `レビュー中` → `作業中`                           | 同じ単一PRによる自動更新の記録と、現在の状態更新時刻が一致する                          |
+| `Closes #番号` のあるPRを `develop` へマージ    | Issueをclose → `完了`                             | GitHubが対応Issueを完了として閉じる。reopen済み・見送りは上書きしない                   |
+| IssueのStatus → 完了                            | Issueを完了としてclose                            | 定期Actionsがopen Issueをcompletedとして閉じる                                          |
+| IssueのStatus → 見送り                          | Issueを対応しないとしてclose                      | 定期Actionsがopen Issueをnot_plannedとして閉じる                                        |
+| Issueを完了としてclose                          | 現在の状態 → `完了`                               | 現在もclosedで、最新のclose理由がCOMPLETED                                              |
+| Issueを対応しない・重複としてclose              | 現在の状態 → `見送り`                             | 最新のclose理由がNOT_PLANNED / DUPLICATE                                                |
+| Issueをreopen                                   | 現在の状態 → `着手可能`                           | 現在もopenでProjectに登録済み                                                           |
 
-他人への担当者割当て、割当て解除、Assign to Agent、Milestone・Priority・Type・Relationships の変更、ブランチ作成、通常 PR 作成、closing reference のないマージ、承認・変更要求だけでは状態を動かさない。
-PBI の担当者は成果全体の責任者を表すため、アサインから開始とみなさない。Issue の close / reopen から状態を推測しない。
+担当者追加では未整理以外の状態を変更しない。割当て解除、Milestone・Priority・Type・Relationshipsの変更、ブランチ作成、closing referenceのないマージ、承認・変更要求だけでは状態を動かさない。PBIへのアサインも未整理から壁打ち中にするだけで、実作業開始とはみなさない。
+
+完了は成果を実現したもの、見送りは重複・方針変更・必要性の消失などで対応しないと判断したものを表す。調査や文書作成などPRを伴わないIssueも、close理由で区別する。close理由は[GitHubのIssueStateReason](https://docs.github.com/en/graphql/reference/issues#issuestatereason)を使い、不明な理由を完了扱いにしない。
+
+これらのActionsはdefault branchへマージした後に有効になる。既存Issueの状態は一括変更しない。状態同期の対象はProject #3の未アーカイブ項目で、Issue本文・担当者・親子関係・Milestoneは変更しない。
+
+### ProjectsからIssueを閉じる定期処理
+
+[Close Project Issues](../../.github/workflows/close-project-issues.yml)は5分間隔でProject #3の未アーカイブ項目を読み、`engineer-first/idea-boost`のopen Issueだけを対象に、Statusが`完了`ならcompleted、`見送り`ならnot_plannedとして閉じる。Projectsの変更は組織Webhookであり、リポジトリActionsの直接トリガーにはならないため、追加のWebhookサーバーを設けず定期確認する。[GitHubのWebhook仕様](https://docs.github.com/en/webhooks/webhook-events-and-payloads#projects_v2_item)を参照。Actionsの混雑によって5分以上遅れる場合がある。
+
+初回も既存のopenかつ完了・見送りの項目を対象にする。すでにclosedのIssueの理由は書き換えない。PR・Draft item・他リポジトリ・アーカイブ済みは対象外。Status更新後にIssueが更新・reopenされていれば、古いStatusで閉じ直さず見送る。更新直前にProject項目とIssueを再取得し、Status・更新時刻・open状態が変わっていればスキップする。GitHub APIには原子的な条件付き更新がないため、最終読取とcloseの間の競合は完全には排除できない。
+
+手動実行はdefault branch限定で、`dry_run`は既定true。予定・スキップ数をActions Summaryで確認できる。全ページの読取に失敗したら書き込まず、close APIの失敗も実行失敗として残す。運用を止める場合はこのworkflowを無効にする。
+
+Projectの読取には既存Appから読取専用tokenを発行し、Issueのcloseにはこのjobだけに付与した`GITHUB_TOKEN`の`issues: write`を使う。Appの権限拡張や新secretは不要。`GITHUB_TOKEN`によるcloseは後続Actionsを起動しないが、元のStatusがすでに完了・見送りなので追加同期は不要。
 
 ## Pull Request とレビュー状態
 
@@ -193,20 +210,20 @@ PR 本文の `<!-- issue-ref:番号 -->` が、その PR が直接対応する I
 
 リンク追記と状態同期は並行して始まるため、マーカーがまだない場合だけ、同一リポジトリの番号付きブランチを直接参照として扱う。fork のブランチ名、不正・複数のマーカーでは補完しない。
 
-次の条件をすべて満たすときだけ、レビュー依頼または Draft 解除時に直接紐づく Issue を `レビュー中` にする。
+次の条件をすべて満たすとき、通常PRの作成・Draft解除・レビュー依頼で直接紐づくIssueを `レビュー中` にする。人へのレビュー依頼を基本としつつ、セルフレビュー・セルフマージも扱うため、作成・Draft解除ではレビュー依頼先を必須にしない。
 
 - イベント実行者に対象リポジトリの write / maintain / admin 権限がある。権限照会に失敗したら更新しない。
-- PR が open かつ Draft ではなく、レビュー依頼が現在も残っている。
+- PRがopenかつDraftではない。レビュー依頼イベントでは依頼先が現在も残っていることを確認する。
 - 有効な単一マーカー、または上記の同一リポジトリのブランチにより対象 Issue が確定する。イベント時と最新の参照が違う場合は更新しない。
-- Issue が open で子 Issue を持たず、Type が `Task` / `Bug` / `PBI`。
-- Issue が Project #3 に未アーカイブ状態で登録され、現在の状態が `作業中`。
+- Issue が open で子 Issue を持たず、Type が `Task` / `Bug` / `Spike` / `PBI`。
+- Issue が Project #3 に未アーカイブ状態で登録され、現在の状態が `壁打ち中` / `着手可能` / `作業中`。
 - 同じ Issue に直接対応する PR がこの1件だけである。
 
 一般的な `#番号` の記述、Issue の親子関係、他の Issue の状態は推測に使わない。条件が不明・複数 PR・Project 権限エラーの場合は状態を変更せず、ワークフローを失敗またはスキップとして記録する。レビュー依頼取消し・承認・変更要求は Issue 状態を自動変更しない。
 
 ### 自動更新と手動変更の扱い
 
-- 通常は実行者の write / maintain / admin 権限を確認する。同一リポジトリの Issue 番号付き実装ブランチから作成された Draft PR に限り、信頼できるブランチ情報を開始の根拠にできる。これにより Agent の Draft PR も扱う。外部 fork の場合やレビュー更新では、この例外を使わない。
+- アサイン・PR操作では実行者の write / maintain / admin 権限を確認する。Issueのclose/reopenはGitHubが操作を認可済みのイベントとして扱い、Issue作者やProjectsのBotによる操作も最新の状態・close理由から同期する。同一リポジトリの Issue 番号付き実装ブランチから作成された Draft PR に限り、信頼できるブランチ情報を開始の根拠にできる。これにより Agent の Draft PR も扱う。外部 fork の場合やレビュー更新では、この例外を使わない。
 - Project のテキストフィールド `自動レビュー元` にリポジトリ・PR 番号・Status の更新時刻を記録する。通常は人が編集しない。手動で状態を変更した後は、元の状態へ戻しても時刻が違うため Draft 復帰では上書きしない。
 - `.github/workflows/issue-project-status.yml` は Project 更新をキューで直列化し、進行中の処理をキャンセルしない。最大100件の待機を超えた場合は GitHub がキャンセルする。
 - 変更直前にも PR・Issue・Project を再取得し、状態や記録が変わっていたらスキップする。GitHub API は手動操作との原子的な条件付き更新を提供しないため、最終読取と更新の間の競合までは完全に排除できない。
@@ -214,7 +231,7 @@ PR 本文の `<!-- issue-ref:番号 -->` が、その PR が直接対応する I
 
 ### 状態同期の初期設定
 
-自己アサイン・Draft PR・レビュー依頼・Draft復帰の連携はPR #339で導入済み。必要な設定と、未設定時の動作は以下の通り。
+アサイン・Issueのclose/reopen・PRの作成とレビュー・Draft復帰を連携する。必要な設定と、未設定時の動作は以下の通り。
 
 GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため、次の権限に絞った GitHub App が必要。App は `idea-boost` リポジトリにのみインストールする。
 
@@ -243,8 +260,8 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 
 - Project の auto-add は `idea-boost` の open Issue 全種を対象とする。GitHub の自動追加は新規作成・更新時に適用され、既存 Issue の一括追加には使わない。
 - `Item added to project` の既定状態を `未整理` にする。CLI 作成スクリプトも同じ初期値を1回だけ設定する。
-- `完了` を明示的に選んだ場合に Issue を閉じる自動化は維持する。逆方向は一般の close イベントではなく、`Closes` を含む PR の `develop` へのマージだけを Actions で `完了` にする。
-- Issue の close/reopen、PR のリンク/merge、レビュー承認/変更要求から状態を推測する既定 automation は無効にする。
+- Statusからのcloseは[Close Project Issues](../../.github/workflows/close-project-issues.yml)が担う。Project標準のAuto-close issueは無効にし、完了・見送りのclose理由をActionsで揃える。逆方向はIssueのcloseイベントで理由に応じて`完了` / `見送り`にする。`Closes`を含むPRの`develop`へのマージによる同期も維持する。
+- Issueのclose/reopen、PRのリンク/merge、レビュー承認/変更要求でStatusを変えるProject標準automationは無効にする。close理由や直接対応PRを判定するActionsと競合させない。
 - 状態は7種類だけを使う。分類は Issue Type、進捗は Status に統一する。
 
 Project の作業・状態を変えるときは、Issue本文と Milestone は保ち、対象の状態フィールドのみを必要に応じて更新する。
