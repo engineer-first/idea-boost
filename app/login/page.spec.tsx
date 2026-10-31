@@ -14,6 +14,14 @@ vi.mock("@/features/auth/logic/guest-identity-actions", () => ({
   prepareGuestIdentity: mocks.prepare,
 }));
 
+vi.mock("@/lib/session/current-user", () => ({
+  getCurrentUser: async () => null,
+}));
+vi.mock("@/lib/session/env", () => ({
+  isAuthConfigured: () => true,
+  isDevAuthEnabled: () => false,
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.prepare.mockResolvedValue({
@@ -25,14 +33,6 @@ beforeEach(() => {
     reused: false,
   });
 });
-
-vi.mock("@/lib/session/current-user", () => ({
-  getCurrentUser: async () => null,
-}));
-vi.mock("@/lib/session/env", () => ({
-  isAuthConfigured: () => true,
-  isDevAuthEnabled: () => false,
-}));
 
 import LoginPage from "./page";
 
@@ -56,6 +56,7 @@ it.each([
 
 it.each([
   { next: "https://evil.example", expected: "/" },
+  { next: "//evil.example", expected: "/" },
   { next: "/invite/ABC123", expected: "/invite/ABC123" },
 ])(
   "ログインページでnext=$nextからゲスト名を登録すると安全化した$expectedへ遷移する",
@@ -73,6 +74,5 @@ it.each([
       expect(mocks.replace).toHaveBeenCalledExactlyOnceWith(expected),
     );
     expect(mocks.prepare).toHaveBeenCalledExactlyOnceWith({ name: "はな" });
-    expect(mocks.replace).not.toHaveBeenCalledWith("https://evil.example");
   },
 );

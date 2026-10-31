@@ -77,10 +77,53 @@ test("送信中と設定不足で操作可否が伝わる", async () => {
     await page.goto(
       `${storybook}/iframe.html?id=auth-logincard--not-configured&viewMode=story`,
     );
-    const google = page.getByRole("button", { name: "Googleでログイン" });
+    const google = page.getByRole("button", { name: "Googleではじめる" });
     await google.waitFor();
     expect(await google.isDisabled()).toBe(true);
+    expect(
+      await page.getByRole("button", { name: "ゲストではじめる" }).isDisabled(),
+    ).toBe(true);
     await capture(page, "story-not-configured");
+  } finally {
+    await browser.close();
+  }
+});
+
+test("ログイン方法をキーボードで選ぶと見出しから名前入力へ進み、戻るとゲスト開始にフォーカスが戻る", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(
+      `${storybook}/iframe.html?id=auth-logincard--default&viewMode=story`,
+    );
+    const guest = page.getByRole("button", {
+      name: "ゲストではじめる",
+      exact: true,
+    });
+    await guest.focus();
+    await page.keyboard.press("Enter");
+    const heading = page.getByRole("heading", {
+      level: 2,
+      name: "ゲストではじめる",
+    });
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => element === document.activeElement),
+      )
+      .toBe(true);
+    await page.keyboard.press("Tab");
+    const name = page.getByRole("textbox", { name: "仲間に表示される名前" });
+    await expect
+      .poll(() =>
+        name.evaluate((element) => element === document.activeElement),
+      )
+      .toBe(true);
+    await page.getByRole("button", { name: "戻る", exact: true }).click();
+    await expect
+      .poll(() =>
+        guest.evaluate((element) => element === document.activeElement),
+      )
+      .toBe(true);
   } finally {
     await browser.close();
   }
@@ -128,7 +171,12 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
       expect(await guestPage.locator("html").getAttribute("lang")).toBe("ja");
       expect(
         await guestPage
-          .getByRole("button", { name: "Googleでログイン" })
+          .getByRole("button", { name: "Googleではじめる" })
+          .count(),
+      ).toBe(0);
+      expect(
+        await guestPage
+          .getByRole("button", { name: "ゲストではじめる" })
           .count(),
       ).toBe(0);
       expect(await guestPage.getByLabel("メールアドレス").count()).toBe(0);

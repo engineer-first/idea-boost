@@ -26,6 +26,7 @@ import {
 
 export type LoginCardProps = {
   guestForm: ReactNode;
+  guestPending?: boolean;
   error?: string;
   aboutHref?: string;
   isConfigured: boolean;
@@ -42,6 +43,7 @@ const startButtonClassName =
 
 export function LoginCard({
   guestForm,
+  guestPending = false,
   error,
   aboutHref = "/about",
   isConfigured,
@@ -158,8 +160,9 @@ export function LoginCard({
             {guestForm}
             <button
               type="button"
+              disabled={guestPending}
               onClick={() => setStep("choice")}
-              className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm text-slate-600 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600"
+              className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600"
             >
               <ArrowLeft aria-hidden="true" className="h-4 w-4" />
               {loginBackLabel}

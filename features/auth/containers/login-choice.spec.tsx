@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   guestIdentityFailure,
@@ -73,3 +79,27 @@ describe("ログイン方法の選択", () => {
     );
   });
 });
+
+it.each(["失敗応答", "例外"])(
+  "ゲスト名送信中は戻るを無効にし、%s後は再び有効にする",
+  async (failure) => {
+    const pending = Promise.withResolvers<{ ok: false; error: string }>();
+    mocks.prepare.mockReturnValue(pending.promise);
+    await renderChoice();
+    const back = screen.getByRole("button", { name: "戻る" });
+    expect(back).toBeDisabled();
+    fireEvent.click(back);
+    expect(
+      screen.getByRole("textbox", { name: guestNameLabel }),
+    ).toBeInTheDocument();
+    await act(async () => {
+      if (failure === "例外") pending.reject(new Error("network"));
+      else pending.resolve({ ok: false, error: guestIdentityFailure });
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      guestIdentityFailure,
+    );
+    expect(back).toBeEnabled();
+    expect(mocks.replace).not.toHaveBeenCalled();
+  },
+);

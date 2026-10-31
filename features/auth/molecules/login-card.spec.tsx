@@ -168,3 +168,14 @@ it("LoginCardは初回描画やstepが変わらない再描画ではカード外
   rerender(<LoginCard {...choiceProps} error="接続できませんでした。" />);
   expect(outside).toHaveFocus();
 });
+
+it("LoginCardはguestPendingがtrueのゲスト段階では戻るを無効にする", () => {
+  render(<LoginCard {...choiceProps} guestPending />);
+  fireEvent.click(screen.getByRole("button", { name: "ゲストではじめる" }));
+  const back = screen.getByRole("button", { name: "戻る" });
+  expect(back).toBeDisabled();
+  fireEvent.click(back);
+  expect(
+    screen.getByRole("heading", { level: 2, name: "ゲストではじめる" }),
+  ).toBeInTheDocument();
+});

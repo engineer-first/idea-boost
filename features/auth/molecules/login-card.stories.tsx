@@ -94,6 +94,7 @@ export const FromInvite: Story = {
 };
 
 export const GuestName: Story = {
+  name: "ゲスト名・入力前",
   args: { isConfigured: true, showDevAuth: false },
   play: async ({ canvasElement }) => {
     await userEvent.click(
@@ -103,13 +104,16 @@ export const GuestName: Story = {
 };
 export const GuestNamePending: Story = {
   ...GuestName,
+  name: "ゲスト名・送信中",
   args: {
     ...GuestName.args,
+    guestPending: true,
     guestForm: <GuestNameFormView {...formProps} name="はな" pending />,
   },
 };
 export const GuestNameError: Story = {
   ...GuestName,
+  name: "ゲスト名・失敗",
   args: {
     ...GuestName.args,
     guestForm: (
