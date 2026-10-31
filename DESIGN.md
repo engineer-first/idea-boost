@@ -23,14 +23,29 @@ colors:
 typography:
   headline-display:
     fontFamily: Zen Maru Gothic
-    fontSize: 40px
+    fontSize: 30px
     fontWeight: 700
     lineHeight: 1.3
+  headline-lg:
+    fontFamily: Noto Sans JP
+    fontSize: 24px
+    fontWeight: 700
+    lineHeight: 1.4
   headline-md:
     fontFamily: Noto Sans JP
     fontSize: 20px
     fontWeight: 700
     lineHeight: 1.5
+  headline-sm:
+    fontFamily: Noto Sans JP
+    fontSize: 18px
+    fontWeight: 700
+    lineHeight: 1.5
+  body-lg:
+    fontFamily: Noto Sans JP
+    fontSize: 16px
+    fontWeight: 400
+    lineHeight: 1.75
   body-md:
     fontFamily: Noto Sans JP
     fontSize: 14px
@@ -43,14 +58,14 @@ typography:
     lineHeight: 21px
   label-md:
     fontFamily: Noto Sans JP
-    fontSize: 13px
+    fontSize: 14px
     fontWeight: 700
     lineHeight: 1.4
   label-sm:
     fontFamily: Noto Sans JP
-    fontSize: 11px
+    fontSize: 12px
     fontWeight: 700
-    lineHeight: 1.3
+    lineHeight: 1.4
 spacing:
   xs: 4px
   sm: 8px
@@ -145,8 +160,11 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 
 - **アプリ内は Noto Sans JP の1書体。** 見出しも本文もラベルも同じ書体にし、太さとサイズだけで差をつけます。書体が混ざると画面の印象がばらつくためです。小さいサイズでも潰れにくく、OS による見え方の差も小さい書体です。
 - **LP の大見出しだけ Zen Maru Gothic。** 丸ゴシックで、硬すぎない楽しさを最初の印象に出します。
+- **サイズは 12・14・16・18・20・24px の6段階。** 今のコードでよく使われているサイズ（Tailwind の `text-xs`〜`text-2xl`）に合わせています。本文とボタンは 14px、補足やバッジは 12px が基本です。LP の大見出しだけ 30px 以上を使います。
+- **最小は 12px。** これより小さい文字は、縮小表示のボードでは読めなくなるためです。
 - **付箋の本文：** 14px、行の高さ 21px。
 - **太さ：** 400 と 700 の2つに絞ります。
+- **足りない段階は追加してよい。** 既存の段階で用途に合わないときは、用途と一緒にこのファイルへ追加します。画面ごとに任意のサイズを書くより、段階を1つ増やす方が全体がそろいます。
 
 ## Layout
 
@@ -195,4 +213,5 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 | 色・角丸の直書きをどこまで許すか   | 未定                                               | #877         |
 | 選択枠を付箋から離して描く         | 付箋に接して描いている（青い付箋の上で見えにくい） | #876         |
 | 部品の型（ダイアログ・ボタン）     | 未記載                                             | #841 Phase 2 |
+| 12px 未満の文字をなくす            | `text-[10px]` などが数か所                         | #876         |
 | 決定の見た目を目立たせる           | 太い緑の枠                                         | #841 Phase 2 |
