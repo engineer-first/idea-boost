@@ -1185,6 +1185,61 @@ describe("RoomBoardCanvas", () => {
     },
   );
 
+  it.each([
+    ["通常ボード", buildPhaseStep(5)],
+    ["2軸マップ", buildPhaseStep(5, 3)],
+  ] as const)(
+    "%sでは小さいstackOrderの決定付箋を最大値の一つ上へ出し、ドラッグはさらに上・候補外は0にする",
+    (_label, phase) => {
+      const notes = [
+        buildNote({ id: "decided", stackOrder: 1 }),
+        buildNote({ id: "front", stackOrder: 1500 }),
+        buildNote({ id: "own", stackOrder: 4 }),
+        buildNote({ id: "remote", stackOrder: 5 }),
+        buildNote({ id: "excluded", stackOrder: 2000, excluded: true }),
+      ];
+      const { props, rerender } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        notes,
+        decision: buildDecision({ noteId: "decided", phase: phase.phase }),
+        draggingNoteId: "own",
+        remoteCursors: [
+          {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "Taro",
+            color: "green",
+            x: 50,
+            y: 50,
+            draggingNoteId: "remote",
+            lastSeenAt: Date.now(),
+            isIdle: false,
+          },
+        ],
+      });
+      const wrapper = (id: string) =>
+        screen.getByTestId(
+          phase.phase === 3
+            ? `idea-value-feasibility-map-note-${id}`
+            : `board-note-${id}`,
+        );
+      expect(wrapper("decided")).toHaveStyle({ zIndex: "2001" });
+      expect(wrapper("front")).toHaveStyle({ zIndex: "1500" });
+      expect(wrapper("own")).toHaveStyle({ zIndex: "2147483647" });
+      expect(wrapper("remote")).toHaveStyle({ zIndex: "2147483647" });
+      expect(wrapper("excluded")).toHaveStyle({ zIndex: "0" });
+      rerender(
+        <RoomBoardCanvas
+          {...props}
+          notes={notes.map((note) =>
+            note.id === "front" ? { ...note, stackOrder: 2500 } : note,
+          )}
+        />,
+      );
+      expect(wrapper("decided")).toHaveStyle({ zIndex: "2501" });
+    },
+  );
+
   it("通常ボードでは永続順序を描画し own・名前付きカーソルの drag と ghost だけを一時最前面にする", () => {
     const notes = [
       { ...buildNote({ id: "back" }), stackOrder: 4 },

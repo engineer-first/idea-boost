@@ -288,6 +288,14 @@ export function RoomBoardCanvas({
   const orderedNotes = [...notes].sort(
     (left, right) => Number(right.excluded) - Number(left.excluded),
   );
+  const maxNoteStackOrder = notes.reduce(
+    (max, note) => Math.max(max, note.stackOrder),
+    0,
+  );
+  const decidedNoteZIndex = Math.min(
+    maxNoteStackOrder + 1,
+    TEMPORARY_FRONT_Z_INDEX - 1,
+  );
   const voteDisplayMode = isVotingStep(phase)
     ? "voting"
     : isResultStep(phase)
@@ -644,7 +652,9 @@ export function RoomBoardCanvas({
             ? TEMPORARY_FRONT_Z_INDEX
             : note.excluded
               ? 0
-              : note.stackOrder,
+              : decision?.noteId === note.id
+                ? decidedNoteZIndex
+                : note.stackOrder,
           ...(usesIdeaMapViewport
             ? {
                 transform: `scale(${ideaMapNoteMetrics?.displayScale ?? ideaMapNoteDisplayScale})`,

@@ -14,8 +14,8 @@
     outline-color 0.15s ease-out;
 }
 .sticky-note[data-decided] {
-  /* 通常付箋(10) < 決定(20) < 範囲選択・空状態(30) < HUD(40)。
-     ドラッグ中のインライン z-index はこの指定より優先される。 */
+  /* 単体表示で隣の付箋へはみ出す装飾を前面に保つ。
+     ボード上の付箋間の順序はRoomBoardCanvasのラッパーで管理する。 */
   z-index: 20;
 }
 .sticky-note[data-decided] > .sticky-note-paper,
