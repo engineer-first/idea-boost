@@ -195,8 +195,6 @@ export type RoomBoardCanvasProps = {
   remoteCursors: RenderedRemoteCursorPresence[];
   presenterView?: RemotePresenterView | null;
   isFollowingPresenterView?: boolean;
-  canFollowPresenterView?: boolean;
-  onFollowPresenterView?: () => void;
   onPresenterViewChange?: (view: PresenterView) => void;
   onManualPanStart?: () => void;
   expandPrivateNotesRequest?: number;
@@ -279,8 +277,6 @@ export function RoomBoardCanvas({
   onNoteVoteStickerRemove,
   onNoteVoteStickerDragStart,
   isFollowingPresenterView = false,
-  canFollowPresenterView = false,
-  onFollowPresenterView,
   isAdoptMode,
   adoptionFocusNoteId = null,
   onAdoptionFocusChange = () => undefined,
@@ -903,15 +899,6 @@ export function RoomBoardCanvas({
             className="flex max-w-full items-center gap-2"
           >
             {canvasZoomControls}
-            {canFollowPresenterView && !isFollowingPresenterView ? (
-              <button
-                type="button"
-                onClick={onFollowPresenterView}
-                className="pointer-events-auto rounded-md border bg-background px-3 py-2 text-sm shadow-sm hover:bg-muted"
-              >
-                発表者をフォロー
-              </button>
-            ) : null}
             <span aria-live="polite" className="sr-only">
               {selectionIds.length > 0
                 ? `選択した付箋：${selectionIds.length}枚`

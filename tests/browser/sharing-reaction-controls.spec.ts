@@ -148,6 +148,7 @@ test.each([
       await page.keyboard.press("Enter");
       expect(await sentCount.textContent()).toBe("2");
       await page.clock.runFor(400);
+      await expect.poll(() => like.getAttribute("aria-disabled")).toBe("false");
       await page.keyboard.press("Space");
       expect(await sentCount.textContent()).toBe("3");
 

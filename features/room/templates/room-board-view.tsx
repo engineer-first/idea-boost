@@ -2247,13 +2247,11 @@ export function RoomBoardView({
           onPrivateNoteDragStart={handlePrivateDragStart}
           remoteCursors={remoteCursors}
           isFollowingPresenterView={isFollowingPresenterView}
-          canFollowPresenterView={canFollowPresenterView}
           isPresenterViewOwner={isPresenterViewOwner}
           isPresenterViewFollowedByOthers={isPresenterViewFollowedByOthers}
           presenterViewName={presenterViewName}
           presenterViewColor={presenterViewColor}
           presenterView={presenterView}
-          onFollowPresenterView={onFollowPresenterView}
           onPresenterViewChange={onPresenterViewChange}
           onManualPanStart={onManualPanStart}
         />
