@@ -41,7 +41,7 @@ import {
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { getBoardPermissions } from "../logic/board-permissions";
-import { screenToWorld } from "../logic/canvas-camera";
+import { clampCanvasCoordinate, screenToWorld } from "../logic/canvas-camera";
 import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
@@ -275,10 +275,12 @@ export function RoomBoard({
   const [isFollowingPresenterView, setIsFollowingPresenterView] =
     useState(true);
 
-  const _phaseKey =
+  const phaseKey =
     roomState.phase.kind === "lobby"
       ? "lobby"
       : `${roomState.phase.phase}-${roomState.phase.step}`;
+
+  const shouldFollowPresenterView = isPresenterViewFollowStep(roomState.phase);
 
   const activePresenterId =
     isPresenterViewFollowStep(roomState.phase) &&
@@ -399,10 +401,10 @@ export function RoomBoard({
   ]);
 
   useEffect(() => {
-    // 対象フェーズへ入ったときはフォローを開始できる状態にする。
-    // 同じフェーズ内で発表者が交代しても、手動解除の状態は維持する。
-    setIsFollowingPresenterView(isPresenterViewFollowStep(roomState.phase));
-  }, [roomState.phase]);
+    // 対象ステップへ入ったときだけ、フォローを開始できる状態にする。
+    // 同じステップで snapshot が届いても、手動解除の状態は維持する。
+    setIsFollowingPresenterView(shouldFollowPresenterView);
+  }, [phaseKey, shouldFollowPresenterView]);
   const sharingReactionMessageRef = useRef<SharingReactionMessageHandler>(null);
 
   function clearCandidateNotices(): void {
@@ -870,8 +872,8 @@ export function RoomBoard({
 
       presenterViewPresence.updateView({
         coordinateSpace: "canvas",
-        centerX: center.x,
-        centerY: center.y,
+        centerX: clampCanvasCoordinate(center.x),
+        centerY: clampCanvasCoordinate(center.y),
         zoom: boardInteractions.camera.zoom,
       });
 
@@ -914,6 +916,7 @@ export function RoomBoard({
     isCurrentUserPresenter,
     connectionStatus,
     roomState.phase,
+    roomState.members,
     boardInteractions.camera,
     boardInteractions.boardScrollerRef,
     presenterViewPresence.updateView,

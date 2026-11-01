@@ -609,13 +609,23 @@ export function useCanvasCamera({
       }
       const deltaX =
         event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX;
+
+      cancelFollowAnimation();
+      onManualPanStartRef.current?.();
       scheduleCamera({
         ...cameraRef.current,
         x: cameraRef.current.x - deltaX,
         y: cameraRef.current.y - (event.shiftKey ? 0 : event.deltaY),
       });
     },
-    [getViewportPoint, navigationDisabled, scheduleCamera, zoomTo, viewportRef],
+    [
+      cancelFollowAnimation,
+      getViewportPoint,
+      navigationDisabled,
+      scheduleCamera,
+      zoomTo,
+      viewportRef,
+    ],
   );
 
   useEffect(() => {
