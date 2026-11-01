@@ -12,6 +12,8 @@ export type StickyNoteProps = {
   isLifted?: boolean;
   isSelected?: boolean;
   isDecided?: boolean;
+  /** board: 拡大して右上へ、reference: 拡大せず内側の右下へはんこを表示する。 */
+  decisionPresentation?: "board" | "reference";
   isAdoptionFocused?: boolean;
   color?: NoteColor | null;
   children: React.ReactNode;
@@ -31,6 +33,7 @@ export function StickyNote({
   isLifted = false,
   isSelected = false,
   isDecided = false,
+  decisionPresentation = "board",
   isAdoptionFocused = false,
   color = "yellow",
   children,
@@ -50,6 +53,7 @@ export function StickyNote({
       data-note-id={noteId}
       data-selected={isSelected || undefined}
       data-decided={isDecided || undefined}
+      data-decision-presentation={decisionPresentation}
       data-adoption-focused={isAdoptionFocused || undefined}
       data-editing={dataEditing || undefined}
       data-vote-drop-target={dataVoteDropTarget || undefined}
@@ -81,7 +85,9 @@ export function StickyNote({
             dataExcluded && !isSelected
               ? "none"
               : [
-                  ...(isSelected ? ["0 0 0 2px #035EDE"] : []),
+                  ...(isSelected
+                    ? ["0 0 0 1px #fff", "0 0 0 3px #0B93F5"]
+                    : []),
                   dataExcluded
                     ? "0 0 0 0 transparent"
                     : isDecided
@@ -94,7 +100,11 @@ export function StickyNote({
             : isAdoptionFocused
               ? "3px dashed #C2410C"
               : "4px solid transparent",
-          outlineOffset: isDecided ? 5 : 4,
+          outlineOffset: isDecided
+            ? decisionPresentation === "reference"
+              ? -4
+              : 5
+            : 4,
         }}
       />
       {/* はんこは中身のクリップ領域から分け、本文・投票シールより前面に描く。 */}
@@ -104,7 +114,11 @@ export function StickyNote({
       >
         <span
           role="status"
-          aria-label="取り組む課題に決定済み"
+          aria-label={
+            decisionPresentation === "reference"
+              ? "採用済み"
+              : "取り組む課題に決定済み"
+          }
           aria-hidden={!isDecided || undefined}
           className="sticky-note-stamp"
         >

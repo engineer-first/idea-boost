@@ -1657,7 +1657,47 @@ test.each([1280, 768, 390, 320])(
     const contentBounds = await note
       .locator('[data-slot="sticky-note-content"]')
       .boundingBox();
-    expect(contentBounds?.width).toBeCloseTo((bounds?.width ?? 0) * 1.1);
+    expect.soft(contentBounds?.width).toBeCloseTo(bounds?.width ?? 0);
+    const geometry = await note.evaluate((element) => {
+      const stamp = element.querySelector<HTMLElement>(".sticky-note-stamp");
+      const paper = element.querySelector('[data-slot="sticky-note-paper"]');
+      const body = element.querySelector("section");
+      if (!stamp || !paper || !body) throw new Error("参照付箋がありません");
+      const rect = element.getBoundingClientRect();
+      const s = stamp.getBoundingClientRect();
+      const b = body.getBoundingClientRect();
+      const overlaps = (r: DOMRect) =>
+        Math.min(r.right, s.right) > Math.max(r.left, s.left) &&
+        Math.min(r.bottom, s.bottom) > Math.max(r.top, s.top);
+      return {
+        size: stamp.offsetWidth,
+        fontSize: parseFloat(getComputedStyle(stamp).fontSize),
+        inside:
+          s.left >= rect.left &&
+          s.right <= rect.right &&
+          s.top >= rect.top &&
+          s.bottom <= rect.bottom,
+        viewport:
+          s.left >= 0 &&
+          s.right <= innerWidth &&
+          s.top >= 0 &&
+          s.bottom <= innerHeight,
+        paperWidth: paper.getBoundingClientRect().width,
+        overlapsBody: overlaps(b),
+        overlapsVotes: [...element.querySelectorAll('[role="img"]')].some(
+          (vote) => overlaps(vote.getBoundingClientRect()),
+        ),
+      };
+    });
+    expect(geometry).toEqual({
+      size: 44,
+      fontSize: 14,
+      inside: true,
+      viewport: true,
+      paperWidth: 200,
+      overlapsBody: false,
+      overlapsVotes: false,
+    });
     await body.focus();
     await page.keyboard.press("End");
     await body.evaluate((e) => {

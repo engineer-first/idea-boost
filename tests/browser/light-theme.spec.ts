@@ -72,7 +72,9 @@ test("OSが暗色設定でも20色のボードをライト表示し通常付箋�
     .locator('[data-slot="sticky-note-paper"]');
   expect(
     await selected.evaluate((element) => getComputedStyle(element).boxShadow),
-  ).toContain("rgb(3, 94, 222) 0px 0px 0px 2px");
+  ).toMatch(
+    /^rgb\(255, 255, 255\) 0px 0px 0px 1px, rgb\(11, 147, 245\) 0px 0px 0px 3px, /,
+  );
   const decided = page
     .getByTestId("member-color-3")
     .locator('[data-slot="sticky-note-paper"]');

@@ -42,7 +42,9 @@ describe("StickyNote", () => {
       const paper = note.querySelector<HTMLElement>(
         '[data-slot="sticky-note-paper"]',
       );
-      expect(paper?.style.boxShadow).toContain("0 0 0 2px #035EDE");
+      expect(paper?.style.boxShadow).toMatch(
+        /^0 0 0 1px #fff, 0 0 0 3px #0B93F5, /,
+      );
       expect(note.style.transform).toBe("");
       expect(note).not.toHaveClass("overflow-hidden");
     },

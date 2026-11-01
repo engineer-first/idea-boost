@@ -54,3 +54,18 @@ export const FocusedSelected: Story = {
 export const DecidedFocusedSelected: Story = {
   args: { isDecided: true, isAdoptionFocused: true, isSelected: true },
 };
+
+export const ReferenceDecision: Story = {
+  args: {
+    isDecided: true,
+    decisionPresentation: "reference",
+    children: (
+      <>
+        <p className="min-h-0 flex-1 overflow-hidden p-2">
+          決定した内容を参照する付箋
+        </p>
+        <div className="h-16 shrink-0" />
+      </>
+    ),
+  },
+};

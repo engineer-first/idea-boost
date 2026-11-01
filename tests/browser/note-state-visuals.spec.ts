@@ -305,3 +305,88 @@ test("決定はんこは本文・シールより前面で、中身と重なる�
     await browser.close();
   }
 });
+
+test.each([320, 1280])(
+  "%ipxの課題参照欄と問いポップオーバーで、内側のはんこを本文・票と重ねず表示する",
+  async (width) => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({
+        viewport: { width, height: 900 },
+        reducedMotion: "reduce",
+      });
+      for (const [story, reference] of [
+        ["hmw-writing", "issue"],
+        ["after-writing", "hmw"],
+      ] as const) {
+        await page.goto(
+          `${origin}/iframe.html?id=room-boardcontext--${story}&viewMode=story`,
+        );
+        const body = page.getByTestId(`board-reference-${reference}-content`);
+        await body.waitFor();
+        const note = page
+          .locator('[data-slot="sticky-note"]')
+          .filter({ has: body });
+        await expect
+          .poll(() =>
+            note.evaluate((element) => {
+              const stamp =
+                element.querySelector<HTMLElement>(".sticky-note-stamp");
+              const paper = element.querySelector(
+                '[data-slot="sticky-note-paper"]',
+              );
+              const content = element.querySelector(
+                '[data-slot="sticky-note-content"]',
+              );
+              const text = element.querySelector("section");
+              if (!stamp || !paper || !content || !text)
+                throw new Error("参照付箋がありません");
+              const box = element.getBoundingClientRect();
+              const s = stamp.getBoundingClientRect();
+              const overlaps = (r: DOMRect) =>
+                Math.min(r.right, s.right) > Math.max(r.left, s.left) &&
+                Math.min(r.bottom, s.bottom) > Math.max(r.top, s.top);
+              return {
+                size: stamp.offsetWidth,
+                inside:
+                  s.left >= box.left &&
+                  s.right <= box.right &&
+                  s.top >= box.top &&
+                  s.bottom <= box.bottom,
+                viewport:
+                  s.left >= 0 &&
+                  s.right <= innerWidth &&
+                  s.top >= 0 &&
+                  s.bottom <= innerHeight,
+                unscaled:
+                  Math.abs(paper.getBoundingClientRect().width - 200) < 0.1 &&
+                  Math.abs(content.getBoundingClientRect().width - 200) < 0.1,
+                overlapsBody: overlaps(text.getBoundingClientRect()),
+                overlapsVotes: [
+                  ...element.querySelectorAll('[role="img"]'),
+                ].some((vote) => overlaps(vote.getBoundingClientRect())),
+              };
+            }),
+          )
+          .toEqual({
+            size: 44,
+            inside: true,
+            viewport: true,
+            unscaled: true,
+            overlapsBody: false,
+            overlapsVotes: false,
+          });
+        expect(
+          await note.getByRole("status", { name: "採用済み" }).count(),
+        ).toBe(1);
+        expect(
+          await note
+            .getByRole("status", { name: "取り組む課題に決定済み" })
+            .count(),
+        ).toBe(0);
+      }
+    } finally {
+      await browser.close();
+    }
+  },
+);

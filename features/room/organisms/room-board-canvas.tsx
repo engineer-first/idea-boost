@@ -949,7 +949,7 @@ export function RoomBoardCanvas({
               <div
                 data-testid="canvas-marquee"
                 aria-hidden="true"
-                className="pointer-events-none absolute z-30 border border-blue-600 bg-blue-500/10"
+                className="pointer-events-none absolute z-30 border border-[#0B93F5] bg-[rgba(11,147,245,0.1)]"
                 style={marquee}
               />
             ) : null}
