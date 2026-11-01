@@ -282,6 +282,8 @@ export function RoomBoard({
 
   const shouldFollowPresenterView = isPresenterViewFollowStep(roomState.phase);
 
+  const previousPhaseKeyRef = useRef<string | null>(null);
+
   const activePresenterId =
     isPresenterViewFollowStep(roomState.phase) &&
     roomState.sharing?.status === "active" &&
@@ -401,8 +403,10 @@ export function RoomBoard({
   ]);
 
   useEffect(() => {
-    // 対象ステップへ入ったときだけ、フォローを開始できる状態にする。
-    // 同じステップで snapshot が届いても、手動解除の状態は維持する。
+    // ステップが変わったときだけ、フォロー状態を初期化する。
+    if (previousPhaseKeyRef.current === phaseKey) return;
+
+    previousPhaseKeyRef.current = phaseKey;
     setIsFollowingPresenterView(shouldFollowPresenterView);
   }, [phaseKey, shouldFollowPresenterView]);
   const sharingReactionMessageRef = useRef<SharingReactionMessageHandler>(null);
@@ -838,7 +842,8 @@ export function RoomBoard({
       !isCurrentUserPresenter ||
       connectionStatus !== "open" ||
       !isPresenterViewFollowStep(roomState.phase) ||
-      isIdeaMapViewportStep(roomState.phase)
+      isIdeaMapViewportStep(roomState.phase) ||
+      !roomState.members.some((member) => member.userId === currentUserId)
     ) {
       return;
     }
@@ -917,6 +922,7 @@ export function RoomBoard({
     connectionStatus,
     roomState.phase,
     roomState.members,
+    currentUserId,
     boardInteractions.camera,
     boardInteractions.boardScrollerRef,
     presenterViewPresence.updateView,
