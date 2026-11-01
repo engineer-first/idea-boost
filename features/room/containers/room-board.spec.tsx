@@ -1411,7 +1411,15 @@ describe("サーバーメッセージ → 画面反映", () => {
         noteId: NOTE_ID,
       }),
     );
-    expect(screen.getByTestId("note-card")).toHaveClass("outline-dashed");
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-adoption-focused",
+      "true",
+    );
+    expect(
+      screen
+        .getByTestId("note-card")
+        .querySelector('[data-slot="sticky-note-paper"]'),
+    ).toHaveStyle({ outline: "3px dashed #c2410c" });
     expect(socket.sent).not.toContain(
       JSON.stringify({ type: "adoption-focus:update", noteId: NOTE_ID }),
     );
@@ -3567,7 +3575,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       const note = within(mappedNote).getByTestId("note-card");
 
       const surface = within(note).getByRole("button", { name: "付箋" });
-      surface.getBoundingClientRect = () => new DOMRect(100, 125, 200, 150);
+      note.getBoundingClientRect = () => new DOMRect(100, 125, 200, 150);
       fireEvent.pointerDown(surface, {
         pointerId: 1,
         clientX: 200,
@@ -3636,16 +3644,20 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
 
     const toolbar = openPrivateNotesToolbar();
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
-    Object.defineProperty(handle, "getBoundingClientRect", {
-      value: () => ({
-        left: 500,
-        top: 0,
-        right: 700,
-        bottom: 150,
-        width: 200,
-        height: 150,
-      }),
-    });
+    Object.defineProperty(
+      within(toolbar).getByTestId("note-card"),
+      "getBoundingClientRect",
+      {
+        value: () => ({
+          left: 500,
+          top: 0,
+          right: 700,
+          bottom: 150,
+          width: 200,
+          height: 150,
+        }),
+      },
+    );
     fireEvent.pointerDown(handle, {
       pointerId: 1,
       clientX: 600,

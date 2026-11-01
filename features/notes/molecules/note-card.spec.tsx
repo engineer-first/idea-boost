@@ -154,7 +154,9 @@ describe("NoteCard", () => {
     setup({ isAdoptionFocused: true });
 
     expect(getCard()).toHaveAttribute("data-adoption-focused", "true");
-    expect(getCard()).toHaveClass("outline-dashed", "outline-emerald-500");
+    expect(
+      getCard().querySelector('[data-slot="sticky-note-paper"]'),
+    ).toHaveStyle({ outline: "3px dashed #c2410c" });
   });
 
   it("候補外付箋を同じ座標のゴーストとして表示し、本文を読める", () => {
@@ -176,8 +178,13 @@ describe("NoteCard", () => {
     expect(getCard()).toHaveStyle({ left: "320px", top: "180px" });
     expect(screen.getByDisplayValue("残して読む本文")).toBeInTheDocument();
     expect(screen.getByText("候補外")).toBeVisible();
-    expect(getCard()).toHaveStyle({ boxShadow: "none" });
-    expect(getCard()).toHaveStyle({ borderWidth: "1px" });
+    expect(
+      getCard().querySelector<HTMLElement>('[data-slot="sticky-note-paper"]')
+        ?.style.boxShadow,
+    ).toBe("none");
+    expect(
+      getCard().querySelector('[data-slot="sticky-note-paper"]'),
+    ).toHaveStyle({ borderWidth: "1px" });
     expect(screen.getByRole("textbox")).not.toHaveClass("pt-12");
   });
 
@@ -638,7 +645,9 @@ describe("NoteCard", () => {
     (color) => {
       setup({ note: buildNote({ color }) });
 
-      expect(getCard()).toHaveStyle({
+      expect(
+        getCard().querySelector('[data-slot="sticky-note-paper"]'),
+      ).toHaveStyle({
         backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
       });
     },
@@ -906,7 +915,7 @@ describe("NoteCard", () => {
       });
     });
 
-    it("決定済み表示と重ならないよう投票結果の右下余白を維持する", () => {
+    it("決定のはんこを右上に置き投票結果の右下余白を広げない", () => {
       setup({
         isDecided: true,
         vote: {
@@ -920,7 +929,7 @@ describe("NoteCard", () => {
         },
       });
 
-      expect(screen.getByTestId("note-vote-results")).toHaveClass("pr-12");
+      expect(screen.getByTestId("note-vote-results")).toHaveClass("pr-2");
     });
 
     it("自分のシールだけを1票ずつ取り消せる", () => {
@@ -1026,16 +1035,12 @@ describe("NoteCard", () => {
       setup({ isDecided: true });
 
       expect(getCard()).toHaveAttribute("data-decided", "true");
-      expect(getCard()).toHaveClass("outline-4", "outline-emerald-600");
+      expect(
+        getCard().querySelector('[data-slot="sticky-note-paper"]'),
+      ).toHaveStyle({ outline: "4px solid #1e8e3e" });
       expect(
         screen.getByRole("status", { name: "取り組む課題に決定済み" }),
-      ).toHaveClass(
-        "bottom-1",
-        "right-1",
-        "border-2",
-        "border-white",
-        "shadow-lg",
-      );
+      ).toHaveTextContent("決定");
     });
   });
 

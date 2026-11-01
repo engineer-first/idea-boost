@@ -485,7 +485,12 @@ export function useBoardDrag({
         origin?.clientX ?? event.clientX,
         origin?.clientY ?? event.clientY,
       );
-      const rect = event.currentTarget?.getBoundingClientRect?.();
+      // 操作面は決定時に拡大されるため、座標の基準には外側の箱を使う。
+      const rect =
+        event.currentTarget
+          ?.closest?.<HTMLElement>("[data-slot='sticky-note']")
+          ?.getBoundingClientRect() ??
+        event.currentTarget?.getBoundingClientRect?.();
       const selected = requestedIds ?? selectedNoteIds;
       const targetIds = selected?.includes(noteId) ? [...selected] : [noteId];
       const pointerClientX = origin?.clientX ?? event.clientX;
@@ -537,7 +542,12 @@ export function useBoardDrag({
       hasNotifiedBlockedRef.current = false;
       if (event.type !== "pointerup")
         boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
-      const rect = event.currentTarget?.getBoundingClientRect?.();
+      // 操作面は決定時に拡大されるため、座標の基準には外側の箱を使う。
+      const rect =
+        event.currentTarget
+          ?.closest?.<HTMLElement>("[data-slot='sticky-note']")
+          ?.getBoundingClientRect() ??
+        event.currentTarget?.getBoundingClientRect?.();
       // 閾値を越えた最初のmoveはカードの外まで進むことがある。掴み位置は押下時で固定する。
       const originX = origin?.clientX ?? event.clientX;
       const originY = origin?.clientY ?? event.clientY;

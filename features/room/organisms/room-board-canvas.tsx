@@ -73,7 +73,7 @@ import styles from "./room-board-canvas.module.css";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
 const ADOPTION_TARGET_CLASS_NAME =
-  "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
+  "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none";
 
 export type RoomBoardCanvasProps = {
   rollbackRevision?: number;
@@ -287,6 +287,14 @@ export function RoomBoardCanvas({
   // カードと採用領域を同じ単位に収め、見えている候補とクリック先を一致させる。
   const orderedNotes = [...notes].sort(
     (left, right) => Number(right.excluded) - Number(left.excluded),
+  );
+  const maxNoteStackOrder = notes.reduce(
+    (max, note) => Math.max(max, note.stackOrder),
+    0,
+  );
+  const decidedNoteZIndex = Math.min(
+    maxNoteStackOrder + 1,
+    TEMPORARY_FRONT_Z_INDEX - 1,
   );
   const voteDisplayMode = isVotingStep(phase)
     ? "voting"
@@ -644,7 +652,9 @@ export function RoomBoardCanvas({
             ? TEMPORARY_FRONT_Z_INDEX
             : note.excluded
               ? 0
-              : note.stackOrder,
+              : decision?.noteId === note.id
+                ? decidedNoteZIndex
+                : note.stackOrder,
           ...(usesIdeaMapViewport
             ? {
                 transform: `scale(${ideaMapNoteMetrics?.displayScale ?? ideaMapNoteDisplayScale})`,
@@ -949,7 +959,7 @@ export function RoomBoardCanvas({
               <div
                 data-testid="canvas-marquee"
                 aria-hidden="true"
-                className="pointer-events-none absolute z-30 border border-blue-600 bg-blue-500/10"
+                className="pointer-events-none absolute z-30 border border-[#0B93F5] bg-[rgba(11,147,245,0.1)]"
                 style={marquee}
               />
             ) : null}
