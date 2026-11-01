@@ -1037,7 +1037,7 @@ describe("NoteCard", () => {
       expect(getCard()).toHaveAttribute("data-decided", "true");
       expect(
         getCard().querySelector('[data-slot="sticky-note-paper"]'),
-      ).toHaveStyle({ outline: "4px solid #16803f" });
+      ).toHaveStyle({ outline: "4px solid #1e8e3e" });
       expect(
         screen.getByRole("status", { name: "取り組む課題に決定済み" }),
       ).toHaveTextContent("決定");

@@ -2,6 +2,12 @@ import { chromium } from "playwright";
 import { expect, test } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
+const expectedDecisionColors = {
+  outline: "rgb(30, 142, 62)",
+  stampBorder: "rgb(30, 142, 62)",
+  stampText: "rgb(24, 128, 56)",
+  stampInnerCircle: "rgb(24, 128, 56)",
+};
 
 test("決定の拡大とはんこの出入りでも外側の座標を保って紙面と中身を揃え、動きを省略できる", async () => {
   const browser = await chromium.launch();
@@ -51,6 +57,18 @@ test("決定の拡大とはんこの出入りでも外側の座標を保って�
           note: rect(element),
           surface: rect(surface),
           paper: rect(paper),
+          specifiedOutlineOffset: parseFloat(paper.style.outlineOffset),
+          outlineOffset: parseFloat(getComputedStyle(paper).outlineOffset),
+          visualOutlineOffset:
+            (parseFloat(getComputedStyle(paper).outlineOffset) *
+              paper.getBoundingClientRect().width) /
+            paper.offsetWidth,
+          decisionColors: {
+            outline: getComputedStyle(paper).outlineColor,
+            stampBorder: getComputedStyle(stamp).borderColor,
+            stampText: getComputedStyle(stamp).color,
+            stampInnerCircle: getComputedStyle(stamp, "::after").borderColor,
+          },
           stamp: rect(stamp),
           transform: getComputedStyle(stamp).transform,
           opacity: getComputedStyle(stamp).opacity,
@@ -70,6 +88,10 @@ test("決定の拡大とはんこの出入りでも外側の座標を保って�
       });
     const decided = await measure();
     expect(decided.paper.width / decided.note.width).toBeCloseTo(1.1);
+    expect.soft(decided.specifiedOutlineOffset).toBe(4);
+    expect.soft(decided.outlineOffset).toBe(4);
+    expect.soft(decided.visualOutlineOffset).toBeCloseTo(4.4);
+    expect(decided.decisionColors).toEqual(expectedDecisionColors);
     expect(decided.surface).toEqual(decided.paper);
     expect(decided.contentMotion).toEqual(decided.paperMotion);
     expect(decided.stampLayerMotion).toEqual(decided.paperMotion);
@@ -307,7 +329,7 @@ test("決定はんこは本文・シールより前面で、中身と重なる�
 });
 
 test.each([320, 1280])(
-  "%ipxの課題参照欄と問いポップオーバーで、内側のはんこを本文・票と重ねず表示する",
+  "%ipxの課題参照欄と問いポップオーバーで、決定枠とはんこを見切れず表示する",
   async (width) => {
     const browser = await chromium.launch();
     try {
@@ -343,10 +365,63 @@ test.each([320, 1280])(
                 throw new Error("参照付箋がありません");
               const box = element.getBoundingClientRect();
               const s = stamp.getBoundingClientRect();
+              const paperBox = paper.getBoundingClientRect();
+              const paperStyle = getComputedStyle(paper);
+              const outlineOffset = parseFloat(paperStyle.outlineOffset);
+              const extent = Math.max(
+                0,
+                outlineOffset + parseFloat(paperStyle.outlineWidth),
+              );
+              const frame = {
+                left: paperBox.left - extent,
+                right: paperBox.right + extent,
+                top: paperBox.top - extent,
+                bottom: paperBox.bottom + extent,
+              };
+              let outlineUnclipped =
+                frame.left >= 0 &&
+                frame.right <= innerWidth &&
+                frame.top >= 0 &&
+                frame.bottom <= innerHeight;
+              for (
+                let parent = paper.parentElement;
+                parent;
+                parent = parent.parentElement
+              ) {
+                const style = getComputedStyle(parent);
+                const clip = parent.getBoundingClientRect();
+                if (
+                  ["hidden", "clip", "auto", "scroll"].includes(style.overflowX)
+                ) {
+                  outlineUnclipped &&=
+                    frame.left >=
+                      clip.left + parseFloat(style.borderLeftWidth) - 0.1 &&
+                    frame.right <=
+                      clip.right - parseFloat(style.borderRightWidth) + 0.1;
+                }
+                if (
+                  ["hidden", "clip", "auto", "scroll"].includes(style.overflowY)
+                ) {
+                  outlineUnclipped &&=
+                    frame.top >=
+                      clip.top + parseFloat(style.borderTopWidth) - 0.1 &&
+                    frame.bottom <=
+                      clip.bottom - parseFloat(style.borderBottomWidth) + 0.1;
+                }
+              }
               const overlaps = (r: DOMRect) =>
                 Math.min(r.right, s.right) > Math.max(r.left, s.left) &&
                 Math.min(r.bottom, s.bottom) > Math.max(r.top, s.top);
               return {
+                decisionColors: {
+                  outline: paperStyle.outlineColor,
+                  stampBorder: getComputedStyle(stamp).borderColor,
+                  stampText: getComputedStyle(stamp).color,
+                  stampInnerCircle: getComputedStyle(stamp, "::after")
+                    .borderColor,
+                },
+                outlineOffset,
+                outlineUnclipped,
                 size: stamp.offsetWidth,
                 inside:
                   s.left >= box.left &&
@@ -369,6 +444,9 @@ test.each([320, 1280])(
             }),
           )
           .toEqual({
+            decisionColors: expectedDecisionColors,
+            outlineOffset: 4,
+            outlineUnclipped: true,
             size: 44,
             inside: true,
             viewport: true,

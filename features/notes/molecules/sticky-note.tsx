@@ -96,15 +96,11 @@ export function StickyNote({
                 ].join(", "),
           border: dataExcluded ? "1px dashed rgb(71 85 105 / 0.75)" : undefined,
           outline: isDecided
-            ? "4px solid #16803F"
+            ? "4px solid #1E8E3E"
             : isAdoptionFocused
               ? "3px dashed #C2410C"
               : "4px solid transparent",
-          outlineOffset: isDecided
-            ? decisionPresentation === "reference"
-              ? -4
-              : 5
-            : 4,
+          outlineOffset: 4,
         }}
       />
       {/* はんこは中身のクリップ領域から分け、本文・投票シールより前面に描く。 */}

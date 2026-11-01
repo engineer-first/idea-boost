@@ -779,7 +779,7 @@ test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示
 
   const outline = await decidedNote.evaluate((element) => {
     const probe = document.createElement("div");
-    probe.style.outlineColor = "#16803F";
+    probe.style.outlineColor = "#1E8E3E";
     document.body.append(probe);
     const decidedGreen = getComputedStyle(probe).outlineColor;
     probe.remove();
