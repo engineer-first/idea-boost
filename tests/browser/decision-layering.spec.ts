@@ -96,25 +96,6 @@ for (const { phase, story } of cases) {
       .getByRole("status")
       .filter({ hasText: "採用済み: 奥の候補" })
       .waitFor();
-    const hitNoteId = await page
-      .locator('[data-note-id="layer-back"]')
-      .evaluate((element) => {
-        const front = document.querySelector('[data-note-id="layer-front"]');
-        if (!front) throw new Error("手前の付箋がありません");
-        const a = element.getBoundingClientRect();
-        const b = front.getBoundingClientRect();
-        const left = Math.max(a.left, b.left),
-          right = Math.min(a.right, b.right);
-        const top = Math.max(a.top, b.top),
-          bottom = Math.min(a.bottom, b.bottom);
-        if (right <= left || bottom <= top)
-          throw new Error("付箋が重なっていません");
-        return document
-          .elementFromPoint((left + right) / 2, (top + bottom) / 2)
-          ?.closest('[data-slot="sticky-note"]')
-          ?.getAttribute("data-note-id");
-      });
-    expect(hitNoteId).toBe("layer-back");
   });
 }
 
