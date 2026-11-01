@@ -97,16 +97,6 @@ components:
   marker-highlight:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.on-accent}"
-  button-outline:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.lg}"
-  button-danger:
-    backgroundColor: "{colors.danger}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.lg}"
   stamp-decided:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.state-decided}"
@@ -203,16 +193,9 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 - **枠が重なるときは、選択がいちばん内側。** その外側に決定・注目の枠を描きます。
 - **状態は色だけで伝えない。** 点線・はんこの文字・浮き上がりも組にして、色の見え方に差がある人にも伝わるようにします。
 
-### ダイアログ
+### ダイアログ・ボタン
 
-- **確認型：** 取り消せない操作の前に使います（`AlertDialog`）。見出し・結果の説明・「キャンセル」と実行のボタンで構成します。削除などは実行ボタンを `button-danger` にします。
-- **入力型：** 名前の変更など、入力して確定するときに使います（`Dialog`）。見出し・入力欄・確定ボタンで構成します。
-- ボタンは右下に「キャンセル → 実行」の順で並べます。
-
-### ボタン
-
-- **主ボタン（`button-primary`）は、画面で次にやること1つだけ。** それ以外の操作やキャンセルは `button-outline`、ツールバーのように並ぶ操作は背景なし（shadcn/ui の `ghost`）にします。
-- **押せる部品は高さ 44px 以上。** タッチ操作でも押し間違えないようにするためです。
+まだ決めていません。今のコードは、確認には `AlertDialog`、入力には `Dialog` を使い、ボタンは shadcn/ui の variant を使い分けています。型は「決まり具合」の表のとおり、別の作業で決めます。
 
 ## Do's and Don'ts（やること・避けること）
 
@@ -236,3 +219,4 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 | 文字の標準を 16px にする           | 14px が中心。付箋の文字の初期値も 14px | #876       |
 | 決定をはんこと浮き上がりで示す     | 太い緑の枠と右下の丸いチェック         | #876       |
 | 決定・注目の付箋にも選択の枠を出す | 決定・注目のときは選択の枠が出ない     | #876       |
+| ダイアログとボタンの型を決める     | 画面ごとに判断している                 | #876       |
