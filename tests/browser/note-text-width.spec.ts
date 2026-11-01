@@ -45,7 +45,7 @@ test.each([390, 1280])(
 );
 
 test.each([390, 1280])(
-  "%ipx: 折り返した本文を票・決定マークが覆わない",
+  "%ipx: 本文を票の専用余白と分け、決定はんこを右上に置く",
   async (width) => {
     const browser = await chromium.launch();
     try {
@@ -68,9 +68,10 @@ test.each([390, 1280])(
             const result = card.querySelector(
               '[data-testid="note-vote-results"]',
             );
-            const decision = card.querySelector(
-              '[aria-label="取り組む課題に決定済み"]',
-            );
+            const decision = card.hasAttribute("data-decided")
+              ? card.querySelector('[aria-label="取り組む課題に決定済み"]')
+              : null;
+            const paper = card.querySelector('[data-slot="sticky-note-paper"]');
             return {
               textWidth:
                 textarea.clientWidth -
@@ -81,6 +82,7 @@ test.each([390, 1280])(
               textBottom,
               resultTop: result?.getBoundingClientRect().top,
               decisionTop: decision?.getBoundingClientRect().top,
+              paperTop: paper?.getBoundingClientRect().top,
             };
           }),
         );
@@ -95,8 +97,8 @@ test.each([390, 1280])(
             measurement.textBottom,
           );
         if (measurement.decisionTop !== undefined)
-          expect(measurement.decisionTop).toBeGreaterThanOrEqual(
-            measurement.textBottom,
+          expect(measurement.decisionTop).toBeLessThan(
+            measurement.paperTop ?? 0,
           );
       }
     } finally {

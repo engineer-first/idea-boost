@@ -656,3 +656,22 @@ export const MultiSelected: Story = {
 export const Hand: Story = {
   args: { isSelected: true, interactionTool: "hand" },
 };
+
+export const DecidedWithVotingStickers: Story = {
+  args: {
+    isDecided: true,
+    isSelected: true,
+    note: buildNote({
+      content: "ABCDEFGH",
+      dotVoteStickers: [
+        {
+          id: "33333333-3333-4333-8333-333333333333",
+          kind: "objective",
+          x: 0.25,
+          y: 0.75,
+        },
+      ],
+    }),
+    vote: { ...meta.args.vote, displayMode: "voting", canVote: true },
+  },
+};

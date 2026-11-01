@@ -1,0 +1,78 @@
+.sticky-note-paper,
+.sticky-note-content,
+.sticky-note-stamp-layer {
+  transform-origin: center center;
+}
+.sticky-note-content,
+.sticky-note-stamp-layer {
+  transition: transform 0.2s ease-out;
+}
+.sticky-note-paper {
+  transition:
+    transform 0.2s ease-out,
+    box-shadow 0.2s ease-out,
+    outline-color 0.15s ease-out;
+}
+.sticky-note[data-decided] {
+  /* 通常付箋(10) < 決定(20) < 範囲選択・空状態(30) < HUD(40)。
+     ドラッグ中のインライン z-index はこの指定より優先される。 */
+  z-index: 20;
+}
+.sticky-note[data-decided] > .sticky-note-paper,
+.sticky-note[data-decided] > .sticky-note-content,
+.sticky-note[data-decided] > .sticky-note-stamp-layer {
+  transform: scale(1.1);
+  transition:
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.28s ease-out,
+    outline-color 0.2s ease-out;
+}
+.sticky-note-stamp {
+  pointer-events: none;
+  position: absolute;
+  right: -36px;
+  top: -32px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 3px solid #16803f;
+  background: #fff;
+  color: #16803f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: rotate(-12deg) scale(2.6);
+  transition:
+    opacity 0.15s ease-out,
+    transform 0s linear 0.15s;
+}
+.sticky-note-stamp::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1.5px solid #16803f;
+  border-radius: 50%;
+}
+.sticky-note[data-decided] .sticky-note-stamp {
+  opacity: 1;
+  transform: rotate(-12deg) scale(1);
+  transition:
+    opacity 0.22s ease-in,
+    transform 0.28s cubic-bezier(0.55, 0, 0.85, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sticky-note > .sticky-note-stamp-layer,
+  .sticky-note[data-decided] > .sticky-note-stamp-layer,
+  .sticky-note > .sticky-note-content,
+  .sticky-note[data-decided] > .sticky-note-content,
+  .sticky-note > .sticky-note-paper,
+  .sticky-note[data-decided] > .sticky-note-paper,
+  .sticky-note .sticky-note-stamp,
+  .sticky-note[data-decided] .sticky-note-stamp {
+    transition: none;
+  }
+}

@@ -1,3 +1,4 @@
+import "./sticky-note.css";
 import type * as React from "react";
 import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import type { NoteColor } from "@/contracts/room-protocol";
@@ -54,37 +55,68 @@ export function StickyNote({
       data-vote-drop-target={dataVoteDropTarget || undefined}
       data-excluded={dataExcluded || undefined}
       className={cn(
-        "relative isolate flex flex-col overflow-hidden rounded-[2px]",
-        isDecided
-          ? "outline-4 outline-solid outline-emerald-600 outline-offset-2"
-          : isAdoptionFocused
-            ? "outline-2 outline-dashed outline-emerald-500 outline-offset-2"
-            : isSelected
-              ? "outline-2 outline-blue-500"
-              : "outline-none",
+        "sticky-note relative isolate flex flex-col rounded-[2px]",
         className,
       )}
       style={{
         width: NOTE_WIDTH,
         height,
-        boxShadow: dataExcluded ? "none" : getNoteShadow(noteId, { isLifted }),
-        border: dataExcluded ? "1px dashed rgb(71 85 105 / 0.75)" : undefined,
-        backgroundImage:
-          isAdoptionFocused && !isDecided
-            ? "linear-gradient(rgb(16 185 129 / 0.12), rgb(16 185 129 / 0.12))"
-            : undefined,
         ...style,
-        backgroundColor:
-          color === null
-            ? "var(--background)"
-            : NOTE_COLOR_STYLES[color].backgroundColor,
         color:
           color === null
             ? "var(--foreground)"
             : NOTE_COLOR_STYLES[color].foregroundColor,
       }}
     >
-      {children}
+      {/* 座標・投票・操作面は外側の固定サイズを使い、紙面と中身を同じ原点で拡大する。 */}
+      <div
+        data-slot="sticky-note-paper"
+        className="sticky-note-paper pointer-events-none absolute inset-0 -z-10 rounded-[2px]"
+        style={{
+          backgroundColor:
+            color === null
+              ? "var(--background)"
+              : NOTE_COLOR_STYLES[color].backgroundColor,
+          boxShadow:
+            dataExcluded && !isSelected
+              ? "none"
+              : [
+                  ...(isSelected ? ["0 0 0 2px #035EDE"] : []),
+                  dataExcluded
+                    ? "0 0 0 0 transparent"
+                    : isDecided
+                      ? "0 6px 4px -4px rgba(15,23,42,.35),0 26px 32px -10px rgba(15,23,42,.38)"
+                      : getNoteShadow(noteId, { isLifted }),
+                ].join(", "),
+          border: dataExcluded ? "1px dashed rgb(71 85 105 / 0.75)" : undefined,
+          outline: isDecided
+            ? "4px solid #16803F"
+            : isAdoptionFocused
+              ? "3px dashed #C2410C"
+              : "4px solid transparent",
+          outlineOffset: isDecided ? 5 : 4,
+        }}
+      />
+      {/* はんこは中身のクリップ領域から分け、本文・投票シールより前面に描く。 */}
+      <div
+        data-slot="sticky-note-stamp-layer"
+        className="sticky-note-stamp-layer pointer-events-none absolute inset-0 z-30"
+      >
+        <span
+          role="status"
+          aria-label="取り組む課題に決定済み"
+          aria-hidden={!isDecided || undefined}
+          className="sticky-note-stamp"
+        >
+          決定
+        </span>
+      </div>
+      <div
+        data-slot="sticky-note-content"
+        className="sticky-note-content relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2px]"
+      >
+        {children}
+      </div>
     </div>
   );
 }

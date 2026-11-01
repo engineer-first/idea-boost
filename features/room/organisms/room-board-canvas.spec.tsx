@@ -570,7 +570,7 @@ describe("RoomBoardCanvas", () => {
     },
   );
 
-  it("通常キャンバスの採用候補は通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+  it("通常キャンバスの採用候補は透明な操作面とポインターを維持する", () => {
     setup({
       phase: buildPhaseStep(5),
       isHost: true,
@@ -584,14 +584,10 @@ describe("RoomBoardCanvas", () => {
       screen.getByRole("button", {
         name: "採用する付箋: 通常キャンバス候補",
       }),
-    ).toHaveClass(
-      "border-transparent",
-      "hover:border-emerald-600",
-      "focus-visible:border-emerald-600",
-    );
+    ).toHaveClass("border-transparent", "cursor-pointer", "inset-0");
   });
 
-  it("アイデアマップの採用候補も通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+  it("アイデアマップの採用候補も透明な操作面とポインターを維持する", () => {
     const phase = buildPhaseStep(5, 3);
     setup({
       phase,
@@ -607,11 +603,7 @@ describe("RoomBoardCanvas", () => {
       screen.getByRole("button", {
         name: "採用するアイデア: アイデアマップ候補",
       }),
-    ).toHaveClass(
-      "border-transparent",
-      "hover:border-emerald-600",
-      "focus-visible:border-emerald-600",
-    );
+    ).toHaveClass("border-transparent", "cursor-pointer", "inset-0");
   });
 
   it.each([
@@ -691,7 +683,7 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
-  it("非ホストにも確定済み付箋の緑枠とチェックを示す", () => {
+  it("非ホストにも確定済み付箋の緑枠とはんこを示す", () => {
     setup({
       phase: buildPhaseStep(5),
       isHost: false,
@@ -703,9 +695,9 @@ describe("RoomBoardCanvas", () => {
       notes: [buildNote({ id: "note-1", visibility: "shared" })],
     });
 
-    expect(screen.getByTestId("note-card")).toHaveClass(
-      "outline-4",
-      "outline-emerald-600",
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-decided",
+      "true",
     );
     expect(
       screen.getByRole("status", { name: "取り組む課題に決定済み" }),

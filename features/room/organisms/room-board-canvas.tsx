@@ -73,7 +73,7 @@ import styles from "./room-board-canvas.module.css";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
 const ADOPTION_TARGET_CLASS_NAME =
-  "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
+  "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none";
 
 export type RoomBoardCanvasProps = {
   rollbackRevision?: number;

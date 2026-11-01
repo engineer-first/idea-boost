@@ -563,7 +563,7 @@ describe("PrivateNotesToolbar", () => {
 
     const note = screen.getByTestId("note-card");
     expect(note).toHaveAttribute("data-slot", "sticky-note");
-    expect(note).toHaveStyle({
+    expect(note.querySelector('[data-slot="sticky-note-paper"]')).toHaveStyle({
       backgroundColor: NOTE_COLOR_STYLES.yellow.backgroundColor,
     });
     expect(
