@@ -1,5 +1,5 @@
 // ホーム template の単体テスト。
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
@@ -92,13 +92,4 @@ it("ゲストの連携入口より前に作成・参加の主操作と成果の�
       primary.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   }
-});
-
-it("ホームの主要内容をmainランドマークから辿れる", () => {
-  renderView();
-  const main = screen.getByRole("main");
-  expect(within(main).getByRole("heading", { level: 1 })).toBeInTheDocument();
-  expect(
-    within(main).getByRole("textbox", { name: "招待コード" }),
-  ).toBeInTheDocument();
 });

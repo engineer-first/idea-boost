@@ -29,7 +29,7 @@ export function HomeView({
   accountLinkResult,
 }: HomeViewProps) {
   return (
-    <main className={styles.home} data-testid="home-view">
+    <div className={styles.home} data-testid="home-view">
       <div aria-hidden className={styles.art} />
       <div className={styles.content}>
         {error ? <HomeErrorAlert message={error} /> : null}
@@ -62,6 +62,6 @@ export function HomeView({
           result={accountLinkResult}
         />
       </div>
-    </main>
+    </div>
   );
 }
