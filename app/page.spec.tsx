@@ -19,9 +19,9 @@ beforeEach(() => {
 
 it("未ログインでRootPageを開くとリダイレクトせずLPから利用開始できる", async () => {
   render(await RootPage());
-  expect(
-    screen.getAllByRole("link", { name: "ログインなしで始める" })[0],
-  ).toHaveAttribute("href", "/home");
+  for (const link of screen.getAllByRole("link", { name: "無料で始める" })) {
+    expect(link).toHaveAttribute("href", "/login?next=%2Fhome");
+  }
 });
 
 it("ログイン済みでRootPageを開くとホームへ直行する", async () => {

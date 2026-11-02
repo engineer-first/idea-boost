@@ -369,9 +369,9 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     // 1-1の個人下書きは、タイマー状態に関係なく本文を確定できる。
-    // それ以外の工程ではdigest待機中の停止・終了も保存を拒否する。
+    // それ以外の工程も時間切れ後は操作可だが、digest待機中の未開始・一時停止は拒否する。
     if (
-      getTimerState(ctx.sql).status !== "running" &&
+      !["running", "ended"].includes(getTimerState(ctx.sql).status) &&
       !isTimerExemptPersonalNoteMutation(getPhase(ctx.sql), message)
     ) {
       ctx.reply({

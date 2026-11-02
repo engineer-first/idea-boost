@@ -13,9 +13,14 @@ export type GuestNameFormProps = {
   /** 成功した本人情報を通知する。遷移・router.refresh() は呼出元で行う。 */
   onPrepared: (principal: PreparedPrincipal) => void;
   submitLabel?: string;
+  onPendingChange?: (pending: boolean) => void;
 };
 
-export function GuestNameForm({ onPrepared, submitLabel }: GuestNameFormProps) {
+export function GuestNameForm({
+  onPrepared,
+  submitLabel,
+  onPendingChange,
+}: GuestNameFormProps) {
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +34,7 @@ export function GuestNameForm({ onPrepared, submitLabel }: GuestNameFormProps) {
       return;
     }
     setPending(true);
+    onPendingChange?.(true);
     setError(null);
     inFlight.current = true;
     void prepareGuestIdentity({ name: parsed.data })
@@ -38,12 +44,14 @@ export function GuestNameForm({ onPrepared, submitLabel }: GuestNameFormProps) {
         } else {
           inFlight.current = false;
           setPending(false);
+          onPendingChange?.(false);
           setError(result.error);
         }
       })
       .catch(() => {
         inFlight.current = false;
         setPending(false);
+        onPendingChange?.(false);
         setError(guestIdentityFailure);
       });
   }

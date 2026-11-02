@@ -195,7 +195,7 @@ describe("ゲストの入室前確認", () => {
       screen.queryByRole("button", { name: "Googleでログインして続ける" }),
     ).not.toBeInTheDocument();
   });
-  it("本人確認不可では別人として始める説明とホームへのリンクを表示する", async () => {
+  it("本人確認不可でセッションが残る場合はホームから新しく始めるリンクを表示する", async () => {
     refreshGuest.mockResolvedValue({
       ok: false,
       reason: "identity_unavailable",
@@ -210,10 +210,9 @@ describe("ゲストの入室前確認", () => {
         name: "このブラウザでは、以前の参加者として確認できません",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "新しく始める" })).toHaveAttribute(
-      "href",
-      "/",
-    );
+    expect(
+      screen.getByRole("link", { name: "ホームから新しく始める" }),
+    ).toHaveAttribute("href", "/home");
     expect(
       screen.getByText(GUEST_IDENTITY_UNAVAILABLE_MESSAGE),
     ).toBeInTheDocument();

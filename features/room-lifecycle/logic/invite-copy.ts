@@ -35,8 +35,3 @@ export const inviteStatusCopy = {
   InviteStatusKind,
   { heading: string; description: string }
 >;
-
-export const inviteGuestNameCopy = {
-  heading: "招待されたルームに参加します",
-  description: "名前を設定すると、ルームの確認画面に進みます。",
-} as const;

@@ -29,20 +29,10 @@ beforeEach(() => {
   mocks.user.mockResolvedValue(null);
 });
 
-it("認証設定があり本人がいなくてもリダイレクトせずホームを描画する", async () => {
-  render(await HomePage({ searchParams: Promise.resolve({}) }));
-  expect(mocks.redirect).not.toHaveBeenCalled();
-  expect(screen.getByTestId("home-view")).toBeInTheDocument();
-  expect(
-    screen.getByRole("link", {
-      name: "Googleでログインして使っていた場合はこちら",
-    }),
-  ).toBeVisible();
-  expect(
-    screen.queryByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
-    }),
-  ).not.toBeInTheDocument();
+it("認証設定があり本人がいない場合は始め方の選択画面へリダイレクトする", async () => {
+  await expect(HomePage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
+    "redirect:/login?next=%2Fhome",
+  );
 });
 
 it("ゲスト本人に連携の入口を表示する", async () => {

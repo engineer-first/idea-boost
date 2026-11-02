@@ -1,12 +1,10 @@
+import { redirect } from "next/navigation";
 import {
   isValidInviteCode,
   normalizeInviteCode,
 } from "@/contracts/invite-code";
-import {
-  InviteCodeDialog,
-  InviteGuestName,
-  InviteStatusView,
-} from "@/features/room-lifecycle";
+import { getLoginPath } from "@/features/auth";
+import { InviteCodeDialog, InviteStatusView } from "@/features/room-lifecycle";
 import { lookupRoomByInviteCode } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 
@@ -25,7 +23,8 @@ export default async function InvitePage({ params }: InvitePageProps) {
 
   const user = await getCurrentUser();
   if (!user) {
-    return <InviteGuestName inviteCode={code} />;
+    // 照会APIはセッション必須（未認証は401）のため、not_found / ended は選択画面から戻った後に表示する。
+    redirect(getLoginPath(`/invite/${code}`));
   }
 
   const lookup = await lookupRoomByInviteCode(code);

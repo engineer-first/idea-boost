@@ -60,7 +60,6 @@ import type {
   CanvasSelectionOptions,
   CanvasTool,
 } from "../logic/use-canvas-selection";
-import type { SharingReactionControls } from "../logic/use-sharing-reactions";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -79,7 +78,7 @@ const ADOPTION_TARGET_CLASS_NAME =
 export type RoomBoardCanvasProps = {
   rollbackRevision?: number;
   moveHistory?: MoveHistoryControlsProps;
-  reactionControls?: SharingReactionControls;
+  reactionControls?: (disabled: boolean) => ReactNode;
   notes: Note[];
   exampleNotes?: readonly string[];
   groups: PersistentGroup[];

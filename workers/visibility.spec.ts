@@ -329,6 +329,7 @@ it.each([
   "note",
   "group",
   "reaction",
+  "reaction-question",
   "move-ended",
   "move-preview",
   "move-batch",
@@ -367,12 +368,13 @@ it.each([
       );
       break;
     case "reaction":
+    case "reaction-question":
       broadcaster.broadcastReaction(
         {
           type: "reaction:received",
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           senderId: "11111111-1111-4111-8111-111111111111",
-          kind: "like",
+          kind: route === "reaction-question" ? "question" : "like",
           phaseRevision: 1,
         },
         () => true,

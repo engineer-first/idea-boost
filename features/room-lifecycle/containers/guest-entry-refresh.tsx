@@ -10,7 +10,6 @@ import { RoomReauthentication } from "./room-reauthentication";
 
 export type GuestEntryRefreshProps = {
   roomId: string;
-  stage?: "lobby" | "board";
   onRefreshed?: () => void;
   refreshAction?: (roomId: string) => Promise<GuestRoomEntryResult>;
 };
@@ -21,7 +20,6 @@ function reloadPage(): void {
 
 export function GuestEntryRefresh({
   roomId,
-  stage = "board",
   onRefreshed = reloadPage,
   refreshAction = refreshGuestRoomEntry,
 }: GuestEntryRefreshProps) {
@@ -67,7 +65,6 @@ export function GuestEntryRefresh({
             ? "retry"
             : "checking"
       }
-      returnHref={`/rooms/${roomId}${stage === "lobby" ? "/start" : ""}`}
       onRetry={() => {
         setResult(null);
         setAttempt((value) => value + 1);

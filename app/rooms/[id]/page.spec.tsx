@@ -17,7 +17,11 @@ vi.mock("@/lib/api-client", () => ({ apiFetch: mocks.api }));
 vi.mock("@/lib/session/current-user", () => ({
   getCurrentUser: mocks.user,
 }));
-vi.mock("@/features/auth", () => ({ signOut: vi.fn() }));
+vi.mock("@/features/auth", async (importOriginal) => ({
+  getLoginPath: (await importOriginal<typeof import("@/features/auth")>())
+    .getLoginPath,
+  signOut: vi.fn(),
+}));
 vi.mock("@/lib/session/room-entry", () => ({
   hasRoomEntryTime: mocks.enough,
   issueRoomEntry: vi.fn().mockResolvedValue("admission"),
@@ -31,8 +35,8 @@ vi.mock("@/features/room-lifecycle", async () => ({
       入室前の認証確認
     </span>
   ),
-  GuestIdentityUnavailable: ({ returnHref }: { returnHref: string }) => (
-    <span data-testid="identity-unavailable" data-return-href={returnHref} />
+  GuestIdentityUnavailable: ({ loginHref }: { loginHref?: string }) => (
+    <span data-testid="identity-unavailable" data-login-href={loginHref} />
   ),
   ParticipationSwitch: ({
     pendingOperation,
@@ -213,18 +217,30 @@ it.each(["board", "start"])(
   },
 );
 
-it.each(["board", "start"])(
-  "%sで本人がなければログインへ強制遷移せず本人確認不可を描画する",
-  async (kind) => {
+it.each([
+  { kind: "board", query: false },
+  { kind: "start", query: false },
+  { kind: "board", query: true },
+  { kind: "start", query: true },
+])(
+  "$kindで本人がなくクエリ指定$queryなら復帰先付きのログイン先を本人確認不可画面へ渡す",
+  async ({ kind, query }) => {
     mocks.user.mockResolvedValue(null);
     const Page =
       kind === "board" ? RoomPage : (await import("./start/page")).default;
-    render(await Page({ params: Promise.resolve({ id }) }));
+    render(
+      await Page({
+        params: Promise.resolve({ id }),
+        searchParams: query
+          ? Promise.resolve({ verify: "follow", entry: "token", tab: "tab-id" })
+          : undefined,
+      }),
+    );
     expect(mocks.redirect).not.toHaveBeenCalled();
-    const path = `/rooms/${id}${kind === "start" ? "/start" : ""}`;
+    const path = `/rooms/${id}${kind === "start" ? "/start" : ""}${query ? "?verify=follow&entry=token" : ""}`;
     expect(screen.getByTestId("identity-unavailable")).toHaveAttribute(
-      "data-return-href",
-      path,
+      "data-login-href",
+      `/login?next=${encodeURIComponent(path)}&guest_next=%2Fhome`,
     );
     expect(mocks.api).not.toHaveBeenCalled();
     expect(mocks.prepare).not.toHaveBeenCalled();

@@ -658,17 +658,9 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
           expect(page.url()).toBe(`${app}${path}`);
           expect(
             await page
-              .getByRole("link", {
-                name: "Googleでログインして使っていた場合はこちら",
-                exact: true,
-              })
+              .getByRole("link", { name: "始め方を選ぶ", exact: true })
               .getAttribute("href"),
-          ).toBe(`/login?next=${encodeURIComponent(path)}`);
-          expect(
-            await page
-              .getByRole("link", { name: "ホームへ", exact: true })
-              .getAttribute("href"),
-          ).toBe("/home");
+          ).toBe(`/login?next=${encodeURIComponent(path)}&guest_next=%2Fhome`);
         }
         await page.goto(`${app}/login?next=%2Fhome`);
         await page.getByLabel("メールアドレス").fill("owner@example.test");

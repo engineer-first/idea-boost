@@ -11,7 +11,6 @@ import {
   renderHook,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,8 +20,6 @@ import { useRoomCreation } from "../logic/use-room-creation";
 
 const m = vi.hoisted(() => ({
   push: vi.fn(),
-  routerRefresh: vi.fn(),
-  prepareGuestIdentity: vi.fn(),
   create: vi.fn(),
   issue: vi.fn(),
   query: vi.fn(),
@@ -42,11 +39,8 @@ vi.mock("@/features/auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/auth")>()),
   startRoomReauthentication: vi.fn(),
 }));
-vi.mock("@/features/auth/logic/guest-identity-actions", () => ({
-  prepareGuestIdentity: m.prepareGuestIdentity,
-}));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: m.push, refresh: m.routerRefresh }),
+  useRouter: () => ({ push: m.push }),
 }));
 vi.mock("../logic/participation-actions", () => ({
   queryParticipation: m.participationQuery,
@@ -718,107 +712,4 @@ it("同じ作成要求の移動が成功した場合はその控えへ結果を�
       ROOM,
     ),
   );
-});
-
-describe("本人がいない場合のルーム作成", () => {
-  it("作成カードは名前と次へだけを表示し、ルーム作成の通信を始めない", async () => {
-    render(<CreateRoomSection />);
-    const card = within(screen.getByTestId("home-create-room"));
-    expect(
-      card.getByRole("textbox", { name: "仲間に表示される名前" }),
-    ).toBeEnabled();
-    expect(card.getByRole("button", { name: "次へ" })).toBeInTheDocument();
-    expect(
-      card.queryByRole("textbox", { name: "ルーム名（任意）" }),
-    ).not.toBeInTheDocument();
-    expect(
-      card.queryByRole("button", { name: "新しいルームを作成" }),
-    ).not.toBeInTheDocument();
-    await act(async () => {});
-    expect(
-      screen.queryByText("ログイン状態を確認してください。"),
-    ).not.toBeInTheDocument();
-    expect(m.issue).not.toHaveBeenCalled();
-    expect(m.query).not.toHaveBeenCalled();
-    expect(m.create).not.toHaveBeenCalled();
-  });
-
-  it("名前を送信して本人を準備するとホームを再取得し、本人反映後にルーム名へフォーカスして作成できる", async () => {
-    m.prepareGuestIdentity.mockResolvedValue({
-      ok: true,
-      principal: { userId: USER, kind: "guest" },
-      reused: false,
-    });
-    const view = render(<CreateRoomSection />);
-    await userEvent.type(
-      screen.getByRole("textbox", { name: "仲間に表示される名前" }),
-      "相談する人",
-    );
-    await click("次へ");
-    await waitFor(() => expect(m.routerRefresh).toHaveBeenCalledTimes(1));
-    expect(m.prepareGuestIdentity).toHaveBeenCalledWith({ name: "相談する人" });
-    expect(m.issue).not.toHaveBeenCalled();
-    expect(m.query).not.toHaveBeenCalled();
-    expect(m.create).not.toHaveBeenCalled();
-
-    view.rerender(<CreateRoomSection currentUserId={USER} />);
-    const roomName = screen.getByRole("textbox", { name: "ルーム名（任意）" });
-    await waitFor(() => expect(roomName).toHaveFocus());
-    expect(
-      screen.queryByRole("textbox", { name: "仲間に表示される名前" }),
-    ).not.toBeInTheDocument();
-    await userEvent.type(roomName, "相談の会");
-    await click();
-    await waitFor(() =>
-      expect(m.create).toHaveBeenCalledWith(
-        expect.objectContaining({ expectedPrincipal: USER, name: "相談の会" }),
-      ),
-    );
-    await waitFor(() =>
-      expect(m.push).toHaveBeenCalledWith(`/rooms/${ROOM}/start`),
-    );
-    expect(m.routerRefresh).toHaveBeenCalledTimes(1);
-  });
-
-  it("本人の準備が失敗すると再取得せずエラーと名前入力を残す", async () => {
-    const error = "名前の準備に失敗しました。もう一度お試しください。";
-    m.prepareGuestIdentity.mockResolvedValue({ ok: false, error });
-    render(<CreateRoomSection />);
-    await userEvent.type(
-      screen.getByRole("textbox", { name: "仲間に表示される名前" }),
-      "相談する人",
-    );
-    await click("次へ");
-    expect(await screen.findByText(error)).toBeInTheDocument();
-    expect(m.prepareGuestIdentity).toHaveBeenCalledWith({ name: "相談する人" });
-    expect(m.routerRefresh).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("textbox", { name: "仲間に表示される名前" }),
-    ).toBeEnabled();
-    expect(m.issue).not.toHaveBeenCalled();
-    expect(m.query).not.toHaveBeenCalled();
-    expect(m.create).not.toHaveBeenCalled();
-  });
-
-  it("最初から本人がいる場合は名前入力を表示せずルームを作成できる", async () => {
-    render(<CreateRoomSection currentUserId={USER} />);
-    expect(
-      screen.queryByRole("textbox", { name: "仲間に表示される名前" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "次へ" }),
-    ).not.toBeInTheDocument();
-    await waitFor(() =>
-      expect(
-        screen.getByRole("textbox", { name: "ルーム名（任意）" }),
-      ).toBeEnabled(),
-    );
-    await click();
-    await waitFor(() =>
-      expect(m.create).toHaveBeenCalledWith(
-        expect.objectContaining({ expectedPrincipal: USER }),
-      ),
-    );
-    expect(m.prepareGuestIdentity).not.toHaveBeenCalled();
-  });
 });

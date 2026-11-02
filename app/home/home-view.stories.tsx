@@ -26,7 +26,7 @@ const meta = {
   },
   args: {
     currentUserId: "11111111-1111-4111-8111-111111111111",
-    accountLinkStatus: undefined,
+    accountLinkStatus: "guest",
   },
   decorators: [
     (Story) => (
@@ -124,26 +124,12 @@ export const AllStates: Story = {
 };
 
 export const WithReturnRoom: Story = {
-  args: { currentUserId: "11111111-1111-4111-8111-111111111111" },
   beforeEach: () => {
     rememberLastRoom(
       "11111111-1111-4111-8111-111111111111",
       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     );
     return () => clearLastRoom();
-  },
-};
-
-export const WithoutIdentity: Story = {
-  name: "本人なし（名前入力から作成）",
-  args: { currentUserId: undefined },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          "container をそのまま描画するため、「次へ」を押すと実際の名前登録処理を呼びます。見た目の状態は RoomLifecycle/CreateRoomSection の名前入力 stories で確認してください。",
-      },
-    },
   },
 };
 
