@@ -301,8 +301,12 @@ function connectWithSnapshot(
     members?: Array<{ userId: string; name: string; color: "yellow" | "blue" }>;
     progress?: PhaseProgress;
   },
+  beforeSnapshot?: () => void,
 ) {
   const { view, socket } = renderBoard({ isHost: options?.isHost ?? true });
+
+  // snapshotを受け取る前に、テスト用のDOM状態を設定する。
+  beforeSnapshot?.();
 
   act(() =>
     socket.simulateServerMessage({
@@ -356,6 +360,95 @@ function openPrivateNotesToolbar() {
   if (openButton) fireEvent.click(openButton);
   return toolbar;
 }
+
+it("発表者の表示領域サイズが未確定ならResizeObserverで確定後に視点を送信する", async () => {
+  const observers: TestResizeObserver[] = [];
+
+  // jsdomにないResizeObserverをテスト用に用意する。
+  class TestResizeObserver {
+    target: Element | null = null;
+    disconnected = false;
+
+    constructor(private readonly callback: ResizeObserverCallback) {
+      observers.push(this);
+    }
+
+    observe(target: Element): void {
+      this.target = target;
+    }
+
+    unobserve(_target: Element): void {}
+
+    disconnect(): void {
+      this.disconnected = true;
+    }
+
+    notify(): void {
+      this.callback([], this as unknown as ResizeObserver);
+    }
+  }
+
+  vi.stubGlobal("ResizeObserver", TestResizeObserver);
+
+  const { view, socket } = connectWithSnapshot(
+    [],
+    {
+      phase: buildPhaseStep(2, 1),
+      members: [
+        { userId: USER_ID, name: "ホスト", color: "yellow" },
+        { userId: OTHER_USER_ID, name: "参加者", color: "blue" },
+      ],
+    },
+    () => {
+      // レイアウト前の状態を再現する。
+      screen.getByTestId("board-scroller").getBoundingClientRect = () =>
+        new DOMRect(0, 0, 0, 0);
+    },
+  );
+
+  try {
+    const viewport = screen.getByTestId("board-scroller");
+
+    // 表示領域のサイズが0なので、ResizeObserverが登録されるのを待つ。
+    await waitFor(() => {
+      expect(
+        observers.some(
+          (observer) => observer.target === viewport && !observer.disconnected,
+        ),
+      ).toBe(true);
+    });
+
+    const observer = observers.find(
+      (candidate) => candidate.target === viewport && !candidate.disconnected,
+    );
+
+    if (!observer) {
+      throw new Error("ResizeObserverが登録されていません。");
+    }
+
+    // サイズが未確定の間は、発表者ビューを送信しない。
+    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+      expect.objectContaining({ type: "view:update" }),
+    );
+
+    // レイアウトが確定した状態に変更する。
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+
+    // ResizeObserverの通知を発火する。
+    act(() => observer.notify());
+
+    // 表示領域の確定後にview:updateが送られる。
+    await waitFor(() => {
+      expectSent(socket, { type: "view:update" });
+    });
+
+    // 一度送信したらResizeObserverを解除する。
+    expect(observer.disconnected).toBe(true);
+  } finally {
+    view.unmount();
+    vi.unstubAllGlobals();
+  }
+});
 
 it.each([1, 2, 3] as const)(
   "%i-2のツールバーからいいねを送信し、配信を画面に表示する",

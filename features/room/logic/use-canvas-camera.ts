@@ -475,10 +475,17 @@ export function useCanvasCamera({
         anchor,
         baseZoom,
       );
+      cancelFollowAnimation();
       scheduleCamera(next);
       onZoomChangeRef.current?.(next.zoom);
     },
-    [baseZoom, navigationDisabled, scheduleCamera, viewportRef],
+    [
+      baseZoom,
+      cancelFollowAnimation,
+      navigationDisabled,
+      scheduleCamera,
+      viewportRef,
+    ],
   );
 
   const endPan = useCallback(() => {
@@ -764,7 +771,13 @@ export function useCanvasCamera({
       };
       const delta = offsets[event.key];
       if (!delta) return;
+
       event.preventDefault();
+
+      // キーボード操作による手動パンでも発表者の追従を解除する。
+      cancelFollowAnimation();
+      onManualPanStartRef.current?.();
+
       scheduleCamera({
         ...cameraRef.current,
         x: cameraRef.current.x + delta.x,
@@ -800,6 +813,7 @@ export function useCanvasCamera({
     };
   }, [
     baseZoom,
+    cancelFollowAnimation,
     endPan,
     fitToNotes,
     fitToSelection,
