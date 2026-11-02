@@ -45,6 +45,37 @@ describe("StepOneOnboardingSlide", () => {
       expect(video).toHaveProperty("playsInline", true);
     },
   );
+  it("動きを減らす設定では操作動画を自動再生せず、再生コントロールを表示する", async () => {
+    const matchMedia = window.matchMedia;
+    const reduceMotionQuery = {
+      matches: true,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    } as unknown as MediaQueryList;
+    window.matchMedia = ((query: string) =>
+      query === "(prefers-reduced-motion: reduce)"
+        ? reduceMotionQuery
+        : ({ matches: false } as MediaQueryList)) as typeof window.matchMedia;
+    try {
+      render(
+        <StepOneOnboardingSlide
+          phaseKey="1-2"
+          sessionKey="reduced-motion-video"
+          isReady
+        />,
+      );
+      const next = screen.getByRole("button", { name: "次へ" });
+      fireEvent.click(next);
+      const video = await screen.findByLabelText(
+        "前の人の発表を待ち、自分の番に付箋を共有して発表し、次の人へ交代する流れ",
+      );
+      expect(video).toBeVisible();
+      expect(video).not.toHaveAttribute("autoplay");
+      expect(video).toHaveAttribute("controls");
+    } finally {
+      window.matchMedia = matchMedia;
+    }
+  });
   it("1-1の3枚目へ移動中に2枚構成の工程へ変わっても落ちず、案内を閉じる", async () => {
     const props = { sessionKey: "moving-phase-change", isReady: true };
     const { rerender } = render(

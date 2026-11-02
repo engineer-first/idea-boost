@@ -34,6 +34,19 @@ type GuideClosingStyle = CSSProperties & {
   "--guide-target-scale-y": string;
 };
 
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return reduced;
+}
+
 function StepOneOnboardingIllustrationContent({
   kind,
   alt,
@@ -260,6 +273,7 @@ export function StepOneOnboardingSlide({
     ? slides[pendingSlideIndexRef.current]
     : undefined;
   const isLastSlide = slideIndex === slides.length - 1;
+  const reduceMotion = useReducedMotion();
 
   const finishCloseToGuide = () => {
     if (closeTimerRef.current !== null) {
@@ -390,8 +404,9 @@ export function StepOneOnboardingSlide({
         {item.videoSrc ? (
           <video
             aria-label={item.illustrationAlt}
-            autoPlay
-            loop
+            autoPlay={!reduceMotion}
+            controls={reduceMotion}
+            loop={!reduceMotion}
             muted
             playsInline
             preload="auto"

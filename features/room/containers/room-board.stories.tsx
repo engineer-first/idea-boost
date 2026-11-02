@@ -124,6 +124,20 @@ const meta = {
         `step-onboarding:ABC234:${currentUserId}:1-1`,
         "seen",
       );
+      for (const phaseKey of [
+        "1-2",
+        "1-3",
+        "1-4",
+        "1-5",
+        "2-1",
+        "3-1",
+        "3-3",
+      ]) {
+        window.sessionStorage.setItem(
+          `step-onboarding:ABC234:${currentUserId}:${phaseKey}`,
+          "seen",
+        );
+      }
       return <Story />;
     },
   ],
