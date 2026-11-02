@@ -154,6 +154,15 @@
     margin-top: 56px;
   }
 }
+@media (min-width: 1024px) and (max-height: 680px) {
+  .createContent {
+    margin-top: 16px;
+  }
+  .join {
+    margin-top: 24px;
+    padding-top: 16px;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   .create button,
   .join button {

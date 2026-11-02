@@ -107,3 +107,11 @@
     background-position-y: top;
   }
 }
+@media (min-width: 1024px) and (max-height: 680px) {
+  .home {
+    padding-top: 24px;
+  }
+  .content > section[aria-label="前のルーム"] {
+    margin-bottom: 16px;
+  }
+}
