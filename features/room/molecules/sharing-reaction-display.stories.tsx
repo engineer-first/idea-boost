@@ -65,3 +65,25 @@ export const SingleQuestion: Story = {
 export const Empty: Story = {
   args: { reactions: [] },
 };
+
+export const SuccessiveReactions: Story = {
+  render: function SuccessiveReactions() {
+    const [count, setCount] = useState(0);
+    const reactions = buildSharingReactionDisplayFixture(
+      count,
+      SHARING_REACTION_KINDS,
+    ).slice(-SHARING_REACTION_MAX_VISIBLE);
+    return (
+      <div className="p-4">
+        <Button onClick={() => setCount((current) => current + 1)}>
+          受信を追加
+        </Button>
+        <label>
+          入力確認
+          <input aria-label="入力確認" className="border" />
+        </label>
+        <SharingReactionDisplay reactions={reactions} />
+      </div>
+    );
+  },
+};
