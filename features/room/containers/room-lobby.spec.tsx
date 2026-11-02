@@ -56,7 +56,7 @@ const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const HOST_ID = "11111111-1111-4111-8111-111111111111";
 const MEMBER_ID = "22222222-2222-4222-8222-222222222222";
 
-it("一覧に隠れた本人の編集を取消した後は、一覧の展開ボタンへフォーカスを戻す", async () => {
+it("13人目の本人も一覧から名前を編集でき、取消後は本人の名前へフォーカスを戻す", async () => {
   const initialMembers: ProtocolMember[] = Array.from(
     { length: 13 },
     (_, i) => ({
@@ -69,12 +69,11 @@ it("一覧に隠れた本人の編集を取消した後は、一覧の展開ボ�
     }),
   );
   renderStart({ initialMembers });
-  const overflow = screen.getByRole("button", { name: "他 2 名" });
-  fireEvent.click(overflow);
-  fireEvent.click(screen.getByRole("button", { name: "本人：表示名を変更" }));
+  const selfName = screen.getByRole("button", { name: "本人：表示名を変更" });
+  fireEvent.click(selfName);
   expect(screen.getByRole("textbox", { name: "表示名" })).toHaveValue("本人");
   fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
-  await waitFor(() => expect(overflow).toHaveFocus());
+  await waitFor(() => expect(selfName).toHaveFocus());
 });
 
 type Listener = (event: {

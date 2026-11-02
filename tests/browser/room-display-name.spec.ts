@@ -8,7 +8,7 @@ test.each([
   { width: 390, connectionDelayMs: 1500 },
   { width: 1280, connectionDelayMs: 1500 },
 ])(
-  "$width px / 接続遅延 $connectionDelayMs ms: 一覧に隠れた本人の編集を取消・保存した後に展開ボタンへ戻る",
+  "$width px / 接続遅延 $connectionDelayMs ms: 13人目の本人の編集を取消・保存した後に名前へ戻る",
   async ({ width, connectionDelayMs }) => {
     const browser = await chromium.launch();
     try {
@@ -16,9 +16,7 @@ test.each([
       await page.goto(
         `${origin}/iframe.html?id=room-hosttransferflow--overflow-self&viewMode=story&args=connectionDelayMs:${connectionDelayMs}`,
       );
-      const overflow = page.getByRole("button", { name: "他 2 名" });
       for (const save of [false, true]) {
-        await overflow.press("Enter");
         const trigger = page.getByRole("button", {
           name: "Yuki Tanaka：表示名を変更",
         });
@@ -30,10 +28,6 @@ test.each([
         await trigger.press("Enter");
         const dialog = page.getByRole("dialog", { name: "表示名を変更" });
         await dialog.waitFor();
-        // 閉じるアニメーション中の一覧も Escape を受け取るため、解除後に編集する。
-        await page.getByTestId("room-members-overflow-dialog").waitFor({
-          state: "detached",
-        });
         const input = page.getByRole("textbox", { name: "表示名" });
         await vi.waitFor(async () =>
           expect(
@@ -47,7 +41,11 @@ test.each([
         await dialog.waitFor({ state: "hidden" });
         await vi.waitFor(async () =>
           expect(
-            await overflow.evaluate((e) => e === document.activeElement),
+            await page
+              .getByRole("button", {
+                name: `${save ? "一覧の本人" : "Yuki Tanaka"}：表示名を変更`,
+              })
+              .evaluate((e) => e === document.activeElement),
           ).toBe(true),
         );
       }

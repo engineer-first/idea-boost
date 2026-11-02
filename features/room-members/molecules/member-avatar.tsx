@@ -9,6 +9,7 @@
 
 import { Check, WifiOff } from "lucide-react";
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -29,6 +30,7 @@ export type MemberAvatarProps = {
   isConnected?: boolean;
   // 直径 (px)。既定は 36。
   size?: number;
+  style?: CSSProperties;
   // 自分自身かどうか。true で青いリング（"あなた" マーカー）。
   isMe?: boolean;
   // 現在の工程を完了したメンバーかどうか。投票先は表示しない。
@@ -42,6 +44,7 @@ export function MemberAvatar({
   avatarId,
   isConnected,
   size = 36,
+  style,
   isMe = false,
   isVotingComplete = false,
   completionLabel = "投票完了",
@@ -68,6 +71,7 @@ export function MemberAvatar({
             height: size,
             backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
             color: NOTE_COLOR_STYLES[color].foregroundColor,
+            ...style,
           }}
         >
           <span
