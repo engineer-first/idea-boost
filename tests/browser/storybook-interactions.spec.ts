@@ -14,9 +14,8 @@ afterAll(async () => {
 // DOMの描画だけではplayの失敗を検出できない。storyの操作を最後まで実行する。
 test.each([
   "room-steponeonboardingslide--first-visit",
-  "room-steponeonboardingslide--second-slide",
-  "room-steponeonboardingslide--third-slide",
-  "room-steponeonboardingslide--fourth-slide",
+  "room-steponeonboardingslide--operation-slide",
+  "room-steponeonboardingslide--timer-slide",
   "room-steponeonboardingslide--sharing-purpose",
   "room-steponeonboardingslide--sharing-operation",
   "room-steponeonboardingslide--grouping-purpose",

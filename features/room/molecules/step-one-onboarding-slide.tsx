@@ -41,21 +41,7 @@ function StepOneOnboardingIllustrationContent({
   kind: StepGuideSlide["illustration"];
   alt: string;
 }) {
-  if (kind === "operation-video") {
-    return (
-      <video
-        aria-label={alt}
-        autoPlay
-        className="h-full w-full object-contain"
-        loop
-        muted
-        playsInline
-        preload="auto"
-        src="/onboarding/operation-guide-placeholder.webm"
-      />
-    );
-  }
-
+  if (kind === "operation-video") return null;
   if (kind !== "many-notes" && kind !== "add-note") {
     return <StepGuideIllustration kind={kind} alt={alt} />;
   }

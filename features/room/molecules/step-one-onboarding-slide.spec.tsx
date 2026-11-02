@@ -45,12 +45,12 @@ describe("StepOneOnboardingSlide", () => {
       expect(video).toHaveProperty("playsInline", true);
     },
   );
-  it("1-1の4枚目へ移動中に2枚構成の工程へ変わっても落ちず、案内を閉じる", async () => {
+  it("1-1の3枚目へ移動中に2枚構成の工程へ変わっても落ちず、案内を閉じる", async () => {
     const props = { sessionKey: "moving-phase-change", isReady: true };
     const { rerender } = render(
       <StepOneOnboardingSlide {...props} phaseKey="1-1" />,
     );
-    for (let index = 0; index < 2; index++) {
+    for (let index = 0; index < 1; index++) {
       fireEvent.click(screen.getByRole("button", { name: "次へ" }));
       await waitFor(() =>
         expect(
@@ -177,7 +177,7 @@ describe("StepOneOnboardingSlide", () => {
     ).toBeVisible();
   });
 
-  it("1-1は共通タイマー説明から始まる4枚を初回表示する", () => {
+  it("1-1は困りごとの案内から始まり、2枚目に付箋の実操作動画、3枚目にタイマーの説明を表示する", async () => {
     render(
       <StepOneOnboardingSlide
         phaseKey="1-1"
@@ -185,10 +185,27 @@ describe("StepOneOnboardingSlide", () => {
         isReady
       />,
     );
+    expect(screen.getByRole("dialog", { name: /困ったこと/ })).toBeVisible();
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    const next = screen.getByRole("button", { name: "次へ" });
+    expect(screen.getByLabelText("困ったことを書いた3枚の付箋")).toBeVisible();
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("step-one-onboarding-slide-content"),
+      ).toHaveAttribute("data-slide-transition", "idle"),
+    );
+    fireEvent.click(next);
+    const video = await screen.findByLabelText("付箋を追加して書き出す操作");
+    expect(video).toHaveAttribute("src", "/onboarding/step-1-1.webm");
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("step-one-onboarding-slide-content"),
+      ).toHaveAttribute("data-slide-transition", "idle"),
+    );
+    fireEvent.click(next);
     expect(
-      screen.getByRole("dialog", { name: "時間を守って取り組もう。" }),
+      await screen.findByRole("dialog", { name: /タイマー/ }),
     ).toBeVisible();
-    expect(screen.getAllByRole("listitem")).toHaveLength(4);
   });
 
   it("次へは遷移中も有効で、連続して押してもスライドを飛ばさない", async () => {
@@ -207,13 +224,13 @@ describe("StepOneOnboardingSlide", () => {
     expect(next).toHaveFocus();
     fireEvent.click(next);
     expect(
-      await screen.findByLabelText("困ったことを書いた3枚の付箋"),
+      await screen.findByLabelText("付箋を追加して書き出す操作"),
     ).toBeVisible();
     fireEvent.click(next);
     await waitFor(() =>
       expect(content).toHaveAttribute("data-slide-transition", "idle"),
     );
-    expect(screen.getByLabelText("困ったことを書いた3枚の付箋")).toBeVisible();
+    expect(screen.getByLabelText("付箋を追加して書き出す操作")).toBeVisible();
     expect(next).toBeEnabled();
     expect(next).toHaveFocus();
   });

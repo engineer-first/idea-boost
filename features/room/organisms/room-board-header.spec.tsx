@@ -472,7 +472,7 @@ describe("RoomBoardHeader", () => {
     );
   });
 
-  it("1-1の初回に4枚の説明スライドを順に表示し、最後の「はじめる」で閉じる", async () => {
+  it("1-1の初回に3枚の説明スライドを順に表示し、最後の「はじめる」で閉じる", async () => {
     const inviteCode = "ONBOARD1";
     sessionStorage.removeItem(`step-onboarding:${inviteCode}:${ME}:1-1`);
     const props = setupProps({ inviteCode, isHost: true });
@@ -482,22 +482,13 @@ describe("RoomBoardHeader", () => {
 
     expect(
       await screen.findByRole("dialog", {
-        name: "時間を守って取り組もう。",
-      }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("listitem", { name: "1枚目 / 全4枚" }),
-    ).toBeVisible();
-    await advanceOnboardingSlide();
-    expect(
-      await screen.findByRole("dialog", {
         name: "最近あった困ったことを付箋に書き出そう。",
       }),
     ).toBeVisible();
-    expect(screen.queryByText("工程 1-1")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("listitem", { name: "2枚目 / 全4枚" }),
+      screen.getByRole("listitem", { name: "1枚目 / 全3枚" }),
     ).toBeVisible();
+    expect(screen.queryByText("工程 1-1")).not.toBeInTheDocument();
 
     await advanceOnboardingSlide();
     expect(
@@ -506,16 +497,13 @@ describe("RoomBoardHeader", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByRole("listitem", { name: "3枚目 / 全4枚" }),
+      screen.getByRole("listitem", { name: "2枚目 / 全3枚" }),
     ).toBeVisible();
     expect(
       screen.getByText(/話題が変わったら、別の付箋に書きましょう/),
     ).toBeVisible();
     const operationVideo = screen.getByLabelText("付箋を追加して書き出す操作");
-    expect(operationVideo).toHaveAttribute(
-      "src",
-      "/onboarding/operation-guide-placeholder.webm",
-    );
+    expect(operationVideo).toHaveAttribute("src", "/onboarding/step-1-1.webm");
     expect(operationVideo).toHaveProperty("autoplay", true);
     expect(operationVideo).toHaveProperty("loop", true);
     expect(operationVideo).toHaveProperty("muted", true);
@@ -528,7 +516,7 @@ describe("RoomBoardHeader", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByRole("listitem", { name: "4枚目 / 全4枚" }),
+      screen.getByRole("listitem", { name: "3枚目 / 全3枚" }),
     ).toBeVisible();
     const dialog = screen.getByRole("dialog");
     const guideButton = screen.getByTestId("step-one-onboarding-trigger");
@@ -560,11 +548,10 @@ describe("RoomBoardHeader", () => {
     fireEvent.click(openGuide);
     expect(
       await screen.findByRole("dialog", {
-        name: "時間を守って取り組もう。",
+        name: "最近あった困ったことを付箋に書き出そう。",
       }),
     ).toBeVisible();
 
-    await advanceOnboardingSlide();
     await advanceOnboardingSlide();
     await advanceOnboardingSlide();
     expect(
@@ -579,7 +566,7 @@ describe("RoomBoardHeader", () => {
     fireEvent.click(openGuide);
     expect(
       await screen.findByRole("dialog", {
-        name: "時間を守って取り組もう。",
+        name: "最近あった困ったことを付箋に書き出そう。",
       }),
     ).toBeVisible();
   });
@@ -591,14 +578,17 @@ describe("RoomBoardHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     await screen.findByRole("dialog", {
-      name: "時間を守って取り組もう。",
+      name: "最近あった困ったことを付箋に書き出そう。",
     });
     await advanceOnboardingSlide();
     await advanceOnboardingSlide();
 
-    await returnToOnboardingSlide(0, "時間を守って取り組もう。");
+    await returnToOnboardingSlide(
+      0,
+      "最近あった困ったことを付箋に書き出そう。",
+    );
     expect(
-      screen.getByRole("listitem", { name: "1枚目 / 全4枚" }),
+      screen.getByRole("listitem", { name: "1枚目 / 全3枚" }),
     ).toHaveAttribute("aria-current", "step");
     expect(screen.getByRole("button", { name: "次へ" })).toBeVisible();
   });
@@ -610,13 +600,13 @@ describe("RoomBoardHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     await screen.findByRole("dialog", {
-      name: "時間を守って取り組もう。",
+      name: "最近あった困ったことを付箋に書き出そう。",
     });
 
     const progressButtons = screen.getAllByRole("button", {
       name: /枚目に戻る/,
     });
-    expect(progressButtons).toHaveLength(4);
+    expect(progressButtons).toHaveLength(3);
     for (const button of progressButtons) {
       expect(button).toHaveClass("w-fit");
       expect(button).not.toHaveClass("w-8");
@@ -630,7 +620,7 @@ describe("RoomBoardHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     await screen.findByRole("dialog", {
-      name: "時間を守って取り組もう。",
+      name: "最近あった困ったことを付箋に書き出そう。",
     });
 
     vi.useFakeTimers();
@@ -655,9 +645,8 @@ describe("RoomBoardHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     await screen.findByRole("dialog", {
-      name: "時間を守って取り組もう。",
+      name: "最近あった困ったことを付箋に書き出そう。",
     });
-    await advanceOnboardingSlide();
     await advanceOnboardingSlide();
 
     const dialog = screen.getByRole("dialog");

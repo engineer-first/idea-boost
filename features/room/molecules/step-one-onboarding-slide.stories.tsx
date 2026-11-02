@@ -47,50 +47,35 @@ export const FirstVisit: Story = {
     await ensureGuideIsOpen();
     await expect(
       screen.getByRole("dialog", {
-        name: "時間を守って取り組もう。",
-      }),
-    ).toBeVisible();
-  },
-};
-
-export const SecondSlide: Story = {
-  args: {
-    sessionKey: "storybook-step-one-second-slide",
-  },
-  play: async () => {
-    await ensureGuideIsOpen();
-    await advanceToSlide("最近あった困ったことを付箋に書き出そう。");
-    await expect(
-      screen.getByRole("dialog", {
         name: "最近あった困ったことを付箋に書き出そう。",
       }),
     ).toBeVisible();
   },
 };
 
-export const ThirdSlide: Story = {
+export const OperationSlide: Story = {
+  args: {
+    sessionKey: "storybook-step-one-second-slide",
+  },
+  play: async () => {
+    await ensureGuideIsOpen();
+    await advanceToSlide("1枚に1つ、困ったことを書こう。");
+    await expect(
+      screen.getByRole("dialog", {
+        name: "1枚に1つ、困ったことを書こう。",
+      }),
+    ).toBeVisible();
+  },
+};
+
+export const TimerSlide: Story = {
   args: {
     sessionKey: "storybook-step-one-third-slide",
   },
   play: async () => {
     await ensureGuideIsOpen();
-    await advanceToSlide("最近あった困ったことを付箋に書き出そう。");
-    await advanceToSlide("1枚に1つ、困ったことを書こう。");
-  },
-};
-
-export const FourthSlide: Story = {
-  args: { sessionKey: "storybook-step-one-fourth-slide" },
-  play: async () => {
-    await ensureGuideIsOpen();
-    await advanceToSlide("最近あった困ったことを付箋に書き出そう。");
     await advanceToSlide("1枚に1つ、困ったことを書こう。");
     await advanceToSlide("タイマーの時間内にできるだけ多く書き出そう");
-    await expect(
-      screen.getByRole("dialog", {
-        name: "タイマーの時間内にできるだけ多く書き出そう",
-      }),
-    ).toBeVisible();
   },
 };
 
