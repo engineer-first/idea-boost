@@ -137,3 +137,89 @@ test("動きを減らす設定では上昇せず、中央の高さでフェー�
     await page.close();
   }
 });
+
+test.each([1280, 375, 320])(
+  "幅%dで最大6画像の全軌跡を左1/3内に収める",
+  async (width) => {
+    const page = await browser.newPage({ viewport: { width, height: 800 } });
+    try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-sharingreactiondisplay--simultaneous-likes&viewMode=story`,
+      );
+      const reactions = page.getByRole("img", { name: "いいね", exact: true });
+      await reactions.first().waitFor({ state: "attached" });
+      for (let i = 0; i < 6; i++) {
+        for (const time of [0, 180, 360, 900, 1500, 2160, 2999]) {
+          await frame(reactions.nth(i), time);
+          const bounds = await reactions.nth(i).locator("img").boundingBox();
+          if (!bounds) throw new Error("画像が表示されていません");
+          expect(bounds.x).toBeGreaterThanOrEqual(7.5);
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(width / 3 - 7.5);
+        }
+      }
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test("追加受信は表示中画像と重ならない候補を選び、既存画像の動きと入力を保つ", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+  });
+  try {
+    await page.addInitScript(() => {
+      Math.random = () => 0;
+    });
+    await page.goto(
+      `${origin}/iframe.html?id=room-sharingreactiondisplay--successive-reactions&viewMode=story`,
+    );
+    await page.getByRole("button", { name: "受信を追加" }).click();
+    const first = page.getByRole("img", { name: "いいね", exact: true });
+    await first.waitFor();
+    await frame(first, 360);
+    const original = await first.boundingBox();
+    await page.getByRole("button", { name: "受信を追加" }).click();
+    const second = page.getByRole("img", { name: "拍手", exact: true });
+    await second.waitFor();
+    await frame(second, 360);
+    const added = await second.boundingBox();
+    if (!original || !added) throw new Error("受信画像が必要です");
+    expect(added.x).toBeGreaterThanOrEqual(original.x + original.width);
+    expect(await first.boundingBox()).toEqual(original);
+    await page.getByRole("textbox", { name: "入力確認" }).fill("入力を継続");
+    expect(
+      await page.getByRole("textbox", { name: "入力確認" }).inputValue(),
+    ).toBe("入力を継続");
+  } finally {
+    await page.close();
+  }
+});
+
+test("表示中のリサイズとモーション低減でも最大6画像を左1/3内に保つ", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+  });
+  try {
+    await page.goto(
+      `${origin}/iframe.html?id=room-sharingreactiondisplay--simultaneous-likes&viewMode=story`,
+    );
+    const reactions = page.getByRole("img", { name: "いいね", exact: true });
+    await reactions.first().waitFor({ state: "attached" });
+    for (const width of [1280, 375, 320]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const reducedMotion of ["no-preference", "reduce"] as const) {
+        await page.emulateMedia({ reducedMotion });
+        for (let i = 0; i < 6; i++) {
+          await frame(reactions.nth(i), 360);
+          const bounds = await reactions.nth(i).locator("img").boundingBox();
+          if (!bounds) throw new Error("画像が必要です");
+          expect(bounds.x).toBeGreaterThanOrEqual(7.5);
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(width / 3 - 7.5);
+        }
+      }
+    }
+  } finally {
+    await page.close();
+  }
+});
