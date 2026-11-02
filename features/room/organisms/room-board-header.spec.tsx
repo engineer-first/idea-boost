@@ -20,6 +20,8 @@ const ME = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
   sessionStorage.setItem(`step-onboarding:AB12CD:${ME}:1-1`, "seen");
+  for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
+    sessionStorage.setItem(`step-onboarding:AB12CD:${ME}:${step}`, "seen");
 });
 
 function allReadyProgress(members: ReturnType<typeof buildMembers>) {
@@ -84,11 +86,8 @@ async function advanceOnboardingSlide() {
   const currentTitle = within(dialog).getByRole("heading").textContent ?? "";
   const slideContent = screen.getByTestId("step-one-onboarding-slide-content");
   fireEvent.click(screen.getByRole("button", { name: "次へ" }));
-  expect(slideContent).toHaveAttribute("data-slide-transition", "out");
+  expect(slideContent).toHaveAttribute("data-slide-transition", "moving");
   expect(within(dialog).getByRole("heading")).toHaveTextContent(currentTitle);
-  await waitFor(() =>
-    expect(slideContent).toHaveAttribute("data-slide-transition", "in"),
-  );
   await waitFor(() =>
     expect(slideContent).toHaveAttribute("data-slide-transition", "idle"),
   );
@@ -99,10 +98,7 @@ async function returnToOnboardingSlide(index: number, title: string) {
   fireEvent.click(
     screen.getByRole("button", { name: `${index + 1}枚目に戻る` }),
   );
-  expect(slideContent).toHaveAttribute("data-slide-transition", "out");
-  await waitFor(() =>
-    expect(slideContent).toHaveAttribute("data-slide-transition", "in"),
-  );
+  expect(slideContent).toHaveAttribute("data-slide-transition", "moving");
   await waitFor(() =>
     expect(slideContent).toHaveAttribute("data-slide-transition", "idle"),
   );
@@ -489,10 +485,10 @@ describe("RoomBoardHeader", () => {
         name: "最近あった困ったことを付箋に書き出そう。",
       }),
     ).toBeVisible();
-    expect(screen.queryByText("工程 1-1")).not.toBeInTheDocument();
     expect(
       screen.getByRole("listitem", { name: "1枚目 / 全3枚" }),
     ).toBeVisible();
+    expect(screen.queryByText("工程 1-1")).not.toBeInTheDocument();
 
     await advanceOnboardingSlide();
     expect(
@@ -507,10 +503,7 @@ describe("RoomBoardHeader", () => {
       screen.getByText(/話題が変わったら、別の付箋に書きましょう/),
     ).toBeVisible();
     const operationVideo = screen.getByLabelText("付箋を追加して書き出す操作");
-    expect(operationVideo).toHaveAttribute(
-      "src",
-      "/onboarding/operation-guide-placeholder.webm",
-    );
+    expect(operationVideo).toHaveAttribute("src", "/onboarding/step-1-1.webm");
     expect(operationVideo).toHaveProperty("autoplay", true);
     expect(operationVideo).toHaveProperty("loop", true);
     expect(operationVideo).toHaveProperty("muted", true);
@@ -634,12 +627,12 @@ describe("RoomBoardHeader", () => {
     try {
       fireEvent.click(screen.getByRole("button", { name: "次へ" }));
       await act(async () => {
-        vi.advanceTimersByTime(235);
+        vi.advanceTimersByTime(300);
       });
 
       expect(
         screen.getByTestId("step-one-onboarding-slide-content"),
-      ).toHaveAttribute("data-slide-transition", "in");
+      ).toHaveAttribute("data-slide-transition", "idle");
     } finally {
       vi.useRealTimers();
     }
@@ -655,9 +648,9 @@ describe("RoomBoardHeader", () => {
       name: "最近あった困ったことを付箋に書き出そう。",
     });
     await advanceOnboardingSlide();
-    await advanceOnboardingSlide();
 
     const dialog = screen.getByRole("dialog");
+    await advanceOnboardingSlide();
     vi.useFakeTimers();
     try {
       fireEvent.click(screen.getByRole("button", { name: "はじめる" }));
@@ -681,13 +674,18 @@ describe("RoomBoardHeader", () => {
     ["3-1", 1, 3],
     ["3-2", 2, 3],
     ["3-3", 3, 3],
-  ] as const)("初回説明スライドは%sでは表示しない", (label, step, phase) => {
+  ] as const)("%sの初回は対象工程だけ案内を表示する", (label, step, phase) => {
     setup({
       inviteCode: `ONBOARD-${label}`,
       phase: buildPhaseStep(step, phase),
     });
 
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    if (label === "3-2") {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByRole("button", { name: "進め方" })).toBeNull();
+    } else {
+      expect(screen.getByRole("dialog")).toBeVisible();
+    }
   });
 
   it("初回の個人作業ではスライド案内を使い、ガイドを重ねない", () => {
@@ -929,6 +927,10 @@ describe("RoomBoardHeader", () => {
       (phase, minutes) => {
         const onTimerStart = vi.fn();
         const inviteCode = `TIMER-DURATION-${JSON.stringify(phase)}`;
+        sessionStorage.setItem(
+          `step-onboarding:${inviteCode}:${ME}:${phase.phase}-${phase.step}`,
+          "seen",
+        );
         sessionStorage.setItem(
           `step-onboarding:${inviteCode}:${ME}:1-1`,
           "seen",
@@ -1460,6 +1462,10 @@ it("一巡後はHUDに次の操作を表示する", () => {
     status: "complete",
     results: ["done", "passed", "done"],
   });
+  sessionStorage.setItem(
+    `step-onboarding:AB12CD:${sharing.order.at(-1)?.userId ?? ME}:1-2`,
+    "seen",
+  );
   render(
     <RoomBoardHeader
       {...setupProps({

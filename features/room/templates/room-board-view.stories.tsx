@@ -193,6 +193,12 @@ const meta = {
   decorators: [
     (Story, context) => {
       const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"]) {
+        window.sessionStorage.setItem(
+          `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:${step}`,
+          "seen",
+        );
+      }
       if (context.parameters.firstVisitOnboarding) {
         window.sessionStorage.removeItem(sessionKey);
       } else {
