@@ -964,11 +964,18 @@ export class RoomDO extends DurableObject {
     );
     syncMovePresence(this.sql, this.broadcaster);
     const retiredSharedNotes = new Set<string>();
+    const followedPresenterIds = new Set<string>();
     let hadPresence = false;
     for (const socket of this.ctx.getWebSockets()) {
       const attachment =
         socket.deserializeAttachment() as SocketAttachment | null;
       if (attachment?.userId !== userId) continue;
+
+      // attachmentを削除する前に、フォロー先の発表者IDを退避する。
+      if (attachment.followingPresenterUserId) {
+        followedPresenterIds.add(attachment.followingPresenterUserId);
+      }
+
       hadPresence ||= Boolean(attachment.hasCursor || attachment.activeDrag);
       const active = this.broadcaster.retireActiveDrag(socket);
       if (active) retiredSharedNotes.add(active.noteId);
@@ -984,6 +991,10 @@ export class RoomDO extends DurableObject {
       { type: "member_left", userId },
       userId,
     );
+    // 退出によってフォロー接続がなくなった発表者へ状態を再通知する。
+    for (const presenterUserId of followedPresenterIds) {
+      this.broadcaster.broadcastPresenterFollowStatus(presenterUserId);
+    }
     if (progressConnectionsChanged)
       broadcastProgress(
         this.sql,
@@ -1338,6 +1349,8 @@ export class RoomDO extends DurableObject {
     // closeイベントの再到達より前に接続単位の所有権を外す。
     // 同じ本人の新接続には触れず、二重cleanupも共有状態を消さない。
     if (!previousAttachment) return;
+    const followingPresenterUserId =
+      previousAttachment.followingPresenterUserId;
     const {
       moveConnectionId: _connectionId,
       activeMoveOperationId: _operationId,
@@ -1345,9 +1358,13 @@ export class RoomDO extends DurableObject {
       hasCursor: _cursor,
       activeDrag: _drag,
       adoptionFocusNoteId: _focus,
+      followingPresenterUserId: _followingPresenterUserId,
       ...identity
     } = previousAttachment;
     ws.serializeAttachment(identity);
+    if (followingPresenterUserId) {
+      this.broadcaster.broadcastPresenterFollowStatus(followingPresenterUserId);
+    }
     if (previousAttachment?.moveConnectionId) {
       releaseConnectionMoves(this.sql, previousAttachment.moveConnectionId);
       syncMovePresence(this.sql, this.broadcaster);
@@ -2068,5 +2085,23 @@ export class RoomDO extends DurableObject {
       timer: getTimerState(this.sql),
       serverNow: Date.now(),
     });
+    const sharing = getSharingState(this.sql);
+
+    const activePresenter =
+      sharing?.status === "active" &&
+      sharing.startsAt === null &&
+      sharing.currentIndex !== null
+        ? (sharing.order[sharing.currentIndex] ?? null)
+        : null;
+
+    if (activePresenter) {
+      this.broadcaster.sendTo(ws, {
+        type: "presenter-follow:status",
+        presenterUserId: activePresenter.userId,
+        isFollowed: this.broadcaster.isPresenterFollowed(
+          activePresenter.userId,
+        ),
+      });
+    }
   }
 }

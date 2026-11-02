@@ -140,6 +140,8 @@ export function applyMemberServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "view:updated":
+    case "presenter-follow:status":
     case "reaction:received":
     case "member:removed":
     case "room:renamed":
@@ -217,6 +219,8 @@ export function applyVotingCompletionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "view:updated":
+    case "presenter-follow:status":
     case "reaction:received":
     case "member:renamed":
     case "member:removed":
@@ -300,6 +304,8 @@ export function applyDecisionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "view:updated":
+    case "presenter-follow:status":
     case "reaction:received":
     case "member:renamed":
     case "member:removed":
@@ -397,6 +403,8 @@ export function applyPhaseServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "view:updated":
+    case "presenter-follow:status":
     case "reaction:received":
     case "member:renamed":
     case "member:removed":

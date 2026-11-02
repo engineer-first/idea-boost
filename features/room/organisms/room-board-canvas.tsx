@@ -24,7 +24,11 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import type { DotVoteKind } from "@/contracts/room-protocol";
+import type {
+  DotVoteKind,
+  NoteColor,
+  PresenterView,
+} from "@/contracts/room-protocol";
 import type { DotVoteRemaining } from "@/features/dot-vote";
 import {
   type Note,
@@ -60,6 +64,7 @@ import type {
   CanvasSelectionOptions,
   CanvasTool,
 } from "../logic/use-canvas-selection";
+import type { RemotePresenterView } from "../logic/use-presenter-view";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -105,6 +110,10 @@ export type RoomBoardCanvasProps = {
   ideaMapWorkspaceControls?: { phaseLoop: ReactNode; mapSize: ReactNode };
   ideaMapIsDragging?: boolean;
   onIdeaMapResize?: (sizeLevel: number) => void;
+  isPresenterViewOwner?: boolean;
+  isPresenterViewFollowedByOthers?: boolean;
+  presenterViewName?: string | null;
+  presenterViewColor?: NoteColor | null;
   voteRemaining: DotVoteRemaining;
   selectedVoteKind: DotVoteKind | null;
   pendingVoteOperations: ReadonlyArray<{
@@ -184,6 +193,10 @@ export type RoomBoardCanvasProps = {
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
   remoteCursors: RenderedRemoteCursorPresence[];
+  presenterView?: RemotePresenterView | null;
+  isFollowingPresenterView?: boolean;
+  onPresenterViewChange?: (view: PresenterView) => void;
+  onManualPanStart?: () => void;
   expandPrivateNotesRequest?: number;
   addPrivateNoteRequest?: number;
   privateNoteAddRef?: RefObject<(() => void) | null>;
@@ -234,6 +247,10 @@ export function RoomBoardCanvas({
   displayZoom,
   gridStyle,
   isPanning,
+  isPresenterViewOwner = false,
+  isPresenterViewFollowedByOthers = false,
+  presenterViewName = null,
+  presenterViewColor = null,
   onCanvasPointerDown,
   onCanvasPointerMove,
   onCanvasPointerEnd,
@@ -259,6 +276,7 @@ export function RoomBoardCanvas({
   onNoteVoteRemove,
   onNoteVoteStickerRemove,
   onNoteVoteStickerDragStart,
+  isFollowingPresenterView = false,
   isAdoptMode,
   adoptionFocusNoteId = null,
   onAdoptionFocusChange = () => undefined,
@@ -334,6 +352,17 @@ export function RoomBoardCanvas({
     }
     onZoomOut();
   };
+
+  const showPresenterViewFrame =
+    (isFollowingPresenterView &&
+      !isPresenterViewOwner &&
+      presenterViewName !== null) ||
+    (isPresenterViewOwner && isPresenterViewFollowedByOthers);
+
+  const presenterFrameColor =
+    presenterViewColor !== null
+      ? NOTE_COLOR_STYLES[presenterViewColor].backgroundColor
+      : null;
   const resetZoom = () => {
     if (usesIdeaMapViewport) {
       setIdeaMapViewportZoom(1);
@@ -811,6 +840,18 @@ export function RoomBoardCanvas({
         }
         data-testid="board-frame"
         data-map-workspace={usesIdeaMapViewport || undefined}
+        style={{
+          outline:
+            showPresenterViewFrame && presenterFrameColor
+              ? `7px solid ${presenterFrameColor}`
+              : undefined,
+          outlineOffset:
+            showPresenterViewFrame && presenterFrameColor ? "-7px" : undefined,
+          borderRadius:
+            showPresenterViewFrame && presenterFrameColor
+              ? "0.75rem"
+              : undefined,
+        }}
       >
         {isPersonalNoteEntryPhase ? (
           <div

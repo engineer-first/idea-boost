@@ -45,6 +45,10 @@ type ScheduledFrame =
 type UseCanvasCameraArgs = {
   viewportRef: RefObject<HTMLDivElement | null>;
   notes: Note[];
+  // ユーザーがキャンバスを手動で移動し始めたときに通知する。
+  onManualPanStart?: () => void;
+  // ユーザー自身によるズーム変更後の倍率を通知する。
+  onZoomChange?: (zoom: number) => void;
   // 固定2軸マップ表示中はボードの視野を動かさない。
   navigationDisabled?: boolean;
   selectedNoteIds?: readonly string[];
@@ -170,6 +174,8 @@ function fitIdeaMapCamera(
 }
 
 export function useCanvasCamera({
+  onManualPanStart,
+  onZoomChange,
   viewportRef,
   notes,
   navigationDisabled = false,
@@ -199,6 +205,14 @@ export function useCanvasCamera({
   const panRef = useRef<CanvasPan | null>(null);
   const pendingCameraRef = useRef<CanvasCamera | null>(null);
   const frameRef = useRef<ScheduledFrame | null>(null);
+  const followTargetRef = useRef<CanvasCamera | null>(null);
+  const followFrameRef = useRef<number | null>(null);
+
+  const onManualPanStartRef = useRef(onManualPanStart);
+  const onZoomChangeRef = useRef(onZoomChange);
+
+  onManualPanStartRef.current = onManualPanStart;
+  onZoomChangeRef.current = onZoomChange;
   const hasDefaultedRef = useRef(false);
   const hasFitRef = useRef(false);
   const hasFitIdeaMapRef = useRef(false);
@@ -244,6 +258,106 @@ export function useCanvasCamera({
       };
     }
   }, []);
+
+  const cancelFollowAnimation = useCallback(() => {
+    followTargetRef.current = null;
+
+    if (followFrameRef.current !== null) {
+      if (typeof window !== "undefined") {
+        window.cancelAnimationFrame(followFrameRef.current);
+      }
+      followFrameRef.current = null;
+    }
+  }, []);
+
+  const cancelScheduledCamera = useCallback(() => {
+    const frame = frameRef.current;
+    if (frame === null) return;
+
+    if (frame.type === "animation") {
+      if (typeof window !== "undefined") {
+        window.cancelAnimationFrame(frame.id);
+      }
+    } else {
+      globalThis.clearTimeout(frame.id);
+    }
+
+    frameRef.current = null;
+    pendingCameraRef.current = null;
+  }, []);
+
+  const followWorldCenter = useCallback(
+    (center: CanvasPoint, requestedZoom: number) => {
+      const element = viewportRef.current;
+      if (!element || navigationDisabled || panRef.current) return;
+
+      const size = viewportSize(element);
+      if (!size) return;
+
+      const insets = getFitInsetsRef.current?.(element);
+      const centerScreen = {
+        x: ((insets?.left ?? 0) + size.width - (insets?.right ?? 0)) / 2,
+        y: ((insets?.top ?? 0) + size.height - (insets?.bottom ?? 0)) / 2,
+      };
+
+      const zoom = clampCanvasZoom(requestedZoom, baseZoom);
+
+      followTargetRef.current = {
+        x: centerScreen.x - center.x * zoom,
+        y: centerScreen.y - center.y * zoom,
+        zoom,
+      };
+
+      if (
+        typeof window === "undefined" ||
+        typeof window.requestAnimationFrame !== "function"
+      ) {
+        cameraRef.current = followTargetRef.current;
+        setCamera(followTargetRef.current);
+        followTargetRef.current = null;
+        return;
+      }
+
+      // 追従アニメーションの開始時だけ、予約済みのカメラ更新を止める。
+      if (followFrameRef.current !== null) return;
+      cancelScheduledCamera();
+
+      const animate = () => {
+        followFrameRef.current = null;
+
+        const target = followTargetRef.current;
+        if (!target || panRef.current) return;
+
+        const current = cameraRef.current;
+        const dx = target.x - current.x;
+        const dy = target.y - current.y;
+        const dz = target.zoom - current.zoom;
+
+        if (Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)) < 0.3) {
+          cameraRef.current = target;
+          pendingCameraRef.current = null;
+          setCamera(target);
+          followTargetRef.current = null;
+          return;
+        }
+
+        const next: CanvasCamera = {
+          x: current.x + dx * 0.22,
+          y: current.y + dy * 0.22,
+          zoom: current.zoom + dz * 0.22,
+        };
+
+        cameraRef.current = next;
+        pendingCameraRef.current = null;
+        setCamera(next);
+
+        followFrameRef.current = window.requestAnimationFrame(animate);
+      };
+
+      followFrameRef.current = window.requestAnimationFrame(animate);
+    },
+    [baseZoom, cancelScheduledCamera, navigationDisabled, viewportRef],
+  );
 
   const getViewportPoint = useCallback(
     (clientX: number, clientY: number): CanvasPoint | null => {
@@ -297,6 +411,7 @@ export function useCanvasCamera({
       if (!next) return false;
       hasFitRef.current = true;
       setCameraImmediately(next);
+      onZoomChangeRef.current?.(next.zoom);
       return true;
     },
     [
@@ -330,6 +445,7 @@ export function useCanvasCamera({
     if (!next) return false;
     hasFitRef.current = true;
     setCameraImmediately(next);
+    onZoomChangeRef.current?.(next.zoom);
     return true;
   }, [baseZoom, fitViewport, setCameraImmediately, viewportRef]);
 
@@ -353,11 +469,23 @@ export function useCanvasCamera({
           ((insets?.top ?? 0) + (size?.height ?? 0) - (insets?.bottom ?? 0)) /
           2,
       };
-      scheduleCamera(
-        zoomAtScreenPoint(cameraRef.current, requestedZoom, anchor, baseZoom),
+      const next = zoomAtScreenPoint(
+        cameraRef.current,
+        requestedZoom,
+        anchor,
+        baseZoom,
       );
+      cancelFollowAnimation();
+      scheduleCamera(next);
+      onZoomChangeRef.current?.(next.zoom);
     },
-    [baseZoom, navigationDisabled, scheduleCamera, viewportRef],
+    [
+      baseZoom,
+      cancelFollowAnimation,
+      navigationDisabled,
+      scheduleCamera,
+      viewportRef,
+    ],
   );
 
   const endPan = useCallback(() => {
@@ -407,6 +535,8 @@ export function useCanvasCamera({
             (isBackground &&
               (event.pointerType === "touch" || event.pointerType === "pen"))));
       if (!shouldPan) return;
+      cancelFollowAnimation();
+      onManualPanStartRef.current?.();
       event.preventDefault();
       // captureフェーズで付箋への伝播を止め、パンと付箋ドラッグの同時開始を防ぐ。
       event.stopPropagation();
@@ -420,7 +550,7 @@ export function useCanvasCamera({
       suppressClickRef.current = true;
       setIsPanning(true);
     },
-    [navigationDisabled],
+    [cancelFollowAnimation, navigationDisabled],
   );
 
   const handlePointerMove = useCallback(
@@ -486,13 +616,23 @@ export function useCanvasCamera({
       }
       const deltaX =
         event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX;
+
+      cancelFollowAnimation();
+      onManualPanStartRef.current?.();
       scheduleCamera({
         ...cameraRef.current,
         x: cameraRef.current.x - deltaX,
         y: cameraRef.current.y - (event.shiftKey ? 0 : event.deltaY),
       });
     },
-    [getViewportPoint, navigationDisabled, scheduleCamera, zoomTo, viewportRef],
+    [
+      cancelFollowAnimation,
+      getViewportPoint,
+      navigationDisabled,
+      scheduleCamera,
+      zoomTo,
+      viewportRef,
+    ],
   );
 
   useEffect(() => {
@@ -631,7 +771,13 @@ export function useCanvasCamera({
       };
       const delta = offsets[event.key];
       if (!delta) return;
+
       event.preventDefault();
+
+      // キーボード操作による手動パンでも発表者の追従を解除する。
+      cancelFollowAnimation();
+      onManualPanStartRef.current?.();
+
       scheduleCamera({
         ...cameraRef.current,
         x: cameraRef.current.x + delta.x,
@@ -667,6 +813,7 @@ export function useCanvasCamera({
     };
   }, [
     baseZoom,
+    cancelFollowAnimation,
     endPan,
     fitToNotes,
     fitToSelection,
@@ -714,6 +861,13 @@ export function useCanvasCamera({
     viewportRef,
   ]);
 
+  useEffect(
+    () => () => {
+      cancelFollowAnimation();
+    },
+    [cancelFollowAnimation],
+  );
+
   const gridStyle = useMemo(() => {
     const step = getCanvasGridStep(camera.zoom);
     const screenStep = step * camera.zoom;
@@ -738,6 +892,8 @@ export function useCanvasCamera({
     isPanning,
     gridStyle,
     worldPointFromClient,
+    followWorldCenter,
+    cancelFollowAnimation,
     fitToNotes,
     fitToSelection,
     setSelectedNoteIds,

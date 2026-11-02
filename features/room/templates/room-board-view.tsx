@@ -27,7 +27,12 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import type { Carryover, SharingState } from "@/contracts/room-protocol";
+import type {
+  Carryover,
+  NoteColor,
+  PresenterView,
+  SharingState,
+} from "@/contracts/room-protocol";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
@@ -42,6 +47,7 @@ import {
   FeedbackPrompt,
 } from "@/features/feedback";
 import type { Note } from "@/features/notes";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { CanvasFitInsets } from "../logic/canvas-camera";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
@@ -55,6 +61,7 @@ import {
   useCanvasSelection,
 } from "../logic/use-canvas-selection";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
+import type { RemotePresenterView } from "../logic/use-presenter-view";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
@@ -184,6 +191,11 @@ export type RoomBoardViewProps = {
   decision: Decision | null;
   outcomePublished: boolean;
   adoptionFocusNoteId?: string | null;
+  isPresenterViewOwner?: boolean;
+  isPresenterViewFollowedByOthers?: boolean;
+  presenterViewName?: string | null;
+  presenterViewColor?: NoteColor | null;
+  onUnfollowPresenterView?: () => void;
   // WebSocket 接続の表示用状態。値の生成は room-board（コンテナ）の責務で、
   // ここでは受け取った状態を表示するだけ（このコンポーネントはデータ層に依存しない）。
   connectionStatus: RoomScreenConnectionStatus;
@@ -205,6 +217,12 @@ export type RoomBoardViewProps = {
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
   remoteCursors: RenderedRemoteCursorPresence[];
+  presenterView?: RemotePresenterView | null;
+  isFollowingPresenterView?: boolean;
+  canFollowPresenterView?: boolean;
+  onFollowPresenterView?: () => void;
+  onPresenterViewChange?: (view: PresenterView) => void;
+  onManualPanStart?: () => void;
   sessionKind?: "guest" | "account";
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
@@ -349,6 +367,17 @@ export function RoomBoardView({
   interactions,
   help,
   remoteCursors,
+  isFollowingPresenterView = false,
+  canFollowPresenterView = false,
+  isPresenterViewOwner = false,
+  isPresenterViewFollowedByOthers = false,
+  presenterViewName = null,
+  presenterViewColor = null,
+  onFollowPresenterView,
+  onUnfollowPresenterView,
+  presenterView,
+  onPresenterViewChange,
+  onManualPanStart,
   signOutAction,
   sessionKind,
   hmwDecidedIssue,
@@ -399,6 +428,71 @@ export function RoomBoardView({
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
+
+  const presenterViewStatusControl =
+    isPresenterViewOwner &&
+    isPresenterViewFollowedByOthers &&
+    presenterViewColor ? (
+      <div
+        role="status"
+        className="pointer-events-auto flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm shadow-sm"
+        style={{
+          borderColor: NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full"
+          style={{
+            backgroundColor:
+              NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
+          }}
+        />
+        <span>あなたの視点がフォローされています</span>
+      </div>
+    ) : isFollowingPresenterView &&
+      !isPresenterViewOwner &&
+      presenterViewName &&
+      presenterViewColor ? (
+      <div
+        className="pointer-events-auto flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm shadow-sm"
+        style={{
+          borderColor: NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full"
+          style={{
+            backgroundColor:
+              NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
+          }}
+        />
+        <span className="whitespace-nowrap">
+          {presenterViewName}さんをフォロー中
+        </span>
+        <button
+          type="button"
+          className="whitespace-nowrap rounded px-2 py-1 hover:bg-muted"
+          onClick={onUnfollowPresenterView}
+        >
+          フォローを外す
+        </button>
+      </div>
+    ) : !isPresenterViewOwner && canFollowPresenterView ? (
+      <button
+        type="button"
+        className="pointer-events-auto rounded-md border bg-background px-3 py-2 text-sm font-medium shadow-sm hover:bg-muted"
+        style={{
+          borderColor: presenterViewColor
+            ? NOTE_COLOR_STYLES[presenterViewColor].backgroundColor
+            : undefined,
+        }}
+        onClick={onFollowPresenterView}
+      >
+        発表者をフォロー
+      </button>
+    ) : null;
   const shouldExpandPrivateNotes =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
   const selection = useCanvasSelection({
@@ -2152,6 +2246,14 @@ export function RoomBoardView({
           onPrivateNoteDelete={onPrivateNoteDelete}
           onPrivateNoteDragStart={handlePrivateDragStart}
           remoteCursors={remoteCursors}
+          isFollowingPresenterView={isFollowingPresenterView}
+          isPresenterViewOwner={isPresenterViewOwner}
+          isPresenterViewFollowedByOthers={isPresenterViewFollowedByOthers}
+          presenterViewName={presenterViewName}
+          presenterViewColor={presenterViewColor}
+          presenterView={presenterView}
+          onPresenterViewChange={onPresenterViewChange}
+          onManualPanStart={onManualPanStart}
         />
         {isVotingStep(phase) ? (
           <div
@@ -2173,13 +2275,18 @@ export function RoomBoardView({
           </div>
         ) : null}
 
-        {!isIdeaMapWorkspaceStep ? (
+        {!isIdeaMapWorkspaceStep || presenterViewStatusControl !== null ? (
           <div
             className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
-            data-testid="phase-loop-hud"
+            data-testid={
+              !isIdeaMapWorkspaceStep ? "phase-loop-hud" : "presenter-view-hud"
+            }
             data-board-fit-edge="bottom"
           >
-            {phaseLoopControls}
+            <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
+              {presenterViewStatusControl}
+              {!isIdeaMapWorkspaceStep ? phaseLoopControls : null}
+            </div>
           </div>
         ) : null}
 

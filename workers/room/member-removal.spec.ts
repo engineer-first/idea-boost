@@ -14,6 +14,7 @@ import {
   sessionCookieFor,
   startTimerForTest,
 } from "../test-helpers";
+import type { SocketAttachment } from "./broadcast";
 
 const A = {
   sub: "11111111-1111-4111-8111-111111111111",
@@ -424,6 +425,56 @@ describe("ホストによるメンバー除外", () => {
       );
       expect(sent).not.toHaveBeenCalled();
       sent.mockRestore();
+    });
+  });
+
+  it("フォロー中のメンバーを除外すると発表者へフォロー解除を通知する", async () => {
+    const { roomId, a } = await setup();
+
+    // BがAをフォローしている状態をソケットのattachmentに設定する。
+    await runInRoomDO(roomId, (_room, state) => {
+      const followerSocket = state.getWebSockets().find((socket) => {
+        const attachment =
+          socket.deserializeAttachment() as SocketAttachment | null;
+
+        return attachment?.userId === B.sub;
+      });
+
+      if (!followerSocket) {
+        throw new Error("フォロー対象のソケットが見つかりません。");
+      }
+
+      const attachment =
+        followerSocket.deserializeAttachment() as SocketAttachment | null;
+
+      if (!attachment) {
+        throw new Error("ソケットのattachmentを取得できません。");
+      }
+
+      followerSocket.serializeAttachment({
+        ...attachment,
+        followingPresenterUserId: A.sub,
+      });
+    });
+
+    // ホストAが参加者Bを除外する。
+    const operationId = remove(a);
+
+    expect(await receive(a, "member_left")).toMatchObject({
+      userId: B.sub,
+    });
+
+    // Bの接続が消えたあと、Aへのフォロー状態がfalseに更新される。
+    expect(await receive(a, "presenter-follow:status")).toEqual({
+      type: "presenter-follow:status",
+      presenterUserId: A.sub,
+      isFollowed: false,
+    });
+
+    expect(await receive(a, "member:removed")).toEqual({
+      type: "member:removed",
+      targetUserId: B.sub,
+      operationId,
     });
   });
 
