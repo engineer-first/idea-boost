@@ -592,7 +592,8 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
-      const lobby = page.getByTestId("room-lobby-view");
+      // 入室確認用のプレビューが通常画面へ差し替わってから計測する。
+      const lobby = page.getByRole("main").getByTestId("room-lobby-view");
       await lobby.waitFor({ state: "visible" });
       for (const width of [320, 1280, 1512, 1812]) {
         await page.setViewportSize({ width, height: 844 });
