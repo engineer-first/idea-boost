@@ -1,16 +1,24 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { consumeRoomEntry, RoomAdmissionContext } from "@/features/auth";
+import {
+  consumeRoomEntry,
+  type GuestRoomEntryResult,
+  RoomAdmissionContext,
+} from "@/features/auth";
 import { takePendingRoomEntry } from "@/lib/room-client/entry-tab-storage";
 import {
   getRoomEntryTabId,
   matchesRoomEntryTab,
 } from "../logic/room-entry-tab";
+import { GuestEntryRefresh } from "./guest-entry-refresh";
 import { RoomReauthentication } from "./room-reauthentication";
 
 export type RoomAdmissionGateProps = {
   roomId: string;
+  sessionKind?: "guest" | "account";
+  onRefreshed?: () => void;
+  refreshAction?: (roomId: string) => Promise<GuestRoomEntryResult>;
   stage?: "lobby" | "board";
   entryToken?: string;
   entryTabId?: string;
@@ -22,6 +30,9 @@ export type RoomAdmissionGateProps = {
 
 export function RoomAdmissionGate({
   roomId,
+  sessionKind,
+  onRefreshed,
+  refreshAction,
   stage = "board",
   entryToken,
   entryTabId,
@@ -89,16 +100,27 @@ export function RoomAdmissionGate({
       </>
     );
   }
-  if (!result?.ok) {
+  const admission =
+    result ??
+    (!entryToken ? { ok: allowFreshEntry, admission: freshAdmission } : null);
+  if (!admission?.ok) {
     return (
       <>
         {fallback}
-        <RoomReauthentication operation={{ kind: "return", roomId }} />
+        {sessionKind === "guest" ? (
+          <GuestEntryRefresh
+            roomId={roomId}
+            onRefreshed={onRefreshed}
+            refreshAction={refreshAction}
+          />
+        ) : (
+          <RoomReauthentication operation={{ kind: "return", roomId }} />
+        )}
       </>
     );
   }
   return (
-    <RoomAdmissionContext.Provider value={result.admission}>
+    <RoomAdmissionContext.Provider value={admission.admission}>
       {children}
     </RoomAdmissionContext.Provider>
   );

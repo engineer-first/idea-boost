@@ -22,6 +22,7 @@ export type StepOneOnboardingSlideProps = {
   phaseKey: string;
   sessionKey: string;
   isReady: boolean;
+  onReady?: () => void;
 };
 
 type GuideClosingStyle = CSSProperties & {
@@ -249,6 +250,7 @@ export function StepOneOnboardingSlide({
   phaseKey,
   sessionKey,
   isReady,
+  onReady,
 }: StepOneOnboardingSlideProps) {
   const [open, setOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
@@ -265,6 +267,7 @@ export function StepOneOnboardingSlide({
   const closeTimerRef = useRef<number | null>(null);
   const pendingSlideIndexRef = useRef(0);
   const activeVisitRef = useRef<string | null>(null);
+  const wasOpenRef = useRef(false);
   const slides = getStepGuideSlides(phaseKey);
   const slide = slides[slideIndex] ?? slides[0];
   const previewSlide = slideTransition
@@ -303,6 +306,7 @@ export function StepOneOnboardingSlide({
     try {
       if (sessionStorage.getItem(storageKey) === "seen") {
         setOpen(false);
+        onReady?.();
         return;
       }
       sessionStorage.setItem(storageKey, "seen");
@@ -310,7 +314,18 @@ export function StepOneOnboardingSlide({
       // ストレージを使えない環境では、この表示中だけ一度表示する。
     }
     setOpen(true);
-  }, [isReady, phaseKey, sessionKey]);
+  }, [isReady, phaseKey, sessionKey, onReady]);
+
+  useEffect(() => {
+    if (open) {
+      wasOpenRef.current = true;
+      return;
+    }
+    if (wasOpenRef.current) {
+      wasOpenRef.current = false;
+      onReady?.();
+    }
+  }, [open, onReady]);
 
   useEffect(() => {
     if (slideTransition === null) return;
@@ -475,6 +490,7 @@ export function StepOneOnboardingSlide({
       {isReady && slides.length > 0 ? (
         <Button
           ref={guideButtonRef}
+          data-testid="step-one-onboarding-trigger"
           type="button"
           variant="outline"
           className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-full border-border/80 bg-background/95 px-4 text-sm shadow-lg backdrop-blur transition hover:bg-muted max-[639px]:fixed max-[639px]:top-[calc(var(--board-location-top,7.25rem)-3rem)]"

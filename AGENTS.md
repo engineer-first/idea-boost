@@ -24,11 +24,13 @@
 | 振る舞い・UI 表現・テストの変更                    | [テスト方針](docs/development/testing.md)                                        |
 | Next.js の実装                                     | `node_modules/next/dist/docs/` の関連ガイド                                      |
 | UI・クライアント状態・stories・モック              | [UI](docs/development/conventions.md#ui)                                         |
+| 画面の見た目（色・文字・余白・角丸・影・状態表現） | [DESIGN.md](DESIGN.md)                                                           |
 | API・Server Action・Route Handler・データアクセス  | [API](docs/development/conventions.md#api)                                       |
 | 共有状態・WS・可視性・認可（クライアント側を含む） | [共有状態と認可](docs/development/conventions.md#共有状態と認可)                 |
 | D1 / RoomDO のスキーマ・migration                  | [Migration](docs/development/conventions.md#migration)                           |
 | Issue の作成・編集・振り分け・調査・状態判断       | [Issue 運用](docs/team/issues.md)、[Issue記述ルール](docs/team/issue-writing.md) |
 | 実績・要望・TaskからPBIを一緒に考える・直す        | [pbi](.agents/skills/pbi/SKILL.md)                                               |
+| 作業Issueの作成                                    | [create-work-issue](.agents/skills/create-work-issue/SKILL.md)                   |
 | PR 作成・本文更新                                  | [write-pr](.agents/skills/write-pr/SKILL.md)                                     |
 | 重要な設計判断の追加・変更                         | [ADR運用](docs/adr/README.md)                                                    |
 | エージェント指示・ハーネスの保守                   | [保守記録](docs/development/agent-maintenance.md)                                |

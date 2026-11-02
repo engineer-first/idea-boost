@@ -1,10 +1,7 @@
 // ルーム共有タイマーの状態と終了時刻の真実。
 // 遷移計算は純粋関数 transitionTimer に分離し、ハンドラは
 // 「状態遷移 → 保存 → 全員配信」の定型だけを持つ。
-import {
-  TIMER_MAX_DURATION_MS,
-  type TimerState,
-} from "../../contracts/room-protocol";
+import type { TimerState } from "../../contracts/room-protocol";
 import { syncRoomAlarm } from "./alarms";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { getSharingState } from "./sharing-state";
@@ -23,7 +20,7 @@ export type TimerTransition =
   | { type: "noop" }
   | { type: "invalid" };
 
-// 1回の延長幅。上限（TIMER_MAX_DURATION_MS）までの残り幅しか延長しない。
+// 時間切れ後に追加できる時間。
 const EXTENSION_UNIT_MS = 60_000;
 
 export function transitionTimer(
@@ -33,9 +30,8 @@ export function transitionTimer(
 ): TimerTransition {
   switch (action.kind) {
     case "start": {
-      // start は未設定または終了後の再設定専用。実行中・一時停止中の
-      // リセットは許可せず、既存の共有状態を壊さない。
-      if (current.status !== "idle" && current.status !== "ended") {
+      // 新しいタイマーは未開始時だけ開始し、終了後は1回の延長に限定する。
+      if (current.status !== "idle") {
         return { type: "invalid" };
       }
       return {
@@ -48,28 +44,18 @@ export function transitionTimer(
       };
     }
     case "pause": {
-      if (current.status !== "running") return { type: "invalid" };
-      if (current.endsAt <= now) {
-        return {
-          type: "updated",
-          timer: { status: "ended", durationMs: current.durationMs },
-        };
-      }
-      return {
-        type: "updated",
-        timer: {
-          status: "paused",
-          remainingMs: Math.max(0, current.endsAt - now),
-          durationMs: current.durationMs,
-        },
-      };
+      return { type: "invalid" };
     }
     case "resume": {
       if (current.status !== "paused") return { type: "invalid" };
       if (current.remainingMs <= 0) {
         return {
           type: "updated",
-          timer: { status: "ended", durationMs: current.durationMs },
+          timer: {
+            status: "ended",
+            durationMs: current.durationMs,
+            ...(current.extensionUsed ? { extensionUsed: true } : {}),
+          },
         };
       }
       return {
@@ -78,29 +64,22 @@ export function transitionTimer(
           status: "running",
           endsAt: now + current.remainingMs,
           durationMs: current.durationMs,
+          ...(current.extensionUsed ? { extensionUsed: true } : {}),
         },
       };
     }
     case "extend": {
-      if (current.status !== "running" || current.endsAt <= now) {
+      if (current.status !== "ended" || current.extensionUsed)
         return { type: "invalid" };
-      }
-      const extensionMs = Math.min(
-        EXTENSION_UNIT_MS,
-        TIMER_MAX_DURATION_MS - current.durationMs,
-      );
-      if (extensionMs <= 0) return { type: "invalid" };
-      if (current.status === "running") {
-        return {
-          type: "updated",
-          timer: {
-            status: "running",
-            endsAt: current.endsAt + extensionMs,
-            durationMs: current.durationMs + extensionMs,
-          },
-        };
-      }
-      return { type: "invalid" };
+      return {
+        type: "updated",
+        timer: {
+          status: "running",
+          endsAt: now + EXTENSION_UNIT_MS,
+          durationMs: EXTENSION_UNIT_MS,
+          extensionUsed: true,
+        },
+      };
     }
     case "stop": {
       if (current.status === "idle" || current.status === "ended") {
@@ -109,7 +88,11 @@ export function transitionTimer(
       if (current.status !== "paused") return { type: "invalid" };
       return {
         type: "updated",
-        timer: { status: "ended", durationMs: current.durationMs },
+        timer: {
+          status: "ended",
+          durationMs: current.durationMs,
+          ...(current.extensionUsed ? { extensionUsed: true } : {}),
+        },
       };
     }
   }
@@ -118,7 +101,7 @@ export function transitionTimer(
 function readTimerState(sql: SqlStorage): TimerState {
   const row = sql
     .exec(
-      "SELECT status, ends_at, remaining_ms, duration_ms FROM timer_state WHERE id = 1",
+      "SELECT status, ends_at, remaining_ms, duration_ms, extension_used FROM timer_state WHERE id = 1",
     )
     .toArray()[0] as
     | {
@@ -126,6 +109,7 @@ function readTimerState(sql: SqlStorage): TimerState {
         ends_at: number | null;
         remaining_ms: number | null;
         duration_ms: number | null;
+        extension_used: number;
       }
     | undefined;
   if (!row || row.status === "idle") return { status: "idle" };
@@ -138,6 +122,7 @@ function readTimerState(sql: SqlStorage): TimerState {
       status: "running",
       endsAt: row.ends_at,
       durationMs: row.duration_ms,
+      ...(row.extension_used === 1 ? { extensionUsed: true } : {}),
     };
   }
   if (
@@ -149,10 +134,15 @@ function readTimerState(sql: SqlStorage): TimerState {
       status: "paused",
       remainingMs: row.remaining_ms,
       durationMs: row.duration_ms,
+      ...(row.extension_used === 1 ? { extensionUsed: true } : {}),
     };
   }
   if (row.status === "ended" && row.duration_ms !== null) {
-    return { status: "ended", durationMs: row.duration_ms };
+    return {
+      status: "ended",
+      durationMs: row.duration_ms,
+      ...(row.extension_used === 1 ? { extensionUsed: true } : {}),
+    };
   }
   return { status: "idle" };
 }
@@ -160,7 +150,11 @@ function readTimerState(sql: SqlStorage): TimerState {
 export function getTimerState(sql: SqlStorage, now = Date.now()): TimerState {
   const timer = readTimerState(sql);
   if (timer.status === "running" && timer.endsAt <= now) {
-    return { status: "ended", durationMs: timer.durationMs };
+    return {
+      status: "ended",
+      durationMs: timer.durationMs,
+      ...(timer.extensionUsed ? { extensionUsed: true } : {}),
+    };
   }
   return timer;
 }
@@ -168,29 +162,32 @@ export function getTimerState(sql: SqlStorage, now = Date.now()): TimerState {
 export function saveTimerState(sql: SqlStorage, timer: TimerState): void {
   if (timer.status === "idle") {
     sql.exec(
-      "UPDATE timer_state SET status = 'idle', ends_at = NULL, remaining_ms = NULL, duration_ms = NULL WHERE id = 1",
+      "UPDATE timer_state SET status = 'idle', ends_at = NULL, remaining_ms = NULL, duration_ms = NULL, extension_used = 0 WHERE id = 1",
     );
     return;
   }
   if (timer.status === "running") {
     sql.exec(
-      "UPDATE timer_state SET status = 'running', ends_at = ?1, remaining_ms = NULL, duration_ms = ?2 WHERE id = 1",
+      "UPDATE timer_state SET status = 'running', ends_at = ?1, remaining_ms = NULL, duration_ms = ?2, extension_used = ?3 WHERE id = 1",
       timer.endsAt,
       timer.durationMs,
+      timer.extensionUsed ? 1 : 0,
     );
     return;
   }
   if (timer.status === "ended") {
     sql.exec(
-      "UPDATE timer_state SET status = 'ended', ends_at = NULL, remaining_ms = NULL, duration_ms = ?1 WHERE id = 1",
+      "UPDATE timer_state SET status = 'ended', ends_at = NULL, remaining_ms = NULL, duration_ms = ?1, extension_used = ?2 WHERE id = 1",
       timer.durationMs,
+      timer.extensionUsed ? 1 : 0,
     );
     return;
   }
   sql.exec(
-    "UPDATE timer_state SET status = 'paused', ends_at = NULL, remaining_ms = ?1, duration_ms = ?2 WHERE id = 1",
+    "UPDATE timer_state SET status = 'paused', ends_at = NULL, remaining_ms = ?1, duration_ms = ?2, extension_used = ?3 WHERE id = 1",
     timer.remainingMs,
     timer.durationMs,
+    timer.extensionUsed ? 1 : 0,
   );
 }
 
@@ -208,7 +205,11 @@ export function expireTimer(current: TimerState, now: number): TimerTransition {
   }
   return {
     type: "updated",
-    timer: { status: "ended", durationMs: current.durationMs },
+    timer: {
+      status: "ended",
+      durationMs: current.durationMs,
+      ...(current.extensionUsed ? { extensionUsed: true } : {}),
+    },
   };
 }
 
@@ -229,6 +230,7 @@ async function applyTimerAction(
     sharing &&
     sharing.status !== "inactive" &&
     (sharing.startsAt !== null ||
+      (sharing.status !== "active" && action.kind === "extend") ||
       (sharing.status === "ready" && action.kind === "start"))
   ) {
     replyTimerInvalidState(ctx);

@@ -37,11 +37,13 @@ test("OSが暗色設定でも20色のボードをライト表示し通常付箋�
       () => matchMedia("(prefers-color-scheme: dark)").matches,
     ),
   ).toBe(true);
-  expect(
-    await page.evaluate(
-      () => getComputedStyle(document.documentElement).colorScheme,
-    ),
-  ).toBe("light");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => getComputedStyle(document.documentElement).colorScheme,
+      ),
+    )
+    .toBe("light");
   const main = page.getByRole("main");
   const darkStyles = await main.evaluate((element) => ({
     background: getComputedStyle(element).backgroundColor,
@@ -112,7 +114,7 @@ test.each([
   ["room-sharingpresenter--starting", "発表者と全体の順番を確認"],
   ["room-sharingpresenter--complete", "発表者と全体の順番を確認"],
   ["room-ideamapsizecontrols--host-can-adjust", "2軸マップの広さ操作"],
-  ["room-roomboardheader--voting-complete", "全員OK"],
+  ["room-roomboardheader--voting-complete", "準備OK！を取り消す"],
 ])(
   "%s はOS・themeのdark設定でもライト設定と同じ色で表示する",
   async (id, label) => {
@@ -121,9 +123,7 @@ test.each([
     const target =
       label === "2軸マップの広さ操作"
         ? page.getByRole("group", { name: label })
-        : label === "全員OK"
-          ? page.getByText(label, { exact: true })
-          : page.getByRole("button", { name: label });
+        : page.getByRole("button", { name: label });
     await target.waitFor();
     const readColors = () =>
       target.evaluate((element) =>

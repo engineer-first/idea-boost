@@ -68,7 +68,7 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
         <section aria-label="LPを確認する" className="space-y-3">
           <h2 className="text-lg font-semibold">LPを確認する</h2>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            未ログイン表示では、このブラウザでアプリのログインがない状態として表示します。ログイン画面の「Googleでログイン」か、この画面を開くと元のログイン状態に戻ります。
+            未ログイン表示では、このブラウザでアプリのログインがない状態として表示します。ログイン画面の「Googleではじめる」か、この画面を開くと元のログイン状態に戻ります。
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <a

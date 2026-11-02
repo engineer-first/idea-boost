@@ -55,7 +55,12 @@ function controllableState(
   return state;
 }
 
-async function commitTurn(ctx: HandlerCtx, state: SharingState): Promise<void> {
+async function commitTurn(
+  ctx: HandlerCtx,
+  state: SharingState,
+  outcome?: "done" | "passed",
+): Promise<boolean> {
+  const previousRevision = state.revision;
   state.revision = crypto.randomUUID();
   state.currentIndex =
     state.results.length < state.order.length ? state.results.length : null;
@@ -64,26 +69,48 @@ async function commitTurn(ctx: HandlerCtx, state: SharingState): Promise<void> {
   // SQLite-backed DOではSQLとアラームを同じtransactionに含められる。
   // 予約失敗時にも発表者だけが進まないよう、通知はコミット後に限定する。
   const committed = await runAuthorizedMutationTransaction(ctx, async () => {
+    const current = controllableState(ctx, previousRevision);
+    if (!current) return false;
+    if (
+      outcome === "done" &&
+      (current.currentIndex === null ||
+        current.order[current.currentIndex]?.userId !== ctx.userId)
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "発表者本人が完了を操作してください。",
+      });
+      return false;
+    }
+    if (outcome === "passed" && getTimerState(ctx.sql).status !== "ended") {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "タイマーが終了するまで発表者を交代できません。",
+      });
+      return false;
+    }
     saveSharingState(ctx.sql, state);
-    saveTimerState(ctx.sql, { status: "idle" });
+    const timer = getTimerState(ctx.sql);
+    saveTimerState(
+      ctx.sql,
+      state.status === "complete"
+        ? {
+            status: "ended",
+            durationMs:
+              timer.status === "idle" ? state.durationMs : timer.durationMs,
+            ...(timer.status !== "idle" && timer.extensionUsed
+              ? { extensionUsed: true }
+              : {}),
+          }
+        : { status: "idle" },
+    );
     await syncRoomAlarm(ctx.storage, ctx.sql);
     return true;
   });
   if (committed) broadcastSharing(ctx);
-}
-
-async function advanceAfterFinalPresenter(
-  ctx: HandlerCtx,
-  state: SharingState,
-): Promise<void> {
-  if (state.status !== "complete") return;
-  const phase = getPhase(ctx.sql);
-  if (phase.kind !== "step" || phase.step !== 2) return;
-  await phaseHandlers["phase:next"](ctx, {
-    type: "phase:next",
-    expectedPhase: phase,
-    expectedRevision: getPhaseRevision(ctx.sql),
-  });
+  return committed;
 }
 
 export const sharingHandlers: MessageHandlers<
@@ -91,16 +118,28 @@ export const sharingHandlers: MessageHandlers<
 > = {
   "sharing:start": async (ctx, message) => {
     const state = controllableState(ctx, message.revision);
-    if (state?.status !== "ready") return;
+    if (!state || (state.status !== "ready" && state.status !== "complete"))
+      return;
+    if (state.status === "complete") state.results = [];
     state.durationMs = message.durationMs;
     await commitTurn(ctx, state);
   },
   "sharing:advance": async (ctx, message) => {
     const state = controllableState(ctx, message.revision);
     if (state?.status !== "active") return;
+    const phase = getPhase(ctx.sql);
+    const revision = getPhaseRevision(ctx.sql);
     state.results.push(message.outcome);
-    await commitTurn(ctx, state);
-    await advanceAfterFinalPresenter(ctx, state);
+    if (
+      (await commitTurn(ctx, state, message.outcome)) &&
+      getSharingState(ctx.sql)?.status === "complete" &&
+      message.outcome === "done"
+    )
+      await phaseHandlers["phase:next"](ctx, {
+        type: "phase:next",
+        expectedPhase: phase,
+        expectedRevision: revision,
+      });
   },
 };
 

@@ -39,7 +39,9 @@ vi.mock("@/features/auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/auth")>()),
   startRoomReauthentication: vi.fn(),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: m.push }),
+}));
 vi.mock("../logic/participation-actions", () => ({
   queryParticipation: m.participationQuery,
   commitParticipation: vi.fn(),

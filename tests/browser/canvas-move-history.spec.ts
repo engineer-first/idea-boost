@@ -46,8 +46,6 @@ async function prepare(
   if (await startSharing.count()) await startSharing.click();
   else {
     await actor.getByTestId("room-timer").click();
-    await actor.getByRole("button", { name: "開始", exact: true }).click();
-    await actor.keyboard.press("Escape");
   }
   for (const page of [actor, peer])
     await expect
@@ -300,7 +298,11 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
       });
       await login(actor, "owner@example.test");
       await login(peer, "member@example.test");
+      const roomConnection = actor.waitForEvent("websocket", (ws) =>
+        ws.url().includes("/api/rooms/"),
+      );
       await prepare(actor, peer, "1-3");
+      const timerSocketUrl = (await roomConnection).url();
       const note = actor
         .getByTestId("board-canvas")
         .getByTestId("note-card")
@@ -317,13 +319,29 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
           path: `${evidence}/unnamed-1-3.png`,
           animations: "disabled",
         });
-      await actor.getByRole("button", { name: "完了", exact: true }).click();
-      await peer.getByRole("button", { name: "完了", exact: true }).click();
+      // 工程進行前に、共有タイマーの終了を実RoomDOへ反映する。
+      await actor.evaluate(
+        (url) =>
+          new Promise<void>((resolve, reject) => {
+            const socket = new WebSocket(url);
+            socket.onopen = () =>
+              socket.send(JSON.stringify({ type: "timer:stop" }));
+            socket.onerror = () =>
+              reject(new Error("タイマーの検証接続に失敗しました"));
+            socket.onmessage = (event) => {
+              const message = JSON.parse(event.data);
+              if (
+                message.type === "timer:updated" &&
+                message.timer.status === "ended"
+              ) {
+                socket.close();
+                resolve();
+              }
+            };
+          }),
+        timerSocketUrl,
+      );
       await actor
-        .getByRole("button", { name: "次のステップへ", exact: true })
-        .click();
-      await actor
-        .getByRole("alertdialog")
         .getByRole("button", { name: "次へ進む", exact: true })
         .click();
       for (const page of [actor, peer])

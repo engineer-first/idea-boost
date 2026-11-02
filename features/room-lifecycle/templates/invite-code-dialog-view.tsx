@@ -14,9 +14,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/dialog";
 
+import { inviteCopy } from "../logic/invite-copy";
+
 export type InviteCodeDialogViewProps = {
   inviteCode: string;
   hostName: string;
+  message?: string;
   open: boolean;
   // 参加処理中（多重押下防止）。true の間ボタンは disabled・文言は「参加中…」。
   pending: boolean;
@@ -27,6 +30,7 @@ export type InviteCodeDialogViewProps = {
 export function InviteCodeDialogView({
   inviteCode,
   hostName,
+  message,
   open,
   pending,
   onOpenChange,
@@ -40,11 +44,16 @@ export function InviteCodeDialogView({
             {hostName} さんが作成したルームに参加しますか？
           </AlertDialogTitle>
           <AlertDialogDescription>
-            招待コード{" "}
+            {inviteCopy.codeLabel}{" "}
             <span className="font-mono font-semibold">{inviteCode}</span>{" "}
             のルームに参加します。
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {message && (
+          <p role="alert" className="text-sm leading-relaxed">
+            {message}
+          </p>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>キャンセル</AlertDialogCancel>
           <AlertDialogAction

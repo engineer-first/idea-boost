@@ -1,0 +1,32 @@
+.pending:disabled {
+  border-color: color-mix(in oklab, var(--foreground) 16%, var(--background));
+  background: var(--muted);
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+.ready {
+  box-shadow:
+    0 0 0 3px rgb(59 130 246 / 18%),
+    0 0 16px rgb(59 130 246 / 24%);
+  animation: next-ready-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes next-ready-glow {
+  from {
+    box-shadow:
+      0 0 0 2px rgb(59 130 246 / 14%),
+      0 0 8px rgb(59 130 246 / 16%);
+  }
+  to {
+    box-shadow:
+      0 0 0 4px rgb(59 130 246 / 25%),
+      0 0 18px rgb(59 130 246 / 32%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ready {
+    animation: none;
+  }
+}

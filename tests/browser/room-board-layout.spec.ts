@@ -29,7 +29,10 @@ beforeAll(async () => {
   browser = await chromium.launch();
 });
 beforeEach(async () => {
-  page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    reducedMotion: "reduce",
+  });
 });
 afterEach(async () => {
   await page?.close();
@@ -545,28 +548,26 @@ for (const theme of ["light", "dark"]) {
             () => matchMedia("(prefers-color-scheme: dark)").matches,
           ),
         ).toBe(theme === "dark");
-        const timer = page.getByTestId("room-timer");
+        const timer = page.getByTestId("timer-floating");
         await timer.waitFor();
         await expectOpaqueAndReadable(timer);
         const bounds = await timer.boundingBox();
         expect({ width: bounds?.width, height: bounds?.height }).toEqual({
-          width: 112,
-          height: 40,
+          width: state === "paused" ? 288 : state === "ended" ? 112 : 72,
+          height: 72,
         });
-        await timer.click();
-        const panel = page.getByTestId("room-timer-panel");
-        await panel.waitFor();
-        // Radix の登場アニメーションが完了してから実効 opacity を調べる。
-        await expect
-          .poll(() =>
-            panel.evaluate((e) =>
-              e
-                .getAnimations()
-                .every((animation) => animation.playState === "finished"),
-            ),
-          )
-          .toBe(true);
-        await expectOpaqueAndReadable(panel);
+        if (state === "paused" || state === "ended") {
+          const action = page.getByRole("button", {
+            name: state === "paused" ? "再開" : "＋1分",
+            exact: true,
+          });
+          expect(await action.isVisible()).toBe(true);
+        } else {
+          expect(await page.getByTestId("room-timer").isVisible()).toBe(true);
+          expect(await page.getByRole("timer").innerText()).toMatch(
+            /\d{2}:\d{2}/,
+          );
+        }
         await page.screenshot({
           path: `${output}/timer-${theme}-${transparency}-${state}.png`,
         });
@@ -625,32 +626,28 @@ test.each([2, 3] as const)(
 );
 
 test("接続中断時と参加者表示でもタイマー枠を薄くせず、全状態で寸法を保つ", async () => {
-  let participantPosition: { x: number; y: number } | undefined;
-
+  let participantRight: number | undefined;
   for (const state of ["idle", "running", "paused", "ended"]) {
     await openStory(`room-roomtimer--${state}-host&args=disabled:true`);
-    const timer = page.getByTestId("room-timer");
+    const timer = page.getByTestId("timer-floating");
     await timer.waitFor();
-    expect(await timer.isDisabled()).toBe(true);
+    expect(await timer.getByRole("button").first().isDisabled()).toBe(true);
     await expectOpaqueAndReadable(timer);
     await openStory(`room-roomtimer--${state}-member`);
-    const memberTimer = page.getByTestId("room-timer");
+    const memberTimer = page.getByTestId("timer-floating");
     await memberTimer.waitFor();
     await expectOpaqueAndReadable(memberTimer);
     const bounds = await memberTimer.boundingBox();
-    expect(bounds).not.toBeNull();
-    expect({ width: bounds?.width, height: bounds?.height }).toEqual({
-      width: 112,
-      height: 40,
+    if (!bounds) throw new Error("タイマーが表示されません");
+    expect({ width: bounds.width, height: bounds.height }).toEqual({
+      width: state === "paused" ? 288 : state === "ended" ? 112 : 72,
+      height: 72,
     });
+    if (state === "idle") participantRight = bounds.x + bounds.width;
+    else expect(bounds.x + bounds.width).toBe(participantRight);
     if (state === "idle") {
-      participantPosition = { x: bounds?.x ?? NaN, y: bounds?.y ?? NaN };
-    } else {
-      expect({ x: bounds?.x, y: bounds?.y }).toEqual(participantPosition);
-    }
-    if (state === "idle") {
-      expect(await memberTimer.textContent()).toBe("03:00");
-      expect(await page.getByTestId("timer-sound-toggle").count()).toBe(1);
+      expect(await page.getByRole("timer").innerText()).toBe("05:00");
+      expect(await page.getByTestId("timer-sound-toggle").count()).toBe(0);
     }
   }
 });
@@ -942,8 +939,8 @@ test.each([1280, 1024, 768])(
     );
     const timer = await page.getByTestId("room-timer").boundingBox();
     expect({ width: timer?.width, height: timer?.height }).toEqual({
-      width: 112,
-      height: 40,
+      width: 72,
+      height: 72,
     });
     const next = page.getByRole("button", {
       name: "次のステップへ",
@@ -1254,23 +1251,27 @@ test("参加者1人でも現在地の詳細がマイ付箋に重ならない", a
 });
 
 test.each([1280, 1024, 768])(
-  "幅 %i の操作バーで招待とタイマーを開閉でき、寸法と主要操作を保つ",
+  "幅 %i で招待と独立タイマーを開閉しても操作バーの寸法と主要操作を保つ",
   async (width) => {
     await page.setViewportSize({ width, height: 720 });
     await openStory("room-roomboardlayout--timer-paused");
     const controls = page.getByRole("group", { name: "ルームの操作" });
     await controls.waitFor();
     const initialBox = await controls.boundingBox();
-    const timer = controls.getByTestId("room-timer");
+    const floating = page.getByTestId("timer-floating");
     expect(
-      await timer.evaluate((e) =>
-        e.parentElement?.closest(".board-hud")?.getAttribute("data-testid"),
+      await controls.evaluate((e) =>
+        e.contains(document.querySelector('[data-testid="timer-floating"]')),
       ),
-    ).toBe("board-control-hud");
+    ).toBe(false);
+    await floating
+      .getByRole("button", { name: "再開", exact: true })
+      .press("Escape");
+    const timer = page.getByTestId("room-timer");
     const timerBox = await timer.boundingBox();
     expect({ width: timerBox?.width, height: timerBox?.height }).toEqual({
-      width: 112,
-      height: 40,
+      width: 72,
+      height: 72,
     });
     const contextBox = await page
       .getByTestId("board-context-hud")
@@ -1296,7 +1297,7 @@ test.each([1280, 1024, 768])(
       .toBe(true);
     await page.keyboard.press("Escape");
     await timer.click();
-    await page.getByTestId("room-timer-panel").waitFor();
+    await page.getByTestId("room-timer-actions").waitFor();
     expect(
       await page.getByRole("button", { name: "再開", exact: true }).isVisible(),
     ).toBe(true);
@@ -1387,7 +1388,7 @@ test.each([1280, 1024, 768])(
   },
 );
 
-test("U03: 3-3のマップ増減と書き足しへ通常pointerで到達できる", async () => {
+test("U03: 3-3のマップ増減へ通常pointerで到達でき、書き足し操作を出さない", async () => {
   await openStory("room-roomboardlayout--map-controls");
   const map = page.getByRole("group", { name: "2軸マップの広さ操作" });
   await map.waitFor();
@@ -1398,13 +1399,14 @@ test("U03: 3-3のマップ増減と書き足しへ通常pointerで到達でき�
   expect(await map.getByRole("status").innerText()).toContain("3段階目");
   await map.getByRole("button", { name: "マップを狭くする" }).click();
   expect(await map.getByRole("status").innerText()).toContain("2段階目");
-  await page
-    .getByRole("button", { name: "もう一度付箋を書く", exact: true })
-    .click();
-  expect(await page.getByRole("alertdialog").isVisible()).toBe(true);
+  expect(
+    await page
+      .getByRole("button", { name: /もう一度付箋を書く|付箋を書き足す/ })
+      .count(),
+  ).toBe(0);
 });
 
-test("U03: 390pxでガイドを表示せず、現在の操作へ到達できる", async () => {
+test("U03: 390pxで旧ガイドを表示せず、現在の操作へ到達できる", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openStory("room-roomboardlayout--phase-3-step-1");
   await page.screenshot({ path: `${output}/u03-narrow.png` });
@@ -1447,7 +1449,7 @@ test.each([
 );
 
 // 固定情報との意図した部分重なりは許容し、各操作対象に到達できる可視部分が残ることを調べる。
-async function expectHudTargets(): Promise<void> {
+async function expectHudTargets(context: string): Promise<void> {
   const targets = page.locator(
     [
       '[data-testid="board-header-row"] button',
@@ -1529,7 +1531,7 @@ async function expectHudTargets(): Promise<void> {
     }),
   );
   for (const target of visible)
-    expect(target.hit, String(target.name)).toBe(true);
+    expect(target.hit, `${context}: ${target.name}`).toBe(true);
   for (let index = 0; index < visible.length; index++)
     for (const b of visible.slice(index + 1)) {
       const a = visible[index];
@@ -1571,7 +1573,7 @@ test.each([1280, 390])(
             .count(),
         ).toBe(0);
         expect(await page.getByTestId("step-guide").count()).toBe(0);
-        await expectHudTargets();
+        await expectHudTargets(`${step}/${isHost ? "host" : "member"}`);
       }
   },
   60_000,

@@ -8,6 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ACCOUNT_LINK_RESULT_PARAM } from "@/contracts/account-link";
+import { getLoginPath, parseAccountLinkResult } from "@/features/auth";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { isAuthConfigured } from "@/lib/session/env";
 import { HomeView } from "./home-view";
@@ -15,7 +17,7 @@ import { HomeView } from "./home-view";
 export const dynamic = "force-dynamic";
 
 type HomePageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; account_link?: string | string[] }>;
 };
 
 export default async function HomePage({ searchParams }: HomePageProps) {
@@ -46,14 +48,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   const params = await searchParams;
   const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  if (!user) redirect(getLoginPath("/home"));
 
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <HomeView error={params.error} currentUserId={user.sub} />
+      <HomeView
+        error={params.error}
+        currentUserId={user.sub}
+        accountLinkStatus={user.kind === "guest" ? "guest" : "linked"}
+        accountLinkResult={parseAccountLinkResult(
+          params[ACCOUNT_LINK_RESULT_PARAM],
+        )}
+      />
     </main>
   );
 }

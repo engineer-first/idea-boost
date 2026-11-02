@@ -406,6 +406,14 @@ it("期限前に即時確定済みの進行は元接続の失効とalarmで二�
       );
       expect(instance.getPhase()).toEqual(buildPhaseStep(2));
       vi.setSystemTime(now + 2000);
+      await instance.webSocketMessage(
+        socket,
+        JSON.stringify({
+          type: "phase:next",
+          expectedPhase: initial,
+          expectedRevision: revision,
+        }),
+      );
       await instance.alarm();
       expect(instance.getPhase()).toEqual(buildPhaseStep(2));
       expect(

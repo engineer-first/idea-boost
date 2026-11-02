@@ -6,10 +6,11 @@ import {
 import { isUuid } from "@/contracts/ids";
 import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
-import { signOut } from "@/features/auth";
+import { getLoginPath, signOut } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomBoard, RoomEntryPreview } from "@/features/room";
 import {
+  GuestIdentityUnavailable,
   ParticipationSwitch,
   RoomAdmissionGate,
   readParticipationRecovery,
@@ -49,7 +50,11 @@ export default async function RoomPage({
 
   const user = await getCurrentUser();
   if (!user) {
-    redirect(`/login?next=${encodeURIComponent(`/rooms/${id}${suffix}`)}`);
+    return (
+      <GuestIdentityUnavailable
+        loginHref={getLoginPath(`/rooms/${id}${suffix}`, "/home")}
+      />
+    );
   }
 
   // 完了時の閲覧権は退出後も残るため、現在の在籍より先に確認する。
@@ -147,6 +152,7 @@ export default async function RoomPage({
           hostUserId={parsed.data.hostUserId}
           initialMembers={initialMembers}
           initialPhase={parsed.data.phase}
+          sessionKind={user.kind}
           signOutAction={signOut}
         />
       </div>
@@ -159,6 +165,7 @@ export default async function RoomPage({
       <RoomAdmissionGate
         key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
         roomId={id}
+        sessionKind={user.kind}
         fallback={
           <RoomEntryPreview
             phase={parsed.data.phase}

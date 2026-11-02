@@ -63,6 +63,12 @@ export const RoomLookupResponseSchema = z.object({
   hostName: z.string(),
 });
 
+// 410で返す照会失敗。終了状態だけを知らせ、ルームや招待の情報は含めない。
+export const RoomLookupFailureSchema = z.object({
+  reason: z.literal("ended"),
+  error: z.string(),
+});
+
 // 復帰確認の結果だけを返す。認可済み情報や盤面は既存APIに留める。
 export const ReturnToRoomResultSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -73,5 +79,6 @@ export const ReturnToRoomResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("unavailable_room") }),
   z.object({ kind: z.literal("retry") }),
   z.object({ kind: z.literal("reauth_required") }),
+  z.object({ kind: z.literal("identity_unavailable") }),
 ]);
 export type ReturnToRoomResult = z.infer<typeof ReturnToRoomResultSchema>;

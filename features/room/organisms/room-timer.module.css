@@ -1,0 +1,197 @@
+.floating {
+  position: fixed;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  z-index: 45;
+  width: 72px;
+  height: 72px;
+  overflow: visible;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+  box-shadow:
+    0 4px 16px #0000000d,
+    0 1px 3px #00000012;
+  cursor: grab;
+}
+.floating[data-dragging="true"] {
+  cursor: grabbing;
+}
+.surface {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--background);
+}
+.floating[data-timer-attention="pulse"],
+.floating[data-timer-attention="quiet"] {
+  border-color: rgb(147 197 253 / 60%);
+  box-shadow:
+    0 4px 16px #0000000d,
+    0 1px 3px #00000012,
+    0 0 0 4px rgb(59 130 246 / 4%);
+}
+.floating::before,
+.floating::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  border: 2px solid rgb(37 99 235 / 72%);
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: 0 0 12px rgb(37 99 235 / 24%);
+  opacity: 0;
+  pointer-events: none;
+}
+.floating[data-timer-attention="pulse"]::before,
+.floating[data-timer-attention="pulse"]::after {
+  animation: timer-ripple 1600ms ease-out infinite;
+}
+.floating[data-timer-attention="pulse"]::after {
+  animation-delay: 800ms;
+}
+@keyframes timer-ripple {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12, 1.55);
+  }
+}
+.circle {
+  position: absolute;
+  inset: 0;
+  width: 72px;
+  height: 72px;
+  padding: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--background);
+  cursor: inherit;
+}
+.disk {
+  display: block;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+}
+.startIcon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  color: #171717;
+}
+.actions {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+}
+.actions button {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.actions button:first-child {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+}
+.actions button:last-child {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+}
+.actions button + button {
+  border-left: 1px solid var(--border);
+}
+.actions button:enabled:hover {
+  background: var(--muted);
+}
+.actions button:enabled:active {
+  background: var(--accent);
+}
+.actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.circle:disabled {
+  cursor: default;
+}
+.actions svg {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+.circle:focus-visible,
+.actions button:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: -4px;
+}
+@media (max-width: 639px) {
+  .actions button {
+    gap: 4px;
+    padding: 0 6px;
+    font-size: 13px;
+  }
+  .circle:disabled {
+    cursor: default;
+  }
+  .actions svg {
+    display: none;
+  }
+}
+@media (max-width: 359px) {
+  .actions button {
+    padding: 0 4px;
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .floating[data-timer-attention="pulse"]::before,
+  .floating[data-timer-attention="pulse"]::after {
+    animation: none;
+  }
+  .floating[data-timer-attention="pulse"]::before {
+    opacity: 0.72;
+    transform: scale(1.08, 1.25);
+  }
+  .floating[data-timer-attention="pulse"]::after {
+    opacity: 0.5;
+    transform: scale(1.14, 1.5);
+  }
+}
+@media (prefers-contrast: more) {
+  .floating[data-timer-attention] {
+    border: 2px solid var(--foreground);
+  }
+  .floating::before,
+  .floating::after {
+    border-color: var(--foreground);
+  }
+}

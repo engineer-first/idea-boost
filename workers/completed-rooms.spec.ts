@@ -4,10 +4,12 @@ import worker from "./api-worker";
 import {
   connectRoomAs,
   createRoomAs,
+  endTimerForTest,
   initializeTestRoom,
   joinRoomAs,
   runInRoomDO,
   sessionCookieFor,
+  type TestUser,
 } from "./test-helpers";
 
 const host = {
@@ -27,7 +29,7 @@ const outsider = {
 };
 async function request(
   path: string,
-  user = host,
+  user: TestUser = host,
   method = "GET",
   body?: unknown,
 ) {
@@ -43,23 +45,28 @@ async function request(
     env,
   );
 }
-async function complete(prepare?: Parameters<typeof runInRoomDO>[1]) {
-  const room = await createRoomAs(host);
-  await joinRoomAs(guest, room.inviteCode);
+async function complete(
+  prepare?: Parameters<typeof runInRoomDO>[1],
+  participant: TestUser = guest,
+  creator: TestUser = host,
+) {
+  const room = await createRoomAs(creator);
+  await joinRoomAs(participant, room.inviteCode);
   await runInRoomDO(room.roomId, async (instance, state) => {
-    await instance.setPhase({ kind: "step", phase: 3, step: 5 }, host.sub);
+    await instance.setPhase({ kind: "step", phase: 3, step: 5 }, creator.sub);
     for (const phase of [1, 2, 3])
       state.storage.sql.exec(
         "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,?)",
         phase,
         crypto.randomUUID(),
         `決定${phase}`,
-        host.sub,
+        creator.sub,
         new Date().toISOString(),
       );
   });
   if (prepare) await runInRoomDO(room.roomId, prepare);
-  const socket = await connectRoomAs(host, room.roomId);
+  await endTimerForTest(room.roomId);
+  const socket = await connectRoomAs(creator, room.roomId);
   await socket.next();
   socket.ws.send(JSON.stringify({ type: "outcome:publish" }));
   expect(await socket.next()).toMatchObject({ type: "outcome:published" });
@@ -193,6 +200,7 @@ it("保全だけ済んだ旧データを公開成立と見なさず、旧公開�
     ).preserveSharedOutcome(true);
     state.storage.sql.exec("UPDATE room_state SET outcome_published=0");
   });
+  await endTimerForTest(room.roomId);
   const socket = await connectRoomAs(host, room.roomId);
   await socket.next();
   socket.ws.send(JSON.stringify({ type: "outcome:publish" }));
@@ -404,6 +412,7 @@ it("必須記録の保存失敗は全体をrollbackし、再試行で完了が�
       "CREATE TRIGGER fail_completion BEFORE INSERT ON completed_room BEGIN SELECT RAISE(ABORT,'injected failure'); END",
     );
   });
+  await endTimerForTest(room.roomId);
   const socket = await connectRoomAs(host, room.roomId);
   await socket.next();
   socket.ws.send(JSON.stringify({ type: "outcome:publish" }));
@@ -684,15 +693,78 @@ it("完了と参加・退出・解散の競合をRoomDOの成立順で確定す�
   }
 });
 
-it("完了後の古い招待コード照会はホスト名・招待情報を返さない", async () => {
+it("セッション無しの実在招待コード照会は401を返し、ホスト名・招待コードを返さない", async () => {
+  const room = await createRoomAs(host);
+  const response = await worker.fetch(
+    new Request(`https://api.test/api/rooms/lookup?code=${room.inviteCode}`),
+    env,
+  );
+  expect(response.status).toBe(401);
+  const body = await response.text();
+  expect(body).not.toContain(host.name);
+  expect(body).not.toContain(room.inviteCode);
+});
+
+it("完了後の古い招待コード照会は410とendedを返し、ホスト名・招待情報を返さない", async () => {
   const room = await complete();
+  try {
+    const response = await request(
+      `rooms/lookup?code=${room.inviteCode}`,
+      outsider,
+    );
+    expect.soft(response.status).toBe(410);
+    const body = await response.json();
+    expect.soft(body).toEqual({
+      error: "このルームは終了しています。",
+      reason: "ended",
+    });
+    expect(JSON.stringify(body)).not.toContain(host.name);
+    expect(JSON.stringify(body)).not.toContain(room.inviteCode);
+    expect(JSON.stringify(body)).not.toContain(room.roomId);
+  } finally {
+    room.socket.close();
+  }
+});
+
+it("D1にコードが残る解散済みルームの照会は410とendedを返し、ホスト名・招待情報を返さない", async () => {
+  const room = await createRoomAs(host);
+  // D1削除前でもRoomDOの終了状態を優先する。
+  await runInRoomDO(room.roomId, async (instance) => {
+    expect(await instance.disband(host.sub, host.sub)).toBe(true);
+    expect(instance.isJoinable()).toBe(false);
+  });
+  expect(
+    await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
+      .bind(room.roomId)
+      .first(),
+  ).not.toBeNull();
   const response = await request(
     `rooms/lookup?code=${room.inviteCode}`,
     outsider,
   );
+  expect.soft(response.status).toBe(410);
+  const body = await response.json();
+  expect.soft(body).toEqual({
+    error: "このルームは終了しています。",
+    reason: "ended",
+  });
+  expect(JSON.stringify(body)).not.toContain(host.name);
+  expect(JSON.stringify(body)).not.toContain(room.inviteCode);
+  expect(JSON.stringify(body)).not.toContain(room.roomId);
+});
+
+it("存在しない招待コードの照会は404を返す", async () => {
+  const code = "ZZZ999";
+  expect(
+    await env.DB.prepare("SELECT id FROM rooms WHERE invite_code=?")
+      .bind(code)
+      .first(),
+  ).toBeNull();
+  const response = await request(`rooms/lookup?code=${code}`, outsider);
   expect(response.status).toBe(404);
-  expect(await response.text()).not.toContain(host.name);
-  room.socket.close();
+  expect(await response.json()).toEqual({
+    error: "ルームが見つかりませんでした。",
+  });
 });
 
 it("A15: 初回完了由来の期限1ms前・等値・1ms後で、本文と索引が残っていても全取得経路が期限を守る", async () => {
@@ -964,4 +1036,116 @@ it("完了期限を過ぎた退出の清掃でもルーム内の表示名を消�
     ).toEqual([]);
   });
   room.socket.close();
+});
+
+describe("ゲスト本人の完了成果", () => {
+  const principal: TestUser = {
+    kind: "guest",
+    sub: crypto.randomUUID(),
+    email: null,
+    name: "ゲスト",
+  };
+  const other: TestUser = {
+    kind: "guest",
+    sub: crypto.randomUUID(),
+    email: null,
+    name: "別のゲスト",
+  };
+  it("ゲストがホストとして作成・完了したルームを本人の一覧・詳細で取得できる", async () => {
+    const room = await complete(undefined, guest, principal);
+    try {
+      await runInRoomDO(room.roomId, (instance) => instance.alarm());
+      const list = await request("completed-rooms", principal);
+      expect(list.status).toBe(200);
+      expect(await list.json()).toMatchObject({
+        rooms: expect.arrayContaining([
+          expect.objectContaining({ roomId: room.roomId, idea: "決定3" }),
+        ]),
+      });
+      const detail = await request(`completed-rooms/${room.roomId}`, principal);
+      expect(detail.status).toBe(200);
+      expect(await detail.json()).toMatchObject({
+        roomId: room.roomId,
+        idea: "決定3",
+        decisions: expect.any(Array),
+      });
+    } finally {
+      room.socket.close();
+    }
+  });
+  it("本人は一覧・詳細・場面をprivate, no-storeで取得し、別のゲストには返さない", async () => {
+    const room = await complete(undefined, principal);
+    await runInRoomDO(room.roomId, (instance) => instance.alarm());
+    try {
+      for (const path of [
+        "completed-rooms",
+        `completed-rooms/${room.roomId}`,
+        `completed-rooms/${room.roomId}/scenes/problem-grouping`,
+      ]) {
+        const response = await request(path, principal);
+        expect(response.status).toBe(200);
+        expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+        if (path === "completed-rooms")
+          expect(await response.json()).toMatchObject({
+            rooms: expect.arrayContaining([
+              expect.objectContaining({ roomId: room.roomId }),
+            ]),
+          });
+      }
+      for (const suffix of ["", "/scenes/problem-grouping"])
+        expect(
+          (await request(`completed-rooms/${room.roomId}${suffix}`, other))
+            .status,
+        ).toBe(404);
+      expect(
+        await (await request("completed-rooms", other)).json(),
+      ).toMatchObject({ rooms: [] });
+    } finally {
+      room.socket.close();
+    }
+  });
+  it.each(["discard", "期限外"])(
+    "%sのゲストには一覧・詳細・場面を返さない",
+    async (condition) => {
+      const room = await complete(undefined, principal);
+      await runInRoomDO(room.roomId, (instance) => instance.alarm());
+      try {
+        if (condition === "discard") {
+          expect(
+            (
+              await request(`rooms/${room.roomId}/leave`, principal, "POST", {
+                intent: "self",
+                outcomeAccess: "discard",
+              })
+            ).status,
+          ).toBe(204);
+        } else {
+          await runInRoomDO(room.roomId, (_instance, state) => {
+            state.storage.sql.exec(
+              "UPDATE completed_room SET expires_at=?",
+              Date.now() - 1,
+            );
+          });
+        }
+        for (const suffix of ["", "/scenes/problem-grouping"])
+          expect(
+            (
+              await request(
+                `completed-rooms/${room.roomId}${suffix}`,
+                principal,
+              )
+            ).status,
+          ).toBe(404);
+        const list = await request("completed-rooms", principal);
+        expect(list.status).toBe(200);
+        expect(await list.json()).toMatchObject({
+          rooms: expect.not.arrayContaining([
+            expect.objectContaining({ roomId: room.roomId }),
+          ]),
+        });
+      } finally {
+        room.socket.close();
+      }
+    },
+  );
 });

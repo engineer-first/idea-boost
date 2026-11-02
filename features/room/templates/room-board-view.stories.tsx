@@ -3,7 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import type { Decision, PhaseProgress } from "@/contracts/room-protocol";
+import type {
+  Decision,
+  PhaseProgress,
+  TimerState,
+} from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -19,7 +23,11 @@ import {
   type RoomBoardInteractions,
   useRoomBoardInteractions,
 } from "../logic/use-room-board-interactions";
-import { getBoardFitInsets, RoomBoardView } from "./room-board-view";
+import {
+  getBoardFitInsets,
+  RoomBoardView,
+  type RoomBoardViewProps,
+} from "./room-board-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const STEP_1_1 = buildPhaseStep(1);
@@ -174,6 +182,7 @@ const meta = {
     onLeave: fn(),
     isLeaving: false,
     onNextPhase: fn(),
+    onToggleReady: fn(),
     onTimerStart: fn(),
     onTimerPause: fn(),
     onTimerResume: fn(),
@@ -767,20 +776,11 @@ export const Step1_5_Result: Story = {
   },
 };
 
-// 「次のステップへ」押下後、確認ダイアログが表示されている状態。
-export const NextPhaseConfirmDialog: Story = {
+export const TimeUpProgress: Story = {
   args: {
     isHost: true,
     phase: STEP_1_1,
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await userEvent.click(
-      await canvas.findByRole("button", {
-        name: "次のステップへ",
-      }),
-    );
+    timer: { status: "ended", durationMs: 300_000 },
   },
 };
 
@@ -1601,4 +1601,130 @@ export const IdeaDecidedMoveInteraction: Story = {
       excluded: index === 2,
     })),
   },
+};
+
+function FloatingTimerPreview({
+  args,
+  complete = false,
+}: {
+  args: RoomBoardViewProps;
+  complete?: boolean;
+}) {
+  const [phase, setPhase] = useState(args.phase);
+  const help = useBoardHelp(phase);
+  const [sharing, setSharing] = useState(() =>
+    buildSharingState({
+      status: complete ? "complete" : "active",
+      currentIndex: complete ? null : 0,
+      durationMs: 180_000,
+      results: complete ? ["done", "done", "done"] : [],
+    }),
+  );
+  const [timer, setTimer] = useState<TimerState>(() =>
+    complete
+      ? { status: "ended", durationMs: 180_000 }
+      : { status: "running", durationMs: 180_000, endsAt: Date.now() + 90_000 },
+  );
+  return (
+    <RoomBoardView
+      {...args}
+      phase={phase}
+      help={help}
+      timer={timer}
+      sharing={phase.kind === "step" && phase.step === 2 ? sharing : null}
+      onNextPhase={() => {
+        args.onNextPhase();
+        if (phase.kind === "step") setPhase(buildPhaseStep(3, phase.phase));
+        setTimer({ status: "idle" });
+      }}
+      interactions={{ ...args.interactions, notes: args.notes }}
+      onTimerStart={(durationMs) => {
+        args.onTimerStart(durationMs);
+        setTimer({
+          status: "running",
+          durationMs,
+          endsAt: Date.now() + durationMs,
+        });
+      }}
+      onTimerPause={() => {
+        args.onTimerPause();
+        if (timer.status !== "running") return;
+        setTimer({
+          status: "paused",
+          remainingMs: Math.max(0, timer.endsAt - Date.now()),
+          durationMs: timer.durationMs,
+        });
+      }}
+      onTimerResume={() => {
+        args.onTimerResume();
+        if (timer.status !== "paused") return;
+        setTimer({
+          status: "running",
+          endsAt: Date.now() + timer.remainingMs,
+          durationMs: timer.durationMs,
+        });
+      }}
+      onSharingAdvance={(outcome) => {
+        args.onSharingAdvance?.(outcome);
+        const nextIndex = (sharing.currentIndex ?? 0) + 1;
+        const complete = nextIndex >= sharing.order.length;
+        if (complete && outcome === "done" && phase.kind === "step")
+          setPhase(buildPhaseStep(3, phase.phase));
+        setSharing({
+          ...sharing,
+          status: complete ? "complete" : "active",
+          currentIndex: complete ? null : nextIndex,
+          results: [...sharing.results, outcome],
+        });
+        setTimer(
+          complete
+            ? { status: "idle" }
+            : {
+                status: "running",
+                endsAt: Date.now() + sharing.durationMs,
+                durationMs: sharing.durationMs,
+              },
+        );
+      }}
+      onSharingStart={(durationMs) => {
+        args.onSharingStart?.(durationMs);
+        setSharing((current) => ({
+          ...current,
+          status: "active",
+          currentIndex: 0,
+          results: [],
+        }));
+        setTimer({
+          status: "running",
+          durationMs,
+          endsAt: Date.now() + durationMs,
+        });
+      }}
+    />
+  );
+}
+
+export const FloatingTimerRunning: Story = {
+  args: { ...Step1_2_Sharing.args },
+  render: (args) => <FloatingTimerPreview args={args} />,
+};
+export const FloatingTimerSharingComplete: Story = {
+  args: {
+    ...Step1_2_Sharing.args,
+    onRestartWriting: fn(),
+    onSharingStart: fn(),
+  },
+  render: (args) => <FloatingTimerPreview args={args} complete />,
+};
+export const FloatingTimerSharingEmpty: Story = {
+  args: {
+    ...FloatingTimerSharingComplete.args,
+    phase: buildPhaseStep(2, 2),
+    notes: [],
+  },
+  render: (args) => <FloatingTimerPreview args={args} complete />,
+};
+
+export const GuestSession: Story = {
+  args: { sessionKind: "guest", signOutAction: fn() },
 };

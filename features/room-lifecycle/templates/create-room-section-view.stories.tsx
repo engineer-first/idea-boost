@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 import {
   CreateRoomSectionView,
   type CreateRoomSectionViewProps,
@@ -121,5 +122,11 @@ export const CreatingPreparedIntent: Story = {
     recoveryState: "prepared",
     intentName: "サービスの相談",
     onNewIntent: fn(),
+  },
+};
+
+export const IdentityUnavailable: Story = {
+  args: {
+    message: GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE,
   },
 };

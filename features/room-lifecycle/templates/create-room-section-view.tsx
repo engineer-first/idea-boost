@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/dialog";
 import { ROOM_CREATION_NAME_MAX } from "@/contracts/room-creation";
+import { createRoomCopy } from "../logic/create-room-copy";
 import { RoomEntryField } from "../molecules/room-entry-field";
 
 export type CreateRoomSectionViewProps = {
@@ -64,7 +65,7 @@ export function CreateRoomSectionView({
         <div className="space-y-1.5">
           <CardTitle className="text-base">ルームを作成</CardTitle>
           <CardDescription className="leading-relaxed">
-            ホストとして新しいルームを開き、メンバーを招待します。
+            {createRoomCopy.description}
           </CardDescription>
         </div>
       </CardHeader>

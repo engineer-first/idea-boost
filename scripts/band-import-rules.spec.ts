@@ -87,6 +87,43 @@ function expectEachDetected(
 const BAND_RULE = /^feature-band-/;
 const DYNAMIC_RULE = /^no-dynamic-import/;
 
+describe("副作用目的のimportの宣言漏れ防止", () => {
+  it("CSS以外のbare importをTS・TSXで検知する", () => {
+    const dir = createProject({
+      "lib/bootstrap.ts": 'import "./register";',
+      "lib/bootstrap.mts": 'import "./register";',
+      "app/widget.tsx": 'import "./register";',
+    });
+    for (const file of [
+      "lib/bootstrap.ts",
+      "lib/bootstrap.mts",
+      "app/widget.tsx",
+    ])
+      expectEachDetected(
+        scan(dir),
+        file,
+        ['"./register"'],
+        /^no-bare-side-effect-import/,
+      );
+  });
+
+  it("CSS・値のimport・明示したテスト初期化入口は許可する", () => {
+    const dir = createProject({
+      "app/widget.tsx":
+        'import "./widget.module.css";\nimport { register } from "./register";',
+      "lib/style.ts": "import './globals.css';",
+      "lib/equals.ts": 'import path = require("node:path");',
+      "vitest.setup.ts": 'import "./register";',
+      "workers/test-setup.ts": 'import "./register";',
+    });
+    expect(
+      scan(dir).filter((finding) =>
+        /^no-bare-side-effect-import/.test(finding.ruleId),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe("feature 帯規則（ホワイトリスト型）", () => {
   it("molecules からの上向き・ロンダリング・非正規化・barrel import を検知する", () => {
     const violations = [

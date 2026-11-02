@@ -10,6 +10,7 @@
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -57,10 +58,6 @@ import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
-import type {
-  SharingReaction,
-  SharingReactionControls,
-} from "../logic/use-sharing-reactions";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -70,7 +67,6 @@ import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
 import { RoomNameDialog } from "../molecules/room-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
-import { SharingReactionDisplay } from "../molecules/sharing-reaction-display";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
@@ -150,8 +146,8 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
 }
 
 export type RoomBoardViewProps = {
-  sharingReactions?: SharingReaction[];
-  reactionControls?: SharingReactionControls;
+  sharingReactionDisplay?: ReactNode;
+  reactionControls?: (disabled: boolean) => ReactNode;
   feedback?: FeedbackControls;
   moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
@@ -209,6 +205,7 @@ export type RoomBoardViewProps = {
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
   remoteCursors: RenderedRemoteCursorPresence[];
+  sessionKind?: "guest" | "account";
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
@@ -289,7 +286,7 @@ type VoteStampPointer = {
 };
 
 export function RoomBoardView({
-  sharingReactions = [],
+  sharingReactionDisplay,
   reactionControls,
   feedback,
   moveHistory,
@@ -353,6 +350,7 @@ export function RoomBoardView({
   help,
   remoteCursors,
   signOutAction,
+  sessionKind,
   hmwDecidedIssue,
   decidedHmw,
   issueReference,
@@ -499,7 +497,8 @@ export function RoomBoardView({
         : moveHistory.redo.reason,
     },
   };
-  const boardInteractionBlocked = timer.status !== "running";
+  const boardInteractionBlocked =
+    timer.status === "idle" || timer.status === "paused";
 
   const cancelVoteDrag = useCallback((): boolean => {
     const current = voteStickerDragRef.current;
@@ -859,7 +858,7 @@ export function RoomBoardView({
     (isResultStep(phase) &&
       (decision === null || candidateNotes.length === 0)) ||
     (phase.kind === "step" &&
-      phase.step > 1 &&
+      phase.step > 2 &&
       !isResultStep(phase) &&
       candidateNotes.length === 0);
   const hasFinalDecision = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
@@ -876,7 +875,7 @@ export function RoomBoardView({
       ? null
       : (notes.find((note) => note.id === decision.noteId)?.content ??
         "確定した内容");
-  const phaseLoopControls = (
+  const phaseLoopControls = isResultStep(phase) ? (
     <PhaseLoopControls
       key={`${phaseKey}:${phaseRevision}:${hostRevision}:${connectionStatus}`}
       phase={phase}
@@ -900,7 +899,7 @@ export function RoomBoardView({
       onCancelSelection={() => setIsAdoptMode(false)}
       onClearDecision={outcomePublished ? undefined : onDecisionClear}
     />
-  );
+  ) : null;
 
   function hasActiveCanvasGesture(): boolean {
     return Boolean(
@@ -1610,11 +1609,10 @@ export function RoomBoardView({
             "--board-private-dock-bottom":
               "calc(var(--board-mobile-phase-bottom) + var(--board-phase-hud-height, 0px) + 0.5rem)",
             "--board-private-dock-top":
-              "max(16.5rem, calc(var(--board-connection-notice-bottom, 0px) + 3.5rem))",
-            "--board-private-dock-height": hasMoveHistory
-              ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))"
-              : connectionStatus === "open"
-                ? "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))"
+              "max(16.5rem, var(--board-timer-row-bottom, 0px), calc(var(--board-connection-notice-bottom, 0px) + 3.5rem))",
+            "--board-private-dock-height":
+              hasMoveHistory || connectionStatus === "open"
+                ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))"
                 : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)), max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))",
           } as CSSProperties
         }
@@ -1904,6 +1902,7 @@ export function RoomBoardView({
           onRollbackPhase={onRollbackPhase}
           sharing={sharing}
           onSharingStart={onSharingStart}
+          onRestartWriting={onRestartWriting}
           onSharingAdvance={onSharingAdvance}
           timer={timer}
           timerServerOffsetMs={timerServerOffsetMs}
@@ -1938,6 +1937,7 @@ export function RoomBoardView({
           onPublishOutcome={onPublishOutcome}
           onShowOutcome={() => setOutcomeDismissed(false)}
           signOutAction={signOutAction}
+          sessionKind={sessionKind}
           isLeaving={isLeaving}
           onLeaveClick={() => setLeaveDialogOpen(true)}
           onNextPhase={onNextPhase}
@@ -1962,10 +1962,12 @@ export function RoomBoardView({
             />
           ) : null}
         </RoomBoardHeader>
-        {canSendSharingReaction(phase) && !outcomePublished ? (
-          <SharingReactionDisplay reactions={sharingReactions} />
-        ) : null}
-        {boardInteractionBlocked &&
+        {canSendSharingReaction(phase) && !outcomePublished
+          ? sharingReactionDisplay
+          : null}
+        {timer.status === "idle" &&
+        sharing?.status !== "complete" &&
+        !sharing?.startsAt &&
         phase.kind === "step" &&
         !isDisconnected &&
         decision === null ? (
@@ -1977,17 +1979,11 @@ export function RoomBoardView({
               className="w-full max-w-md rounded-xl border border-border/40 bg-background/75 px-6 py-5 text-center shadow-xl backdrop-blur-[2px]"
             >
               <p className="text-lg font-semibold">
-                {timer.status === "paused"
-                  ? "タイマーが一時停止中です"
-                  : timer.status === "ended"
-                    ? "タイマーが終了しました"
-                    : "タイマーが開始されていません"}
+                タイマーが開始されていません
               </p>
 
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {timer.status === "paused"
-                  ? "タイマーを再開すると、ボードで作業できます。"
-                  : "タイマーを設定して開始すると、ボードで作業できます。"}
+                円形のタイマーを押すと、この工程の規定時間で作業を始められます。
               </p>
             </div>
           </div>

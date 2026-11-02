@@ -268,3 +268,35 @@ it("通常ルームに参加中のサンプル作成は勝手に退出・終了�
   expect(await source.isMember(owner.sub)).toBe(true);
   expect(await source.isJoinable()).toBe(true);
 });
+
+it.each(["セッション", "ログイン主張"])(
+  "署名済みゲストの%sは403で拒否しユーザーを作らない",
+  async (kind) => {
+    const id = crypto.randomUUID();
+    const token = await signToken(
+      kind === "セッション"
+        ? { kind: "guest", sub: id, email: null }
+        : { kind: "guest", userId: id, displayName: "はな" },
+      {
+        secret: env.SESSION_SECRET,
+        audience:
+          kind === "セッション"
+            ? TOKEN_AUDIENCE.session
+            : TOKEN_AUDIENCE.loginAssertion,
+        expiresInSeconds: 60,
+      },
+    );
+    const req =
+      kind === "セッション"
+        ? request({ checkpoint: "1-1" }, `idea_boost_session=${token}`)
+        : new Request("https://preview.test/api/auth/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assertion: token }),
+          });
+    expect((await previewWorker.fetch(req, config())).status).toBe(403);
+    expect(
+      await env.DB.prepare("SELECT id FROM users WHERE id=?").bind(id).first(),
+    ).toBeNull();
+  },
+);

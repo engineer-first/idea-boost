@@ -52,7 +52,7 @@ async function openStory(id: string): Promise<void> {
 }
 async function openActive(mode = "success"): Promise<void> {
   await openStory(`room-activehosttransferflow--${mode}`);
-  await page.getByTestId("room-timer").getByText("02:18").waitFor();
+  await expect.poll(() => page.getByRole("timer").innerText()).toBe("02:18");
 }
 function membersTrigger(sharing = false): Locator {
   return page.getByRole("button", {
@@ -92,10 +92,10 @@ async function expectInsideViewport(locator: Locator): Promise<void> {
 async function boardContents() {
   return {
     phase: await page.getByTestId("board-context-hud").innerText(),
-    timer: await page.getByTestId("room-timer").innerText(),
-    timerStatus: await page
-      .getByTestId("room-timer")
-      .getAttribute("data-status"),
+    timer: await page.getByRole("timer").innerText(),
+    timerCanResume: await page
+      .getByRole("button", { name: "再開", exact: true })
+      .isVisible(),
     notes: await page
       .locator('[data-testid^="board-note-"]')
       .evaluateAll((nodes) =>
@@ -111,14 +111,10 @@ async function boardContents() {
 async function expectTransferred(): Promise<void> {
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
   await vi.waitFor(async () => {
+    expect(await page.getByTestId("timer-floating").count()).toBeGreaterThan(0);
     expect(
-      await page
-        .getByRole("button", { name: /^(次のステップへ|次の人へ)$/ })
-        .count(),
-    ).toBeGreaterThan(0);
-    expect(
-      await page.getByTestId("room-timer").evaluate((el) => el.tagName),
-    ).toBe("BUTTON");
+      await page.getByRole("button", { name: "再開", exact: true }).isVisible(),
+    ).toBe(true);
   });
 }
 
@@ -208,11 +204,7 @@ test("参加者をEnterで選んだ直後のEscape一回で閉じ、常設入口
       ),
     ).toBe(true),
   );
-  expect(
-    await page
-      .getByRole("button", { name: "次のステップへ", exact: true })
-      .count(),
-  ).toBe(1);
+  expect(await page.getByTestId("timer-floating").count()).toBe(1);
 });
 
 test("実containerのホスト変更操作を動画に残す", async () => {
@@ -433,11 +425,7 @@ for (const participant of [false, true]) {
       ),
     );
     await vi.waitFor(async () => {
-      expect(
-        await page
-          .getByRole("button", { name: "次のステップへ", exact: true })
-          .count(),
-      ).toBe(1);
+      expect(await page.getByTestId("timer-floating").count()).toBe(1);
     });
     await page.evaluate(() =>
       window.dispatchEvent(

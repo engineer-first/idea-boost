@@ -43,9 +43,8 @@ export async function arrangeSharingPresenter(
 
 export type TestUser = {
   sub: string;
-  email: string;
   name: string;
-};
+} & ({ kind?: "account"; email: string } | { kind: "guest"; email: null });
 
 // RoomDO のインスタンスメソッド（と、必要なら DurableObjectState）を
 // 直接呼び出して内部状態を検査する。
@@ -70,6 +69,21 @@ export async function startTimerForTest(roomId: string): Promise<void> {
     }
 
     await syncRoomAlarm(state.storage, sql);
+  });
+}
+
+// 工程進行の前提となる時間切れを用意する。操作中のfixtureとは分ける。
+export async function endTimerForTest(roomId: string): Promise<void> {
+  await runInRoomDO(roomId, async (_room, state) => {
+    const timer = getTimerState(state.storage.sql);
+    saveTimerState(state.storage.sql, {
+      status: "ended",
+      durationMs: timer.status === "idle" ? 60000 : timer.durationMs,
+      ...(timer.status !== "idle" && timer.extensionUsed
+        ? { extensionUsed: true }
+        : {}),
+    });
+    await syncRoomAlarm(state.storage, state.storage.sql);
   });
 }
 
@@ -284,6 +298,10 @@ export async function arrangeSharingComplete(roomId: string): Promise<void> {
   await runInRoomDO(roomId, (_room, state) => {
     const sharing = getSharingState(state.storage.sql);
     if (!sharing) throw new Error("共有状態がありません。");
+    saveTimerState(state.storage.sql, {
+      status: "ended",
+      durationMs: sharing.durationMs,
+    });
     saveSharingState(state.storage.sql, {
       ...sharing,
       status: "complete",

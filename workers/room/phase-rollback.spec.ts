@@ -4,6 +4,7 @@ import {
   connectRoomAs,
   createRoomAs,
   currentPhaseExpectation,
+  endTimerForTest,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
@@ -122,6 +123,7 @@ describe("直前ステップへの復元", () => {
       state.storage.sql.exec("DELETE FROM phase_rollback_checkpoints");
     });
     await markReady(roomId);
+    await endTimerForTest(roomId);
     a.ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -343,7 +345,7 @@ describe("復元の競合と連続進行", () => {
       rollbackTarget: null,
     });
   });
-  it("タイマーと発表者を復元して停止し、グループ・配置・票・採用を復元する", async () => {
+  it("共有一巡後の工程へ戻し、グループ・配置・票・採用を復元する", async () => {
     const { roomId, stub, a, b } = await setup();
     const id = await seed(roomId);
     const secondId = await seed(roomId);
@@ -375,6 +377,7 @@ describe("復元の競合と連続進行", () => {
       );
     });
     await markReady(roomId);
+    await endTimerForTest(roomId);
     a.ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -395,7 +398,7 @@ describe("復元の競合と連続進行", () => {
     });
     const [snapshot] = await rollback(roomId, a, b);
     expect(snapshot).toMatchObject({
-      timer: { status: "paused", durationMs: 60000 },
+      timer: { status: "running" },
       sharing: { status: "complete", currentIndex: null, startsAt: null },
       groups: [{ id: groupId, name: "保存時のグループ" }],
       notes: expect.arrayContaining([
@@ -415,7 +418,7 @@ describe("復元の競合と連続進行", () => {
         (_room, state) =>
           state.storage.sql.exec("SELECT status FROM timer_state").one().status,
       ),
-    ).toBe("paused");
+    ).toBe("running");
   });
   it.each(["phase:restart-writing", "phase:revote"])(
     "%sはそれ以前の復元履歴を破棄する",
@@ -516,6 +519,7 @@ describe("復元後の会員情報と本文保存の世代", () => {
           saveSharingState(sql, sharing);
         }
       });
+      await endTimerForTest(roomId);
       a.ws.send(
         JSON.stringify({
           type: "phase:next",

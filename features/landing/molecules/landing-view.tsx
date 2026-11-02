@@ -29,10 +29,17 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
     >
       {!isLoggedIn && (
         <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-2 sm:px-10">
-          <p className="text-lg font-bold tracking-tight text-[var(--lp-accent)]">
+          <p className="flex items-center gap-2 text-lg font-bold tracking-tight text-[var(--lp-accent)]">
+            <Image
+              src="/brand/ideaboost-icon-96.png"
+              width={32}
+              height={32}
+              alt=""
+              unoptimized
+            />
             {copy.brand}
           </p>
-          <Link href={entry.href} className={landingLinkClass}>
+          <Link href={entry.loginHref} className={landingLinkClass}>
             {copy.login}
           </Link>
         </header>

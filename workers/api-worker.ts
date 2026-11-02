@@ -7,7 +7,16 @@ import {
   ManagedReadPermissionSchema,
   PERMISSIONS,
 } from "../contracts/access";
-import { CreateRoomInputSchema } from "../contracts/api";
+import {
+  ACCOUNT_LINK_AUDIENCE,
+  AccountLinkAssertionSchema,
+  LinkGoogleRequestSchema,
+  type LinkGoogleResponse,
+} from "../contracts/account-link";
+import {
+  CreateRoomInputSchema,
+  RoomLookupFailureSchema,
+} from "../contracts/api";
 import { LeaveRoomRequestSchema } from "../contracts/completed-rooms";
 import { SetDisplayNameInputSchema } from "../contracts/display-name";
 import { isUuid } from "../contracts/ids";
@@ -29,6 +38,7 @@ import {
   RoomOAuthResumeSchema,
 } from "../contracts/room-entry";
 import {
+  type GuestRefreshResponse,
   LoginAssertionSchema,
   TOKEN_AUDIENCE,
   type VerifiedSession,
@@ -48,6 +58,8 @@ import {
   findRoomByCode,
   findRoomById,
   findUserDisplayNameById,
+  findUserIdentityById,
+  linkGoogleToGuest,
   upsertUserFromAssertion,
 } from "./lib/db";
 import {
@@ -119,7 +131,8 @@ async function handleAuthSync(
   request: Request,
   env: ApiWorkerEnv,
 ): Promise<Response> {
-  const body = SyncRequestSchema.safeParse(await readJsonBody(request));
+  const input = await readJsonBody(request);
+  const body = SyncRequestSchema.safeParse(input);
   if (!body.success) {
     return error(400, "リクエスト形式が不正です。");
   }
@@ -134,8 +147,40 @@ async function handleAuthSync(
   }
 
   const userId = await upsertUserFromAssertion(env.DB, assertion);
+  if (typeof userId !== "string")
+    return error(409, "本人情報が競合しています。");
   if (assertion.kind === "dev") await seedDevOwnerAccess(env.DB);
   return json({ userId });
+}
+
+async function handleLinkGoogle(
+  request: Request,
+  env: ApiWorkerEnv,
+  session: VerifiedSession,
+): Promise<Response> {
+  const body = LinkGoogleRequestSchema.safeParse(await readJsonBody(request));
+  if (!body.success) return error(400, "リクエスト形式が不正です。");
+  const assertion = await verifyToken(
+    body.data.assertion,
+    AccountLinkAssertionSchema,
+    {
+      secret: env.SESSION_SECRET,
+      audience: ACCOUNT_LINK_AUDIENCE.assertion,
+    },
+  );
+  if (!assertion) return error(401, "連携主張を検証できませんでした。");
+  if (session.kind !== "guest") {
+    const result: LinkGoogleResponse = { ok: false, reason: "not_guest" };
+    return json(result, 409);
+  }
+  if (assertion.principal !== session.sub)
+    return error(403, "本人が一致しません。");
+  const result = await linkGoogleToGuest(env.DB, {
+    userId: session.sub,
+    googleSub: assertion.googleSub,
+    email: assertion.email,
+  });
+  return json(result, result.ok ? 200 : 409);
 }
 
 // POST /api/rooms — ルーム作成。D1 に行を作り、RoomDO に host を登録する。
@@ -385,7 +430,8 @@ async function handleLeaveRoom(
 // GET /api/rooms/lookup?code=XXX — 招待コードからルーム解決して hostname を返す。
 // 招待URL ページ (/invite/[code]) で、入室確認 Dialog の文言に
 // 「hostname さんが作成したルームに参加しますか？」を出すために使う。
-// 未ログインは 401（招待URL ページ側でリダイレクト済みなので到達しない）。
+// 未認証は401。招待URLページは本人準備が完了してから照会する。
+// 解散済みはD1行が削除されるため404（not_found）、完了・期限切れ等で行が残るものは410。
 async function handleLookupRoom(
   request: Request,
   env: ApiWorkerEnv,
@@ -401,8 +447,15 @@ async function handleLookupRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
   const stub = roomStub(env, room.roomId);
-  if (!(await stub.isJoinable()))
-    return error(404, "ルームが見つかりませんでした。");
+  if (!(await stub.isJoinable())) {
+    return json(
+      RoomLookupFailureSchema.parse({
+        reason: "ended",
+        error: "このルームは終了しています。",
+      }),
+      410,
+    );
+  }
   const creator = (await stub.listMembers()).find(
     (member) => member.userId === room.hostId,
   );
@@ -497,6 +550,19 @@ export function createApiWorker(
       const session = await getSessionFromRequest(request, env.SESSION_SECRET);
       if (!session) {
         return error(401, "ログインが必要です。");
+      }
+      if (method === "POST" && pathname === "/api/auth/link-google") {
+        return handleLinkGoogle(request, env, session);
+      }
+
+      if (method === "POST" && pathname === "/api/auth/guest/refresh") {
+        if (session.kind !== "guest")
+          return error(403, "ゲストの本人情報が必要です。");
+        const identity = await findUserIdentityById(env.DB, session.sub);
+        if (!identity) return error(404, "本人情報が見つかりません。");
+        if (identity.email !== null || identity.google_sub !== null)
+          return error(409, "本人情報が競合しています。");
+        return json({ userId: session.sub } satisfies GuestRefreshResponse);
       }
 
       if (pathname.startsWith("/api/room-participation/"))

@@ -243,16 +243,19 @@ export const TimerStateSchema = z.discriminatedUnion("status", [
     status: z.literal("running"),
     endsAt: TimerMillisecondsSchema,
     durationMs: TimerDurationSchema,
+    extensionUsed: z.boolean().optional(),
   }),
   z.object({
     status: z.literal("paused"),
     remainingMs: TimerDurationSchema,
     durationMs: TimerDurationSchema,
+    extensionUsed: z.boolean().optional(),
   }),
   z.strictObject({
     // 手動終了・時間切れ後も参加者全員が同じ 00:00 と再設定導線を見る。
     status: z.literal("ended"),
     durationMs: TimerDurationSchema,
+    extensionUsed: z.boolean().optional(),
   }),
 ]);
 export type TimerState = z.infer<typeof TimerStateSchema>;

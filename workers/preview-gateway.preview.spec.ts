@@ -1,5 +1,7 @@
 import { decodeJwt, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterEach, expect, it, vi } from "vitest";
+import { TOKEN_AUDIENCE } from "../contracts/session";
+import { signToken } from "../lib/session/token";
 import { previewGateway } from "./preview-gateway";
 
 const issuer = "https://test-team.cloudflareaccess.com";
@@ -384,5 +386,62 @@ it.each([
         ((await res.json()) as { cookie: string | null }).cookie,
       ).toBeNull();
     else expect(next).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["セッション", "ログイン主張"])(
+  "Access認証済みのゲストの%sは、Cookieならaccountへ再発行しログイン主張なら403で拒否する",
+  async (kind) => {
+    certs();
+    const id = crypto.randomUUID();
+    const token = await signToken(
+      kind === "セッション"
+        ? { kind: "guest", sub: id, email: null }
+        : { kind: "guest", userId: id, displayName: "はな" },
+      {
+        secret: config.SESSION_SECRET,
+        audience:
+          kind === "セッション"
+            ? TOKEN_AUDIENCE.session
+            : TOKEN_AUDIENCE.loginAssertion,
+        expiresInSeconds: 60,
+      },
+    );
+    const access = await jwt();
+    const req =
+      kind === "セッション"
+        ? withCookie(
+            request(access),
+            `__Host-idea_boost_preview_session=${token}`,
+          )
+        : new Request("https://pr-123-preview.test/api/auth/sync", {
+            method: "POST",
+            headers: {
+              "Cf-Access-Jwt-Assertion": access,
+              Origin: "https://pr-123-preview.test",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ assertion: token }),
+          });
+    const response = await previewGateway(req, config, next);
+    if (kind === "セッション") {
+      expect(response.status).toBe(200);
+      expect(config.API_WORKER.fetch).toHaveBeenCalledOnce();
+      expect(next).toHaveBeenCalledOnce();
+      const body = (await response.json()) as { cookie: string };
+      const forwarded = body.cookie.split("=")[1];
+      expect(decodeJwt(forwarded)).toMatchObject({
+        kind: "account",
+        email: "allowed@example.test",
+      });
+      expect(response.headers.get("Set-Cookie")).toContain(
+        `__Host-idea_boost_preview_session=${forwarded};`,
+      );
+    } else {
+      expect(response.status).toBe(403);
+      expect(next).not.toHaveBeenCalled();
+      expect(config.API_WORKER.fetch).not.toHaveBeenCalled();
+      expect(response.headers.getSetCookie()).toEqual([]);
+    }
   },
 );

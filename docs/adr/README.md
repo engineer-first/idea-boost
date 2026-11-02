@@ -28,10 +28,11 @@ ADR（Architecture Decision Record）は、重要な設計を「どの前提・�
 | [0005](0005-shared-skills.md)              | 共有スキルの正本を .agents/skills に統一する  | 採用                   |
 | [0012](0012-pr-preview-full-stack.md)      | PRの画面・API・保存先をPRごとに分ける         | 採用                   |
 | [0013](0013-pr-preview-migration-reset.md) | PR Previewはmigration変更時に保存先を作り直す | 採用                   |
+| [0024](0024-pbi-shared-manual-order.md)    | PBIの優先順をProjectの共通手動順で管理する    | 採用                   |
 
 前の方式：[0011: PR Previewの本人認証と共通API](0011-pr-preview-identity.md)（0012に後継あり）。
 
-提案中の判断：[0019: 保存待ちの共有付箋移動をローカルで受付](0019-queue-local-note-moves.md)、[0018: 同じ接続のWS操作を受信順に処理](0018-websocket-message-order.md)、[0017: ドロップ時の分類から移動を確定](0017-move-current-groups.md)、[0016: 参加候補の索引とWS操作の照合](0016-account-participation-index.md)、[0015: アカウント単位の参加先切り替え](0015-account-room-participation.md)、[0014: 共通の表示名](0014-account-display-name.md)、[0006: 共有付箋の移動transaction](0006-move-transactions.md)、[0007: ルーム作成要求の保持](0007-room-creation-retries.md)、[0008: 作成受付と回復情報の寿命](0008-room-creation-expiry.md)、[0009: WebSocketのセッション期限](0009-websocket-session-expiry.md)、[0010: 入室前の認証準備](0010-room-entry-authentication.md)。
+提案中の判断：[0023: ゲストの本人IDへGoogleを後付けで連携](0023-guest-google-link-same-identity.md)、[0022: ゲストは入室前に同じ本人のCookieを更新](0022-guest-session-refresh.md)、[0021: ゲスト本人を署名付きCookieで保持](0021-guest-session-identity.md)、[0020: Sprintのreview日を含む割当期間](0020-sprint-review-day-policy.md)、[0019: 保存待ちの共有付箋移動をローカルで受付](0019-queue-local-note-moves.md)、[0018: 同じ接続のWS操作を受信順に処理](0018-websocket-message-order.md)、[0017: ドロップ時の分類から移動を確定](0017-move-current-groups.md)、[0016: 参加候補の索引とWS操作の照合](0016-account-participation-index.md)、[0015: アカウント単位の参加先切り替え](0015-account-room-participation.md)、[0014: 共通の表示名](0014-account-display-name.md)、[0006: 共有付箋の移動transaction](0006-move-transactions.md)、[0007: ルーム作成要求の保持](0007-room-creation-retries.md)、[0008: 作成受付と回復情報の寿命](0008-room-creation-expiry.md)、[0009: WebSocketのセッション期限](0009-websocket-session-expiry.md)、[0010: 入室前の認証準備](0010-room-entry-authentication.md)。
 
 成果投影・期限・再訪権のような既存の判断は、今後方式を見直すときのADR候補。すべての実装を後追いでADR化しない。
 

@@ -50,8 +50,17 @@ import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
 import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
-import { useSharingReactions } from "../logic/use-sharing-reactions";
 import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
+import {
+  RoomSharingReactionControls,
+  RoomSharingReactionDisplay,
+  RoomSharingReactions,
+  type SharingReactionMessageHandler,
+} from "./room-sharing-reactions";
+
+const renderSharingReactionControls = (disabled: boolean) => (
+  <RoomSharingReactionControls disabled={disabled} />
+);
 
 export type RoomBoardProps = {
   roomId: string;
@@ -65,6 +74,7 @@ export type RoomBoardProps = {
   // SSR 時にサーバーから取得した初期状態。再接続時の flicker を抑える。
   initialMembers: Member[];
   initialPhase: RoomPhase;
+  sessionKind?: "guest" | "account";
   signOutAction?: () => Promise<void>;
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
@@ -104,6 +114,7 @@ export function RoomBoard({
   initialMembers,
   initialPhase,
   signOutAction,
+  sessionKind,
   webSocketFactory,
   saveDisplayNameAction,
 }: RoomBoardProps) {
@@ -247,13 +258,7 @@ export function RoomBoard({
     connectionStatus,
     send,
   });
-  const sharingReactions = useSharingReactions({
-    phase: roomState.phase,
-    phaseRevision: roomState.phaseRevision,
-    connectionStatus,
-    blocked: isLeaving || isNextPhasePending || roomState.outcomePublished,
-    send,
-  });
+  const sharingReactionMessageRef = useRef<SharingReactionMessageHandler>(null);
 
   function clearCandidateNotices(): void {
     bulkUndoIdsRef.current.clear();
@@ -317,6 +322,10 @@ export function RoomBoard({
   );
 
   function handleServerMessage(message: ServerMessage) {
+    if (message.type === "reaction:received") {
+      sharingReactionMessageRef.current?.applyMessage(message, Date.now());
+      return;
+    }
     if (message.type === "sharing:updated") sharingGenerationRef.current += 1;
     if (roomName.applyMessage(message)) return;
     if (displayName.applyMessage(message)) return;
@@ -419,7 +428,7 @@ export function RoomBoard({
       roomState.applyMessage(message, receivedAt);
     }
     cursorPresence.applyMessage(message, receivedAt);
-    sharingReactions.applyMessage(message, receivedAt);
+    sharingReactionMessageRef.current?.applyMessage(message, receivedAt);
   }
 
   const handleNextPhase = useCallback(
@@ -696,14 +705,18 @@ export function RoomBoard({
   ]);
 
   return (
-    <>
+    <RoomSharingReactions
+      phase={roomState.phase}
+      phaseRevision={roomState.phaseRevision}
+      connectionStatus={connectionStatus}
+      blocked={isLeaving || isNextPhasePending || roomState.outcomePublished}
+      send={send}
+      messageRef={sharingReactionMessageRef}
+    >
       <RoomBoardView
         isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
-        sharingReactions={sharingReactions.reactions}
-        reactionControls={{
-          disabled: !sharingReactions.canSendLike,
-          onSendLike: sharingReactions.sendLike,
-        }}
+        sharingReactionDisplay={<RoomSharingReactionDisplay />}
+        reactionControls={renderSharingReactionControls}
         loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
           undo: moveHistory.undoState,
@@ -792,6 +805,7 @@ export function RoomBoard({
         isNextPhasePending={isNextPhasePending}
         isSavingBeforeShare={drafts.sharingSavePending}
         signOutAction={signOutAction}
+        sessionKind={sessionKind}
         interactions={boardInteractions}
         help={help}
         remoteCursors={cursorPresence.remoteCursors}
@@ -837,6 +851,6 @@ export function RoomBoard({
         isLeaving={isLeaving}
       />
       <NoteDraftRecovery items={drafts.recoveries} />
-    </>
+    </RoomSharingReactions>
   );
 }

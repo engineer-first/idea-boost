@@ -222,7 +222,7 @@ describe("useRoomTimerSounds", () => {
         release();
       });
       expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual(
-        resumeDelay <= 2_000 ? [392, 329.63] : [],
+        resumeDelay <= 2_000 ? [523.25, 659.25, 783.99, 1046.5] : [],
       );
     },
   );
@@ -238,10 +238,10 @@ describe("useRoomTimerSounds", () => {
       await rerenderTimer(rerender, { ...timer }, 0, offset);
       await rerenderTimer(rerender, { status: "ended", durationMs }, 1, offset);
       expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
-        392, 329.63,
+        523.25, 659.25, 783.99, 1046.5,
       ]);
       await rerenderTimer(rerender, { status: "ended", durationMs }, 2, offset);
-      expect(startedTones).toHaveLength(2);
+      expect(startedTones).toHaveLength(4);
     },
   );
 
@@ -326,8 +326,8 @@ describe("useRoomTimerSounds", () => {
     await rerenderTimer(rerender, ended, 2, 20);
     const endStops = startedTones.map(({ stopsAt }) => stopsAt);
     expect(
-      startedTones.slice(-2).map(({ frequencyHz }) => frequencyHz),
-    ).toEqual([392, 329.63]);
+      startedTones.slice(-4).map(({ frequencyHz }) => frequencyHz),
+    ).toEqual([523.25, 659.25, 783.99, 1046.5]);
     await rerenderTimer(rerender, { ...ended }, 3, 30);
     expect(startedTones.map(({ stopsAt }) => stopsAt)).toEqual(endStops);
     expect(audioContexts).toHaveLength(1);
@@ -373,7 +373,9 @@ describe("useRoomTimerSounds", () => {
     await act(async () => {
       release();
     });
-    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([880]);
+    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+      523.25,
+    ]);
   });
 
   it("古い有効化の失敗が新しい有効化成功を取り消さない", async () => {
@@ -477,7 +479,7 @@ describe("useRoomTimerSounds", () => {
     });
     expect(result.current.playbackBlocked).toBe(false);
     expect(result.current.enabled).toBe(true);
-    expect(startedTones).toHaveLength(2);
+    expect(startedTones).toHaveLength(3);
   });
 
   it("snapshot の開始音は再生せず、timer:updated の新規開始だけ開始音を鳴らす", async () => {
@@ -493,7 +495,7 @@ describe("useRoomTimerSounds", () => {
     await enableSounds(freshRoom.result);
     await rerenderTimer(freshRoom.rerender, initialTimer, 1, 120);
     expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
-      523.25, 659.25,
+      523.25, 659.25, 783.99,
     ]);
   });
 
@@ -505,7 +507,7 @@ describe("useRoomTimerSounds", () => {
     await rerenderTimer(rerender, activeSound(nowMs + 10_000), 1);
 
     expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
-      523.25, 659.25,
+      523.25, 659.25, 783.99,
     ]);
   });
 
@@ -515,16 +517,21 @@ describe("useRoomTimerSounds", () => {
     const { result, rerender } = setup(initialTimer);
     await enableSounds(result);
 
-    for (const warningSeconds of [5, 4, 3, 2, 1]) {
+    const warningFrequencies = [523.25, 587.33, 659.25, 783.99, 880];
+    for (const [index, warningSeconds] of [5, 4, 3, 2, 1].entries()) {
       await advance(1_000);
       expect(startedTones).toHaveLength(6 - warningSeconds);
-      expect(startedTones.at(-1)?.frequencyHz).toBe(880);
+      expect(startedTones.at(-1)?.frequencyHz).toBe(warningFrequencies[index]);
     }
 
     await advance(1_000);
     await rerenderTimer(rerender, { status: "ended", durationMs }, 1);
     expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
-      880, 880, 880, 880, 880, 392, 329.63,
+      ...warningFrequencies,
+      523.25,
+      659.25,
+      783.99,
+      1046.5,
     ]);
     expect(
       startedTones.every(
@@ -541,7 +548,9 @@ describe("useRoomTimerSounds", () => {
     await rerenderTimer(rerender, initialTimer, 0, 80);
     expect(startedTones).toHaveLength(0);
     await advance(1_000);
-    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([880]);
+    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+      523.25,
+    ]);
 
     const endedSnapshot = setup({ status: "ended", durationMs: 6_000 });
     await enableSounds(endedSnapshot.result);
@@ -593,7 +602,9 @@ describe("useRoomTimerSounds", () => {
     expect(startedTones).toHaveLength(0);
 
     await advance(55_000);
-    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([880]);
+    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+      523.25,
+    ]);
   });
 
   it("手動ステップ移行の idle 更新で時間切れ音を鳴らさない", async () => {
@@ -617,7 +628,7 @@ describe("useRoomTimerSounds", () => {
     await rerenderTimer(rerender, ended, 1);
     const countAfterEnd = startedTones.length;
     await rerenderTimer(rerender, ended, 2);
-    expect(countAfterEnd).toBe(2);
+    expect(countAfterEnd).toBe(4);
     expect(startedTones).toHaveLength(countAfterEnd);
   });
 
@@ -723,7 +734,9 @@ describe("useRoomTimerSounds", () => {
     await enableSounds(result);
 
     await advance(5_000);
-    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([880]);
+    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+      783.99,
+    ]);
   });
 
   it("再生を拒否されたら有効化せず、再試行案内を出せる状態にする", async () => {
@@ -747,7 +760,7 @@ describe("useRoomTimerSounds", () => {
     expect(result.current.enabled).toBe(true);
     expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBe("true");
     expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
-      523.25, 659.25,
+      523.25, 659.25, 783.99,
     ]);
 
     const toneCount = startedTones.length;

@@ -7,16 +7,14 @@ import { useRoomCreation } from "../logic/use-room-creation";
 import { CreateRoomSectionView } from "../templates/create-room-section-view";
 import { ParticipationSwitch } from "./participation-switch";
 import { RoomReauthentication } from "./room-reauthentication";
-export function CreateRoomSection({
-  currentUserId,
-}: {
-  currentUserId?: string;
-}) {
+export type CreateRoomSectionProps = { currentUserId: string };
+
+export function CreateRoomSection({ currentUserId }: CreateRoomSectionProps) {
   const controls = useRoomCreation(currentUserId);
   return (
     <>
       <CreateRoomSectionView key={currentUserId} {...controls} />
-      {controls.switching && currentUserId && (
+      {controls.switching && (
         <ParticipationSwitch
           key={participationSwitchKey(controls.switching)}
           currentUserId={currentUserId}

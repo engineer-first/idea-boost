@@ -10,11 +10,13 @@ import {
   arrangeSharingComplete,
   connectRoomAs,
   createRoomAs,
+  endTimerForTest,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
   startTimerForTest,
 } from "../test-helpers";
+import { getPhaseRevision } from "./phase";
 
 const host = {
   sub: "11111111-1111-4111-8111-111111111111",
@@ -409,7 +411,7 @@ for (const phase of [1, 2, 3] as const) {
       other.close();
       room.close();
     });
-    it("候補0件の初回投票・再投票は拒否し、決定後から個人作業へ戻れない", async () => {
+    it(`候補0件の初回投票を${phase === 2 ? "共有一巡後は許可" : "整理・評価後は拒否"}し、再投票と決定工程からの執筆戻りは拒否する`, async () => {
       const current: RoomPhase = {
         kind: "step",
         phase,
@@ -425,23 +427,35 @@ for (const phase of [1, 2, 3] as const) {
         await arrangeSharingComplete(room.roomId);
       await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
       send(room.a, transition("phase:next", current));
-      expect(await room.a.next()).toMatchObject({
-        type: "error",
-        code: "forbidden",
-      });
+      if (current.kind === "step" && current.step === 2) {
+        for (const socket of [room.a, room.b])
+          expect(await until(socket, "phase:updated")).toMatchObject({
+            phase: { kind: "step", phase, step: VOTING_STEP_BY_PHASE[phase] },
+          });
+      } else
+        expect(await room.a.next()).toMatchObject({
+          type: "error",
+          code: "forbidden",
+        });
       const result: RoomPhase = {
         kind: "step",
         phase,
         step: RESULT_STEP_BY_PHASE[phase],
       };
-      await runInRoomDO(room.roomId, (room) => room.setPhase(result, host.sub));
-      send(room.a, transition("phase:revote", result, 3));
-      expect(await room.a.next()).toMatchObject({
+      const resultRevision = await runInRoomDO(
+        room.roomId,
+        async (room, state) => {
+          await room.setPhase(result, host.sub);
+          return getPhaseRevision(state.storage.sql);
+        },
+      );
+      send(room.a, transition("phase:revote", result, resultRevision));
+      expect(await until(room.a, "error")).toMatchObject({
         type: "error",
         code: "forbidden",
       });
-      send(room.a, transition("phase:restart-writing", result, 3));
-      expect(await room.a.next()).toMatchObject({
+      send(room.a, transition("phase:restart-writing", result, resultRevision));
+      expect(await until(room.a, "error")).toMatchObject({
         type: "error",
         code: "forbidden",
       });
@@ -541,6 +555,7 @@ it.each([1, 2, 3] as const)(
               .one().count,
         ),
       ).toBe(1);
+      await endTimerForTest(room.roomId);
       send(room.a, transition("phase:next", result));
       expect(await until(room.a, "phase:updated")).toMatchObject({
         type: "phase:updated",
@@ -557,6 +572,7 @@ it.each([1, 2, 3] as const)(
             host.sub,
           );
       });
+      await endTimerForTest(room.roomId);
       send(room.a, { type: "outcome:publish" });
       expect(await until(room.a, "outcome:published")).toMatchObject({
         type: "outcome:published",
@@ -649,6 +665,7 @@ it.each([1, 2, 3] as const)(
               .one().count,
         ),
       ).toBe(8);
+      await endTimerForTest(room.roomId);
       send(room.a, transition("phase:next", voting, revision + 1));
       expect(await until(room.a, "phase:updated")).toMatchObject({
         type: "phase:updated",
@@ -722,6 +739,7 @@ it.each([
               );
       });
     }
+    await endTimerForTest(room.roomId);
     send(room.a, transition("phase:next", middle, 3));
     for (const socket of [room.a, room.b]) {
       expect(await until(socket, "phase:updated")).toEqual({
