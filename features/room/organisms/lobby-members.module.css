@@ -246,6 +246,17 @@ button.peer:hover {
   }
 }
 
+@media (min-width: 1024px) and (max-height: 760px) {
+  .members[data-density="spacious"] {
+    padding-block: 8px;
+  }
+  .members[data-count="3"] .member:nth-child(2),
+  .members[data-count="4"] .member:nth-child(2),
+  .members[data-count="4"] .member:nth-child(3) {
+    translate: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .member {
     animation: none;

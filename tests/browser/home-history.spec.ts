@@ -612,6 +612,34 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
           overflows: false,
         });
       }
+      await page
+        .getByText("ルームを作成しました", { exact: true })
+        .waitFor({ state: "hidden" });
+      await page.mouse.move(1, 1);
+      for (const height of [632, 720]) {
+        await page.setViewportSize({ width: 1280, height });
+        const start = lobby.getByTestId("start-phase-button");
+        const bounds = await start.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            top: rect.top,
+            bottom: rect.bottom,
+            reachable: element.contains(
+              document.elementFromPoint(
+                rect.x + rect.width / 2,
+                rect.y + rect.height / 2,
+              ),
+            ),
+          };
+        });
+        await capture(page, `lobby-start-initial-${height}`);
+        expect
+          .soft(await lobby.evaluate((element) => element.scrollTop))
+          .toBe(0);
+        expect.soft(bounds.top).toBeGreaterThanOrEqual(0);
+        expect.soft(bounds.bottom).toBeLessThanOrEqual(height);
+        expect.soft(bounds.reachable).toBe(true);
+      }
       await page.setViewportSize({ width: 1280, height: 844 });
       // 入室ごとの一回tokenは異なるので、戻り先のルームをURL pathで照合する。
       const first = new URL(page.url());

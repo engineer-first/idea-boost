@@ -146,53 +146,55 @@ export function RoomLobbyView({
           aria-labelledby={membersTitleId}
           data-density={members.length <= 4 ? "spacious" : "compact"}
         >
-          <div className={styles.stageHeading}>
-            <h2 className={styles.stageTitle} id={membersTitleId}>
-              {members.length <= 4
-                ? "メンバーが揃ったら、はじめよう。"
-                : "参加メンバー"}
-            </h2>
-            <div id={avatarDescriptionId} className={styles.avatarMessage}>
-              {avatarChange?.unavailable ? (
-                <p>未使用のアイコンがないため変更できません。</p>
-              ) : avatarChange?.pending ? (
-                <p role="status">アイコンを変更中…</p>
-              ) : isDisconnected ? (
-                <p>再接続すると、自分のアイコンを変更できます。</p>
-              ) : null}
-              {avatarChange?.error ? (
-                <p role="alert" className="text-destructive">
-                  {avatarChange.error}
-                </p>
-              ) : null}
+          <div className={styles.stageScroll}>
+            <div className={styles.stageHeading}>
+              <h2 className={styles.stageTitle} id={membersTitleId}>
+                {members.length <= 4
+                  ? "メンバーが揃ったら、はじめよう。"
+                  : "参加メンバー"}
+              </h2>
+              <div id={avatarDescriptionId} className={styles.avatarMessage}>
+                {avatarChange?.unavailable ? (
+                  <p>未使用のアイコンがないため変更できません。</p>
+                ) : avatarChange?.pending ? (
+                  <p role="status">アイコンを変更中…</p>
+                ) : isDisconnected ? (
+                  <p>再接続すると、自分のアイコンを変更できます。</p>
+                ) : null}
+                {avatarChange?.error ? (
+                  <p role="alert" className="text-destructive">
+                    {avatarChange.error}
+                  </p>
+                ) : null}
+              </div>
             </div>
+            {members.length === 0 ? (
+              <p className={styles.empty}>メンバーの参加を待っています。</p>
+            ) : (
+              <LobbyMembers
+                members={members}
+                currentUserId={currentUserId}
+                hostUserId={hostUserId}
+                connectedUserIds={connectedUserIds}
+                avatarChange={isLobby(phase) ? avatarChange : undefined}
+                avatarDescriptionId={avatarDescriptionId}
+                disabled={disabled}
+                nameDisabled={displayName?.disabled || displayName?.pending}
+                onEditSelf={displayName?.request}
+                onSelectMember={
+                  isHost && isLobby(phase) && onTransferHost
+                    ? (userId) => {
+                        transferTriggerRef.current =
+                          document.activeElement instanceof HTMLElement
+                            ? document.activeElement
+                            : null;
+                        setHostTargetId(userId);
+                      }
+                    : undefined
+                }
+              />
+            )}
           </div>
-          {members.length === 0 ? (
-            <p className={styles.empty}>メンバーの参加を待っています。</p>
-          ) : (
-            <LobbyMembers
-              members={members}
-              currentUserId={currentUserId}
-              hostUserId={hostUserId}
-              connectedUserIds={connectedUserIds}
-              avatarChange={isLobby(phase) ? avatarChange : undefined}
-              avatarDescriptionId={avatarDescriptionId}
-              disabled={disabled}
-              nameDisabled={displayName?.disabled || displayName?.pending}
-              onEditSelf={displayName?.request}
-              onSelectMember={
-                isHost && isLobby(phase) && onTransferHost
-                  ? (userId) => {
-                      transferTriggerRef.current =
-                        document.activeElement instanceof HTMLElement
-                          ? document.activeElement
-                          : null;
-                      setHostTargetId(userId);
-                    }
-                  : undefined
-              }
-            />
-          )}
         </section>
 
         <section

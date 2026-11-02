@@ -89,6 +89,9 @@
   gap: 12px;
   padding-block: 12px;
 }
+.stageScroll {
+  display: contents;
+}
 .stage::before,
 .stage::after {
   position: absolute;
@@ -293,6 +296,33 @@
 }
 
 @media (min-width: 1024px) {
+  .content {
+    min-height: 0;
+  }
+  .header,
+  .connectionSlot,
+  .inviteShelf,
+  .footer {
+    flex-shrink: 0;
+  }
+  .stage {
+    min-height: 0;
+  }
+  .stageScroll {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: inherit;
+    overflow-y: auto;
+    justify-content: safe center;
+  }
+  .stage[data-density="spacious"] {
+    min-height: 0;
+  }
+  .stageHeading,
+  .stageScroll > fieldset {
+    flex-shrink: 0;
+  }
   .stage::before,
   .stage::after {
     top: -120px;
@@ -332,6 +362,25 @@
   }
   .stage[data-density="spacious"] .stageTitle {
     font-size: 32px;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 760px) {
+  .lobby {
+    padding-top: 12px;
+  }
+  .content {
+    gap: 4px;
+  }
+  .stage[data-density="spacious"] {
+    gap: 0;
+    padding-block: 0;
+  }
+  .stage[data-density="spacious"] .stageHeading {
+    flex-direction: row;
+  }
+  .avatarMessage:empty {
+    display: none;
   }
 }
 

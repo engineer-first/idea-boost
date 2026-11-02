@@ -36,6 +36,64 @@ async function open(
   await page.evaluate(() => document.fonts.ready);
 }
 
+test.each(["host-solo", "host-four", "host-twenty"])(
+  "高さ531pxの待機領域でも%sの開始操作を初期表示し、全員へ到達できる",
+  async (story) => {
+    // 1280×632pxの実ページから共通ヘッダーとルートの上下余白を除いた高さ。
+    await open(story, 1280, 531);
+    const start = page.getByTestId("start-phase-button");
+    const initial = await start.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        reachable: element.contains(
+          document.elementFromPoint(
+            rect.x + rect.width / 2,
+            rect.y + rect.height / 2,
+          ),
+        ),
+      };
+    });
+    await page.screenshot({
+      path: `test-results/board-layout/lobby-short-${story}.png`,
+    });
+    expect.soft(initial.top).toBeGreaterThanOrEqual(0);
+    expect.soft(initial.bottom).toBeLessThanOrEqual(531);
+    expect.soft(initial.reachable).toBe(true);
+    const last = page
+      .getByTestId("room-members")
+      .locator(":scope > div")
+      .last();
+    if (story !== "host-twenty") {
+      const member = await last.boundingBox();
+      const invite = await page
+        .getByTestId("room-lobby-view-invite")
+        .boundingBox();
+      expect((member?.y ?? 531) + (member?.height ?? 0)).toBeLessThanOrEqual(
+        invite?.y ?? 0,
+      );
+      const avatar = await page
+        .getByTestId("room-members")
+        .getByTestId("avatar")
+        .first()
+        .boundingBox();
+      expect(avatar?.width).toBe(192);
+    }
+    await last.scrollIntoViewIfNeeded();
+    const member = await last.boundingBox();
+    const action = await start.boundingBox();
+    expect((member?.y ?? 531) + (member?.height ?? 0)).toBeLessThanOrEqual(
+      action?.y ?? 0,
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  },
+);
+
 test("20人を5列4段で省略せず表示し、ヘッダーを除く1440×800内で顔・招待・開始を読める", async () => {
   await open("host-twenty", 1440, 800);
   const avatars = page.getByTestId("room-members").getByTestId("avatar");
