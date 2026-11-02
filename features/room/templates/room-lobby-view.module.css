@@ -306,18 +306,21 @@
     flex-shrink: 0;
   }
   .stage {
+    container: lobby-stage / size;
     min-height: 0;
+    padding-block: 0;
   }
   .stageScroll {
     display: flex;
+    flex: 1;
     min-height: 0;
     flex-direction: column;
     gap: inherit;
-    overflow-y: auto;
     justify-content: safe center;
   }
   .stage[data-density="spacious"] {
     min-height: 0;
+    padding-block: 0;
   }
   .stageHeading,
   .stageScroll > fieldset {
@@ -372,11 +375,16 @@
   .content {
     gap: 4px;
   }
-  .stage[data-density="spacious"] {
-    gap: 0;
-    padding-block: 0;
+  .avatarMessage:empty {
+    display: none;
   }
-  .stage[data-density="spacious"] .stageHeading {
+}
+
+@container lobby-stage (max-height: 600px) {
+  .stageScroll {
+    gap: 8px;
+  }
+  .stageHeading {
     flex-direction: row;
   }
   .avatarMessage:empty {

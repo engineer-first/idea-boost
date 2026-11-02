@@ -36,11 +36,23 @@ async function open(
   await page.evaluate(() => document.fonts.ready);
 }
 
-test.each(["host-solo", "host-four", "host-twenty"])(
-  "高さ531pxの待機領域でも%sの開始操作を初期表示し、全員へ到達できる",
-  async (story) => {
-    // 1280×632pxの実ページから共通ヘッダーとルートの上下余白を除いた高さ。
-    await open(story, 1280, 531);
+test.each(
+  [
+    [1024, 499],
+    [1280, 531],
+    [1366, 542],
+    [1440, 699],
+    [1920, 979],
+  ].flatMap(([width, height]) =>
+    ["host-solo", "host-four", "host-six", "host-twenty", "long-names"].map(
+      (story) => ({ width, height, story }),
+    ),
+  ),
+)(
+  "PCの待機領域 $width px × $height px で $story の全員と開始をスクロールなしで表示する",
+  async ({ width, height, story }) => {
+    // 共通ヘッダー69pxとルートの上下余白32pxを除いた実ページの待機領域。
+    await open(story, width, height);
     const start = page.getByTestId("start-phase-button");
     const initial = await start.evaluate((element) => {
       const rect = element.getBoundingClientRect();
@@ -56,36 +68,60 @@ test.each(["host-solo", "host-four", "host-twenty"])(
       };
     });
     await page.screenshot({
-      path: `test-results/board-layout/lobby-short-${story}.png`,
+      path: `test-results/board-layout/lobby-no-scroll-${width}-${height}-${story}.png`,
     });
     expect.soft(initial.top).toBeGreaterThanOrEqual(0);
-    expect.soft(initial.bottom).toBeLessThanOrEqual(531);
+    expect.soft(initial.bottom).toBeLessThanOrEqual(height);
     expect.soft(initial.reachable).toBe(true);
     const last = page
       .getByTestId("room-members")
       .locator(":scope > div")
       .last();
-    if (story !== "host-twenty") {
-      const member = await last.boundingBox();
-      const invite = await page
-        .getByTestId("room-lobby-view-invite")
-        .boundingBox();
-      expect((member?.y ?? 531) + (member?.height ?? 0)).toBeLessThanOrEqual(
-        invite?.y ?? 0,
-      );
-      const avatar = await page
-        .getByTestId("room-members")
-        .getByTestId("avatar")
-        .first()
-        .boundingBox();
-      expect(avatar?.width).toBe(192);
-    }
-    await last.scrollIntoViewIfNeeded();
     const member = await last.boundingBox();
-    const action = await start.boundingBox();
-    expect((member?.y ?? 531) + (member?.height ?? 0)).toBeLessThanOrEqual(
-      action?.y ?? 0,
-    );
+    const invite = await page
+      .getByTestId("room-lobby-view-invite")
+      .boundingBox();
+    expect
+      .soft((member?.y ?? height) + (member?.height ?? 0))
+      .toBeLessThanOrEqual(invite?.y ?? 0);
+    const scrollable = await page
+      .getByTestId("room-lobby-view")
+      .evaluate((lobby) =>
+        [lobby, ...lobby.querySelectorAll<HTMLElement>("*")]
+          .filter((element) => {
+            const style = getComputedStyle(element);
+            return (
+              ["auto", "scroll"].includes(style.overflowY) &&
+              element.scrollHeight > element.clientHeight + 1
+            );
+          })
+          .map((element) => ({
+            tag: element.tagName,
+            height: element.clientHeight,
+            content: element.scrollHeight,
+          })),
+      );
+    expect.soft(scrollable).toEqual([]);
+    const avatarSizes = await page
+      .getByTestId("room-members")
+      .getByTestId("avatar")
+      .evaluateAll((elements) =>
+        elements.map((element) => element.getBoundingClientRect().width),
+      );
+    expect.soft(Math.min(...avatarSizes)).toBeGreaterThanOrEqual(48);
+    const members = await page
+      .getByTestId("room-members")
+      .locator(":scope > div")
+      .evaluateAll((elements) =>
+        elements.map((element) => element.getBoundingClientRect().toJSON()),
+      );
+    expect
+      .soft(
+        members.every(
+          (rect) => rect.top >= 0 && rect.bottom <= (invite?.y ?? 0),
+        ),
+      )
+      .toBe(true);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -94,8 +130,8 @@ test.each(["host-solo", "host-four", "host-twenty"])(
   },
 );
 
-test("20人を5列4段で省略せず表示し、ヘッダーを除く1440×800内で顔・招待・開始を読める", async () => {
-  await open("host-twenty", 1440, 800);
+test("20人を5列4段で省略せず表示し、ヘッダーを除く1440×960内で顔・招待・開始を読める", async () => {
+  await open("host-twenty", 1440, 960);
   const avatars = page.getByTestId("room-members").getByTestId("avatar");
   expect(await avatars.count()).toBe(20);
   expect(await page.getByTestId("room-members-overflow").count()).toBe(0);
@@ -107,11 +143,11 @@ test("20人を5列4段で省略せず表示し、ヘッダーを除く1440×800�
   for (const box of boxes) {
     expect(box.width).toBeGreaterThanOrEqual(96);
     expect(box.top).toBeGreaterThanOrEqual(0);
-    expect(box.bottom).toBeLessThan(800);
+    expect(box.bottom).toBeLessThan(960);
   }
   const start = await page.getByTestId("start-phase-button").boundingBox();
   expect(start).not.toBeNull();
-  expect((start?.y ?? 800) + (start?.height ?? 0)).toBeLessThanOrEqual(800);
+  expect((start?.y ?? 960) + (start?.height ?? 0)).toBeLessThanOrEqual(960);
   expect(boxes[19].bottom).toBeLessThan(start?.y ?? 0);
   const lastMember = await page
     .getByTestId("room-members")

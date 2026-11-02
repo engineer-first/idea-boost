@@ -70,7 +70,11 @@ export function LobbyMembers({
               }}
             />
           );
-          const name = <span className={styles.nameText}>{member.name}</span>;
+          const name = (
+            <span className={styles.nameText} title={member.name}>
+              {member.name}
+            </span>
+          );
           const status = (
             <span className={styles.status}>
               {isMe ? "あなた" : null}

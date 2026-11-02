@@ -616,8 +616,14 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByText("ルームを作成しました", { exact: true })
         .waitFor({ state: "hidden" });
       await page.mouse.move(1, 1);
-      for (const height of [632, 720]) {
-        await page.setViewportSize({ width: 1280, height });
+      for (const [width, height] of [
+        [1024, 600],
+        [1280, 632],
+        [1366, 643],
+        [1440, 800],
+        [1920, 1080],
+      ]) {
+        await page.setViewportSize({ width, height });
         const start = lobby.getByTestId("start-phase-button");
         const bounds = await start.evaluate((element) => {
           const rect = element.getBoundingClientRect();
@@ -632,7 +638,25 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
             ),
           };
         });
-        await capture(page, `lobby-start-initial-${height}`);
+        await capture(page, `lobby-start-initial-${width}-${height}`);
+        const scrollable = await lobby.evaluate((element) =>
+          [element, ...element.querySelectorAll<HTMLElement>("*")]
+            .filter((child) => {
+              const style = getComputedStyle(child);
+              return (
+                ["auto", "scroll"].includes(style.overflowY) &&
+                child.scrollHeight > child.clientHeight + 1
+              );
+            })
+            .map((child) => ({
+              tag: child.tagName,
+              height: child.clientHeight,
+              content: child.scrollHeight,
+            })),
+        );
+        expect
+          .soft(scrollable, `${width}×${height}で内部スクロールがない`)
+          .toEqual([]);
         expect
           .soft(await lobby.evaluate((element) => element.scrollTop))
           .toBe(0);
