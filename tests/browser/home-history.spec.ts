@@ -592,6 +592,26 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
+      const lobby = page.getByTestId("room-lobby-view");
+      await lobby.waitFor({ state: "visible" });
+      for (const width of [320, 1280, 1512, 1812]) {
+        await page.setViewportSize({ width, height: 844 });
+        const edges = await lobby.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return {
+            left: bounds.left,
+            rightGap: innerWidth - bounds.right,
+            overflows: element.scrollWidth > element.clientWidth,
+          };
+        });
+        await capture(page, `lobby-page-edges-${width}`);
+        expect.soft(edges, `${width}pxの待機画面が左右端まで広がる`).toEqual({
+          left: 0,
+          rightGap: 0,
+          overflows: false,
+        });
+      }
+      await page.setViewportSize({ width: 1280, height: 844 });
       // 入室ごとの一回tokenは異なるので、戻り先のルームをURL pathで照合する。
       const first = new URL(page.url());
       await page.goto(`${app}/home`);

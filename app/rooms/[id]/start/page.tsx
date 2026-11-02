@@ -123,7 +123,7 @@ export default async function StartPage({
     ? await issueRoomEntry(id, user, "board")
     : undefined;
   const content = (
-    <main className="flex h-full min-h-0 flex-1 flex-col gap-6 overflow-hidden p-4">
+    <main className="flex h-full min-h-0 flex-1 flex-col gap-6 overflow-hidden py-4">
       {follow && <VerificationFollower roomId={id} />}
       <div className="min-h-0 flex-1 overflow-hidden">
         <RoomLobby
