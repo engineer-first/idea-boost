@@ -834,7 +834,12 @@ export function RoomBoard({
     onPrivateNoteUnpublish: notes.unpublishNote,
     onCursorMove: cursorPresence.updateCursor,
     onCursorLeave: cursorPresence.leaveCanvas,
-    onManualPanStart: () => setIsFollowingPresenterView(false),
+    onManualPanStart: () => {
+      // 発表者自身の視点操作では、フォローする意思を解除しない。
+      if (displayPresenterId !== currentUserId) {
+        setIsFollowingPresenterView(false);
+      }
+    },
   });
 
   useEffect(() => {
