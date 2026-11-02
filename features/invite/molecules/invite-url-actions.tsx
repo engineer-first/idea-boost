@@ -7,14 +7,18 @@ import { CopyInviteButton } from "./copy-invite-button";
 
 export type InviteUrlActionsProps = {
   value: string;
+  layout?: "stacked" | "inline";
 };
 
-export function InviteUrlActions({ value }: InviteUrlActionsProps) {
+export function InviteUrlActions({ value, layout }: InviteUrlActionsProps) {
   // ルーム切替で前の共有・コピー結果を次の招待に持ち越さない。
-  return <InviteUrlActionsContent key={value} value={value} />;
+  return <InviteUrlActionsContent key={value} value={value} layout={layout} />;
 }
 
-function InviteUrlActionsContent({ value }: InviteUrlActionsProps) {
+function InviteUrlActionsContent({
+  value,
+  layout = "stacked",
+}: InviteUrlActionsProps) {
   const [supported, setSupported] = useState(false);
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -62,7 +66,13 @@ function InviteUrlActionsContent({ value }: InviteUrlActionsProps) {
 
   const ShareIcon = failed ? CircleAlert : Share2;
   return (
-    <div className="flex w-full min-w-0 flex-col items-end gap-1">
+    <div
+      className={
+        layout === "inline"
+          ? "flex w-full min-w-0 items-center gap-2"
+          : "flex w-full min-w-0 flex-col items-end gap-1"
+      }
+    >
       <CopyInviteButton value={value} itemLabel="招待URL" />
       {supported ? (
         <>

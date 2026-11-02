@@ -107,6 +107,7 @@ export function applyServerMessage(
     case "member_vote_status":
     case "phase:progress":
     case "member:renamed":
+    case "member:avatar-updated":
     case "member:removed":
     case "room:renamed":
     case "host:updated":

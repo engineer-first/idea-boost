@@ -266,6 +266,7 @@ describe("RoomDO メンバーシップ", () => {
         userId: USER_A,
         name: "新しい名前",
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     ]);
   });
@@ -279,6 +280,7 @@ describe("RoomDO メンバーシップ", () => {
         userId: USER_A,
         name: "",
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     ]);
   });
@@ -292,11 +294,13 @@ describe("RoomDO メンバーシップ", () => {
         userId: USER_A,
         name: "Alpha",
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
       {
         userId: USER_B,
         name: "Beta",
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     ]);
   });

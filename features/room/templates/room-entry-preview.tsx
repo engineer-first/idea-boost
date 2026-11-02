@@ -23,7 +23,7 @@ export function RoomEntryPreview(props: RoomEntryPreviewProps) {
     <div
       inert
       aria-hidden="true"
-      className={`h-full min-h-0 flex-1 overflow-hidden ${props.phase.kind === "lobby" ? "p-4" : ""}`}
+      className={`h-full min-h-0 flex-1 overflow-hidden ${props.phase.kind === "lobby" ? "py-4" : ""}`}
       data-testid="room-entry-preview"
     >
       {props.phase.kind === "lobby" ? (

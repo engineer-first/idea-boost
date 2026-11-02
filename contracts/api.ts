@@ -6,7 +6,7 @@ import {
   CreationRequestIdSchema,
   ROOM_CREATION_NAME_MAX,
 } from "./room-creation";
-import { NoteColorSchema } from "./room-protocol";
+import { MemberSchema } from "./room-protocol";
 
 export const SyncUserResponseSchema = z.object({
   userId: z.guid(),
@@ -47,11 +47,7 @@ export const RoomInfoResponseSchema = RoomSummarySchema.extend({
 
 // メンバー一覧のレスポンス。SSR で初期表示を組み立てるために使う。
 // Realtime での member_joined は WS 側で別途配信する。
-export const RoomMemberSchema = z.object({
-  userId: z.guid(),
-  name: z.string(),
-  color: NoteColorSchema,
-});
+export const RoomMemberSchema = MemberSchema;
 export const RoomMembersResponseSchema = z.object({
   members: z.array(RoomMemberSchema),
 });

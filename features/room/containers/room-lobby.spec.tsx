@@ -56,7 +56,7 @@ const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const HOST_ID = "11111111-1111-4111-8111-111111111111";
 const MEMBER_ID = "22222222-2222-4222-8222-222222222222";
 
-it("一覧に隠れた本人の編集を取消した後は、一覧の展開ボタンへフォーカスを戻す", async () => {
+it("13人目の本人も一覧から名前を編集でき、取消後は本人の名前へフォーカスを戻す", async () => {
   const initialMembers: ProtocolMember[] = Array.from(
     { length: 13 },
     (_, i) => ({
@@ -69,12 +69,11 @@ it("一覧に隠れた本人の編集を取消した後は、一覧の展開ボ�
     }),
   );
   renderStart({ initialMembers });
-  const overflow = screen.getByRole("button", { name: "他 2 名" });
-  fireEvent.click(overflow);
-  fireEvent.click(screen.getByRole("button", { name: "本人：表示名を変更" }));
+  const selfName = screen.getByRole("button", { name: "本人：表示名を変更" });
+  fireEvent.click(selfName);
   expect(screen.getByRole("textbox", { name: "表示名" })).toHaveValue("本人");
   fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
-  await waitFor(() => expect(overflow).toHaveFocus());
+  await waitFor(() => expect(selfName).toHaveFocus());
 });
 
 type Listener = (event: {
@@ -149,6 +148,7 @@ function renderStart(
     initialPhase?: RoomPhase;
     boardHref?: string;
     entryAdmission?: string;
+    availableAvatarCount?: number;
     saveDisplayNameAction?: import("./room-lobby").RoomLobbyProps["saveDisplayNameAction"];
   } = {},
 ) {
@@ -181,6 +181,7 @@ function renderStart(
         phaseRevision: 0,
         notes: [],
         members: options.initialMembers ?? [],
+        availableAvatarCount: options.availableAvatarCount,
         phase: options.initialPhase ?? buildLobbyPhase(),
         isHost: options.isHost ?? true,
         decision: null,
@@ -208,6 +209,41 @@ function findSocket() {
   if (!socket) throw new Error("WebSocket が生成されていない");
   return socket;
 }
+
+it("顔の変更中はフォーカスを維持し、再送を防ぎ、確定後も同じボタンから操作できる", () => {
+  const member: ProtocolMember = {
+    userId: HOST_ID,
+    name: "本人",
+    color: "yellow",
+    avatarId: "face-01",
+  };
+  const { socket } = renderStart({
+    initialMembers: [member],
+    availableAvatarCount: 19,
+  });
+  const button = screen.getByTestId("lobby-avatar-change");
+  button.focus();
+  fireEvent.click(button);
+  expect(button).not.toBeDisabled();
+  expect(button).toHaveAttribute("aria-disabled", "true");
+  expect(button).toHaveFocus();
+  fireEvent.click(button);
+  const messages = socket.sent
+    .map((message) => JSON.parse(message))
+    .filter((message) => message.type === "member:randomize-avatar");
+  expect(messages).toHaveLength(1);
+  act(() =>
+    socket.simulateServerMessage({
+      type: "member:avatar-updated",
+      member: { ...member, avatarId: "face-02" },
+      availableAvatarCount: 19,
+      operationId: messages[0].operationId,
+    }),
+  );
+  expect(button).not.toHaveAttribute("aria-disabled");
+  expect(button).toHaveFocus();
+  expect(screen.getByTestId("lobby-avatar-change")).toBe(button);
+});
 
 describe("RoomLobby の初期表示", () => {
   it("初期 members が空でも、ホストなら「開始する」ボタンが表示される", () => {

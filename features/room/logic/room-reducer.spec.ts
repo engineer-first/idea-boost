@@ -552,3 +552,27 @@ it("同じ表示名でも別の参加者として保持し現在の発表者名�
     message.member,
   ]);
 });
+
+it("顔変更通知で対象の顔IDだけを更新し、他の参加者は変えない", () => {
+  const members = [
+    {
+      userId: "self",
+      name: "はな",
+      color: "yellow" as const,
+      avatarId: "face-01" as const,
+    },
+    {
+      userId: "peer",
+      name: "たろう",
+      color: "blue" as const,
+      avatarId: "face-02" as const,
+    },
+  ];
+  const next = applyMemberServerMessage(members, {
+    type: "member:avatar-updated",
+    member: { ...members[0], avatarId: "face-03" },
+    availableAvatarCount: 18,
+    operationId: "operation",
+  });
+  expect(next).toEqual([{ ...members[0], avatarId: "face-03" }, members[1]]);
+});

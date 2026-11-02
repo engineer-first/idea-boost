@@ -163,6 +163,11 @@ describe("本人向けの完了ルーム再訪", () => {
       expect(
         state.storage.sql.exec("SELECT * FROM members").toArray(),
       ).toHaveLength(0);
+      expect(
+        state.storage.sql
+          .exec("SELECT * FROM member_avatar_assignments")
+          .toArray(),
+      ).toHaveLength(0);
       for (const socket of state.getWebSockets())
         expect(socket.deserializeAttachment()).toBeNull();
     });

@@ -1,0 +1,186 @@
+.create,
+.join {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--foreground);
+}
+.createHeader,
+.joinHeader {
+  gap: 10px;
+  padding: 0;
+}
+.createHeader h2 {
+  font-size: 28px;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: -0.025em;
+}
+.description {
+  color: #5d5d62;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.createContent {
+  margin-top: 28px;
+  padding: 0;
+}
+.create input,
+.join input {
+  height: 52px;
+  border-color: #8c8c8c;
+  border-radius: 12px;
+  background: var(--background);
+  box-shadow: none;
+  color: var(--foreground);
+  font-size: 16px;
+}
+.create input::placeholder,
+.join input::placeholder {
+  color: #66666b;
+  opacity: 1;
+}
+.create input:focus-visible,
+.join input:focus-visible {
+  outline: 2px solid #133acb;
+  outline-offset: 3px;
+  box-shadow: none;
+}
+.create input[aria-invalid="true"],
+.join input[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+.primaryAction,
+.create button[type="submit"] {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #e9bf38;
+  border-radius: 999px;
+  background: #f6d75b;
+  box-shadow: 0 3px 10px rgb(214 176 44 / 10%);
+  color: #171717;
+  font-size: 16px;
+  font-weight: 600;
+}
+.primaryAction:hover:not(:disabled),
+.create button[type="submit"]:hover:not(:disabled) {
+  background: #f2cc45;
+  box-shadow: 0 4px 14px rgb(214 176 44 / 18%);
+}
+.create button:focus-visible,
+.join button:focus-visible {
+  outline: 2px solid #133acb;
+  outline-offset: 3px;
+  box-shadow: none;
+}
+.join {
+  container-type: inline-size;
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+.joinLayout {
+  display: grid;
+  gap: 24px;
+}
+.joinHeader {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+.joinHeader h2 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.015em;
+}
+.joinIcon {
+  display: grid;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f5f5f5;
+}
+.joinContent {
+  min-width: 0;
+  padding: 0;
+}
+.joinForm {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+}
+.join [data-slot="field"] + div {
+  min-height: 44px;
+}
+.joinAction {
+  min-height: 52px;
+  border-color: #8c8c8c;
+  border-radius: 999px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 600;
+}
+.joinAction:disabled {
+  border-color: #d8d8dc;
+  background: #f5f5f5;
+  color: #6d6d73;
+  opacity: 1;
+}
+@container (min-width: 720px) {
+  .joinLayout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+  .joinHeader {
+    padding-top: 23px;
+  }
+  .joinForm {
+    grid-template-columns: minmax(0, 1fr) 144px;
+    gap: 16px;
+  }
+  .joinAction {
+    margin-top: 28px;
+  }
+}
+@media (min-width: 1024px) {
+  .join {
+    margin-top: 56px;
+  }
+}
+@media (min-width: 1024px) and (max-height: 680px) {
+  .createContent {
+    margin-top: 16px;
+  }
+  .join {
+    margin-top: 24px;
+    padding-top: 16px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .create button,
+  .join button {
+    transition:
+      background-color 120ms ease,
+      box-shadow 120ms ease,
+      transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .create button:active:not(:disabled),
+  .join button:active:not(:disabled) {
+    transform: scale(0.985);
+    transition-duration: 0ms;
+  }
+}
+@media (prefers-contrast: more) {
+  .create input,
+  .join input,
+  .joinAction {
+    border-color: var(--foreground);
+  }
+}

@@ -2,26 +2,16 @@
 
 import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 import { isLobby, type RoomPhase } from "@/contracts/phase";
-// スタート画面（メンバー一覧 + 開始ボタン）のプレゼンテーション層。
-// ホーム画面と同じ shadcn ベースのレイアウト言語（背景・ヘッダー・Card 分割）。
-// WebSocket 接続やプロトコル送信は room-lobby.tsx（コンテナ）の責務。
+// WebSocket接続と操作の確定はroom-lobby.tsxが持ち、ここでは待機画面を組み立てる。
 import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
-import { RoomMembers } from "@/features/room-members";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
+import type { RoomAvatarControls } from "../logic/use-room-avatar";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
@@ -30,6 +20,8 @@ import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
 import { RoomNameDialog } from "../molecules/room-name-dialog";
+import { LobbyMembers } from "../organisms/lobby-members";
+import styles from "./room-lobby-view.module.css";
 
 export type RoomLobbyViewProps = {
   members: Member[];
@@ -57,6 +49,8 @@ export type RoomLobbyViewProps = {
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
   roomName?: RoomNameControls;
+  avatarChange?: RoomAvatarControls;
+  connectedUserIds?: readonly string[];
 };
 
 export function RoomLobbyView({
@@ -80,10 +74,16 @@ export function RoomLobbyView({
   memberRemoval,
   displayName,
   roomName,
+  avatarChange,
+  connectedUserIds,
 }: RoomLobbyViewProps) {
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const isDisconnected = connectionStatus !== "open";
   const lobbyRef = useRef<HTMLDivElement>(null);
+  const avatarDescriptionId = useId();
+  const membersTitleId = useId();
+  const inviteTitleId = useId();
+  const disabled = isDisconnected || isStarting || isLeaving || isTransferring;
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [hostTargetId, setHostTargetId] = useState<string | null>(null);
   const transferTriggerRef = useRef<HTMLElement | null>(null);
@@ -92,245 +92,216 @@ export function RoomLobbyView({
     <div
       ref={lobbyRef}
       tabIndex={-1}
-      className="relative flex h-full min-h-0 flex-1 flex-col items-center overflow-x-hidden overflow-y-auto p-4 sm:p-6"
+      className={styles.lobby}
       data-testid="room-lobby-view"
       data-phase={
         isLobby(phase) ? "lobby" : `phase${phase.phase}-step${phase.step}`
       }
       data-host={isHost ? "true" : undefined}
     >
-      {/* ホームと同じ背景言語 */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-muted/40"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-24 top-1/4 size-72 rounded-full bg-primary/5 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-16 bottom-1/4 size-80 rounded-full bg-secondary blur-3xl"
-      />
-
-      <div className="relative z-10 my-auto flex w-full max-w-2xl shrink-0 flex-col gap-6">
-        <header className="space-y-3 text-center">
-          <div className="flex flex-col items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              "メンバーが揃ったら開始"
+      <div className={styles.content}>
+        <header className={styles.header}>
+          <div className={styles.roomTitle}>
+            <h1>
+              {roomName
+                ? (roomName.name ?? "名前のないルーム")
+                : "ルーム待機室"}
             </h1>
             {roomName ? (
-              <div className="flex min-w-0 max-w-full items-start justify-center gap-1">
-                <p className="min-w-0 break-all text-base leading-7">
-                  <span className="text-muted-foreground">ルーム名：</span>
-                  <span className="font-medium">
-                    {roomName.name ?? "未設定"}
-                  </span>
-                </p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
-                  aria-label="ルーム名を変更"
-                  title="ルーム名を変更"
-                  disabled={roomName.disabled || roomName.pending}
-                  onClick={roomName.request}
-                >
-                  <Pencil className="size-3.5" aria-hidden="true" />
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={styles.editRoom}
+                aria-label="ルーム名を変更"
+                title="ルーム名を変更"
+                disabled={roomName.disabled || roomName.pending}
+                onClick={roomName.request}
+              >
+                <Pencil className="size-4" aria-hidden="true" />
+              </Button>
             ) : null}
-            <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
-              "招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。"
-            </p>
           </div>
-          <div className="min-h-5">
-            <RoomConnectionNotice
-              returnHref={loginReturnHref}
-              status={connectionStatus}
-              delayed={connectionDelayed}
-              className="relative z-20 mx-auto w-fit rounded-lg bg-background px-3 text-sm text-muted-foreground"
-            />
-          </div>
+          <span
+            className={styles.memberCount}
+            data-testid="room-lobby-view-member-count"
+          >
+            <Users size={18} aria-hidden="true" />
+            {members.length} 名
+          </span>
         </header>
 
-        <p className="text-center text-sm text-muted-foreground">
-          途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了時に参加中の人と、成果を残して途中退出した人は、完了から30日間、成果と保存できた5つの場面を見返せます。
-          <Link
-            href="/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-1 underline underline-offset-4"
-          >
-            保存とプライバシーについて（別タブ）
-          </Link>
-        </p>
+        <div className={styles.connectionSlot}>
+          <RoomConnectionNotice
+            returnHref={loginReturnHref}
+            status={connectionStatus}
+            delayed={connectionDelayed}
+            className={styles.connection}
+            testId="lobby-connection-status"
+          />
+        </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-stretch">
-          {/* メンバー一覧カード */}
-          <Card className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md">
-            <CardHeader className="gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
-                <Users className="size-5" aria-hidden />
+        <section
+          className={styles.stage}
+          aria-labelledby={membersTitleId}
+          data-density={members.length <= 4 ? "spacious" : "compact"}
+        >
+          <div className={styles.stageScroll}>
+            <div className={styles.stageHeading}>
+              <h2 className={styles.stageTitle} id={membersTitleId}>
+                {members.length <= 4
+                  ? "メンバーが揃ったら、はじめよう。"
+                  : "参加メンバー"}
+              </h2>
+              <div id={avatarDescriptionId} className={styles.avatarMessage}>
+                {avatarChange?.unavailable ? (
+                  <p>未使用のアイコンがないため変更できません。</p>
+                ) : avatarChange?.pending ? (
+                  <p role="status">アイコンを変更中…</p>
+                ) : isDisconnected ? (
+                  <p>再接続すると、自分のアイコンを変更できます。</p>
+                ) : null}
+                {avatarChange?.error ? (
+                  <p role="alert" className="text-destructive">
+                    {avatarChange.error}
+                  </p>
+                ) : null}
               </div>
-              <div className="space-y-1.5">
-                <CardTitle className="text-base">参加中のメンバー</CardTitle>
-                <CardDescription className="leading-relaxed">
-                  いまルームにいるメンバーです。
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col items-center justify-start pt-0">
-              <RoomMembers
-                onEditSelf={displayName?.request}
+            </div>
+            {members.length === 0 ? (
+              <p className={styles.empty}>メンバーの参加を待っています。</p>
+            ) : (
+              <LobbyMembers
                 members={members}
                 currentUserId={currentUserId}
                 hostUserId={hostUserId}
-                selectionDisabled={
-                  isDisconnected || isStarting || isTransferring || isLeaving
-                }
+                connectedUserIds={connectedUserIds}
+                avatarChange={isLobby(phase) ? avatarChange : undefined}
+                avatarDescriptionId={avatarDescriptionId}
+                disabled={disabled}
+                nameDisabled={displayName?.disabled || displayName?.pending}
+                onEditSelf={displayName?.request}
                 onSelectMember={
                   isHost && isLobby(phase) && onTransferHost
                     ? (userId) => {
-                        const source =
+                        transferTriggerRef.current =
                           document.activeElement instanceof HTMLElement
                             ? document.activeElement
                             : null;
-                        transferTriggerRef.current = source?.closest(
-                          '[data-testid="room-members-overflow-dialog"]',
-                        )
-                          ? (lobbyRef.current?.querySelector<HTMLButtonElement>(
-                              '[data-testid="room-members-overflow"]',
-                            ) ?? null)
-                          : source;
                         setHostTargetId(userId);
                       }
                     : undefined
                 }
               />
-              {isHost &&
-              isLobby(phase) &&
-              onTransferHost &&
-              hostTargetId !== null ? (
-                <HostTransferDialog
-                  open
-                  onOpenChange={(open) => {
-                    if (!open) setHostTargetId(null);
-                  }}
-                  target={
-                    members.find((member) => member.userId === hostTargetId) ??
-                    null
-                  }
-                  onRequestRemove={
-                    memberRemoval
-                      ? () => {
-                          memberRemoval.request(hostTargetId);
-                          setHostTargetId(null);
-                        }
-                      : undefined
-                  }
-                  onConfirm={onTransferHost}
-                  pending={isTransferring}
-                  disconnected={isDisconnected}
-                  error={transferError}
-                  onClosed={() => {
-                    if (transferTriggerRef.current?.isConnected)
-                      transferTriggerRef.current.focus();
-                    else {
-                      const fallback =
-                        lobbyRef.current?.querySelector<HTMLButtonElement>(
-                          '[data-testid="room-members-overflow"]',
-                        ) ??
-                        lobbyRef.current?.querySelector<HTMLButtonElement>(
-                          '[data-testid="room-members"] button',
-                        );
-                      (fallback ?? lobbyRef.current)?.focus();
-                    }
-                  }}
-                />
-              ) : null}
-            </CardContent>
-            <CardFooter className="justify-center border-t border-border/60 pt-4">
-              <span
-                className="text-xs text-muted-foreground"
-                data-testid="room-lobby-view-member-count"
+            )}
+          </div>
+        </section>
+
+        <section
+          className={styles.inviteShelf}
+          data-testid="room-lobby-view-invite"
+          aria-labelledby={inviteTitleId}
+        >
+          <div className={styles.inviteHeading}>
+            <span className={styles.inviteIcon}>
+              <Link2 size={24} aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className={styles.inviteTitle} id={inviteTitleId}>
+                メンバーを招待
+              </h2>
+              <p>リンクやコードを送って、仲間を呼ぼう。</p>
+            </div>
+          </div>
+          <div className={styles.inviteUrl}>
+            <span>招待URL</span>
+            <InviteUrlActions value={inviteUrl} layout="inline" />
+          </div>
+          <div className={styles.inviteCode}>
+            <span>招待コード</span>
+            <CopyInviteButton value={inviteCode} itemLabel="招待コード" />
+          </div>
+          <Button
+            type="button"
+            onClick={onStart}
+            disabled={disabled}
+            data-testid="start-phase-button"
+            size="lg"
+            className={styles.start}
+          >
+            <Play size={20} aria-hidden="true" />
+            {isStarting ? "開始中…" : "セッションを開始"}
+          </Button>
+        </section>
+
+        <footer className={styles.footer}>
+          <details className={styles.privacy}>
+            <summary>保存とプライバシーについて</summary>
+            <p>
+              途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了時に参加中の人と、成果を残して途中退出した人は、完了から30日間、成果と保存できた5つの場面を見返せます。{" "}
+              <Link
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-4"
               >
-                {members.length} 名
-              </span>
-            </CardFooter>
-          </Card>
-
-          {/* 招待カード */}
-          {
-            <Card
-              className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
-              data-testid="room-lobby-view-invite"
-            >
-              <CardHeader className="gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                  <Link2 className="size-5" aria-hidden />
-                </div>
-                <div className="space-y-1.5">
-                  <CardTitle className="text-base">メンバーを招待</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-1 flex-col justify-center gap-5">
-                <div className="flex min-w-0 flex-col items-start gap-1.5">
-                  <span className="text-xs text-muted-foreground">招待URL</span>
-                  <InviteUrlActions value={inviteUrl} />
-                </div>
-                <div className="flex min-w-0 flex-col items-start gap-1.5">
-                  <span className="text-xs text-muted-foreground">
-                    招待コード
-                  </span>
-                  <CopyInviteButton
-                    value={inviteCode}
-                    itemLabel="招待コード"
-                    className="font-mono tracking-wider"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          }
-        </div>
-
-        {/* メインアクション */}
-        <Card className="border-border/80 shadow-sm">
-          <CardFooter className="flex flex-col gap-2 p-4 sm:p-6">
-            <Button
-              type="button"
-              onClick={onStart}
-              disabled={isDisconnected || isStarting || isTransferring}
-              data-testid="start-phase-button"
-              size="lg"
-              className="w-full"
-            >
-              <Play className="size-4" aria-hidden />
-              {isStarting ? "開始中…" : "開始する"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setLeaveDialogOpen(true)}
-              disabled={isLeaving}
-              data-testid="leave-button"
-              size="lg"
-              className="w-full"
-            >
-              <DoorOpen className="size-4" aria-hidden />
-              {isHost
-                ? isLeaving
-                  ? "解散中…"
-                  : "ルームを解散"
-                : isLeaving
-                  ? "退出中…"
-                  : "退出する"}
-            </Button>
-          </CardFooter>
-        </Card>
+                保存とプライバシーについて（別タブ）
+              </Link>
+            </p>
+          </details>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setLeaveDialogOpen(true)}
+            disabled={isLeaving}
+            data-testid="leave-button"
+            className={styles.leave}
+          >
+            <DoorOpen size={16} aria-hidden="true" />
+            {isHost
+              ? isLeaving
+                ? "解散中…"
+                : "ルームを解散"
+              : isLeaving
+                ? "退出中…"
+                : "退出する"}
+          </Button>
+        </footer>
       </div>
 
+      {isHost && isLobby(phase) && onTransferHost && hostTargetId !== null ? (
+        <HostTransferDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setHostTargetId(null);
+          }}
+          target={
+            members.find((member) => member.userId === hostTargetId) ?? null
+          }
+          onRequestRemove={
+            memberRemoval
+              ? () => {
+                  memberRemoval.request(hostTargetId);
+                  setHostTargetId(null);
+                }
+              : undefined
+          }
+          onConfirm={onTransferHost}
+          pending={isTransferring}
+          disconnected={isDisconnected}
+          error={transferError}
+          onClosed={() => {
+            if (transferTriggerRef.current?.isConnected)
+              transferTriggerRef.current.focus();
+            else
+              (
+                lobbyRef.current?.querySelector<HTMLButtonElement>(
+                  '[data-testid="room-members"] button',
+                ) ?? lobbyRef.current
+              )?.focus();
+          }}
+        />
+      ) : null}
       {roomName ? <RoomNameDialog controls={roomName} /> : null}
       {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
       {memberRemoval ? (
