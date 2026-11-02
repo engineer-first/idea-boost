@@ -59,10 +59,11 @@ button.peer:hover {
   transition: transform 120ms ease-out;
 }
 
-.avatarButton:not(:disabled):active {
+.avatarButton:not(:disabled):not([aria-disabled="true"]):active {
   transform: scale(0.96);
 }
-.avatarButton:disabled {
+.avatarButton:disabled,
+.avatarButton[aria-disabled="true"] {
   cursor: default;
 }
 .avatarButton:focus-visible,
@@ -89,7 +90,8 @@ button.peer:hover {
 .avatarButton:focus-visible .avatarOverlay {
   opacity: 1;
 }
-.avatarButton:disabled .avatarOverlay {
+.avatarButton:disabled .avatarOverlay,
+.avatarButton[aria-disabled="true"] .avatarOverlay {
   color: #6b7280;
 }
 

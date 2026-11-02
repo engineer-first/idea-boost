@@ -116,6 +116,21 @@ test("自分の顔と名前だけに独立したホバーとキーボードの�
   });
 });
 
+test("顔の送信中もキーボードフォーカスを保ち、操作できない状態を伝える", async () => {
+  await open("avatar-changing", 1280, 800);
+  const face = page.getByTestId("lobby-avatar-change");
+  expect(await face.getAttribute("aria-disabled")).toBe("true");
+  expect(await face.getAttribute("aria-busy")).toBe("true");
+  expect(
+    await face.evaluate((element) => (element as HTMLButtonElement).disabled),
+  ).toBe(false);
+  await face.focus();
+  await face.press("Enter");
+  expect(
+    await face.evaluate((element) => element === document.activeElement),
+  ).toBe(true);
+});
+
 test.each([768, 1024, 1280])(
   "4人の顔は幅%iでも互いに重ならない",
   async (width) => {

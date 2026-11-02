@@ -148,6 +148,7 @@ function renderStart(
     initialPhase?: RoomPhase;
     boardHref?: string;
     entryAdmission?: string;
+    availableAvatarCount?: number;
     saveDisplayNameAction?: import("./room-lobby").RoomLobbyProps["saveDisplayNameAction"];
   } = {},
 ) {
@@ -180,6 +181,7 @@ function renderStart(
         phaseRevision: 0,
         notes: [],
         members: options.initialMembers ?? [],
+        availableAvatarCount: options.availableAvatarCount,
         phase: options.initialPhase ?? buildLobbyPhase(),
         isHost: options.isHost ?? true,
         decision: null,
@@ -207,6 +209,41 @@ function findSocket() {
   if (!socket) throw new Error("WebSocket が生成されていない");
   return socket;
 }
+
+it("顔の変更中はフォーカスを維持し、再送を防ぎ、確定後も同じボタンから操作できる", () => {
+  const member: ProtocolMember = {
+    userId: HOST_ID,
+    name: "本人",
+    color: "yellow",
+    avatarId: "face-01",
+  };
+  const { socket } = renderStart({
+    initialMembers: [member],
+    availableAvatarCount: 19,
+  });
+  const button = screen.getByTestId("lobby-avatar-change");
+  button.focus();
+  fireEvent.click(button);
+  expect(button).not.toBeDisabled();
+  expect(button).toHaveAttribute("aria-disabled", "true");
+  expect(button).toHaveFocus();
+  fireEvent.click(button);
+  const messages = socket.sent
+    .map((message) => JSON.parse(message))
+    .filter((message) => message.type === "member:randomize-avatar");
+  expect(messages).toHaveLength(1);
+  act(() =>
+    socket.simulateServerMessage({
+      type: "member:avatar-updated",
+      member: { ...member, avatarId: "face-02" },
+      availableAvatarCount: 19,
+      operationId: messages[0].operationId,
+    }),
+  );
+  expect(button).not.toHaveAttribute("aria-disabled");
+  expect(button).toHaveFocus();
+  expect(screen.getByTestId("lobby-avatar-change")).toBe(button);
+});
 
 describe("RoomLobby の初期表示", () => {
   it("初期 members が空でも、ホストなら「開始する」ボタンが表示される", () => {

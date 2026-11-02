@@ -113,7 +113,11 @@ export function LobbyMembers({
                       }
                       aria-describedby={avatarDescriptionId}
                       aria-busy={avatarChange.pending}
-                      disabled={disabled || avatarChange.disabled}
+                      disabled={
+                        disabled ||
+                        (avatarChange.disabled && !avatarChange.pending)
+                      }
+                      aria-disabled={avatarChange.pending || undefined}
                       onClick={avatarChange.randomize}
                       data-testid="lobby-avatar-change"
                     >
