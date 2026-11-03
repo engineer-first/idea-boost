@@ -1031,3 +1031,20 @@ it("複数ページの旧在籍照合を同時に開始しても候補を重複�
   ).toEqual([null, null]);
   expect(await account.mayOperate(A.sub, source.roomId)).toBe(true);
 });
+
+it("保存済み旧操作の開始前に移動先が終了しても、元を退出させずロックを解放する", async () => {
+  const source = await createRoomAs(A),
+    target = await createRoomAs(C);
+  const prepared = confirmation(await prepare(target.inviteCode));
+  await env.ROOM_DO.get(env.ROOM_DO.idFromName(target.roomId)).disband(C.sub);
+  const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+  expect(await commit(prepared.operationId)).toMatchObject({
+    kind: "rejected",
+    failure: {
+      exitedSources: [],
+      remainingSources: [{ roomId: source.roomId }],
+    },
+  });
+  expect(await listMemberIds(source.roomId)).toContain(A.sub);
+  expect(await account.mayOperate(A.sub, source.roomId)).toBe(true);
+});

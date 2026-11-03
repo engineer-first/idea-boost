@@ -59,27 +59,42 @@ function targetKey(target: ParticipationTarget): string {
       : target,
   );
 }
+class ParticipationDestinationUnavailable extends Error {
+  constructor(
+    readonly reason:
+      | "destination_unavailable"
+      | "destination_full"
+      | "destination_closed",
+    message: string,
+  ) {
+    super(message);
+  }
+}
 function creationFailure(cause: unknown): ParticipationResult | null {
   const reason =
-    cause instanceof CreationConflict
-      ? "input_conflict"
-      : cause instanceof CreationExpired
-        ? "expired"
-        : cause instanceof CreationGone
-          ? "closed"
-          : cause instanceof CreationUpdateRequired
-            ? "update_required"
-            : null;
+    cause instanceof ParticipationDestinationUnavailable
+      ? cause.reason
+      : cause instanceof CreationConflict
+        ? "input_conflict"
+        : cause instanceof CreationExpired
+          ? "expired"
+          : cause instanceof CreationGone
+            ? "closed"
+            : cause instanceof CreationUpdateRequired
+              ? "update_required"
+              : null;
   return reason
     ? {
         kind: "rejected",
         reason,
         error:
-          reason === "expired"
-            ? "作成受付の期限が過ぎました。結果を確認してください。"
-            : reason === "closed"
-              ? "この作成要求のルームは終了または削除されています。"
-              : "作成要求を確認してください。",
+          cause instanceof ParticipationDestinationUnavailable
+            ? cause.message
+            : reason === "expired"
+              ? "作成受付の期限が過ぎました。結果を確認してください。"
+              : reason === "closed"
+                ? "この作成要求のルームは終了または削除されています。"
+                : "作成要求を確認してください。",
       }
     : null;
 }
@@ -193,17 +208,25 @@ export class AccountDO extends DurableObject<Env> {
       target.kind === "join"
         ? await findRoomByCode(this.env.DB, target.code)
         : await findRoomById(this.env.DB, target.roomId);
-    if (!room) throw new Error("移動先のルームが見つかりません。");
+    if (!room)
+      throw new ParticipationDestinationUnavailable(
+        "destination_unavailable",
+        "参加できるルームが見つかりません。招待元に確認してください。",
+      );
     if (
       target.kind === "revisit" &&
       !(await this.stub(room.roomId).isMember(userId))
     )
-      throw new Error("移動先のルームが見つかりません。");
+      throw new ParticipationDestinationUnavailable(
+        "destination_unavailable",
+        "参加できるルームが見つかりません。招待元に確認してください。",
+      );
     const accepted = await this.stub(room.roomId).canAcceptParticipation(
       userId,
     );
     if (accepted !== "ok")
-      throw new Error(
+      throw new ParticipationDestinationUnavailable(
+        accepted === "room-full" ? "destination_full" : "destination_closed",
         accepted === "room-full"
           ? "このルームは20人までです。"
           : "終了したルームには参加できません。",

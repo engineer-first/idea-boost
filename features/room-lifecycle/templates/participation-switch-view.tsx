@@ -43,7 +43,9 @@ export function ParticipationSwitchView({
           <AlertDialogDescription>
             {pending
               ? "そのままお待ちください。"
-              : "通信を確認して、もう一度お試しください。"}
+              : terminal
+                ? "ホームから別のルームを選んでください。"
+                : "通信を確認して、もう一度お試しください。"}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!pending && message && <p role="alert">{message}</p>}
