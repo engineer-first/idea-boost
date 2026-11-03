@@ -61,7 +61,7 @@ export function DotVoteStickerImage({
     <span
       aria-hidden="true"
       data-testid={`dot-vote-sticker-image-${kind}`}
-      className={`flex shrink-0 items-center justify-center border-2 shadow-tool ${
+      className={`flex shrink-0 items-center justify-center border-2 ${
         size === "result" ? "size-[22px]" : "size-7"
       } ${DOT_VOTE_TONE[kind]}`}
     >
@@ -148,7 +148,7 @@ export function DotVoteSticker({
       <DotVoteStickerImage kind={kind} />
       {shouldShowCount ? (
         <span
-          className={`absolute -right-1 -bottom-1 flex h-4 min-w-4 items-center justify-center rounded-full border bg-white px-0.5 text-xs leading-none font-bold shadow-tool ${DOT_VOTE_COUNT_TONE[kind]}`}
+          className={`absolute -right-1 -bottom-1 flex h-4 min-w-4 items-center justify-center rounded-full border bg-white px-0.5 text-xs leading-none font-bold ${DOT_VOTE_COUNT_TONE[kind]}`}
         >
           {displayedCount}
         </span>
