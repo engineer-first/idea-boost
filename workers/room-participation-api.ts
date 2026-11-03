@@ -48,6 +48,27 @@ export function participationResponse(
     headers: { "Cache-Control": "private, no-store" },
   });
 }
+/** 元ルームの読込中に別タブの移動が完了していたら、同じ操作の回復経路へ渡す。 */
+export function roomParticipationResponse(
+  result: ParticipationResult | null,
+  requestedRoomId: string,
+): Response | null {
+  if (!result || (result.kind === "ready" && result.roomId === requestedRoomId))
+    return null;
+  if (result.kind === "ready" && result.operationId) {
+    const recovery: ParticipationResult = {
+      kind: "pending",
+      operationId: result.operationId,
+      progress: "joining",
+      error: "別のルームに移動しました。",
+    };
+    return Response.json(recovery, {
+      status: 409,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
+  return participationResponse(result, true);
+}
 export async function handleRoomParticipation(
   request: Request,
   env: ApiWorkerEnv,

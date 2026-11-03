@@ -82,6 +82,7 @@ import {
   accountStub,
   handleRoomParticipation,
   participationResponse,
+  roomParticipationResponse,
 } from "./room-participation-api";
 import { handleSharedOutcomes } from "./shared-outcomes-api";
 
@@ -346,11 +347,9 @@ async function handleGetRoom(
       session.sub,
       roomId,
     );
-    if (participation) {
-      if (participation.kind !== "ready" || participation.roomId !== roomId)
-        return participationResponse(participation, true);
-      departure = participation;
-    }
+    const interruption = roomParticipationResponse(participation, roomId);
+    if (interruption) return interruption;
+    if (participation?.kind === "ready") departure = participation;
   }
   const phase = await stub.getPhase();
   return json({
@@ -487,11 +486,8 @@ async function handleRoomWebSocket(
     session.sub,
     roomId,
   );
-  if (
-    participation &&
-    (participation.kind !== "ready" || participation.roomId !== roomId)
-  )
-    return participationResponse(participation, true);
+  const interruption = roomParticipationResponse(participation, roomId);
+  if (interruption) return interruption;
   await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);

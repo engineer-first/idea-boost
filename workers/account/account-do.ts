@@ -405,8 +405,12 @@ export class AccountDO extends DurableObject<Env> {
                 "検証ステップを準備しています。同じステップを再試行してください。",
             };
           await this.normalizeConfirmation(op);
-          if (op.userId === userId && op.phase !== "ready")
-            return this.resumeInside(userId, active);
+          if (op.userId === userId && op.phase !== "ready") {
+            const result = await this.resumeInside(userId, active);
+            return result.kind === "ready"
+              ? { ...result, operationId: active }
+              : result;
+          }
         }
         // 検証サンプルなど、専用経路で準備された再訪先もRoomDOの事実を確認して候補に加える。
         const rooms = await this.indexedRooms();

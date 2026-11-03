@@ -1048,3 +1048,34 @@ it("保存済み旧操作の開始前に移動先が終了しても、元を退�
   expect(await listMemberIds(source.roomId)).toContain(A.sub);
   expect(await account.mayOperate(A.sub, source.roomId)).toBe(true);
 });
+
+it.each(["info", "websocket"] as const)(
+  "別タブの移動を再開した%s応答を通常の200にせず、同じ操作の回復へ渡す",
+  async (entry) => {
+    const source = await createRoomAs(A),
+      target = await createRoomAs(C);
+    const prepared = confirmation(await prepare(target.inviteCode));
+    await suspendMove(prepared.operationId, "leaving");
+    const response = await exports.default.fetch(
+      `https://api.test/api/rooms/${source.roomId}${entry === "websocket" ? "/ws" : ""}`,
+      {
+        headers: {
+          Cookie: await sessionCookieFor(A),
+          ...(entry === "websocket" ? { Upgrade: "websocket" } : {}),
+        },
+      },
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      kind: "pending",
+      operationId: prepared.operationId,
+    });
+    const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+    expect(await account.status(A.sub, prepared.operationId)).toMatchObject({
+      kind: "ready",
+      roomId: target.roomId,
+    });
+    expect(await listMemberIds(source.roomId)).not.toContain(A.sub);
+    expect(await listMemberIds(target.roomId)).toContain(A.sub);
+  },
+);
