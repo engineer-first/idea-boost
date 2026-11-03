@@ -23,6 +23,7 @@ export type LeaveConfirmDialogProps = {
   mode?: LeaveConfirmMode;
   completed?: boolean;
   onReturnToOutcome?: () => void;
+  onClosed?: () => void;
 };
 
 const COPY: Record<
@@ -51,6 +52,7 @@ export function LeaveConfirmDialog({
   mode = "leave",
   completed = false,
   onReturnToOutcome,
+  onClosed,
 }: LeaveConfirmDialogProps) {
   const [outcomeAccess, setOutcomeAccess] =
     useState<LeaveOutcomeAccess>("retain");
@@ -66,7 +68,15 @@ export function LeaveConfirmDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+      <AlertDialogContent
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+        onCloseAutoFocus={(event) => {
+          if (onClosed) {
+            event.preventDefault();
+            onClosed();
+          }
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{copy.title}</AlertDialogTitle>
           <AlertDialogDescription>

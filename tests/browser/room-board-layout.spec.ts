@@ -690,7 +690,7 @@ test("成果公開後は3件を表示し、編集ボードへ戻さずホーム�
   expect(await home.getAttribute("href")).toBe("/home");
 });
 
-test("採用案を選んだ後もボードに留まり、ホストにだけ完了チェックを示す", async () => {
+test("採用案を選んだ後もボードに留まり、全員に完了チェックを示す", async () => {
   await openStory("room-roomboardlayout--final-decision-pending");
   expect(await page.getByTestId("room-board-view-root").isVisible()).toBe(true);
   expect(
@@ -863,10 +863,10 @@ test.each([
     /採用するアイデア:/,
   ],
 ] as const)(
-  "%s の2クライアントでホスト hover・focus を参加者の点線表示へ即時反映する",
+  "%s の2クライアントで選択者の hover・focus を参加者の点線表示へ即時反映する",
   async (label, storyId, targetName) => {
     await openStory(storyId);
-    const host = page.getByRole("region", { name: "ホストクライアント" });
+    const host = page.getByRole("region", { name: "選択操作のクライアント" });
     const participant = page.getByRole("region", {
       name: "参加者クライアント",
     });
@@ -947,7 +947,7 @@ test.each([
 
 test("確定を取り消して選び直した時は、現在hover中の候補だけを参加者へ共有する", async () => {
   await openStory("room-roomboardcanvas--two-client-adoption-reselection");
-  const host = page.getByRole("region", { name: "ホストクライアント" });
+  const host = page.getByRole("region", { name: "選択操作のクライアント" });
   const participant = page.getByRole("region", {
     name: "参加者クライアント",
   });
@@ -1367,7 +1367,7 @@ test.each([1280, 1024, 768])(
     });
     expect(
       await menu
-        .getByRole("button", { name: "ルームを解散", exact: true })
+        .getByRole("button", { name: "退出する", exact: true })
         .isVisible(),
     ).toBe(true);
     expect(await menu.getByText("招待URL", { exact: true }).count()).toBe(0);
@@ -1614,24 +1614,21 @@ async function expectHudTargets(context: string): Promise<void> {
 }
 
 test.each([1280, 390])(
-  "U03: %ipxの全14工程でhost/memberの実操作対象を遮らない",
+  "U03: %ipxの全14工程で参加者の実操作対象を遮らない",
   async (width) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
-    for (const isHost of [true, false])
-      for (const step of steps) {
-        const [phase, number] = step.split("-");
-        await openStory(
-          `room-roomboardlayout--phase-${phase}-step-${number}&args=isHost:${isHost}`,
-        );
-        await page.getByTestId("board-context-hud").waitFor();
-        expect(
-          await page
-            .getByRole("dialog", { name: "投票結果", exact: true })
-            .count(),
-        ).toBe(0);
-        expect(await page.getByTestId("step-guide").count()).toBe(0);
-        await expectHudTargets(`${step}/${isHost ? "host" : "member"}`);
-      }
+    for (const step of steps) {
+      const [phase, number] = step.split("-");
+      await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
+      await page.getByTestId("board-context-hud").waitFor();
+      expect(
+        await page
+          .getByRole("dialog", { name: "投票結果", exact: true })
+          .count(),
+      ).toBe(0);
+      expect(await page.getByTestId("step-guide").count()).toBe(0);
+      await expectHudTargets(step);
+    }
   },
   60_000,
 );

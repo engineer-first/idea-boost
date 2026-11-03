@@ -72,6 +72,7 @@ export function RoomLobbyView({
   const isRemovingMember = memberRemoval?.pending ?? false;
   const isDisconnected = connectionStatus !== "open";
   const lobbyRef = useRef<HTMLDivElement>(null);
+  const leaveButtonRef = useRef<HTMLButtonElement>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const memberTriggerRef = useRef<HTMLElement | null>(null);
 
@@ -258,6 +259,7 @@ export function RoomLobbyView({
               variant="outline"
               onClick={() => setLeaveDialogOpen(true)}
               disabled={isLeaving}
+              ref={leaveButtonRef}
               data-testid="leave-button"
               size="lg"
               className="w-full"
@@ -286,6 +288,7 @@ export function RoomLobbyView({
         onOpenChange={setLeaveDialogOpen}
         onConfirm={onLeave}
         isLeaving={isLeaving}
+        onClosed={() => leaveButtonRef.current?.focus()}
       />
     </div>
   );

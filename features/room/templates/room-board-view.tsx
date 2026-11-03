@@ -1606,6 +1606,7 @@ export function RoomBoardView({
   };
 
   const feedbackButtonRef = useRef<HTMLButtonElement>(null);
+  const outcomeLeaveButtonRef = useRef<HTMLButtonElement>(null);
   if (hasFinalDecision && outcomePublished && !outcomeDismissed) {
     return (
       <>
@@ -1630,6 +1631,7 @@ export function RoomBoardView({
             className="min-h-11"
             disabled={isLeaving}
             onClick={() => setLeaveDialogOpen(true)}
+            ref={outcomeLeaveButtonRef}
           >
             退出してホームへ
           </Button>
@@ -1643,6 +1645,7 @@ export function RoomBoardView({
           mode="leave"
           completed
           onReturnToOutcome={() => setLeaveDialogOpen(false)}
+          onClosed={() => outcomeLeaveButtonRef.current?.focus()}
         />
         {feedback ? <FeedbackPanel feedback={feedback} /> : null}
       </>
@@ -2298,6 +2301,13 @@ export function RoomBoardView({
           isLeaving={isLeaving}
           completed={outcomePublished}
           onReturnToOutcome={() => setOutcomeDismissed(false)}
+          onClosed={() => {
+            boardRootRef.current
+              ?.querySelector<HTMLButtonElement>(
+                '[data-testid="room-menu-trigger"]',
+              )
+              ?.focus();
+          }}
         />
       </div>
       {feedback ? <FeedbackPanel feedback={feedback} /> : null}

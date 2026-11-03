@@ -1,6 +1,6 @@
 // スタート画面のプレゼンテーション層の単体テスト。
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { buildLobbyPhase } from "@/contracts/phase.fixture";
@@ -124,6 +124,9 @@ describe("退出ボタン", () => {
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(onLeave).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId("leave-button")).toHaveFocus(),
+    );
   });
 
   it("isLeaving=true のときホストボタンは disabled で文言が「退出中…」", () => {

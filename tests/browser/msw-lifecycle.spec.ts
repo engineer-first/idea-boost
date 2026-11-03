@@ -17,9 +17,7 @@ test("同じStorybook iframeでstoryを切り替えてもモックを再起動�
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   try {
-    await page.goto(
-      `${origin}/?path=/story/room-activehosttransferflow--success`,
-    );
+    await page.goto(`${origin}/?path=/story/room-activeroomflow--success`);
     const iframe = page.frameLocator("#storybook-preview-iframe");
     await iframe
       .getByRole("button", { name: "参加者 2人", exact: true })
@@ -30,22 +28,18 @@ test("同じStorybook iframeでstoryを切り替えてもモックを再起動�
     }, documentId);
 
     // iframe.htmlへの再navigationではなく、managerから同じiframeのstoryを変更する。
-    await page
-      .locator('[data-item-id="room-activehosttransferflow--refused"]')
-      .click();
-    await page.waitForURL(/room-activehosttransferflow--refused/);
+    await page.locator('[data-item-id="room-activeroomflow--refused"]').click();
+    await page.waitForURL(/room-activeroomflow--refused/);
     await iframe
       .getByRole("button", { name: "参加者 2人", exact: true })
       .click();
     await iframe
       .getByRole("button", { name: "Hana Sato", exact: true })
       .click();
-    await iframe
-      .getByRole("button", { name: "Hana Satoさんをホストにする" })
-      .click();
+    await iframe.getByRole("button", { name: "ルームから外す" }).click();
     await iframe.getByRole("alert").waitFor();
     expect(await iframe.getByRole("alert").innerText()).toContain(
-      "相手が切断しました",
+      "現在の参加者を確認",
     );
     expect(
       await iframe.locator("body").getAttribute("data-msw-lifecycle-document"),
