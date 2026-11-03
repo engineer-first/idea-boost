@@ -85,7 +85,7 @@ function CopyInviteButtonContent({
           className,
         )}
       >
-        <span className="min-w-0 flex-1 truncate font-mono text-sm font-semibold tracking-wider">
+        <span className="min-w-0 flex-1 truncate font-mono text-base font-semibold tracking-wider">
           {value}
         </span>
         <Icon

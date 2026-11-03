@@ -117,7 +117,7 @@
   flex-shrink: 0;
   border: 1px solid var(--border);
   border-radius: 50%;
-  font-size: 10px;
+  font-size: 12px;
 }
 .phaseNumber[data-current="true"] {
   background: var(--foreground);
@@ -169,7 +169,7 @@
   border-color: var(--foreground);
 }
 .currentLabel {
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 @media (width >= 901px) {

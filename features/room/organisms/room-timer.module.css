@@ -114,7 +114,7 @@
   border: 0;
   background: transparent;
   color: var(--foreground);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -157,7 +157,7 @@
   .actions button {
     gap: 4px;
     padding: 0 6px;
-    font-size: 13px;
+    font-size: 12px;
   }
   .circle:disabled {
     cursor: default;

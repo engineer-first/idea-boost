@@ -38,7 +38,7 @@ export function CreateRoomSectionView({
         </div>
         <div className="space-y-1.5">
           <CardTitle className="text-base">ルームを作成</CardTitle>
-          <CardDescription className="leading-relaxed">
+          <CardDescription className="min-h-[3.25rem] leading-relaxed">
             {createRoomCopy.description}
           </CardDescription>
         </div>
@@ -79,8 +79,9 @@ export function CreateRoomSectionView({
                 : "新しいルームを作成"}
           </Button>
         </form>
+
         {message && (
-          <p role="status" className="mt-3 text-sm leading-relaxed">
+          <p role="status" className="mt-3 text-base leading-relaxed">
             {message}
           </p>
         )}

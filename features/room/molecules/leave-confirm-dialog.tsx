@@ -76,6 +76,7 @@ export function LeaveConfirmDialog({
               : copy.description}
           </AlertDialogDescription>
         </AlertDialogHeader>
+
         <AlertDialogFooter>
           <AlertDialogCancel className="min-h-11" disabled={isLeaving}>
             キャンセル

@@ -57,11 +57,11 @@ export function CompletedBoardView({ board }: { board: CompletedBoard }) {
       ) : (
         <>
           {map && (
-            <p className="text-sm leading-6 text-muted-foreground">
+            <p className="text-base leading-6 text-muted-foreground">
               縦軸：価値（上ほど高い）／ 横軸：実現のしやすさ（右ほど高い）
             </p>
           )}
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             配置図の下で、すべての付箋の全文を読めます。
           </p>
           <svg

@@ -104,7 +104,7 @@ export function SharingPresenter({
                   </span>
                   {isCurrent ? (
                     <span className="min-w-0 max-w-28 text-left leading-tight">
-                      <span className="block text-[10px] font-bold text-blue-700">
+                      <span className="block text-xs font-bold text-blue-700">
                         {currentStatusLabel}
                       </span>
                       <span className="block truncate text-xs font-semibold text-blue-950">
@@ -130,13 +130,16 @@ export function SharingPresenter({
         className="w-80 max-h-[calc(100dvh-2rem)] overflow-y-auto"
         aria-label="共有する順番"
       >
-        <p className="text-sm font-semibold">共有する順番</p>
+        <p className="text-base font-semibold">共有する順番</p>
         <p className="mb-3 mt-1 text-xs text-muted-foreground">
           課題・問い・アイデアを同じ順番で共有します。
         </p>
         <ol className="max-h-72 space-y-3 overflow-y-auto">
           {sharing.order.map((member, index) => (
-            <li key={member.userId} className="flex items-center gap-2 text-xs">
+            <li
+              key={member.userId}
+              className="flex items-center gap-2 text-base"
+            >
               <MemberSelection
                 name={
                   member.userId === currentUserId && onEditSelf
@@ -219,7 +222,7 @@ export function SharingPresenter({
                   color={member.color}
                   size={28}
                 />
-                <span className="min-w-0 break-words text-sm">
+                <span className="min-w-0 break-words text-base">
                   {member.name}
                 </span>
               </MemberSelection>

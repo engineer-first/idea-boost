@@ -59,7 +59,9 @@ export function isIdeaValueFeasibilityMapCoordinate(
 
 export const NOTE_WIDTH = 200;
 export const NOTE_HEIGHT = 150;
-export const NOTE_DEFAULT_FONT_SIZE = 14;
+export const NOTE_DEFAULT_FONT_SIZE = 16;
+// 文字サイズを保存する前に作成された付箋の表示値。新規作成の既定値とは分ける。
+export const NOTE_LEGACY_FONT_SIZE = 14;
 export const NOTE_FONT_SIZE_RANGE = { min: 12, max: 24, step: 1 } as const;
 
 // 本文は左右 8px の余白を設ける。

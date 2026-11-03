@@ -89,7 +89,7 @@ export function ParticipationSwitchView({
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="space-y-4 text-sm leading-relaxed [overflow-wrap:anywhere]">
+        <div className="space-y-4 text-base leading-relaxed [overflow-wrap:anywhere]">
           {failedOperation ? (
             <>
               <p>

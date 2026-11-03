@@ -20,7 +20,7 @@ export function LandingStartSection({ entry }: { entry: LandingEntry }) {
       <ol className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
         {copy.gettingStarted.steps.map((step, index) => (
           <li key={step.title}>
-            <p className="mb-3 text-sm font-semibold tabular-nums text-[var(--lp-accent-hover)]">
+            <p className="mb-3 text-base font-semibold tabular-nums text-[var(--lp-accent-hover)]">
               {index + 1}
             </p>
             <h3 className="text-2xl font-bold leading-8">{step.title}</h3>

@@ -34,7 +34,7 @@ export function CompletedRoomsView({
         </Link>
         <header>
           <h1 className="text-3xl font-bold">以前のルーム</h1>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          <p className="mt-3 text-base leading-6 text-muted-foreground">
             完了時に参加していたルームと、成果を残して途中退出したルームを見返せます。成果の保存期限は完了から30日間です。
           </p>
           <Button
@@ -58,7 +58,7 @@ export function CompletedRoomsView({
               <h2 className="mt-2 line-clamp-3 whitespace-pre-wrap text-lg font-semibold leading-7 [overflow-wrap:anywhere]">
                 {room.idea}
               </h2>
-              <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+              <dl className="mt-4 grid gap-2 text-base sm:grid-cols-2">
                 <div>
                   <dt className="text-muted-foreground">
                     完了日時（日本時間）
@@ -82,7 +82,7 @@ export function CompletedRoomsView({
               </dl>
               <Link
                 href={`/completed-rooms/${room.roomId}`}
-                className="mt-5 inline-flex min-h-11 items-center rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="mt-5 inline-flex min-h-11 items-center rounded-md bg-primary px-5 text-base font-semibold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 成果を見る
               </Link>
@@ -115,7 +115,7 @@ export function CompletedRoomsView({
                 : "以前のルームはまだありません。"}
             </p>
             {!hasMore && (
-              <p className="text-sm leading-6 text-muted-foreground">
+              <p className="text-base leading-6 text-muted-foreground">
                 完了直後は表示まで時間がかかることがあります。時間をおいて「最新の一覧を取得」をお試しください。
               </p>
             )}

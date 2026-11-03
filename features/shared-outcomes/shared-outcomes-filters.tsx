@@ -16,7 +16,7 @@ export type SharedOutcomesFiltersProps = {
   onSearch: (filters: SharedOutcomeFilters) => void;
 };
 const selectClass =
-  "min-h-11 w-full rounded-lg border border-input bg-background px-3 text-base focus-visible:outline-2 focus-visible:outline-ring sm:text-sm";
+  "min-h-11 w-full rounded-lg border border-input bg-background px-3 text-base focus-visible:outline-2 focus-visible:outline-ring";
 export function SharedOutcomesFilters({
   filters,
   onSearch,
@@ -54,7 +54,7 @@ export function SharedOutcomesFilters({
       >
         <div className="flex items-end gap-2">
           <label htmlFor={`${id}-q`} className="min-w-0 flex-1 space-y-2">
-            <span className="text-sm font-medium">ルーム名・ルームID</span>
+            <span className="text-base font-medium">ルーム名・ルームID</span>
             <Input
               id={`${id}-q`}
               type="search"
@@ -63,7 +63,7 @@ export function SharedOutcomesFilters({
               onChange={(event) => setQuery(event.currentTarget.value)}
               placeholder="名前やIDの一部で検索"
               maxLength={200}
-              className="min-h-11 text-base caret-primary sm:text-sm"
+              className="min-h-11 text-base caret-primary"
             />
           </label>
           <Button type="submit" className="min-h-11 px-4">
@@ -75,7 +75,7 @@ export function SharedOutcomesFilters({
           <div className="space-y-2">
             <label
               htmlFor={`${id}-status`}
-              className="block text-sm font-medium"
+              className="block text-base font-medium"
             >
               記録
             </label>
@@ -94,7 +94,7 @@ export function SharedOutcomesFilters({
           <div className="space-y-2">
             <label
               htmlFor={`${id}-phase`}
-              className="block text-sm font-medium"
+              className="block text-base font-medium"
             >
               到達フェーズ
             </label>
@@ -115,7 +115,7 @@ export function SharedOutcomesFilters({
           <div className="col-span-2 space-y-2 sm:col-span-1">
             <label
               htmlFor={`${id}-saveStatus`}
-              className="block text-sm font-medium"
+              className="block text-base font-medium"
             >
               保存状態
             </label>
@@ -134,7 +134,7 @@ export function SharedOutcomesFilters({
           </div>
         </div>
         <fieldset className="min-w-0 space-y-3">
-          <legend className="text-sm font-medium">
+          <legend className="text-base font-medium">
             最終利用日{" "}
             <span className="font-normal text-muted-foreground">
               （日本時間）
@@ -144,7 +144,7 @@ export function SharedOutcomesFilters({
             <div className="min-w-0 space-y-2">
               <label
                 htmlFor={`${id}-from`}
-                className="block text-sm font-medium"
+                className="block text-base font-medium"
               >
                 開始日
               </label>
@@ -160,11 +160,14 @@ export function SharedOutcomesFilters({
                   setDateError(null);
                 }}
                 aria-describedby={`${id}-date-help`}
-                className="min-h-11 min-w-0 text-base sm:text-sm"
+                className="min-h-11 min-w-0 text-base"
               />
             </div>
             <div className="min-w-0 space-y-2">
-              <label htmlFor={`${id}-to`} className="block text-sm font-medium">
+              <label
+                htmlFor={`${id}-to`}
+                className="block text-base font-medium"
+              >
                 終了日
               </label>
               <Input
@@ -180,13 +183,13 @@ export function SharedOutcomesFilters({
                 }}
                 aria-invalid={dateError ? true : undefined}
                 aria-describedby={`${id}-date-help${dateError ? ` ${id}-date-error` : ""}`}
-                className="min-h-11 min-w-0 text-base sm:text-sm"
+                className="min-h-11 min-w-0 text-base"
               />
             </div>
           </div>
           <p
             id={`${id}-date-help`}
-            className="text-sm leading-relaxed text-muted-foreground"
+            className="text-base leading-relaxed text-muted-foreground"
           >
             両端の日付を含みます。片方だけでも指定できます。「検索」で適用します。
           </p>
@@ -194,7 +197,7 @@ export function SharedOutcomesFilters({
             <p
               id={`${id}-date-error`}
               role="alert"
-              className="text-sm text-destructive"
+              className="text-base text-destructive"
             >
               {dateError}
             </p>
@@ -202,7 +205,7 @@ export function SharedOutcomesFilters({
         </fieldset>
         {active && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               {filters.q ? `「${filters.q}」を検索中。` : ""}
               選択した条件で絞り込んでいます。
               {(filters.from || filters.to) && (

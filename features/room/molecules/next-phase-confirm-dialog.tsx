@@ -59,7 +59,7 @@ export function NextPhaseConfirmDialog({
     <Button
       type="button"
       variant={disabled ? "ghost" : "default"}
-      className={`h-10 px-4 max-[900px]:px-2 max-[900px]:text-xs ${disabled ? styles.pending : styles.ready}`}
+      className={`text-sm h-10 px-4 max-[900px]:px-2 max-[900px]:text-sm ${disabled ? styles.pending : styles.ready}`}
       disabled={disabled}
       onClick={(event) => {
         if (onRequestAdvance) {
@@ -136,7 +136,7 @@ export function NextPhaseConfirmDialog({
                       color={member.color}
                       size={28}
                     />
-                    <span className="text-sm">{member.name}</span>
+                    <span className="text-base">{member.name}</span>
                   </div>
                 ))}
               </fieldset>
