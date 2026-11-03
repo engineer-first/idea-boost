@@ -21,7 +21,7 @@ export function GuestIdentityUnavailable({
         {GUEST_IDENTITY_UNAVAILABLE_MESSAGE}
       </p>
       {loginHref && (
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="text-base leading-relaxed text-muted-foreground">
           {GUEST_IDENTITY_CHOICE_MESSAGE}
         </p>
       )}

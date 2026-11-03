@@ -86,7 +86,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
           <fieldset disabled={pending} className="min-w-0 space-y-4">
             <label
               htmlFor={`${id}-target`}
-              className="block text-sm font-medium"
+              className="block text-base font-medium"
             >
               対象
               <select
@@ -96,7 +96,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                 onChange={(event) =>
                   feedback.change({ target: event.target.value })
                 }
-                className="mt-1 block min-h-11 w-full rounded-md border bg-background px-2 text-sm"
+                className="mt-1 block min-h-11 w-full rounded-md border bg-background px-2 text-base"
               >
                 {FEEDBACK_TARGETS.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -106,7 +106,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
               </select>
             </label>
             <fieldset>
-              <legend className="mb-2 text-sm font-medium">
+              <legend className="mb-2 text-base font-medium">
                 種類（必須・1つ選択）
               </legend>
               <p className="mb-2 text-xs text-muted-foreground">
@@ -125,7 +125,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                         feedback.change({ kind: value as FeedbackKind })
                       }
                     />
-                    <span className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-sm peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
+                    <span className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-base peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
                       {draft.kind === value ? (
                         <Check aria-hidden="true" className="size-4" />
                       ) : null}
@@ -135,7 +135,10 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                 ))}
               </div>
             </fieldset>
-            <label htmlFor={`${id}-body`} className="block text-sm font-medium">
+            <label
+              htmlFor={`${id}-body`}
+              className="block text-base font-medium"
+            >
               文章（任意）
               <textarea
                 id={`${id}-body`}
@@ -154,7 +157,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
             </label>
             {draft.target === "app" ? (
               <fieldset>
-                <legend className="text-sm font-medium">
+                <legend className="text-base font-medium">
                   使いやすさ（任意）
                 </legend>
                 <p className="mb-2 mt-1 text-xs text-muted-foreground">
@@ -176,7 +179,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                         />
                         <span className="flex h-full flex-col items-center gap-1 rounded-lg border px-1 py-3 text-center peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
                           <Face aria-hidden="true" className="size-6" />
-                          <span className="flex items-center text-sm">
+                          <span className="flex items-center text-base">
                             {value}
                             {draft.rating === value ? (
                               <Check aria-hidden="true" className="size-3" />
@@ -191,7 +194,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                 <button
                   type="button"
                   onClick={() => feedback.change({ rating: null })}
-                  className="mt-1 min-h-9 text-xs underline"
+                  className="mt-1 min-h-9 text-base underline"
                 >
                   {draft.rating === null
                     ? "未回答のまま送れます"
@@ -215,7 +218,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
             閉じても入力は残ります。再読込やルーム外への移動で未送信の入力は消えます。
           </p>
           {error ? (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-base text-destructive">
               {error}
             </p>
           ) : null}

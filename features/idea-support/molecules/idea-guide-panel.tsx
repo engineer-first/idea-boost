@@ -34,7 +34,7 @@ export function IdeaGuidePanel({
     >
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex flex-col gap-1.5">
-          <p className="font-semibold text-sm">{IDEA_GUIDE_HEADING}</p>
+          <p className="font-semibold text-base">{IDEA_GUIDE_HEADING}</p>
           <p className="text-muted-foreground text-xs">
             {IDEA_GUIDE_DESCRIPTION}
           </p>
@@ -44,7 +44,7 @@ export function IdeaGuidePanel({
           <p className="mb-2 text-muted-foreground text-xs">
             例：問い → アイデア
           </p>
-          <dl className="space-y-2 text-sm">
+          <dl className="space-y-2 text-base">
             <div>
               <dt className="text-muted-foreground text-xs">問い</dt>
               <dd>{IDEA_GUIDE_SAMPLE.question}</dd>
@@ -100,7 +100,7 @@ export function IdeaGuidePanel({
             className={examplesOpen ? "flex flex-col gap-1" : "hidden"}
           >
             {IDEA_GUIDE_EXAMPLES.map((example) => (
-              <li key={example} className="text-sm leading-relaxed">
+              <li key={example} className="text-base leading-relaxed">
                 {example}
               </li>
             ))}

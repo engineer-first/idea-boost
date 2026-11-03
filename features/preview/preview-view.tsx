@@ -22,7 +22,7 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
           </p>
           <a
             href="/home"
-            className="inline-block text-sm underline underline-offset-4"
+            className="inline-block text-base underline underline-offset-4"
           >
             最初から作成・参加する
           </a>
@@ -67,10 +67,10 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
         ))}
         <section aria-label="LPを確認する" className="space-y-3">
           <h2 className="text-lg font-semibold">LPを確認する</h2>
-          <p className="max-w-2xl text-sm text-muted-foreground">
+          <p className="max-w-2xl text-base text-muted-foreground">
             未ログイン表示では、このブラウザでアプリのログインがない状態として表示します。ログイン画面の「Googleではじめる」か、この画面を開くと元のログイン状態に戻ります。
           </p>
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-base">
             <a
               href={PREVIEW_SIGNED_OUT_PATH}
               className="underline underline-offset-4"
@@ -82,7 +82,7 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
             </a>
           </div>
         </section>
-        <p className="max-w-2xl text-sm text-muted-foreground">
+        <p className="max-w-2xl text-base text-muted-foreground">
           参加者のマイ付箋は空から始まります。各自で付箋を追加できます。選び直すと別のルームを作り、開いているルームは切り替わりません。
         </p>
       </div>

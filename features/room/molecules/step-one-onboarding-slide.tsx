@@ -490,7 +490,7 @@ export function StepOneOnboardingSlide({
               <DialogTitle className="text-xl leading-snug sm:text-2xl">
                 {slide.title}
               </DialogTitle>
-              <DialogDescription className="max-w-2xl text-balance text-sm leading-6 sm:text-base">
+              <DialogDescription className="max-w-2xl text-balance text-base leading-6">
                 {slide.description}
               </DialogDescription>
             </DialogHeader>

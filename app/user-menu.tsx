@@ -47,7 +47,7 @@ export function UserMenu({
           >
             {userName ? (
               <span
-                className="truncate text-sm text-muted-foreground"
+                className="truncate text-xs text-muted-foreground"
                 data-testid="app-header-user-name"
               >
                 {userName}

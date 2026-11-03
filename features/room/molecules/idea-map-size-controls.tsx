@@ -66,7 +66,7 @@ export function IdeaMapSizeControls({
               data-map-size-label
             >
               <span className="text-xs font-semibold">マップの広さ</span>
-              <span className="text-[10px] font-normal text-muted-foreground">
+              <span className="text-xs font-normal text-muted-foreground">
                 全員に反映
               </span>
             </span>
@@ -76,7 +76,7 @@ export function IdeaMapSizeControls({
         <PopoverContent
           side="top"
           align="end"
-          className="w-72 max-w-[calc(100vw-1.5rem)] space-y-2 text-sm"
+          className="w-72 max-w-[calc(100vw-1.5rem)] space-y-2 text-base"
           aria-label="マップの広さについて"
         >
           <p className="font-semibold">マップの広さについて</p>

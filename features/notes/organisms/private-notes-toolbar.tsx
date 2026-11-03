@@ -427,7 +427,7 @@ export function PrivateNotesToolbar({
           }}
         >
           {isWorkspace ? (
-            <div className="mx-auto mb-6 max-w-5xl text-sm text-muted-foreground">
+            <div className="mx-auto mb-6 max-w-5xl text-base text-muted-foreground">
               <p className="flex items-center justify-center gap-2 text-center">
                 <LockKeyhole aria-hidden="true" className="size-4 shrink-0" />
                 この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
@@ -501,7 +501,7 @@ export function PrivateNotesToolbar({
                     testId={`example-note-${index + 1}`}
                   >
                     <div className="flex h-full flex-col p-2">
-                      <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-sm">
+                      <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-base">
                         {example}
                       </p>
                     </div>

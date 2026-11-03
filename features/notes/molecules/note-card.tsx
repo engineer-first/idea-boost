@@ -130,8 +130,8 @@ type CandidateTouchActionOwner = {
 
 const CANDIDATE_ACTION_WIDTH_PX = 80;
 const CANDIDATE_ACTION_HEIGHT_PX = 44;
-const CANDIDATE_MENU_WIDTH_PX = 144;
-const CANDIDATE_MENU_HEIGHT_PX = 48;
+const CANDIDATE_MENU_WIDTH_PX = 160;
+const CANDIDATE_MENU_HEIGHT_PX = 50;
 const VIEWPORT_EDGE_MARGIN_PX = 8;
 const ACTION_SHOW_DELAY_MS = 150;
 const ACTION_HIDE_DELAY_MS = 1_000;
@@ -997,7 +997,7 @@ export function NoteCard({
                     event.stopPropagation();
                     performCandidateAction();
                   }}
-                  className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
+                  className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-base font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
                 >
                   {note.excluded ? (
                     <ListPlus aria-hidden="true" className="size-4" />
@@ -1046,7 +1046,7 @@ export function NoteCard({
     >
       {candidateOverlay}
       {note.excluded ? (
-        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-sm bg-white/90 px-1 py-0.5 text-[10px] font-semibold text-slate-700">
+        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-sm bg-white/90 px-1 py-0.5 text-xs font-semibold text-slate-700">
           候補外
         </span>
       ) : null}

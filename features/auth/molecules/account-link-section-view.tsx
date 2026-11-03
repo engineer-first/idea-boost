@@ -25,7 +25,7 @@ export function AccountLinkSectionView({
   action,
 }: AccountLinkSectionViewProps) {
   return (
-    <section aria-label="Googleとの連携" className="grid gap-2 text-sm">
+    <section aria-label="Googleとの連携" className="grid gap-2 text-base">
       {result === "already_linked" ? null : status === "guest" ? (
         <>
           <form action={action}>

@@ -128,21 +128,21 @@ export function RoomLobbyView({
                 </Button>
               </div>
             ) : null}
-            <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
+            <p className="mx-auto max-w-md text-base leading-relaxed text-muted-foreground">
               "招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。"
             </p>
           </div>
-          <div className="min-h-5">
+          <div className="min-h-6">
             <RoomConnectionNotice
               returnHref={loginReturnHref}
               status={connectionStatus}
               delayed={connectionDelayed}
-              className="relative z-20 mx-auto w-fit rounded-lg bg-background px-3 text-sm text-muted-foreground"
+              className="relative z-20 mx-auto w-fit rounded-lg bg-background px-3 text-base text-muted-foreground"
             />
           </div>
         </header>
 
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-base text-muted-foreground">
           途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了時に参加中の人と、成果を残して途中退出した人は、完了から30日間、成果と保存できた5つの場面を見返せます。
           <Link
             href="/privacy"

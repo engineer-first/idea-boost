@@ -72,7 +72,7 @@ export function SharedOutcomeBoard({
         {label}の共有付箋 · {notes.length}枚
       </h3>
       {isMap && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           縦軸：価値（上ほど高い） · 横軸：実現のしやすさ（右ほど高い）
         </p>
       )}
@@ -206,7 +206,7 @@ export function SharedOutcomeBoard({
                 )}
               </div>
               {note.votes && (
-                <p className="mt-3 text-sm text-muted-foreground">
+                <p className="mt-3 text-base text-muted-foreground">
                   主観 {note.votes.subjective}票 / 客観 {note.votes.objective}票
                   / 合計 {note.votes.subjective + note.votes.objective}票
                 </p>

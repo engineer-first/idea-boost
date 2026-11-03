@@ -4,11 +4,7 @@
 // - parseClientMessage / parseServerMessage のラッパが「不正入力で null」
 //   を返すことを保証する（接続維持の挙動は workers/room-protocol.spec.ts）
 import { describe, expect, it } from "vitest";
-import {
-  IDEA_MAP_SIZE_LEVEL_RANGE,
-  NOTE_DEFAULT_FONT_SIZE,
-  NOTE_FONT_SIZE_RANGE,
-} from "./board";
+import { IDEA_MAP_SIZE_LEVEL_RANGE, NOTE_FONT_SIZE_RANGE } from "./board";
 import { buildLobbyPhase, buildPhaseStep } from "./phase.fixture";
 import {
   ClientMessageSchema,
@@ -279,7 +275,7 @@ describe("NoteSchema", () => {
     ).not.toHaveProperty("ideaMapPlaced");
   });
 
-  it("文字サイズを付箋ごとに受け入れ、fontSize省略時は14pxとして補完する", () => {
+  it("文字サイズを付箋ごとに受け入れ、fontSize省略時は16pxとして補完する", () => {
     expect(
       NoteSchema.parse({
         ...note,
@@ -288,9 +284,18 @@ describe("NoteSchema", () => {
       }).fontSize,
     ).toBe(24);
     expect(NoteSchema.parse({ ...note, visibility: "shared" }).fontSize).toBe(
-      NOTE_DEFAULT_FONT_SIZE,
+      16,
     );
   });
+
+  it.each([12, 14, 24])(
+    "保存された文字サイズ %s は補完せず保持する",
+    (fontSize) => {
+      expect(
+        NoteSchema.parse({ ...note, visibility: "shared", fontSize }).fontSize,
+      ).toBe(fontSize);
+    },
+  );
 
   it.each([11, 12.5, 25, Number.POSITIVE_INFINITY])(
     "文字サイズ %s は拒否する",

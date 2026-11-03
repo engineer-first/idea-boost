@@ -157,7 +157,7 @@ export const NoteSchema = z.object({
   visibilityRevision: z.int().nonnegative().optional(),
   visibility: z.enum(["private", "shared"]),
   color: NoteColorSchema,
-  // 旧 Worker / 保存データにフィールドがなくても従来相当の14pxで復元する。
+  // プロトコル入力での省略時は新規作成と同じ16px。保存行のない古い付箋の14px補完はWorkerで行う。
   fontSize: NoteFontSizeSchema.default(NOTE_DEFAULT_FONT_SIZE),
   x: CanvasCoordinateSchema,
   y: CanvasCoordinateSchema,

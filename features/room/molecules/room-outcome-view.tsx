@@ -139,13 +139,13 @@ export function RoomOutcomeView({
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           チームで決めた成果
         </h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 text-balance text-base leading-6 text-muted-foreground">
           決めた内容を持ち帰り、次の制作に使いましょう。
         </p>
         {!available || !outcome ? (
           <p
             role="alert"
-            className="mt-6 rounded-lg border border-border bg-muted px-4 py-3 text-sm leading-6"
+            className="mt-6 rounded-lg border border-border bg-muted px-4 py-3 text-base leading-6"
           >
             {authorized === false
               ? "閲覧権限を確認できません。ホームの「過去の成果を見る」から開き直してください。"
@@ -167,7 +167,7 @@ export function RoomOutcomeView({
               <h2 className="flex items-center gap-3 text-base font-bold">
                 <span
                   aria-hidden="true"
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground"
+                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-base text-primary-foreground"
                 >
                   {number}
                 </span>
@@ -204,7 +204,7 @@ export function RoomOutcomeView({
           </div>
         ) : null}
         {canExport ? (
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          <p className="mt-3 text-base leading-6 text-muted-foreground">
             保存したファイルを開いて内容を確認してください。コピーしたらメモに貼り付けて保存してください。
           </p>
         ) : null}
@@ -220,29 +220,29 @@ export function RoomOutcomeView({
           </Button>
         ) : null}
         {downloadStarted && canExport ? (
-          <p role="status" className="mt-3 text-sm">
+          <p role="status" className="mt-3 text-base">
             ダウンロードを開始しました。保存したファイルを確認してください。
           </p>
         ) : null}
         {copySucceeded && canExport ? (
-          <p role="status" className="mt-3 text-sm">
+          <p role="status" className="mt-3 text-base">
             コピーしました。メモに貼り付けて保存してください。
           </p>
         ) : null}
         {saveFailed && canExport ? (
-          <p role="alert" className="mt-3 text-sm text-destructive">
+          <p role="alert" className="mt-3 text-base text-destructive">
             保存を開始できませんでした。もう一度試すか、全文をコピーしてください。
           </p>
         ) : null}
         {copyFailed && canExport ? (
           <div className="mt-4 rounded-lg border border-destructive/40 bg-white p-4">
-            <p role="alert" className="text-sm">
+            <p role="alert" className="text-base">
               コピーできませんでした。下の全文を選択して手動でコピーしてください。
             </p>
             <textarea
               readOnly
               aria-label="手動でコピーする成果全文"
-              className="mt-3 h-56 w-full rounded-md border p-3 text-sm"
+              className="mt-3 h-56 w-full rounded-md border p-3 text-base"
               value={outputText}
               onFocus={(event) => event.currentTarget.select()}
             />
@@ -252,7 +252,7 @@ export function RoomOutcomeView({
         {children}
         <section className="mt-10 rounded-xl border border-border bg-card p-5 sm:p-6">
           <h2 className="text-lg font-bold">次に試すこと</h2>
-          <p className="mt-2 text-sm leading-7">
+          <p className="mt-2 text-base leading-7">
             誰の、どんな場面を確かめたい？
             簡単な画面を描き、その人に見せて確かめてみよう。
           </p>
@@ -265,7 +265,7 @@ export function RoomOutcomeView({
           )}
           <Link
             href="/home"
-            className="inline-flex min-h-10 items-center rounded-md px-3 text-sm font-semibold underline-offset-4 hover:underline"
+            className="inline-flex min-h-10 items-center rounded-md px-3 text-base font-semibold underline-offset-4 hover:underline"
           >
             保存を確認してホームへ
           </Link>

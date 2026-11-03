@@ -41,7 +41,7 @@ export function LandingHeroSection({ entry }: { entry: LandingEntry }) {
         <i className={styles.moodArc} />
       </div>
       <div className={styles.heroContent}>
-        <p className="mb-2 text-sm font-medium text-[var(--lp-body)]">
+        <p className="mb-2 text-base font-medium text-[var(--lp-body)]">
           {copy.introduction}
         </p>
         <h1 id="landing-heading" className={styles.heroHeading}>

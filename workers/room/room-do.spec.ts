@@ -5610,6 +5610,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     const other = await connectDirectly(roomName, USER_B, USER_A);
     author.send(JSON.stringify({ type: "note:create", content: "長文" }));
     const inserted = (await nextJson(author)) as { note: { id: string } };
+    expect(inserted).toMatchObject({ note: { fontSize: 16 } });
 
     other.send(
       JSON.stringify({
