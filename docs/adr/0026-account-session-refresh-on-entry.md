@@ -1,6 +1,6 @@
 ---
 id: "0026"
-status: Proposed
+status: Accepted
 date: "2026-11-03"
 ---
 
@@ -44,4 +44,4 @@ Google側の再認証を残す案は、入室のたびの往復が利用者の�
 - [方針を記録した PR #913](https://github.com/engineer-first/idea-boost/pull/913)（2026-11-03）。
 - [ホスト撤廃の要求 #903](https://github.com/engineer-first/idea-boost/issues/903)。
 - [PRD](../prd.md)、[進行仕様](../product/sprint-flow.md)。
-- 2026-11-03 Claudeセッション eeee537c-3f23-4a6f-94a0-238d7af39813（入室時の再ログインを今回の改善に含める本人の承認）。オーナーが採用した最新方針を形式だけ移行し、実装の採用状態をこの書き直しで変更しない。
+- 2026-11-03 Claudeセッション eeee537c-3f23-4a6f-94a0-238d7af39813（入室時の再ログインを今回の改善に含める本人の承認）。オーナーが明示的に採用した方針としてAcceptedとする。実装に先行する採用判断であり、実装・配備の完了を意味しない。
