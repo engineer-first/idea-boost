@@ -112,6 +112,8 @@ IdeaBoost の画面を、人も AI エージェントも同じ基準で作るた
 形式は [Google Labs の DESIGN.md](https://github.com/google-labs-code/design.md)（alpha）に合わせ、`npx @google/design.md lint DESIGN.md` で検査できます。
 まだ実装に入っていない項目は、末尾の「決まり具合」にまとめています。
 
+色などの値は、固定した `@google/design.md` から `npm run gen:design-tokens` で [app/design-tokens.css](app/design-tokens.css) に生成します。生成物は直接編集せず、YAMLを変更して再生成します。`npm run check:design-tokens` が生成物との一致を、`npm run lint:design` がこの文書の形式を検査し、CIでも実行します。[app/globals.css](app/globals.css) はshadcnの名前を生成変数へ対応させます。生成された余白・角丸は、対応付けるまで画面へ適用されません。
+
 ## Overview
 
 **ひらめきが次々に出て、チームで選び切れる。** 見た目はこの体験を支えるためにあります。
