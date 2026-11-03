@@ -126,6 +126,26 @@ function setup(overrides: Partial<Parameters<typeof useBoardDrag>[0]> = {}) {
 }
 
 describe("useBoardDrag", () => {
+  it("拡大した操作面からドラッグしても外側の付箋の寸法と掴み位置を使う", () => {
+    const note = document.createElement("div");
+    note.dataset.slot = "sticky-note";
+    const surface = document.createElement("button");
+    note.append(surface);
+    note.getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
+    surface.getBoundingClientRect = () => new DOMRect(90, 92.5, 220, 165);
+    const event = {
+      ...pointerEvent(1, 150, 140),
+      currentTarget: surface,
+    } as ReactPointerEvent<HTMLButtonElement>;
+    const { result } = setup();
+    act(() => result.current.handleSharedNoteDragStart("shared-1", event));
+    expect(result.current.drag).toMatchObject({
+      previewOffsetX: 50,
+      previewOffsetY: 40,
+      previewWidth: 200,
+      previewHeight: 150,
+    });
+  });
   it("共有付箋のドラッグ開始時は閾値超過後の座標ではなく掴み始めの位置を保つ", () => {
     const rect = {
       left: 190,

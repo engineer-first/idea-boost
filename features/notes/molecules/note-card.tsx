@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ListMinus, ListPlus } from "lucide-react";
+import { ListMinus, ListPlus } from "lucide-react";
 
 // 付箋1枚の表示用コンポーネント。データ層には一切依存せず、位置(x, y)や
 // 本文はすべてpropsで受け取り、変化はコールバックpropsで親へ通知するだけの
@@ -1133,21 +1133,10 @@ export function NoteCard({
         }}
         placeholder="メモを入力..."
       />
-      {isDecided ? (
-        <span
-          role="status"
-          aria-label="取り組む課題に決定済み"
-          className="pointer-events-none absolute bottom-1 right-1 z-30 flex size-9 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-lg"
-        >
-          <Check aria-hidden="true" className="size-5" strokeWidth={3} />
-        </span>
-      ) : null}
       {vote.displayMode === "result" ? (
         <div
           data-testid="note-vote-results"
-          className={`pointer-events-none relative z-20 flex h-10 shrink-0 items-end gap-2 pb-2 pl-2 ${
-            isDecided ? "pr-12" : "pr-2"
-          }`}
+          className="pointer-events-none relative z-20 flex h-10 shrink-0 items-end gap-2 pb-2 pl-2 pr-2"
         >
           <DotVoteSticker
             kind="subjective"

@@ -383,10 +383,14 @@ export const ExcludedCandidate: Story = {
     const active = cards.find((card) => card.dataset.noteId === "note-2");
     if (!excluded || !active) throw new Error("候補付箋が描画されていません");
 
-    const excludedStyle = getComputedStyle(excluded);
+    const excludedPaper = excluded.querySelector(
+      '[data-slot="sticky-note-paper"]',
+    );
+    if (!excludedPaper) throw new Error("候補外の紙面が描画されていません");
+    const excludedStyle = getComputedStyle(excludedPaper);
     await expect(excludedStyle.boxShadow).toBe("none");
     await expect(excludedStyle.borderTopWidth).toBe("1px");
-    await expect(excludedStyle.zIndex).toBe("0");
+    await expect(getComputedStyle(excluded).zIndex).toBe("0");
     await expect(getComputedStyle(active).zIndex).toBe("10");
     const excludedText = within(excluded).getByRole("textbox");
     // 候補外のラベルは本文内に置かず、通常付箋と同じ余白で本文を保つ。

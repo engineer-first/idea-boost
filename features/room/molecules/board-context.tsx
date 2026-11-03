@@ -95,6 +95,7 @@ export function BoardContext({
                 }
                 color={disclosure.reference?.color ?? null}
                 isDecided
+                decisionPresentation="reference"
                 height={Math.min(
                   240,
                   getNoteHeight(
@@ -119,7 +120,7 @@ export function BoardContext({
                     {disclosure.content}
                   </p>
                 </section>
-                <div className="flex h-10 shrink-0 items-center gap-2 px-2 pb-2">
+                <div className="grid h-16 shrink-0 content-center gap-1 pl-2 pr-16">
                   {disclosure.reference?.dotVotes ? (
                     <>
                       <DotVoteSticker
@@ -134,17 +135,6 @@ export function BoardContext({
                       />
                     </>
                   ) : null}
-                  <span
-                    role="status"
-                    aria-label="採用済み"
-                    className="ml-auto flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-lg"
-                  >
-                    <Check
-                      aria-hidden="true"
-                      className="size-5"
-                      strokeWidth={3}
-                    />
-                  </span>
                 </div>
               </StickyNote>
             );
