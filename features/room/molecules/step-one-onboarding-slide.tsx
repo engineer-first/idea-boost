@@ -494,7 +494,7 @@ export function StepOneOnboardingSlide({
           data-testid="step-one-onboarding-trigger"
           type="button"
           variant="outline"
-          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-lg border-border/80 bg-background/95 px-4 text-sm shadow-tool backdrop-blur transition hover:bg-muted max-[639px]:fixed max-[639px]:top-[calc(var(--board-location-top,7.25rem)-3rem)]"
+          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-lg border-border/80 bg-background/95 px-4 text-sm shadow-tool backdrop-blur transition hover:bg-muted max-[639px]:static max-[639px]:mt-2 max-[639px]:translate-x-0"
           onClick={openGuide}
         >
           進め方

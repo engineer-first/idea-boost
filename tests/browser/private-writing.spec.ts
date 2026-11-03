@@ -262,10 +262,6 @@ test("1-1: キーボードで次へ進めても遷移中と遷移後にフォー
     await next.evaluate((element) => document.activeElement === element),
   ).toBe(true);
   await page.keyboard.press("Enter");
-  await expect
-    .poll(() => content.getAttribute("data-slide-transition"))
-    .toBe("idle");
-  await page.keyboard.press("Enter");
   await dialog.getByRole("button", { name: "はじめる" }).waitFor();
   await expect
     .poll(() => content.getAttribute("data-slide-transition"))

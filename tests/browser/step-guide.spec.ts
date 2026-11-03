@@ -313,3 +313,45 @@ test.each([
     }
   },
 );
+
+test.each([320, 390, 1280])(
+  "幅%iで進め方が参加者と進行の操作を遮らない",
+  async (width) => {
+    const page = await browser.newPage({ viewport: { width, height: 844 } });
+    try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-activeroomflow--success&viewMode=story`,
+      );
+      const members = page.getByRole("button", {
+        name: "参加者 2人",
+        exact: true,
+      });
+      await members.waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      for (const target of [
+        members,
+        page.getByRole("button", { name: "できた！", exact: true }),
+        page.getByRole("button", { name: "進め方", exact: true }),
+      ]) {
+        await target.scrollIntoViewIfNeeded();
+        expect(
+          await target.evaluate((element) => {
+            const box = element.getBoundingClientRect();
+            return element.contains(
+              document.elementFromPoint(
+                box.x + box.width / 2,
+                box.y + box.height / 2,
+              ),
+            );
+          }),
+        ).toBe(true);
+      }
+      await members.click();
+      await page
+        .getByRole("button", { name: "Hana Sato", exact: true })
+        .waitFor();
+    } finally {
+      await page.close();
+    }
+  },
+);
