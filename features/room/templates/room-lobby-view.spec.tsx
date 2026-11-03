@@ -70,6 +70,11 @@ describe("RoomLobbyView", () => {
     expect(screen.getByTestId("start-phase-button")).toBeDisabled();
   });
 
+  it("退出処理中にはセッションを開始できない", () => {
+    renderView({ isLeaving: true });
+    expect(screen.getByTestId("start-phase-button")).toBeDisabled();
+  });
+
   it("接続が切れているときは再接続中の表示が出る", () => {
     renderView({ connectionStatus: "closed" });
     expect(
