@@ -22,7 +22,6 @@ import { AdoptNoteControl } from "./adopt-note-control";
 
 export type PhaseLoopControlsProps = {
   phase: RoomPhase;
-  isHost: boolean;
   isSelecting: boolean;
   decisionContent: string | null;
   candidateCount: number;
@@ -57,7 +56,6 @@ export function PhaseLoopControls({
     return (
       <AdoptNoteControl
         phaseNumber={phase.phase}
-        isHost
         canSelect
         isSelecting={false}
         decisionContent={decisionContent}
@@ -72,12 +70,12 @@ export function PhaseLoopControls({
       {isResult && candidateCount === 0 ? (
         <p
           role="status"
-          className="rounded-xl border bg-background px-4 py-2 text-sm"
+          className="rounded-lg border bg-background px-4 py-2 text-sm"
         >
           候補がありません。薄く表示された付箋のメニューから「候補に戻す」を選んでください。
         </p>
       ) : null}
-      <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-border bg-background p-2 shadow-lg shadow-black/5">
+      <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl border border-border bg-background p-2 shadow-tool">
         {!isSelecting ? (
           <AlertDialog
             open={dialog !== null}
@@ -124,7 +122,6 @@ export function PhaseLoopControls({
         {isResult ? (
           <AdoptNoteControl
             phaseNumber={phase.phase}
-            isHost
             canSelect={isResult}
             isSelecting={isSelecting}
             decisionContent={null}

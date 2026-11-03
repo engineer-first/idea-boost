@@ -10,8 +10,6 @@ export type RoomEntryPreviewProps = {
   phase: RoomPhase;
   members: ProtocolMember[];
   currentUserId: string;
-  hostUserId: string;
-  isHost: boolean;
   inviteCode: string;
   inviteUrl: string;
 };
@@ -45,20 +43,20 @@ export function RoomEntryPreview(props: RoomEntryPreviewProps) {
                 decidedHmw={null}
               />
             </div>
-            <div className="flex h-14 items-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm">
+            <div className="flex h-14 items-center gap-2 rounded-lg border border-border bg-background px-4 text-base">
               <Users className="size-4" />
               参加者 {props.members.length}人
             </div>
           </div>
-          <p className="absolute bottom-24 inset-x-4 text-center text-sm text-muted-foreground">
+          <p className="absolute bottom-24 inset-x-4 text-center text-base text-muted-foreground">
             入室を確認してから、このルームの付箋を読み込みます。
           </p>
-          <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-5 rounded-2xl border border-border bg-background px-5 py-3 text-muted-foreground">
+          <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-5 rounded-lg border border-border bg-background px-5 py-3 text-muted-foreground">
             <MousePointer2 className="size-5" />
             <Hand className="size-5" />
             <span className="h-6 w-px bg-border" />
             <Minus className="size-4" />
-            <span className="text-sm tabular-nums">100%</span>
+            <span className="text-base tabular-nums">100%</span>
             <Plus className="size-4" />
           </div>
         </div>

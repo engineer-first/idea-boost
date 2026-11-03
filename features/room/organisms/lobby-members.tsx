@@ -14,7 +14,6 @@ import styles from "./lobby-members.module.css";
 export type LobbyMembersProps = {
   members: Member[];
   currentUserId: string;
-  hostUserId: string;
   connectedUserIds?: readonly string[];
   disabled: boolean;
   nameDisabled?: boolean;
@@ -27,7 +26,6 @@ export type LobbyMembersProps = {
 export function LobbyMembers({
   members,
   currentUserId,
-  hostUserId,
   connectedUserIds,
   disabled,
   nameDisabled = false,
@@ -78,15 +76,8 @@ export function LobbyMembers({
           const status = (
             <span className={styles.status}>
               {isMe ? "あなた" : null}
-              {member.userId === hostUserId ? (
-                <span data-testid={`member-host-label-${member.userId}`}>
-                  {isMe ? "・ホスト" : "ホスト"}
-                </span>
-              ) : null}
               {isConnected === false ? (
-                <span>
-                  {isMe || member.userId === hostUserId ? "・" : ""}接続切れ
-                </span>
+                <span>{isMe ? "・" : ""}接続切れ</span>
               ) : null}
               {members.some(
                 (other) =>
@@ -102,7 +93,6 @@ export function LobbyMembers({
               className={styles.member}
               data-testid={`member-row-${member.userId}`}
               data-self={isMe ? "true" : undefined}
-              data-host={member.userId === hostUserId ? "true" : undefined}
             >
               {isMe ? (
                 <>

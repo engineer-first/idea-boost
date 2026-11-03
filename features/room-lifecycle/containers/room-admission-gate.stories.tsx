@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 import { fn } from "storybook/test";
 import type { GuestRoomEntryResult } from "@/features/auth";
 import { RoomAdmissionGate } from "./room-admission-gate";
@@ -34,7 +35,10 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const AccountAuthenticationRequired: Story = {
-  args: { sessionKind: "account" },
+  args: {
+    sessionKind: "account",
+    refreshAction: async () => ({ ok: false, reason: "reauth_required" }),
+  },
 };
 export const Checking: Story = {
   args: { sessionKind: "guest" },
@@ -49,5 +53,19 @@ export const IdentityUnavailable: Story = {
   args: {
     sessionKind: "guest",
     refreshAction: async () => ({ ok: false, reason: "identity_unavailable" }),
+  },
+};
+
+export const AccountAutomaticRefresh: Story = {
+  args: { sessionKind: "account", refreshAction: async () => ({ ok: true }) },
+  render: function AutomaticRefresh(args) {
+    const [refreshed, setRefreshed] = useState(false);
+    return (
+      <RoomAdmissionGate
+        {...args}
+        allowFreshEntry={refreshed}
+        onRefreshed={() => setRefreshed(true)}
+      />
+    );
   },
 };

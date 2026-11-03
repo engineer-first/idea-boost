@@ -1,21 +1,44 @@
-# PR Previewはmigration変更時に保存先を作り直す
+---
+id: "0013"
+status: Proposed
+date: "2026-10-11"
+---
 
-- 状態: 採用
-- 決定日: 2026-10-11
-- 関連: [PR全体と保存先の分離](0012-pr-preview-full-stack.md)、[運用手順](../operations/preview.md)
+# ADR 0013: PR Previewはmigration変更時に保存先を作り直す
 
-## 背景
+## Context
 
-PR Previewの目的は、そのPRの最新のコードをマージ前に試すことです。適用済みmigrationのSQLを書き換えても、既存D1とRoomDOでは同じファイル名・IDのSQLは再実行されず、コードとDBが合わなくなる場合があります。利用者はmigration変更時にPreviewのルームや付箋が消えてよいと回答しました。
+適用済みmigrationの内容を書き換えても、同じ識別のSQLは既存のD1とRoomDOでは再実行されず、最新のコードとDBが合わなくなる。Previewの目的はPRの最新コードの検証であり、保存データの維持とは両立しない場合があった。
 
-## 決定
+## Decision
 
-D1またはRoomDOのSQL一覧・内容が直前の公開版から変わった場合は、対象PRのPreviewとD1を削除し、最初から作ります。RoomDOの保存先もPreviewの削除で消えます。SQLが同じ通常の公開では保存先を再利用します。
+PRのmigrationが変わった場合は、そのPRのPreviewと保存先を作り直す。通常のコード更新では保存先を再利用する。対象と直前の公開版を確認できない場合は、推測して削除せず公開を止める。Previewではデータの維持より、PRのコードと新規構築したDBが一致する検証環境を優先するためである。
 
-公開処理は、このリポジトリのdevelopブランチにあるコードを使い、GitHubの対象コミットのSQL一覧と内容を照合します。公開時に照合用の値をCloudflareの公開記録へ残します。旧方式で公開した版も、そのコミットのSQL一覧と内容を使って比較します。直前の版を確認できない場合は削除せず停止し、公開処理が途中で失敗し、D1またはPreviewだけが残った場合は、両方を作り直します。
+### 本ADRで決定しないこと
 
-## 影響と注意
+関数・通信形式・保存の具体手順と移行方法は、PR Preview運用へ委譲する。参照先はReferencesに示す。
 
-PR用URLは同じですが、作り直した後は以前のルームURLを使えません。新しいサンプルルームから確認します。コードの公開履歴ごとにDBを増やすことはありません。
+## Consequences
 
-削除前にPRのopen状態、コミット、CIの成功状態を再確認します。本番と旧共通PreviewのD1を保護する検査は維持します。途中で失敗した場合は環境を使えない時間が生じます。次の公開でやり直しますが、消したデータは戻しません。本番migrationとマージ済みSQLの扱いは変更しません。
+良い影響は、適用済みSQLの変更を含めて最新のPRを検証できること。悪い影響は、以前のルームと付箋を失い、再作成中は確認できない時間が生じること。中立の影響として、PR用の入口URLは維持するが、保存データや既存ルームURLの存続は保証しない。本番やマージ済みmigrationの不変性は変えない。長期データを用いた検証が必要になった場合に見直す。
+
+2026-11-03に実コード・一次資料を照合。根拠未確認：実装または提案記録は確認できるが、オーナーがこの技術方針・比較理由まで採用した元発言は確認できない。実装済みであることだけではAcceptedにしない。
+
+## Alternatives Considered
+
+SQLが変わっても同じ保存先へ再適用する案では、新しいコードと適用履歴が一致しない。公開履歴ごとに保存先を増やす方式は採らず、PR単位の再作成としている。
+
+## Related ADRs
+
+- [ADR 0012](0012-pr-preview-full-stack.md)：関連する判断。
+
+## References
+
+- dateは旧記録の提案日または記録日を引き継いだもの。オーナーの決定日の裏付けは未確認。
+- [運用手順](../operations/preview.md)
+- [実装 PR #627](https://github.com/engineer-first/idea-boost/pull/627)
+- [migration比較](../../scripts/preview-migrations.mts)
+- [公開・再作成制御](../../scripts/preview-control.mts)
+- [照合した実装・規約](../../scripts/preview-control.mts)（確認日：2026-11-03）。
+- セッション調査：2026-11-03にvaultのClaude/Codexとローカルの元セッションを検索したが、この判断の本人の採用発言は未確認。GitHub記録の投稿者名だけで本人の承認とは判定していない。
+- [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0013-pr-preview-migration-reset.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

@@ -64,16 +64,16 @@ export function GuestNameFormView({
               event.preventDefault();
           }}
         />
-        <FieldDescription id={`${id}-hint`} className="text-sm">
+        <FieldDescription id={`${id}-hint`} className="text-base">
           {guestNameDescription}
         </FieldDescription>
         {error ? (
-          <FieldError id={`${id}-error`} role="alert" className="text-sm">
+          <FieldError id={`${id}-error`} role="alert" className="text-base">
             {error}
           </FieldError>
         ) : null}
       </Field>
-      <p className="text-sm text-muted-foreground">{guestIdentityNotice}</p>
+      <p className="text-base text-muted-foreground">{guestIdentityNotice}</p>
       <Button type="submit" className="min-h-11" disabled={pending}>
         {pending ? guestIdentityPendingLabel : submitLabel}
       </Button>

@@ -34,6 +34,7 @@ const IntentSchema = z.object({
     "conflict",
   ]),
   roomId: z.guid().optional(),
+  unopened: z.boolean().optional(),
   generation: z.string(),
 });
 export type RoomCreationIntent = z.infer<typeof IntentSchema>;
@@ -221,7 +222,9 @@ export function isRoomCreationSelected(
 export function updateRoomCreationIntent(
   userId: string,
   intent: RoomCreationIntent,
-  changes: Partial<Pick<RoomCreationIntent, "state" | "roomId" | "name">>,
+  changes: Partial<
+    Pick<RoomCreationIntent, "state" | "roomId" | "name" | "unopened">
+  >,
   requireSelected = false,
 ): Promise<RoomCreationIntent> {
   return transaction("readwrite", (tx, set) => {
@@ -265,6 +268,7 @@ export const saveRoomCreationResult = (
     state: "known",
     roomId,
     name: "",
+    unopened: true,
   });
 async function importLegacyIntent(userId: string): Promise<void> {
   const raw = sessionStorage.getItem(ROOM_CREATION_STORAGE_PREFIX + userId);
@@ -348,4 +352,24 @@ export async function discardRoomCreationRecords(
   });
   sessionStorage.removeItem(ROOM_CREATION_STORAGE_PREFIX + userId);
   notifyRoomCreations();
+}
+
+// 入室が成立した画面でのみ記録する。遷移の開始だけでは開封済みにしない。
+const openedRooms = new Set<string>();
+const OPENED_PREFIX = "idea-boost:opened-creation:";
+export function markRoomCreationOpened(roomId: string): void {
+  openedRooms.add(roomId);
+  try {
+    localStorage.setItem(OPENED_PREFIX + roomId, "1");
+  } catch {
+    /* 保存禁止でも同画面内では保持する。 */
+  }
+}
+export function wasRoomCreationOpened(roomId: string): boolean {
+  if (openedRooms.has(roomId)) return true;
+  try {
+    return localStorage.getItem(OPENED_PREFIX + roomId) === "1";
+  } catch {
+    return false;
+  }
 }

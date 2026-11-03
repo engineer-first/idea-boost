@@ -684,13 +684,13 @@ test("成果公開後は3件を表示し、編集ボードへ戻さずホーム�
   expect(await page.getByRole("button", { name: "ボードへ戻る" }).count()).toBe(
     0,
   );
-  const home = page.getByRole("link", { name: "保存を確認してホームへ" });
+  const home = page.getByRole("link", { name: "ホームへ戻る" });
   await home.scrollIntoViewIfNeeded();
   expect(await home.isVisible()).toBe(true);
   expect(await home.getAttribute("href")).toBe("/home");
 });
 
-test("採用案を選んだ後もボードに留まり、ホストにだけ完了チェックを示す", async () => {
+test("採用案を選んだ後もボードに留まり、全員に完了チェックを示す", async () => {
   await openStory("room-roomboardlayout--final-decision-pending");
   expect(await page.getByTestId("room-board-view-root").isVisible()).toBe(true);
   expect(
@@ -772,20 +772,22 @@ test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示
   expect(
     await page.getByRole("dialog", { name: "投票結果", exact: true }).count(),
   ).toBe(0);
-  const decidedNote = page.locator('[data-note-id="note-1"]');
+  const decidedNote = page.locator(
+    '[data-note-id="note-1"] [data-slot="sticky-note-paper"]',
+  );
   await decidedNote.waitFor();
 
   const outline = await decidedNote.evaluate((element) => {
     const probe = document.createElement("div");
-    probe.style.outlineColor = "var(--color-emerald-600)";
+    probe.style.outlineColor = "#1E8E3E";
     document.body.append(probe);
-    const emerald = getComputedStyle(probe).outlineColor;
+    const decidedGreen = getComputedStyle(probe).outlineColor;
     probe.remove();
 
     const css = getComputedStyle(element);
     return {
       color: css.outlineColor,
-      emerald,
+      decidedGreen,
       style: css.outlineStyle,
       width: Number.parseFloat(css.outlineWidth),
     };
@@ -793,33 +795,60 @@ test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示
 
   expect(outline.style).toBe("solid");
   expect(outline.width).toBeGreaterThanOrEqual(4);
-  expect(outline.color).toBe(outline.emerald);
+  expect(outline.color).toBe(outline.decidedGreen);
   await page.screenshot({ path: `${output}/decided-note.png` });
 });
 
-test("採用候補は通常時に黒枠を出さずhover時だけ緑枠を示す", async () => {
+test("採用候補はhover・focus-visibleでも緑の枠・背景・リングを重ねず操作範囲を保つ", async () => {
   await openStory("room-roomboardview--selecting-candidate");
   const candidate = page.getByRole("button", { name: /採用する付箋:/ }).first();
   await candidate.waitFor();
-  await candidate.hover();
-
-  // hover直後はCSSの色遷移中なので、最終色になるまで同じ条件で検査する。
-  await vi.waitFor(async () => {
-    const colors = await candidate.evaluate((element) => {
-      const probe = document.createElement("div");
-      probe.style.borderColor = "var(--color-emerald-600)";
-      document.body.append(probe);
-      const emerald = getComputedStyle(probe).borderColor;
-      probe.remove();
-      return {
-        actual: getComputedStyle(element).borderColor,
-        emerald,
-      };
-    });
-    expect(colors.actual).toBe(colors.emerald);
-  });
-
-  await page.screenshot({ path: `${output}/adopt-candidate-hover.png` });
+  const before = await candidate.boundingBox();
+  for (const interaction of ["hover", "focus"] as const) {
+    if (interaction === "hover") await candidate.hover();
+    else {
+      await page.mouse.move(0, 0);
+      await page.keyboard.press("Tab");
+      await candidate.focus();
+      expect(
+        await candidate.evaluate((element) =>
+          element.matches(":focus-visible"),
+        ),
+      ).toBe(true);
+    }
+    await expect
+      .poll(() =>
+        candidate.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            border: style.borderColor,
+            background: style.backgroundColor,
+            shadow: style.boxShadow,
+            outline: style.outlineStyle,
+            cursor: style.cursor,
+          };
+        }),
+      )
+      .toEqual({
+        border: "rgba(0, 0, 0, 0)",
+        background: "rgba(0, 0, 0, 0)",
+        shadow: "none",
+        outline: "none",
+        cursor: "pointer",
+      });
+    expect(await candidate.boundingBox()).toEqual(before);
+    expect(
+      await candidate.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return (
+          document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          ) === element
+        );
+      }),
+    ).toBe(true);
+  }
 });
 
 test.each([
@@ -834,39 +863,65 @@ test.each([
     /採用するアイデア:/,
   ],
 ] as const)(
-  "%s の2クライアントでホスト hover・focus を参加者の点線表示へ即時反映する",
+  "%s の2クライアントで選択者の hover・focus を参加者の点線表示へ即時反映する",
   async (label, storyId, targetName) => {
     await openStory(storyId);
-    const host = page.getByRole("region", { name: "ホストクライアント" });
+    const host = page.getByRole("region", { name: "選択操作のクライアント" });
     const participant = page.getByRole("region", {
       name: "参加者クライアント",
     });
     const target = host.getByRole("button", { name: targetName });
     const participantNote = participant.getByTestId("note-card");
+    const expectHostFocus = async () => {
+      await expect
+        .poll(() =>
+          host
+            .getByTestId("note-card")
+            .locator('[data-slot="sticky-note-paper"]')
+            .evaluate((element) => {
+              const style = getComputedStyle(element);
+              return {
+                outline: style.outlineStyle,
+                color: style.outlineColor,
+                width: style.outlineWidth,
+                background: style.backgroundImage,
+              };
+            }),
+        )
+        .toEqual({
+          outline: "dashed",
+          color: "rgb(194, 65, 12)",
+          width: "3px",
+          background: "none",
+        });
+    };
 
     await target.hover();
+    await expectHostFocus();
     await expect(
       participantNote.getAttribute("data-adoption-focused"),
     ).resolves.toBe("true");
-    const focusStyle = await participantNote.evaluate((element) => {
-      const probe = document.createElement("div");
-      probe.style.outlineColor = "var(--color-emerald-500)";
-      document.body.append(probe);
-      const emerald = getComputedStyle(probe).outlineColor;
-      probe.remove();
-      const style = getComputedStyle(element);
-      return {
-        outlineStyle: style.outlineStyle,
-        outlineWidth: Number.parseFloat(style.outlineWidth),
-        outlineColor: style.outlineColor,
-        emerald,
-        backgroundImage: style.backgroundImage,
-      };
-    });
+    const focusStyle = await participantNote
+      .locator('[data-slot="sticky-note-paper"]')
+      .evaluate((element) => {
+        const probe = document.createElement("div");
+        probe.style.outlineColor = "#C2410C";
+        document.body.append(probe);
+        const focusOrange = getComputedStyle(probe).outlineColor;
+        probe.remove();
+        const style = getComputedStyle(element);
+        return {
+          outlineStyle: style.outlineStyle,
+          outlineWidth: Number.parseFloat(style.outlineWidth),
+          outlineColor: style.outlineColor,
+          focusOrange,
+          backgroundImage: style.backgroundImage,
+        };
+      });
     expect(focusStyle.outlineStyle).toBe("dashed");
-    expect(focusStyle.outlineWidth).toBeGreaterThanOrEqual(2);
-    expect(focusStyle.outlineColor).toBe(focusStyle.emerald);
-    expect(focusStyle.backgroundImage).toContain("rgba(16, 185, 129");
+    expect(focusStyle.outlineWidth).toBe(3);
+    expect(focusStyle.outlineColor).toBe(focusStyle.focusOrange);
+    expect(focusStyle.backgroundImage).toBe("none");
     expect(await participant.getByText(/検討中|フォーカス中/).count()).toBe(0);
     await page.screenshot({
       path: `${output}/shared-adoption-focus-${label}.png`,
@@ -877,7 +932,9 @@ test.each([
       participantNote.getAttribute("data-adoption-focused"),
     ).resolves.toBeNull();
 
+    await page.keyboard.press("Tab");
     await target.focus();
+    await expectHostFocus();
     await expect(
       participantNote.getAttribute("data-adoption-focused"),
     ).resolves.toBe("true");
@@ -890,7 +947,7 @@ test.each([
 
 test("確定を取り消して選び直した時は、現在hover中の候補だけを参加者へ共有する", async () => {
   await openStory("room-roomboardcanvas--two-client-adoption-reselection");
-  const host = page.getByRole("region", { name: "ホストクライアント" });
+  const host = page.getByRole("region", { name: "選択操作のクライアント" });
   const participant = page.getByRole("region", {
     name: "参加者クライアント",
   });
@@ -980,13 +1037,13 @@ test.each([1280, 1024, 768])(
   },
 );
 
-test("考えるヒントは白地のタブにし、スクロールしても大分類を切り替えられる", async () => {
+test("考えるヒントはNoto Sans JPと白地のタブにし、スクロールしても大分類を切り替えられる", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
   await page.getByRole("button", { name: "考えるヒントを開く" }).click();
   await page.getByRole("tab", { name: "発想を広げる", exact: true }).click();
   const panel = page.getByTestId("board-help-panel");
   expect(await panel.evaluate((e) => getComputedStyle(e).fontFamily)).toContain(
-    "sans-serif",
+    "Noto Sans JP",
   );
   expect(
     await panel
@@ -1310,7 +1367,7 @@ test.each([1280, 1024, 768])(
     });
     expect(
       await menu
-        .getByRole("button", { name: "ルームを解散", exact: true })
+        .getByRole("button", { name: "退出する", exact: true })
         .isVisible(),
     ).toBe(true);
     expect(await menu.getByText("招待URL", { exact: true }).count()).toBe(0);
@@ -1557,24 +1614,21 @@ async function expectHudTargets(context: string): Promise<void> {
 }
 
 test.each([1280, 390])(
-  "U03: %ipxの全14工程でhost/memberの実操作対象を遮らない",
+  "U03: %ipxの全14工程で参加者の実操作対象を遮らない",
   async (width) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
-    for (const isHost of [true, false])
-      for (const step of steps) {
-        const [phase, number] = step.split("-");
-        await openStory(
-          `room-roomboardlayout--phase-${phase}-step-${number}&args=isHost:${isHost}`,
-        );
-        await page.getByTestId("board-context-hud").waitFor();
-        expect(
-          await page
-            .getByRole("dialog", { name: "投票結果", exact: true })
-            .count(),
-        ).toBe(0);
-        expect(await page.getByTestId("step-guide").count()).toBe(0);
-        await expectHudTargets(`${step}/${isHost ? "host" : "member"}`);
-      }
+    for (const step of steps) {
+      const [phase, number] = step.split("-");
+      await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
+      await page.getByTestId("board-context-hud").waitFor();
+      expect(
+        await page
+          .getByRole("dialog", { name: "投票結果", exact: true })
+          .count(),
+      ).toBe(0);
+      expect(await page.getByTestId("step-guide").count()).toBe(0);
+      await expectHudTargets(step);
+    }
   },
   60_000,
 );
@@ -1589,12 +1643,58 @@ test.each([1280, 768, 390, 320])(
       exact: true,
     });
     const body = page.getByTestId("board-reference-hmw-content");
-    const note = body.locator("..");
+    const note = page
+      .locator('[data-slot="sticky-note"]')
+      .filter({ has: body });
     expect((await body.locator("p").innerText()).length).toBe(2000);
     expect(await trigger.getAttribute("aria-expanded")).toBe("true");
     const bounds = await note.boundingBox();
     expect(bounds?.width).toBe(200);
     expect(bounds?.height).toBeLessThanOrEqual(width <= 639 ? 150 : 240);
+    const contentBounds = await note
+      .locator('[data-slot="sticky-note-content"]')
+      .boundingBox();
+    expect.soft(contentBounds?.width).toBeCloseTo(bounds?.width ?? 0);
+    const geometry = await note.evaluate((element) => {
+      const stamp = element.querySelector<HTMLElement>(".sticky-note-stamp");
+      const paper = element.querySelector('[data-slot="sticky-note-paper"]');
+      const body = element.querySelector("section");
+      if (!stamp || !paper || !body) throw new Error("参照付箋がありません");
+      const rect = element.getBoundingClientRect();
+      const s = stamp.getBoundingClientRect();
+      const b = body.getBoundingClientRect();
+      const overlaps = (r: DOMRect) =>
+        Math.min(r.right, s.right) > Math.max(r.left, s.left) &&
+        Math.min(r.bottom, s.bottom) > Math.max(r.top, s.top);
+      return {
+        size: stamp.offsetWidth,
+        fontSize: parseFloat(getComputedStyle(stamp).fontSize),
+        inside:
+          s.left >= rect.left &&
+          s.right <= rect.right &&
+          s.top >= rect.top &&
+          s.bottom <= rect.bottom,
+        viewport:
+          s.left >= 0 &&
+          s.right <= innerWidth &&
+          s.top >= 0 &&
+          s.bottom <= innerHeight,
+        paperWidth: paper.getBoundingClientRect().width,
+        overlapsBody: overlaps(b),
+        overlapsVotes: [...element.querySelectorAll('[role="img"]')].some(
+          (vote) => overlaps(vote.getBoundingClientRect()),
+        ),
+      };
+    });
+    expect(geometry).toEqual({
+      size: 44,
+      fontSize: 14,
+      inside: true,
+      viewport: true,
+      paperWidth: 200,
+      overlapsBody: false,
+      overlapsVotes: false,
+    });
     await body.focus();
     await page.keyboard.press("End");
     await body.evaluate((e) => {

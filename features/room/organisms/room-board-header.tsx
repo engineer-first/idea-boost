@@ -9,9 +9,9 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pencil,
-  Trash2,
   UserPlus,
 } from "lucide-react";
+import Link from "next/link";
 import {
   type ReactNode,
   useCallback,
@@ -99,26 +99,23 @@ export type RoomBoardHeaderProps = {
   timer: TimerState;
   timerServerOffsetMs: number;
   timerUpdateVersion?: number;
-  isHost: boolean;
   // ハイドレーション対策込みの「操作を止めるべきか」。判定は view の責務。
   isDisconnected: boolean;
   connectionStatus: RoomScreenConnectionStatus;
   connectionDelayed?: boolean;
   members: Member[];
   currentUserId: string;
-  hostUserId: string;
   completedVoterIds?: ReadonlyArray<string>;
   progress?: PhaseProgressState;
   onToggleReady?: ((ready: boolean) => boolean) | ((ready: boolean) => void);
   completionResetVersion?: number;
   isNextPhasePending: boolean;
-  hostRevision?: number;
   onEditSelf?: () => void;
   roomName?: string | null;
   onRenameRoom?: () => void;
   roomNameDisabled?: boolean;
-  onSelectHostTarget?: (userId: string) => void;
-  isTransferring?: boolean;
+  onSelectMember?: (userId: string) => void;
+  isRemovingMember?: boolean;
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
@@ -161,13 +158,11 @@ export function RoomBoardHeader({
   timer,
   timerServerOffsetMs,
   timerUpdateVersion = 0,
-  isHost,
   isDisconnected,
   connectionStatus,
   connectionDelayed = false,
   members,
   currentUserId,
-  hostUserId,
   completedVoterIds = [],
   progress = {
     phaseRevision: 0,
@@ -181,13 +176,12 @@ export function RoomBoardHeader({
   onToggleReady,
   completionResetVersion = 0,
   isNextPhasePending,
-  hostRevision = 0,
-  onSelectHostTarget,
+  onSelectMember,
   onEditSelf,
   roomName,
   onRenameRoom,
   roomNameDisabled,
-  isTransferring = false,
+  isRemovingMember = false,
   isNextPhaseBlocked,
   hasFinalDecision,
   outcomePublished,
@@ -374,9 +368,9 @@ export function RoomBoardHeader({
   const sharingDuration = activeSharing?.durationMs ?? 180000;
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
-  const canSelectHost = isHost && !outcomePublished && onSelectHostTarget;
-  const hostSelectionDisabled =
-    isDisconnected || isNextPhasePending || isTransferring || isLeaving;
+  const canSelectMember = !outcomePublished && onSelectMember;
+  const memberSelectionDisabled =
+    isDisconnected || isNextPhasePending || isRemovingMember || isLeaving;
   const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const roomMenuContentRef = useRef<HTMLDivElement>(null);
   const inviteContentRef = useRef<HTMLDivElement>(null);
@@ -429,14 +423,14 @@ export function RoomBoardHeader({
     canProceedByTimeOrReady &&
     hasFinalDecision &&
     !isDisconnected &&
-    !isTransferring &&
+    !isRemovingMember &&
     !isNextPhasePending;
   const completionCue = useCompletionCue({
-    scope: `${inviteCode}:${currentUserId}:${JSON.stringify(phase)}:${phaseRevision}:${hostRevision}:${completionResetVersion}`,
+    scope: `${inviteCode}:${currentUserId}:${JSON.stringify(phase)}:${phaseRevision}:${completionResetVersion}`,
     disabled:
       isDisconnected ||
       isNextPhasePending ||
-      isTransferring ||
+      isRemovingMember ||
       isLeaving ||
       outcomePublished,
     ready: isCurrentUserReady,
@@ -481,12 +475,10 @@ export function RoomBoardHeader({
   });
   const guidePhaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
-  const automaticStarterId = progress.connectedUserIds.includes(hostUserId)
-    ? hostUserId
-    : [...progress.connectedUserIds].sort()[0];
-  const isAutomaticStarter = automaticStarterId
-    ? automaticStarterId === currentUserId
-    : isHost;
+  const automaticStarterId = progress.connectedUserIds
+    .filter((id) => members.some((member) => member.userId === id))
+    .sort()[0];
+  const isAutomaticStarter = automaticStarterId === currentUserId;
   const [readyGuidePhaseKey, setReadyGuidePhaseKey] = useState<string | null>(
     null,
   );
@@ -506,7 +498,7 @@ export function RoomBoardHeader({
       (isPhaseStep(phase, 1, 1) && readyGuidePhaseKey !== guidePhaseKey) ||
       phase.kind !== "step" ||
       !isAutomaticStarter ||
-      isTransferring ||
+      isRemovingMember ||
       isNextPhasePending ||
       outcomePublished ||
       timer.status !== "idle"
@@ -536,7 +528,7 @@ export function RoomBoardHeader({
     currentUserId,
     phaseRevision,
     isDisconnected,
-    isTransferring,
+    isRemovingMember,
     isNextPhasePending,
     outcomePublished,
     timer.status,
@@ -557,14 +549,7 @@ export function RoomBoardHeader({
   const currentMember = members.find(
     (member) => member.userId === currentUserId,
   );
-  const leaveLabel =
-    isHost && !outcomePublished
-      ? isLeaving
-        ? "解散中…"
-        : "ルームを解散"
-      : isLeaving
-        ? "退出中…"
-        : "退出する";
+  const leaveLabel = isLeaving ? "退出中…" : "退出する";
 
   const sharingAnnouncement =
     transitioning && presenter ? (
@@ -576,7 +561,7 @@ export function RoomBoardHeader({
       <div
         data-testid="board-header-row"
         data-map-workspace={isIdeaMapWorkspaceStep || undefined}
-        className={`pointer-events-none absolute inset-x-3 top-3 bottom-[7.5rem] z-40 max-[639px]:z-[41] has-[[data-location-open=true]]:z-[60] grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${isPhaseThreePrivateNoteEntry ? "min-[640px]:bottom-3" : ""} ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[16rem]" : "max-[639px]:bottom-[11rem]"}`}
+        className={`pointer-events-none absolute inset-x-3 top-3 bottom-[7.5rem] z-40 max-[639px]:z-[41] has-[[data-location-open=true]]:z-[60] grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${isPhaseThreePrivateNoteEntry ? "min-[640px]:bottom-3" : ""} ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[16rem]" : "max-[639px]:bottom-[11rem]"}`}
       >
         <div
           className="pointer-events-none flex h-full w-full max-w-[360px] min-h-0 min-w-0 flex-col items-start gap-3 min-[900px]:max-[1200px]:max-w-[306px] max-[900px]:min-w-[306px] max-[639px]:relative max-[639px]:grid max-[639px]:grid-cols-[200px_minmax(0,1fr)] max-[639px]:grid-rows-[calc(var(--board-location-height,80px)+50px)_auto] max-[639px]:items-start max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:has-[[data-location-open=true]]:overflow-visible max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
@@ -620,7 +605,7 @@ export function RoomBoardHeader({
           className={`pointer-events-none flex min-w-0 flex-col items-end gap-2 max-[900px]:max-w-[426px] max-[639px]:order-first max-[639px]:w-full ${isCurrentVotingStep || isResultStep(phase) ? "max-[900px]:pb-6" : ""}`}
         >
           <fieldset
-            className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"
+            className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-xl border border-border bg-background p-1.5 shadow-tool max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"
             aria-label="ルームの操作"
             data-completion-cue={completionCue.stage}
             data-testid="board-control-hud"
@@ -639,11 +624,11 @@ export function RoomBoardHeader({
               <Button
                 type="button"
                 variant={isCurrentUserReady ? "secondary" : "outline"}
-                className={`h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
+                className={`text-sm h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
                 disabled={
                   isDisconnected ||
                   isNextPhasePending ||
-                  isTransferring ||
+                  isRemovingMember ||
                   isLeaving ||
                   sharingCompletionDisabled ||
                   (isCurrentVotingStep &&
@@ -680,7 +665,7 @@ export function RoomBoardHeader({
               </Button>
             ) : showVotingCompletion ? (
               <span
-                className="shrink-0 max-[900px]:absolute max-[900px]:right-0 max-[900px]:top-full max-[900px]:mt-1 max-[900px]:rounded-md max-[900px]:bg-background max-[900px]:px-2"
+                className="shrink-0 max-[900px]:absolute max-[900px]:right-0 max-[900px]:top-full max-[900px]:mt-1 max-[900px]:rounded-full max-[900px]:bg-background max-[900px]:px-2"
                 data-testid="vote-completion-indicator"
               >
                 <span
@@ -705,12 +690,9 @@ export function RoomBoardHeader({
                 }
                 onEditSelf={outcomePublished ? undefined : onEditSelf}
                 sharing={activeSharing}
-                hostUserId={hostUserId}
                 currentUserId={currentUserId}
-                onSelectHostTarget={
-                  canSelectHost ? onSelectHostTarget : undefined
-                }
-                selectionDisabled={hostSelectionDisabled}
+                onSelectMember={canSelectMember ? onSelectMember : undefined}
+                selectionDisabled={memberSelectionDisabled}
                 members={members}
               />
             ) : (
@@ -719,9 +701,9 @@ export function RoomBoardHeader({
                   <Button
                     type="button"
                     variant="ghost"
-                    className="h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
+                    className="text-sm h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
                     aria-label={`参加者 ${members.length}人`}
-                    data-host-transfer-origin
+                    data-member-menu-origin
                     title="参加者一覧を開く"
                   >
                     <span
@@ -819,7 +801,7 @@ export function RoomBoardHeader({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-72" aria-label="参加者一覧">
-                  <p className="mb-3 text-sm font-semibold">
+                  <p className="mb-3 text-base font-semibold">
                     参加者 {members.length}人
                   </p>
                   <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto p-1">
@@ -841,7 +823,7 @@ export function RoomBoardHeader({
                               : member.name
                           }
                           className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
-                          disabled={hostSelectionDisabled}
+                          disabled={memberSelectionDisabled}
                           onSelect={
                             member.userId === currentUserId &&
                             onEditSelf &&
@@ -850,10 +832,11 @@ export function RoomBoardHeader({
                                   setMembersOpen(false);
                                   onEditSelf();
                                 }
-                              : canSelectHost && member.userId !== currentUserId
+                              : canSelectMember &&
+                                  member.userId !== currentUserId
                                 ? () => {
                                     setMembersOpen(false);
-                                    onSelectHostTarget?.(member.userId);
+                                    onSelectMember?.(member.userId);
                                   }
                                 : undefined
                           }
@@ -876,7 +859,7 @@ export function RoomBoardHeader({
                                 : undefined
                             }
                           />
-                          <span className="min-w-0 flex-1 truncate text-sm">
+                          <span className="min-w-0 flex-1 truncate text-base">
                             {member.name}
                           </span>
                           {member.userId === currentUserId &&
@@ -891,14 +874,6 @@ export function RoomBoardHeader({
                             .length > 1 ? (
                             <span className="shrink-0 text-xs text-muted-foreground">
                               {NOTE_COLOR_NAMES[member.color]}
-                            </span>
-                          ) : null}
-                          {member.userId === hostUserId ? (
-                            <span
-                              className="text-xs text-muted-foreground"
-                              data-testid={`member-host-label-${member.userId}`}
-                            >
-                              ホスト
                             </span>
                           ) : null}
                           {member.userId === currentUserId ? (
@@ -921,8 +896,8 @@ export function RoomBoardHeader({
               : canAdvanceSharing) ? (
               activeSharing.status === "ready" ? (
                 <Button
-                  className="h-10 shrink-0"
-                  disabled={isDisconnected || isTransferring}
+                  className="text-sm h-10 shrink-0"
+                  disabled={isDisconnected || isRemovingMember}
                   onClick={() => onSharingStart?.(sharingDuration)}
                 >
                   最初の人を開始
@@ -930,11 +905,11 @@ export function RoomBoardHeader({
               ) : (
                 <Button
                   variant="outline"
-                  className="h-10 shrink-0 px-3"
+                  className="text-sm h-10 shrink-0 px-3"
                   disabled={
                     isDisconnected ||
                     transitioning ||
-                    isTransferring ||
+                    isRemovingMember ||
                     timer.status !== "ended"
                   }
                   onClick={() => onSharingAdvance?.("passed")}
@@ -947,20 +922,20 @@ export function RoomBoardHeader({
               outcomePublished && hasFinalDecision ? (
                 <Button
                   type="button"
-                  className="h-10 shrink-0 px-3"
+                  className="text-sm h-10 shrink-0 px-3"
                   onClick={onShowOutcome}
                 >
                   成果を見る
                 </Button>
               ) : (
                 <AlertDialog
-                  key={`${phaseRevision}:${isDisconnected}:${isTransferring}`}
+                  key={`${phaseRevision}:${isDisconnected}:${isRemovingMember}`}
                 >
                   <AlertDialogTrigger asChild>
                     <Button
                       type="button"
                       variant={canPublishOutcome ? "default" : "ghost"}
-                      className={`h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-xs ${canPublishOutcome ? styles.nextReady : styles.nextWaiting}`}
+                      className={`text-sm h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-sm max-[639px]:w-[116px] max-[639px]:whitespace-normal max-[639px]:leading-tight ${canPublishOutcome ? styles.nextReady : styles.nextWaiting}`}
                       disabled={!canPublishOutcome}
                     >
                       <Check
@@ -984,7 +959,7 @@ export function RoomBoardHeader({
                       <AlertDialogAction
                         disabled={
                           isDisconnected ||
-                          isTransferring ||
+                          isRemovingMember ||
                           isNextPhasePending ||
                           !hasFinalDecision ||
                           !canProceedByTimeOrReady
@@ -999,7 +974,7 @@ export function RoomBoardHeader({
               )
             ) : phase.kind === "step" && !activeSharing ? (
               <NextPhaseConfirmDialog
-                key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
+                key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
                 phase={phase}
                 disabled={
                   isDisconnected ||
@@ -1008,7 +983,7 @@ export function RoomBoardHeader({
                   !votingAllComplete ||
                   (activeSharing !== null && !canCompleteSharing) ||
                   !canProceedByTimeOrReady ||
-                  isTransferring
+                  isRemovingMember
                 }
                 requireConfirmation={requireProgressConfirmation}
                 notReadyNames={notReadyNames}
@@ -1047,7 +1022,7 @@ export function RoomBoardHeader({
                 }}
               >
                 <div className="mb-1 flex items-start gap-1 px-2">
-                  <p className="min-w-0 break-all text-sm leading-7">
+                  <p className="min-w-0 break-all text-base leading-7">
                     <span className="text-muted-foreground">ルーム名：</span>
                     <span className="font-medium">{roomName ?? "未設定"}</span>
                   </p>
@@ -1101,7 +1076,7 @@ export function RoomBoardHeader({
                           : undefined
                       }
                     />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    <span className="min-w-0 flex-1 truncate text-base font-medium">
                       {currentMember.name}
                     </span>
                     {onEditSelf && !outcomePublished ? (
@@ -1110,20 +1085,15 @@ export function RoomBoardHeader({
                         aria-hidden
                       />
                     ) : null}
-                    {isHost ? (
-                      <span className="text-xs text-muted-foreground">
-                        ホスト
-                      </span>
-                    ) : null}
                   </MemberSelection>
                 ) : null}
 
                 <div className="flex flex-col gap-1">
-                  <div className="relative flex h-10 items-center px-2 pr-12 text-sm">
+                  <div className="relative flex h-10 items-center px-2 pr-12 text-base">
                     タイマー通知音
                     <TimerSoundControl {...timerSoundControls} />
                   </div>
-                  {isHost && !activeSharing ? (
+                  {!activeSharing ? (
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -1143,7 +1113,7 @@ export function RoomBoardHeader({
                         }
                         aria-label="ルームに招待"
                       >
-                        <p className="mb-1 text-sm font-semibold">
+                        <p className="mb-1 text-base font-semibold">
                           ルームに招待
                         </p>
                         <p className="mb-4 text-xs leading-5 text-muted-foreground">
@@ -1194,31 +1164,37 @@ export function RoomBoardHeader({
                   !isNextPhasePending &&
                   !outcomePublished ? (
                     <PhaseRollbackDialog
-                      key={`${phaseRevision}:${hostRevision}:${isDisconnected}:${JSON.stringify(rollbackTarget)}`}
+                      key={`${phaseRevision}:${isDisconnected}:${JSON.stringify(rollbackTarget)}`}
                       phase={phase}
                       target={rollbackTarget}
-                      disabled={isDisconnected || isTransferring || isLeaving}
+                      disabled={isDisconnected || isRemovingMember || isLeaving}
                       onConfirm={onRollbackPhase}
                     />
                   ) : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-10 w-full justify-start gap-3 px-2 font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    disabled={isLeaving || isTransferring}
-                    data-testid="leave-button"
-                    onClick={() => {
-                      setRoomMenuOpen(false);
-                      onLeaveClick();
-                    }}
-                  >
-                    {isHost ? (
-                      <Trash2 className="size-4" aria-hidden="true" />
-                    ) : (
+                  {outcomePublished ? (
+                    <Button
+                      variant="ghost"
+                      className="h-10 w-full justify-start gap-3 px-2 font-normal"
+                      asChild
+                    >
+                      <Link href="/home">ホームへ戻る</Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-10 w-full justify-start gap-3 px-2 font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={isLeaving || isRemovingMember}
+                      data-testid="leave-button"
+                      onClick={() => {
+                        setRoomMenuOpen(false);
+                        onLeaveClick();
+                      }}
+                    >
                       <DoorOpen className="size-4" aria-hidden="true" />
-                    )}
-                    {leaveLabel}
-                  </Button>
+                      {leaveLabel}
+                    </Button>
+                  )}
                   {signOutAction ? (
                     <SignOutControl
                       sessionKind={sessionKind}
@@ -1240,7 +1216,7 @@ export function RoomBoardHeader({
               disabled={
                 isDisconnected ||
                 transitioning ||
-                isTransferring ||
+                isRemovingMember ||
                 isNextPhasePending
               }
               initialDurationMs={

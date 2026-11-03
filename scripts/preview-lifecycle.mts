@@ -153,7 +153,7 @@ export function previewComment(report: PreviewReport): string {
     `更新日時：${report.updatedAt}`,
     ...(report.logUrl ? [`[公開・終了処理のログ](${report.logUrl})`] : []),
     "",
-    "ログイン：許可一覧のGoogleアカウント（Cloudflare Access）。作成者がホストです。ボードの招待URLから同じPRのルームへ参加できます。",
+    "ログイン：許可一覧のGoogleアカウント（Cloudflare Access）。参加者全員が同じ操作を行えます。ボードの招待URLから同じPRのルームへ参加できます。",
     "確認範囲：PR版App・API・RoomDO・D1 migration・通信契約。全14ステップの新しいサンプル入りルームで操作できます。参加者のマイ付箋は空から始まります。",
     ...(report.state === "ready" && report.url
       ? [`[現在のPR版APIを確認](${report.url}/api/health)`]

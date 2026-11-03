@@ -32,7 +32,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 認証の環境変数を設定してください。
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
+            <CardContent className="text-base text-muted-foreground">
               <p>
                 <code className="font-mono text-xs">.env.example</code>
                 を参考に

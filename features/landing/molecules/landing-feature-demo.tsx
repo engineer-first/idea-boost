@@ -2,6 +2,7 @@ import { Check, Copy, Heart, LockKeyhole, Scale, Users } from "lucide-react";
 import type { CSSProperties } from "react";
 import { landingMembers } from "../logic/landing-board-copy";
 import { landingCopy } from "../logic/landing-copy";
+import { landingPaperStyle } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
 const copy = landingCopy.features.demo;
@@ -12,7 +13,12 @@ export function LandingFeatureDemo({ index }: { index: number }) {
       data-testid="landing-feature-decoration"
       aria-hidden="true"
       className={`${styles.theme} ${styles.featureDemo}`}
-      style={{ "--demo-delay": `${index * -1.3}s` } as CSSProperties}
+      style={
+        {
+          ...landingPaperStyle,
+          "--demo-delay": `${index * -1.3}s`,
+        } as CSSProperties
+      }
     >
       {index === 0 ? (
         <>

@@ -592,79 +592,8 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
-      // 入室確認用のプレビューが通常画面へ差し替わってから計測する。
-      const lobby = page.getByRole("main").getByTestId("room-lobby-view");
-      await lobby.waitFor({ state: "visible" });
-      for (const width of [320, 1280, 1512, 1812]) {
-        await page.setViewportSize({ width, height: 844 });
-        const edges = await lobby.evaluate((element) => {
-          const bounds = element.getBoundingClientRect();
-          return {
-            left: bounds.left,
-            rightGap: innerWidth - bounds.right,
-            overflows: element.scrollWidth > element.clientWidth,
-          };
-        });
-        await capture(page, `lobby-page-edges-${width}`);
-        expect.soft(edges, `${width}pxの待機画面が左右端まで広がる`).toEqual({
-          left: 0,
-          rightGap: 0,
-          overflows: false,
-        });
-      }
-      await page
-        .getByText("ルームを作成しました", { exact: true })
-        .waitFor({ state: "hidden" });
-      await page.mouse.move(1, 1);
-      for (const [width, height] of [
-        [1024, 600],
-        [1280, 632],
-        [1366, 643],
-        [1440, 800],
-        [1920, 1080],
-      ]) {
-        await page.setViewportSize({ width, height });
-        const start = lobby.getByTestId("start-phase-button");
-        const bounds = await start.evaluate((element) => {
-          const rect = element.getBoundingClientRect();
-          return {
-            top: rect.top,
-            bottom: rect.bottom,
-            reachable: element.contains(
-              document.elementFromPoint(
-                rect.x + rect.width / 2,
-                rect.y + rect.height / 2,
-              ),
-            ),
-          };
-        });
-        await capture(page, `lobby-start-initial-${width}-${height}`);
-        const scrollable = await lobby.evaluate((element) =>
-          [element, ...element.querySelectorAll<HTMLElement>("*")]
-            .filter((child) => {
-              const style = getComputedStyle(child);
-              return (
-                ["auto", "scroll"].includes(style.overflowY) &&
-                child.scrollHeight > child.clientHeight + 1
-              );
-            })
-            .map((child) => ({
-              tag: child.tagName,
-              height: child.clientHeight,
-              content: child.scrollHeight,
-            })),
-        );
-        expect
-          .soft(scrollable, `${width}×${height}で内部スクロールがない`)
-          .toEqual([]);
-        expect
-          .soft(await lobby.evaluate((element) => element.scrollTop))
-          .toBe(0);
-        expect.soft(bounds.top).toBeGreaterThanOrEqual(0);
-        expect.soft(bounds.bottom).toBeLessThanOrEqual(height);
-        expect.soft(bounds.reachable).toBe(true);
-      }
-      await page.setViewportSize({ width: 1280, height: 844 });
+      // URLの切替だけでは入室は未完了。実際に開けた後の新規作成を確認する。
+      await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
       // 入室ごとの一回tokenは異なるので、戻り先のルームをURL pathで照合する。
       const first = new URL(page.url());
       await page.goto(`${app}/home`);
@@ -673,17 +602,28 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .waitFor();
       await page
         .getByRole("textbox", { name: "ルーム名（任意）" })
-        .fill("次の会");
+        .fill("ルームA");
       await page
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
-      await page
-        .getByRole("heading", { name: "ルームを解散して移動しますか？" })
-        .waitFor();
-      await page
-        .getByRole("button", { name: "解散して作成する", exact: true })
-        .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
+      // URLの切替だけでは入室は未完了。実際に開けた後の新規作成を確認する。
+      await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
+      await page.getByText("前の会から退出しました", { exact: true }).waitFor();
+      expect(
+        await page.getByRole("button", { name: "退出して作成する" }).count(),
+      ).toBe(0);
+      await expect
+        .poll(() =>
+          page
+            .getByRole("button", { name: "セッションを開始", exact: true })
+            .isEnabled(),
+        )
+        .toBe(true);
+      await page.screenshot({
+        path: join(output, "automatic-switch-after.png"),
+        animations: "disabled",
+      });
       const second = new URL(page.url());
       expect(second.pathname).not.toBe(first.pathname);
       await page.goto(`${app}/home`);
@@ -698,110 +638,86 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
           url.origin === second.origin && url.pathname === second.pathname,
         { timeout: 5000 },
       );
-      await page
-        .getByRole("heading", { name: "次の会", exact: true })
-        .waitFor();
+      await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
       expect(new URL(page.url()).pathname).toBe(second.pathname);
-      // 前の単独ホストルームは同意して解散済み。保存URLで権限を復活させない。
+      // 前のルームは確認なしで退出済み。保存URLで権限を復活させない。
       await page.goto(first.origin + first.pathname);
       await page.getByRole("heading", { name: "404", exact: true }).waitFor();
-      expect(await page.getByTestId("room-lobby-view").count()).toBe(0);
-    } finally {
-      await browser.close();
-    }
-  });
+      expect(
+        await page.getByRole("main").getByTestId("room-lobby-view").count(),
+      ).toBe(0);
 
-  it("1280×632で再訪欄と閉じた履歴があっても作成・参加を初期画面に表示する", async () => {
-    const browser = await chromium.launch();
-    try {
-      const page = await browser.newPage({
-        viewport: { width: 1280, height: 632 },
+      const inviter = await browser.newPage({
+        viewport: { width: 1280, height: 900 },
       });
-      await page.goto(`${app}/login?next=%2Fhome`);
-      await page.getByLabel("メールアドレス").fill("member@example.test");
-      await page.getByLabel("パスワード").fill("password");
-      await page
+      await inviter.goto(`${app}/login?next=%2Fhome`);
+      await inviter.getByLabel("メールアドレス").fill("member@example.test");
+      await inviter.getByLabel("パスワード").fill("password");
+      await inviter
         .getByRole("button", { name: "開発用ユーザーでログイン" })
         .click();
-      await page.waitForURL(`${app}/home`);
-      const create = page.getByRole("button", {
-        name: "新しいルームを作成",
+      await inviter.waitForURL(`${app}/home`);
+      await inviter
+        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .fill("ルームB");
+      await inviter
+        .getByRole("button", { name: "新しいルームを作成", exact: true })
+        .click();
+      await inviter.waitForURL(/\/rooms\/[^/]+\/start/);
+      const inviteButton = inviter.getByRole("button", {
+        name: "招待URLをコピー",
         exact: true,
       });
-      const checkEntry = async (state: string): Promise<void> => {
-        await create.waitFor({ state: "visible" });
-        await page.evaluate(() => document.fonts.ready);
-        expect(
-          await page.getByTestId("home-view").evaluate((el) => el.scrollTop),
-        ).toBe(0);
-        for (const control of [
-          create,
-          page.getByRole("textbox", { name: "招待コード" }),
-          page.getByRole("button", { name: "参加する", exact: true }),
-        ]) {
-          const bounds = await control.boundingBox();
-          expect
-            .soft(bounds?.y, `${state}: 操作面の上端`)
-            .toBeGreaterThanOrEqual(0);
-          expect
-            .soft(
-              (bounds?.y ?? 632) + (bounds?.height ?? 0),
-              `${state}: 操作面の下端`,
-            )
-            .toBeLessThanOrEqual(632);
-        }
-        await capture(page, `home-short-${state}`);
-      };
-      await checkEntry("without-return");
+      await inviteButton.waitFor();
+      const title = await inviteButton.getAttribute("title");
+      if (!title) throw new Error("招待URLなし");
+      const inviteUrl = title.slice(title.indexOf("http"));
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto(inviteUrl);
       await page
-        .getByRole("textbox", { name: "ルーム名（任意）" })
-        .fill("高さ確認の会");
-      await create.click();
-      await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
-      await page.goto(`${app}/home`);
-      await page
-        .getByRole("button", { name: "前のルームに戻る", exact: true })
+        .getByRole("button", { name: "参加する", exact: true })
         .waitFor();
-      await checkEntry("with-return");
-      // 作成済みの控えを複製し、過去のルームがある表示条件だけを再現する。
-      await page.evaluate(
-        () =>
-          new Promise<void>((resolve, reject) => {
-            const request = indexedDB.open("idea-boost-room-creations", 1);
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => {
-              const db = request.result;
-              const tx = db.transaction("intents", "readwrite");
-              const store = tx.objectStore("intents");
-              const records = store.getAll();
-              records.onsuccess = () => {
-                const record = records.result[0];
-                const requestId = crypto.randomUUID();
-                store.put(
-                  {
-                    ...record,
-                    requestId,
-                    roomId: crypto.randomUUID(),
-                    name: "過去の相談",
-                  },
-                  `${record.expectedPrincipal}:${requestId}`,
-                );
-              };
-              tx.onerror = () => reject(tx.error);
-              tx.oncomplete = () => {
-                db.close();
-                window.dispatchEvent(new Event("idea-boost-room-creations"));
-                resolve();
-              };
-            };
-          }),
+      expect(new URL(page.url()).pathname).toMatch(/^\/invite\//);
+      await page.screenshot({
+        path: join(output, "automatic-invite-before.png"),
+        animations: "disabled",
+      });
+      await page.getByRole("button", { name: "参加する", exact: true }).click();
+      await page.waitForURL(/\/rooms\/[^/]+\/start/);
+      await page
+        .getByText("ルームAから退出しました", { exact: true })
+        .waitFor();
+      await expect
+        .poll(() =>
+          page
+            .getByRole("button", { name: "セッションを開始", exact: true })
+            .isEnabled(),
+        )
+        .toBe(true);
+      expect(
+        await page.getByRole("button", { name: "退出して参加する" }).count(),
+      ).toBe(0);
+      await page.screenshot({
+        path: join(output, "automatic-invite-after.png"),
+        animations: "disabled",
+      });
+      expect(new URL(page.url()).pathname).toBe(
+        new URL(inviter.url()).pathname,
       );
-      const history = page.getByText("以前のルーム", { exact: true });
-      await history.waitFor();
-      expect(await history.evaluate((el) => el.closest("details")?.open)).toBe(
-        false,
-      );
-      await checkEntry("with-history");
+      await page.reload();
+      await expect
+        .poll(() =>
+          page
+            .getByRole("button", { name: "セッションを開始", exact: true })
+            .isEnabled(),
+        )
+        .toBe(true);
+      expect(
+        await page
+          .getByText("ルームAから退出しました", { exact: true })
+          .count(),
+      ).toBe(0);
+      await inviter.close();
     } finally {
       await browser.close();
     }
@@ -912,4 +828,99 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
     },
     90_000,
   );
+  it("1280×632で再訪欄と閉じた履歴があっても作成・参加を初期画面に表示する", async () => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({
+        viewport: { width: 1280, height: 632 },
+      });
+      await page.goto(`${app}/login?next=%2Fhome`);
+      await page.getByLabel("メールアドレス").fill("member@example.test");
+      await page.getByLabel("パスワード").fill("password");
+      await page
+        .getByRole("button", { name: "開発用ユーザーでログイン" })
+        .click();
+      await page.waitForURL(`${app}/home`);
+      const create = page.getByRole("button", {
+        name: "新しいルームを作成",
+        exact: true,
+      });
+      const checkEntry = async (state: string): Promise<void> => {
+        await create.waitFor({ state: "visible" });
+        await page.evaluate(() => document.fonts.ready);
+        expect(
+          await page.getByTestId("home-view").evaluate((el) => el.scrollTop),
+        ).toBe(0);
+        for (const control of [
+          create,
+          page.getByRole("textbox", { name: "招待コード" }),
+          page.getByRole("button", { name: "参加する", exact: true }),
+        ]) {
+          const bounds = await control.boundingBox();
+          expect
+            .soft(bounds?.y, `${state}: 操作面の上端`)
+            .toBeGreaterThanOrEqual(0);
+          expect
+            .soft(
+              (bounds?.y ?? 632) + (bounds?.height ?? 0),
+              `${state}: 操作面の下端`,
+            )
+            .toBeLessThanOrEqual(632);
+        }
+        await capture(page, `home-short-${state}`);
+      };
+      await checkEntry("without-return");
+      await page
+        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .fill("高さ確認の会");
+      await create.click();
+      await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
+      await page.goto(`${app}/home`);
+      await page
+        .getByRole("button", { name: "前のルームに戻る", exact: true })
+        .waitFor();
+      await checkEntry("with-return");
+      // 作成済みの控えを複製し、過去のルームがある表示条件だけを再現する。
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            const request = indexedDB.open("idea-boost-room-creations", 1);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+              const db = request.result;
+              const tx = db.transaction("intents", "readwrite");
+              const store = tx.objectStore("intents");
+              const records = store.getAll();
+              records.onsuccess = () => {
+                const record = records.result[0];
+                const requestId = crypto.randomUUID();
+                store.put(
+                  {
+                    ...record,
+                    requestId,
+                    roomId: crypto.randomUUID(),
+                    name: "過去の相談",
+                  },
+                  `${record.expectedPrincipal}:${requestId}`,
+                );
+              };
+              tx.onerror = () => reject(tx.error);
+              tx.oncomplete = () => {
+                db.close();
+                window.dispatchEvent(new Event("idea-boost-room-creations"));
+                resolve();
+              };
+            };
+          }),
+      );
+      const history = page.getByText("以前のルーム", { exact: true });
+      await history.waitFor();
+      expect(await history.evaluate((el) => el.closest("details")?.open)).toBe(
+        false,
+      );
+      await checkEntry("with-history");
+    } finally {
+      await browser.close();
+    }
+  });
 });

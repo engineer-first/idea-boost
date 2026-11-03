@@ -11,7 +11,6 @@ const meta = {
   args: {
     members: buildLobbyMembers(4, ME),
     currentUserId: ME,
-    hostUserId: ME,
     disabled: false,
     onEditSelf: fn(),
     onSelectMember: fn(),

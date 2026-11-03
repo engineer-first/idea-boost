@@ -324,7 +324,7 @@ button.peer:hover {
     --lobby-columns: 9;
   }
   .members[data-density="spacious"] {
-    --lobby-avatar-size: max(32px, min(192px, 16vw, calc(100cqh - 128px)));
+    --lobby-avatar-size: max(32px, min(192px, 16vw, calc(100cqh - 160px)));
     padding-block: 8px;
   }
   .members[data-count="3"] .member:nth-child(2),

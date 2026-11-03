@@ -10,7 +10,6 @@ describe("IdeaMapSizeControls", () => {
       <IdeaMapSizeControls
         sizeLevel={2}
         initialized
-        isHost
         isDisconnected={false}
         isDragging={false}
         onResize={onResize}
@@ -40,7 +39,6 @@ describe("IdeaMapSizeControls", () => {
       <IdeaMapSizeControls
         sizeLevel={2}
         initialized
-        isHost={false}
         isDisconnected={false}
         isDragging={false}
         onResize={onResize}
@@ -56,7 +54,6 @@ describe("IdeaMapSizeControls", () => {
       <IdeaMapSizeControls
         sizeLevel={2}
         initialized
-        isHost
         isDisconnected={false}
         isDragging={false}
         onResize={onResize}
@@ -82,7 +79,6 @@ describe("IdeaMapSizeControls", () => {
       <IdeaMapSizeControls
         sizeLevel={1}
         initialized
-        isHost
         isDisconnected={false}
         isDragging={false}
         onResize={vi.fn()}
@@ -104,7 +100,6 @@ describe("IdeaMapSizeControls", () => {
       <IdeaMapSizeControls
         sizeLevel={0}
         initialized
-        isHost
         isDisconnected={false}
         isDragging={false}
         onResize={vi.fn()}
@@ -121,7 +116,6 @@ describe("IdeaMapSizeControls", () => {
       <IdeaMapSizeControls
         sizeLevel={IDEA_MAP_SIZE_LEVEL_RANGE.max}
         initialized
-        isHost
         isDisconnected={false}
         isDragging={false}
         onResize={vi.fn()}

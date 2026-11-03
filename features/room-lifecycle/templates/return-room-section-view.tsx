@@ -34,7 +34,7 @@ export function ReturnRoomSectionView({
   return (
     <section
       aria-label="前のルーム"
-      className="rounded-xl border border-border bg-card p-4 sm:p-5"
+      className="rounded-lg border border-border bg-card p-4 sm:p-5"
     >
       {hasCandidate && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -42,7 +42,7 @@ export function ReturnRoomSectionView({
             <h2 className="text-base font-semibold">{title}</h2>
             <p
               role="status"
-              className="text-sm leading-relaxed text-muted-foreground"
+              className="text-base leading-relaxed text-muted-foreground"
             >
               {status === "identity_unavailable"
                 ? GUEST_IDENTITY_UNAVAILABLE_MESSAGE
@@ -82,7 +82,7 @@ export function ReturnRoomSectionView({
             hasCandidate ? "mt-3 border-t border-border pt-3" : undefined
           }
         >
-          <summary className="cursor-pointer text-sm font-medium">
+          <summary className="cursor-pointer text-base font-medium">
             以前のルーム
           </summary>
           <div className="mt-2 flex flex-col gap-2">
@@ -103,7 +103,7 @@ export function ReturnRoomSectionView({
         </details>
       )}
       {historyMessage && (
-        <p role="status" className="mt-3 text-sm leading-relaxed">
+        <p role="status" className="mt-3 text-base leading-relaxed">
           {historyMessage}
         </p>
       )}

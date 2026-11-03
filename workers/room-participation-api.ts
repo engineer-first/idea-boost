@@ -38,6 +38,8 @@ export function participationResponse(
       : legacy && result.kind === "ready"
         ? {
             roomId: result.roomId,
+            operationId: result.operationId,
+            exitedRoomNames: result.exitedRoomNames,
             ...(result.inviteCode ? { inviteCode: result.inviteCode } : {}),
           }
         : result;
@@ -45,6 +47,27 @@ export function participationResponse(
     status,
     headers: { "Cache-Control": "private, no-store" },
   });
+}
+/** 元ルームの読込中に別タブの移動が完了していたら、同じ操作の回復経路へ渡す。 */
+export function roomParticipationResponse(
+  result: ParticipationResult | null,
+  requestedRoomId: string,
+): Response | null {
+  if (!result || (result.kind === "ready" && result.roomId === requestedRoomId))
+    return null;
+  if (result.kind === "ready" && result.operationId) {
+    const recovery: ParticipationResult = {
+      kind: "pending",
+      operationId: result.operationId,
+      progress: "joining",
+      error: "別のルームに移動しました。",
+    };
+    return Response.json(recovery, {
+      status: 409,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
+  return participationResponse(result, true);
 }
 export async function handleRoomParticipation(
   request: Request,
@@ -96,7 +119,12 @@ export async function handleRoomParticipation(
   });
   return participationResponse(
     "target" in parsed.data
-      ? await stub.prepare(session.sub, parsed.data.target)
+      ? await stub.prepare(
+          session.sub,
+          parsed.data.target,
+          true,
+          parsed.data.operationId,
+        )
       : await stub.commit(
           session.sub,
           parsed.data.operationId,

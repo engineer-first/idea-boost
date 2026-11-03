@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CreateRoomInputSchema } from "./api";
+import { LeaveRoomRequestSchema } from "./completed-rooms";
 export const ParticipationTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("join"), code: z.string().length(6) }),
   z.strictObject({ kind: z.literal("create"), input: CreateRoomInputSchema }),
@@ -10,10 +11,7 @@ export const ParticipationSourceSchema = z.object({
   roomId: z.guid(),
   name: z.string(),
   inviteCode: z.string(),
-  hostRevision: z.int(),
-  hostUserId: z.string().nullable(),
-  action: z.enum(["leave", "transfer", "disband"]),
-  successor: z.object({ userId: z.string(), name: z.string() }).nullable(),
+  action: z.literal("leave"),
 });
 export type ParticipationSource = z.infer<typeof ParticipationSourceSchema>;
 export const ParticipationConfirmationSchema = z.object({
@@ -29,12 +27,13 @@ export type ParticipationConfirmation = z.infer<
   typeof ParticipationConfirmationSchema
 >;
 export const ParticipationPrepareSchema = z.strictObject({
+  operationId: z.guid().optional(),
   target: ParticipationTargetSchema,
   expectedPrincipal: z.guid(),
 });
 export const ParticipationCommitSchema = z.strictObject({
   operationId: z.guid(),
-  outcomeAccess: z.enum(["retain", "discard"]).default("discard"),
+  outcomeAccess: LeaveRoomRequestSchema.shape.outcomeAccess,
   confirmationVersion: z.int().nonnegative(),
   expectedPrincipal: z.guid(),
 });
@@ -62,6 +61,8 @@ export const ParticipationResultSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("ready"),
+    operationId: z.guid().optional(),
+    exitedRoomNames: z.array(z.string()).optional(),
     roomId: z.guid(),
     inviteCode: z.string().optional(),
   }),

@@ -83,7 +83,7 @@ export function IdeaValueFeasibilityMap({
           <ArrowUp className="absolute -top-2 left-1/2 size-4 -translate-x-1/2 text-primary" />
         </div>
         <span
-          className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full border border-border bg-background/95 px-0 py-2 font-semibold tracking-wide text-foreground shadow-sm [writing-mode:vertical-rl]"
+          className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full border border-border bg-background/95 px-0 py-2 font-semibold tracking-wide text-foreground [writing-mode:vertical-rl]"
           data-testid="idea-value-feasibility-map-y-axis-label"
           style={axisLabelStyle}
         >
@@ -96,7 +96,7 @@ export function IdeaValueFeasibilityMap({
 
       <div
         ref={planeRef}
-        className="isolate pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-sky-50/90 shadow-sm"
+        className="isolate pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-lg border border-border bg-sky-50/90 "
         data-canvas-background="true"
         data-coordinate-range="0-100"
         data-testid="idea-value-feasibility-map-plane"
@@ -132,7 +132,7 @@ export function IdeaValueFeasibilityMap({
           <ArrowRight className="absolute right-0 top-1/2 size-4 translate-x-1/2 -translate-y-1/2 text-primary" />
         </div>
         <span
-          className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-background/95 px-2.5 py-0 font-semibold tracking-wide text-foreground shadow-sm"
+          className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-background/95 px-2.5 py-0 font-semibold tracking-wide text-foreground "
           data-testid="idea-value-feasibility-map-x-axis-label"
           style={{ ...axisLabelStyle, top: AXIS_LABEL_X_OFFSET_TOP }}
         >

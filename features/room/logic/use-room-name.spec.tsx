@@ -17,7 +17,7 @@ describe("ルーム名の編集", () => {
         members: [],
         phase: { kind: "lobby" },
         phaseRevision: 0,
-        isHost: false,
+
         decision: null,
         carryovers: [],
         completedVoterIds: [],
@@ -45,7 +45,7 @@ describe("ルーム名の編集", () => {
         members: [],
         phase: { kind: "lobby" },
         phaseRevision: 0,
-        isHost: false,
+
         decision: null,
         carryovers: [],
         completedVoterIds: [],
@@ -102,7 +102,7 @@ describe("ルーム名の編集", () => {
         members: [],
         phase: { kind: "lobby" },
         phaseRevision: 0,
-        isHost: false,
+
         decision: null,
         carryovers: [],
         completedVoterIds: [],

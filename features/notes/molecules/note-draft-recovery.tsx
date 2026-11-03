@@ -16,11 +16,13 @@ export function NoteDraftRecovery({
   return (
     <aside
       aria-label="未反映の文章"
-      className={`pointer-events-auto fixed z-[60] rounded-lg border border-amber-300 bg-white text-slate-900 shadow-xl ${expanded ? "right-3 bottom-20 w-[min(20rem,calc(100vw-1.5rem))] p-3" : "left-3 bottom-36 w-fit p-2"}`}
+      className={`pointer-events-auto fixed z-[60] rounded-xl border border-amber-300 bg-white text-slate-900 shadow-tool ${expanded ? "right-3 bottom-20 w-[min(20rem,calc(100vw-1.5rem))] p-3" : "left-3 bottom-36 w-fit p-2"}`}
     >
       <p
         role="status"
-        className={expanded ? "text-sm font-semibold" : "text-xs font-semibold"}
+        className={
+          expanded ? "text-base font-semibold" : "text-xs font-semibold"
+        }
       >
         {expanded ? "反映を確認できていない文章があります" : "未反映の文章"}
       </p>
@@ -28,7 +30,7 @@ export function NoteDraftRecovery({
         type="button"
         aria-expanded={expanded}
         aria-controls={expanded ? contentId : undefined}
-        className="mt-2 min-h-11 rounded bg-slate-900 px-3 py-1.5 text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+        className="mt-2 min-h-11 rounded-lg bg-slate-900 px-3 py-1.5 text-base text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
         onClick={() => setExpanded((value) => !value)}
       >
         {expanded ? "閉じる" : "確認・コピー"}
@@ -50,12 +52,12 @@ export function NoteDraftRecovery({
                 aria-label={`未反映の文章 ${index + 1}`}
                 readOnly
                 value={item.text}
-                className="mt-1 h-24 w-full resize-y rounded border p-2 text-sm"
+                className="mt-1 h-24 w-full resize-y rounded-md border p-2 text-base"
                 onFocus={(event) => event.currentTarget.select()}
               />
               <button
                 type="button"
-                className="min-h-11 rounded border px-3 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                className="min-h-11 rounded-lg border px-3 py-1 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
                 onClick={async () => {
                   setCopiedItem(null);
                   setCopyFailed(false);

@@ -102,7 +102,11 @@ export const AllStates: Story = {
                   <CreateRoomSectionView
                     pending={false}
                     onSubmit={fn()}
-                    recovering={label === "Recovering"}
+                    message={
+                      label === "Recovering"
+                        ? "ルームを開けませんでした。もう一度お試しください。"
+                        : undefined
+                    }
                     intentName={
                       label === "Recovering" ? "サービスの相談" : undefined
                     }

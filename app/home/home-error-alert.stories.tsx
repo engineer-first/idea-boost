@@ -36,14 +36,14 @@ export const JoinNotFound: Story = {
 export const RoomClosed: Story = {
   args: {
     message:
-      "このルームは終了しているため参加できません。新しい招待コードをホストに確認してください。",
+      "このルームは終了しているため参加できません。新しい招待コードを招待元に確認してください。",
   },
 };
 
 export const RoomFull: Story = {
   args: {
     message:
-      "ルームが満員（上限20人）のため参加できません。ホストに確認してください。",
+      "ルームが満員（上限20人）のため参加できません。招待元に確認してください。",
   },
 };
 

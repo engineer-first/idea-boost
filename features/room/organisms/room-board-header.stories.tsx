@@ -51,12 +51,12 @@ const meta = {
     phase: STEP_1_1,
     timer: { status: "idle" },
     timerServerOffsetMs: 0,
-    isHost: true,
+
     isDisconnected: false,
     connectionStatus: "open",
     members: buildMembers(3, ME),
     currentUserId: ME,
-    hostUserId: ME,
+
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
     hasFinalDecision: false,
@@ -98,7 +98,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// ホスト視点（招待情報・フェーズ移行・解散が全部見える）。
 export const Host: Story = {};
 
 export const ProgressControls: Story = {
@@ -136,10 +135,7 @@ export const ProgressControls: Story = {
 
 // 参加者視点（招待情報とフェーズ移行が出ない）。
 export const NonHost: Story = {
-  args: {
-    isHost: false,
-    hostUserId: buildMembers(3, ME).find((m) => m.userId !== ME)?.userId ?? ME,
-  },
+  args: {},
 };
 
 export const CollapsedGuide: Story = {
@@ -231,7 +227,6 @@ export const VotingComplete: Story = {
   },
 };
 
-// 解散処理中（多重押下防止）。
 export const Leaving: Story = {
   args: {
     isLeaving: true,
@@ -300,7 +295,7 @@ export const VotingCompleteHud: Story = {
 export const VotingNonHostPaused: Story = {
   args: {
     phase: STEP_1_4,
-    isHost: false,
+
     members: VOTING_MEMBERS,
     timer: buildPausedTimer(),
   },
@@ -320,7 +315,7 @@ const SHARING_MEMBERS = buildMembers(3, ME);
 export const PresentingMember: Story = {
   args: {
     phase: buildPhaseStep(2),
-    isHost: false,
+
     currentUserId: SHARING_MEMBERS[1].userId,
     sharing: buildSharingState({
       order: SHARING_MEMBERS,

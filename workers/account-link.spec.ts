@@ -245,7 +245,7 @@ describe("ゲスト本人へのGoogle連携", () => {
     expect(response.status).toBe(400);
   });
 
-  it("ゲストのホスト権限・在籍・付箋・投票・完了成果閲覧を同じsubのaccountへ引き継ぐ", async () => {
+  it("ゲストの在籍・付箋・投票・完了成果閲覧を同じsubのaccountへ引き継ぐ", async () => {
     const user = await guest();
     const { roomId } = await createRoomAs(user);
     const socket = await connectRoomAs(user, roomId);
@@ -300,14 +300,13 @@ describe("ゲスト本人へのGoogle連携", () => {
     );
     expect(info.status).toBe(200);
     expect(await info.json()).toMatchObject({
-      isHost: true,
-      hostUserId: user.sub,
+      roomId,
     });
     expect(await listMemberIds(roomId)).toEqual([user.sub]);
     const reconnected = await connectRoomAs(account, roomId);
     sockets.push(reconnected);
     expect(await receive(reconnected, "snapshot")).toMatchObject({
-      isHost: true,
+      members: [expect.objectContaining({ userId: user.sub })],
     });
     expect(await readWork()).toEqual(before);
     await endTimerForTest(roomId);

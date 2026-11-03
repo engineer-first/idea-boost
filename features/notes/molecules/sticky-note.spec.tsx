@@ -5,54 +5,69 @@ import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { StickyNote } from "./sticky-note";
 
 describe("StickyNote", () => {
-  it("通常付箋は枠線を付けず色と影で示す", () => {
-    render(
+  it("通常は枠線なしの紙面、候補外は影なしの灰色破線に切り替わる", () => {
+    const { rerender } = render(
       <StickyNote noteId="normal" testId="sticky-note">
         本文
       </StickyNote>,
     );
-    const note = screen.getByTestId("sticky-note");
-    expect(note).not.toHaveClass("border");
-    expect(note.style.border).toBe("");
-    expect(note.style.boxShadow).not.toBe("");
-    expect(note).toHaveClass("outline-none");
-  });
-
-  it("選択中の青枠と候補外の破線は通常の枠線と独立して表示する", () => {
-    const { rerender } = render(
-      <StickyNote noteId="state" isSelected testId="sticky-note">
-        本文
-      </StickyNote>,
-    );
-    const note = screen.getByTestId("sticky-note");
-    expect(note).toHaveClass("outline-2", "outline-blue-500");
+    const paper = screen
+      .getByTestId("sticky-note")
+      .querySelector<HTMLElement>('[data-slot="sticky-note-paper"]');
+    expect(paper?.style.border).toBe("");
+    expect(paper?.style.boxShadow).not.toBe("");
     rerender(
-      <StickyNote noteId="state" data-excluded testId="sticky-note">
+      <StickyNote noteId="normal" testId="sticky-note" data-excluded>
         本文
       </StickyNote>,
     );
-    expect(note.style.borderStyle).toBe("dashed");
-    expect(note.style.boxShadow).toBe("none");
+    expect(paper?.style.borderStyle).toBe("dashed");
+    expect(paper?.style.boxShadow).toBe("none");
   });
-  it.each(NOTE_COLOR_PALETTE)("%s の背景色を直接適用する", (color) => {
-    render(
-      <StickyNote noteId={`note-${color}`} color={color} testId="sticky-note">
+  it.each(["decided", "focused"])(
+    "%s と選択の枠を同時に描き、操作の箱は拡大しない",
+    (state) => {
+      render(
+        <StickyNote
+          noteId="state"
+          testId="sticky-note"
+          isSelected
+          isDecided={state === "decided"}
+          isAdoptionFocused={state === "focused"}
+        >
+          本文
+        </StickyNote>,
+      );
+      const note = screen.getByTestId("sticky-note");
+      const paper = note.querySelector<HTMLElement>(
+        '[data-slot="sticky-note-paper"]',
+      );
+      expect(paper?.style.boxShadow).toMatch(
+        /^0 0 0 1px #fff, 0 0 0 3px #0B93F5, /,
+      );
+      expect(note.style.transform).toBe("");
+      expect(note).not.toHaveClass("overflow-hidden");
+    },
+  );
+  it("決定のはんこと読み上げを表示し、解除後もフェード用の要素を残す", () => {
+    const { rerender } = render(
+      <StickyNote noteId="state" isDecided>
         本文
       </StickyNote>,
     );
-
-    expect(screen.getByTestId("sticky-note")).toHaveStyle({
-      backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
-      color: NOTE_COLOR_STYLES[color].foregroundColor,
-    });
+    expect(
+      screen.getByRole("status", { name: "取り組む課題に決定済み" }),
+    ).toHaveTextContent("決定");
+    rerender(<StickyNote noteId="state">本文</StickyNote>);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByText("決定")).toHaveAttribute("aria-hidden", "true");
   });
-
   it.each(NOTE_COLOR_PALETTE)(
-    "%s の採用フォーカス表示でも作者色の前景を保つ",
+    "%s の注目でも作者色を保ち、背景を重ねない",
     (color) => {
       render(
         <StickyNote
-          noteId={`note-${color}`}
+          noteId="color"
           color={color}
           isAdoptionFocused
           testId="sticky-note"
@@ -60,61 +75,16 @@ describe("StickyNote", () => {
           本文
         </StickyNote>,
       );
-
-      expect(screen.getByTestId("sticky-note")).toHaveStyle({
+      const paper = screen
+        .getByTestId("sticky-note")
+        .querySelector('[data-slot="sticky-note-paper"]');
+      expect(paper).toHaveStyle({
         backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+      });
+      expect(paper).toHaveStyle({ backgroundImage: "" });
+      expect(screen.getByTestId("sticky-note")).toHaveStyle({
         color: NOTE_COLOR_STYLES[color].foregroundColor,
-        backgroundImage: expect.stringContaining("16 185 129"),
       });
     },
   );
-
-  it("isDecided の付箋を強調する", () => {
-    render(
-      <StickyNote noteId="note-1" isDecided testId="sticky-note">
-        本文
-      </StickyNote>,
-    );
-
-    expect(screen.getByTestId("sticky-note")).toHaveAttribute(
-      "data-decided",
-      "true",
-    );
-    expect(screen.getByTestId("sticky-note")).toHaveClass(
-      "outline-4",
-      "outline-solid",
-      "outline-emerald-600",
-      "outline-offset-2",
-    );
-    expect(screen.getByTestId("sticky-note")).not.toHaveClass("border");
-  });
-
-  it("共有採用フォーカスは文言なしの緑点線枠と薄緑で示し、確定表示を優先する", () => {
-    const { rerender } = render(
-      <StickyNote noteId="note-1" isAdoptionFocused testId="sticky-note">
-        本文
-      </StickyNote>,
-    );
-
-    const note = screen.getByTestId("sticky-note");
-    expect(note).toHaveAttribute("data-adoption-focused", "true");
-    expect(note).toHaveClass("outline-dashed", "outline-emerald-500");
-    expect(note).toHaveStyle({
-      backgroundImage: expect.stringContaining("16 185 129"),
-    });
-    expect(screen.queryByText(/検討|フォーカス/)).not.toBeInTheDocument();
-
-    rerender(
-      <StickyNote
-        noteId="note-1"
-        isAdoptionFocused
-        isDecided
-        testId="sticky-note"
-      >
-        本文
-      </StickyNote>,
-    );
-    expect(note).toHaveClass("outline-solid", "outline-4");
-    expect(note).not.toHaveClass("outline-dashed");
-  });
 });

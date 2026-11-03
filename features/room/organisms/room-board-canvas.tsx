@@ -24,7 +24,11 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import type { DotVoteKind } from "@/contracts/room-protocol";
+import type {
+  DotVoteKind,
+  NoteColor,
+  PresenterView,
+} from "@/contracts/room-protocol";
 import type { DotVoteRemaining } from "@/features/dot-vote";
 import {
   type Note,
@@ -60,6 +64,7 @@ import type {
   CanvasSelectionOptions,
   CanvasTool,
 } from "../logic/use-canvas-selection";
+import type { RemotePresenterView } from "../logic/use-presenter-view";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -73,7 +78,7 @@ import styles from "./room-board-canvas.module.css";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
 const ADOPTION_TARGET_CLASS_NAME =
-  "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
+  "absolute inset-0 z-20 cursor-pointer rounded-[inherit] border-4 border-transparent bg-transparent outline-none";
 
 export type RoomBoardCanvasProps = {
   rollbackRevision?: number;
@@ -85,7 +90,6 @@ export type RoomBoardCanvasProps = {
   phase: RoomPhase;
   isPrivateNotesHandoffPending?: boolean;
   decision: Decision | null;
-  isHost: boolean;
   privateNotes: Note[];
   canPublishPrivateNote?: boolean;
   isSavingBeforeShare?: boolean;
@@ -105,6 +109,10 @@ export type RoomBoardCanvasProps = {
   ideaMapWorkspaceControls?: { phaseLoop: ReactNode; mapSize: ReactNode };
   ideaMapIsDragging?: boolean;
   onIdeaMapResize?: (sizeLevel: number) => void;
+  isPresenterViewOwner?: boolean;
+  isPresenterViewFollowedByOthers?: boolean;
+  presenterViewName?: string | null;
+  presenterViewColor?: NoteColor | null;
   voteRemaining: DotVoteRemaining;
   selectedVoteKind: DotVoteKind | null;
   pendingVoteOperations: ReadonlyArray<{
@@ -184,6 +192,10 @@ export type RoomBoardCanvasProps = {
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
   remoteCursors: RenderedRemoteCursorPresence[];
+  presenterView?: RemotePresenterView | null;
+  isFollowingPresenterView?: boolean;
+  onPresenterViewChange?: (view: PresenterView) => void;
+  onManualPanStart?: () => void;
   expandPrivateNotesRequest?: number;
   addPrivateNoteRequest?: number;
   privateNoteAddRef?: RefObject<(() => void) | null>;
@@ -198,7 +210,6 @@ export function RoomBoardCanvas({
   phase,
   isPrivateNotesHandoffPending = false,
   decision,
-  isHost,
   privateNotes,
   exampleNotes = [],
   canPublishPrivateNote = false,
@@ -234,6 +245,10 @@ export function RoomBoardCanvas({
   displayZoom,
   gridStyle,
   isPanning,
+  isPresenterViewOwner = false,
+  isPresenterViewFollowedByOthers = false,
+  presenterViewName = null,
+  presenterViewColor = null,
   onCanvasPointerDown,
   onCanvasPointerMove,
   onCanvasPointerEnd,
@@ -259,6 +274,7 @@ export function RoomBoardCanvas({
   onNoteVoteRemove,
   onNoteVoteStickerRemove,
   onNoteVoteStickerDragStart,
+  isFollowingPresenterView = false,
   isAdoptMode,
   adoptionFocusNoteId = null,
   onAdoptionFocusChange = () => undefined,
@@ -288,6 +304,14 @@ export function RoomBoardCanvas({
   const orderedNotes = [...notes].sort(
     (left, right) => Number(right.excluded) - Number(left.excluded),
   );
+  const maxNoteStackOrder = notes.reduce(
+    (max, note) => Math.max(max, note.stackOrder),
+    0,
+  );
+  const decidedNoteZIndex = Math.min(
+    maxNoteStackOrder + 1,
+    TEMPORARY_FRONT_Z_INDEX - 1,
+  );
   const voteDisplayMode = isVotingStep(phase)
     ? "voting"
     : isResultStep(phase)
@@ -314,7 +338,7 @@ export function RoomBoardCanvas({
   // 1-1・2-1・3-1は同じ上端から書き始められるよう、上部の操作欄の直下に固定する。
   const privateNotesContainerClassName = isPersonalNoteEntryPhase
     ? "fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 sm:top-[var(--board-private-expanded-top,5rem)] lg:inset-x-5 lg:bottom-5 lg:top-[var(--board-private-expanded-top,5rem)]"
-    : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[var(--board-timer-row-bottom,4.5rem)] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-start max-[639px]:top-[var(--board-timer-row-bottom,10rem)] max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
+    : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[var(--board-timer-row-bottom,4.5rem)] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-start max-[639px]:top-[var(--board-timer-row-bottom,10rem)] max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
   const selectedNote = [...notes, ...privateNotes].find(
@@ -334,6 +358,17 @@ export function RoomBoardCanvas({
     }
     onZoomOut();
   };
+
+  const showPresenterViewFrame =
+    (isFollowingPresenterView &&
+      !isPresenterViewOwner &&
+      presenterViewName !== null) ||
+    (isPresenterViewOwner && isPresenterViewFollowedByOthers);
+
+  const presenterFrameColor =
+    presenterViewColor !== null
+      ? NOTE_COLOR_STYLES[presenterViewColor].backgroundColor
+      : null;
   const resetZoom = () => {
     if (usesIdeaMapViewport) {
       setIdeaMapViewportZoom(1);
@@ -644,7 +679,9 @@ export function RoomBoardCanvas({
             ? TEMPORARY_FRONT_Z_INDEX
             : note.excluded
               ? 0
-              : note.stackOrder,
+              : decision?.noteId === note.id
+                ? decidedNoteZIndex
+                : note.stackOrder,
           ...(usesIdeaMapViewport
             ? {
                 transform: `scale(${ideaMapNoteMetrics?.displayScale ?? ideaMapNoteDisplayScale})`,
@@ -811,6 +848,18 @@ export function RoomBoardCanvas({
         }
         data-testid="board-frame"
         data-map-workspace={usesIdeaMapViewport || undefined}
+        style={{
+          outline:
+            showPresenterViewFrame && presenterFrameColor
+              ? `7px solid ${presenterFrameColor}`
+              : undefined,
+          outlineOffset:
+            showPresenterViewFrame && presenterFrameColor ? "-7px" : undefined,
+          borderRadius:
+            showPresenterViewFrame && presenterFrameColor
+              ? "var(--ib-rounded-lg)"
+              : undefined,
+        }}
       >
         {isPersonalNoteEntryPhase ? (
           <div
@@ -949,7 +998,7 @@ export function RoomBoardCanvas({
               <div
                 data-testid="canvas-marquee"
                 aria-hidden="true"
-                className="pointer-events-none absolute z-30 border border-blue-600 bg-blue-500/10"
+                className="pointer-events-none absolute z-30 border border-[#0B93F5] bg-[rgba(11,147,245,0.1)]"
                 style={marquee}
               />
             ) : null}
@@ -966,7 +1015,6 @@ export function RoomBoardCanvas({
                           <IdeaMapSizeControls
                             sizeLevel={ideaMapSizeLevel}
                             initialized={ideaMapSizeInitialized}
-                            isHost={isHost}
                             isDisconnected={isDisconnected}
                             isDragging={ideaMapIsDragging}
                             onResize={onIdeaMapResize}
@@ -1065,7 +1113,7 @@ export function RoomBoardCanvas({
               notes.filter((note) => !note.excluded).length === 0 ? (
                 <div
                   role="status"
-                  className="absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-lg border bg-background/95 px-5 py-3 text-sm font-semibold shadow-md"
+                  className="absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-lg border bg-background/95 px-5 py-3 text-sm font-semibold shadow-tool"
                 >
                   候補がありません。候補外の付箋を戻してください。
                 </div>
@@ -1240,7 +1288,7 @@ export function RoomBoardCanvas({
                 addActionRef={privateNoteAddRef}
                 className={
                   isPersonalNoteEntryPhase
-                    ? `pointer-events-auto h-full w-full rounded-2xl border border-border bg-card shadow-xl ${styles.personalWorkspace}`
+                    ? `pointer-events-auto h-full w-full rounded-xl border border-border bg-card shadow-tool ${styles.personalWorkspace}`
                     : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
                 }
                 toolbarRef={privateToolbarRef}

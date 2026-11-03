@@ -8,7 +8,7 @@ const meta = {
   component: PhaseLoopControls,
   args: {
     phase: buildPhaseStep(2),
-    isHost: true,
+
     isSelecting: false,
     decisionContent: null,
     candidateCount: 3,
@@ -41,7 +41,7 @@ export const Selecting: Story = {
   args: { phase: buildPhaseStep(5, 3), isSelecting: true },
 };
 export const Member: Story = {
-  args: { phase: buildPhaseStep(5), isHost: false },
+  args: { phase: buildPhaseStep(5) },
 };
 export const Disconnected: Story = { args: { disabled: true } };
 export const Decided: Story = {

@@ -246,42 +246,49 @@ test.each([
     for (let index = 0; index < 4; index++)
       await page.getByTestId("room-timer").press("Alt+ArrowLeft");
     const plane = await bounds(page, "idea-value-feasibility-map-plane");
+    // 実際の半径の外側を測る。固定16pxだと12pxの角丸の内側を拾ってしまう。
+    const radius = await page
+      .getByTestId("idea-value-feasibility-map-plane")
+      .evaluate((node) =>
+        Number.parseFloat(getComputedStyle(node).borderTopLeftRadius),
+      );
+    const near = Math.floor(radius * 0.375);
     for (const corner of [
       {
         x: plane.x,
         y: plane.y,
         points: [
-          [1, 6],
-          [6, 1],
+          [1, near],
+          [near, 1],
         ],
       },
       {
-        x: plane.x + plane.width - 16,
+        x: plane.x + plane.width - radius,
         y: plane.y,
         points: [
-          [14, 6],
-          [9, 1],
+          [radius - 2, near],
+          [radius - near - 1, 1],
         ],
       },
       {
         x: plane.x,
-        y: plane.y + plane.height - 16,
+        y: plane.y + plane.height - radius,
         points: [
-          [1, 9],
-          [6, 14],
+          [1, radius - near - 1],
+          [near, radius - 2],
         ],
       },
       {
-        x: plane.x + plane.width - 16,
-        y: plane.y + plane.height - 16,
+        x: plane.x + plane.width - radius,
+        y: plane.y + plane.height - radius,
         points: [
-          [14, 9],
-          [9, 14],
+          [radius - 2, radius - near - 1],
+          [radius - near - 1, radius - 2],
         ],
       },
     ]) {
       const screenshot = await page.screenshot({
-        clip: { x: corner.x, y: corner.y, width: 16, height: 16 },
+        clip: { x: corner.x, y: corner.y, width: radius, height: radius },
       });
       const colors = await page.evaluate(
         async ({ encoded, points }) => {

@@ -1,7 +1,7 @@
-// メンバーシップ（誰がこのルームに入れるか）と表示色の割当、
-// ルームオーナー（room_owner = ホスト）の真実。
+// メンバーシップ（誰がこのルームに入れるか）と表示色と顔の割当。
 
 import type { MemberAvatarId } from "../../contracts/member-avatar";
+
 import {
   MEMBER_COLOR_ASSIGNMENT_ORDER,
   type NoteColor,
@@ -154,47 +154,4 @@ export function getMemberColor(
     .exec("SELECT color FROM members WHERE user_id = ?1", userId)
     .toArray()[0] as { color: NoteColor } | undefined;
   return row?.color;
-}
-
-// room_owner が未設定のときだけ userId をホストとして記録する。
-// 移譲後・消去後は古いD1シードで復活させない。
-export function ensureHost(sql: SqlStorage, userId: string): void {
-  const existing = sql
-    .exec("SELECT host_id, host_revision FROM room_owner WHERE id = 1")
-    .toArray()[0] as
-    | { host_id: string | null; host_revision: number }
-    | undefined;
-  if (existing && !existing.host_id && existing.host_revision === 0) {
-    sql.exec("UPDATE room_owner SET host_id = ?1 WHERE id = 1", userId);
-  }
-}
-
-export function isHostUser(sql: SqlStorage, userId: string): boolean {
-  const row = sql
-    .exec("SELECT host_id FROM room_owner WHERE id = 1")
-    .toArray()[0] as { host_id: string | null } | undefined;
-  return row?.host_id === userId;
-}
-
-export type HostState = { hostUserId: string | null; hostRevision: number };
-export function getHostState(sql: SqlStorage): HostState {
-  const row = sql
-    .exec("SELECT host_id, host_revision FROM room_owner WHERE id=1")
-    .one();
-  return {
-    hostUserId: row.host_id as string | null,
-    hostRevision: Number(row.host_revision),
-  };
-}
-
-// 開始後の移譲も含め、同じ人へ戻るABAをホスト世代で区別する。
-export function isCurrentHost(
-  sql: SqlStorage,
-  userId: string,
-  expectedHostRevision = 0,
-): boolean {
-  const host = getHostState(sql);
-  return (
-    host.hostUserId === userId && host.hostRevision === expectedHostRevision
-  );
 }

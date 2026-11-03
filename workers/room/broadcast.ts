@@ -32,6 +32,7 @@ export type SocketAttachment = {
   adoptionFocusNoteId?: string;
   // ハイバネーション後も排他ドラッグ権を復元できるよう接続へ保存する。
   activeDrag?: { noteId: string; dragId: string; leaseUntil?: number };
+  followingPresenterUserId?: string;
 };
 
 export type ActiveDragOwner = {
@@ -256,6 +257,59 @@ export class RoomBroadcaster {
     for (const socket of this.connections.getWebSockets()) {
       this.trySend(socket, payload);
     }
+  }
+
+  // 接続に紐づくフォロー先を設定する。
+  // 戻り値は変更前のフォロー先。
+  setPresenterFollow(
+    socket: WebSocket,
+    presenterUserId: string | null,
+  ): string | null {
+    const attachment =
+      socket.deserializeAttachment() as SocketAttachment | null;
+
+    if (!attachment) return null;
+
+    const previousPresenterUserId = attachment.followingPresenterUserId ?? null;
+
+    const nextAttachment = { ...attachment };
+
+    if (presenterUserId === null) {
+      delete nextAttachment.followingPresenterUserId;
+    } else {
+      nextAttachment.followingPresenterUserId = presenterUserId;
+    }
+
+    socket.serializeAttachment(nextAttachment satisfies SocketAttachment);
+
+    return previousPresenterUserId;
+  }
+
+  // 指定した発表者をフォローしている有効な接続があるか。
+  // 人数は数えず、最初の1件で true を返す。
+  isPresenterFollowed(presenterUserId: string): boolean {
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+
+      if (attachment?.followingPresenterUserId !== presenterUserId) {
+        continue;
+      }
+
+      if (this.isAuthorized(socket)) return true;
+    }
+
+    return false;
+  }
+
+  // 発表者本人へフォロー状態を配信する。
+  // 配信先は全員だが、クライアント側では本人宛ての状態だけを使う。
+  broadcastPresenterFollowStatus(presenterUserId: string): void {
+    this.broadcastToAll({
+      type: "presenter-follow:status",
+      presenterUserId,
+      isFollowed: this.isPresenterFollowed(presenterUserId),
+    });
   }
 
   reserveReaction(socket: WebSocket, phaseRevision: number): boolean {

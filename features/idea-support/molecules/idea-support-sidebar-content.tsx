@@ -31,7 +31,7 @@ export function IdeaSupportSidebarContent({
   const contentId = useId();
   if (status === "loading") {
     return (
-      <p className="p-4 text-sm text-muted-foreground" role="status">
+      <p className="p-4 text-base text-muted-foreground" role="status">
         発想支援を読み込んでいます
       </p>
     );
@@ -39,7 +39,7 @@ export function IdeaSupportSidebarContent({
 
   if (status === "empty") {
     return (
-      <p className="p-4 text-sm text-muted-foreground">
+      <p className="p-4 text-base text-muted-foreground">
         発想支援コンテンツはありません
       </p>
     );
@@ -47,7 +47,7 @@ export function IdeaSupportSidebarContent({
 
   if (status === "error") {
     return (
-      <p className="p-4 text-sm text-destructive" role="alert">
+      <p className="p-4 text-base text-destructive" role="alert">
         発想支援コンテンツを表示できません
       </p>
     );
@@ -77,7 +77,7 @@ export function IdeaSupportSidebarContent({
             <TabsContent key={item.id} value={item.id}>
               <h3 className="mb-2 font-semibold">{item.title}</h3>
 
-              <p className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed">
+              <p className="rounded-lg bg-muted/50 p-3 text-base leading-relaxed">
                 {item.content[0]}
               </p>
               {item.content.length > 1 && (
@@ -115,7 +115,7 @@ export function IdeaSupportSidebarContent({
                 }
               >
                 {item.content.slice(1).map((text) => (
-                  <li key={text} className="text-sm leading-relaxed">
+                  <li key={text} className="text-base leading-relaxed">
                     {text}
                   </li>
                 ))}

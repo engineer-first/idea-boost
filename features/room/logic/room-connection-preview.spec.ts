@@ -1,12 +1,12 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createRoomClient } from "@/lib/room-client/room-client";
-import { createHostTransferPreview } from "./host-transfer-preview.fixture";
+import { createRoomConnectionPreview } from "./room-connection-preview.fixture";
 
 afterEach(() => vi.useRealTimers());
 
-it("ホスト変更プレビューも切断後に新ソケットのsnapshotで復帰する", async () => {
+it("ルーム接続プレビューは切断後に新ソケットのsnapshotで復帰する", async () => {
   vi.useFakeTimers();
-  const preview = createHostTransferPreview("success");
+  const preview = createRoomConnectionPreview("success");
   const onMessage = vi.fn();
   const client = createRoomClient({
     url: "ws://preview.test/room",

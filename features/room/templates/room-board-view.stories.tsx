@@ -135,9 +135,7 @@ const meta = {
       durationMs: 60_000,
     },
     timerServerOffsetMs: 0,
-    isHost: true,
-    hostRevision: 0,
-    onTransferHost: fn(),
+
     decision: null,
     outcomePublished: false,
     connectionStatus: "open",
@@ -145,7 +143,7 @@ const meta = {
     members: STORY_MEMBERS,
     progress: STORY_PROGRESS,
     currentUserId: ME,
-    hostUserId: ME,
+
     isNextPhasePending: false,
     signOutAction: fn(),
     interactions: INTERACTIONS,
@@ -385,7 +383,7 @@ export const ManyNotes: Story = {
 // 参加者が多い状態（メンバー一覧の +N 省略が発火する）。
 export const ManyMembers: Story = {
   args: {
-    members: buildMembers(10, ME),
+    members: buildMembers(20, ME),
   },
 };
 
@@ -404,13 +402,8 @@ export const CanvasHud: Story = {
   },
 };
 
-// 非ホストの状態（自分は ring のみ。ホストラベルは hostUserId のメンバーに付く）。
 export const NonHost: Story = {
-  args: {
-    isHost: false,
-    // 自分以外をホストにする（fixture の 2 人目）。
-    hostUserId: buildMembers(3, ME).find((m) => m.userId !== ME)?.userId ?? ME,
-  },
+  args: {},
 };
 
 export const DotVoting: Story = {
@@ -551,7 +544,7 @@ export const VotingAt1280x720: Story = {
 export const ReadyToDecide: Story = {
   args: {
     phase: STEP_1_5,
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 120 + index * 280,
@@ -563,7 +556,7 @@ export const ReadyToDecide: Story = {
 export const SelectingCandidate: Story = {
   args: {
     phase: STEP_1_5,
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 120 + index * 280,
@@ -584,7 +577,7 @@ export const SelectingCandidate: Story = {
 export const SelectingAt768px: Story = {
   args: {
     phase: STEP_1_5,
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 80 + index * 210,
@@ -612,7 +605,7 @@ export const SelectingAt768px: Story = {
 export const SelectingIdeaMapCandidate: Story = {
   args: {
     phase: buildPhaseStep(5, 3),
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 20 + index * 30,
@@ -666,6 +659,17 @@ export const OutcomePublished: Story = {
     ...FinalDecisionPending.args,
     outcomePublished: true,
   },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("link", { name: "ホームへ戻る" }));
+    await expect(
+      canvas.getByRole("link", { name: "ホームへ戻る" }),
+    ).toHaveAttribute("href", "/home");
+    await expect(args.onLeave).not.toHaveBeenCalled();
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole("alertdialog"),
+    ).not.toBeInTheDocument();
+  },
 };
 
 // loading相当: WebSocket 接続の確立中（初回接続時。snapshot 未着なので付箋も空）。
@@ -683,10 +687,8 @@ export const Reconnecting: Story = {
   },
 };
 
-// ホストがステップ移行操作を行える状態。
 export const HostCanMovePhase: Story = {
   args: {
-    isHost: true,
     phase: STEP_1_1,
   },
 };
@@ -772,7 +774,6 @@ export const Step1_5_Result: Story = {
 
 export const TimeUpProgress: Story = {
   args: {
-    isHost: true,
     phase: STEP_1_1,
     timer: { status: "ended", durationMs: 300_000 },
   },
@@ -926,7 +927,7 @@ const decisionReselectionRender: Story["render"] =
   };
 export const DecisionReselection: Story = {
   render: decisionReselectionRender,
-  args: { ...Decided.args, isHost: true },
+  args: { ...Decided.args },
 };
 export const HmwDecisionReselection: Story = {
   render: decisionReselectionRender,
@@ -941,7 +942,7 @@ export const IdeaDecisionReselection: Story = {
   render: decisionReselectionRender,
   args: {
     ...FinalDecisionPending.args,
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 20 + index * 30,
@@ -1261,7 +1262,7 @@ export const IdeaMapWorkspace: Story = {
         content: CANVAS_HUD_CONTENTS[index % CANVAS_HUD_CONTENTS.length],
       })),
     },
-    isHost: true,
+
     ideaMapSizeLevel: 4,
     ideaMapSizeInitialized: true,
   },
@@ -1465,7 +1466,7 @@ export const CanvasInputQuestionVoting: Story = {
   args: {
     ...CanvasInputVoting.args,
     phase: buildPhaseStep(3, 2),
-    isHost: false,
+
     hmwDecidedIssue: GUIDE_ISSUE,
     notes: CANVAS_HUD_NOTES.slice(0, 3).map((note, index) => ({
       ...note,
@@ -1504,7 +1505,7 @@ export const QuestionVotingStickerSelected: Story = {
 
 export const CanvasInputAdoption: Story = {
   ...CanvasInputInteraction,
-  args: { ...CanvasInputInteraction.args, phase: STEP_1_5, isHost: true },
+  args: { ...CanvasInputInteraction.args, phase: STEP_1_5 },
 };
 
 export const MoveHistoryAvailable: Story = {

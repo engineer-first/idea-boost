@@ -30,9 +30,20 @@ vi.mock("@/features/room-lifecycle", async () => ({
   readParticipationRecovery: (
     await import("@/features/room-lifecycle/logic/participation-recovery")
   ).readParticipationRecovery,
-  RoomAdmissionGate: ({ sessionKind }: { sessionKind?: string }) => (
+  RoomAdmissionGate: ({
+    sessionKind,
+    allowFreshEntry,
+    entryToken,
+    children,
+  }: {
+    sessionKind?: string;
+    allowFreshEntry?: boolean;
+    entryToken?: string;
+    children?: import("react").ReactNode;
+  }) => (
     <span data-testid="admission-gate" data-session-kind={sessionKind}>
       入室前の認証確認
+      {allowFreshEntry && !entryToken && children}
     </span>
   ),
   GuestIdentityUnavailable: ({ loginHref }: { loginHref?: string }) => (
@@ -92,8 +103,7 @@ beforeEach(() => {
             : {
                 roomId: id,
                 inviteCode: "ABCDEF",
-                isHost: true,
-                hostUserId: "11111111-1111-4111-8111-111111111111",
+
                 phase: { kind: "step", phase: 3, step: 1 },
               },
         ),
@@ -264,8 +274,7 @@ it.each(["board", "start"])(
             : {
                 roomId: id,
                 inviteCode: "ABCDEF",
-                isHost: true,
-                hostUserId: "11111111-1111-4111-8111-111111111111",
+
                 phase: { kind: "lobby" },
               },
         ),

@@ -76,7 +76,7 @@ describe("ゲストの名前入力", () => {
       "接続できませんでした。",
     );
     expect(screen.getByRole("textbox")).toHaveValue("はな");
-    expect(screen.getByRole("textbox")).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveFocus());
     expect(onPrepared).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "参加する" }));
     await waitFor(() =>
@@ -92,7 +92,7 @@ describe("ゲストの名前入力", () => {
       fill(name);
       fireEvent.click(screen.getByRole("button"));
       expect(await screen.findByRole("alert")).not.toBeEmptyDOMElement();
-      expect(screen.getByRole("textbox")).toHaveFocus();
+      await waitFor(() => expect(screen.getByRole("textbox")).toHaveFocus());
       expect(mocks.prepare).not.toHaveBeenCalled();
       expect(onPrepared).not.toHaveBeenCalled();
     },
@@ -125,7 +125,7 @@ describe("ゲストの名前入力", () => {
       guestIdentityFailure,
     );
     expect(screen.getByRole("textbox")).toHaveValue("はな");
-    expect(screen.getByRole("textbox")).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveFocus());
     expect(screen.getByRole("textbox")).toBeEnabled();
     expect(screen.getByRole("button")).toBeEnabled();
     expect(onPrepared).not.toHaveBeenCalled();

@@ -1,7 +1,7 @@
 // 付箋（notes）の真実。ストレージアクセス・可視性判定・プロトコル射影と、
 // 受信者ごとの可視性を踏まえたノート配信ヘルパをここに集約する。
 
-import { NOTE_DEFAULT_FONT_SIZE } from "../../contracts/board";
+import { NOTE_LEGACY_FONT_SIZE } from "../../contracts/board";
 import { isVotingStep } from "../../contracts/phase";
 import type { NoteColor, ProtocolNote } from "../../contracts/room-protocol";
 import { projectNoteForViewer, visibleTo } from "../visibility";
@@ -43,9 +43,7 @@ function normalizeNoteRow(row: Record<string, unknown>): NoteRow {
   return {
     ...(row as Omit<NoteRow, "excluded" | "font_size">),
     font_size:
-      typeof row.font_size === "number"
-        ? row.font_size
-        : NOTE_DEFAULT_FONT_SIZE,
+      typeof row.font_size === "number" ? row.font_size : NOTE_LEGACY_FONT_SIZE,
     excluded: row.excluded === true || row.excluded === 1,
   };
 }
@@ -63,7 +61,7 @@ export function findNote(sql: SqlStorage, noteId: string): NoteRow | null {
        LEFT JOIN note_move_versions m ON m.note_id = n.id
        WHERE n.id = ?1`,
       noteId,
-      NOTE_DEFAULT_FONT_SIZE,
+      NOTE_LEGACY_FONT_SIZE,
     )
     .toArray();
   return rows.length > 0
@@ -137,7 +135,7 @@ export function listNotes(
              LEFT JOIN note_content_versions v ON v.note_id = n.id
        LEFT JOIN note_move_versions m ON m.note_id = n.id
              ORDER BY n.stack_order, n.created_at, n.id`,
-            NOTE_DEFAULT_FONT_SIZE,
+            NOTE_LEGACY_FONT_SIZE,
           )
           .toArray()
       : sql
@@ -153,7 +151,7 @@ export function listNotes(
              WHERE n.phase = ?1
              ORDER BY n.stack_order, n.created_at, n.id`,
             phase,
-            NOTE_DEFAULT_FONT_SIZE,
+            NOTE_LEGACY_FONT_SIZE,
           )
           .toArray();
   return rows.map((row) =>
@@ -276,7 +274,7 @@ export function unpublishNoteAtIndex(
       authorId,
       phase,
       noteId,
-      NOTE_DEFAULT_FONT_SIZE,
+      NOTE_LEGACY_FONT_SIZE,
     )
     .toArray()
     .map((row) => normalizeNoteRow(row as Record<string, unknown>));
@@ -426,7 +424,7 @@ export function listBulkExclusionCandidates(
          )
        ORDER BY n.created_at, n.id`,
       phase,
-      NOTE_DEFAULT_FONT_SIZE,
+      NOTE_LEGACY_FONT_SIZE,
     )
     .toArray()
     .map((row) => normalizeNoteRow(row as Record<string, unknown>));
@@ -498,7 +496,7 @@ export function listBulkRestoreTargets(
        ORDER BY n.created_at, n.id`,
       phase,
       operationId,
-      NOTE_DEFAULT_FONT_SIZE,
+      NOTE_LEGACY_FONT_SIZE,
     )
     .toArray()
     .map((row) => normalizeNoteRow(row as Record<string, unknown>));

@@ -13,7 +13,7 @@ export function GuestIdentityUnavailable({
   loginHref,
 }: GuestIdentityUnavailableProps) {
   return (
-    <section className="relative mx-auto my-8 w-full max-w-lg space-y-6 rounded-xl border bg-background p-6">
+    <section className="relative mx-auto my-8 w-full max-w-lg space-y-6 rounded-lg border bg-background p-6">
       <h1 className="text-xl font-semibold leading-snug text-balance">
         {GUEST_IDENTITY_UNAVAILABLE_TITLE}
       </h1>
@@ -21,7 +21,7 @@ export function GuestIdentityUnavailable({
         {GUEST_IDENTITY_UNAVAILABLE_MESSAGE}
       </p>
       {loginHref && (
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="text-base leading-relaxed text-muted-foreground">
           {GUEST_IDENTITY_CHOICE_MESSAGE}
         </p>
       )}

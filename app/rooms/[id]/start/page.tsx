@@ -134,40 +134,36 @@ export default async function StartPage({
           inviteCode={parsed.data.inviteCode}
           inviteUrl={inviteUrl}
           currentUserId={user.sub}
-          isHost={parsed.data.isHost}
-          hostUserId={parsed.data.hostUserId}
           initialPhase={parsed.data.phase}
           initialMembers={initialMembers}
         />
       </div>
     </main>
   );
-
-  if (!enough || query?.entry) {
-    return (
-      <RoomAdmissionGate
-        key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
-        roomId={id}
-        sessionKind={user.kind}
-        fallback={
-          <RoomEntryPreview
-            phase={parsed.data.phase}
-            members={initialMembers}
-            currentUserId={user.sub}
-            hostUserId={parsed.data.hostUserId}
-            isHost={parsed.data.isHost}
-            inviteCode={parsed.data.inviteCode}
-            inviteUrl={inviteUrl}
-          />
-        }
-        stage="lobby"
-        entryToken={query?.entry}
-        allowFreshEntry={enough}
-        freshAdmission={admission}
-      >
-        {content}
-      </RoomAdmissionGate>
-    );
-  }
-  return content;
+  return (
+    <RoomAdmissionGate
+      key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
+      roomId={id}
+      departure={{
+        operationId: parsed.data.operationId,
+        exitedRoomNames: parsed.data.exitedRoomNames,
+      }}
+      sessionKind={user.kind}
+      fallback={
+        <RoomEntryPreview
+          phase={parsed.data.phase}
+          members={initialMembers}
+          currentUserId={user.sub}
+          inviteCode={parsed.data.inviteCode}
+          inviteUrl={inviteUrl}
+        />
+      }
+      stage="lobby"
+      entryToken={query?.entry}
+      allowFreshEntry={enough}
+      freshAdmission={admission}
+    >
+      {content}
+    </RoomAdmissionGate>
+  );
 }

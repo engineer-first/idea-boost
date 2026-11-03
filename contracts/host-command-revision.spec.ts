@@ -23,7 +23,7 @@ const commands = [
   { type: "outcome:publish" },
   { type: "idea-map:resize", sizeLevel: 1 },
 ];
-describe("ホスト操作の世代境界", () => {
+describe("旧クライアントのホスト世代入力互換", () => {
   it.each(commands)(
     "$type のホスト世代を落とさず保持し、不正な世代は拒否する",
     (message) => {
@@ -38,7 +38,7 @@ describe("ホスト操作の世代境界", () => {
       expect(ClientMessageSchema.safeParse(message).success).toBe(true);
     },
   );
-  it("移譲の操作IDを要求と成功通知に保持する", () => {
+  it("旧移譲要求の操作IDを読み取るがホスト更新通知は受け付けない", () => {
     expect(
       ClientMessageSchema.parse({
         type: "host:transfer",
@@ -48,12 +48,11 @@ describe("ホスト操作の世代境界", () => {
       }),
     ).toMatchObject({ operationId: id });
     expect(
-      ServerMessageSchema.parse({
+      ServerMessageSchema.safeParse({
         type: "host:updated",
         hostUserId: id,
         hostRevision: 1,
-        operationId: id,
-      }),
-    ).toMatchObject({ operationId: id });
+      }).success,
+    ).toBe(false);
   });
 });

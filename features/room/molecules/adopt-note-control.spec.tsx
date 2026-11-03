@@ -8,7 +8,6 @@ describe("AdoptNoteControl", () => {
     render(
       <AdoptNoteControl
         phaseNumber={1}
-        isHost
         isSelecting={false}
         decisionContent={null}
         disabled={false}
@@ -26,7 +25,6 @@ describe("AdoptNoteControl", () => {
     render(
       <AdoptNoteControl
         phaseNumber={2}
-        isHost
         isSelecting
         decisionContent={null}
         disabled={false}
@@ -48,7 +46,6 @@ describe("AdoptNoteControl", () => {
     const { rerender } = render(
       <AdoptNoteControl
         phaseNumber={3}
-        isHost
         isSelecting={false}
         onClearDecision={onClearDecision}
         decisionContent="採用するアイデア"
@@ -64,7 +61,6 @@ describe("AdoptNoteControl", () => {
     rerender(
       <AdoptNoteControl
         phaseNumber={3}
-        isHost
         isSelecting={false}
         decisionContent="採用するアイデア"
         disabled

@@ -322,6 +322,20 @@ test("AT-004/009: 矩形中はwheel・Hを処理せずEscapeは開始前選択�
   await page.mouse.down();
   await page.mouse.move(start.x - 100, start.y - 100, { steps: 5 });
   await page.getByTestId("canvas-marquee").waitFor();
+  expect(
+    await page.getByTestId("canvas-marquee").evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        border: style.borderColor,
+        width: style.borderWidth,
+        background: style.backgroundColor,
+      };
+    }),
+  ).toEqual({
+    border: "rgb(11, 147, 245)",
+    width: "1px",
+    background: "rgba(11, 147, 245, 0.1)",
+  });
   await page.keyboard.press("h");
   await page.mouse.wheel(0, 100);
   expect(await transform()).toBe(before);

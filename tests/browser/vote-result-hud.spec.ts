@@ -19,7 +19,6 @@ it.each([360, 375, 640, 900, 1440])(
             "vote-result-awaiting-decision",
           ],
           memberCount: 12,
-          isHost: true,
         },
         {
           stories: [
@@ -28,7 +27,6 @@ it.each([360, 375, 640, 900, 1440])(
             "idea-result-awaiting-decision",
           ],
           memberCount: 12,
-          isHost: true,
         },
         {
           stories: [
@@ -37,7 +35,6 @@ it.each([360, 375, 640, 900, 1440])(
             "vote-result-non-host-paused",
           ],
           memberCount: 3,
-          isHost: false,
         },
       ]) {
         let reference: unknown;
@@ -138,24 +135,12 @@ it.each([360, 375, 640, 900, 1440])(
                 .getByRole("button", { name: "投票結果を表示" })
                 .count(),
             ).toBe(0);
-            if (scenario.isHost && !result?.startsWith("idea"))
+            if (!result?.startsWith("idea"))
               expect(
                 await page
                   .getByRole("button", { name: "次のステップへ" })
                   .isDisabled(),
               ).toBe(true);
-            else if (result?.startsWith("idea"))
-              expect(
-                await page
-                  .getByRole("button", { name: "完了して成果を表示" })
-                  .isDisabled(),
-              ).toBe(true);
-            else
-              expect(
-                await page
-                  .getByRole("button", { name: "完了して成果を表示" })
-                  .count(),
-              ).toBe(0);
           }
         }
       }

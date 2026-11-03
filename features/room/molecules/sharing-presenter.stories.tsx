@@ -15,7 +15,6 @@ const meta = {
   ],
   args: {
     sharing: buildSharingState(),
-    hostUserId: "11111111-1111-4111-8111-111111111111",
   },
 } satisfies Meta<typeof SharingPresenter>;
 export default meta;

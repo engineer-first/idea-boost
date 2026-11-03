@@ -26,7 +26,7 @@ const DOT_VOTE_ICON = {
 
 const DOT_VOTE_TONE = {
   subjective: "rounded-full border-rose-700 bg-rose-100 text-rose-700",
-  objective: "rounded-lg border-blue-700 bg-blue-100 text-blue-700",
+  objective: "rounded-md border-blue-700 bg-blue-100 text-blue-700",
 } satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_COUNT_TONE = {
@@ -36,7 +36,7 @@ const DOT_VOTE_COUNT_TONE = {
 
 const DOT_VOTE_SHAPE = {
   subjective: "rounded-full",
-  objective: "rounded-lg",
+  objective: "rounded-md",
 } satisfies Record<DotVoteKind, string>;
 
 type DotVoteStickerImageSize = "default" | "result";
@@ -61,7 +61,7 @@ export function DotVoteStickerImage({
     <span
       aria-hidden="true"
       data-testid={`dot-vote-sticker-image-${kind}`}
-      className={`flex shrink-0 items-center justify-center border-2 shadow-[0_2px_5px_rgba(0,0,0,0.14)] ${
+      className={`flex shrink-0 items-center justify-center border-2 ${
         size === "result" ? "size-[22px]" : "size-7"
       } ${DOT_VOTE_TONE[kind]}`}
     >
@@ -148,7 +148,7 @@ export function DotVoteSticker({
       <DotVoteStickerImage kind={kind} />
       {shouldShowCount ? (
         <span
-          className={`absolute -right-1 -bottom-1 flex h-4 min-w-4 items-center justify-center rounded-full border bg-white px-0.5 text-[0.55rem] leading-none font-bold shadow-sm ${DOT_VOTE_COUNT_TONE[kind]}`}
+          className={`absolute -right-1 -bottom-1 flex h-4 min-w-4 items-center justify-center rounded-full border bg-white px-0.5 text-xs leading-none font-bold ${DOT_VOTE_COUNT_TONE[kind]}`}
         >
           {displayedCount}
         </span>

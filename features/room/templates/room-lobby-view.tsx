@@ -4,7 +4,7 @@ import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
 import Link from "next/link";
 import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
+
 import { isLobby, type RoomPhase } from "@/contracts/phase";
 // WebSocket接続と操作の確定はroom-lobby.tsxが持ち、ここでは待機画面を組み立てる。
 import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
@@ -14,7 +14,6 @@ import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomAvatarControls } from "../logic/use-room-avatar";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
-import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
@@ -26,9 +25,6 @@ import styles from "./room-lobby-view.module.css";
 export type RoomLobbyViewProps = {
   members: Member[];
   currentUserId: string;
-  isHost: boolean;
-  // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
-  hostUserId: string;
   phase: RoomPhase;
   loginReturnHref?: string;
   inviteCode: string;
@@ -41,11 +37,8 @@ export type RoomLobbyViewProps = {
   isStarting: boolean;
   onStart: () => void;
   // 退出。
-  onLeave: (outcomeAccess?: LeaveOutcomeAccess) => void;
+  onLeave: () => void;
   isLeaving: boolean;
-  onTransferHost?: (targetUserId: string) => void;
-  isTransferring?: boolean;
-  transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
   roomName?: RoomNameControls;
@@ -56,8 +49,6 @@ export type RoomLobbyViewProps = {
 export function RoomLobbyView({
   members,
   currentUserId,
-  isHost,
-  hostUserId,
   phase,
   loginReturnHref,
   inviteCode,
@@ -68,25 +59,23 @@ export function RoomLobbyView({
   onStart,
   onLeave,
   isLeaving,
-  onTransferHost,
-  isTransferring: transferringHost = false,
-  transferError = null,
   memberRemoval,
   displayName,
   roomName,
   avatarChange,
   connectedUserIds,
 }: RoomLobbyViewProps) {
-  const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
+  const isRemovingMember = memberRemoval?.pending ?? false;
   const isDisconnected = connectionStatus !== "open";
   const lobbyRef = useRef<HTMLDivElement>(null);
+  const leaveButtonRef = useRef<HTMLButtonElement>(null);
   const avatarDescriptionId = useId();
   const membersTitleId = useId();
   const inviteTitleId = useId();
-  const disabled = isDisconnected || isStarting || isLeaving || isTransferring;
+  const disabled =
+    isDisconnected || isStarting || isLeaving || isRemovingMember;
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [hostTargetId, setHostTargetId] = useState<string | null>(null);
-  const transferTriggerRef = useRef<HTMLElement | null>(null);
+  const memberTriggerRef = useRef<HTMLElement | null>(null);
 
   return (
     <div
@@ -97,7 +86,6 @@ export function RoomLobbyView({
       data-phase={
         isLobby(phase) ? "lobby" : `phase${phase.phase}-step${phase.step}`
       }
-      data-host={isHost ? "true" : undefined}
     >
       <div className={styles.content}>
         <header className={styles.header}>
@@ -174,7 +162,6 @@ export function RoomLobbyView({
               <LobbyMembers
                 members={members}
                 currentUserId={currentUserId}
-                hostUserId={hostUserId}
                 connectedUserIds={connectedUserIds}
                 avatarChange={isLobby(phase) ? avatarChange : undefined}
                 avatarDescriptionId={avatarDescriptionId}
@@ -182,13 +169,13 @@ export function RoomLobbyView({
                 nameDisabled={displayName?.disabled || displayName?.pending}
                 onEditSelf={displayName?.request}
                 onSelectMember={
-                  isHost && isLobby(phase) && onTransferHost
+                  memberRemoval
                     ? (userId) => {
-                        transferTriggerRef.current =
+                        memberTriggerRef.current =
                           document.activeElement instanceof HTMLElement
                             ? document.activeElement
                             : null;
-                        setHostTargetId(userId);
+                        memberRemoval.request(userId);
                       }
                     : undefined
                 }
@@ -238,7 +225,7 @@ export function RoomLobbyView({
           <details className={styles.privacy}>
             <summary>保存とプライバシーについて</summary>
             <p>
-              途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了時に参加中の人と、成果を残して途中退出した人は、完了から30日間、成果と保存できた5つの場面を見返せます。{" "}
+              途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了した成果は30日間、ホームから見返せます。{" "}
               <Link
                 href="/privacy"
                 target="_blank"
@@ -254,73 +241,35 @@ export function RoomLobbyView({
             variant="ghost"
             onClick={() => setLeaveDialogOpen(true)}
             disabled={isLeaving}
+            ref={leaveButtonRef}
             data-testid="leave-button"
             className={styles.leave}
           >
             <DoorOpen size={16} aria-hidden="true" />
-            {isHost
-              ? isLeaving
-                ? "解散中…"
-                : "ルームを解散"
-              : isLeaving
-                ? "退出中…"
-                : "退出する"}
+            {isLeaving ? "退出中…" : "退出する"}
           </Button>
         </footer>
       </div>
 
-      {isHost && isLobby(phase) && onTransferHost && hostTargetId !== null ? (
-        <HostTransferDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setHostTargetId(null);
-          }}
-          target={
-            members.find((member) => member.userId === hostTargetId) ?? null
-          }
-          onRequestRemove={
-            memberRemoval
-              ? () => {
-                  memberRemoval.request(hostTargetId);
-                  setHostTargetId(null);
-                }
-              : undefined
-          }
-          onConfirm={onTransferHost}
-          pending={isTransferring}
-          disconnected={isDisconnected}
-          error={transferError}
-          onClosed={() => {
-            if (transferTriggerRef.current?.isConnected)
-              transferTriggerRef.current.focus();
-            else
-              (
-                lobbyRef.current?.querySelector<HTMLButtonElement>(
-                  '[data-testid="room-members"] button',
-                ) ?? lobbyRef.current
-              )?.focus();
-          }}
-        />
-      ) : null}
       {roomName ? <RoomNameDialog controls={roomName} /> : null}
       {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
       {memberRemoval ? (
         <MemberRemoveDialog
           {...memberRemoval}
           onClosed={() => {
-            if (transferTriggerRef.current?.isConnected)
-              transferTriggerRef.current.focus();
+            if (memberTriggerRef.current?.isConnected)
+              memberTriggerRef.current.focus();
             else lobbyRef.current?.focus();
           }}
         />
       ) : null}
       <LeaveConfirmDialog
-        key={hostUserId}
-        open={leaveDialogOpen && !isTransferring}
+        open={leaveDialogOpen && !isRemovingMember}
         onOpenChange={setLeaveDialogOpen}
         onConfirm={onLeave}
         isLeaving={isLeaving}
-        mode={isHost ? "disband" : "leave"}
+        lastMember={members.length === 1}
+        onClosed={() => leaveButtonRef.current?.focus()}
       />
     </div>
   );

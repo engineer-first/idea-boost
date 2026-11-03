@@ -33,21 +33,21 @@ export function participationActionFailure(result: ParticipationRecovery) {
       ok: false as const,
       outcome: "unknown" as const,
       pendingOperation: result,
-      error: result.error,
+      error: "ルームに移動できませんでした。もう一度お試しください。",
     };
   if (result.kind === "confirmation")
     return {
       ok: false as const,
       outcome: "rejected" as const,
       reason: "confirmation_required",
-      error: "参加先の変更を確認してください。",
+      error: "ルームに移動しています。",
       confirmation: result.confirmation,
     };
   return {
     ok: false as const,
     outcome: "rejected" as const,
     reason: result.reason,
-    error: result.error,
+    error: "ルームに移動できませんでした。もう一度お試しください。",
     failedOperation: result.failure ? result : undefined,
   };
 }
