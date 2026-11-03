@@ -306,7 +306,7 @@ test("タッチ端末では最後にタップした付箋だけ候補操作を�
 });
 
 test.each(["host", "participant"])(
-  "候補外の付箋は%sの実タッチで本文を読みやすくし、復帰操作はホストだけに出す",
+  "候補外の付箋（%s）は実タッチで本文を読みやすくし、復帰可能な場合だけ操作を出す",
   async (role) => {
     await page.close();
     page = await browser.newPage({

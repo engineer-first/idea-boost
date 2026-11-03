@@ -2,7 +2,6 @@
 
 // RoomDO への WebSocket 接続配線の hook。ロビーとボードの両方で使う。
 // - 接続の生成・破棄と表示用の接続状態
-// - 退出（ended）/ 解散（disbanded）による意図的切断: 再接続せずホームへ戻す
 // - onMessage は最新のハンドラへ届ける（ハンドラ差し替えで再接続しない）
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,7 +18,6 @@ import {
 } from "@/lib/room-client/room-client";
 import { roomWebSocketUrl } from "@/lib/room-client/ws-url";
 import type { RoomScreenConnectionStatus } from "./connection-status";
-import { roomNotify } from "./room-notify";
 
 const COMPLETION_REQUEST_TIMEOUT_MS = 10_000;
 
@@ -29,7 +27,7 @@ export type UseRoomConnectionOptions = {
   onMessage: (message: ServerMessage) => void;
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
-  // 自分の退出操作による切断では roomDisbanded 通知を出さない（二重 toast 防止）。
+  // 自分の退出中は完了画面の回復を試みない。
   isLeavingRef?: React.RefObject<boolean>;
 };
 
@@ -204,23 +202,18 @@ export function useRoomConnection({
           setConnectionStatus("auth-required");
           return;
         }
-        if (status === "ended" || status === "disbanded") {
+        if (status === "ended") {
           terminal = true;
           generation += 1;
           cancelCompletionRequest();
         }
         // 完了時に切断中だった在籍者にも、通知の受信に依存しない復帰経路を持つ。
         if (status === "closed") void recoverCompletedRoom();
-        // 退出・解散による意図的切断: 再接続せずホームへ戻す。
-        if (status === "ended" || status === "disbanded") {
+        if (status === "ended") {
           synchronizedRef.current = false;
           stopDelay();
           clearLastRoom(roomId);
-          // 他メンバーが解散されたときだけここで理由を出す。
           // 自分の操作による通知は useLeaveRoom 成功時に出す（二重 toast 防止）。
-          if (status === "disbanded" && !isLeavingRef?.current) {
-            roomNotify.roomDisbanded();
-          }
           router.replace("/home");
           return;
         }

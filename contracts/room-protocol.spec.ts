@@ -340,7 +340,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [],
       phase: LOBBY,
-      isHost: false,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],
@@ -365,7 +365,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [],
       phase: buildPhaseStep(2, 3),
-      isHost: false,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],
@@ -493,14 +493,14 @@ describe("ServerMessageSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("snapshot は notes / members / phase / isHost / decision / carryovers / completedVoterIds を必須にする", () => {
+  it("snapshot は notes / members / phase / decision / carryovers / completedVoterIds を必須にする", () => {
     const parsed = ServerMessageSchema.parse({
       type: "snapshot",
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
       phaseRevision: 0,
-      isHost: true,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],
@@ -513,7 +513,7 @@ describe("ServerMessageSchema", () => {
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
       phaseRevision: 0,
-      isHost: true,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],
@@ -539,7 +539,7 @@ describe("ServerMessageSchema", () => {
       members: [],
       phase: LOBBY,
       phaseRevision: 0,
-      isHost: false,
+
       decision: null,
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
@@ -552,12 +552,11 @@ describe("ServerMessageSchema", () => {
       type: "snapshot",
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
-      isHost: true,
     });
     expect(result.success).toBe(false);
   });
 
-  it("snapshot に isHost フィールドが無いと拒否する", () => {
+  it("snapshot は不完全な進行情報を拒否する", () => {
     const result = ServerMessageSchema.safeParse({
       type: "snapshot",
       notes: [],
@@ -575,7 +574,7 @@ describe("ServerMessageSchema", () => {
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
       phaseRevision: 0,
-      isHost: true,
+
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });
@@ -625,7 +624,7 @@ describe("ServerMessageSchema", () => {
         notes: [],
         members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
         phase: STEP_1_5,
-        isHost: false,
+
         decision: null,
         adoptionFocusNoteId: noteId,
         carryovers: [],
@@ -860,7 +859,6 @@ describe("ClientMessageSchema", () => {
       ClientMessageSchema.parse({
         type: "note:bulk-exclude",
         noteIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
-        isHost: true,
       }),
     ).toEqual({ type: "note:bulk-exclude" });
     expect(
@@ -868,7 +866,6 @@ describe("ClientMessageSchema", () => {
         type: "note:bulk-restore",
         operationId,
         noteIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
-        isHost: true,
       }),
     ).toEqual({ type: "note:bulk-restore", operationId });
     expect(
@@ -887,7 +884,7 @@ describe("ClientMessageSchema", () => {
           type,
           noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           authorId: USER_B,
-          isHost: true,
+
           x: 999,
           y: 999,
         }),
@@ -1157,7 +1154,6 @@ describe("ClientMessageSchema", () => {
         type: "adoption-focus:update",
         noteId,
         userId: USER_B,
-        isHost: true,
       }),
     ).toEqual({ type: "adoption-focus:update", noteId });
     expect(
@@ -1313,7 +1309,7 @@ describe("parseServerMessage", () => {
           members: [],
           phase: LOBBY,
           phaseRevision: 0,
-          isHost: false,
+
           decision: null,
           carryovers: [],
           completedVoterIds: [],
@@ -1327,7 +1323,7 @@ describe("parseServerMessage", () => {
       members: [],
       phase: LOBBY,
       phaseRevision: 0,
-      isHost: false,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],
@@ -1522,13 +1518,13 @@ describe("開始前ホスト移譲の契約", () => {
       parseClientMessage(JSON.stringify({ ...transfer, ...change })),
     ).toBeNull();
   });
-  it("共有ホスト更新を読み取る", () => {
+  it("ホスト更新通知を拒否する", () => {
     const update = {
       type: "host:updated",
       hostUserId: USER_B,
       hostRevision: 1,
     };
-    expect(parseServerMessage(JSON.stringify(update))).toEqual(update);
+    expect(parseServerMessage(JSON.stringify(update))).toBeNull();
   });
 });
 
@@ -1539,12 +1535,11 @@ describe("メンバー除外の契約", () => {
     expectedHostRevision: 0,
     operationId: USER_A,
   };
-  it("対象とホスト世代と操作IDを必須で受け入れる", () => {
+  it("対象と操作IDを受け入れ、旧ホスト世代も読み取れる", () => {
     expect(parseClientMessage(JSON.stringify(request))).toEqual(request);
   });
   it.each([
     { targetUserId: "bad" },
-    { expectedHostRevision: undefined },
     { expectedHostRevision: -1 },
     { operationId: undefined },
     { operationId: "bad" },

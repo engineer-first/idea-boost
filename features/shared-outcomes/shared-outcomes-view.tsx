@@ -404,7 +404,7 @@ export function SharedOutcomesView({
               <p className="font-mono text-base">{detail.displayId}</p>
               <OutcomeMetadata outcome={detail} />
               <p className="mt-3 text-xs text-muted-foreground">
-                参加人数は保存時点までの累計です。ホスト・途中退出者を含み、再参加は重複して数えません。人数を保存していない過去の成果は「未記録」と表示します。
+                参加人数は保存時点までの累計です。途中退出者を含み、再参加は重複して数えません。人数を保存していない過去の成果は「未記録」と表示します。
               </p>
               <p className="mt-3 text-xs text-muted-foreground">
                 閲覧期限：{formatOutcomeTime(detail.expiresAt)}

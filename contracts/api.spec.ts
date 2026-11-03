@@ -45,77 +45,16 @@ describe("JoinRoomResponseSchema", () => {
 });
 
 describe("RoomInfoResponseSchema", () => {
-  it("isHost / hostUserId / phase を含む拡張形を受け入れる", () => {
-    const parsed = RoomInfoResponseSchema.parse({
-      roomId: UUID,
-      inviteCode: "ABC234",
-      isHost: true,
-      hostUserId: UUID,
-      phase: LOBBY,
-    });
-    expect(parsed).toEqual({
-      roomId: UUID,
-      inviteCode: "ABC234",
-      isHost: true,
-      hostUserId: UUID,
-      phase: LOBBY,
-    });
+  it("ホスト情報なしでルームと進行状態を読み取る", () => {
+    const info = { roomId: UUID, inviteCode: "ABC234", phase: LOBBY };
+    expect(RoomInfoResponseSchema.parse(info)).toEqual(info);
   });
-
-  it("isHost が無いと拒否する", () => {
+  it("未知の進行状態を拒否する", () => {
     expect(
       RoomInfoResponseSchema.safeParse({
         roomId: UUID,
         inviteCode: "ABC234",
-        hostUserId: UUID,
-        phase: LOBBY,
-      }).success,
-    ).toBe(false);
-  });
-
-  it("hostUserId が無いと拒否する", () => {
-    expect(
-      RoomInfoResponseSchema.safeParse({
-        roomId: UUID,
-        inviteCode: "ABC234",
-        isHost: true,
-        phase: LOBBY,
-      }).success,
-    ).toBe(false);
-  });
-
-  it("hostUserId が UUID でないと拒否する", () => {
-    expect(
-      RoomInfoResponseSchema.safeParse({
-        roomId: UUID,
-        inviteCode: "ABC234",
-        isHost: true,
-        hostUserId: "not-a-uuid",
-        phase: LOBBY,
-      }).success,
-    ).toBe(false);
-  });
-
-  it("phase が未知の値だと拒否する", () => {
-    expect(
-      RoomInfoResponseSchema.safeParse({
-        roomId: UUID,
-        inviteCode: "ABC234",
-        isHost: false,
-        hostUserId: UUID,
         phase: "done",
-      }).success,
-    ).toBe(false);
-  });
-
-  it("isHost は boolean のみ", () => {
-    expect(
-      RoomInfoResponseSchema.safeParse({
-        roomId: UUID,
-        inviteCode: "ABC234",
-        isHost: "true",
-        hostUserId: UUID,
-        phase: LOBBY,
       }).success,
     ).toBe(false);
   });

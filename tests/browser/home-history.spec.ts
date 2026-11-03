@@ -642,10 +642,10 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
       await page
-        .getByRole("heading", { name: "ルームを解散して移動しますか？" })
+        .getByRole("heading", { name: "別のルームに移動しますか？" })
         .waitFor();
       await page
-        .getByRole("button", { name: "解散して作成する", exact: true })
+        .getByRole("button", { name: "退出して作成する", exact: true })
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
       const second = new URL(page.url());
@@ -666,7 +666,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("heading", { name: "メンバーが揃ったら開始" })
         .waitFor();
       expect(new URL(page.url()).pathname).toBe(second.pathname);
-      // 前の単独ホストルームは同意して解散済み。保存URLで権限を復活させない。
+      // 前のルームは同意して退出済み。保存URLで権限を復活させない。
       await page.goto(first.origin + first.pathname);
       await page.getByRole("heading", { name: "404", exact: true }).waitFor();
       expect(

@@ -45,12 +45,7 @@ export function ParticipationSwitchView({
     if (failedOperation) safeAction.current?.focus();
   }, [failedOperation]);
   const cannotCancel = confirmation?.progress === "partially_left";
-  const disband = confirmation?.sources.some(
-    (source) => source.action === "disband",
-  );
-  const hasLeave = confirmation?.sources.some(
-    (source) => source.action !== "disband",
-  );
+  const hasLeave = Boolean(confirmation?.sources.length);
   const verb = confirmation?.target.kind === "create" ? "作成する" : "参加する";
   return (
     <AlertDialog open>
@@ -79,9 +74,7 @@ export function ParticipationSwitchView({
               ? "移動の処理は終了しました"
               : !confirmation
                 ? "移動の結果を確認してください"
-                : disband
-                  ? "ルームを解散して移動しますか？"
-                  : "別のルームに移動しますか？"}
+                : "別のルームに移動しますか？"}
           </AlertDialogTitle>
           <AlertDialogDescription className="[overflow-wrap:anywhere]">
             {failedOperation ? (
@@ -105,11 +98,9 @@ export function ParticipationSwitchView({
               {failedOperation.failure?.exitedSources.map((source) => (
                 <p key={source.roomId}>
                   {source.name}：
-                  {source.result === "disbanded"
-                    ? "解散済み"
-                    : source.result === "left"
-                      ? "退出済み"
-                      : "現在は活動中の参加先ではありません"}
+                  {source.result === "disbanded" || source.result === "left"
+                    ? "退出済み"
+                    : "現在は活動中の参加先ではありません"}
                 </p>
               ))}
               {failedOperation.failure?.remainingSources.length ? (
@@ -126,7 +117,7 @@ export function ParticipationSwitchView({
             <>
               {cannotCancel && (
                 <p role="status">
-                  一部のルームからは退出済みです。元の参加状態には戻せません。変更したホスト交代・解散の内容を確認して、移動を続けてください。成果の選択は開始時の内容を維持します。
+                  一部のルームからは退出済みです。元の参加状態には戻せません。現在の参加状況を確認して、移動を続けてください。成果の選択は開始時の内容を維持します。
                 </p>
               )}
               {confirmation?.sources.map((source) => (
@@ -134,26 +125,9 @@ export function ParticipationSwitchView({
                   <h3 className="font-semibold [overflow-wrap:anywhere]">
                     {source.name}（{source.inviteCode}）
                   </h3>
-                  {source.action === "disband" ? (
-                    <>
-                      <p>
-                        接続中のホスト引継ぎ先がいません。解散すると、切断中の人を含め全員が退出します。
-                      </p>
-                      <p>このルームの招待URLは使えなくなります。</p>
-                      <p>途中の内容は本人向けの完了成果として残りません。</p>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        このルームから退出します。他のタブ・端末でも操作できなくなります。
-                      </p>
-                      {source.successor && (
-                        <p>
-                          ホストを「{source.successor.name}」に引き継ぎます。
-                        </p>
-                      )}
-                    </>
-                  )}
+                  <p>
+                    このルームから退出します。他のタブ・端末でも操作できなくなります。
+                  </p>
                 </section>
               ))}
               {hasLeave && (
@@ -190,7 +164,7 @@ export function ParticipationSwitchView({
                       成果を残して退出
                       <br />
                       <span className="text-muted-foreground">
-                        ルームが完了したら「過去の成果を見る」から見返せます。解散するルームには適用されません。
+                        ルームが完了したら「過去の成果を見る」から見返せます。
                       </span>
                     </span>
                   </label>
@@ -226,7 +200,7 @@ export function ParticipationSwitchView({
               <Button
                 ref={safeAction}
                 disabled={pending}
-                variant={disband ? "destructive" : "default"}
+                variant="default"
                 onClick={started ? onRetry : onConfirm}
               >
                 {pending
@@ -235,7 +209,7 @@ export function ParticipationSwitchView({
                     ? "結果を確認・再試行"
                     : cannotCancel
                       ? "変更した内容を確認して続ける"
-                      : `${disband ? "解散" : "退出"}して${verb}`}
+                      : `退出して${verb}`}
               </Button>
             </>
           )}

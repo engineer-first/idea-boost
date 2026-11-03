@@ -76,40 +76,6 @@ describe("LeaveConfirmDialog（leave）", () => {
   });
 });
 
-describe("LeaveConfirmDialog（disband）", () => {
-  it("ホスト向けに解散文言を表示する", () => {
-    render(
-      <LeaveConfirmDialog
-        open
-        onOpenChange={vi.fn()}
-        onConfirm={vi.fn()}
-        isLeaving={false}
-        mode="disband"
-      />,
-    );
-    expect(screen.getByText("ルームを解散しますか？")).toBeInTheDocument();
-    expect(screen.getByText(/解散するとルームは削除され/)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "ルームを解散" }),
-    ).toBeInTheDocument();
-  });
-
-  it("isLeaving=true のとき「解散中…」になる", () => {
-    render(
-      <LeaveConfirmDialog
-        open
-        onOpenChange={vi.fn()}
-        onConfirm={vi.fn()}
-        isLeaving
-        mode="disband"
-      />,
-    );
-    expect(screen.getByTestId("leave-confirm-action")).toHaveTextContent(
-      "解散中…",
-    );
-  });
-});
-
 it.each([false, true])(
   "退出時に選んだ成果の閲覧権を渡す completed=%s",
   async (completed) => {

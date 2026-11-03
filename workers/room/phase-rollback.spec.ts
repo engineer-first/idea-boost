@@ -442,7 +442,7 @@ describe("復元の競合と連続進行", () => {
       expect(snapshot).toMatchObject({ rollbackTarget: null });
     },
   );
-  it("古いフェーズ世代とホスト世代は拒否し、現在ホストと会員は維持する", async () => {
+  it("古いフェーズ世代は拒否し、旧ホスト世代を無視して復元しても会員を維持する", async () => {
     const { roomId, a, b } = await setup();
     await seed(roomId);
     const old = await currentPhaseExpectation(roomId);
@@ -457,14 +457,6 @@ describe("復元の競合と連続進行", () => {
     expect(await a.next()).toMatchObject({ type: "error", code: "forbidden" });
     a.ws.send(
       JSON.stringify({
-        type: "host:transfer",
-        expectedHostRevision: 0,
-        targetUserId: member.sub,
-      }),
-    );
-    await Promise.all([until(a, "host:updated"), until(b, "host:updated")]);
-    a.ws.send(
-      JSON.stringify({
         type: "phase:rollback",
         expectedHostRevision: 0,
         ...(await currentPhaseExpectation(roomId)),
@@ -472,9 +464,6 @@ describe("復元の競合と連続進行", () => {
     );
     const rollbackSnapshot = await a.next();
     expect(rollbackSnapshot).toMatchObject({
-      isHost: false,
-      hostUserId: member.sub,
-      hostRevision: 1,
       members: expect.arrayContaining([
         expect.objectContaining({ userId: host.sub }),
         expect.objectContaining({ userId: member.sub }),

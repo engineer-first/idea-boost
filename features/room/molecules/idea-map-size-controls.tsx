@@ -15,7 +15,6 @@ import { IDEA_MAP_SIZE_HELP } from "../logic/idea-value-feasibility-map";
 export type IdeaMapSizeControlsProps = {
   sizeLevel: number;
   initialized: boolean;
-  isHost: boolean;
   isDisconnected: boolean;
   isDragging: boolean;
   onResize: (sizeLevel: number) => void;

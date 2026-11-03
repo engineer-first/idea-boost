@@ -124,7 +124,6 @@ class FakeWebSocket {
     this.emit("message", { data: JSON.stringify(message) });
   }
 
-  // ホスト解散など RoomDO が WS_CLOSE_ROOM_DISBANDED で閉じたとき。
   simulateDisbandedClose(): void {
     this.readyState = 3;
     this.emit("close", { code: 4001, reason: "room disbanded" });
@@ -143,7 +142,6 @@ class FakeWebSocket {
 function renderStart(
   options: {
     open?: boolean;
-    isHost?: boolean;
     currentUserId?: string;
     initialMembers?: ProtocolMember[];
     initialPhase?: RoomPhase;
@@ -161,8 +159,6 @@ function renderStart(
       inviteCode="AB12CD"
       inviteUrl="https://idea-flow.example/invite/AB12CD"
       currentUserId={options.currentUserId ?? HOST_ID}
-      isHost={options.isHost ?? true}
-      hostUserId={HOST_ID}
       initialPhase={options.initialPhase ?? buildLobbyPhase()}
       initialMembers={options.initialMembers ?? []}
       webSocketFactory={factory}
@@ -182,7 +178,7 @@ function renderStart(
         notes: [],
         members: options.initialMembers ?? [],
         phase: options.initialPhase ?? buildLobbyPhase(),
-        isHost: options.isHost ?? true,
+
         decision: null,
         carryovers: [],
         completedVoterIds: [],
@@ -224,7 +220,7 @@ describe("RoomLobby の初期表示", () => {
   });
 
   it("isHost=false でも「開始する」ボタンを表示する", () => {
-    renderStart({ isHost: false });
+    renderStart({});
     expect(screen.getByTestId("start-phase-button")).toBeInTheDocument();
   });
 });
@@ -242,7 +238,7 @@ describe("サーバーメッセージ → 画面反映", () => {
           { userId: MEMBER_ID, name: "Member", color: "green" },
         ],
         phase: buildLobbyPhase(),
-        isHost: true,
+
         decision: null,
         carryovers: [],
         completedVoterIds: [],
@@ -296,9 +292,9 @@ describe("サーバーメッセージ → 画面反映", () => {
   });
 
   it("解散による WS close で理由を通知して /home へ router.replace する", () => {
-    const { socket } = renderStart({ isHost: false });
+    const { socket } = renderStart({});
     act(() => socket.simulateDisbandedClose());
-    expect(notifyMocks.roomDisbanded).toHaveBeenCalledTimes(1);
+    expect(notifyMocks.roomDisbanded).not.toHaveBeenCalled();
     expect(navigationMocks.replace).toHaveBeenCalledWith("/home");
   });
 
@@ -313,7 +309,7 @@ describe("サーバーメッセージ → 画面反映", () => {
         notes: [],
         members: [{ userId: HOST_ID, name: "Host", color: "yellow" }],
         phase: buildLobbyPhase(),
-        isHost: true,
+
         decision: null,
         carryovers: [],
         completedVoterIds: [],
@@ -362,7 +358,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
   });
 
   it("非ホストも handleStart で start_phase を送る", () => {
-    const { socket } = renderStart({ isHost: false });
+    const { socket } = renderStart({});
     fireEvent.click(screen.getByTestId("start-phase-button"));
     expect(socket.sent).toContain(JSON.stringify({ type: "start_phase" }));
   });
@@ -376,155 +372,6 @@ it("開始後のボードURLを指定した場合は追従先を保持する", (
   expect(navigationMocks.replace).toHaveBeenCalledWith(
     `/rooms/${ROOM_ID}?verify=follow`,
   );
-});
-
-describe("開始前のホスト引き継ぎ", () => {
-  const members: ProtocolMember[] = [
-    { userId: HOST_ID, name: "作成者", color: "yellow" },
-    { userId: MEMBER_ID, name: "Hana Sato", color: "blue" },
-  ];
-  it("移譲通知後も参加者の開始操作を表示する", () => {
-    const { socket } = renderStart({ initialMembers: members });
-    act(() =>
-      socket.simulateServerMessage({
-        type: "host:updated",
-        hostUserId: MEMBER_ID,
-        hostRevision: 1,
-      }),
-    );
-    expect(screen.getByTestId("start-phase-button")).toBeInTheDocument();
-    expect(
-      screen.getByTestId(`member-host-label-${MEMBER_ID}`),
-    ).toBeInTheDocument();
-  });
-  it("対象名を確認しキャンセルでき、確認したときだけ改訂付きで送る", () => {
-    const { socket } = renderStart({ initialMembers: members });
-    act(() =>
-      socket.simulateServerMessage({
-        type: "host:updated",
-        hostUserId: HOST_ID,
-        hostRevision: 0,
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Hana Sato" }));
-    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
-    expect(socket.sent).toEqual([]);
-    fireEvent.click(screen.getByRole("button", { name: "Hana Sato" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Hana Satoさんをホストにする" }),
-    );
-    expect(JSON.parse(socket.sent[0])).toEqual({
-      type: "host:transfer",
-      targetUserId: MEMBER_ID,
-      expectedHostRevision: 0,
-    });
-    expect(screen.getByRole("button", { name: "変更中…" })).toBeDisabled();
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "forbidden",
-        message: "相手が切断しました",
-      }),
-    );
-    expect(screen.getByRole("alert")).toHaveTextContent("相手が切断しました");
-    expect(
-      screen.getByRole("button", { name: "Hana Satoさんをホストにする" }),
-    ).toBeEnabled();
-  });
-});
-
-it("ホスト変更時に古い解散確認を閉じ、戻った後も古い確認を使わない", () => {
-  const { socket } = renderStart();
-  fireEvent.click(screen.getByRole("button", { name: "ルームを解散" }));
-  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-  act(() =>
-    socket.simulateServerMessage({
-      type: "host:updated",
-      hostUserId: MEMBER_ID,
-      hostRevision: 1,
-    }),
-  );
-  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-  act(() =>
-    socket.simulateServerMessage({
-      type: "host:updated",
-      hostUserId: HOST_ID,
-      hostRevision: 2,
-    }),
-  );
-  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByTestId("start-phase-button"));
-  expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual({
-    type: "start_phase",
-  });
-});
-
-it("引き継ぎ確認をキャンセルすると起点ボタンへフォーカスを戻す", async () => {
-  const { socket } = renderStart({
-    initialMembers: [
-      { userId: HOST_ID, name: "作成者", color: "yellow" },
-      { userId: MEMBER_ID, name: "Hana Sato", color: "blue" },
-    ],
-  });
-  act(() =>
-    socket.simulateServerMessage({
-      type: "host:updated",
-      hostUserId: HOST_ID,
-      hostRevision: 0,
-    }),
-  );
-  const trigger = screen.getByRole("button", {
-    name: "Hana Sato",
-  });
-  fireEvent.click(trigger);
-  fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
-  await vi.waitFor(() => expect(trigger).toHaveFocus());
-});
-
-describe("ホストによる参加者退出", () => {
-  it("選択と確認から世代付き操作を送り、二重操作を止めサーバー確定で一覧を更新する", () => {
-    const { socket } = renderStart({
-      initialMembers: [
-        { userId: HOST_ID, name: "Host", color: "yellow" },
-        { userId: MEMBER_ID, name: "Member", color: "blue" },
-      ],
-    });
-    act(() =>
-      socket.simulateServerMessage({
-        type: "host:updated",
-        hostUserId: HOST_ID,
-        hostRevision: 0,
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Member" }));
-    fireEvent.click(screen.getByRole("button", { name: "ルームから外す…" }));
-    expect(socket.sent).toEqual([]);
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("Member");
-    fireEvent.click(screen.getByRole("button", { name: "ルームから外す" }));
-    const operation = JSON.parse(socket.sent[0]);
-    expect(operation).toMatchObject({
-      type: "member:remove",
-      targetUserId: MEMBER_ID,
-      expectedHostRevision: 0,
-      operationId: expect.any(String),
-    });
-    expect(screen.getByRole("button", { name: "退出処理中…" })).toBeDisabled();
-    expect(screen.getByTestId("start-phase-button")).toBeDisabled();
-    act(() =>
-      socket.simulateServerMessage({ type: "member_left", userId: MEMBER_ID }),
-    );
-    act(() =>
-      socket.simulateServerMessage({
-        type: "member:removed",
-        targetUserId: MEMBER_ID,
-        operationId: operation.operationId,
-      }),
-    );
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId(`member-row-${MEMBER_ID}`),
-    ).not.toBeInTheDocument();
-  });
 });
 
 it("本人表示から共通の改名APIを呼び、共有通知で全員の現在名を畳み込む", async () => {
@@ -606,27 +453,4 @@ it("開始成功後は移動が完了するまで開始中を維持する", () =
   expect(navigationMocks.replace).toHaveBeenCalled();
   expect(screen.getByTestId("start-phase-button")).toBeDisabled();
   expect(screen.getByTestId("start-phase-button")).toHaveTextContent("開始中…");
-});
-
-it("開始待ちの同じホストの更新通知では開始中を解除しない", () => {
-  vi.useFakeTimers();
-  try {
-    const { socket } = renderStart();
-    fireEvent.click(screen.getByTestId("start-phase-button"));
-    act(() =>
-      socket.simulateServerMessage({
-        type: "host:updated",
-        hostUserId: HOST_ID,
-        hostRevision: 0,
-      }),
-    );
-    expect(screen.getByTestId("start-phase-button")).toBeDisabled();
-    expect(screen.getByTestId("start-phase-button")).toHaveTextContent(
-      "開始中…",
-    );
-    act(() => vi.advanceTimersByTime(5000));
-    expect(screen.getByTestId("start-phase-button")).toBeEnabled();
-  } finally {
-    vi.useRealTimers();
-  }
 });

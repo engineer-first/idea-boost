@@ -573,7 +573,7 @@ describe("RoomDO WebSocket の深層防御", () => {
     expect(res.status).toBe(403);
   });
 
-  it("HOST_ID_HEADER なしの upgrade は 403", async () => {
+  it("在籍者の upgrade に旧ホストヘッダーは不要", async () => {
     const stub = roomStub("room-guard-no-host");
     await stub.upsertMember(USER_A, "Alpha");
     const res = await stub.fetch("https://do/ws", {
@@ -585,7 +585,9 @@ describe("RoomDO WebSocket の深層防御", () => {
         [USER_ID_HEADER]: USER_A,
       },
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(101);
+    res.webSocket?.accept();
+    res.webSocket?.close();
   });
 
   it("非メンバーのユーザーIDでの upgrade は 403", async () => {
@@ -665,7 +667,7 @@ describe("RoomDO WebSocket の深層防御", () => {
 // （ホストだけ phase:updated が届くこと、非ホストは forbidden で拒否されること）。
 
 describe("RoomDO snapshot", () => {
-  it("host は snapshot で isHost=true になる", async () => {
+  it("作成者の snapshot はホスト権限を持たない", async () => {
     const stub = roomStub("room-snapshot-host");
 
     await initializeTestRoom(stub, USER_A, "Host");
@@ -694,7 +696,7 @@ describe("RoomDO snapshot", () => {
     const snapshot = JSON.parse(String(message.data));
 
     expect(snapshot.type).toBe("snapshot");
-    expect(snapshot.isHost).toBe(true);
+    expect(snapshot).not.toHaveProperty("isHost");
     expect(snapshot.decision).toBeNull();
     expect(snapshot.members).toEqual(
       expect.arrayContaining([expect.objectContaining({ userId: USER_A })]),
@@ -703,7 +705,7 @@ describe("RoomDO snapshot", () => {
     ws.close();
   });
 
-  it("member は snapshot で isHost=false になる", async () => {
+  it("参加者の snapshot はホスト権限を持たない", async () => {
     const stub = roomStub("room-snapshot-member");
 
     await initializeTestRoom(stub, USER_A, "Host");
@@ -733,7 +735,7 @@ describe("RoomDO snapshot", () => {
     const snapshot = JSON.parse(String(message.data));
 
     expect(snapshot.type).toBe("snapshot");
-    expect(snapshot.isHost).toBe(false);
+    expect(snapshot).not.toHaveProperty("isHost");
 
     ws.close();
   });

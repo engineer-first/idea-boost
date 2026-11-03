@@ -65,7 +65,6 @@ import type { RemotePresenterView } from "../logic/use-presenter-view";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
-import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
@@ -180,11 +179,6 @@ export type RoomBoardViewProps = {
   timer: TimerState;
   timerServerOffsetMs: number;
   timerUpdateVersion?: number;
-  isHost: boolean;
-  hostRevision?: number;
-  onTransferHost?: (targetUserId: string) => void;
-  isTransferring?: boolean;
-  transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
   roomName?: RoomNameControls;
@@ -204,8 +198,6 @@ export type RoomBoardViewProps = {
   members: Member[];
   loginReturnHref?: string;
   currentUserId: string;
-  // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
-  hostUserId: string;
   // 全票を使い切ったメンバーの userId。投票先は含まない。
   completedVoterIds?: ReadonlyArray<string>;
   progress?: import("../logic/room-reducer").PhaseProgressState;
@@ -331,11 +323,6 @@ export function RoomBoardView({
   timer,
   timerServerOffsetMs,
   timerUpdateVersion = 0,
-  isHost,
-  hostRevision = 0,
-  onTransferHost,
-  isTransferring: transferringHost = false,
-  transferError = null,
   memberRemoval,
   displayName,
   roomName,
@@ -348,7 +335,6 @@ export function RoomBoardView({
   members,
   loginReturnHref,
   currentUserId,
-  hostUserId,
   completedVoterIds = [],
   progress = {
     phaseRevision: 0,
@@ -425,7 +411,7 @@ export function RoomBoardView({
   onTimerExtend,
   onTimerStop,
 }: RoomBoardViewProps) {
-  const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
+  const isRemovingMember = memberRemoval?.pending ?? false;
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
 
@@ -537,16 +523,7 @@ export function RoomBoardView({
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
   const privateNoteAddRef = useRef<(() => void) | null>(null);
   const composingRef = useRef(false);
-  const [leaveDialogRevision, setLeaveDialogRevision] = useState<number | null>(
-    null,
-  );
-  const leaveDialogOpen = leaveDialogRevision === hostRevision;
-  const setLeaveDialogOpen = (open: boolean) =>
-    setLeaveDialogRevision(open ? hostRevision : null);
-  const [hostTarget, setHostTarget] = useState<{
-    userId: string;
-    revision: number;
-  } | null>(null);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [outcomeDismissed, setOutcomeDismissed] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
@@ -557,7 +534,6 @@ export function RoomBoardView({
   const sharedAdoptionFocusRef = useRef<string | null>(null);
   const adoptionFocusCallbackRef = useRef(notifyAdoptionFocusChange);
   const suppressAdoptionFocusClearRef = useRef(false);
-  const previousHostRevisionRef = useRef(hostRevision);
   const [selectedVoteKind, setSelectedVoteKind] = useState<DotVoteKind | null>(
     null,
   );
@@ -695,14 +671,6 @@ export function RoomBoardView({
     if (connectionStatus === "open" && decision === null) return;
     setIsAdoptMode(false);
   }, [boardInteractionBlocked, connectionStatus, decision]);
-
-  useEffect(() => {
-    if (previousHostRevisionRef.current === hostRevision) return;
-    previousHostRevisionRef.current = hostRevision;
-    suppressAdoptionFocusClearRef.current =
-      isAdoptMode || sharedAdoptionFocusRef.current !== null;
-    setIsAdoptMode(false);
-  }, [hostRevision, isAdoptMode]);
 
   useEffect(() => {
     if (connectionStatus !== "open") {
@@ -971,9 +939,8 @@ export function RoomBoardView({
         "確定した内容");
   const phaseLoopControls = isResultStep(phase) ? (
     <PhaseLoopControls
-      key={`${phaseKey}:${phaseRevision}:${hostRevision}:${connectionStatus}`}
+      key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
       phase={phase}
-      isHost={isHost}
       isSelecting={isAdoptMode}
       decisionContent={decisionContent}
       candidateCount={candidateNotes.length}
@@ -981,7 +948,7 @@ export function RoomBoardView({
         isDisconnected ||
         isNextPhasePending ||
         isCandidatePending ||
-        isTransferring
+        isRemovingMember
       }
       selectionDisabled={boardInteractionBlocked}
       onRestartWriting={onRestartWriting}
@@ -1639,6 +1606,7 @@ export function RoomBoardView({
   };
 
   const feedbackButtonRef = useRef<HTMLButtonElement>(null);
+  const outcomeLeaveButtonRef = useRef<HTMLButtonElement>(null);
   if (hasFinalDecision && outcomePublished && !outcomeDismissed) {
     return (
       <>
@@ -1663,19 +1631,21 @@ export function RoomBoardView({
             className="min-h-11"
             disabled={isLeaving}
             onClick={() => setLeaveDialogOpen(true)}
+            ref={outcomeLeaveButtonRef}
           >
             退出してホームへ
           </Button>
         </RoomOutcomeView>
         <LeaveConfirmDialog
-          key={`${hostRevision}:${outcomePublished}`}
-          open={leaveDialogOpen && !isTransferring}
+          key={`${outcomePublished}`}
+          open={leaveDialogOpen && !isRemovingMember}
           onOpenChange={setLeaveDialogOpen}
           onConfirm={onLeave}
           isLeaving={isLeaving}
           mode="leave"
           completed
           onReturnToOutcome={() => setLeaveDialogOpen(false)}
+          onClosed={() => outcomeLeaveButtonRef.current?.focus()}
         />
         {feedback ? <FeedbackPanel feedback={feedback} /> : null}
       </>
@@ -2001,22 +1971,13 @@ export function RoomBoardView({
           timer={timer}
           timerServerOffsetMs={timerServerOffsetMs}
           timerUpdateVersion={timerUpdateVersion}
-          isHost={isHost}
-          hostRevision={hostRevision}
-          onSelectHostTarget={
-            onTransferHost
-              ? (userId) => {
-                  setHostTarget({ userId, revision: hostRevision });
-                }
-              : undefined
-          }
-          isTransferring={isTransferring}
+          onSelectMember={memberRemoval?.request}
+          isRemovingMember={isRemovingMember}
           isDisconnected={isDisconnected}
           connectionStatus={connectionStatus}
           connectionDelayed={connectionDelayed}
           members={members}
           currentUserId={currentUserId}
-          hostUserId={hostUserId}
           completedVoterIds={completedVoterIds}
           progress={progress}
           onToggleReady={onToggleReady}
@@ -2103,7 +2064,6 @@ export function RoomBoardView({
           permissions={permissions}
           decision={decision}
           adoptionFocusNoteId={adoptionFocusNoteId}
-          isHost={isHost}
           privateNotes={toolbarNotes}
           exampleNotes={exampleNotes}
           isSavingBeforeShare={isSavingBeforeShare}
@@ -2144,7 +2104,6 @@ export function RoomBoardView({
                     <IdeaMapSizeControls
                       sizeLevel={ideaMapSizeLevel}
                       initialized={ideaMapSizeInitialized}
-                      isHost={isHost}
                       isDisconnected={isDisconnected}
                       isDragging={ideaMapIsDragging || isNoteDragging}
                       onResize={onIdeaMapResize}
@@ -2322,45 +2281,6 @@ export function RoomBoardView({
             <DotVoteSticker kind={selectedVoteKind} count={1} state="preview" />
           </div>
         ) : null}
-
-        {isHost &&
-        !outcomePublished &&
-        onTransferHost &&
-        hostTarget?.revision === hostRevision ? (
-          <HostTransferDialog
-            key={hostRevision}
-            open
-            onOpenChange={(open) => {
-              if (!open) setHostTarget(null);
-            }}
-            target={
-              members.find((member) => member.userId === hostTarget?.userId) ??
-              null
-            }
-            onRequestRemove={
-              memberRemoval && hostTarget
-                ? () => {
-                    memberRemoval.request(hostTarget.userId);
-                    setHostTarget(null);
-                  }
-                : undefined
-            }
-            onConfirm={onTransferHost}
-            pending={isTransferring}
-            disconnected={isDisconnected}
-            blocked={isNextPhasePending || isLeaving}
-            error={transferError}
-            onClosed={() => {
-              // 選択行はPopoverの退出アニメーション中もDOMに残る。
-              // 行へ戻すと直後のunmountでfocusを失うため、常設入口に戻す。
-              boardRootRef.current
-                ?.querySelector<HTMLButtonElement>(
-                  "[data-host-transfer-origin]",
-                )
-                ?.focus();
-            }}
-          />
-        ) : null}
         {roomName ? <RoomNameDialog controls={roomName} /> : null}
         {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
         {memberRemoval ? (
@@ -2368,22 +2288,26 @@ export function RoomBoardView({
             {...memberRemoval}
             onClosed={() => {
               boardRootRef.current
-                ?.querySelector<HTMLButtonElement>(
-                  "[data-host-transfer-origin]",
-                )
+                ?.querySelector<HTMLButtonElement>("[data-member-menu-origin]")
                 ?.focus();
             }}
           />
         ) : null}
         <LeaveConfirmDialog
-          key={`${hostRevision}:${outcomePublished}`}
-          open={leaveDialogOpen && !isTransferring}
+          key={`${outcomePublished}`}
+          open={leaveDialogOpen && !isRemovingMember}
           onOpenChange={setLeaveDialogOpen}
           onConfirm={onLeave}
           isLeaving={isLeaving}
-          mode={isHost && !outcomePublished ? "disband" : "leave"}
           completed={outcomePublished}
           onReturnToOutcome={() => setOutcomeDismissed(false)}
+          onClosed={() => {
+            boardRootRef.current
+              ?.querySelector<HTMLButtonElement>(
+                '[data-testid="room-menu-trigger"]',
+              )
+              ?.focus();
+          }}
         />
       </div>
       {feedback ? <FeedbackPanel feedback={feedback} /> : null}

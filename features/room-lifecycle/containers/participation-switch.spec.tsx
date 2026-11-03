@@ -40,21 +40,6 @@ describe("参加先の確認", () => {
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("処理中です");
   });
-  it("解散では成果選択を出さず、全員退出と招待URL失効を示す", () => {
-    render(
-      <ParticipationSwitch
-        currentUserId="11111111-1111-4111-8111-111111111111"
-        confirmation={switchConfirmation("disband")}
-        onCancel={vi.fn()}
-      />,
-    );
-    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
-    expect(screen.getByText(/切断中の人を含め全員/)).toBeInTheDocument();
-    expect(screen.getByText(/招待URLは使えなく/)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "解散して参加する" }),
-    ).toBeInTheDocument();
-  });
 });
 
 it("通信失敗後は取消を出さず、同じ操作を照会して再試行する", async () => {
@@ -69,7 +54,7 @@ it("通信失敗後は取消を出さず、同じ操作を照会して再試行�
   });
   vi.mocked(queryParticipation).mockResolvedValueOnce({
     kind: "confirmation",
-    confirmation: switchConfirmation("transfer"),
+    confirmation: switchConfirmation(),
   });
   render(
     <ParticipationSwitch
@@ -104,7 +89,7 @@ it("通信失敗後は取消を出さず、同じ操作を照会して再試行�
     "11111111-1111-4111-8111-111111111111",
   );
   expect(commit).toHaveBeenCalledTimes(1);
-  expect(await screen.findByText(/佐藤/)).toBeInTheDocument();
+  expect(await screen.findByText(/ルームA（EF34GH）/)).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "退出して参加する" }),
   ).toBeInTheDocument();
@@ -126,11 +111,11 @@ it("別タブの処理中操作を受け取ったら、その移動先とIDで�
   render(
     <ParticipationSwitch
       currentUserId="11111111-1111-4111-8111-111111111111"
-      confirmation={switchConfirmation("disband")}
+      confirmation={switchConfirmation()}
     />,
   );
   await userEvent.click(
-    screen.getByRole("button", { name: "解散して参加する" }),
+    screen.getByRole("button", { name: "退出して参加する" }),
   );
   await userEvent.click(
     screen.getByRole("button", { name: "結果を確認・再試行" }),
@@ -256,7 +241,7 @@ it("再読込で発見した処理中の移動は取消なしに同じoperation�
 it("一部退出済みの再確認は成果の選択を維持し、取消せず変更内容を確定する", async () => {
   commit.mockReset();
   const partial = {
-    ...switchConfirmation("transfer"),
+    ...switchConfirmation(),
     progress: "partially_left" as const,
     outcomeAccess: "retain" as const,
   };
@@ -380,7 +365,7 @@ it("移動が確定失敗したら退出済みと残る参加先を示し、同�
   expect(
     await screen.findByText("移動の処理は終了しました"),
   ).toBeInTheDocument();
-  expect(screen.getByText(/元ルームA.*解散済み/)).toBeInTheDocument();
+  expect(screen.getByText(/元ルームA.*退出済み/)).toBeInTheDocument();
   expect(screen.getByText(/残るルームC.*参加中/)).toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "キャンセル" }),
@@ -425,7 +410,7 @@ it("再確認後の決定には最新の確認versionを送り、古い同意を
   commit.mockReset();
   commit.mockResolvedValueOnce({
     kind: "confirmation",
-    confirmation: { ...switchConfirmation("transfer"), version: 1 },
+    confirmation: { ...switchConfirmation(), version: 1 },
   });
   commit.mockResolvedValueOnce({
     kind: "rejected",
@@ -441,7 +426,7 @@ it("再確認後の決定には最新の確認versionを送り、古い同意を
   await userEvent.click(
     screen.getByRole("button", { name: "退出して参加する" }),
   );
-  expect(await screen.findByText(/佐藤/)).toBeInTheDocument();
+  expect(await screen.findByText(/ルームA（EF34GH）/)).toBeInTheDocument();
   await userEvent.click(
     screen.getByRole("button", { name: "退出して参加する" }),
   );

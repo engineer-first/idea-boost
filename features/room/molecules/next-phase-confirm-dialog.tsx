@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-// ホストの「次のフェーズへ」操作の確認 Dialog（トリガーボタン込み）。
 // 未完了メンバーがいる場合など、確認が必要な進行操作で表示する。
 import {
   AlertDialog,

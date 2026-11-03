@@ -72,7 +72,7 @@ describe("applyServerMessage", () => {
       notes: [note],
       members: [],
       phase: buildPhaseStep(1),
-      isHost: false,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],
@@ -94,7 +94,7 @@ describe("applyServerMessage", () => {
       notes: [snapshotNote],
       members: [],
       phase: buildPhaseStep(1),
-      isHost: false,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],

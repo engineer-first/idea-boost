@@ -21,11 +21,11 @@ export const inviteStatusCopy = {
   not_found: {
     heading: "招待されたルームが見つかりません",
     description:
-      "コードが間違っているか、ルームが解散された可能性があります。招待元に確認してください。",
+      "コードが間違っているか、ルームの利用が終了した可能性があります。招待元に確認してください。",
   },
   ended: {
     heading: "このルームは終了しています",
-    description: "新しい招待をホストに確認してください。",
+    description: "新しい招待を招待元に確認してください。",
   },
   unavailable: {
     heading: "ルームの情報を取得できませんでした",

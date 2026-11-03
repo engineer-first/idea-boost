@@ -10,10 +10,7 @@ export const ParticipationSourceSchema = z.object({
   roomId: z.guid(),
   name: z.string(),
   inviteCode: z.string(),
-  hostRevision: z.int(),
-  hostUserId: z.string().nullable(),
-  action: z.enum(["leave", "transfer", "disband"]),
-  successor: z.object({ userId: z.string(), name: z.string() }).nullable(),
+  action: z.literal("leave"),
 });
 export type ParticipationSource = z.infer<typeof ParticipationSourceSchema>;
 export const ParticipationConfirmationSchema = z.object({

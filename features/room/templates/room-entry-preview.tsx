@@ -10,8 +10,6 @@ export type RoomEntryPreviewProps = {
   phase: RoomPhase;
   members: ProtocolMember[];
   currentUserId: string;
-  hostUserId: string;
-  isHost: boolean;
   inviteCode: string;
   inviteUrl: string;
 };

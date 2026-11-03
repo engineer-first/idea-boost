@@ -30,13 +30,6 @@ export const CompletedLeave: Story = {
   },
 };
 
-// ホストの解散確認（ルーム削除の警告文言になる）。
-export const Disband: Story = {
-  args: {
-    mode: "disband",
-  },
-};
-
 // 退出処理中（多重押下防止で操作が無効化される）。
 export const Leaving: Story = {
   args: {

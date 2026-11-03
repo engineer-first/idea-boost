@@ -49,10 +49,10 @@ export function RoomReauthenticationView({
         }}
       >
         <AlertDialogTitle className="text-xl font-semibold leading-snug text-balance">
-          ルームに進む前に、ログインを更新
+          ログインの期限が切れました
         </AlertDialogTitle>
         <AlertDialogDescription className="text-base leading-relaxed">
-          共同作業の途中でログインが切れるのを防ぐため、Googleでログインし直してください。
+          このルームへ進むには、Googleでログインし直してください。
         </AlertDialogDescription>
         <p className="text-base leading-relaxed text-foreground">
           {continuation}

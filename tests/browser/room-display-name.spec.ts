@@ -14,7 +14,7 @@ test.each([
     try {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
       await page.goto(
-        `${origin}/iframe.html?id=room-hosttransferflow--overflow-self&viewMode=story&args=connectionDelayMs:${connectionDelayMs}`,
+        `${origin}/iframe.html?id=room-roomconnectionflow--overflow-self&viewMode=story&args=connectionDelayMs:${connectionDelayMs}`,
       );
       const overflow = page.getByRole("button", { name: "他 2 名" });
       for (const save of [false, true]) {
@@ -76,7 +76,7 @@ test.each([
     try {
       const page = await browser.newPage({ viewport });
       await page.goto(
-        `${origin}/iframe.html?id=room-hosttransferflow--success&viewMode=story`,
+        `${origin}/iframe.html?id=room-roomconnectionflow--success&viewMode=story`,
       );
       const trigger = page.getByRole("button", {
         name: "Yuki Tanaka：表示名を変更",
