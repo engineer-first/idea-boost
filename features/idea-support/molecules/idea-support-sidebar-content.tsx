@@ -77,7 +77,7 @@ export function IdeaSupportSidebarContent({
             <TabsContent key={item.id} value={item.id}>
               <h3 className="mb-2 font-semibold">{item.title}</h3>
 
-              <p className="rounded-md bg-muted/50 p-3 text-base leading-relaxed">
+              <p className="rounded-lg bg-muted/50 p-3 text-base leading-relaxed">
                 {item.content[0]}
               </p>
               {item.content.length > 1 && (

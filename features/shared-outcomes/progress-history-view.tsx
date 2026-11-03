@@ -80,7 +80,7 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
       </p>
       {loading && <p role="status">進行の記録を読み込んでいます…</p>}
       {error && (
-        <div role="alert" className="rounded-xl border p-4">
+        <div role="alert" className="rounded-lg border p-4">
           {error}
           <Button
             variant="outline"
@@ -92,18 +92,18 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
         </div>
       )}
       {!loading && !error && !entries.length && (
-        <p className="rounded-xl border bg-card p-6">
+        <p className="rounded-lg border bg-card p-6">
           節目の記録はまだありません。導入前の履歴は復元しません。
         </p>
       )}
       <ol className="space-y-3">
         {entries.map((entry) => (
-          <li key={entry.id} className="rounded-xl border bg-card p-4 sm:p-5">
+          <li key={entry.id} className="rounded-lg border bg-card p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <h3 className="font-semibold">
                 {entry.sequence}. {getRoomPhaseLabel(entry.phase)}
               </h3>
-              <span className="rounded border px-2 py-1 text-base">
+              <span className="rounded-full border px-2 py-1 text-base">
                 {HISTORY_STATUS_LABELS[entry.saveStatus]}
               </span>
             </div>
@@ -165,7 +165,7 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
         <section
           aria-label="選択した記録"
           aria-busy={recordLoading}
-          className="space-y-4 rounded-xl border-2 border-primary/30 bg-card p-4 sm:p-6"
+          className="space-y-4 rounded-lg border-2 border-primary/30 bg-card p-4 sm:p-6"
         >
           <h3
             ref={headingRef}

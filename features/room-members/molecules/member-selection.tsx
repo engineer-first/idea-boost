@@ -26,7 +26,7 @@ export function MemberSelection({
         onSelect();
       }}
       className={cn(
-        "cursor-pointer rounded-md text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-50",
+        "cursor-pointer rounded-lg text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-50",
         className,
       )}
     >

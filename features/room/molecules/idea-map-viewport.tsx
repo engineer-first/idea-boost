@@ -268,7 +268,7 @@ export function IdeaMapViewport({
               </>
             )}
             <span
-              className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-background px-2 py-2 text-xl font-bold tracking-wide text-foreground sm:text-2xl ${workspace ? "" : "rounded-full border border-border shadow-sm sm:px-3"}`}
+              className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-background px-2 py-2 text-xl font-bold tracking-wide text-foreground sm:text-2xl ${workspace ? "" : "rounded-full border border-border sm:px-3"}`}
               data-testid="idea-value-feasibility-map-y-axis-label"
               style={{ writingMode: "vertical-rl" }}
             >
@@ -301,7 +301,7 @@ export function IdeaMapViewport({
                   マップ面だけをslotの下端まで伸ばし、中央寄せで生じた下側の空きを埋める。 */}
               <section
                 aria-label={labels.title}
-                className={`${workspace ? styles.workspacePlane : ""} absolute top-0 left-0 min-h-0 min-w-0 overflow-visible rounded-2xl border border-sky-200 bg-sky-50 shadow-inner [container-type:inline-size] [container-name:map-plane] [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]`}
+                className={`${workspace ? styles.workspacePlane : ""} absolute top-0 left-0 min-h-0 min-w-0 overflow-visible rounded-lg border border-sky-200 bg-sky-50 [container-type:inline-size] [container-name:map-plane] [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]`}
                 data-testid="idea-value-feasibility-map-plane"
                 style={{
                   width: workspace ? undefined : "100%",
@@ -423,7 +423,7 @@ export function IdeaMapViewport({
             </>
           )}
           <span
-            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-background px-3 py-1 font-bold tracking-wide text-foreground ${workspace ? `top-3 text-base sm:text-lg ${groupHorizontalAxisEndpoint ? styles.workspaceInlineFeasibilityLabel : ""}` : "top-7 rounded-full border border-border text-lg shadow-sm sm:text-2xl"}`}
+            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-background px-3 py-1 font-bold tracking-wide text-foreground ${workspace ? `top-3 text-base sm:text-lg ${groupHorizontalAxisEndpoint ? styles.workspaceInlineFeasibilityLabel : ""}` : "top-7 rounded-full border border-border text-lg sm:text-2xl"}`}
             data-testid="idea-value-feasibility-map-x-axis-label"
           >
             {labels.feasibility}

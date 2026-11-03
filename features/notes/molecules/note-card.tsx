@@ -935,7 +935,7 @@ export function NoteCard({
                 event.stopPropagation();
                 performCandidateAction();
               }}
-              className={`fixed z-40 flex items-center justify-center gap-1 rounded-l-md border border-red-200 bg-red-50 text-xs font-bold text-red-800 shadow-md transition-opacity [mask-image:radial-gradient(circle_at_right_center,transparent_0_6px,#000_7px)] ${
+              className={`fixed z-40 flex items-center justify-center gap-1 rounded-l-lg border border-red-200 bg-red-50 text-xs font-bold text-red-800 shadow-tool transition-opacity [mask-image:radial-gradient(circle_at_right_center,transparent_0_6px,#000_7px)] ${
                 isCandidateActionVisible
                   ? "pointer-events-auto opacity-100"
                   : "pointer-events-none opacity-0"
@@ -974,7 +974,7 @@ export function NoteCard({
               <div
                 role="menu"
                 aria-label="付箋の候補操作"
-                className="fixed z-[41] min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+                className="fixed z-[41] min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-tool"
                 style={{
                   left: candidateOverlayLayout.menu.left,
                   top: candidateOverlayLayout.menu.top,
@@ -997,7 +997,7 @@ export function NoteCard({
                     event.stopPropagation();
                     performCandidateAction();
                   }}
-                  className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-base font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
+                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-base font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
                 >
                   {note.excluded ? (
                     <ListPlus aria-hidden="true" className="size-4" />
@@ -1046,7 +1046,7 @@ export function NoteCard({
     >
       {candidateOverlay}
       {note.excluded ? (
-        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-sm bg-white/90 px-1 py-0.5 text-xs font-semibold text-slate-700">
+        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-full bg-white/90 px-1 py-0.5 text-xs font-semibold text-slate-700">
           候補外
         </span>
       ) : null}

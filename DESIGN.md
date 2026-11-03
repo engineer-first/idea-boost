@@ -112,7 +112,7 @@ IdeaBoost の画面を、人も AI エージェントも同じ基準で作るた
 形式は [Google Labs の DESIGN.md](https://github.com/google-labs-code/design.md)（alpha）に合わせ、`npx @google/design.md lint DESIGN.md` で検査できます。
 まだ実装に入っていない項目は、末尾の「決まり具合」にまとめています。
 
-色などの値は、固定した `@google/design.md` から `npm run gen:design-tokens` で [app/design-tokens.css](app/design-tokens.css) に生成します。生成物は直接編集せず、YAMLを変更して再生成します。`npm run check:design-tokens` が生成物との一致を、`npm run lint:design` がこの文書の形式を検査し、CIでも実行します。[app/globals.css](app/globals.css) はshadcnの名前を生成変数へ対応させます。生成された余白・角丸は、対応付けるまで画面へ適用されません。
+色などの値は、固定した `@google/design.md` から `npm run gen:design-tokens` で [app/design-tokens.css](app/design-tokens.css) に生成します。生成物は直接編集せず、YAMLを変更して再生成します。`npm run check:design-tokens` が生成物との一致を、`npm run lint:design` がこの文書の形式を検査し、CIでも実行します。[app/globals.css](app/globals.css) はshadcnの名前を生成変数へ対応させます。角丸はこの対応層を通じて用途ごとに適用します。生成された余白は、対応付けるまで画面へ適用されません。
 
 ## Overview
 
@@ -186,6 +186,8 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 - **HUD・メニュー・ダイアログ＝ボードの上に浮いた道具。** 柔らかく広い影を1種類だけ使います。
 - **候補外の付箋** は影を消し、点線の縁にします。
 
+道具の影の値の正本は [app/globals.css](app/globals.css) の `--elevation-tool` です。`@google/design.md` CLI v0.4.0 は影のスキーマと CSS export に対応していないため、YAML へ未対応キーを追加せず、ここだけ CSS に定義します。CLI が対応したら YAML へ移します。Tailwind は `shadow-tool`、CSS Modules は `var(--elevation-tool)` で共用します。通常の入力・ボタン・ページ内パネルは浮遊影を付けません。選択リング・発光・はんこ・押し込みは状態表現として別に維持します。
+
 ## Shapes
 
 付箋は角をほぼ立て（2px）、UI の部品は丸くします。付箋は「紙」、部品は「道具」として見分けがつくようにするためです。
@@ -219,6 +221,5 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 
 | 項目                             | 今の実装               | 扱う Issue |
 | -------------------------------- | ---------------------- | ---------- |
-| 角丸・影の段階を絞る             | 7種類以上が混在        | #876       |
 | 色・角丸の直書きをどこまで許すか | 未定                   | #877       |
 | ダイアログとボタンの型を決める   | 画面ごとに判断している | #896       |

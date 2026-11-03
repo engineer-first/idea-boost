@@ -107,7 +107,7 @@ export function CompletedRoomDetailView({
           </p>
         ) : null}
         <section className="mt-8 space-y-4" aria-label="完了ルームの記録">
-          <div className="rounded-xl border bg-muted/20 p-4 text-base leading-7">
+          <div className="rounded-lg border bg-muted/20 p-4 text-base leading-7">
             <p>完了日時：{formatCompletedDate(room.completedAt)}（日本時間）</p>
             <p>閲覧期限：{formatCompletedDate(room.expiresAt)}（日本時間）</p>
             <p className="text-muted-foreground">
@@ -138,7 +138,7 @@ export function CompletedRoomDetailView({
           {expanded && (
             <div
               id="completed-history"
-              className="space-y-5 rounded-xl border p-4 sm:p-6"
+              className="space-y-5 rounded-lg border p-4 sm:p-6"
             >
               <p className="text-base leading-6 text-muted-foreground">
                 共有されていた付箋と配置を見返せます。配置から採用理由を示すものではありません。

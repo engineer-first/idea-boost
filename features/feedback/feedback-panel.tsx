@@ -30,7 +30,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
           feedback.close();
         }
       }}
-      className="fixed bottom-3 left-3 z-[80] max-h-[calc(100dvh-1.5rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto rounded-2xl border bg-background p-4 shadow-xl sm:bottom-5 sm:left-5 sm:p-5"
+      className="fixed bottom-3 left-3 z-[80] max-h-[calc(100dvh-1.5rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border bg-background p-4 shadow-tool sm:bottom-5 sm:left-5 sm:p-5"
     >
       <div className="flex items-center justify-between gap-3">
         <h2
@@ -125,7 +125,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                         feedback.change({ kind: value as FeedbackKind })
                       }
                     />
-                    <span className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-base peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
+                    <span className="flex min-h-11 items-center justify-center gap-1 rounded-full border px-2 text-base peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
                       {draft.kind === value ? (
                         <Check aria-hidden="true" className="size-4" />
                       ) : null}
@@ -177,7 +177,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                           checked={draft.rating === value}
                           onChange={() => feedback.change({ rating: value })}
                         />
-                        <span className="flex h-full flex-col items-center gap-1 rounded-lg border px-1 py-3 text-center peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
+                        <span className="flex h-full flex-col items-center gap-1 rounded-full border px-1 py-3 text-center peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
                           <Face aria-hidden="true" className="size-6" />
                           <span className="flex items-center text-base">
                             {value}

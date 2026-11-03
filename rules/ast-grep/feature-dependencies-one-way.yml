@@ -4,7 +4,7 @@
 #   room → notes / dot-vote / vote-totaling / room-members / invite / hmw
 #          / idea-support / auth
 #   room-lifecycle → auth（再認証と入室継続）
-#   landing → auth（戻り先の安全化とログインURL）
+#   landing → auth / notes（戻り先と紙の影。notesからlandingへの依存はない）
 #   notes → dot-vote / room-members
 #   shared-outcomes → room-members（保存済みの付箋色の表示）
 #
@@ -468,13 +468,13 @@ rule:
           regex: '^"@/features/auth"$'
 
 ---
-# landing → auth の戻り先ヘルパーのみ。auth からの逆依存は禁止のまま。
+# landing → auth の戻り先と notes の紙の影。逆依存がなく循環しない。
 id: landing-feature-allowed-edges
 language: typescript
 severity: error
 files:
   - features/landing/**
-message: landing は auth の公開境界だけを共有する
+message: landing は auth・notes の公開境界だけを共有する
 rule:
   all:
     - any:
@@ -486,16 +486,16 @@ rule:
     - not:
         has:
           field: source
-          regex: '^"@/features/auth"$'
+          regex: '^"@/features/(auth|notes)"$'
 
 ---
-# landing → auth の戻り先ヘルパーのみ。auth からの逆依存は禁止のまま。
+# landing → auth の戻り先と notes の紙の影。逆依存がなく循環しない。
 id: landing-feature-allowed-edges-tsx
 language: tsx
 severity: error
 files:
   - features/landing/**
-message: landing は auth の公開境界だけを共有する
+message: landing は auth・notes の公開境界だけを共有する
 rule:
   all:
     - any:
@@ -507,4 +507,4 @@ rule:
     - not:
         has:
           field: source
-          regex: '^"@/features/auth"$'
+          regex: '^"@/features/(auth|notes)"$'

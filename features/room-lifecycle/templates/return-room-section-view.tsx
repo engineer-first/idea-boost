@@ -34,7 +34,7 @@ export function ReturnRoomSectionView({
   return (
     <section
       aria-label="前のルーム"
-      className="rounded-xl border border-border bg-card p-4 sm:p-5"
+      className="rounded-lg border border-border bg-card p-4 sm:p-5"
     >
       {hasCandidate && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

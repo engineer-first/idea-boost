@@ -78,7 +78,7 @@ import styles from "./room-board-canvas.module.css";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
 const ADOPTION_TARGET_CLASS_NAME =
-  "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none";
+  "absolute inset-0 z-20 cursor-pointer rounded-[inherit] border-4 border-transparent bg-transparent outline-none";
 
 export type RoomBoardCanvasProps = {
   rollbackRevision?: number;
@@ -857,7 +857,7 @@ export function RoomBoardCanvas({
             showPresenterViewFrame && presenterFrameColor ? "-7px" : undefined,
           borderRadius:
             showPresenterViewFrame && presenterFrameColor
-              ? "0.75rem"
+              ? "var(--ib-rounded-lg)"
               : undefined,
         }}
       >
@@ -1113,7 +1113,7 @@ export function RoomBoardCanvas({
               notes.filter((note) => !note.excluded).length === 0 ? (
                 <div
                   role="status"
-                  className="absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-lg border bg-background/95 px-5 py-3 text-sm font-semibold shadow-md"
+                  className="absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-lg border bg-background/95 px-5 py-3 text-sm font-semibold shadow-tool"
                 >
                   候補がありません。候補外の付箋を戻してください。
                 </div>
@@ -1288,7 +1288,7 @@ export function RoomBoardCanvas({
                 addActionRef={privateNoteAddRef}
                 className={
                   isPersonalNoteEntryPhase
-                    ? `pointer-events-auto h-full w-full rounded-2xl border border-border bg-card shadow-xl ${styles.personalWorkspace}`
+                    ? `pointer-events-auto h-full w-full rounded-xl border border-border bg-card shadow-tool ${styles.personalWorkspace}`
                     : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
                 }
                 toolbarRef={privateToolbarRef}

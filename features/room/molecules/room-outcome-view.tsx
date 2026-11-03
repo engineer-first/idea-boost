@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { getNoteShadow } from "@/features/notes";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { RoomOutcome } from "../logic/outcome-text";
 import { formatOutcomeText } from "../logic/outcome-text";
@@ -158,8 +159,9 @@ export function RoomOutcomeView({
           {CARDS.map(({ number, label, key }) => (
             <section
               key={key}
-              className="min-w-0 rounded-[2px] px-5 py-5 shadow-md sm:px-7"
+              className="min-w-0 rounded-note px-5 py-5 sm:px-7"
               style={{
+                boxShadow: getNoteShadow(key),
                 backgroundColor: NOTE_COLOR_STYLES.yellow.backgroundColor,
                 color: NOTE_COLOR_STYLES.yellow.foregroundColor,
               }}
@@ -250,7 +252,7 @@ export function RoomOutcomeView({
         ) : null}
         {feedbackPrompt}
         {children}
-        <section className="mt-10 rounded-xl border border-border bg-card p-5 sm:p-6">
+        <section className="mt-10 rounded-lg border border-border bg-card p-5 sm:p-6">
           <h2 className="text-lg font-bold">次に試すこと</h2>
           <p className="mt-2 text-base leading-7">
             誰の、どんな場面を確かめたい？
@@ -265,7 +267,7 @@ export function RoomOutcomeView({
           )}
           <Link
             href="/home"
-            className="inline-flex min-h-10 items-center rounded-md px-3 text-base font-semibold underline-offset-4 hover:underline"
+            className="inline-flex min-h-10 items-center rounded-lg px-3 text-base font-semibold underline-offset-4 hover:underline"
           >
             保存を確認してホームへ
           </Link>

@@ -66,7 +66,7 @@ export function HomeView({
         >
           <Link
             href="/completed-rooms"
-            className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-base font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-base font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             <span className="underline underline-offset-4">
               過去の成果を見る

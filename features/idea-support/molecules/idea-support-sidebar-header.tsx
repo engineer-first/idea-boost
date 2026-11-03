@@ -46,7 +46,7 @@ export function IdeaSupportSidebarHeader({
         <Button
           variant="ghost"
           size="icon"
-          className="size-10 rounded-md p-0"
+          className="size-10 rounded-lg p-0"
           onClick={onToggle}
           aria-label="発想支援を開く"
         >

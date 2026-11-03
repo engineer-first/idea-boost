@@ -26,13 +26,12 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-note: var(--ib-rounded-note);
+  --radius-md: var(--ib-rounded-md);
+  --radius-lg: var(--ib-rounded-lg);
+  --radius-xl: var(--ib-rounded-xl);
+  --radius-full: var(--ib-rounded-full);
+  --shadow-tool: var(--elevation-tool);
 }
 
 :root {
@@ -56,7 +55,9 @@
   --border: var(--ib-color-line);
   --input: var(--ib-color-line);
   --ring: var(--ib-color-primary);
-  --radius: 0.625rem;
+  --radius: var(--ib-rounded-lg);
+  /* design.md CLI v0.4.0は影をexportできないため、道具の影はここを正本にする。 */
+  --elevation-tool: 0 8px 24px rgb(from var(--ib-color-ink) r g b / 8%);
 }
 
 @layer base {

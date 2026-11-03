@@ -26,7 +26,7 @@ export function HmwTemplatePanel({
   return (
     <Card
       data-testid="hmw-template-panel"
-      className={cn("w-64 shadow-md", className)}
+      className={cn("w-64 shadow-tool", className)}
     >
       <CardContent className="flex flex-col gap-3 p-4">
         <p className="font-semibold text-base">{HMW_GUIDE_HEADING}</p>

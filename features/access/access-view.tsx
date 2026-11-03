@@ -37,7 +37,7 @@ export function AccessView({
   const feedback = permission === PERMISSIONS.readFeedback;
   return (
     <section aria-labelledby={headingId} className="bg-muted/20 p-4 sm:p-6">
-      <div className="mx-auto max-w-3xl space-y-8 rounded-xl border bg-card p-6 sm:p-10">
+      <div className="mx-auto max-w-3xl space-y-8 rounded-lg border bg-card p-6 sm:p-10">
         <header className="space-y-2">
           <h2 id={headingId} className="text-2xl font-semibold">
             {feedback ? "意見閲覧権限" : "成果閲覧権限"}
@@ -170,7 +170,7 @@ export function AccessDeniedView({
   const headingId = useId();
   return (
     <section aria-labelledby={headingId} className="bg-muted/20 p-4 sm:p-6">
-      <div className="mx-auto max-w-3xl space-y-4 rounded-xl border bg-card p-6 sm:p-10">
+      <div className="mx-auto max-w-3xl space-y-4 rounded-lg border bg-card p-6 sm:p-10">
         <h2 id={headingId} className="text-2xl font-semibold">
           {permission === PERMISSIONS.readFeedback
             ? "意見閲覧権限"
