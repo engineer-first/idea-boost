@@ -6,7 +6,6 @@ import type {
   ParticipationConfirmation,
   ParticipationResult,
 } from "@/contracts/room-participation";
-import { notify } from "@/lib/notify";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import {
   createRoom,
@@ -15,10 +14,8 @@ import {
   returnToRoom,
 } from "./actions";
 import { entryDestination } from "./entry-destination";
-import { GUEST_IDENTITY_UNAVAILABLE_MESSAGE } from "./guest-identity-message";
 import { lifecycleNotify } from "./lifecycle-notify";
 import {
-  discardRoomCreationRecords,
   isRoomCreationSelected,
   markRoomCreationSubmitted,
   notifyRoomCreations,
@@ -28,8 +25,10 @@ import {
   saveRoomCreationResult,
   subscribeRoomCreations,
   updateRoomCreationIntent,
+  wasRoomCreationOpened,
 } from "./room-creation-storage";
 
+const RETRY_MESSAGE = "ルームを開けませんでした。もう一度お試しください。";
 export type RoomCreationControls = {
   switching?:
     | ParticipationConfirmation
@@ -41,199 +40,175 @@ export type RoomCreationControls = {
   pending: boolean;
   onSubmit: (name: string) => void;
   intentName?: string;
-  recovering: boolean;
-  recoveryState?: string;
   message?: string;
-  storageError: boolean;
-  onNewIntent: () => void;
-  onDiscard: () => void;
-  requiresNewConfirmation: boolean;
-  onRecover: () => void;
 };
+
 export function useRoomCreation(currentUserId?: string): RoomCreationControls {
   const router = useRouter();
-  const [switching, setSwitching] = useState<
-    | ParticipationConfirmation
-    | Extract<ParticipationResult, { kind: "pending" | "rejected" }>
-  >();
+  const [switching, setSwitching] =
+    useState<RoomCreationControls["switching"]>();
   const [reauthentication, setReauthentication] =
     useState<RoomEntryOperation>();
   const [pending, startTransition] = useTransition();
   const [navigating, setNavigating] = useState(false);
   const [submittedName, setSubmittedName] = useState<string>();
-  const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (navigationTimer.current) clearTimeout(navigationTimer.current);
-    },
-    [],
-  );
   const [intent, setIntent] = useState<RoomCreationIntent | null>(null);
-  const [newIntent, setNewIntent] = useState(false);
-  const [retryDestination, setRetryDestination] = useState(false);
   const [message, setMessage] = useState<string>();
-  const [initialized, setInitialized] = useState(false);
   const [loadedPrincipal, setLoadedPrincipal] = useState<string>();
-  const [storageError, setStorageError] = useState(false);
   const actor = useRef(currentUserId);
   actor.current = currentUserId;
   const generation = useRef(0);
   const submitting = useRef(false);
+  const storageAvailable = useRef(true);
+  const attempted = useRef<string | undefined>(undefined);
+  const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     let live = true;
-    generation.current++;
-    setInitialized(false);
+    const turn = ++generation.current;
+    storageAvailable.current = true;
+    attempted.current = undefined;
+    setIntent(null);
+    setLoadedPrincipal(undefined);
     setNavigating(false);
     setSubmittedName(undefined);
-    if (navigationTimer.current) clearTimeout(navigationTimer.current);
     setReauthentication(undefined);
+    setSwitching(undefined);
     setMessage(undefined);
-    setNewIntent(false);
-    setRetryDestination(false);
-    let readGeneration = 0;
+    let readTurn = 0;
     async function refresh() {
-      const readTurn = ++readGeneration,
-        currentGeneration = generation.current;
-      if (!currentUserId) {
-        setStorageError(true);
-        setMessage("ログイン状態を確認してください。");
-        setLoadedPrincipal(currentUserId);
-        setInitialized(true);
-        return;
-      }
+      const read = ++readTurn;
+      if (submitting.current) return;
       try {
-        let saved = await readRoomCreationIntent(currentUserId);
-        let changed = false;
-        if (
-          !live ||
-          readTurn !== readGeneration ||
-          currentGeneration !== generation.current
-        )
-          return;
-        // ホーム表示で行うのは本人の読み取りだけ。作成を自動再送しない。
-        if (
-          saved &&
-          !saved.roomId &&
-          saved.state !== "closed" &&
-          !submitting.current
-        ) {
-          const result = await queryRoomCreation(
-            currentUserId,
-            saved.requestId,
-          ).catch(() => null);
-          if (
-            !live ||
-            readTurn !== readGeneration ||
-            currentGeneration !== generation.current
-          )
-            return;
-          if (
-            await isRoomCreationSelected(
-              currentUserId,
-              saved.requestId,
-              saved.generation,
-            )
-          ) {
-            if (
-              !live ||
-              readTurn !== readGeneration ||
-              currentGeneration !== generation.current
-            )
-              return;
-            if (result?.ok && result.status.kind === "ready") {
-              saved = await saveRoomCreationResult(
-                currentUserId,
-                saved,
-                result.status.roomId,
-              );
-              changed = true;
-            } else if (
-              result?.ok &&
-              (result.status.kind === "closed" ||
-                result.status.acceptance === "expired")
-            ) {
-              const state =
-                result.status.kind === "closed" ? "closed" : "expired";
-              if (saved.state !== state) {
-                saved = await updateRoomCreationIntent(currentUserId, saved, {
-                  state,
-                  name: "",
-                });
-                changed = true;
-              }
-            }
-          }
-        }
-        if (
-          !live ||
-          readTurn !== readGeneration ||
-          currentGeneration !== generation.current
-        )
-          return;
-        setIntent(saved);
-        setStorageError(false);
-        if (changed) notifyRoomCreations();
+        const saved = currentUserId
+          ? await readRoomCreationIntent(currentUserId)
+          : null;
+        if (live && turn === generation.current && read === readTurn)
+          setIntent(saved);
       } catch {
-        if (
-          live &&
-          readTurn === readGeneration &&
-          currentGeneration === generation.current
-        ) {
-          setStorageError(true);
-          setMessage(
-            "このブラウザで作成を続けられません。別タブを閉じ、保存設定を確認して再読み込みしてください。",
-          );
-        }
+        // 保存禁止でも、この画面で発行したIDはメモリに保持して再試行する。
+        if (live && turn === generation.current)
+          storageAvailable.current = false;
       }
-      if (
-        live &&
-        readTurn === readGeneration &&
-        currentGeneration === generation.current
-      ) {
+      if (live && turn === generation.current && read === readTurn)
         setLoadedPrincipal(currentUserId);
-        setInitialized(true);
-      }
     }
     void refresh();
-    const unsubscribe = subscribeRoomCreations(() => void refresh());
+    const unsubscribe = subscribeRoomCreations(() => {
+      if (storageAvailable.current) void refresh();
+    });
     return () => {
       live = false;
       generation.current++;
       unsubscribe();
+      if (navigationTimer.current) clearTimeout(navigationTimer.current);
     };
   }, [currentUserId]);
-  const currentIntent =
-    intent?.expectedPrincipal === currentUserId ? intent : null;
-  const startsNew =
-    newIntent ||
-    (!retryDestination &&
-      (currentIntent?.state === "known" ||
-        currentIntent?.state === "expired" ||
-        currentIntent?.state === "closed"));
-  const recovering = Boolean(currentIntent) && !startsNew;
-  function handleSubmit(name: string, resume = false) {
-    if (submitting.current || navigating || storageError || !currentUserId)
+
+  function handleSubmit(name: string) {
+    if (
+      submitting.current ||
+      navigating ||
+      !currentUserId ||
+      loadedPrincipal !== currentUserId
+    )
       return;
     const principal = currentUserId,
       turn = generation.current;
     const sameActor = () =>
       actor.current === principal && generation.current === turn;
     submitting.current = true;
-    setSubmittedName(resume || recovering ? currentIntent?.name : name);
+    setSubmittedName(name);
     setMessage(undefined);
     startTransition(async () => {
-      let next = !resume && startsNew ? null : currentIntent;
-      let storageFailed = false;
-      const storageFailure = (error: unknown): never => {
-        storageFailed = true;
-        throw error;
+      let next = intent;
+      // 一度開いたルームや旧形式の成功控えは、新しい作成の意図へ持ち越さない。
+      if (
+        next &&
+        (next.state === "closed" ||
+          next.state === "expired" ||
+          (next.roomId &&
+            (!next.unopened || wasRoomCreationOpened(next.roomId))) ||
+          (next.state === "prepared" && attempted.current !== next.requestId))
+      )
+        next = null;
+      async function persist<T>(
+        operation: () => Promise<T>,
+        fallback: T,
+      ): Promise<T> {
+        if (!storageAvailable.current) return fallback;
+        try {
+          return await operation();
+        } catch {
+          if (sameActor()) storageAvailable.current = false;
+          return fallback;
+        }
+      }
+      const selected = async () => {
+        if (!sameActor() || !next) return false;
+        const candidate = next;
+        const current = await persist(
+          () =>
+            isRoomCreationSelected(
+              principal,
+              candidate.requestId,
+              candidate.generation,
+            ),
+          true,
+        );
+        return current && sameActor();
       };
       try {
+        let recoveredDestination:
+          | Awaited<ReturnType<typeof returnToRoom>>
+          | undefined;
+        // 終了・期限切れが判明した前回分は選択から外して新規発行する。
+        if (next && !next.roomId) {
+          const query = await queryRoomCreation(principal, next.requestId);
+          if (!(await selected())) return;
+          if (!query.ok) {
+            setMessage(RETRY_MESSAGE);
+            return;
+          }
+          if (query.status.kind === "ready") {
+            const recovered = {
+              ...next,
+              state: "known" as const,
+              roomId: query.status.roomId,
+              name: "",
+              unopened: true,
+            };
+            const previous = next;
+            const recoveredRoomId = query.status.roomId;
+            next = await persist(
+              () =>
+                saveRoomCreationResult(principal, previous, recoveredRoomId),
+              recovered,
+            );
+            if (wasRoomCreationOpened(recoveredRoomId)) next = null;
+          } else if (
+            query.status.kind === "closed" ||
+            query.status.acceptance === "expired"
+          ) {
+            next = null;
+          }
+        }
+        if (next?.roomId) {
+          recoveredDestination = await returnToRoom(next.roomId);
+          if (!(await selected())) return;
+          if (
+            recoveredDestination.kind === "unavailable_room" ||
+            (recoveredDestination.kind === "ready" &&
+              recoveredDestination.href.startsWith("/completed-rooms/"))
+          ) {
+            next = null;
+            recoveredDestination = undefined;
+          }
+        }
         if (!next) {
           const issued = await issueRoomCreation(principal);
           if (!sameActor()) return;
           if (!issued.ok) {
-            setMessage(issued.error);
+            setMessage(RETRY_MESSAGE);
             return;
           }
           const candidate: RoomCreationIntent = {
@@ -243,152 +218,94 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             state: "prepared",
             generation: crypto.randomUUID(),
           };
-          next = await saveRoomCreationIntent(
-            principal,
+          next = await persist(
+            () =>
+              saveRoomCreationIntent(
+                principal,
+                candidate,
+                intent?.requestId ?? null,
+              ),
             candidate,
-            currentIntent?.requestId ?? null,
-          ).catch(storageFailure);
+          );
           if (!sameActor()) return;
           setIntent(next);
-          setNewIntent(false);
-          setRetryDestination(false);
-          notifyRoomCreations();
-          if (next.requestId !== candidate.requestId) {
-            setMessage(
-              "別タブでルームの作成が進んでいます。その操作を続けるか、新しいルームを作成してください。",
-            );
-            return;
-          }
+          attempted.current = next.requestId;
+          // 別タブが既に選んだ要求も同じ結果へ収束させる。
         }
-        const selected = async () =>
-          sameActor() &&
-          next !== null &&
-          (await isRoomCreationSelected(
-            principal,
-            next.requestId,
-            next.generation,
-          ).catch(storageFailure)) &&
-          sameActor();
         if (!(await selected())) return;
         let roomId = next.roomId;
         let entryAdmission: string | undefined;
         if (!roomId) {
-          const query = await queryRoomCreation(principal, next.requestId);
-          if (!(await selected())) return;
-          if (!query.ok) {
-            setMessage(
-              query.reason === "actor_mismatch"
-                ? "アカウントが変わりました。ログイン状態を確認してください。"
-                : "ルームを開けませんでした。もう一度お試しください。",
-            );
+          if (next.state === "conflict") {
+            setMessage(RETRY_MESSAGE);
             return;
           }
-          if (query.status.kind === "ready") roomId = query.status.roomId;
-          else if (
-            query.status.kind === "closed" ||
-            query.status.acceptance === "expired"
-          ) {
-            next = await updateRoomCreationIntent(principal, next, {
-              state: query.status.kind === "closed" ? "closed" : "expired",
-              name: "",
-            }).catch(storageFailure);
-            if (!(await selected())) return;
-            setIntent(next);
-            setMessage(
-              query.status.kind === "closed"
-                ? "前のルームには戻れません。新しいルームを作成できます。"
-                : "前のルームを開けませんでした。新しいルームを作成するか、もう一度探してください。",
+          const prepared = next;
+          next = await persist(
+            () => markRoomCreationSubmitted(principal, prepared),
+            { ...next, state: "submitted" },
+          );
+          if (!(await selected())) return;
+          setIntent(next);
+          const result = next.roomId
+            ? { ok: true as const, roomId: next.roomId }
+            : await createRoom({
+                expectedPrincipal: principal,
+                requestId: next.requestId,
+                name: next.name,
+              });
+          if (result.ok) {
+            roomId = result.roomId;
+            entryAdmission =
+              "entryToken" in result ? result.entryToken : undefined;
+            // 応答が遅くても本人の控えだけに成功結果を残す。UI反映は選択確認後。
+            const submitted = next;
+            next = await persist(
+              () => saveRoomCreationResult(principal, submitted, result.roomId),
+              { ...next, state: "known", roomId, name: "", unopened: true },
             );
-            return;
-          } else if (next.state === "conflict") {
-            setMessage(
-              "入力内容を確認できません。前のルームを探すか、新しいルームを作成してください。",
-            );
-            return;
           } else {
-            next = await markRoomCreationSubmitted(principal, next).catch(
-              storageFailure,
-            );
             if (!(await selected())) return;
-            setIntent(next);
-            // 保存中に別タブが成功receiptを確定した場合は作成を再送しない。
-            const result = next.roomId
-              ? { ok: true as const, roomId: next.roomId }
-              : await createRoom({
+            if (
+              result.failedOperation ||
+              result.pendingOperation ||
+              result.confirmation
+            ) {
+              setSwitching(
+                result.failedOperation ??
+                  result.pendingOperation ??
+                  result.confirmation,
+              );
+              return;
+            }
+            if (result.reason === "reauth_required") {
+              setReauthentication({
+                kind: "create",
+                input: {
                   expectedPrincipal: principal,
                   requestId: next.requestId,
                   name: next.name,
-                });
-            // 結果receiptは自分のrecordだけ更新。遷移と現在UIは選択照合後。
-            if (result.ok) {
-              roomId = result.roomId;
-              entryAdmission =
-                "entryToken" in result ? result.entryToken : undefined;
-            } else {
-              if (!(await selected())) return;
-              if (result.failedOperation) {
-                setSwitching(result.failedOperation);
-                return;
-              }
-              if (result.pendingOperation) {
-                setSwitching(result.pendingOperation);
-                return;
-              }
-              if (result.confirmation) {
-                setSwitching(result.confirmation);
-                return;
-              }
-              if (result.reason === "reauth_required") {
-                setReauthentication({
-                  kind: "create",
-                  input: {
-                    expectedPrincipal: principal,
-                    requestId: next.requestId,
-                    name: next.name,
-                  },
-                });
-                return;
-              }
-              const error =
-                result.outcome === "unknown"
-                  ? "ルームへの移動を完了できませんでした。もう一度お試しください。"
-                  : result.reason === "expired"
-                    ? "前のルームを開けませんでした。新しいルームを作成するか、もう一度探してください。"
-                    : result.reason === "closed"
-                      ? "前のルームには戻れません。新しいルームを作成できます。"
-                      : result.reason === "update_required"
-                        ? "画面を再読み込みしてから、もう一度お試しください。"
-                        : result.reason === "input_conflict"
-                          ? "入力内容を確認できません。前のルームを探すか、新しいルームを作成してください。"
-                          : result.error;
-              setMessage(error);
-              notify.error(error);
-              if (
-                result.reason === "actor_mismatch" ||
-                result.reason === "input_conflict" ||
-                result.reason === "expired" ||
-                result.reason === "closed"
-              ) {
-                next = await updateRoomCreationIntent(principal, next, {
-                  state:
-                    result.reason === "actor_mismatch"
-                      ? "actor_mismatch"
-                      : result.reason === "input_conflict"
-                        ? "conflict"
-                        : result.reason,
-                  ...(["expired", "closed"].includes(result.reason)
-                    ? { name: "" }
-                    : {}),
-                }).catch(storageFailure);
-                if (!(await selected())) return;
-                setIntent(next);
-              }
+                },
+              });
               return;
             }
+            if (
+              result.reason === "expired" ||
+              result.reason === "closed" ||
+              result.reason === "input_conflict"
+            ) {
+              const state =
+                result.reason === "input_conflict" ? "conflict" : result.reason;
+              const failed = next;
+              next = await persist(
+                () => updateRoomCreationIntent(principal, failed, { state }),
+                { ...next, state },
+              );
+              setIntent(next);
+            }
+            setMessage(RETRY_MESSAGE);
+            return;
           }
-          next = await saveRoomCreationResult(principal, next, roomId).catch(
-            storageFailure,
-          );
         }
         if (!(await selected())) return;
         setIntent(next);
@@ -399,26 +316,28 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
               href: `/rooms/${roomId}/start`,
               entryToken: entryAdmission,
             }
-          : await returnToRoom(roomId);
+          : (recoveredDestination ?? (await returnToRoom(roomId)));
         if (!(await selected())) return;
-        if (destination.kind === "identity_unavailable") {
-          setMessage(GUEST_IDENTITY_UNAVAILABLE_MESSAGE);
-          return;
-        }
         if (destination.kind === "reauth_required") {
           setReauthentication({ kind: "return", roomId });
           return;
         }
         if (destination.kind !== "ready") {
-          setRetryDestination(true);
-          setMessage(
-            destination.kind === "unavailable_room"
-              ? "作成済みのルームは現在利用できません。"
-              : "ルームを開けませんでした。もう一度お試しください。",
-          );
+          // 退出・除外・終了・完了済みの前回分は次の試行へ持ち越さない。
+          if (destination.kind === "unavailable_room") {
+            const unavailable = next;
+            next = await persist(
+              () =>
+                updateRoomCreationIntent(principal, unavailable, {
+                  state: "closed",
+                }),
+              { ...next, state: "closed" },
+            );
+            setIntent(next);
+          }
+          setMessage(RETRY_MESSAGE);
           return;
         }
-        setRetryDestination(false);
         const href = await entryDestination(
           destination.href,
           roomId,
@@ -431,76 +350,16 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         navigationTimer.current = setTimeout(() => {
           if (!sameActor()) return;
           setNavigating(false);
-          setRetryDestination(true);
-          setMessage(
-            "ルームへの移動を完了できませんでした。もう一度お試しください。",
-          );
+          setMessage(RETRY_MESSAGE);
         }, 15_000);
-        // 同タブのServer Actionによる自動確認で、開始した移動を取り消さない。
         notifyRoomCreations(false);
       } catch {
-        // 失敗した応答も、別タブが選び直した現在の操作へ反映しない。
-        const stillSelected =
-          !next ||
-          (await isRoomCreationSelected(
-            principal,
-            next.requestId,
-            next.generation,
-          ).catch(() => true));
-        if (sameActor() && stillSelected) {
+        if ((await selected()) || (!next && sameActor())) {
           setNavigating(false);
-          if (next?.roomId) {
-            setIntent(next);
-            setRetryDestination(true);
-            notifyRoomCreations();
-          }
-          setMessage(
-            next?.roomId
-              ? "ルームを開けませんでした。もう一度お試しください。"
-              : storageFailed
-                ? "作成を続けられません。ブラウザの保存設定を確認してもう一度お試しください。"
-                : "ルームの作成を完了できませんでした。通信状態を確認して、もう一度お試しください。",
-          );
+          setMessage(RETRY_MESSAGE);
         }
       } finally {
         submitting.current = false;
-      }
-    });
-  }
-  function handleNewIntent() {
-    if (!currentUserId || submitting.current) return;
-    generation.current++;
-    // 保存済みの選択は実際の作成まで維持する。確認のキャンセルで失わない。
-    setNewIntent(true);
-    setRetryDestination(false);
-    setMessage(undefined);
-  }
-  function handleDiscard() {
-    if (
-      !currentUserId ||
-      !window.confirm(
-        "保存をリセットしてもルームへの参加状態は変わりません。前の作成結果をこのブラウザから見つけにくくなります。リセットしますか？",
-      )
-    )
-      return;
-    const principal = currentUserId,
-      turn = ++generation.current;
-    const current = () =>
-      actor.current === principal && generation.current === turn;
-    startTransition(async () => {
-      try {
-        await discardRoomCreationRecords(principal);
-        if (!current()) return;
-        setIntent(null);
-        setNewIntent(false);
-        setRetryDestination(false);
-        setMessage(undefined);
-        setStorageError(false);
-      } catch {
-        if (current())
-          setMessage(
-            "保存をリセットできません。保存設定を確認して再読み込みしてください。",
-          );
       }
     });
   }
@@ -508,55 +367,53 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     switching,
     onCancelSwitch: () => setSwitching(undefined),
     onSwitchReady: async (roomId) => {
+      const principal = currentUserId;
+      const turn = generation.current;
+      const current = () =>
+        actor.current === principal && generation.current === turn;
       const target =
         switching && (!("kind" in switching) || switching.kind === "pending")
           ? switching.target
           : undefined;
       if (
-        currentUserId &&
-        currentIntent &&
-        actor.current === currentUserId &&
-        target?.kind === "create" &&
-        target.input.requestId === currentIntent.requestId &&
-        target.input.expectedPrincipal === currentUserId &&
-        (await isRoomCreationSelected(
-          currentUserId,
-          currentIntent.requestId,
-          currentIntent.generation,
-        ))
-      ) {
-        await saveRoomCreationResult(currentUserId, currentIntent, roomId);
+        !principal ||
+        !current() ||
+        !intent ||
+        target?.kind !== "create" ||
+        target.input.requestId !== intent.requestId ||
+        target.input.expectedPrincipal !== principal
+      )
+        return;
+      const receipt = {
+        ...intent,
+        state: "known" as const,
+        roomId,
+        name: "",
+        unopened: true,
+      };
+      try {
+        const selected =
+          !storageAvailable.current ||
+          (await isRoomCreationSelected(
+            principal,
+            intent.requestId,
+            intent.generation,
+          ));
+        if (!selected || !current()) return;
+        const saved = storageAvailable.current
+          ? await saveRoomCreationResult(principal, intent, roomId)
+          : receipt;
+        if (current()) setIntent(saved);
         notifyRoomCreations(false);
+      } catch {
+        if (current()) setIntent(receipt);
       }
     },
     reauthentication,
     onCancelReauthentication: () => setReauthentication(undefined),
-    pending:
-      pending ||
-      navigating ||
-      !initialized ||
-      loadedPrincipal !== currentUserId,
+    pending: pending || navigating || loadedPrincipal !== currentUserId,
     onSubmit: handleSubmit,
-    intentName:
-      pending || navigating
-        ? submittedName
-        : recovering
-          ? currentIntent?.name
-          : undefined,
-    recovering,
-    recoveryState: currentIntent?.state,
+    intentName: submittedName,
     message: loadedPrincipal === currentUserId ? message : undefined,
-    storageError,
-    onNewIntent: handleNewIntent,
-    onDiscard: handleDiscard,
-    requiresNewConfirmation:
-      startsNew &&
-      Boolean(
-        currentIntent &&
-          !currentIntent.roomId &&
-          currentIntent.state !== "prepared" &&
-          currentIntent.state !== "closed",
-      ),
-    onRecover: () => handleSubmit("", true),
   };
 }

@@ -280,3 +280,27 @@ it("注入したゲスト更新ActionにroomIdを渡し、待機・再試行中�
   expect(screen.getByText("ルームの枠")).toBeInTheDocument();
   expect(screen.queryByText("ルーム本文")).not.toBeInTheDocument();
 });
+
+it("入室が成立するまで開いた記録を残さない", async () => {
+  const roomId = "99999999-9999-4999-8999-999999999999";
+  const { wasRoomCreationOpened } = await import(
+    "../logic/room-creation-storage"
+  );
+  localStorage.clear();
+  const view = render(
+    <RoomAdmissionGate roomId={roomId}>
+      <p>ルーム本文</p>
+    </RoomAdmissionGate>,
+  );
+  expect(wasRoomCreationOpened(roomId)).toBe(false);
+  view.rerender(
+    <RoomAdmissionGate
+      roomId={roomId}
+      allowFreshEntry
+      freshAdmission="admission"
+    >
+      <p>ルーム本文</p>
+    </RoomAdmissionGate>,
+  );
+  await waitFor(() => expect(wasRoomCreationOpened(roomId)).toBe(true));
+});
