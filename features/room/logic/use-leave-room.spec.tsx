@@ -148,17 +148,17 @@ it("ホストの解散と参加者の退出は明示的な意図と現在改訂�
   expect(memberForm.get("expectedHostRevision")).toBeNull();
 });
 
-it.each(["retain", "discard"] as const)(
-  "本人退出は選択した閲覧権 %s を渡す",
-  (access) => {
-    LEAVE_ROOM.mockReset();
-    LEAVE_ROOM.mockImplementation(() => new Promise(() => {}));
-    const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
-    act(() => result.current.leave(access));
-    const form = LEAVE_ROOM.mock.calls[0]?.[0] as FormData;
-    expect(form.get("outcomeAccess")).toBe(access);
-  },
-);
+it("本人退出では成果閲覧権を残す要求を送る", () => {
+  LEAVE_ROOM.mockReset();
+  LEAVE_ROOM.mockImplementation(() => new Promise(() => {}));
+  const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
+  act(() => result.current.leave());
+  const form = LEAVE_ROOM.mock.calls[0]?.[0];
+  expect(form).toBeInstanceOf(FormData);
+  if (!(form instanceof FormData))
+    throw new Error("退出要求が送信されていない");
+  expect(form.get("outcomeAccess")).toBe("retain");
+});
 
 it("退出成功時には候補を消す", async () => {
   const userId = "11111111-1111-4111-8111-111111111111";

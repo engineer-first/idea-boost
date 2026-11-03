@@ -26,6 +26,7 @@ export async function leaveRoom(formData: FormData): Promise<void> {
     redirect("/login");
   }
 
+  // 旧discardもcontractsでretainへ正規化し、本人退出の閲覧権を維持する。
   // 5xx は呼び出し側でリカバリする。
   const intent = formData.get("intent");
   const revision = formData.get("expectedHostRevision");

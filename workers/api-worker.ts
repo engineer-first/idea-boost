@@ -392,8 +392,7 @@ async function handleLeaveRoom(
   if (!body.success) return error(400, "リクエスト形式が不正です。");
   if (!(await stub.isMember(session.sub)))
     return error(404, "ルームが見つかりませんでした。");
-  if (body.data.outcomeAccess === "retain")
-    await stub.ensureSharedOutcome(roomId, room.createdAt);
+  await stub.ensureSharedOutcome(roomId, room.createdAt);
   const result = await stub.leaveOrDisband(
     session.sub,
     room.hostId,

@@ -773,7 +773,7 @@ export class RoomDO extends DurableObject {
     operationId: string,
     expected: ParticipationSource,
     creatorSeed: string,
-    outcomeAccess: LeaveOutcomeAccess,
+    _outcomeAccess: LeaveOutcomeAccess,
     generation: number,
     destinationLeaseExpiresAt?: number,
   ): Promise<
@@ -806,7 +806,7 @@ export class RoomDO extends DurableObject {
     if (JSON.stringify(current) !== JSON.stringify(expected)) return "changed";
     if (getPendingPhaseTransition(this.sql)) return "busy";
     // 閲覧権・在籍・receiptを同じ同期transactionで確定する。
-    this.leaveMember(userId, outcomeAccess, () => {
+    this.leaveMember(userId, "retain", () => {
       this.sql.exec(
         "INSERT INTO room_participation_receipts(operation_id,user_id,result) VALUES(?,?,'left')",
         operationId,
@@ -831,12 +831,12 @@ export class RoomDO extends DurableObject {
     return "left";
   }
 
-  // REST退出もWS除外も、閲覧権の更新と会員削除をawait前に完了する。
+  // 本人退出は旧クライアントのdiscard指定でも閲覧権を残す。
   async leave(
     userId: string,
-    outcomeAccess?: LeaveOutcomeAccess,
+    _outcomeAccess?: LeaveOutcomeAccess,
   ): Promise<void> {
-    this.leaveMember(userId, outcomeAccess);
+    this.leaveMember(userId, "retain");
     await this.flushLeave();
   }
 
@@ -849,7 +849,7 @@ export class RoomDO extends DurableObject {
 
   private leaveMember(
     userId: string,
-    outcomeAccess?: LeaveOutcomeAccess,
+    outcomeAccess: LeaveOutcomeAccess,
     beforeRemove?: () => void,
   ): void {
     if (!isMember(this.sql, userId)) return;

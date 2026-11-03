@@ -267,7 +267,7 @@ export function RoomOutcomeView({
             href="/home"
             className="inline-flex min-h-10 items-center rounded-md px-3 text-base font-semibold underline-offset-4 hover:underline"
           >
-            保存を確認してホームへ
+            ホームへ戻る
           </Link>
         </div>
         <p className="pb-8 text-xs leading-5 text-muted-foreground">

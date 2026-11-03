@@ -5,29 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 import { LeaveConfirmDialog } from "./leave-confirm-dialog";
 
 describe("LeaveConfirmDialog（leave）", () => {
-  it("完了後の参加者は退出をやめて成果へ戻れる", async () => {
-    const onReturnToOutcome = vi.fn();
-    const onConfirm = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <LeaveConfirmDialog
-        open
-        onOpenChange={vi.fn()}
-        onConfirm={onConfirm}
-        isLeaving={false}
-        mode="leave"
-        completed
-        onReturnToOutcome={onReturnToOutcome}
-      />,
-    );
-    expect(screen.getByText("退出しますか？")).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "退出をやめて成果へ戻る" }),
-    );
-    expect(onReturnToOutcome).toHaveBeenCalledTimes(1);
-    expect(onConfirm).not.toHaveBeenCalled();
-  });
-
   it("open=true のとき「退出しますか？」が表示される", () => {
     render(
       <LeaveConfirmDialog
@@ -76,48 +53,19 @@ describe("LeaveConfirmDialog（leave）", () => {
   });
 });
 
-it.each([false, true])(
-  "退出時に選んだ成果の閲覧権を渡す completed=%s",
-  async (completed) => {
-    const onConfirm = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <LeaveConfirmDialog
-        open
-        onOpenChange={vi.fn()}
-        onConfirm={onConfirm}
-        isLeaving={false}
-        completed={completed}
-      />,
-    );
-    expect(
-      screen.getByRole("radio", { name: "成果を残して退出" }),
-    ).toBeChecked();
-    await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
-    await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
-    expect(onConfirm).toHaveBeenCalledWith("discard");
-  },
-);
-
-it("既定の退出は閲覧権を残し、処理中は選択も変えられない", async () => {
+it("成果の選択を求めず退出を一度確認する", async () => {
   const onConfirm = vi.fn();
-  const user = userEvent.setup();
-  const props = {
-    open: true,
-    onOpenChange: vi.fn(),
-    onConfirm,
-    isLeaving: false,
-  };
-  const { rerender } = render(<LeaveConfirmDialog {...props} />);
-  await user.click(screen.getByRole("button", { name: "成果を残して退出" }));
-  expect(onConfirm).toHaveBeenCalledWith("retain");
-  rerender(<LeaveConfirmDialog {...props} isLeaving />);
-  expect(
-    screen.getByRole("radio", { name: "成果を残して退出" }),
-  ).toBeDisabled();
-  expect(
-    screen.getByRole("radio", { name: "成果を残さず退出" }),
-  ).toBeDisabled();
+  render(
+    <LeaveConfirmDialog
+      open
+      onOpenChange={vi.fn()}
+      onConfirm={onConfirm}
+      isLeaving={false}
+    />,
+  );
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
+  await userEvent.click(screen.getByRole("button", { name: "退出する" }));
+  expect(onConfirm).toHaveBeenCalledExactlyOnceWith();
 });
 
 it.each([true, false])(

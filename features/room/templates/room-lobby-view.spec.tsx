@@ -1,6 +1,12 @@
 // スタート画面のプレゼンテーション層の単体テスト。
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { buildLobbyPhase } from "@/contracts/phase.fixture";
@@ -208,14 +214,19 @@ it("省略された参加者から確認を開いて取消すと一覧の入口�
   await vi.waitFor(() => expect(overflow).toHaveFocus());
 });
 
-it("参加者がロビーで選んだ成果の扱いを退出へ渡す", async () => {
-  const onLeave = vi.fn();
+it("参加者がロビーで成果を選ばず退出を確認できる", async () => {
   const user = userEvent.setup();
+  const onLeave = vi.fn();
   renderView({ onLeave });
+
   await user.click(screen.getByRole("button", { name: "退出する" }));
-  await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
-  await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
-  expect(onLeave).toHaveBeenCalledWith("discard");
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
+  await user.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "退出する",
+    }),
+  );
+  expect(onLeave).toHaveBeenCalledExactlyOnceWith();
 });
 
 it("待機画面でホスト=%sも現在名を確認して変更を開ける", () => {
