@@ -119,3 +119,23 @@ it("既定の退出は閲覧権を残し、処理中は選択も変えられな�
     screen.getByRole("radio", { name: "成果を残さず退出" }),
   ).toBeDisabled();
 });
+
+it.each([true, false])(
+  "最後の在籍者にだけ終了と招待URLの無効化を知らせる lastMember=%s",
+  (lastMember) => {
+    render(
+      <LeaveConfirmDialog
+        open
+        onOpenChange={vi.fn()}
+        onConfirm={vi.fn()}
+        isLeaving={false}
+        lastMember={lastMember}
+      />,
+    );
+    const warning = screen.queryByText(
+      /退出するとルームが終了し、招待URLは使えなくなります/,
+    );
+    if (lastMember) expect(warning).toBeInTheDocument();
+    else expect(warning).not.toBeInTheDocument();
+  },
+);
