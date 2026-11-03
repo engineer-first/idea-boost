@@ -1,9 +1,8 @@
 // notes feature（付箋の作成・編集・移動・グルーピング）の公開境界。
 // ボード上の付箋 UI（カード・グループ・ツールバー）と、サーバーイベントを
-// 畳み込む状態 hook を room feature へ公開する。紙の影はLPや成果にも共用し、
-// reducer の内部実装は feature 内に閉じる。
+// 畳み込む状態 hook を room feature へ公開する。reducer の内部実装は
+// feature 内に閉じる。
 
-export { getNoteShadow } from "./logic/note-shadow";
 export type { Note } from "./logic/notes-reducer";
 export { useMoveHistory } from "./logic/use-move-history";
 export { useNoteAutosave } from "./logic/use-note-autosave";

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getNoteShadow } from "@/features/notes";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
+import { getPaperShadow } from "@/lib/paper-shadow";
 import type { RoomOutcome } from "../logic/outcome-text";
 import { formatOutcomeText } from "../logic/outcome-text";
 
@@ -161,7 +161,7 @@ export function RoomOutcomeView({
               key={key}
               className="min-w-0 rounded-note px-5 py-5 sm:px-7"
               style={{
-                boxShadow: getNoteShadow(key),
+                boxShadow: getPaperShadow(key),
                 backgroundColor: NOTE_COLOR_STYLES.yellow.backgroundColor,
                 color: NOTE_COLOR_STYLES.yellow.foregroundColor,
               }}

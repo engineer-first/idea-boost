@@ -1,10 +1,10 @@
 import type { CSSProperties } from "react";
-import { getNoteShadow } from "@/features/notes";
+import { getPaperShadow } from "@/lib/paper-shadow";
 
 export const landingPaperStyle: CSSProperties & {
   "--lp-paper-shadow": string;
 } = {
-  "--lp-paper-shadow": getNoteShadow("landing-paper"),
+  "--lp-paper-shadow": getPaperShadow("landing-paper"),
 };
 
 export const landingCtaClass =
