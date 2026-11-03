@@ -237,7 +237,7 @@ describe("NoteCard", () => {
     fireEvent.focus(surface);
 
     expect(action).toHaveAttribute("data-placement", "bottom");
-    expect(action).toHaveClass("rounded-l-md");
+    expect(action).toHaveClass("rounded-l-lg");
     expect(action.style.webkitMaskImage).toContain("right center");
     expect(action.querySelector("[data-candidate-action-seam]")).toHaveClass(
       "left-0",
