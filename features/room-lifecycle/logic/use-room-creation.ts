@@ -33,7 +33,6 @@ export type RoomCreationControls = {
   switching?:
     | ParticipationConfirmation
     | Extract<ParticipationResult, { kind: "pending" | "rejected" }>;
-  onCancelSwitch: () => void;
   onSwitchReady: (roomId: string) => Promise<void>;
   reauthentication?: RoomEntryOperation;
   onCancelReauthentication: () => void;
@@ -240,6 +239,9 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         if (!(await selected())) return;
         let roomId = next.roomId;
         let entryAdmission: string | undefined;
+        let departure:
+          | { operationId?: string; exitedRoomNames?: string[] }
+          | undefined;
         if (!roomId) {
           if (next.state === "conflict") {
             setMessage(RETRY_MESSAGE);
@@ -261,6 +263,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
                 name: next.name,
               });
           if (result.ok) {
+            departure = result;
             roomId = result.roomId;
             entryAdmission =
               "entryToken" in result ? result.entryToken : undefined;
@@ -351,7 +354,12 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         );
         if (!(await selected())) return;
         setNavigating(true);
-        lifecycleNotify.roomCreated();
+        lifecycleNotify.rememberDeparture(
+          roomId,
+          departure?.operationId,
+          departure?.exitedRoomNames,
+        );
+        if (!departure?.exitedRoomNames?.length) lifecycleNotify.roomCreated();
         router.push(href);
         navigationTimer.current = setTimeout(() => {
           if (!sameActor()) return;
@@ -371,7 +379,6 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
   }
   return {
     switching,
-    onCancelSwitch: () => setSwitching(undefined),
     onSwitchReady: async (roomId) => {
       const principal = currentUserId;
       const turn = generation.current;

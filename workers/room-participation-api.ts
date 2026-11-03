@@ -38,6 +38,8 @@ export function participationResponse(
       : legacy && result.kind === "ready"
         ? {
             roomId: result.roomId,
+            operationId: result.operationId,
+            exitedRoomNames: result.exitedRoomNames,
             ...(result.inviteCode ? { inviteCode: result.inviteCode } : {}),
           }
         : result;
@@ -96,7 +98,12 @@ export async function handleRoomParticipation(
   });
   return participationResponse(
     "target" in parsed.data
-      ? await stub.prepare(session.sub, parsed.data.target)
+      ? await stub.prepare(
+          session.sub,
+          parsed.data.target,
+          true,
+          parsed.data.operationId,
+        )
       : await stub.commit(
           session.sub,
           parsed.data.operationId,

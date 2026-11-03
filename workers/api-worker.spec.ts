@@ -228,7 +228,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
       },
     );
     expect(join.status).toBe(200);
-    expect(await join.json()).toEqual({ roomId });
+    expect(await join.json()).toMatchObject({ roomId, exitedRoomNames: [] });
 
     const after = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}`,
@@ -319,7 +319,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
       body: JSON.stringify({ code: ` ${inviteCode.toLowerCase()} ` }),
     });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ roomId });
+    expect(await res.json()).toMatchObject({ roomId, exitedRoomNames: [] });
   });
 
   it("存在しない招待コードは 404", async () => {

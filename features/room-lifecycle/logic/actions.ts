@@ -60,7 +60,13 @@ const JoinRoomInputSchema = z.object({
 // （Server Action の redirect 後に toast する方式は、遷移でクライアント状態が
 // 消えるため使わない）
 export type CreateRoomResult =
-  | { ok: true; roomId: string; entryToken?: string }
+  | {
+      ok: true;
+      roomId: string;
+      entryToken?: string;
+      operationId?: string;
+      exitedRoomNames?: string[];
+    }
   | {
       ok: false;
       error: string;
@@ -72,7 +78,13 @@ export type CreateRoomResult =
     };
 
 export type JoinRoomResult =
-  | { ok: true; roomId: string; entryToken?: string }
+  | {
+      ok: true;
+      roomId: string;
+      entryToken?: string;
+      operationId?: string;
+      exitedRoomNames?: string[];
+    }
   | {
       ok: false;
       error: string;
@@ -146,6 +158,8 @@ export async function createRoom(
       return {
         ok: true,
         roomId: parsed.data.roomId,
+        operationId: parsed.data.operationId,
+        exitedRoomNames: parsed.data.exitedRoomNames,
         entryToken: await issueRoomEntry(
           parsed.data.roomId,
           prepared.user,
@@ -270,7 +284,10 @@ export async function joinRoom(
     res = await apiFetch("/api/rooms/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: parsedInput.data.code }),
+      body: JSON.stringify({
+        code: parsedInput.data.code,
+        operationId: formData.get("operationId") ?? crypto.randomUUID(),
+      }),
     });
   } catch {
     // タイムアウト・ネットワーク障害は「見つからない」と誤案内しない。
@@ -342,6 +359,8 @@ export async function joinRoom(
   return {
     ok: true,
     roomId: parsed.data.roomId,
+    operationId: parsed.data.operationId,
+    exitedRoomNames: parsed.data.exitedRoomNames,
     entryToken: await issueRoomEntry(
       parsed.data.roomId,
       prepared.user,

@@ -37,6 +37,7 @@ import {
   RoomEntryTicketSchema,
   RoomOAuthResumeSchema,
 } from "../contracts/room-entry";
+import type { ParticipationResult } from "../contracts/room-participation";
 import {
   type GuestRefreshResponse,
   LoginAssertionSchema,
@@ -93,7 +94,10 @@ export type ApiWorkerEnv = Env & {
 };
 
 const SyncRequestSchema = z.object({ assertion: z.string().min(1) });
-const JoinRequestSchema = z.object({ code: z.string() });
+const JoinRequestSchema = z.object({
+  code: z.string(),
+  operationId: z.guid().optional(),
+});
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -309,6 +313,7 @@ async function handleJoinRoom(
     session.sub,
     { kind: "join", code },
     true,
+    body.data.operationId,
   );
   if (result.kind === "ready")
     await syncMemberAccountName(env, result.roomId, session.sub).catch(
@@ -335,18 +340,25 @@ async function handleGetRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  let departure: Extract<ParticipationResult, { kind: "ready" }> | undefined;
   if (await stub.isJoinable()) {
     const participation = await accountStub(env, session.sub).inspect(
       session.sub,
       roomId,
     );
-    if (participation) return participationResponse(participation, true);
+    if (participation) {
+      if (participation.kind !== "ready" || participation.roomId !== roomId)
+        return participationResponse(participation, true);
+      departure = participation;
+    }
   }
   const phase = await stub.getPhase();
   return json({
     roomId: room.roomId,
     inviteCode: room.inviteCode,
     phase,
+    operationId: departure?.operationId,
+    exitedRoomNames: departure?.exitedRoomNames,
   });
 }
 
@@ -475,7 +487,11 @@ async function handleRoomWebSocket(
     session.sub,
     roomId,
   );
-  if (participation) return participationResponse(participation, true);
+  if (
+    participation &&
+    (participation.kind !== "ready" || participation.roomId !== roomId)
+  )
+    return participationResponse(participation, true);
   await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);

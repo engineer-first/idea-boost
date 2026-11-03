@@ -131,7 +131,8 @@ describe("24h作成と独立した公開・回復契約", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       kind: "ready",
-      ...(result as object),
+      roomId: (result as { roomId: string }).roomId,
+      inviteCode: (result as { inviteCode: string }).inviteCode,
     });
     const outsider = await exports.default.fetch(
       `https://api.test/api/room-creations/${id}?expectedPrincipal=${other.sub}`,
@@ -228,7 +229,8 @@ it("受付期限後もread-only statusがreadyを返し、POSTは拒否", async 
   expect(await status.json()).toEqual({
     kind: "ready",
     acceptance: "expired",
-    ...(room as object),
+    roomId: (room as { roomId: string }).roomId,
+    inviteCode: (room as { inviteCode: string }).inviteCode,
   });
 });
 it("遅いready応答は解散・削除後に公開gateを復活させない", async () => {

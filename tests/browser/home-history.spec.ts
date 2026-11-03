@@ -641,21 +641,30 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .waitFor();
       await page
         .getByRole("textbox", { name: "ルーム名（任意）" })
-        .fill("次の会");
+        .fill("ルームA");
       await page
         .getByRole("button", { name: "新しいルームを作成", exact: true })
-        .click();
-      await page
-        .getByRole("heading", { name: "別のルームに移動しますか？" })
-        .waitFor();
-      await page
-        .getByRole("button", { name: "退出して作成する", exact: true })
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
       // URLの切替だけでは入室は未完了。実際に開けた後の新規作成を確認する。
       await page
         .getByRole("heading", { name: "メンバーが揃ったら開始" })
         .waitFor();
+      await page.getByText("前の会から退出しました", { exact: true }).waitFor();
+      expect(
+        await page.getByRole("button", { name: "退出して作成する" }).count(),
+      ).toBe(0);
+      await expect
+        .poll(() =>
+          page
+            .getByRole("button", { name: "開始する", exact: true })
+            .isEnabled(),
+        )
+        .toBe(true);
+      await page.screenshot({
+        path: join(output, "automatic-switch-after.png"),
+        animations: "disabled",
+      });
       const second = new URL(page.url());
       expect(second.pathname).not.toBe(first.pathname);
       await page.goto(`${app}/home`);
@@ -674,7 +683,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("heading", { name: "メンバーが揃ったら開始" })
         .waitFor();
       expect(new URL(page.url()).pathname).toBe(second.pathname);
-      // 前のルームは同意して退出済み。保存URLで権限を復活させない。
+      // 前のルームは確認なしで退出済み。保存URLで権限を復活させない。
       await page.goto(first.origin + first.pathname);
       await page.getByRole("heading", { name: "404", exact: true }).waitFor();
       expect(
@@ -682,6 +691,78 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
           .getByRole("heading", { name: "メンバーが揃ったら開始" })
           .count(),
       ).toBe(0);
+
+      const inviter = await browser.newPage({
+        viewport: { width: 1280, height: 900 },
+      });
+      await inviter.goto(`${app}/login?next=%2Fhome`);
+      await inviter.getByLabel("メールアドレス").fill("member@example.test");
+      await inviter.getByLabel("パスワード").fill("password");
+      await inviter
+        .getByRole("button", { name: "開発用ユーザーでログイン" })
+        .click();
+      await inviter.waitForURL(`${app}/home`);
+      await inviter
+        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .fill("ルームB");
+      await inviter
+        .getByRole("button", { name: "新しいルームを作成", exact: true })
+        .click();
+      await inviter.waitForURL(/\/rooms\/[^/]+\/start/);
+      const inviteButton = inviter.getByRole("button", {
+        name: "招待URLをコピー",
+        exact: true,
+      });
+      await inviteButton.waitFor();
+      const title = await inviteButton.getAttribute("title");
+      if (!title) throw new Error("招待URLなし");
+      const inviteUrl = title.slice(title.indexOf("http"));
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto(inviteUrl);
+      await page
+        .getByRole("button", { name: "参加する", exact: true })
+        .waitFor();
+      expect(new URL(page.url()).pathname).toMatch(/^\/invite\//);
+      await page.screenshot({
+        path: join(output, "automatic-invite-before.png"),
+        animations: "disabled",
+      });
+      await page.getByRole("button", { name: "参加する", exact: true }).click();
+      await page.waitForURL(/\/rooms\/[^/]+\/start/);
+      await page
+        .getByText("ルームAから退出しました", { exact: true })
+        .waitFor();
+      await expect
+        .poll(() =>
+          page
+            .getByRole("button", { name: "開始する", exact: true })
+            .isEnabled(),
+        )
+        .toBe(true);
+      expect(
+        await page.getByRole("button", { name: "退出して参加する" }).count(),
+      ).toBe(0);
+      await page.screenshot({
+        path: join(output, "automatic-invite-after.png"),
+        animations: "disabled",
+      });
+      expect(new URL(page.url()).pathname).toBe(
+        new URL(inviter.url()).pathname,
+      );
+      await page.reload();
+      await expect
+        .poll(() =>
+          page
+            .getByRole("button", { name: "開始する", exact: true })
+            .isEnabled(),
+        )
+        .toBe(true);
+      expect(
+        await page
+          .getByText("ルームAから退出しました", { exact: true })
+          .count(),
+      ).toBe(0);
+      await inviter.close();
     } finally {
       await browser.close();
     }

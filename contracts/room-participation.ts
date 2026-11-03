@@ -27,6 +27,7 @@ export type ParticipationConfirmation = z.infer<
   typeof ParticipationConfirmationSchema
 >;
 export const ParticipationPrepareSchema = z.strictObject({
+  operationId: z.guid().optional(),
   target: ParticipationTargetSchema,
   expectedPrincipal: z.guid(),
 });
@@ -60,6 +61,8 @@ export const ParticipationResultSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("ready"),
+    operationId: z.guid().optional(),
+    exitedRoomNames: z.array(z.string()).optional(),
     roomId: z.guid(),
     inviteCode: z.string().optional(),
   }),

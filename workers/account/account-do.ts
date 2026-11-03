@@ -45,6 +45,20 @@ type Operation = {
   sourceHistory?: ParticipationSource[];
   terminalFailure?: { reason: string; error: string };
 };
+function targetKey(target: ParticipationTarget): string {
+  return JSON.stringify(
+    target.kind === "create"
+      ? {
+          kind: target.kind,
+          input: {
+            requestId: target.input.requestId,
+            expectedPrincipal: target.input.expectedPrincipal,
+            name: target.input.name?.trim() || "",
+          },
+        }
+      : target,
+  );
+}
 function creationFailure(cause: unknown): ParticipationResult | null {
   const reason =
     cause instanceof CreationConflict
@@ -319,7 +333,7 @@ export class AccountDO extends DurableObject<Env> {
   }
 
   private async normalizeConfirmation(op: Operation): Promise<void> {
-    // 旧保存形式は新しいversionとして提示し、古いversion0の決定で実行しない。
+    // 旧保存形式の版を補完する。利用者の再確認には使わず、サーバー内で在籍を再照合する。
     if (op.confirmation.version === undefined) {
       op.confirmation.version = 1;
       await this.ctx.storage.put(`op:${op.confirmation.operationId}`, op);
@@ -369,13 +383,7 @@ export class AccountDO extends DurableObject<Env> {
             };
           await this.normalizeConfirmation(op);
           if (op.userId === userId && op.phase !== "ready")
-            return op.phase === "confirmation"
-              ? {
-                  kind: "confirmation",
-                  confirmation: op.confirmation,
-                  reason: "state_changed",
-                }
-              : this.pending(op);
+            return this.resumeInside(userId, active);
         }
         // 検証サンプルなど、専用経路で準備された再訪先もRoomDOの事実を確認して候補に加える。
         const rooms = await this.indexedRooms();
@@ -395,7 +403,7 @@ export class AccountDO extends DurableObject<Env> {
         return await this.prepareInside(
           userId,
           { kind: "revisit", roomId },
-          false,
+          true,
         );
       } catch {
         return participationUnavailable();
@@ -405,11 +413,12 @@ export class AccountDO extends DurableObject<Env> {
   async prepare(
     userId: string,
     target: ParticipationTarget,
-    automatic = false,
+    automatic = true,
+    operationId?: string,
   ): Promise<ParticipationResult> {
     if (!(await this.ensureIndex(userId))) return participationUnavailable();
     return this.ctx.blockConcurrencyWhile(() =>
-      this.prepareInside(userId, target, automatic),
+      this.prepareInside(userId, target, automatic, operationId),
     );
   }
   private pending(op: Operation): ParticipationResult {
@@ -425,8 +434,72 @@ export class AccountDO extends DurableObject<Env> {
   private async prepareInside(
     userId: string,
     target: ParticipationTarget,
-    automatic: boolean,
+    _automatic: boolean,
+    operationId?: string,
   ): Promise<ParticipationResult> {
+    operationId ??=
+      target.kind === "create" ? target.input.requestId : undefined;
+    if (operationId) {
+      const alias = await this.ctx.storage.get<{
+        userId: string;
+        target: ParticipationTarget;
+        operationId: string;
+      }>(`request:${operationId}`);
+      if (alias) {
+        if (
+          alias.userId !== userId ||
+          targetKey(alias.target) !== targetKey(target)
+        )
+          return {
+            kind: "rejected",
+            reason: "input_conflict",
+            error: "ページを読み直して、もう一度お試しください。",
+          };
+        if (target.kind === "create") {
+          const accepted = await this.ctx.storage.get<Operation>(
+            `op:${alias.operationId}`,
+          );
+          if (
+            accepted &&
+            targetKey(accepted.confirmation.target) !== targetKey(target)
+          )
+            return {
+              kind: "rejected",
+              reason: "input_conflict",
+              error:
+                "別のルームへの移動が先に進んでいます。ホームからもう一度お試しください。",
+            };
+        }
+        return this.resumeInside(userId, alias.operationId);
+      }
+      const previous = await this.ctx.storage.get<Operation>(
+        `op:${operationId}`,
+      );
+      if (previous) {
+        if (
+          previous.userId !== userId ||
+          targetKey(previous.confirmation.target) !== targetKey(target)
+        )
+          return {
+            kind: "rejected",
+            reason: "input_conflict",
+            error: "ページを読み直して、もう一度お試しください。",
+          };
+        if (target.kind === "create" && previous.result?.kind === "ready") {
+          try {
+            await reserveRoomCreation(
+              this.env.DB,
+              userId,
+              target.input.requestId,
+              target.input.name,
+            );
+          } catch (cause) {
+            return creationFailure(cause) ?? participationUnavailable();
+          }
+        }
+        return this.resumeInside(userId, operationId);
+      }
+    }
     const active = await this.activeOperation();
     if (active) {
       const op = await this.ctx.storage.get<Operation>(`op:${active}`);
@@ -439,17 +512,14 @@ export class AccountDO extends DurableObject<Env> {
         };
       await this.normalizeConfirmation(op);
       if (op.phase !== "ready") {
-        if (
-          automatic &&
-          JSON.stringify(op.confirmation.target) === JSON.stringify(target) &&
-          op.phase !== "confirmation"
-        )
-          return this.commitInside(
+        if (operationId && operationId !== active)
+          await this.ctx.storage.put(`request:${operationId}`, {
             userId,
-            active,
-            op.outcomeAccess,
-            op.confirmation.version,
-          );
+            target,
+            operationId: active,
+          });
+        if (targetKey(op.confirmation.target) === targetKey(target))
+          return this.resumeInside(userId, active);
         return this.pending(op);
       }
     }
@@ -478,8 +548,14 @@ export class AccountDO extends DurableObject<Env> {
       }
       const destination = await this.destination(userId, target);
       const sources = await this.sources(userId, destination?.roomId);
+      if (target.kind === "join" && sources.length && !operationId)
+        return {
+          kind: "rejected",
+          reason: "update_required",
+          error: "ページを読み直して、もう一度お試しください。",
+        };
       const confirmation: ParticipationConfirmation = {
-        operationId: crypto.randomUUID(),
+        operationId: operationId ?? crypto.randomUUID(),
         version: 0,
         target,
         targetName:
@@ -498,18 +574,14 @@ export class AccountDO extends DurableObject<Env> {
         phase: "confirmation",
         left: [],
         sourceHistory: [...sources],
-        outcomeAccess: "discard",
+        outcomeAccess: "retain",
         ...(destination ? { destination } : {}),
       };
-      await this.ctx.storage.put(`op:${confirmation.operationId}`, op);
-      if (automatic && !sources.length)
-        return this.commitInside(
-          userId,
-          confirmation.operationId,
-          "discard",
-          confirmation.version,
-        );
-      return { kind: "confirmation", confirmation };
+      await this.ctx.storage.transaction(async (tx) => {
+        await tx.put(`op:${confirmation.operationId}`, op);
+        await tx.put("active", confirmation.operationId);
+      });
+      return this.resumeInside(userId, confirmation.operationId);
     } catch (cause) {
       const known = creationFailure(cause);
       if (known) return known;
@@ -532,31 +604,23 @@ export class AccountDO extends DurableObject<Env> {
           error: "この操作を確認できません。",
         };
       await this.normalizeConfirmation(op);
-      if (op.phase === "confirmation")
-        return { kind: "confirmation", confirmation: op.confirmation };
+
       if (op.result) {
         if ((await this.activeOperation()) === id)
           await this.ctx.storage.delete("active");
         return op.result;
       }
-      return this.commitInside(
-        userId,
-        id,
-        op.outcomeAccess,
-        op.confirmation.version,
-      );
+      return this.resumeInside(userId, id);
     });
   }
   async commit(
     userId: string,
     id: string,
-    outcomeAccess: LeaveOutcomeAccess,
-    confirmationVersion: number,
+    _outcomeAccess: LeaveOutcomeAccess,
+    _confirmationVersion: number,
   ): Promise<ParticipationResult> {
     if (!(await this.ensureIndex(userId))) return participationUnavailable();
-    return this.ctx.blockConcurrencyWhile(() =>
-      this.commitInside(userId, id, outcomeAccess, confirmationVersion),
-    );
+    return this.ctx.blockConcurrencyWhile(() => this.resumeInside(userId, id));
   }
   private sourceHistory(op: Operation): ParticipationSource[] {
     const sources = new Map(
@@ -625,6 +689,20 @@ export class AccountDO extends DurableObject<Env> {
     result: Extract<ParticipationResult, { kind: "ready" }>,
   ): Promise<ParticipationResult> {
     await this.reconcileExits(userId, op);
+    const exitedRoomNames: string[] = [];
+    for (const source of this.sourceHistory(op)) {
+      const receipt = await this.stub(source.roomId).participationReceipt(
+        userId,
+        op.confirmation.operationId,
+      );
+      if (receipt === "left" || receipt === "disbanded")
+        exitedRoomNames.push(source.name);
+    }
+    result = {
+      ...result,
+      operationId: op.confirmation.operationId,
+      exitedRoomNames,
+    };
     op.result = result;
     op.phase = "ready";
     op.terminalFailure = undefined;
@@ -822,11 +900,31 @@ export class AccountDO extends DurableObject<Env> {
     return { kind: "admitted", expiresAt };
   }
 
+  /** 同じ永続操作を最大3回進める。応答喪失もRoomDOのreceiptで照合する。 */
+  private async resumeInside(
+    userId: string,
+    id: string,
+  ): Promise<ParticipationResult> {
+    let result: ParticipationResult = {
+      kind: "rejected",
+      reason: "not_found",
+      error: "もう一度お試しください。",
+    };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      result = await this.commitInside(userId, id, "retain", 0);
+      if (result.kind !== "pending") return result;
+    }
+    return {
+      ...result,
+      error: "ルームに移動できませんでした。もう一度お試しください。",
+    };
+  }
+
   private async commitInside(
     userId: string,
     id: string,
-    outcomeAccess: LeaveOutcomeAccess,
-    confirmationVersion: number,
+    _outcomeAccess: LeaveOutcomeAccess,
+    _confirmationVersion: number,
   ): Promise<ParticipationResult> {
     const op = await this.ctx.storage.get<Operation>(`op:${id}`);
     if (!op || op.userId !== userId)
@@ -836,15 +934,6 @@ export class AccountDO extends DurableObject<Env> {
         error: "この操作を確認できません。",
       };
     await this.normalizeConfirmation(op);
-    if (
-      op.phase === "confirmation" &&
-      confirmationVersion !== op.confirmation.version
-    )
-      return {
-        kind: "confirmation",
-        confirmation: op.confirmation,
-        reason: "state_changed",
-      };
     // 本人退出の成果は常に保持するため、旧discardとretainの再送を同じ操作として扱う。
     if (op.result) {
       if ((await this.activeOperation()) === id)
@@ -921,16 +1010,16 @@ export class AccountDO extends DurableObject<Env> {
           op.confirmation.sources = current;
           op.confirmation.version = op.confirmation.version + 1;
           await save();
-          return {
-            kind: "confirmation",
-            confirmation: op.confirmation,
-            reason: "state_changed",
-          };
+          this.sourceHistory(op);
         }
-        op.generation =
+        op.generation ??=
           ((await this.ctx.storage.get<number>("generation")) ?? 0) + 1;
-        await this.ctx.storage.put("generation", op.generation);
-        op.outcomeAccess = outcomeAccess;
+        await this.ctx.storage.transaction(async (tx) => {
+          await tx.put("generation", op.generation);
+          await tx.put("active", id);
+          await tx.put(`op:${id}`, op);
+        });
+        op.outcomeAccess = "retain";
         if (op.confirmation.target.kind === "create") {
           const input = op.confirmation.target.input;
           const creation = await reserveRoomCreation(
@@ -1025,25 +1114,9 @@ export class AccountDO extends DurableObject<Env> {
               op.confirmation.progress = op.left.length
                 ? "partially_left"
                 : "confirming";
-              if (op.left.length)
-                op.confirmation.outcomeAccess = op.outcomeAccess;
-              else {
-                if (op.destination)
-                  await this.stub(
-                    op.destination.roomId,
-                  ).cancelParticipationReservation(userId, id);
-                op.generation = undefined;
-              }
               op.phase = "confirmation";
-              await this.ctx.storage.transaction(async (tx) => {
-                await tx.put(`op:${id}`, op);
-                if (!op.left.length) await tx.delete("active");
-              });
-              return {
-                kind: "confirmation",
-                confirmation: op.confirmation,
-                reason: "state_changed",
-              };
+              await save();
+              return this.pending(op);
             }
             result = leaving;
           }
@@ -1054,6 +1127,7 @@ export class AccountDO extends DurableObject<Env> {
         await save();
       }
       if (op.phase === "joining") {
+        let result: Extract<ParticipationResult, { kind: "ready" }>;
         const target = op.confirmation.target;
         const name =
           (await findUserDisplayNameById(this.env.DB, userId)) ??
@@ -1073,7 +1147,7 @@ export class AccountDO extends DurableObject<Env> {
             );
             if (result === "closed") throw new CreationGone();
           });
-          op.result = {
+          result = {
             kind: "ready",
             roomId: creation.room_id,
             inviteCode: creation.invite_code,
@@ -1100,9 +1174,9 @@ export class AccountDO extends DurableObject<Env> {
             throw new Error(
               "移動先の参加結果を確認できません。同じ操作を再試行してください。",
             );
-          op.result = { kind: "ready", roomId: room.roomId };
+          result = { kind: "ready", roomId: room.roomId };
         }
-        return await this.finishReady(userId, op, op.result);
+        return await this.finishReady(userId, op, result);
       }
       return this.pending(op);
     } catch (cause) {
