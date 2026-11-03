@@ -1,41 +1,48 @@
-# 0023: ゲストの本人IDへGoogleを後付けで連携する
+---
+id: "0023"
+status: Proposed
+date: "2026-10-29"
+---
 
-- 状態：提案
-- 決定日：2026-10-29
-- 記録日：2026-10-29
+# ADR 0023: ゲストの本人IDへGoogleを後付けで連携する
 
-## 背景
+## Context
 
-ゲストは名前だけで作成・参加・成果の閲覧まで使える（[0021](0021-guest-session-identity.md)）。Cookieを消す・別の端末を使うと同じゲストに戻れないため、記録を残したい人だけが後からGoogleで本人を引き継げるようにする（[Issue #850](https://github.com/engineer-first/idea-boost/issues/850)）。
-ゲストのデータはRoomDOのmember/host、付箋・投票のowner、ACCOUNT_DOの参加候補、完了成果のviewerとして、すべて `users.id`（セッションの `sub`）に結び付いている。
-通常のGoogleログイン（`/api/auth/sync`）は google_sub → メールの順で既存行を探し、なければ新しいIDを作る。
+ゲストの作業と権限は本人IDに結び付いているが、Cookie消失や別端末では本人へ戻れない。記録を残したい人が後からGoogleで同じ本人へ戻るには、既存の所有権をどう保つかを決める必要があった。
 
-## 候補と決定
+## Decision
 
-**ゲストの `users.id` を変えず、その行へ google_sub と email を付ける。** 連携後のセッションは同じ `sub` のaccountになり、以後の通常ログインは既存の google_sub 解決で同じIDへ戻る。
+ゲストの本人IDを変えずに同じ本人へGoogleを紐付ける。通常のログインとは別の連携として本人の同意と現在のゲストを確認し、連携後も表示名・付箋・在籍・成果の所有権を維持する。別の本人へ登録済みのGoogleとの統合は拒否する。複数の保存先をまたぐ所有者移行と、誤った記録統合を避けるためである。
 
-- 連携は通常ログインと経路を分ける。Nextの連携専用Actionが現在のゲストCookieから本人を取り、用途を分けた署名付き短命intent（最長10分かつセッションの残り期限以内）をHttpOnly Cookieに置いてGoogle認証を始める。callbackは state 一致・Google検証・現在のCookieの本人が開始時と同じことを確認し、通常の `establishSession` を呼ばない。
-- Workerの連携専用APIは、現在のゲストセッションと連携用の署名付き主張の両方を検証して本人IDの一致を確認し、「未連携のゲスト」または「同じIDに同じgoogle_subが連携済み（再送）」の行だけを条件付きUPDATEする。並行実行は事前SELECTではなくUPDATE条件とUNIQUE制約で守る。
-- 表示名（display_name・revision）はGoogle名で上書きしない。
-- Workerが同じIDの確定を返した後にだけaccount Cookieを発行する。取消し・失敗・対象外では元のゲストCookieとデータを保持し、列挙した結果コードを元画面で文言に変換する。
+### 本ADRで決定しないこと
 
-**別のIdeaBoost本人へ登録済みのGoogleアカウントとの統合は行わない。** 別IDが既に同じgoogle_subまたはメールを持つ場合は連携を拒否し、双方の行を変えない。
+関数・通信形式・保存の具体手順と移行方法は、Google連携のIssue仕様・実装PRへ委譲する。参照先はReferencesに示す。
 
-採用しなかった候補:
+## Consequences
 
-- 通常ログインで新しい（または既存の）IDのCookieを発行してから、ゲストのデータを移す方式。RoomDO・ACCOUNT_DO・成果viewerなど所有者の参照が複数のストレージに分散し、全ルームの走査と移行が必要になる。移行途中の失敗や並行操作で、ホストや付箋の所有者が二重・欠落になりうる。
-- 別IDの記録を1つの本人へ統合する方式。統合後にどちらの表示名・ホスト権・参加状態を残すかの判断が必要で、誤って他人の記録を取り込む影響が大きい。ベータ版では需要も確認できていない。
+良い影響は、ルームと成果の所有者を書き換えずに、別端末から同じ本人へ戻れること。悪い影響は、既に別の本人へ登録したGoogleを使えず、連携解除や付け替えもできないこと。中立の影響として、連携後の接続は通常の認証と現在の権限を再確認し、Google名で表示名を上書きしない。別IDの統合需要が継続するか、Google以外へ広げる場合に見直す。
 
-## 影響と見直す条件
+2026-11-03に実コード・一次資料を照合。根拠未確認：実装または提案記録は確認できるが、オーナーがこの技術方針・比較理由まで採用した元発言は確認できない。実装済みであることだけではAcceptedにしない。
 
-- 連携は1つのusers行の更新だけで完結し、ルームや成果のデータには触れない。連携前に参加していたルームのWS・入室確認は、新しいセッション期限で通常どおり確認し直す。
-- 先に別の端末でGoogleログインしてIdeaBoostの本人を作っていた人は、そのGoogleでゲストを連携できない。別のGoogleアカウントで連携するか、ゲストのまま使う。
-- 一度連携した行は、連携の解除や別Googleへの付け替えをしない。
-- Google OAuthの実環境でしか確かめられない取消し・同意画面の挙動は、PR Previewまたは本番相当の環境で確認する。
+## Alternatives Considered
 
-別ID同士の記録統合を求める声が継続して出た場合、またはGoogle以外の連携先を追加する場合に見直す。
+新しい本人へデータを移す案は、複数保存先の途中失敗と並行操作で所有権を二重化・欠落させ得る。別IDの統合には、表示名・参加状態・権限をどちらから引き継ぐかという別の判断が必要になる。
 
-## 根拠
+## Related ADRs
 
-- [Issue #850](https://github.com/engineer-first/idea-boost/issues/850)（実装メモと設計判断のコメント）、[PBI #749](https://github.com/engineer-first/idea-boost/issues/749)
-- [0021: ゲスト本人を署名付きCookieで保持](0021-guest-session-identity.md)、[0010: 入室前の認証準備](0010-room-entry-authentication.md)、[0015: アカウント単位の参加先切り替え](0015-account-room-participation.md)
+- [ADR 0010](0010-room-entry-authentication.md)：関連する判断。
+- [ADR 0015](0015-account-room-participation.md)：関連する判断。
+- [ADR 0021](0021-guest-session-identity.md)：関連する判断。
+- [ADR 0022](0022-guest-session-refresh.md)：関連する判断。
+
+## References
+
+- dateは旧記録の提案日または記録日を引き継いだもの。オーナーの決定日の裏付けは未確認。
+- [Issue #850](https://github.com/engineer-first/idea-boost/issues/850)
+- [PBI #749](https://github.com/engineer-first/idea-boost/issues/749)
+- [実装 PR #866](https://github.com/engineer-first/idea-boost/pull/866)
+- [連携の認可と保存](../../workers/lib/db.ts)
+- [連携の境界検証](../../workers/account-link.spec.ts)
+- [照合した実装・規約](../../workers/account-link.spec.ts)（確認日：2026-11-03）。
+- セッション調査：2026-11-03にvaultのClaude/Codexとローカルの元セッションを検索したが、この判断の本人の採用発言は未確認。GitHub記録の投稿者名だけで本人の承認とは判定していない。
+- [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0023-guest-google-link-same-identity.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

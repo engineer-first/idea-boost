@@ -1,15 +1,16 @@
-# 0026: Googleの本人も入室時にCookieを自動で更新する
+---
+id: "0026"
+status: Proposed
+date: "2026-11-03"
+---
 
-- 状態：提案
-- 決定日：2026-11-03
-- 記録日：2026-11-03
-- 変更する判断：[0010](0010-room-entry-authentication.md) のaccountの再認証
+# ADR 0026: Googleの本人も入室時にCookieを自動で更新する
 
-## 背景
+## Context
 
-[0010](0010-room-entry-authentication.md) は、入室時に認証の残りが5時間を下回るとGoogleで再ログインさせる。ゲストは [0022](0022-guest-session-refresh.md) で、同じ判定時にCookieを自動で再署名するようになった。同じ入室でもGoogleの本人だけがログイン操作を求められ、利用者には理由が分からない手間になっている。
+従来の入室前認証は、入室時に認証の残りが5時間を下回るとGoogleで再ログインさせる。ゲストは入室前の更新により、同じ判定時にCookieを自動で再署名するようになった。同じ入室でもGoogleの本人だけがログイン操作を求められ、利用者には理由が分からない手間になっている。
 
-## 候補と決定
+## Decision
 
 accountも0022と同じ契機・同じ条件で、同じ `sub` のCookieを発行から7日で再署名する。Googleへの往復は求めない。
 
@@ -17,14 +18,30 @@ accountも0022と同じ契機・同じ条件で、同じ `sub` のCookieを発�
 - Cookieの消失・署名不正・実期限切れでは更新せず、通常のログインへ進める。既存WebSocketの期限は延ばさない（0009を維持）。
 - 0010の元操作の引継ぎは、実期限切れ後の再ログインにだけ使う。
 
-Google側の再認証を残す案は、入室のたびの往復が利用者の手間に見合わないため採らない。作業中の自動更新は0022と同じ理由で見送る。
+### 本ADRで決定しないこと
 
-## 影響と見直す条件
+更新の通信形式と実装手順は実装PRへ、入室の要求はPRDへ委譲する。Referencesを参照。
+
+## Consequences
 
 - 週1回以上入室するGoogleの本人は、ログイン操作なしで使い続けられる。
 - Googleアカウントの停止・連携解除は、Cookieの実期限まで反映されない。一度漏れたCookieは入室を続ける限り更新され続ける。個別失効が必要になったら、セッションIDの失効表を導入する後継ADRを作る。
 
-## 根拠
+## Alternatives Considered
+
+Google側の再認証を残す案は、入室のたびの往復が利用者の手間に見合わないため採らない。作業中の自動更新は0022と同じ理由で見送る。
+
+## Related ADRs
+
+- [ADR 0010](0010-room-entry-authentication.md)：accountの入室前再認証を変更する提案。
+- [ADR 0022](0022-guest-session-refresh.md)：ゲストの更新と同じ契機・条件を使う。
+- [ADR 0009](0009-websocket-session-expiry.md)：既存WebSocketの実期限は維持する。
+
+## References
 
 - [#686 の方針見直し](https://github.com/engineer-first/idea-boost/issues/686)
 - [0022: ゲストは入室前に同じ本人のCookieを更新](0022-guest-session-refresh.md)
+- [方針を記録した PR #913](https://github.com/engineer-first/idea-boost/pull/913)（2026-11-03）。
+- [ホスト撤廃の要求 #903](https://github.com/engineer-first/idea-boost/issues/903)。
+- [PRD](../prd.md)、[進行仕様](../product/sprint-flow.md)。
+- 2026-11-03 Claudeセッション eeee537c-3f23-4a6f-94a0-238d7af39813（入室時の再ログインを今回の改善に含める本人の承認）。オーナーが採用した最新方針を形式だけ移行し、実装の採用状態をこの書き直しで変更しない。
