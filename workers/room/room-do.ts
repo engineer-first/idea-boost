@@ -1410,6 +1410,7 @@ export class RoomDO extends DurableObject {
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
     ws.close(1011, "websocket error");
+    await this.webSocketClose(ws, 1011, "websocket error", false);
   }
 
   override async alarm(): Promise<void> {

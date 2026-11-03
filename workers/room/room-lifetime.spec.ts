@@ -214,3 +214,31 @@ it("最後の退出でも本人の接続には退出の終了コードを返す"
     socket.close();
   }
 });
+
+it("最後の接続で通信エラーが起きても24時間の終了期限を予約する", async () => {
+  const { roomId } = await createRoomAs(creator);
+  const socket = await connectRoomAs(creator, roomId);
+  await socket.next();
+  try {
+    await runInRoomDO(roomId, async (room, state) => {
+      const now = Date.now();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(now);
+      try {
+        await room.webSocketError(
+          state.getWebSockets()[0],
+          new Error("connection lost"),
+        );
+        expect(
+          state.storage.sql
+            .exec("SELECT expires_at FROM room_idle_deadline")
+            .toArray(),
+        ).toEqual([{ expires_at: now + 24 * hour }]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  } finally {
+    socket.close();
+  }
+});
