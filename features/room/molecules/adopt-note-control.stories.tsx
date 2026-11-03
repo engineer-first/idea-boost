@@ -7,7 +7,7 @@ const meta = {
   component: AdoptNoteControl,
   args: {
     phaseNumber: 1,
-    isHost: true,
+
     isSelecting: false,
     decisionContent: null,
     disabled: false,
@@ -38,5 +38,5 @@ export const DecidedIdeaForHost: Story = {
   },
 };
 export const DecidedForParticipant: Story = {
-  args: { isHost: false, decisionContent: "発言する人が偏ってしまう" },
+  args: { decisionContent: "発言する人が偏ってしまう" },
 };

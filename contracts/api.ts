@@ -30,16 +30,8 @@ export const JoinRoomResponseSchema = z.object({
   roomId: z.guid(),
 });
 
-// ルーム情報取得のレスポンス。isHost / hostUserId / phase はこのエンドポイント
-// でのみ返す（メンバー限定。非メンバーには 404 で存在も漏らさない）。
-// - isHost: クライアントが「開始」ボタンの表示を制御するために必要。
-// - hostUserId: メンバー一覧で「誰がホストか」を名前下に表示するために必要。
-//   既にメンバーだけが userId 一覧を見られる前提なので、ホストの userId を
-//   メンバーに返すことは追加の存在漏洩にならない。
-// - phase: 現在の進行状態。start_phase の二重防御用に進行状態を観測可能にする。
+// 在籍者だけに現在の進行状態を返す。非在籍者には存在を公開しない。
 export const RoomInfoResponseSchema = RoomSummarySchema.extend({
-  isHost: z.boolean(),
-  hostUserId: z.guid(),
   phase: RoomPhaseSchema,
   name: z.string().nullable().optional(),
   displayId: z.string().optional(),

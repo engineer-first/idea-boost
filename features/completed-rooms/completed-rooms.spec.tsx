@@ -388,7 +388,7 @@ describe("read-only成果から感想へ", () => {
       .mockReset()
       .mockResolvedValue({
         ok: false,
-        error: "参加中のルームを確認できません。退出・解散後は送信できません。",
+        error: "参加中のルームを確認できません。退出後は送信できません。",
       })
       .mockReturnValueOnce(
         new Promise((done) => {
@@ -410,11 +410,11 @@ describe("read-only成果から感想へ", () => {
     await act(async () =>
       resolve({
         ok: false,
-        error: "参加中のルームを確認できません。退出・解散後は送信できません。",
+        error: "参加中のルームを確認できません。退出後は送信できません。",
       }),
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "退出・解散後は送信できません",
+      "退出後は送信できません",
     );
     expect(screen.getByRole("textbox", { name: "文章（任意）" })).toHaveValue(
       "退出後の入力を残す",

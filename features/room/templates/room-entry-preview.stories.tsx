@@ -19,8 +19,7 @@ const meta = {
     phase: buildPhaseStep(1),
     members: buildMembers(3, ME),
     currentUserId: ME,
-    hostUserId: ME,
-    isHost: true,
+
     inviteCode: "AB12CD",
     inviteUrl: "https://example.test/invite/AB12CD",
   },

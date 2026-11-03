@@ -650,7 +650,7 @@ describe("タイマーと完了条件に応じた進行", () => {
       const ctx: HandlerCtx = {
         sql,
         storage: state.storage,
-        userId: member.sub,
+        userId: getSharingState(sql)?.order[1]?.userId ?? member.sub,
         ws: new WebSocketPair()[0],
         reply: () => {},
         broadcaster: new RoomBroadcaster(state),

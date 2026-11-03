@@ -345,7 +345,7 @@ it("保存期限を過ぎてからの退出で消去済みの参加者記録を�
     );
     await instance.alarm();
   });
-  expect((await leave(room.roomId, "retain")).status).toBe(204);
+  expect((await leave(room.roomId, "retain")).status).toBe(404);
   await runInRoomDO(room.roomId, (_instance, state) => {
     expect(
       state.storage.sql

@@ -148,8 +148,6 @@ export default async function RoomPage({
           inviteCode={parsed.data.inviteCode}
           inviteUrl={inviteUrl}
           currentUserId={user.sub}
-          isHost={parsed.data.isHost}
-          hostUserId={parsed.data.hostUserId}
           initialMembers={initialMembers}
           initialPhase={parsed.data.phase}
           sessionKind={user.kind}
@@ -171,8 +169,6 @@ export default async function RoomPage({
             phase={parsed.data.phase}
             members={initialMembers}
             currentUserId={user.sub}
-            hostUserId={parsed.data.hostUserId}
-            isHost={parsed.data.isHost}
             inviteCode={parsed.data.inviteCode}
             inviteUrl={inviteUrl}
           />

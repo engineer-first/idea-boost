@@ -5,7 +5,6 @@
 //   - 付箋の状態・楽観更新ポリシー・プロトコル化: use-room-notes
 //   - グループの状態とプロトコル化: use-note-groups
 //   - members / phase / timer の適用と入退出通知: use-room-state
-//   - 退出 / 解散フロー: use-leave-room
 // このファイルに残るのはフェーズ進行の操作と画面反応だけ。
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
@@ -22,11 +21,7 @@ import {
   isResultStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import {
-  type ClientMessage,
-  needsHostRevision,
-  type ServerMessage,
-} from "@/contracts/room-protocol";
+import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import { canPublishNoteInTurn } from "@/contracts/sharing";
 import type { DisplayNameResult } from "@/features/auth";
 import { submitFeedback, useFeedback } from "@/features/feedback";
@@ -48,7 +43,6 @@ import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
 import { useCandidateOperations } from "../logic/use-candidate-operations";
 import { useCursorPresence } from "../logic/use-cursor-presence";
-import { useHostTransfer } from "../logic/use-host-transfer";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useMemberRemoval } from "../logic/use-member-removal";
 import { usePresenterView } from "../logic/use-presenter-view";
@@ -74,10 +68,6 @@ export type RoomBoardProps = {
   inviteCode: string;
   inviteUrl: string;
   currentUserId: string;
-  // 自分がこのルームのホストかどうか（表示用・操作制御）。
-  isHost: boolean;
-  // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
-  hostUserId: string;
   // SSR 時にサーバーから取得した初期状態。再接続時の flicker を抑える。
   initialMembers: Member[];
   initialPhase: RoomPhase;
@@ -116,8 +106,6 @@ export function RoomBoard({
   inviteCode,
   inviteUrl,
   currentUserId,
-  isHost: initialIsHost,
-  hostUserId: initialHostUserId,
   initialMembers,
   initialPhase,
   signOutAction,
@@ -136,15 +124,8 @@ export function RoomBoard({
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({ initialMembers, initialPhase });
-  const hostUserId = roomState.host.hostUserId ?? initialHostUserId;
-  const isHost = roomState.host.hostUserId
-    ? hostUserId === currentUserId
-    : (roomState.host.isHost ?? initialIsHost);
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
     roomId,
-    isHost,
-    completed: roomState.outcomePublished,
-    hostRevision: roomState.host.hostRevision ?? 0,
   });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
   // useRoomConnection は常に最新のハンドラへ配送するため、
@@ -167,25 +148,12 @@ export function RoomBoard({
   );
   const send = useCallback(
     (message: ClientMessage) => {
-      const sent = sendRaw(
-        needsHostRevision(message) &&
-          message.expectedHostRevision === undefined &&
-          roomState.host.hostRevision !== null
-          ? { ...message, expectedHostRevision: roomState.host.hostRevision }
-          : message,
-      );
+      const sent = sendRaw(message);
       if (sent !== false) historyObserverRef.current?.(message);
       return sent;
     },
-    [sendRaw, roomState.host.hostRevision],
+    [sendRaw],
   );
-  const hostTransfer = useHostTransfer({
-    isHost,
-    hostRevision: roomState.host.hostRevision,
-    connected: connectionStatus === "open",
-    blocked: isNextPhasePending || isLeaving || roomState.outcomePublished,
-    send,
-  });
   const roomName = useRoomName({
     connected: connectionStatus === "open",
     blocked: isLeaving || roomState.outcomePublished,
@@ -201,15 +169,9 @@ export function RoomBoard({
     send,
   });
   const memberRemoval = useMemberRemoval({
-    isHost,
     currentUserId,
-    hostRevision: roomState.host.hostRevision,
     connected: connectionStatus === "open",
-    blocked:
-      isNextPhasePending ||
-      hostTransfer.pending ||
-      isLeaving ||
-      roomState.outcomePublished,
+    blocked: isNextPhasePending || isLeaving || roomState.outcomePublished,
     members: roomState.members,
     send,
   });
@@ -242,7 +204,6 @@ export function RoomBoard({
     blocked:
       notes.movePending ||
       notes.draggingNoteId !== null ||
-      hostTransfer.pending ||
       memberRemoval.pending ||
       isNextPhasePending ||
       isLeaving ||
@@ -482,13 +443,6 @@ export function RoomBoard({
     if (displayName.applyMessage(message)) return;
     moveHistory.applyMessage(message);
     if (memberRemoval.applyMessage(message)) return;
-    if (hostTransfer.applyMessage(message)) return;
-    if (
-      message.type === "host:updated" &&
-      message.hostRevision > (roomState.host.hostRevision ?? -1)
-    ) {
-      setIsNextPhasePending(false);
-    }
     if (
       message.type === "snapshot" ||
       message.type === "outcome:published" ||
@@ -587,7 +541,6 @@ export function RoomBoard({
     (confirmedProgressRevision?: number) => {
       if (
         connectionStatus !== "open" ||
-        hostTransfer.isPending() ||
         memberRemoval.isPending() ||
         isNextPhasePending
       )
@@ -603,7 +556,6 @@ export function RoomBoard({
     },
     [
       connectionStatus,
-      hostTransfer.isPending,
       memberRemoval.isPending,
       isNextPhasePending,
       send,
@@ -637,7 +589,6 @@ export function RoomBoard({
       !roomState.rollbackTarget ||
       roomState.outcomePublished ||
       connectionStatus !== "open" ||
-      hostTransfer.isPending() ||
       memberRemoval.isPending() ||
       isNextPhasePending ||
       isLeaving
@@ -654,7 +605,6 @@ export function RoomBoard({
     roomState.rollbackTarget,
     roomState.outcomePublished,
     connectionStatus,
-    hostTransfer.isPending,
     memberRemoval.isPending,
     isNextPhasePending,
     isLeaving,
@@ -682,12 +632,7 @@ export function RoomBoard({
 
   const handleLoopPhase = useCallback(
     (type: "phase:restart-writing" | "phase:revote") => {
-      if (
-        hostTransfer.isPending() ||
-        memberRemoval.isPending() ||
-        isNextPhasePending
-      )
-        return;
+      if (memberRemoval.isPending() || isNextPhasePending) return;
       setIsNextPhasePending(true);
       send({
         type,
@@ -696,7 +641,6 @@ export function RoomBoard({
       });
     },
     [
-      hostTransfer.isPending,
       memberRemoval.isPending,
       isNextPhasePending,
       send,
@@ -1028,18 +972,9 @@ export function RoomBoard({
         timer={roomState.timer}
         timerServerOffsetMs={roomState.timerServerOffsetMs}
         timerUpdateVersion={roomState.timerUpdateVersion}
-        isHost={isHost}
-        hostRevision={roomState.host.hostRevision ?? 0}
-        onTransferHost={
-          roomState.host.hostRevision === null
-            ? undefined
-            : hostTransfer.transfer
-        }
-        isTransferring={hostTransfer.pending}
         displayName={displayName}
         roomName={roomName}
         memberRemoval={memberRemoval}
-        transferError={hostTransfer.error}
         decision={roomState.decision}
         outcomePublished={roomState.outcomePublished}
         adoptionFocusNoteId={roomState.adoptionFocusNoteId}
@@ -1048,7 +983,6 @@ export function RoomBoard({
         draggingNoteId={notes.frontNoteId}
         members={roomState.members}
         currentUserId={currentUserId}
-        hostUserId={hostUserId}
         completedVoterIds={roomState.completedVoterIds}
         progress={roomState.progress}
         onToggleReady={handleToggleReady}

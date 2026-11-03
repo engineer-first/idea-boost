@@ -230,7 +230,7 @@ describe("joinRoom", () => {
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
       ok: false,
       error:
-        "ルームが満員（上限20人）のため参加できません。ホストに確認してください。",
+        "ルームが満員（上限20人）のため参加できません。招待元に確認してください。",
     });
   });
 
@@ -244,7 +244,7 @@ describe("joinRoom", () => {
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toMatchObject({
       ok: false,
       error:
-        "このルームは終了しているため参加できません。新しい招待コードをホストに確認してください。",
+        "このルームは終了しているため参加できません。新しい招待コードを招待元に確認してください。",
     });
   });
 
@@ -315,8 +315,7 @@ describe("元のルームの確認", () => {
         Response.json({
           roomId,
           inviteCode: "ABC123",
-          isHost: true,
-          hostUserId: "123e4567-e89b-12d3-a456-426614174000",
+
           phase,
         }),
       );
@@ -615,8 +614,7 @@ describe("ゲスト更新後の作成・参加・再入室", () => {
         : Response.json({
             roomId,
             inviteCode: "ABC234",
-            isHost: true,
-            hostUserId: guest.sub,
+
             phase: { kind: "lobby" },
           }),
     );

@@ -18,7 +18,7 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
         <header className="space-y-3">
           <h1 className="text-3xl font-bold">確認するステップを選ぶ</h1>
           <p className="max-w-2xl text-muted-foreground">
-            ステップを選ぶと、あなたがホストのサンプル入りルームを作ります。ボードの「招待」からURLを渡すと、メンバーも同じPRの同じルームで操作できます。
+            ステップを選ぶと、サンプル入りルームを作ります。ボードの「招待」からURLを渡すと、メンバーも同じPRの同じルームで操作できます。
           </p>
           <a
             href="/home"

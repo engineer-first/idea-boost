@@ -23,7 +23,7 @@ function snapshot(revision = 0): Extract<ServerMessage, { type: "snapshot" }> {
     members: [],
     phase: buildPhaseStep(1),
     phaseRevision: 2,
-    isHost: true,
+
     decision: null,
     carryovers: [],
     completedVoterIds: [],

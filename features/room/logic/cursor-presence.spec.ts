@@ -95,7 +95,7 @@ describe("cursor presence reducer", () => {
       notes: [],
       members: [],
       phase: buildPhaseStep(2),
-      isHost: false,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],

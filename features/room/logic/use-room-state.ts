@@ -17,7 +17,6 @@ import {
   applyAuthorNamesServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
-  applyHostServerMessage,
   applyIdeaMapServerMessage,
   applyMemberServerMessage,
   applyOutcomePublishedServerMessage,
@@ -28,7 +27,6 @@ import {
   applyVotingCompletionServerMessage,
   type Carryover,
   type Decision,
-  type HostClientState,
   type IdeaMapClientState,
   INITIAL_IDEA_MAP_STATE,
   INITIAL_PHASE_PROGRESS,
@@ -38,7 +36,6 @@ import {
 } from "./room-reducer";
 
 export type UseRoomStateResult = {
-  host: HostClientState;
   sharing: SharingState | null;
   members: Member[];
   authorNames: ReadonlyMap<string, string>;
@@ -64,11 +61,6 @@ export function useRoomState(options: {
   initialMembers: Member[];
   initialPhase: RoomPhase;
 }): UseRoomStateResult {
-  const [host, setHost] = useState<HostClientState>({
-    hostUserId: null,
-    hostRevision: null,
-    isHost: null,
-  });
   const [sharing, setSharing] = useState<SharingState | null>(null);
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
   const [authorNames, setAuthorNames] = useState<ReadonlyMap<string, string>>(
@@ -122,7 +114,6 @@ export function useRoomState(options: {
       setAuthorNames((current) =>
         applyAuthorNamesServerMessage(current, message),
       );
-      setHost((current) => applyHostServerMessage(current, message));
       setSharing((current) => applySharingServerMessage(current, message));
       setPhase((current) => applyPhaseServerMessage(current, message));
       if (message.type === "snapshot" || message.type === "phase:updated") {
@@ -158,7 +149,6 @@ export function useRoomState(options: {
   );
 
   return {
-    host,
     sharing,
     members,
     authorNames,

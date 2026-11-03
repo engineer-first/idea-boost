@@ -1,7 +1,5 @@
 "use client";
 
-// 退出 / 解散の確認 Dialog。ボード画面とスタート画面の両方で使う。
-// ホストは「ルームを解散」、参加者は「退出」の文言になる。
 import { useId, useState } from "react";
 import {
   AlertDialog,
@@ -15,14 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 
-export type LeaveConfirmMode = "leave" | "disband";
+export type LeaveConfirmMode = "leave";
 
 export type LeaveConfirmDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (outcomeAccess: LeaveOutcomeAccess) => void;
   isLeaving: boolean;
-  // ホストは disband、それ以外は leave（既定）。
   mode?: LeaveConfirmMode;
   completed?: boolean;
   onReturnToOutcome?: () => void;
@@ -44,13 +41,6 @@ const COPY: Record<
     confirm: "退出する",
     confirming: "退出中…",
   },
-  disband: {
-    title: "ルームを解散しますか？",
-    description:
-      "解散するとルームは削除され、参加中のメンバーは全員退出になります。招待URLも使えなくなります。保存済みの共有成果は、最後の利用から30日間保持されます。",
-    confirm: "ルームを解散",
-    confirming: "解散中…",
-  },
 };
 
 export function LeaveConfirmDialog({
@@ -65,16 +55,7 @@ export function LeaveConfirmDialog({
   const [outcomeAccess, setOutcomeAccess] =
     useState<LeaveOutcomeAccess>("retain");
   const choiceId = useId();
-  const copy =
-    mode === "disband" && completed
-      ? {
-          title: "ルームを削除しますか？",
-          description:
-            "ルームは削除され、招待URLも使えなくなります。保存済みの共有成果は、最後の利用から30日間保持されます。全員が各自の成果を持ち帰ったか確認してください。",
-          confirm: "ルームを削除",
-          confirming: "削除中…",
-        }
-      : COPY[mode];
+  const copy = COPY.leave;
 
   return (
     <AlertDialog
@@ -145,11 +126,7 @@ export function LeaveConfirmDialog({
             disabled={isLeaving}
             onClick={onReturnToOutcome}
           >
-            {completed
-              ? mode === "disband"
-                ? "削除をやめて成果へ戻る"
-                : "退出をやめて成果へ戻る"
-              : "キャンセル"}
+            {completed ? "退出をやめて成果へ戻る" : "キャンセル"}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={(event) => {

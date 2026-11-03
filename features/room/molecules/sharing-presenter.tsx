@@ -18,19 +18,17 @@ import {
 
 export type SharingPresenterProps = {
   sharing: SharingState;
-  hostUserId: string;
   currentUserId?: string;
   onEditSelf?: () => void;
-  onSelectHostTarget?: (userId: string) => void;
+  onSelectMember?: (userId: string) => void;
   selectionDisabled?: boolean;
   members?: ProtocolMember[];
 };
 
 export function SharingPresenter({
   sharing,
-  hostUserId,
   currentUserId,
-  onSelectHostTarget,
+  onSelectMember,
   onEditSelf,
   selectionDisabled = false,
   members = sharing.order,
@@ -58,7 +56,7 @@ export function SharingPresenter({
         <Button
           variant="outline"
           aria-label="発表者と全体の順番を確認"
-          data-host-transfer-origin
+          data-member-menu-origin
           aria-describedby={descriptionId}
           className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-xl border-blue-200 bg-blue-50 px-2 text-left hover:bg-blue-100 max-[900px]:min-w-[220px] max-[900px]:flex-1"
         >
@@ -153,12 +151,12 @@ export function SharingPresenter({
                         setOpen(false);
                         onEditSelf();
                       }
-                    : onSelectHostTarget &&
+                    : onSelectMember &&
                         member.userId !== currentUserId &&
                         members.some((entry) => entry.userId === member.userId)
                       ? () => {
                           setOpen(false);
-                          onSelectHostTarget(member.userId);
+                          onSelectMember(member.userId);
                         }
                       : undefined
                 }
@@ -175,9 +173,6 @@ export function SharingPresenter({
                       {NOTE_COLOR_NAMES[member.color]}
                     </span>
                   ) : null}
-                  {member.userId === hostUserId && (
-                    <span className="block text-muted-foreground">ホスト</span>
-                  )}
                 </span>
                 <span className="shrink-0">
                   {sharing.results[index] === "passed"
@@ -211,10 +206,10 @@ export function SharingPresenter({
                         setOpen(false);
                         onEditSelf();
                       }
-                    : onSelectHostTarget && member.userId !== currentUserId
+                    : onSelectMember && member.userId !== currentUserId
                       ? () => {
                           setOpen(false);
-                          onSelectHostTarget(member.userId);
+                          onSelectMember(member.userId);
                         }
                       : undefined
                 }
@@ -227,9 +222,6 @@ export function SharingPresenter({
                 <span className="min-w-0 break-words text-sm">
                   {member.name}
                 </span>
-                {member.userId === hostUserId ? (
-                  <span className="text-xs text-muted-foreground">ホスト</span>
-                ) : null}
               </MemberSelection>
             ))}
           </div>

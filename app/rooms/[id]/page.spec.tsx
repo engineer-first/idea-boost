@@ -92,8 +92,7 @@ beforeEach(() => {
             : {
                 roomId: id,
                 inviteCode: "ABCDEF",
-                isHost: true,
-                hostUserId: "11111111-1111-4111-8111-111111111111",
+
                 phase: { kind: "step", phase: 3, step: 1 },
               },
         ),
@@ -264,8 +263,7 @@ it.each(["board", "start"])(
             : {
                 roomId: id,
                 inviteCode: "ABCDEF",
-                isHost: true,
-                hostUserId: "11111111-1111-4111-8111-111111111111",
+
                 phase: { kind: "lobby" },
               },
         ),

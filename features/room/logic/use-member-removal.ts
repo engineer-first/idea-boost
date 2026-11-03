@@ -20,9 +20,7 @@ export type MemberRemovalControls = {
 };
 
 type Options = {
-  isHost: boolean;
   currentUserId: string;
-  hostRevision: number | null;
   connected: boolean;
   blocked: boolean;
   members: ProtocolMember[];
@@ -30,9 +28,7 @@ type Options = {
 };
 
 export function useMemberRemoval({
-  isHost,
   currentUserId,
-  hostRevision,
   connected,
   blocked,
   members,
@@ -43,7 +39,6 @@ export function useMemberRemoval({
 } {
   const [selection, setSelection] = useState<{
     userId: string;
-    revision: number;
   } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,15 +63,12 @@ export function useMemberRemoval({
         "接続が切れました。再接続後に参加者を確認して操作し直してください。",
       );
   }, [connected, finish]);
-  const open =
-    selection !== null && isHost && selection.revision === hostRevision;
+  const open = selection !== null;
   const target =
     members.find((member) => member.userId === selection?.userId) ?? null;
   const request = useCallback(
     (userId: string) => {
       if (
-        !isHost ||
-        hostRevision === null ||
         !connected ||
         blocked ||
         operationRef.current ||
@@ -85,9 +77,9 @@ export function useMemberRemoval({
       )
         return;
       setError(null);
-      setSelection({ userId, revision: hostRevision });
+      setSelection({ userId });
     },
-    [isHost, currentUserId, hostRevision, connected, blocked, members],
+    [currentUserId, connected, blocked, members],
   );
   const onOpenChange = useCallback((value: boolean) => {
     if (!value && !operationRef.current) {
@@ -96,14 +88,7 @@ export function useMemberRemoval({
     }
   }, []);
   const onConfirm = useCallback(() => {
-    if (
-      !open ||
-      !target ||
-      !connected ||
-      blocked ||
-      operationRef.current ||
-      hostRevision === null
-    )
+    if (!open || !target || !connected || blocked || operationRef.current)
       return;
     const operation = { id: crypto.randomUUID(), userId: target.userId };
     operationRef.current = operation;
@@ -113,7 +98,6 @@ export function useMemberRemoval({
       !send({
         type: "member:remove",
         targetUserId: target.userId,
-        expectedHostRevision: hostRevision,
         operationId: operation.id,
       })
     ) {
@@ -128,7 +112,7 @@ export function useMemberRemoval({
           ),
         5000,
       );
-  }, [open, target, connected, blocked, hostRevision, send, finish]);
+  }, [open, target, connected, blocked, send, finish]);
   const applyMessage = useCallback(
     (message: ServerMessage): boolean => {
       if (
@@ -155,21 +139,14 @@ export function useMemberRemoval({
         finish();
         setSelection(null);
       }
-      if (
-        (message.type === "host:updated" &&
-          message.hostRevision !== selection?.revision) ||
-        message.type === "outcome:published"
-      ) {
+      if (message.type === "outcome:published") {
         finish();
         setSelection(null);
       }
       if (
         message.type === "snapshot" &&
         selection &&
-        (!message.members?.some(
-          (member) => member.userId === selection.userId,
-        ) ||
-          message.hostRevision !== selection.revision)
+        !message.members?.some((member) => member.userId === selection.userId)
       ) {
         finish();
         setSelection(null);

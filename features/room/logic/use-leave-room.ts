@@ -1,6 +1,5 @@
 "use client";
 
-// 退出 / 解散フローの hook。ロビー（RoomLobby）とボード（RoomBoard）の両方で使う。
 // API 成功後は Server Action の redirect でホームへ戻る。失敗時は WS を維持して
 // 再操作できる状態に戻す（先に close すると失敗時に再接続不能になるため、
 // close は RoomDO に任せる）。
@@ -32,13 +31,8 @@ export type UseLeaveRoomResult = {
   leave: (outcomeAccess?: LeaveOutcomeAccess) => void;
 };
 
-export function useLeaveRoom(options: {
-  roomId: string;
-  isHost: boolean;
-  completed?: boolean;
-  hostRevision?: number;
-}): UseLeaveRoomResult {
-  const { roomId, isHost, completed = false, hostRevision } = options;
+export function useLeaveRoom(options: { roomId: string }): UseLeaveRoomResult {
+  const { roomId } = options;
   const [isLeaving, setIsLeaving] = useState(false);
   const [isLeavePending, startLeaveTransition] = useTransition();
   const isLeavingRef = useRef(false);
@@ -51,22 +45,15 @@ export function useLeaveRoom(options: {
       startLeaveTransition(async () => {
         const formData = new FormData();
         formData.append("roomId", roomId);
-        formData.append("intent", isHost && !completed ? "disband" : "self");
-        if (outcomeAccess && !(isHost && !completed))
-          formData.append("outcomeAccess", outcomeAccess);
-        if (hostRevision !== undefined)
-          formData.append("expectedHostRevision", String(hostRevision));
+        formData.append("intent", "self");
+        if (outcomeAccess) formData.append("outcomeAccess", outcomeAccess);
         try {
           await leaveRoom(formData);
         } catch (error) {
           if (isNextRedirectError(error)) {
             clearLastRoom(roomId);
             // 自分の操作成功をトーストで伝える（ホーム遷移後も Toaster は root にある）。
-            if (isHost && !completed) {
-              roomNotify.roomDisbandedBySelf();
-            } else {
-              roomNotify.roomLeft();
-            }
+            roomNotify.roomLeft();
             return;
           }
           // 5xx 等: WS は開いたまま、操作可能に戻す。
@@ -80,7 +67,7 @@ export function useLeaveRoom(options: {
         }
       });
     },
-    [isLeavePending, roomId, isHost, completed, hostRevision],
+    [isLeavePending, roomId],
   );
 
   return { isLeaving, isLeavingRef, leave };

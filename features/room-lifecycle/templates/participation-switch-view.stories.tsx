@@ -25,10 +25,10 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Leave: Story = {};
 export const Transfer: Story = {
-  args: { confirmation: switchConfirmation("transfer") },
+  args: { confirmation: switchConfirmation() },
 };
 export const Disband: Story = {
-  args: { confirmation: switchConfirmation("disband") },
+  args: { confirmation: switchConfirmation() },
 };
 export const Pending: Story = { args: { pending: true, started: true } };
 export const ConnectionFailure: Story = {
@@ -39,7 +39,7 @@ export const ConnectionFailure: Story = {
 };
 export const Changed: Story = {
   args: {
-    confirmation: switchConfirmation("disband"),
+    confirmation: switchConfirmation(),
     message:
       "参加状況が変わりました。内容を確認して、もう一度決定してください。",
   },
@@ -71,7 +71,7 @@ export const RecoveredPending: Story = {
 export const PartiallyLeft: Story = {
   args: {
     confirmation: {
-      ...switchConfirmation("transfer"),
+      ...switchConfirmation(),
       progress: "partially_left",
       outcomeAccess: "retain",
     },
@@ -83,9 +83,9 @@ export const PartiallyLeft: Story = {
 export const LongRoomNames: Story = {
   args: {
     confirmation: {
-      ...switchConfirmation("transfer"),
+      ...switchConfirmation(),
       targetName: `${"DestinationRoom".repeat(5)}ABCDE`,
-      sources: switchConfirmation("transfer").sources.map((source) => ({
+      sources: switchConfirmation().sources.map((source) => ({
         ...source,
         name: `${"CurrentRoom".repeat(7)}ABC`,
         successor: {

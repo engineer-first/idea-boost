@@ -22,7 +22,6 @@ import { AdoptNoteControl } from "./adopt-note-control";
 
 export type PhaseLoopControlsProps = {
   phase: RoomPhase;
-  isHost: boolean;
   isSelecting: boolean;
   decisionContent: string | null;
   candidateCount: number;
@@ -57,7 +56,6 @@ export function PhaseLoopControls({
     return (
       <AdoptNoteControl
         phaseNumber={phase.phase}
-        isHost
         canSelect
         isSelecting={false}
         decisionContent={decisionContent}
@@ -124,7 +122,6 @@ export function PhaseLoopControls({
         {isResult ? (
           <AdoptNoteControl
             phaseNumber={phase.phase}
-            isHost
             canSelect={isResult}
             isSelecting={isSelecting}
             decisionContent={null}

@@ -27,8 +27,6 @@ const meta = {
   args: {
     ...baseMeta.args,
     phase: buildPhaseStep(4),
-    isHost: false,
-    hostUserId: baseMeta.args.members[1]?.userId ?? baseMeta.args.hostUserId,
   },
 } satisfies Meta<typeof RoomBoardView>;
 

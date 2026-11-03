@@ -20,7 +20,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// 招待コードとホスト名を提示し、参加確認を待つ状態。
 export const Default: Story = {};
 
 // 参加処理中（多重押下防止でボタンが無効・文言が「参加中…」）。

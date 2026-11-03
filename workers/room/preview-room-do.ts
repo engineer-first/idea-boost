@@ -24,7 +24,8 @@ export class PreviewRoomDO extends RoomDO {
   async isPreviewSample(userId: string): Promise<boolean> {
     return (
       Boolean(await this.ctx.storage.get("preview-initialized")) &&
-      this.getCurrentHost().hostUserId === userId &&
+      (await this.ctx.storage.get<{ creator: string }>("preview-identity"))
+        ?.creator === userId &&
       this.listMembers().length === 1
     );
   }

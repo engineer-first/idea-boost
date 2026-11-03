@@ -15,13 +15,8 @@ export function switchConfirmation(
         roomId: "33333333-3333-4333-8333-333333333333",
         name: "ルームA",
         inviteCode: "EF34GH",
-        hostRevision: 1,
-        hostUserId: null,
+
         action,
-        successor:
-          action === "transfer"
-            ? { userId: "44444444-4444-4444-8444-444444444444", name: "佐藤" }
-            : null,
       },
     ],
   };
@@ -38,7 +33,7 @@ export function failedParticipation() {
         {
           roomId: "33333333-3333-4333-8333-333333333333",
           name: "元のルーム",
-          result: "disbanded" as const,
+          result: "left" as const,
         },
       ],
       remainingSources: [],

@@ -45,6 +45,19 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "AT-910 他者を除外できる参加者にも他人の未共有付箋は不可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "AT-909 作成者が退出しても残る参加者に共有付箋は可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared" }),
+    expected: true,
+  },
+
+  {
     name: "AT-678 ルーム名を全員共有しても他者の非共有付箋は公開しない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

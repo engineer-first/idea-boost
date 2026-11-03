@@ -579,8 +579,6 @@ export class AccountDO extends DurableObject<Env> {
       );
       if (receipt) {
         if (!op.left.includes(source.roomId)) op.left.push(source.roomId);
-        if (receipt === "disbanded")
-          await deleteRoom(this.env.DB, source.roomId);
       }
     }
     await this.ctx.storage.put(`op:${op.confirmation.operationId}`, op);
@@ -603,8 +601,6 @@ export class AccountDO extends DurableObject<Env> {
           name: source.name,
           result: receipt,
         });
-        if (receipt === "disbanded")
-          await deleteRoom(this.env.DB, source.roomId);
       } else if (!(await stub.isMember(userId)) || !(await stub.isJoinable()))
         exitedSources.push({
           roomId: source.roomId,
@@ -1056,8 +1052,6 @@ export class AccountDO extends DurableObject<Env> {
             }
             result = leaving;
           }
-          if (result === "disbanded")
-            await deleteRoom(this.env.DB, source.roomId);
           op.left.push(source.roomId);
           await save();
         }

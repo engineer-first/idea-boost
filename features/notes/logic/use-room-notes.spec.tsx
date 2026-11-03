@@ -35,7 +35,7 @@ function snapshotMessage(
     notes,
     members: [],
     phase: buildPhaseStep(1),
-    isHost: true,
+
     decision: null,
     carryovers: [],
     completedVoterIds: [],
@@ -67,30 +67,6 @@ describe("useRoomNotes", () => {
       }),
     );
   }
-
-  it("ホスト世代による送信関数の変更後も、次の通知で既存付箋を失わない", () => {
-    const hook = renderHook(({ send }) => useRoomNotes({ send }), {
-      initialProps: { send: vi.fn(() => true) },
-    });
-    const notes = [
-      buildNote({ id: NOTE_ID, visibility: "private" }),
-      buildNote({ id: TARGET_NOTE_ID, visibility: "shared" }),
-    ];
-    act(() => hook.result.current.applyMessage(snapshotMessage(notes)));
-    hook.rerender({ send: vi.fn(() => true) });
-    act(() =>
-      hook.result.current.applyMessage({
-        type: "timer:updated",
-        timer: { status: "idle" },
-        serverNow: Date.now(),
-      }),
-    );
-    expect(hook.result.current.notes).toEqual(notes);
-    act(() => hook.result.current.changeNoteFontSize(NOTE_ID, 24));
-    expect(
-      hook.result.current.notes.find((note) => note.id === NOTE_ID)?.fontSize,
-    ).toBe(24);
-  });
 
   it("送信関数の変更中もドラッグを維持し、間引いた座標は最新の送信関数へ届ける", () => {
     const previousSend = vi.fn(() => true);
@@ -1357,6 +1333,29 @@ describe("useRoomNotes", () => {
       type: "note:unpublish",
       noteId: NOTE_ID,
     });
+  });
+  it("送信関数の変更後も、次の通知で既存付箋を失わない", () => {
+    const hook = renderHook(({ send }) => useRoomNotes({ send }), {
+      initialProps: { send: vi.fn(() => true) },
+    });
+    const notes = [
+      buildNote({ id: NOTE_ID, visibility: "private" }),
+      buildNote({ id: TARGET_NOTE_ID, visibility: "shared" }),
+    ];
+    act(() => hook.result.current.applyMessage(snapshotMessage(notes)));
+    hook.rerender({ send: vi.fn(() => true) });
+    act(() =>
+      hook.result.current.applyMessage({
+        type: "timer:updated",
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      }),
+    );
+    expect(hook.result.current.notes).toEqual(notes);
+    act(() => hook.result.current.changeNoteFontSize(NOTE_ID, 24));
+    expect(
+      hook.result.current.notes.find((note) => note.id === NOTE_ID)?.fontSize,
+    ).toBe(24);
   });
 });
 
