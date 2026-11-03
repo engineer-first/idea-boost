@@ -77,7 +77,6 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     let readTurn = 0;
     async function refresh() {
       const read = ++readTurn;
-      if (submitting.current) return;
       try {
         const saved = currentUserId
           ? await readRoomCreationIntent(currentUserId)
@@ -94,7 +93,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     }
     void refresh();
     const unsubscribe = subscribeRoomCreations(() => {
-      if (storageAvailable.current) void refresh();
+      if (storageAvailable.current && !submitting.current) void refresh();
     });
     return () => {
       live = false;
@@ -121,16 +120,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     setMessage(undefined);
     startTransition(async () => {
       let next = intent;
-      // 一度開いたルームや旧形式の成功控えは、新しい作成の意図へ持ち越さない。
-      if (
-        next &&
-        (next.state === "closed" ||
-          next.state === "expired" ||
-          (next.roomId &&
-            (!next.unopened || wasRoomCreationOpened(next.roomId))) ||
-          (next.state === "prepared" && attempted.current !== next.requestId))
-      )
-        next = null;
+      let activeRequestId = intent?.requestId ?? null;
       async function persist<T>(
         operation: () => Promise<T>,
         fallback: T,
@@ -161,6 +151,22 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         let recoveredDestination:
           | Awaited<ReturnType<typeof returnToRoom>>
           | undefined;
+        if (!attempted.current) {
+          next = await persist(() => readRoomCreationIntent(principal), next);
+          if (!sameActor()) return;
+          activeRequestId = next?.requestId ?? null;
+          setIntent(next);
+        }
+        // 一度開いたルームや旧形式の成功控えは、新しい作成の意図へ持ち越さない。
+        if (
+          next &&
+          (next.state === "closed" ||
+            next.state === "expired" ||
+            (next.roomId &&
+              (!next.unopened || wasRoomCreationOpened(next.roomId))) ||
+            (next.state === "prepared" && attempted.current !== next.requestId))
+        )
+          next = null;
         // 終了・期限切れが判明した前回分は選択から外して新規発行する。
         if (next && !next.roomId) {
           const query = await queryRoomCreation(principal, next.requestId);
@@ -219,18 +225,17 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             generation: crypto.randomUUID(),
           };
           next = await persist(
-            () =>
-              saveRoomCreationIntent(
-                principal,
-                candidate,
-                intent?.requestId ?? null,
-              ),
+            () => saveRoomCreationIntent(principal, candidate, activeRequestId),
             candidate,
           );
           if (!sameActor()) return;
           setIntent(next);
+          // 保存中に選択が変わった場合は、次の試行で勝者の現在状態を確認する。
+          if (next.requestId !== candidate.requestId) {
+            setMessage(RETRY_MESSAGE);
+            return;
+          }
           attempted.current = next.requestId;
-          // 別タブが既に選んだ要求も同じ結果へ収束させる。
         }
         if (!(await selected())) return;
         let roomId = next.roomId;
@@ -247,6 +252,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
           );
           if (!(await selected())) return;
           setIntent(next);
+          attempted.current = next.requestId;
           const result = next.roomId
             ? { ok: true as const, roomId: next.roomId }
             : await createRoom({

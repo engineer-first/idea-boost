@@ -285,6 +285,11 @@ describe("ホームからのルーム作成", () => {
     view.rerender(<CreateRoomSection currentUserId={OTHER} />);
     await act(async () => resolve({ ok: true, roomId: ROOM }));
     expect(m.push).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "新しいルームを作成" }),
+      ).toBeEnabled(),
+    );
   });
   it("別タブで選択が変わった後の応答では移動しない", async () => {
     let resolve!: (v: unknown) => void;
@@ -501,4 +506,34 @@ it("同じ作成要求の移動が成功した場合はその控えへ結果を�
       ROOM,
     ),
   );
+});
+
+it("別タブで未送信分の作成が成立していたら最新の控えを読み新規発行しない", async () => {
+  const previous = { ...intent(), state: "prepared" as const };
+  m.read.mockResolvedValueOnce(previous).mockResolvedValue({
+    ...previous,
+    state: "known",
+    roomId: ROOM,
+    unopened: true,
+  });
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click();
+  await waitFor(() => expect(m.push).toHaveBeenCalled());
+  expect(m.issue).not.toHaveBeenCalled();
+  expect(m.create).not.toHaveBeenCalled();
+});
+
+it("保存中に別タブが選んだ使用済みルームへは移動せず再試行できる", async () => {
+  m.save.mockResolvedValue({
+    ...intent(),
+    state: "known",
+    roomId: ROOM,
+    unopened: true,
+  });
+  m.opened.mockReturnValue(true);
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click();
+  await screen.findByRole("button", { name: "もう一度試す" });
+  expect(m.create).not.toHaveBeenCalled();
+  expect(m.push).not.toHaveBeenCalled();
 });
