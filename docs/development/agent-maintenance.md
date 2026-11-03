@@ -34,6 +34,8 @@ Claudeの既存hooksは [.claude/settings.json](../../.claude/settings.json) で
 個人のCodex履歴、認証情報、ユーザースキル、実行中の引き継ぎ文書は配布物に含めない。
 履歴から採用した判断と検証結果だけを保守記録へ残す。
 
+ADRを書く・レビューする際の規約は[ADR運用](../adr/README.md)を正本とする。指示・skillへ複製せず、`npm run check:adr`で構造・索引・相対リンクを検査する。
+
 ## 保守する場所
 
 - 常時必要な判断はAGENTS、作業別知識は参照先へ置く。静的検査できる細則は[ast-grep](../../rules/ast-grep/)・[配置検査](../../scripts/check-feature-layout.mts)・[DB lint](../../.tbls/)へ委譲する。
