@@ -128,7 +128,7 @@ test.each(["terminal-failure", "source-maintained-failure"])(
     );
     expect(await home.getAttribute("href")).toBe("/home");
     if (story === "terminal-failure")
-      expect(await page.getByText("元のルーム：解散済み").count()).toBe(1);
+      expect(await page.getByText("元のルーム：退出済み").count()).toBe(1);
     else expect(await page.getByText("ルームA：参加中").count()).toBe(1);
   },
 );

@@ -18,7 +18,7 @@ import { RoomBroadcaster } from "./broadcast";
 import { setDecision } from "./decisions";
 import { groupHandlers } from "./groups";
 import type { HandlerCtx } from "./handler-context";
-import { getMemberColor, isHostUser } from "./members";
+import { getMemberColor } from "./members";
 import { noteHandlers } from "./note-handlers";
 import { findNote, insertNote, type NoteRow, toProtocolNote } from "./notes";
 import { getPhase, savePhase } from "./phase";
@@ -254,8 +254,7 @@ export class VerificationRoomDO extends RoomDO {
     const phase = getPhase(this.ctx.storage.sql);
     return {
       phase,
-      canCompleteVotes:
-        isVotingStep(phase) && isHostUser(this.ctx.storage.sql, userId),
+      canCompleteVotes: isVotingStep(phase) && userId === DEV_USERS[0].id,
       completedOtherVoters:
         phase.kind === "step"
           ? DEV_USERS.slice(1).filter((user) =>
@@ -274,12 +273,7 @@ export class VerificationRoomDO extends RoomDO {
       // 古い操作などの通常エラーは値として返し、ゲートの外でRPCエラーにする。
       try {
         const status = await this.verificationStatus(userId);
-        if (
-          !status ||
-          userId !== DEV_USERS[0].id ||
-          !isHostUser(this.ctx.storage.sql, userId)
-        )
-          return null;
+        if (!status || userId !== DEV_USERS[0].id) return null;
         const phase = status.phase;
         if (
           phase.kind !== "step" ||

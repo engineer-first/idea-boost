@@ -650,7 +650,7 @@ describe("タイマーと完了条件に応じた進行", () => {
       const ctx: HandlerCtx = {
         sql,
         storage: state.storage,
-        userId: member.sub,
+        userId: getSharingState(sql)?.order[1]?.userId ?? member.sub,
         ws: new WebSocketPair()[0],
         reply: () => {},
         broadcaster: new RoomBroadcaster(state),
@@ -780,41 +780,48 @@ describe("タイマーと完了条件に応じた進行", () => {
     },
   );
 
-  it("最後の発表者が完了すると次の工程へ進む", async () => {
-    const roomId = await setup(2);
-    const result = await runInRoomDO(roomId, async (_, state) => {
-      const ctx: HandlerCtx = {
-        sql: state.storage.sql,
-        storage: state.storage,
-        userId: member.sub,
-        ws: new WebSocketPair()[0],
-        reply: () => {},
-        broadcaster: new RoomBroadcaster(state),
-        refreshSnapshots: () => {},
-      };
-      const sharing = getSharingState(ctx.sql);
-      if (!sharing) throw new Error("共有状態がありません");
-      saveSharingState(ctx.sql, {
-        ...sharing,
-        status: "active",
-        currentIndex: sharing.order.length - 1,
-        results: sharing.order.slice(1).map(() => "done" as const),
-        startsAt: null,
+  it.each([host.sub, member.sub])(
+    "最後の発表者 %s が完了すると次の工程へ進む",
+    async (lastPresenterId) => {
+      const roomId = await setup(2);
+      const result = await runInRoomDO(roomId, async (_, state) => {
+        const ctx: HandlerCtx = {
+          sql: state.storage.sql,
+          storage: state.storage,
+          userId: lastPresenterId,
+          ws: new WebSocketPair()[0],
+          reply: () => {},
+          broadcaster: new RoomBroadcaster(state),
+          refreshSnapshots: () => {},
+        };
+        const sharing = getSharingState(ctx.sql);
+        if (!sharing) throw new Error("共有状態がありません");
+        saveSharingState(ctx.sql, {
+          ...sharing,
+          order: [
+            ...sharing.order.filter(({ userId }) => userId !== lastPresenterId),
+            ...sharing.order.filter(({ userId }) => userId === lastPresenterId),
+          ],
+          status: "active",
+          currentIndex: sharing.order.length - 1,
+          results: sharing.order.slice(1).map(() => "done" as const),
+          startsAt: null,
+        });
+        saveTimerState(ctx.sql, {
+          status: "ended",
+          durationMs: sharing.durationMs,
+        });
+        await sharingHandlers["sharing:advance"](ctx, {
+          type: "sharing:advance",
+          revision: sharing.revision,
+          outcome: "done",
+        });
+        return { phase: getPhase(ctx.sql), sharing: getSharingState(ctx.sql) };
       });
-      saveTimerState(ctx.sql, {
-        status: "ended",
-        durationMs: sharing.durationMs,
-      });
-      await sharingHandlers["sharing:advance"](ctx, {
-        type: "sharing:advance",
-        revision: sharing.revision,
-        outcome: "done",
-      });
-      return { phase: getPhase(ctx.sql), sharing: getSharingState(ctx.sql) };
-    });
-    expect(result.phase).toEqual({ kind: "step", phase: 1, step: 3 });
-    expect(result.sharing?.status).toBe("inactive");
-  });
+      expect(result.phase).toEqual({ kind: "step", phase: 1, step: 3 });
+      expect(result.sharing?.status).toBe("inactive");
+    },
+  );
 
   it.each([1, 2, 3] as const)(
     "フェーズ%iの共有一巡後は付箋0枚でも次の工程へ進める",

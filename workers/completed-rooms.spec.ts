@@ -107,7 +107,7 @@ describe("本人向けの完了ルーム再訪", () => {
     expect(await denied.text()).toBe(await missing.text());
     room.socket.close();
   });
-  it("完了後の参加・作業更新・解散を拒否し、ホスト本人の退出で閲覧権を失わない", async () => {
+  it("完了後の参加と作業更新を拒否し、作成者の退出でも閲覧権を失わない", async () => {
     const room = await complete();
     expect(
       (await request("rooms/join", outsider, "POST", { code: room.inviteCode }))
@@ -120,9 +120,6 @@ describe("本人向けの完了ルーム再訪", () => {
       type: "error",
       code: "forbidden",
     });
-    expect(
-      (await request(`rooms/${room.roomId}/leave`, host, "POST")).status,
-    ).toBe(409);
     expect(
       (
         await request(`rooms/${room.roomId}/leave`, host, "POST", {
@@ -941,15 +938,8 @@ it("導入前の完了ルームでも稼働中タイマーを停止し、過去�
   });
 });
 
-it("旧完了ルームもホスト本人が退出でき、未完了ホスト・非メンバー・未認証は許可しない", async () => {
+it("旧完了ルームから作成者も退出でき、非メンバーと未認証は拒否する", async () => {
   const room = await createRoomAs(host);
-  expect(
-    (
-      await request(`rooms/${room.roomId}/leave`, host, "POST", {
-        intent: "self",
-      })
-    ).status,
-  ).toBe(409);
   await runInRoomDO(room.roomId, (_instance, state) => {
     state.storage.sql.exec(
       "UPDATE room_state SET outcome_published=1 WHERE id=1",
@@ -972,9 +962,6 @@ it("旧完了ルームもホスト本人が退出でき、未完了ホスト・�
       )
     ).status,
   ).toBe(401);
-  expect(
-    (await request(`rooms/${room.roomId}/leave`, host, "POST")).status,
-  ).toBe(409);
   expect(
     (
       await request(`rooms/${room.roomId}/leave`, host, "POST", {

@@ -113,7 +113,7 @@ const meta = {
     phase: STEP_1_1,
     decision: null,
     permissions: getBoardPermissions(STEP_1_1),
-    isHost: true,
+
     privateNotes: [],
     selectedNoteId: null,
     draggingNoteId: null,
@@ -437,11 +437,10 @@ function TwoClientAdoptionFocusPreview({
   const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
     null,
   );
-  const client = (isHost: boolean) => (
+  const client = (isSelecting: boolean) => (
     <RoomBoardCanvas
       {...args}
-      isHost={isHost}
-      isAdoptMode={isHost}
+      isAdoptMode={isSelecting}
       adoptionFocusNoteId={adoptionFocusNoteId}
       onAdoptionFocusChange={setAdoptionFocusNoteId}
       boardScrollerRef={createRef<HTMLDivElement>()}
@@ -453,10 +452,10 @@ function TwoClientAdoptionFocusPreview({
   return (
     <div className="grid h-[70vh] w-full grid-cols-2 gap-4">
       <section
-        aria-label="ホストクライアント"
+        aria-label="選択操作のクライアント"
         className="flex min-h-0 flex-col"
       >
-        <h2 className="mb-2 text-sm font-bold">ホスト</h2>
+        <h2 className="mb-2 text-sm font-bold">操作中の参加者</h2>
         {client(true)}
       </section>
       <section
@@ -488,11 +487,10 @@ function TwoClientAdoptionReselectionPreview({
   const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
     null,
   );
-  const client = (isHost: boolean) => (
+  const client = (isSelecting: boolean) => (
     <RoomBoardCanvas
       {...args}
-      isHost={isHost}
-      isAdoptMode={isHost && isAdoptMode}
+      isAdoptMode={isSelecting && isAdoptMode}
       adoptionFocusNoteId={adoptionFocusNoteId}
       onAdoptionFocusChange={setAdoptionFocusNoteId}
       onAdoptNote={() => {
@@ -518,10 +516,10 @@ function TwoClientAdoptionReselectionPreview({
       ) : null}
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
         <section
-          aria-label="ホストクライアント"
+          aria-label="選択操作のクライアント"
           className="flex min-h-0 flex-col"
         >
-          <h2 className="mb-2 text-sm font-bold">ホスト</h2>
+          <h2 className="mb-2 text-sm font-bold">操作中の参加者</h2>
           {client(true)}
         </section>
         <section
@@ -777,7 +775,7 @@ export const IdeaMapConcentratedNotes: Story = {
 };
 
 export const HostCanResizeIdeaMap: Story = {
-  name: "2軸マップ / ホストが広さを調整",
+  name: "2軸マップ / 操作中の参加者が広さを調整",
   args: {
     phase: buildPhaseStep(3, 3),
     permissions: getBoardPermissions(buildPhaseStep(3, 3)),
@@ -796,7 +794,6 @@ export const ParticipantIdeaMap: Story = {
   name: "2軸マップ / 参加者には広さ操作を表示しない",
   args: {
     ...HostCanResizeIdeaMap.args,
-    isHost: false,
   },
   decorators: IDEA_MAP_VIEWPORT,
 };
@@ -1217,7 +1214,7 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
 }
 
 export const PrivateGuidanceEmpty: Story = {
-  args: { notes: [], privateNotes: [], isHost: false },
+  args: { notes: [], privateNotes: [] },
   render: (args) => <PrivateNoteGuidanceExample {...args} />,
 };
 export const PrivateGuidanceMultiple: Story = {
@@ -1253,7 +1250,7 @@ export const PrivateGuidanceVoting: Story = {
 
 export const PrivateGuidanceSharingHost: Story = {
   ...PrivateGuidanceSharing,
-  args: { ...PrivateGuidanceSharing.args, isHost: true },
+  args: { ...PrivateGuidanceSharing.args },
 };
 
 // 通信ACKを500ms遅らせた本番hookの操作用fixture。実DOの保証はWorkerテストで検証する。
@@ -1373,7 +1370,7 @@ function TransactionMovePreview({ args }: { args: RoomBoardCanvasStoryProps }) {
       groupRevision: 0,
       mapRevision: 0,
       members: [],
-      isHost: true,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],

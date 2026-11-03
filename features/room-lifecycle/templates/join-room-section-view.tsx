@@ -43,7 +43,7 @@ export function JoinRoomSectionView({
         <div className="space-y-1.5">
           <CardTitle className="text-base">ルームに参加</CardTitle>
           <CardDescription className="leading-relaxed">
-            ホストから共有された 6 桁の招待コードを入力します。
+            共有された 6 桁の招待コードを入力します。
           </CardDescription>
         </div>
       </CardHeader>

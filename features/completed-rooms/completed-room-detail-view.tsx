@@ -103,7 +103,7 @@ export function CompletedRoomDetailView({
       >
         {feedback ? (
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            感想は現在参加中のルームからのみ送信できます。退出・解散後は送信できません。
+            感想は現在参加中のルームからのみ送信できます。退出後は送信できません。
           </p>
         ) : null}
         <section className="mt-8 space-y-4" aria-label="完了ルームの記録">

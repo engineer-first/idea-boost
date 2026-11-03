@@ -134,8 +134,6 @@ export default async function StartPage({
           inviteCode={parsed.data.inviteCode}
           inviteUrl={inviteUrl}
           currentUserId={user.sub}
-          isHost={parsed.data.isHost}
-          hostUserId={parsed.data.hostUserId}
           initialPhase={parsed.data.phase}
           initialMembers={initialMembers}
         />
@@ -154,8 +152,6 @@ export default async function StartPage({
             phase={parsed.data.phase}
             members={initialMembers}
             currentUserId={user.sub}
-            hostUserId={parsed.data.hostUserId}
-            isHost={parsed.data.isHost}
             inviteCode={parsed.data.inviteCode}
             inviteUrl={inviteUrl}
           />

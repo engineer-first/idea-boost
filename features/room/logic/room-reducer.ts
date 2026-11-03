@@ -145,7 +145,6 @@ export function applyMemberServerMessage(
     case "reaction:received":
     case "member:removed":
     case "room:renamed":
-    case "host:updated":
     case "error":
       return members;
     default: {
@@ -226,7 +225,6 @@ export function applyVotingCompletionServerMessage(
     case "member:removed":
     case "phase:progress":
     case "room:renamed":
-    case "host:updated":
     case "error":
       return completedVoterIds;
     default: {
@@ -311,7 +309,6 @@ export function applyDecisionServerMessage(
     case "member:removed":
     case "phase:progress":
     case "room:renamed":
-    case "host:updated":
     case "error":
       return decision;
     default: {
@@ -410,7 +407,6 @@ export function applyPhaseServerMessage(
     case "member:removed":
     case "phase:progress":
     case "room:renamed":
-    case "host:updated":
     case "error":
       return phase;
     default: {
@@ -434,28 +430,4 @@ export function applySharingServerMessage(
       ),
     };
   return state;
-}
-
-export type HostClientState = {
-  hostUserId: string | null;
-  hostRevision: number | null;
-  isHost: boolean | null;
-};
-export function applyHostServerMessage(
-  state: HostClientState,
-  message: ServerMessage,
-): HostClientState {
-  if (message.type !== "snapshot" && message.type !== "host:updated")
-    return state;
-  if (
-    message.hostRevision !== undefined &&
-    state.hostRevision !== null &&
-    message.hostRevision < state.hostRevision
-  )
-    return state;
-  return {
-    hostUserId: message.hostUserId ?? state.hostUserId,
-    hostRevision: message.hostRevision ?? state.hostRevision,
-    isHost: message.type === "snapshot" ? message.isHost : null,
-  };
 }

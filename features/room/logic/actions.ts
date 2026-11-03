@@ -1,6 +1,5 @@
 "use server";
 
-// ルーム内から呼ばれる Server Actions 境界（退出 / 解散）。
 // 実体は api-worker（D1 + RoomDO）へ委譲し、ここでは
 // 「認証されているか」「入力形式が正しいか」だけを検証する。
 // 作成・参加はルーム外のフロー（features/room-lifecycle/actions.ts）。
@@ -27,8 +26,6 @@ export async function leaveRoom(formData: FormData): Promise<void> {
     redirect("/login");
   }
 
-  // 404（既に退出済み / 存在しない / 非メンバー / 解散済み）は成功相当でホームへ。
-  // ホストの leave はサーバ側でルーム解散になる。
   // 5xx は呼び出し側でリカバリする。
   const intent = formData.get("intent");
   const revision = formData.get("expectedHostRevision");
@@ -49,7 +46,6 @@ export async function leaveRoom(formData: FormData): Promise<void> {
   });
 
   if (res.status === 404) {
-    // 既に退出済み（または解散済み）— ホームに戻す
     redirect("/home");
   }
   if (!res.ok) {

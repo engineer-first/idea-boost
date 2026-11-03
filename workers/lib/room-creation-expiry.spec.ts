@@ -342,15 +342,12 @@ it("retired watermarkは時計後退時にも新規予約を拒否", async () =>
     "UPDATE room_creation_policy SET retired_before=0 WHERE id=1",
   ).run();
 });
-it("marker無しでownerやphase revisionのあるlegacyは新RPCでも初期化しない", async () => {
+it("marker無しでphase revisionのある既存ルームは新RPCでも初期化しない", async () => {
   const { creationIdentity } = await import("./room-creation");
   await ensureUser(env.DB, { id: owner.sub, email: owner.email });
   const c = await reserveRoomCreation(env.DB, owner.sub, v7(), "test");
   await runInRoomDO(c.room_id, async (instance, state) => {
-    state.storage.sql.exec(
-      "UPDATE room_owner SET host_id=? WHERE id=1",
-      owner.sub,
-    );
+    state.storage.sql.exec("UPDATE room_state SET phase_revision=1 WHERE id=1");
     await expect(
       instance.initializeCreation(creationIdentity(c), owner.name, c.name),
     ).rejects.toThrow("再初期化");

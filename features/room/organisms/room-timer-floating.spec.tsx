@@ -18,7 +18,7 @@ function props() {
     timer: buildRunningTimer({ remainingMs: 150_000, durationMs: 300_000 }),
     serverOffsetMs: 0,
     now: () => ROOM_TIMER_FIXTURE_NOW,
-    isHost: true,
+
     disabled: false,
     initialDurationMs: 300_000,
     onStart: vi.fn(),

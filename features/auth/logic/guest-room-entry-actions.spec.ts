@@ -25,8 +25,7 @@ const roomId = "22222222-2222-4222-8222-222222222222";
 const room = {
   roomId,
   inviteCode: "ABCDEF",
-  isHost: false,
-  hostUserId: user.sub,
+
   phase: { kind: "lobby" },
 };
 beforeEach(() => {

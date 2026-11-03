@@ -32,7 +32,7 @@ function setup(
     groups: [],
     phase: buildPhaseStep(2),
     decision: null,
-    isHost: false,
+
     permissions: getBoardPermissions(buildPhaseStep(2)),
     privateNotes: [],
     selectedNoteId: null,
@@ -283,7 +283,7 @@ describe("RoomBoardCanvas", () => {
       phase,
       permissions: getBoardPermissions(phase),
       boardInteractionBlocked: true,
-      isHost: true,
+
       isAdoptMode: true,
       notes: [
         buildNote({
@@ -325,7 +325,7 @@ describe("RoomBoardCanvas", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
       permissions: getBoardPermissions(buildPhaseStep(5)),
-      isHost: true,
+
       selectedNoteId: "note-1",
       onNoteExclude: vi.fn(),
     });
@@ -393,7 +393,6 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
     });
 
     expect(
@@ -413,7 +412,7 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       moveHistory,
     });
 
@@ -459,7 +458,7 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       moveHistory: {
         undo: { label: "付箋の移動", reason: null, disabled: false },
         redo: { label: "付箋の移動", reason: null, disabled: false },
@@ -503,7 +502,7 @@ describe("RoomBoardCanvas", () => {
     const onAdoptNote = vi.fn();
     setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       isAdoptMode: true,
       onAdoptNote,
       notes: [
@@ -536,7 +535,7 @@ describe("RoomBoardCanvas", () => {
       setup({
         phase,
         permissions: getBoardPermissions(phase),
-        isHost: true,
+
         isAdoptMode: true,
         decision: buildDecision({ noteId: "note-1", phase: phase.phase }),
         notes: buildNotes(2),
@@ -553,7 +552,7 @@ describe("RoomBoardCanvas", () => {
       const { props, rerender } = setup({
         phase,
         permissions: getBoardPermissions(phase),
-        isHost: true,
+
         isAdoptMode: true,
         notes: [buildNote({ visibility: "private" })],
       });
@@ -563,7 +562,7 @@ describe("RoomBoardCanvas", () => {
       const notes = buildNotes(2);
       rerender(<RoomBoardCanvas {...props} notes={notes} isDisconnected />);
       expect(targets()).toHaveLength(0);
-      rerender(<RoomBoardCanvas {...props} notes={notes} isHost={false} />);
+      rerender(<RoomBoardCanvas {...props} notes={notes} />);
       expect(targets()).toHaveLength(2);
       rerender(<RoomBoardCanvas {...props} notes={notes} />);
       expect(targets()).toHaveLength(2);
@@ -573,7 +572,7 @@ describe("RoomBoardCanvas", () => {
   it("通常キャンバスの採用候補は透明な操作面とポインターを維持する", () => {
     setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       isAdoptMode: true,
       notes: [
         buildNote({ content: "通常キャンバス候補", visibility: "shared" }),
@@ -592,7 +591,7 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       isAdoptMode: true,
       notes: [
         buildNote({ content: "アイデアマップ候補", visibility: "shared" }),
@@ -614,7 +613,7 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       isAdoptMode: true,
       notes: [
         buildNote({ id: "note-1", content: "候補", visibility: "shared" }),
@@ -641,7 +640,7 @@ describe("RoomBoardCanvas", () => {
     ];
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       isAdoptMode: true,
       notes,
       onAdoptionFocusChange,
@@ -665,7 +664,7 @@ describe("RoomBoardCanvas", () => {
     const note = buildNote({ id: "note-1", visibility: "shared" });
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
-      isHost: false,
+
       notes: [note],
       adoptionFocusNoteId: "note-1",
     });
@@ -674,9 +673,7 @@ describe("RoomBoardCanvas", () => {
       "true",
     );
 
-    rerender(
-      <RoomBoardCanvas {...props} isHost adoptionFocusNoteId="note-1" />,
-    );
+    rerender(<RoomBoardCanvas {...props} adoptionFocusNoteId="note-1" />);
     expect(screen.getByTestId("note-card")).toHaveAttribute(
       "data-adoption-focused",
       "true",
@@ -686,7 +683,7 @@ describe("RoomBoardCanvas", () => {
   it("非ホストにも確定済み付箋の緑枠とはんこを示す", () => {
     setup({
       phase: buildPhaseStep(5),
-      isHost: false,
+
       decision: {
         phase: 1,
         noteId: "note-1",
@@ -891,7 +888,7 @@ describe("RoomBoardCanvas", () => {
     const onIdeaMapResize = vi.fn();
     setup({
       phase: buildPhaseStep(3, 3),
-      isHost: true,
+
       ideaMapSizeLevel: 2,
       ideaMapSizeInitialized: true,
       onIdeaMapResize,
@@ -917,7 +914,7 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       notes: [buildNote({ id: "note-1", excluded: true, x: 120, y: 240 })],
     });
 
@@ -1967,7 +1964,7 @@ it("採用選択中も候補をドラッグでき、ドラッグでは採用し�
   const { props } = setup({
     phase,
     permissions: getBoardPermissions(phase),
-    isHost: true,
+
     isAdoptMode: true,
   });
   const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];
@@ -1997,7 +1994,7 @@ it.each(["secondary", "released", "cancelled"])(
     const { props } = setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       isAdoptMode: true,
     });
     const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];

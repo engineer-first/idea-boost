@@ -861,7 +861,7 @@ describe("PrivateNotesToolbar", () => {
           members: [],
           phase: buildPhaseStep(1),
           phaseRevision: 1,
-          isHost: true,
+
           decision: null,
           carryovers: [],
           completedVoterIds: [],

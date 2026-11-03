@@ -1,13 +1,11 @@
 import { isRoomClosed } from "./completed-rooms";
 import type { MessageHandlers } from "./handler-context";
-import { getHostState, isMember } from "./members";
+import { isMember } from "./members";
 
 export const memberRemovalHandlers: MessageHandlers<"member:remove"> = {
   "member:remove": (ctx, message) => {
-    const host = getHostState(ctx.sql);
     if (
-      host.hostUserId !== ctx.userId ||
-      host.hostRevision !== message.expectedHostRevision ||
+      !isMember(ctx.sql, ctx.userId) ||
       isRoomClosed(ctx.sql) ||
       message.targetUserId === ctx.userId ||
       !isMember(ctx.sql, message.targetUserId) ||

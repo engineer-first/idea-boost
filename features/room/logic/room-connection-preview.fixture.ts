@@ -12,10 +12,10 @@ import type {
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 
-export const PREVIEW_HOST = "11111111-1111-4111-8111-111111111111";
+export const PREVIEW_SELF = "11111111-1111-4111-8111-111111111111";
 export const PREVIEW_TARGET = "22222222-2222-4222-8222-222222222222";
 export const PREVIEW_MEMBERS: ProtocolMember[] = [
-  { userId: PREVIEW_HOST, name: "Yuki Tanaka", color: "yellow" },
+  { userId: PREVIEW_SELF, name: "Yuki Tanaka", color: "yellow" },
   { userId: PREVIEW_TARGET, name: "Hana Sato", color: "blue" },
 ];
 export const OVERFLOW_PREVIEW_MEMBERS: ProtocolMember[] = [
@@ -30,13 +30,13 @@ export const OVERFLOW_PREVIEW_MEMBERS: ProtocolMember[] = [
   PREVIEW_MEMBERS[0],
 ];
 export const ACTIVE_PREVIEW_MEMBERS: ProtocolMember[] = [
-  { userId: PREVIEW_HOST, name: "Yuki Tanaka", color: "yellow" },
+  { userId: PREVIEW_SELF, name: "Yuki Tanaka", color: "yellow" },
   { userId: PREVIEW_TARGET, name: "Hana Sato", color: "blue" },
 ];
 export const ACTIVE_PREVIEW_NOTES: ProtocolNote[] = [
   buildNote({
     id: "cccccccc-cccc-4ccc-8ccc-ccccccccccc1",
-    authorId: PREVIEW_HOST,
+    authorId: PREVIEW_SELF,
     content: "初めての参加者が発言しづらい",
     x: 160,
     y: 260,
@@ -52,7 +52,7 @@ export const ACTIVE_PREVIEW_NOTES: ProtocolNote[] = [
   }),
   buildNote({
     id: "cccccccc-cccc-4ccc-8ccc-ccccccccccc3",
-    authorId: PREVIEW_HOST,
+    authorId: PREVIEW_SELF,
     content: "全員の案を見ながら次の一歩を決める",
     x: 720,
     y: 340,
@@ -66,15 +66,13 @@ export const ACTIVE_PREVIEW_TIMER: TimerState = {
 };
 
 type PreviewEvent = { data?: string; code?: number; reason?: string };
-export type HostPreviewMode = "success" | "refused" | "reconnect" | "timeout";
-export type HostPreviewServerEvent =
+export type RoomPreviewMode = "success" | "refused" | "reconnect" | "timeout";
+export type RoomPreviewServerEvent =
   | "timer-tick"
-  | "transfer"
-  | "aba"
   | "recipient-left"
   | "disconnect"
   | "reconnect";
-export type HostTransferPreviewOptions = {
+export type RoomConnectionPreviewOptions = {
   connectionDelayMs?: number;
   phase?: RoomPhase;
   members?: ProtocolMember[];
@@ -82,7 +80,6 @@ export type HostTransferPreviewOptions = {
   timer?: TimerState;
   sharing?: SharingState | null;
   currentUserId?: string;
-  hostUserId?: string;
   decision?: Decision | null;
   outcomePublished?: boolean;
 };
@@ -123,13 +120,11 @@ class PreviewSocket {
   }
 }
 
-export function createHostTransferPreview(
-  initialMode: HostPreviewMode,
-  options: HostTransferPreviewOptions = {},
+export function createRoomConnectionPreview(
+  initialMode: RoomPreviewMode,
+  options: RoomConnectionPreviewOptions = {},
 ) {
   let mode = initialMode;
-  let hostUserId = options.hostUserId ?? PREVIEW_HOST;
-  let hostRevision = 0;
   let members = options.members ?? PREVIEW_MEMBERS;
   let canReconnect = true;
   let socket: PreviewSocket | undefined;
@@ -140,9 +135,7 @@ export function createHostTransferPreview(
     groups: [],
     phase: options.phase ?? { kind: "lobby" },
     phaseRevision: 0,
-    isHost: hostUserId === (options.currentUserId ?? PREVIEW_HOST),
-    hostUserId,
-    hostRevision,
+
     decision: options.decision ?? null,
     outcomePublished: options.outcomePublished ?? false,
     carryovers: [],
@@ -180,6 +173,11 @@ export function createHostTransferPreview(
           members = members.filter(
             (member) => member.userId !== message.targetUserId,
           );
+          if (mode === "reconnect") {
+            mode = "success";
+            active.disconnect();
+            return;
+          }
           active.message({ type: "member_left", userId: message.targetUserId });
           active.message({
             type: "member:removed",
@@ -189,32 +187,6 @@ export function createHostTransferPreview(
         }, 100);
         return;
       }
-      if (message.type !== "host:transfer") return;
-      setTimeout(() => {
-        if (active.readyState !== 1) return;
-        if (mode === "timeout") {
-          mode = "success";
-          return;
-        }
-        if (mode === "refused") {
-          mode = "success";
-          active.message({
-            type: "error",
-            code: "forbidden",
-            operationId: message.operationId,
-            message:
-              "相手が切断しました。接続中のメンバーを選び直してください。",
-          });
-          return;
-        }
-        hostUserId = message.targetUserId;
-        hostRevision++;
-        if (mode === "reconnect") {
-          active.disconnect();
-          return;
-        }
-        active.message({ type: "host:updated", hostUserId, hostRevision });
-      }, 100);
     });
     socket = created;
     setTimeout(() => open(created), options.connectionDelayMs ?? 0);
@@ -245,7 +217,7 @@ export function createHostTransferPreview(
     },
     factory,
     // テストはサーバーからの非同期イベントをこのfixture専用境界へ送る。
-    serverEvent(kind: HostPreviewServerEvent) {
+    serverEvent(kind: RoomPreviewServerEvent) {
       if (kind === "disconnect") {
         canReconnect = false;
         socket?.disconnect();
@@ -258,29 +230,9 @@ export function createHostTransferPreview(
           timer: options.timer ?? { status: "idle" },
           serverNow: Date.now(),
         });
-      } else if (kind === "transfer") {
-        hostUserId = PREVIEW_TARGET;
-        socket?.message({
-          type: "host:updated",
-          hostUserId,
-          hostRevision: ++hostRevision,
-        });
       } else if (kind === "recipient-left") {
         members = members.filter((member) => member.userId !== PREVIEW_TARGET);
         socket?.message({ type: "member_left", userId: PREVIEW_TARGET });
-      } else {
-        hostUserId = PREVIEW_TARGET;
-        socket?.message({
-          type: "host:updated",
-          hostUserId,
-          hostRevision: ++hostRevision,
-        });
-        hostUserId = PREVIEW_HOST;
-        socket?.message({
-          type: "host:updated",
-          hostUserId,
-          hostRevision: ++hostRevision,
-        });
       }
     },
   };

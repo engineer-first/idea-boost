@@ -23,7 +23,7 @@ import { RoomNameSchema } from "./room-name";
 import { SharingReactionKindSchema } from "./sharing-reactions";
 
 // 既存 ID の受理範囲を Zod のバージョンに依存させない。
-const HostUserIdSchema = z.string().regex(UUID_PATTERN);
+const ProtocolUserIdSchema = z.string().regex(UUID_PATTERN);
 
 export const NOTE_CONTENT_MAX_LENGTH = 2000;
 
@@ -632,16 +632,17 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("start_phase"),
     expectedHostRevision: z.int().nonnegative().optional(),
   }),
+  // 旧クライアントの入力互換のみ。サーバーは状態を変更せず拒否する。
   z.strictObject({
     type: z.literal("host:transfer"),
     operationId: OptimisticOperationIdSchema.optional(),
-    targetUserId: HostUserIdSchema,
+    targetUserId: ProtocolUserIdSchema,
     expectedHostRevision: z.int().nonnegative(),
   }),
   z.strictObject({
     type: z.literal("member:remove"),
-    targetUserId: HostUserIdSchema,
-    expectedHostRevision: z.int().nonnegative(),
+    targetUserId: ProtocolUserIdSchema,
+    expectedHostRevision: z.int().nonnegative().optional(),
     operationId: OptimisticOperationIdSchema,
   }),
   // 課題整理の次ステップへ。完了条件を満たした参加者が進める。
@@ -706,23 +707,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
-// ルーム管理権限で送る操作の世代。省略は移譲導入前の世代0との互換用。
-export const HOST_REVISION_MESSAGE_TYPES = [
-  "host:transfer",
-  "member:remove",
-] as const satisfies readonly ClientMessage["type"][];
-
-export function needsHostRevision(
-  message: ClientMessage,
-): message is Extract<
-  ClientMessage,
-  { type: (typeof HOST_REVISION_MESSAGE_TYPES)[number] }
-> {
-  return (HOST_REVISION_MESSAGE_TYPES as readonly string[]).includes(
-    message.type,
-  );
-}
-
 // ---------------------------------------------------------------
 // サーバー → クライアント
 // ---------------------------------------------------------------
@@ -768,7 +752,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("reaction:received"),
     id: z.guid(),
-    senderId: HostUserIdSchema,
+    senderId: ProtocolUserIdSchema,
     kind: SharingReactionKindSchema,
     phaseRevision: z.int().nonnegative(),
   }),
@@ -786,15 +770,10 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.strictObject({
     type: z.literal("member:removed"),
-    targetUserId: HostUserIdSchema,
+    targetUserId: ProtocolUserIdSchema,
     operationId: OptimisticOperationIdSchema,
   }),
-  z.object({
-    type: z.literal("host:updated"),
-    operationId: OptimisticOperationIdSchema.optional(),
-    hostUserId: HostUserIdSchema,
-    hostRevision: z.int().nonnegative(),
-  }),
+
   z.object({
     type: z.literal("sharing:updated"),
     sharing: SharingStateSchema,
@@ -818,9 +797,6 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     rollbackTarget: RoomPhaseSchema.nullable().optional(),
     rollbackRevision: z.int().nonnegative().optional(),
     pendingPhaseTransition: PendingPhaseTransitionSchema.nullable().optional(),
-    isHost: z.boolean(),
-    hostUserId: HostUserIdSchema.nullable().optional(),
-    hostRevision: z.int().nonnegative().optional(),
     decision: DecisionSchema.nullable(),
     outcomePublished: z.boolean().optional(),
     // 永続化しない一時状態。再接続直後にも現在の共有フォーカスを復元する。
