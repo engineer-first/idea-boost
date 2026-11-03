@@ -52,7 +52,7 @@ export function NoteDraftRecovery({
                 aria-label={`未反映の文章 ${index + 1}`}
                 readOnly
                 value={item.text}
-                className="mt-1 h-24 w-full resize-y rounded-lg border p-2 text-base"
+                className="mt-1 h-24 w-full resize-y rounded-md border p-2 text-base"
                 onFocus={(event) => event.currentTarget.select()}
               />
               <button

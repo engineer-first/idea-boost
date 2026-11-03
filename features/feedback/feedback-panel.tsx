@@ -125,7 +125,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                         feedback.change({ kind: value as FeedbackKind })
                       }
                     />
-                    <span className="flex min-h-11 items-center justify-center gap-1 rounded-full border px-2 text-base peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
+                    <span className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-base peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
                       {draft.kind === value ? (
                         <Check aria-hidden="true" className="size-4" />
                       ) : null}
@@ -177,7 +177,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                           checked={draft.rating === value}
                           onChange={() => feedback.change({ rating: value })}
                         />
-                        <span className="flex h-full flex-col items-center gap-1 rounded-full border px-1 py-3 text-center peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
+                        <span className="flex h-full flex-col items-center gap-1 rounded-lg border px-1 py-3 text-center peer-checked:border-foreground peer-checked:bg-muted peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
                           <Face aria-hidden="true" className="size-6" />
                           <span className="flex items-center text-base">
                             {value}

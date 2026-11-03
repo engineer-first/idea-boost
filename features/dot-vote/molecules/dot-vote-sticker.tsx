@@ -26,7 +26,7 @@ const DOT_VOTE_ICON = {
 
 const DOT_VOTE_TONE = {
   subjective: "rounded-full border-rose-700 bg-rose-100 text-rose-700",
-  objective: "rounded-lg border-blue-700 bg-blue-100 text-blue-700",
+  objective: "rounded-md border-blue-700 bg-blue-100 text-blue-700",
 } satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_COUNT_TONE = {
@@ -36,7 +36,7 @@ const DOT_VOTE_COUNT_TONE = {
 
 const DOT_VOTE_SHAPE = {
   subjective: "rounded-full",
-  objective: "rounded-lg",
+  objective: "rounded-md",
 } satisfies Record<DotVoteKind, string>;
 
 type DotVoteStickerImageSize = "default" | "result";
