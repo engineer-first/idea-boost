@@ -161,19 +161,21 @@ export function CompletedBoardView({ board }: { board: CompletedBoard }) {
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   {board.decisions.some((d) => d.noteId === note.id) && (
-                    <span className="rounded border px-2 py-1 font-semibold">
+                    <span className="rounded-full border px-2 py-1 font-semibold">
                       採用済み
                     </span>
                   )}
                   {note.excluded && (
-                    <span className="rounded border px-2 py-1">候補外</span>
+                    <span className="rounded-full border px-2 py-1">
+                      候補外
+                    </span>
                   )}
                   {board.groups
                     .filter((g) => g.noteIds.includes(note.id))
                     .map((g) => (
                       <span
                         key={g.id}
-                        className="rounded border px-2 py-1 [overflow-wrap:anywhere]"
+                        className="rounded-full border px-2 py-1 [overflow-wrap:anywhere]"
                       >
                         グループ：{g.name}
                       </span>

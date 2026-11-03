@@ -29,11 +29,11 @@ export function CreateRoomSectionView({
 }: CreateRoomSectionViewProps) {
   return (
     <Card
-      className="flex flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
+      className="flex flex-col border-border/80 transition-shadow "
       data-testid="home-create-room"
     >
       <CardHeader className="gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+        <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground ">
           <Plus className="size-5" aria-hidden />
         </div>
         <div className="space-y-1.5">

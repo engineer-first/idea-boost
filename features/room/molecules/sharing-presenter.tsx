@@ -58,7 +58,7 @@ export function SharingPresenter({
           aria-label="発表者と全体の順番を確認"
           data-member-menu-origin
           aria-describedby={descriptionId}
-          className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-xl border-blue-200 bg-blue-50 px-2 text-left hover:bg-blue-100 max-[900px]:min-w-[220px] max-[900px]:flex-1"
+          className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-lg border-blue-200 bg-blue-50 px-2 text-left hover:bg-blue-100 max-[900px]:min-w-[220px] max-[900px]:flex-1"
         >
           <span
             className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"

@@ -194,14 +194,14 @@ export function SharedOutcomesView({
         )}
 
         {loading && (detailMode || outcomes.length === 0) && (
-          <p role="status" className="rounded-xl border bg-card p-8">
+          <p role="status" className="rounded-lg border bg-card p-8">
             成果を読み込んでいます…
           </p>
         )}
         {error && !paginationError && (
           <div
             role="alert"
-            className="rounded-xl border border-destructive/40 bg-card p-6 text-destructive"
+            className="rounded-lg border border-destructive/40 bg-card p-6 text-destructive"
           >
             <p>{error}</p>
             <Button
@@ -226,7 +226,7 @@ export function SharedOutcomesView({
               </p>
             </div>
             {outcomes.length > 0 && (
-              <div className="overflow-hidden rounded-xl border bg-card">
+              <div className="overflow-hidden rounded-lg border bg-card">
                 <div
                   aria-hidden
                   className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_11rem_11rem_1.25rem] gap-4 border-b bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground xl:grid"
@@ -275,7 +275,7 @@ export function SharedOutcomesView({
                             {formatParticipantCount(outcome.participantCount)}
                           </p>
                           <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 font-medium">
                               {outcome.status === "confirmed" && (
                                 <Check className="size-3" aria-hidden />
                               )}
@@ -335,7 +335,7 @@ export function SharedOutcomesView({
               </div>
             )}
             {outcomes.length === 0 && (
-              <div className="space-y-3 rounded-xl border bg-card px-6 py-10 text-center">
+              <div className="space-y-3 rounded-lg border bg-card px-6 py-10 text-center">
                 <h2 className="font-semibold">
                   {filtered
                     ? nextCursor
@@ -364,7 +364,7 @@ export function SharedOutcomesView({
             {paginationError && (
               <div
                 role="alert"
-                className="flex flex-wrap items-center justify-center gap-3 rounded-xl border border-destructive/40 bg-card p-4"
+                className="flex flex-wrap items-center justify-center gap-3 rounded-lg border border-destructive/40 bg-card p-4"
               >
                 <p className="text-base text-destructive">{error}</p>
                 <Button
@@ -400,7 +400,7 @@ export function SharedOutcomesView({
         )}
         {!loading && !error && detail && (
           <>
-            <section className="rounded-xl border bg-card p-5">
+            <section className="rounded-lg border bg-card p-5">
               <p className="font-mono text-base">{detail.displayId}</p>
               <OutcomeMetadata outcome={detail} />
               <p className="mt-3 text-xs text-muted-foreground">
@@ -413,7 +413,7 @@ export function SharedOutcomesView({
             {detail.saveStatus !== "saved" && (
               <p
                 role="status"
-                className="rounded-xl border border-amber-500/40 bg-amber-50 p-5 text-amber-950"
+                className="rounded-lg border border-amber-500/40 bg-amber-50 p-5 text-amber-950"
               >
                 {detail.saveStatus === "failed"
                   ? "保存に失敗しました。"
@@ -425,7 +425,7 @@ export function SharedOutcomesView({
               </p>
             )}
             {!detail.snapshot ? (
-              <p className="rounded-xl border bg-card p-8">
+              <p className="rounded-lg border bg-card p-8">
                 正常保存された成果はまだありません。
               </p>
             ) : (
@@ -440,7 +440,7 @@ export function SharedOutcomesView({
                       return (
                         <article
                           key={label}
-                          className="rounded-xl border bg-card p-5"
+                          className="rounded-lg border bg-card p-5"
                         >
                           <h3 className="text-base font-semibold text-muted-foreground">
                             {label}
@@ -465,7 +465,7 @@ export function SharedOutcomesView({
                     {getRoomPhaseLabel(detail.snapshot.phase)}
                   </p>
                   {detail.snapshot.notes.length === 0 && (
-                    <p className="rounded-xl border bg-card p-8">
+                    <p className="rounded-lg border bg-card p-8">
                       保存済みの成果はありません。
                     </p>
                   )}

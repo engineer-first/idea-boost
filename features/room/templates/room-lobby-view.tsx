@@ -155,9 +155,9 @@ export function RoomLobbyView({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-stretch">
           {/* メンバー一覧カード */}
-          <Card className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md">
+          <Card className="flex h-full flex-col border-border/80 transition-shadow ">
             <CardHeader className="gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
                 <Users className="size-5" aria-hidden />
               </div>
               <div className="space-y-1.5">
@@ -208,11 +208,11 @@ export function RoomLobbyView({
           {/* 招待カード */}
           {
             <Card
-              className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
+              className="flex h-full flex-col border-border/80 transition-shadow "
               data-testid="room-lobby-view-invite"
             >
               <CardHeader className="gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground ">
                   <Link2 className="size-5" aria-hidden />
                 </div>
                 <div className="space-y-1.5">
@@ -240,7 +240,7 @@ export function RoomLobbyView({
         </div>
 
         {/* メインアクション */}
-        <Card className="border-border/80 shadow-sm">
+        <Card className="border-border/80 ">
           <CardFooter className="flex flex-col gap-2 p-4 sm:p-6">
             <Button
               type="button"

@@ -59,7 +59,7 @@ export function StickyNote({
       data-vote-drop-target={dataVoteDropTarget || undefined}
       data-excluded={dataExcluded || undefined}
       className={cn(
-        "sticky-note relative isolate flex flex-col rounded-[2px]",
+        "sticky-note relative isolate flex flex-col rounded-note",
         className,
       )}
       style={{
@@ -75,7 +75,7 @@ export function StickyNote({
       {/* 座標・投票・操作面は外側の固定サイズを使い、紙面と中身を同じ原点で拡大する。 */}
       <div
         data-slot="sticky-note-paper"
-        className="sticky-note-paper pointer-events-none absolute inset-0 -z-10 rounded-[2px]"
+        className="sticky-note-paper pointer-events-none absolute inset-0 -z-10 rounded-note"
         style={{
           backgroundColor:
             color === null
@@ -123,7 +123,7 @@ export function StickyNote({
       </div>
       <div
         data-slot="sticky-note-content"
-        className="sticky-note-content relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2px]"
+        className="sticky-note-content relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-note"
       >
         {children}
       </div>

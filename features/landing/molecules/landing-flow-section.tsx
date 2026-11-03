@@ -5,6 +5,7 @@ import { landingOutcomes } from "../logic/landing-outcomes";
 import {
   landingHeadingClass,
   landingLinkClass,
+  landingPaperStyle,
   landingSectionClass,
 } from "../logic/landing-styles";
 import styles from "./landing.module.css";
@@ -12,6 +13,7 @@ import styles from "./landing.module.css";
 export function LandingFlowSection() {
   return (
     <section
+      style={landingPaperStyle}
       className={`${styles.theme} ${landingSectionClass}`}
       aria-labelledby="landing-steps"
     >

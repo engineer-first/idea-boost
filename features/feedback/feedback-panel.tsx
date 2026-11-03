@@ -30,7 +30,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
           feedback.close();
         }
       }}
-      className="fixed bottom-3 left-3 z-[80] max-h-[calc(100dvh-1.5rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto rounded-2xl border bg-background p-4 shadow-xl sm:bottom-5 sm:left-5 sm:p-5"
+      className="fixed bottom-3 left-3 z-[80] max-h-[calc(100dvh-1.5rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border bg-background p-4 shadow-tool sm:bottom-5 sm:left-5 sm:p-5"
     >
       <div className="flex items-center justify-between gap-3">
         <h2

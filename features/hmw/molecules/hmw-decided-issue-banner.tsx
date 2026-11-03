@@ -21,7 +21,7 @@ export function HmwDecidedIssueBanner({
     <div
       data-testid="hmw-decided-issue-banner"
       className={cn(
-        "flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 shadow-md",
+        "flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 shadow-tool",
         className,
       )}
     >

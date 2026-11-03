@@ -20,7 +20,7 @@ export function SharedOutcomeBoard({
     .sort((a, b) => a.stackOrder - b.stackOrder);
   if (!notes.length)
     return (
-      <p className="rounded-xl border bg-card p-6">
+      <p className="rounded-lg border bg-card p-6">
         {label}の共有付箋はありません。
       </p>
     );
@@ -67,7 +67,7 @@ export function SharedOutcomeBoard({
     top +
     40;
   return (
-    <article className="space-y-4 rounded-xl border bg-card p-5">
+    <article className="space-y-4 rounded-lg border bg-card p-5">
       <h3 className="font-semibold">
         {label}の共有付箋 · {notes.length}枚
       </h3>
@@ -192,15 +192,15 @@ export function SharedOutcomeBoard({
                 {snapshot.decisions.some(
                   (decision) => decision.noteId === note.id,
                 ) && (
-                  <span className="rounded border border-emerald-700 bg-emerald-50 px-2 py-1 font-semibold text-emerald-900">
+                  <span className="rounded-full border border-emerald-700 bg-emerald-50 px-2 py-1 font-semibold text-emerald-900">
                     採用済み
                   </span>
                 )}
                 {note.excluded && (
-                  <span className="rounded border px-2 py-1">候補外</span>
+                  <span className="rounded-full border px-2 py-1">候補外</span>
                 )}
                 {group && (
-                  <span className="rounded border px-2 py-1">
+                  <span className="rounded-full border px-2 py-1">
                     グループ：{group.name}
                   </span>
                 )}

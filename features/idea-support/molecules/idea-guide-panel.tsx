@@ -30,7 +30,7 @@ export function IdeaGuidePanel({
   return (
     <Card
       data-testid="idea-guide-panel"
-      className={cn("w-64 shadow-md", className)}
+      className={cn("w-64 shadow-tool", className)}
     >
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex flex-col gap-1.5">
@@ -40,7 +40,7 @@ export function IdeaGuidePanel({
           </p>
         </div>
 
-        <div className="rounded-md bg-muted/50 p-3">
+        <div className="rounded-lg bg-muted/50 p-3">
           <p className="mb-2 text-muted-foreground text-xs">
             例：問い → アイデア
           </p>

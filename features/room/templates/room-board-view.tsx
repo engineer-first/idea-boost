@@ -419,7 +419,7 @@ export function RoomBoardView({
     presenterViewColor ? (
       <div
         role="status"
-        className="pointer-events-auto flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm shadow-sm"
+        className="pointer-events-auto flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm shadow-tool"
         style={{
           borderColor: NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
         }}
@@ -439,7 +439,7 @@ export function RoomBoardView({
       presenterViewName &&
       presenterViewColor ? (
       <div
-        className="pointer-events-auto flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm shadow-sm"
+        className="pointer-events-auto flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm shadow-tool"
         style={{
           borderColor: NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
         }}
@@ -457,7 +457,7 @@ export function RoomBoardView({
         </span>
         <button
           type="button"
-          className="whitespace-nowrap rounded px-2 py-1 hover:bg-muted"
+          className="whitespace-nowrap rounded-lg px-2 py-1 hover:bg-muted"
           onClick={onUnfollowPresenterView}
         >
           フォローを外す
@@ -466,7 +466,7 @@ export function RoomBoardView({
     ) : !isPresenterViewOwner && canFollowPresenterView ? (
       <button
         type="button"
-        className="pointer-events-auto rounded-md border bg-background px-3 py-2 text-sm font-medium shadow-sm hover:bg-muted"
+        className="pointer-events-auto rounded-lg border bg-background px-3 py-2 text-sm font-medium shadow-tool hover:bg-muted"
         style={{
           borderColor: presenterViewColor
             ? NOTE_COLOR_STYLES[presenterViewColor].backgroundColor
@@ -908,7 +908,7 @@ export function RoomBoardView({
 
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
-  //   UI 側の入口無効化）
+  // UI 側の入口無効化）
   const candidateNotes = confirmedNotes.filter(
     (note) => note.visibility === "shared" && !note.excluded,
   );
@@ -2005,7 +2005,7 @@ export function RoomBoardView({
               role="status"
               aria-live="polite"
               data-testid="timer-work-hint"
-              className="w-full max-w-md rounded-xl border border-border/40 bg-background/75 px-6 py-5 text-center shadow-xl backdrop-blur-[2px]"
+              className="w-full max-w-md rounded-lg border border-border/40 bg-background/75 px-6 py-5 text-center shadow-tool backdrop-blur-[2px]"
             >
               <p className="text-lg font-semibold">
                 タイマーが開始されていません
@@ -2020,7 +2020,7 @@ export function RoomBoardView({
         {isAdoptMode && interactionTool === "hand" ? (
           <p
             role="status"
-            className="pointer-events-none absolute bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-background px-3 py-2 text-sm shadow"
+            className="pointer-events-none absolute bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-background px-3 py-2 text-sm shadow-tool"
           >
             採用するには「選択」に戻してください
           </p>

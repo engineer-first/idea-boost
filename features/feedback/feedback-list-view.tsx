@@ -61,7 +61,7 @@ export function FeedbackListView({
             任意で届いた投稿です。投稿件数は人数ではなく、無回答は好評や問題なしを表しません。送信から30日間表示します。
           </p>
         </header>
-        <div className="grid gap-3 rounded-xl border bg-background p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-2 lg:grid-cols-4">
           <label className="text-base">
             種類で絞る
             <select
@@ -128,10 +128,10 @@ export function FeedbackListView({
           {items.map((item) => (
             <li
               key={item.id}
-              className="min-w-0 space-y-3 rounded-xl border bg-background p-4 sm:p-5"
+              className="min-w-0 space-y-3 rounded-lg border bg-background p-4 sm:p-5"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-md bg-muted px-2 py-1 text-base font-semibold">
+                <span className="rounded-full bg-muted px-2 py-1 text-base font-semibold">
                   {FEEDBACK_KINDS[item.kind]}
                 </span>
                 <span className="text-base">

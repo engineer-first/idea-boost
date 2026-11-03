@@ -15,7 +15,7 @@ export function GuestEntryRefreshView({
       {state === "identity_unavailable" ? (
         <GuestIdentityUnavailable />
       ) : (
-        <section className="relative mx-auto my-8 w-full max-w-md space-y-4 rounded-xl border bg-background p-6">
+        <section className="relative mx-auto my-8 w-full max-w-md space-y-4 rounded-lg border bg-background p-6">
           <p role="status" className="leading-relaxed">
             {state === "checking"
               ? "ルームを確認しています…"

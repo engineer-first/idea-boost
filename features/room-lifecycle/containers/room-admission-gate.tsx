@@ -112,7 +112,7 @@ export function RoomAdmissionGate({
           className={
             stage === "lobby"
               ? "sr-only"
-              : "fixed inset-x-4 top-1/2 z-50 mx-auto max-w-md rounded-xl bg-background p-6 text-center shadow-lg"
+              : "fixed inset-x-4 top-1/2 z-50 mx-auto max-w-md rounded-xl bg-background p-6 text-center shadow-tool"
           }
         >
           ルームを確認しています…

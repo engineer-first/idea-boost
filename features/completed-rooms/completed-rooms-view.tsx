@@ -50,7 +50,7 @@ export function CompletedRoomsView({
           {rooms.map((room) => (
             <li
               key={room.roomId}
-              className="min-w-0 rounded-xl border bg-card p-5 sm:p-6"
+              className="min-w-0 rounded-lg border bg-card p-5 sm:p-6"
             >
               <p className="text-xs font-semibold text-muted-foreground">
                 採用したアイデア
@@ -82,7 +82,7 @@ export function CompletedRoomsView({
               </dl>
               <Link
                 href={`/completed-rooms/${room.roomId}`}
-                className="mt-5 inline-flex min-h-11 items-center rounded-md bg-primary px-5 text-base font-semibold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 成果を見る
               </Link>
@@ -95,7 +95,7 @@ export function CompletedRoomsView({
           </p>
         )}
         {error && (
-          <div className="rounded-xl border border-destructive/40 p-4">
+          <div className="rounded-lg border border-destructive/40 p-4">
             <p role="alert">{error}</p>
             <Button
               className="mt-3 min-h-11"
@@ -108,7 +108,7 @@ export function CompletedRoomsView({
           </div>
         )}
         {!loading && !error && rooms.length === 0 && (
-          <div className="space-y-2 rounded-xl border bg-muted/30 p-6">
+          <div className="space-y-2 rounded-lg border bg-muted/30 p-6">
             <p>
               {hasMore
                 ? "このページに表示できるルームはありません。続きのルームを確認してください。"

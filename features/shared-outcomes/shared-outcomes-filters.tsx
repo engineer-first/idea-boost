@@ -16,7 +16,7 @@ export type SharedOutcomesFiltersProps = {
   onSearch: (filters: SharedOutcomeFilters) => void;
 };
 const selectClass =
-  "min-h-11 w-full rounded-lg border border-input bg-background px-3 text-base focus-visible:outline-2 focus-visible:outline-ring";
+  "min-h-11 w-full rounded-md border border-input bg-background px-3 text-base focus-visible:outline-2 focus-visible:outline-ring";
 export function SharedOutcomesFilters({
   filters,
   onSearch,
@@ -36,7 +36,7 @@ export function SharedOutcomesFilters({
   return (
     <search aria-label="共有成果を探す">
       <form
-        className="space-y-4 rounded-xl border bg-card p-4 sm:p-5"
+        className="space-y-4 rounded-lg border bg-card p-4 sm:p-5"
         onSubmit={(event) => {
           event.preventDefault();
           const result = SharedOutcomeFiltersSchema.safeParse(

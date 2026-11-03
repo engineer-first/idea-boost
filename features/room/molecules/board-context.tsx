@@ -145,7 +145,7 @@ export function BoardContext({
                 aria-label={usesIdeaMapViewport ? disclosure.label : undefined}
                 aria-expanded={isOpen}
                 aria-controls={contentId}
-                className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-2 py-1.5 text-left text-sm font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-lg bg-background px-2 py-1.5 text-left text-sm font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 onClick={
                   usesIdeaMapViewport
                     ? undefined

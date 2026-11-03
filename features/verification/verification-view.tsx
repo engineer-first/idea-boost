@@ -53,7 +53,7 @@ export function VerificationView({
         </header>
         <section
           aria-label="現在の検証"
-          className="space-y-3 rounded-xl border bg-background p-5"
+          className="space-y-3 rounded-lg border bg-background p-5"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p role="status" className="font-semibold">
@@ -114,7 +114,7 @@ export function VerificationView({
         {isOwner && (
           <section
             aria-label="共有成果の検証"
-            className="space-y-4 rounded-xl border bg-background p-5"
+            className="space-y-4 rounded-lg border bg-background p-5"
           >
             <h2 className="text-lg font-semibold">共有成果の保存と閲覧</h2>
             <p className="text-base text-muted-foreground">
@@ -179,7 +179,7 @@ export function VerificationView({
                     type="button"
                     disabled={pending}
                     onClick={() => onCreate(item.id)}
-                    className="w-full cursor-pointer rounded-xl border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-50"
+                    className="w-full cursor-pointer rounded-lg border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-50"
                   >
                     <span className="block text-base font-semibold">
                       {item.label}

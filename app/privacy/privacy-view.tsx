@@ -2,7 +2,7 @@ import Link from "next/link";
 export function PrivacyView() {
   return (
     <main className="flex-1 overflow-y-auto bg-muted/30 p-6">
-      <article className="mx-auto max-w-2xl space-y-8 rounded-xl border bg-card p-6 sm:p-10">
+      <article className="mx-auto max-w-2xl space-y-8 rounded-lg border bg-card p-6 sm:p-10">
         <header className="space-y-3">
           <p className="text-sm text-muted-foreground">Idea Boost</p>
           <h1 className="text-2xl font-semibold">保存とプライバシーについて</h1>
