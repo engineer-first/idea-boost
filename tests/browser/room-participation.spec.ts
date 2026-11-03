@@ -46,6 +46,7 @@ test.each([390, 1280])(
     expect(
       await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth),
     ).toBe(true);
+    expect(await page.getByText(/もう一度お試しください。/).count()).toBe(1);
     const retry = page.getByRole("button", { name: "もう一度試す" });
     expect(
       await retry.evaluate((node) => node === document.activeElement),

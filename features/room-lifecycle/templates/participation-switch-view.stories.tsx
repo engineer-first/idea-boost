@@ -12,7 +12,6 @@ export const Pending: Story = {};
 export const ConnectionFailure: Story = {
   args: {
     pending: false,
-    message: "通信が途切れました。もう一度お試しください。",
   },
 };
 export const TerminalFailure: Story = {

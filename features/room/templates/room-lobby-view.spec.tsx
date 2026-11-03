@@ -249,3 +249,19 @@ it.each([1, 2])(
     else expect(warning).not.toBeInTheDocument();
   },
 );
+
+it("ロビーの見出しに二重引用符を表示しない", () => {
+  renderView();
+  expect(
+    screen.getByRole("heading", { name: /^メンバーが揃ったら開始$/ }),
+  ).toBeInTheDocument();
+});
+it("ロビーの案内文に二重引用符を表示しない", () => {
+  renderView();
+  expect(
+    screen.getByText(
+      "招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。",
+      { exact: true },
+    ),
+  ).toBeInTheDocument();
+});

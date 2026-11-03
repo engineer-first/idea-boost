@@ -10,13 +10,11 @@ import {
 } from "@/components/ui/dialog";
 export type ParticipationSwitchViewProps = {
   pending: boolean;
-  message?: string;
   terminal?: boolean;
   onRetry: () => void;
 };
 export function ParticipationSwitchView({
   pending,
-  message,
   terminal,
   onRetry,
 }: ParticipationSwitchViewProps) {
@@ -48,7 +46,6 @@ export function ParticipationSwitchView({
                 : "通信を確認して、もう一度お試しください。"}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {!pending && message && <p role="alert">{message}</p>}
         {pending ? (
           <p role="status" className="sr-only">
             移動中です

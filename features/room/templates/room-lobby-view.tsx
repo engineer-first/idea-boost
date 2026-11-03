@@ -103,7 +103,7 @@ export function RoomLobbyView({
         <header className="space-y-3 text-center">
           <div className="flex flex-col items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              "メンバーが揃ったら開始"
+              メンバーが揃ったら開始
             </h1>
             {roomName ? (
               <div className="flex min-w-0 max-w-full items-start justify-center gap-1">
@@ -128,7 +128,7 @@ export function RoomLobbyView({
               </div>
             ) : null}
             <p className="mx-auto max-w-md text-base leading-relaxed text-muted-foreground">
-              "招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。"
+              招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。
             </p>
           </div>
           <div className="min-h-6">

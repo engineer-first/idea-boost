@@ -153,3 +153,19 @@ it("確定した失敗では内部IDや用語を出さずホームへ戻せる",
   ).not.toBeInTheDocument();
   expect(mocks.query).not.toHaveBeenCalled();
 });
+
+it("失敗時は見出し・説明一文・再試行ボタンだけを示し、案内を重複させない", async () => {
+  mocks.query.mockRejectedValueOnce(new Error("offline"));
+  render(
+    <ParticipationSwitch
+      currentUserId={actor}
+      confirmation={switchConfirmation()}
+    />,
+  );
+  await screen.findByRole("button", { name: "もう一度試す" });
+  expect(
+    screen.getByRole("heading", { name: "ルームに移動できませんでした" }),
+  ).toBeInTheDocument();
+  expect(screen.getAllByText(/もう一度お試しください。/)).toHaveLength(1);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});

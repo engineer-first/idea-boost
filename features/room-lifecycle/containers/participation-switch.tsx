@@ -34,13 +34,11 @@ export function ParticipationSwitch({
     Boolean(originalId && !failedOperation),
   );
   const [terminal, setTerminal] = useState(Boolean(failedOperation));
-  const [message, setMessage] = useState<string>();
   async function resume(): Promise<void> {
     if (submitting.current || !operation.current || terminal) return;
     const actor = currentUserId;
     submitting.current = true;
     setPending(true);
-    setMessage(undefined);
     let navigating = false;
     try {
       const id = operation.current;
@@ -66,16 +64,13 @@ export function ParticipationSwitch({
         navigating = true;
       } else if (result.kind === "pending") {
         operation.current = result.operationId;
-        setMessage("ルームに移動できませんでした。");
       } else if (result.kind === "rejected") {
         setTerminal(Boolean(result.failure));
-        setMessage("ルームに移動できませんでした。");
       } else {
-        setMessage("ページを読み直して、もう一度お試しください。");
+        setTerminal(true);
       }
     } catch {
-      if (principal.current === actor)
-        setMessage("通信が途切れました。もう一度お試しください。");
+      // 同じ操作を再試行できる画面に戻す。
     } finally {
       submitting.current = false;
       if (!navigating) setPending(false);
@@ -90,7 +85,6 @@ export function ParticipationSwitch({
     <ParticipationSwitchView
       pending={pending}
       terminal={terminal}
-      message={message}
       onRetry={() => void resume()}
     />
   );
