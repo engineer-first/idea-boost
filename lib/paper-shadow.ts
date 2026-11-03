@@ -1,4 +1,4 @@
-// tldraw の NoteShapeUtil.getPaperShadow から移植した「下方向にだけ落ちる影」。
+// tldraw の NoteShapeUtil.getNoteShadow から移植した「下方向にだけ落ちる影」。
 //
 // 仕組み: box-shadow の spread に blur 以上のマイナス値を与えると、影は
 // 要素の輪郭より内側に縮む。そこへ正のYオフセットを足すと下辺からだけ
@@ -12,7 +12,7 @@
 const MIN_LIFT = 0.5;
 const MAX_LIFT_VARIANCE = 1;
 
-// 紙の識別子 から 0.5〜1.5 の浮き量を決定的に得る簡易ハッシュ。
+// 紙の識別子から 0.5〜1.5 の浮き量を決定的に得る簡易ハッシュ。
 function getPaperLift(paperId: string): number {
   let hash = 0;
   for (let i = 0; i < paperId.length; i++) {
