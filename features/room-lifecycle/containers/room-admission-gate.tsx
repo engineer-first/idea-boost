@@ -5,6 +5,7 @@ import {
   consumeRoomEntry,
   type GuestRoomEntryResult,
   RoomAdmissionContext,
+  refreshAccountRoomEntry,
 } from "@/features/auth";
 import { takePendingRoomEntry } from "@/lib/room-client/entry-tab-storage";
 import {
@@ -107,11 +108,14 @@ export function RoomAdmissionGate({
     return (
       <>
         {fallback}
-        {sessionKind === "guest" ? (
+        {sessionKind === "guest" || sessionKind === "account" ? (
           <GuestEntryRefresh
             roomId={roomId}
             onRefreshed={onRefreshed}
-            refreshAction={refreshAction}
+            refreshAction={
+              refreshAction ??
+              (sessionKind === "account" ? refreshAccountRoomEntry : undefined)
+            }
           />
         ) : (
           <RoomReauthentication operation={{ kind: "return", roomId }} />

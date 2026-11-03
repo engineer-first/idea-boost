@@ -1386,3 +1386,72 @@ describe("ゲストの入室前更新API", () => {
     },
   );
 });
+
+describe("Google本人の入室前更新API", () => {
+  const url = "https://api.test/api/auth/account/refresh";
+  it.each([
+    "有効",
+    "紐付けなし",
+    "本人行なし",
+    "期限切れ",
+    "署名不正",
+    "Cookieなし",
+    "guest",
+  ])(
+    "%sの場合に検証済subのGoogle紐付けだけで更新可否を決める",
+    async (condition) => {
+      const sub = crypto.randomUUID();
+      if (condition !== "本人行なし")
+        await env.DB.prepare(
+          "INSERT INTO users(id,email,google_sub) VALUES(?,?,?)",
+        )
+          .bind(
+            sub,
+            `${sub}@example.test`,
+            condition === "紐付けなし" ? null : `google-${sub}`,
+          )
+          .run();
+      const before = (
+        await env.DB.prepare("SELECT * FROM users ORDER BY id").all()
+      ).results;
+      const token = await signToken(
+        {
+          kind: condition === "guest" ? "guest" : "account",
+          sub,
+          email: condition === "guest" ? null : `${sub}@example.test`,
+        },
+        {
+          secret:
+            condition === "署名不正"
+              ? "another-secret-with-more-than-32-bytes"
+              : env.SESSION_SECRET,
+          audience: TOKEN_AUDIENCE.session,
+          expiresInSeconds: condition === "期限切れ" ? -1 : 17999,
+        },
+      );
+      const response = await exports.default.fetch(url, {
+        method: "POST",
+        headers:
+          condition === "Cookieなし"
+            ? {}
+            : { Cookie: `idea_boost_session=${token}` },
+        body: JSON.stringify({ userId: crypto.randomUUID(), exp: 9999999999 }),
+      });
+      expect(response.status).toBe(
+        condition === "有効"
+          ? 200
+          : condition === "紐付けなし"
+            ? 409
+            : condition === "本人行なし"
+              ? 404
+              : condition === "guest"
+                ? 403
+                : 401,
+      );
+      if (response.ok) expect(await response.json()).toEqual({ userId: sub });
+      expect(
+        (await env.DB.prepare("SELECT * FROM users ORDER BY id").all()).results,
+      ).toEqual(before);
+    },
+  );
+});

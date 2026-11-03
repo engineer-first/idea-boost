@@ -4,14 +4,24 @@
 // せず ok: false で返すこと。
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prepareSessionMock, apiFetchMock, getCurrentUserMock, redirectMock } =
-  vi.hoisted(() => ({
-    prepareSessionMock: vi.fn(),
-    apiFetchMock:
-      vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(),
-    getCurrentUserMock: vi.fn(),
-    redirectMock: vi.fn<(url: string) => never>(),
-  }));
+const {
+  prepareSessionMock,
+  apiFetchMock,
+  getCurrentUserMock,
+  redirectMock,
+  setCookieMock,
+} = vi.hoisted(() => ({
+  setCookieMock: vi.fn(),
+  prepareSessionMock: vi.fn(),
+  apiFetchMock:
+    vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(),
+  getCurrentUserMock: vi.fn(),
+  redirectMock: vi.fn<(url: string) => never>(),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({ set: setCookieMock })),
+}));
 
 vi.mock("@/lib/api-client", () => ({
   apiFetch: apiFetchMock,
@@ -370,11 +380,11 @@ describe("入室前の認証準備", () => {
     ).toEqual({ kind: "unavailable_room" });
     expect(apiFetchMock).not.toHaveBeenCalled();
   });
-  it("残り5時間未満の作成をWorkerへ送らない", async () => {
+  it("実期限切れの作成をWorkerへ送らない", async () => {
     getCurrentUserMock.mockResolvedValue({
       sub: "123e4567-e89b-12d3-a456-426614174000",
       email: "dev@example.com",
-      exp: Math.floor(Date.now() / 1000) + 17999,
+      exp: Math.floor(Date.now() / 1000),
     });
     expect(
       await createRoom({
@@ -384,11 +394,11 @@ describe("入室前の認証準備", () => {
     ).toMatchObject({ ok: false, reason: "reauth_required" });
     expect(apiFetchMock).not.toHaveBeenCalled();
   });
-  it("残り5時間未満の参加をWorkerへ送らない", async () => {
+  it("実期限切れの参加をWorkerへ送らない", async () => {
     getCurrentUserMock.mockResolvedValue({
       sub: "123e4567-e89b-12d3-a456-426614174000",
       email: "dev@example.com",
-      exp: Math.floor(Date.now() / 1000) + 17999,
+      exp: Math.floor(Date.now() / 1000),
     });
     expect(await joinRoom(joinFormData("ABC234"))).toMatchObject({
       ok: false,
@@ -572,7 +582,7 @@ it("通常の受付失効と認証拒否・不存在を参加操作の回復へ�
   }
 });
 
-describe("ゲスト更新後の作成・参加・再入室", () => {
+describe("セッション更新後の作成・参加・再入室", () => {
   const now = 1_800_000_000;
   const secret = "action-refresh-test-secret-at-least-32-bytes";
   const roomId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -650,6 +660,48 @@ describe("ゲスト更新後の作成・参加・再入室", () => {
   );
 
   it.each(cases)(
+    "$name は残り5時間未満のaccountをGoogleログインなしで更新し入室できる",
+    async ({ name, run }) => {
+      const account = {
+        ...guest,
+        kind: "account" as const,
+        email: "account@example.test",
+      };
+      getCurrentUserMock.mockResolvedValue(account);
+      const actual = await vi.importActual<
+        typeof import("@/lib/session/room-entry-session")
+      >("@/lib/session/room-entry-session");
+      prepareSessionMock.mockImplementation(actual.prepareRoomEntrySession);
+      const roomApi = apiFetchMock.getMockImplementation();
+      if (!roomApi) throw new Error("ルームAPIの設定が必要です");
+      apiFetchMock.mockImplementation(async (path, init) =>
+        path === "/api/auth/account/refresh"
+          ? Response.json({ userId: account.sub })
+          : roomApi(path, init),
+      );
+      const result = await run();
+      expect(result).toMatchObject(
+        name === "returnToRoom" ? { kind: "ready" } : { ok: true },
+      );
+      expect(apiFetchMock).toHaveBeenCalledWith("/api/auth/account/refresh", {
+        method: "POST",
+      });
+      expect(setCookieMock).toHaveBeenCalledOnce();
+      const token = "entryToken" in result ? result.entryToken : undefined;
+      expect(
+        await verifyToken(token ?? "", RoomAdmissionSchema, {
+          secret,
+          audience: ROOM_ENTRY_AUDIENCE.admission,
+        }),
+      ).toMatchObject({
+        principal: account.sub,
+        roomId,
+        sessionExp: now + SESSION_TTL_SECONDS,
+      });
+    },
+  );
+
+  it.each(cases)(
     "$name は更新で本人確認不可ならidentity_unavailableを返し入室証明を発行しない",
     async ({ name, run }) => {
       prepareSessionMock.mockResolvedValue({
@@ -671,7 +723,7 @@ describe("ゲスト更新後の作成・参加・再入室", () => {
   );
 
   it.each(cases)(
-    "$name はaccountの残り5時間未満ならreauth_requiredを返す",
+    "$name はセッション準備が再認証を要求したら入室証明を発行しない",
     async ({ name, run }) => {
       getCurrentUserMock.mockResolvedValue({
         ...guest,
