@@ -77,8 +77,9 @@ export function LoginCard({
       <div className="mx-auto my-auto w-full max-w-md space-y-6 bg-white p-8 shadow-sm rounded-2xl border border-slate-200">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-black text-indigo-600">Idea Boost</h1>
-          <p className="text-base text-slate-500">
-            アイデア出しをスマートに、スムーズに。
+          <p className="text-balance text-base text-slate-500">
+            <span className="inline-block">アイデア出しをスマートに、</span>
+            <span className="inline-block">スムーズに。</span>
           </p>
         </div>
 

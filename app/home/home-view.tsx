@@ -47,7 +47,7 @@ export function HomeView({
           <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
             アイデア出しを始めましょう
           </h1>
-          <p className="mx-auto max-w-md text-base leading-relaxed text-muted-foreground">
+          <p className="mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground">
             新しいルームを作成するか、招待コードを入力して参加できます。
           </p>
         </header>

@@ -120,7 +120,7 @@ const DialogDescription = React.forwardRef<
   <DialogPrimitive.Description
     ref={ref}
     data-slot="dialog-description"
-    className={cn("text-base text-muted-foreground", className)}
+    className={cn("text-balance text-base text-muted-foreground", className)}
     {...props}
   />
 ));
@@ -228,7 +228,7 @@ const AlertDialogDescription = React.forwardRef<
   <AlertDialogPrimitive.Description
     ref={ref}
     data-slot="alert-dialog-description"
-    className={cn("text-base text-muted-foreground", className)}
+    className={cn("text-balance text-base text-muted-foreground", className)}
     {...props}
   />
 ));

@@ -139,7 +139,7 @@ export function RoomOutcomeView({
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           チームで決めた成果
         </h1>
-        <p className="mt-3 text-base leading-6 text-muted-foreground">
+        <p className="mt-3 text-balance text-base leading-6 text-muted-foreground">
           決めた内容を持ち帰り、次の制作に使いましょう。
         </p>
         {!available || !outcome ? (
