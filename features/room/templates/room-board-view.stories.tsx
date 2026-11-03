@@ -662,10 +662,10 @@ export const OutcomePublished: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("link", { name: "ホームへ戻る", exact: true }),
+      canvas.getByRole("link", { name: "ホームへ戻る" }),
     );
     await expect(
-      canvas.getByRole("link", { name: "ホームへ戻る", exact: true }),
+      canvas.getByRole("link", { name: "ホームへ戻る" }),
     ).toHaveAttribute("href", "/home");
     await expect(args.onLeave).not.toHaveBeenCalled();
     await expect(
