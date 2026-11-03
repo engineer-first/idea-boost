@@ -565,6 +565,16 @@ export function createApiWorker(
         return json({ userId: session.sub } satisfies GuestRefreshResponse);
       }
 
+      if (method === "POST" && pathname === "/api/auth/account/refresh") {
+        if (session.kind !== "account")
+          return error(403, "Googleの本人情報が必要です。");
+        const identity = await findUserIdentityById(env.DB, session.sub);
+        if (!identity) return error(404, "本人情報が見つかりません。");
+        if (!identity.google_sub)
+          return error(409, "Googleの紐付けが見つかりません。");
+        return json({ userId: session.sub } satisfies GuestRefreshResponse);
+      }
+
       if (pathname.startsWith("/api/room-participation/"))
         return handleRoomParticipation(request, env, session);
 

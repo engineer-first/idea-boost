@@ -107,7 +107,7 @@ export function RoomAdmissionGate({
     return (
       <>
         {fallback}
-        {sessionKind === "guest" ? (
+        {sessionKind === "guest" || sessionKind === "account" ? (
           <GuestEntryRefresh
             roomId={roomId}
             onRefreshed={onRefreshed}

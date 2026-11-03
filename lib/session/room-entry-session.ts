@@ -18,9 +18,9 @@ export async function prepareRoomEntrySession(
   now = Math.floor(Date.now() / 1000),
 ): Promise<PrepareRoomEntrySessionResult> {
   if (hasRoomEntryTime(user, now)) return { ok: true, user };
-  if (user.kind !== "guest") return { ok: false, reason: "reauth_required" };
+  if (user.exp <= now) return { ok: false, reason: "reauth_required" };
   try {
-    const response = await apiFetch("/api/auth/guest/refresh", {
+    const response = await apiFetch(`/api/auth/${user.kind}/refresh`, {
       method: "POST",
     });
     if ([401, 403, 404, 409].includes(response.status))

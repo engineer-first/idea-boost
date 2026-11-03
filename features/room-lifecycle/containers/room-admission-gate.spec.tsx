@@ -232,16 +232,23 @@ describe("ゲストの入室前確認", () => {
       await screen.findByRole("button", { name: "Googleでログインして続ける" }),
     ).toBeInTheDocument();
   });
-  it("accountの残り時間不足ではゲスト更新を呼ばずGoogle再認証を表示する", async () => {
+  it("accountの残り時間不足も自動更新しGoogle再認証を表示しない", async () => {
+    refreshGuest.mockResolvedValue({ ok: true });
+    const onRefreshed = vi.fn();
     render(
-      <RoomAdmissionGate roomId={roomId} sessionKind="account">
+      <RoomAdmissionGate
+        roomId={roomId}
+        sessionKind="account"
+        onRefreshed={onRefreshed}
+      >
         <p>ルーム本文</p>
       </RoomAdmissionGate>,
     );
+    await waitFor(() => expect(onRefreshed).toHaveBeenCalledOnce());
+    expect(refreshGuest).toHaveBeenCalledWith(roomId);
     expect(
-      await screen.findByRole("button", { name: "Googleでログインして続ける" }),
-    ).toBeInTheDocument();
-    expect(refreshGuest).not.toHaveBeenCalled();
+      screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+    ).not.toBeInTheDocument();
   });
 });
 
