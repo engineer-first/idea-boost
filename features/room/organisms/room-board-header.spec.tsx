@@ -1149,7 +1149,7 @@ describe("RoomBoardHeader", () => {
       );
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),
-      ).toHaveClass("max-[900px]:px-2", "max-[900px]:text-xs");
+      ).toHaveClass("max-[900px]:px-2", "max-[900px]:text-sm");
     });
   });
 

@@ -385,7 +385,7 @@ export const ManyNotes: Story = {
 // 参加者が多い状態（メンバー一覧の +N 省略が発火する）。
 export const ManyMembers: Story = {
   args: {
-    members: buildMembers(10, ME),
+    members: buildMembers(20, ME),
   },
 };
 

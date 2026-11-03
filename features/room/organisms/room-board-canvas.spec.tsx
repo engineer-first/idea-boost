@@ -422,7 +422,7 @@ describe("RoomBoardCanvas", () => {
       screen.getByTestId("note-font-size-controls"),
     );
     expect(tools).toContainElement(screen.getByTestId("canvas-zoom-controls"));
-    expect(screen.getByText("14px")).toBeInTheDocument();
+    expect(screen.getByText("16px")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "移動を元に戻す" }),
     ).toBeInTheDocument();

@@ -39,7 +39,7 @@ export type LoginCardProps = {
 };
 
 const startButtonClassName =
-  "w-full min-h-11 flex items-center justify-center gap-2 py-3 border border-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
+  "w-full min-h-11 flex items-center justify-center gap-2 py-3 border border-slate-200 rounded-xl text-base font-semibold hover:bg-slate-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
 export function LoginCard({
   guestForm,
@@ -77,14 +77,14 @@ export function LoginCard({
       <div className="mx-auto my-auto w-full max-w-md space-y-6 bg-white p-8 shadow-sm rounded-2xl border border-slate-200">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-black text-indigo-600">Idea Boost</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-base text-slate-500">
             アイデア出しをスマートに、スムーズに。
           </p>
         </div>
 
         <Link
           href={aboutHref}
-          className="flex min-h-11 items-center justify-center text-sm text-indigo-700 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
+          className="flex min-h-11 items-center justify-center text-base text-indigo-700 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
         >
           {loginAboutLabel}
         </Link>
@@ -92,7 +92,7 @@ export function LoginCard({
         {loginError && (
           <div
             role="alert"
-            className="p-3 text-sm bg-red-50 text-red-700 rounded-xl border border-red-100"
+            className="p-3 text-base bg-red-50 text-red-700 rounded-xl border border-red-100"
           >
             <span className="font-bold">エラー: </span>
             {loginError}
@@ -128,7 +128,7 @@ export function LoginCard({
                 {googleStartLabel}
               </button>
             </form>
-            <div className="flex items-center gap-3 text-sm text-slate-400">
+            <div className="flex items-center gap-3 text-base text-slate-400">
               <span aria-hidden="true" className="h-px flex-1 bg-slate-200" />
               <span>{loginChoiceDivider}</span>
               <span aria-hidden="true" className="h-px flex-1 bg-slate-200" />
@@ -162,7 +162,7 @@ export function LoginCard({
               type="button"
               disabled={guestPending}
               onClick={() => setStep("choice")}
-              className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600"
+              className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-base text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600"
             >
               <ArrowLeft aria-hidden="true" className="h-4 w-4" />
               {loginBackLabel}
@@ -179,7 +179,7 @@ export function LoginCard({
             <form action={devAction} className="space-y-3">
               <label
                 htmlFor="dev-auth-email"
-                className="block text-sm font-medium"
+                className="block text-base font-medium"
               >
                 メールアドレス
               </label>
@@ -191,11 +191,11 @@ export function LoginCard({
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 bg-slate-50/50"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-base focus:outline-indigo-500 bg-slate-50/50"
               />
               <label
                 htmlFor="dev-auth-password"
-                className="block text-sm font-medium"
+                className="block text-base font-medium"
               >
                 パスワード
               </label>
@@ -207,12 +207,12 @@ export function LoginCard({
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 bg-slate-50/50"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-base focus:outline-indigo-500 bg-slate-50/50"
               />
               <button
                 type="submit"
                 disabled={!isConfigured || pending}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-base font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {pending ? "ログイン中…" : "開発用ユーザーでログイン"}
               </button>

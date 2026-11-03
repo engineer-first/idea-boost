@@ -61,7 +61,7 @@ export function DisplayNameDialog({
           }}
         >
           <div className="grid gap-2">
-            <label htmlFor={id} className="text-sm font-medium">
+            <label htmlFor={id} className="text-base font-medium">
               表示名
             </label>
             <Input
@@ -79,11 +79,11 @@ export function DisplayNameDialog({
                   event.preventDefault();
               }}
             />
-            <p id={`${id}-hint`} className="text-sm text-muted-foreground">
+            <p id={`${id}-hint`} className="text-base text-muted-foreground">
               {ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内
             </p>
             {controls.loading ? (
-              <p role="status" className="text-sm text-muted-foreground">
+              <p role="status" className="text-base text-muted-foreground">
                 保存済みの表示名を確認しています…
               </p>
             ) : null}
@@ -92,14 +92,14 @@ export function DisplayNameDialog({
                 <p
                   id={`${id}-error`}
                   role="alert"
-                  className="text-sm text-destructive"
+                  className="text-base text-destructive"
                 >
                   {controls.error}
                 </p>
                 <Button
                   type="button"
                   variant="link"
-                  className="h-auto px-0 text-sm"
+                  className="h-auto px-0 text-base"
                   disabled={controls.pending || controls.loading}
                   onClick={() => void controls.onRetry()}
                 >
@@ -108,7 +108,7 @@ export function DisplayNameDialog({
               </div>
             ) : null}
             {disabled ? (
-              <p role="status" className="text-sm text-muted-foreground">
+              <p role="status" className="text-base text-muted-foreground">
                 接続・ルームの状態を確認してから保存してください。
               </p>
             ) : null}

@@ -47,7 +47,7 @@ export function HomeView({
           <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
             アイデア出しを始めましょう
           </h1>
-          <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
+          <p className="mx-auto max-w-md text-base leading-relaxed text-muted-foreground">
             新しいルームを作成するか、招待コードを入力して参加できます。
           </p>
         </header>
@@ -66,7 +66,7 @@ export function HomeView({
         >
           <Link
             href="/completed-rooms"
-            className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-base font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             <span className="underline underline-offset-4">
               過去の成果を見る

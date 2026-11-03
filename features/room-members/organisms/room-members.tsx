@@ -102,7 +102,7 @@ export function RoomMembers({
                 <span className="flex min-w-0 flex-col items-center">
                   <span
                     className={cn(
-                      "max-w-full truncate text-[11px] leading-tight",
+                      "max-w-full truncate text-xs leading-tight",
                       isMe
                         ? "font-semibold text-foreground"
                         : "text-foreground/80",
@@ -124,7 +124,7 @@ export function RoomMembers({
                   {isHostMember ? (
                     <span
                       data-testid={`member-host-label-${member.userId}`}
-                      className="text-[10px] font-medium leading-tight text-muted-foreground"
+                      className="text-xs font-medium leading-tight text-muted-foreground"
                     >
                       ホスト
                     </span>
@@ -193,7 +193,7 @@ export function RoomMembers({
                     isMe={member.userId === currentUserId}
                     isVotingComplete={completedVoterIds.includes(member.userId)}
                   />
-                  <span className="truncate text-sm text-foreground">
+                  <span className="truncate text-base text-foreground">
                     {member.name}
                   </span>
                   {members.filter((m) => m.name === member.name).length > 1 ? (

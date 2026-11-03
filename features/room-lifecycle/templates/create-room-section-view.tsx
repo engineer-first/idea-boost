@@ -64,7 +64,7 @@ export function CreateRoomSectionView({
         </div>
         <div className="space-y-1.5">
           <CardTitle className="text-base">ルームを作成</CardTitle>
-          <CardDescription className="leading-relaxed">
+          <CardDescription className="min-h-[3.25rem] leading-relaxed">
             {createRoomCopy.description}
           </CardDescription>
         </div>
@@ -109,14 +109,14 @@ export function CreateRoomSectionView({
           </Button>
         </form>
         {recovering && !pending && !message && (
-          <p className="mt-3 text-sm leading-relaxed">
+          <p className="mt-3 text-base leading-relaxed">
             {recoveryState === "prepared"
               ? "準備したルームの作成を続けられます。"
               : "ルームへの移動が途中で止まっています。もう一度お試しください。"}
           </p>
         )}
         {message && (
-          <p role="status" className="mt-3 text-sm leading-relaxed">
+          <p role="status" className="mt-3 text-base leading-relaxed">
             {message}
           </p>
         )}

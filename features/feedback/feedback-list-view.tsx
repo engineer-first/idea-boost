@@ -40,7 +40,7 @@ export function FeedbackListView({
     <div role="alert" className="space-y-2">
       <p>{error}</p>
       {items.length ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           表示済みの意見は残っています。続きから再試行できます。
         </p>
       ) : null}
@@ -53,16 +53,16 @@ export function FeedbackListView({
     <main className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
         <header>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Idea Boost · 改善のための記録
           </p>
           <h1 className="mt-2 text-2xl font-semibold">利用者の意見</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-base text-muted-foreground">
             任意で届いた投稿です。投稿件数は人数ではなく、無回答は好評や問題なしを表しません。送信から30日間表示します。
           </p>
         </header>
         <div className="grid gap-3 rounded-xl border bg-background p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="text-sm">
+          <label className="text-base">
             種類で絞る
             <select
               className="mt-1 block min-h-11 w-full rounded-md border bg-background px-2"
@@ -77,7 +77,7 @@ export function FeedbackListView({
               ))}
             </select>
           </label>
-          <label className="text-sm">
+          <label className="text-base">
             対象で絞る
             <select
               className="mt-1 block min-h-11 w-full rounded-md border bg-background px-2"
@@ -92,7 +92,7 @@ export function FeedbackListView({
               ))}
             </select>
           </label>
-          <label className="min-w-0 text-sm">
+          <label className="min-w-0 text-base">
             送信日時（開始）
             <input
               type="datetime-local"
@@ -101,7 +101,7 @@ export function FeedbackListView({
               className="mt-1 block min-h-11 w-full min-w-0 rounded-md border bg-background px-2"
             />
           </label>
-          <label className="min-w-0 text-sm">
+          <label className="min-w-0 text-base">
             送信日時（終了）
             <input
               type="datetime-local"
@@ -131,10 +131,10 @@ export function FeedbackListView({
               className="min-w-0 space-y-3 rounded-xl border bg-background p-4 sm:p-5"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold">
+                <span className="rounded-md bg-muted px-2 py-1 text-base font-semibold">
                   {FEEDBACK_KINDS[item.kind]}
                 </span>
-                <span className="text-sm">
+                <span className="text-base">
                   {FEEDBACK_TARGETS.find((t) => t.value === item.target)
                     ?.label ?? "ステップ不明"}
                 </span>
@@ -145,11 +145,11 @@ export function FeedbackListView({
                   {new Date(item.createdAt).toLocaleString("ja-JP")}
                 </time>
               </div>
-              <p className="whitespace-pre-wrap break-words text-sm leading-7 [overflow-wrap:anywhere]">
+              <p className="whitespace-pre-wrap break-words text-base leading-7 [overflow-wrap:anywhere]">
                 {item.body || "文章なし（種類のみ）"}
               </p>
               {item.target === "app" ? (
-                <p className="text-sm">
+                <p className="text-base">
                   使いやすさ：
                   <span className="font-semibold">
                     {item.rating === null ? "未回答" : `${item.rating} / 5`}
@@ -162,7 +162,7 @@ export function FeedbackListView({
                 </p>
                 {canReadOutcomes ? (
                   <a
-                    className="text-xs underline"
+                    className="text-base underline"
                     href={`/shared-outcomes?roomId=${encodeURIComponent(item.roomId)}`}
                   >
                     共有成果を見る

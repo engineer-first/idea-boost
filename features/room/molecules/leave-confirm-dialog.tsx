@@ -96,7 +96,7 @@ export function LeaveConfirmDialog({
         </AlertDialogHeader>
         {mode === "leave" ? (
           <fieldset disabled={isLeaving} className="space-y-3">
-            <legend className="mb-2 text-sm font-medium">退出後の成果</legend>
+            <legend className="mb-2 text-base font-medium">退出後の成果</legend>
             {(["retain", "discard"] as const).map((access) => (
               <label
                 key={access}
@@ -115,7 +115,7 @@ export function LeaveConfirmDialog({
                 <span className="min-w-0 space-y-1">
                   <span
                     id={`${choiceId}-${access}-label`}
-                    className="block text-sm font-medium"
+                    className="block text-base font-medium"
                   >
                     {access === "retain"
                       ? "成果を残して退出"
@@ -123,7 +123,7 @@ export function LeaveConfirmDialog({
                   </span>
                   <span
                     id={`${choiceId}-${access}-description`}
-                    className="block text-sm leading-relaxed text-muted-foreground"
+                    className="block text-base leading-relaxed text-muted-foreground"
                   >
                     {access === "retain"
                       ? completed
@@ -134,7 +134,7 @@ export function LeaveConfirmDialog({
                 </span>
               </label>
             ))}
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <p className="text-base leading-relaxed text-muted-foreground">
               どちらを選んでも、他の参加者の成果や共有した付箋は消えません。
             </p>
           </fieldset>

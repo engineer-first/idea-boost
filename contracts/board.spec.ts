@@ -72,9 +72,15 @@ describe("note typography", () => {
     },
   );
 
-  it("文字サイズを12〜24pxの1px刻み、既定14pxとして共有する", () => {
+  it("文字サイズを12〜24pxの1px刻み、既定16pxとして共有する", () => {
     expect(NOTE_FONT_SIZE_RANGE).toEqual({ min: 12, max: 24, step: 1 });
-    expect(NOTE_DEFAULT_FONT_SIZE).toBe(14);
+    expect(NOTE_DEFAULT_FONT_SIZE).toBe(16);
+  });
+
+  it("不正な文字サイズの高さ計算は16pxで補完する", () => {
+    expect(getNoteHeight("あ".repeat(240), Number.NaN)).toBe(
+      getNoteHeight("あ".repeat(240), 16),
+    );
   });
 
   it("短文は最小高さを使い、長文は文字サイズを保ったまま全文ぶん縦へ伸ばす", () => {

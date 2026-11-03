@@ -639,7 +639,7 @@ export function RoomBoardHeader({
               <Button
                 type="button"
                 variant={isCurrentUserReady ? "secondary" : "outline"}
-                className={`h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
+                className={`text-sm h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
                 disabled={
                   isDisconnected ||
                   isNextPhasePending ||
@@ -714,7 +714,7 @@ export function RoomBoardHeader({
                   <Button
                     type="button"
                     variant="ghost"
-                    className="h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
+                    className="text-sm h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
                     aria-label={`参加者 ${members.length}人`}
                     data-host-transfer-origin
                     title="参加者一覧を開く"
@@ -806,7 +806,7 @@ export function RoomBoardHeader({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-72" aria-label="参加者一覧">
-                  <p className="mb-3 text-sm font-semibold">
+                  <p className="mb-3 text-base font-semibold">
                     参加者 {members.length}人
                   </p>
                   <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto p-1">
@@ -855,7 +855,7 @@ export function RoomBoardHeader({
                             )}
                             completionLabel={completionLabel}
                           />
-                          <span className="min-w-0 flex-1 truncate text-sm">
+                          <span className="min-w-0 flex-1 truncate text-base">
                             {member.name}
                           </span>
                           {member.userId === currentUserId &&
@@ -900,7 +900,7 @@ export function RoomBoardHeader({
               : canAdvanceSharing) ? (
               activeSharing.status === "ready" ? (
                 <Button
-                  className="h-10 shrink-0"
+                  className="text-sm h-10 shrink-0"
                   disabled={isDisconnected || isTransferring}
                   onClick={() => onSharingStart?.(sharingDuration)}
                 >
@@ -909,7 +909,7 @@ export function RoomBoardHeader({
               ) : (
                 <Button
                   variant="outline"
-                  className="h-10 shrink-0 px-3"
+                  className="text-sm h-10 shrink-0 px-3"
                   disabled={
                     isDisconnected ||
                     transitioning ||
@@ -926,7 +926,7 @@ export function RoomBoardHeader({
               outcomePublished && hasFinalDecision ? (
                 <Button
                   type="button"
-                  className="h-10 shrink-0 px-3"
+                  className="text-sm h-10 shrink-0 px-3"
                   onClick={onShowOutcome}
                 >
                   成果を見る
@@ -939,7 +939,7 @@ export function RoomBoardHeader({
                     <Button
                       type="button"
                       variant={canPublishOutcome ? "default" : "ghost"}
-                      className={`h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-xs ${canPublishOutcome ? styles.nextReady : styles.nextWaiting}`}
+                      className={`text-sm h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-sm max-[639px]:w-[116px] max-[639px]:whitespace-normal max-[639px]:leading-tight ${canPublishOutcome ? styles.nextReady : styles.nextWaiting}`}
                       disabled={!canPublishOutcome}
                     >
                       <Check
@@ -1026,7 +1026,7 @@ export function RoomBoardHeader({
                 }}
               >
                 <div className="mb-1 flex items-start gap-1 px-2">
-                  <p className="min-w-0 break-all text-sm leading-7">
+                  <p className="min-w-0 break-all text-base leading-7">
                     <span className="text-muted-foreground">ルーム名：</span>
                     <span className="font-medium">{roomName ?? "未設定"}</span>
                   </p>
@@ -1072,7 +1072,7 @@ export function RoomBoardHeader({
                       size={32}
                       isMe
                     />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    <span className="min-w-0 flex-1 truncate text-base font-medium">
                       {currentMember.name}
                     </span>
                     {onEditSelf && !outcomePublished ? (
@@ -1090,7 +1090,7 @@ export function RoomBoardHeader({
                 ) : null}
 
                 <div className="flex flex-col gap-1">
-                  <div className="relative flex h-10 items-center px-2 pr-12 text-sm">
+                  <div className="relative flex h-10 items-center px-2 pr-12 text-base">
                     タイマー通知音
                     <TimerSoundControl {...timerSoundControls} />
                   </div>
@@ -1114,7 +1114,7 @@ export function RoomBoardHeader({
                         }
                         aria-label="ルームに招待"
                       >
-                        <p className="mb-1 text-sm font-semibold">
+                        <p className="mb-1 text-base font-semibold">
                           ルームに招待
                         </p>
                         <p className="mb-4 text-xs leading-5 text-muted-foreground">

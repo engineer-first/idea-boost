@@ -102,12 +102,12 @@ export function CompletedRoomDetailView({
         }
       >
         {feedback ? (
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          <p className="mt-3 text-base leading-6 text-muted-foreground">
             感想は現在参加中のルームからのみ送信できます。退出・解散後は送信できません。
           </p>
         ) : null}
         <section className="mt-8 space-y-4" aria-label="完了ルームの記録">
-          <div className="rounded-xl border bg-muted/20 p-4 text-sm leading-7">
+          <div className="rounded-xl border bg-muted/20 p-4 text-base leading-7">
             <p>完了日時：{formatCompletedDate(room.completedAt)}（日本時間）</p>
             <p>閲覧期限：{formatCompletedDate(room.expiresAt)}（日本時間）</p>
             <p className="text-muted-foreground">
@@ -140,19 +140,19 @@ export function CompletedRoomDetailView({
               id="completed-history"
               className="space-y-5 rounded-xl border p-4 sm:p-6"
             >
-              <p className="text-sm leading-6 text-muted-foreground">
+              <p className="text-base leading-6 text-muted-foreground">
                 共有されていた付箋と配置を見返せます。配置から採用理由を示すものではありません。
               </p>
               <div className="space-y-2">
                 <label
                   htmlFor="completed-scene"
-                  className="block text-sm font-semibold"
+                  className="block text-base font-semibold"
                 >
                   見返す場面
                 </label>
                 <select
                   id="completed-scene"
-                  className="min-h-11 w-full min-w-0 rounded-md border bg-background px-3 text-sm"
+                  className="min-h-11 w-full min-w-0 rounded-md border bg-background px-3 text-base"
                   value={selected}
                   onChange={(e) =>
                     onSelect(e.target.value as CompletedSceneKind)
@@ -185,7 +185,7 @@ export function CompletedRoomDetailView({
                         {SCENE_LABELS[selected]}
                       </h2>
                       {scene.scene.recordedAt !== null && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-base text-muted-foreground">
                           記録日時：
                           {formatCompletedDate(scene.scene.recordedAt)}
                           （日本時間）
@@ -194,7 +194,7 @@ export function CompletedRoomDetailView({
                       {scene.board ? (
                         <CompletedBoardView board={scene.board} />
                       ) : (
-                        <p className="rounded-lg bg-muted/40 p-4 text-sm leading-7">
+                        <p className="rounded-lg bg-muted/40 p-4 text-base leading-7">
                           {SCENE_STATUS[scene.scene.status]}
                         </p>
                       )}

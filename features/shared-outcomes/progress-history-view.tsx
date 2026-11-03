@@ -75,7 +75,7 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
           記録の最新状態を取得
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-base text-muted-foreground">
         訪問した順に表示します。時間差には休憩・会話・切断中も含まれます。操作上の迷いや不具合を示すものではありません。時刻は日本時間です。
       </p>
       {loading && <p role="status">進行の記録を読み込んでいます…</p>}
@@ -103,11 +103,11 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
               <h3 className="font-semibold">
                 {entry.sequence}. {getRoomPhaseLabel(entry.phase)}
               </h3>
-              <span className="rounded border px-2 py-1 text-sm">
+              <span className="rounded border px-2 py-1 text-base">
                 {HISTORY_STATUS_LABELS[entry.saveStatus]}
               </span>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-base text-muted-foreground">
               {entry.action ? HISTORY_ACTION_LABELS[entry.action] : "進行中"} →{" "}
               {entry.action === "complete"
                 ? "成果公開"
@@ -115,7 +115,7 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
                   ? getRoomPhaseLabel(entry.nextPhase)
                   : "終了未記録"}
             </p>
-            <dl className="my-4 grid gap-3 text-sm sm:grid-cols-3">
+            <dl className="my-4 grid gap-3 text-base sm:grid-cols-3">
               <div>
                 <dt className="text-muted-foreground">開始</dt>
                 <dd>
@@ -174,7 +174,7 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
           >
             記録 {selected.sequence} · {getRoomPhaseLabel(selected.phase)}
           </h3>
-          <p className="text-sm">
+          <p className="text-base">
             移行先：
             {selected.action === "complete"
               ? "成果公開"
@@ -182,14 +182,14 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
                 ? getRoomPhaseLabel(selected.nextPhase)
                 : "終了未記録"}
           </p>
-          <p className="text-sm">
+          <p className="text-base">
             記録時刻：
             {selected.exitedAt === null
               ? "終了未記録"
               : formatHistoryTime(selected.exitedAt)}{" "}
             · {HISTORY_STATUS_LABELS[selected.saveStatus]}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             閲覧への反映：
             {selected.reflectedAt === null
               ? "未反映"
@@ -216,8 +216,10 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
                 <dl className="grid gap-3 sm:grid-cols-3">
                   {PHASE_LABELS.map((label, index) => (
                     <div key={label} className="rounded-lg border p-3">
-                      <dt className="text-sm text-muted-foreground">{label}</dt>
-                      <dd className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                      <dt className="text-base text-muted-foreground">
+                        {label}
+                      </dt>
+                      <dd className="mt-2 whitespace-pre-wrap break-words text-base leading-relaxed">
                         {snapshot.decisions.find(
                           (decision) => decision.phase === index + 1,
                         )?.content || "未決定"}

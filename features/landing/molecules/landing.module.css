@@ -90,7 +90,7 @@
   border-radius: 5px;
   background: var(--lp-accent);
   color: var(--lp-paper);
-  font-size: clamp(10px, 1.4cqw, 16px);
+  font-size: clamp(12px, 1.4cqw, 16px);
   font-weight: 700;
 }
 .cursorOne {
@@ -128,7 +128,7 @@
   width: 14%;
   min-height: 16%;
   padding: 0.7cqw;
-  font-size: 1.65cqw;
+  font-size: max(12px, 1.65cqw);
   line-height: 1.5;
   font-weight: 500;
   box-shadow: 0 4px 8px var(--lp-shadow);
@@ -345,7 +345,7 @@
 .mockNote,
 .paperNote {
   padding: 2cqw;
-  font-size: 3.5cqw;
+  font-size: max(12px, 3.5cqw);
   line-height: 1.6;
   font-weight: 600;
   background: var(--lp-note-yellow);
@@ -357,7 +357,7 @@
   min-height: 26%;
 }
 .heroMock .mockNote {
-  font-size: 1.8cqw;
+  font-size: max(12px, 1.8cqw);
   width: 21%;
   min-height: 24%;
   padding: 1.4cqw;
@@ -390,7 +390,7 @@
   background: var(--lp-paper);
   border-radius: 10px;
   padding: 1cqw 2cqw;
-  font-size: 1.5cqw;
+  font-size: max(12px, 1.5cqw);
   box-shadow: 0 4px 16px var(--lp-shadow);
 }
 .voteTray :where(span) {
@@ -412,7 +412,7 @@
   justify-content: center;
   gap: 8px;
   padding: 7% 4%;
-  font-size: 3.5cqw;
+  font-size: max(12px, 3.5cqw);
   font-weight: 600;
 }
 .issueNote0 {
@@ -455,7 +455,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 3cqw;
+  font-size: max(12px, 3cqw);
   font-weight: 600;
   margin-bottom: 20%;
 }
@@ -464,7 +464,7 @@
   width: 3cqw;
 }
 .paperNote {
-  font-size: 3.4cqw;
+  font-size: max(12px, 3.4cqw);
   padding: 3cqw;
 }
 .sharedArea .paperNote {
@@ -507,7 +507,7 @@
   position: absolute;
   bottom: 12%;
   left: 10%;
-  font-size: 3.5cqw;
+  font-size: max(12px, 3.5cqw);
   color: var(--lp-vote);
   font-weight: 600;
 }
@@ -658,7 +658,7 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 2cqw;
-  font-size: 1.3cqw;
+  font-size: max(12px, 1.3cqw);
 }
 .mockProgress,
 .mockControls {
@@ -672,7 +672,7 @@
   width: 27%;
 }
 .mockProgress small {
-  font-size: 1.1cqw;
+  font-size: max(12px, 1.1cqw);
   display: block;
   margin-top: 0.7cqw;
 }
@@ -791,13 +791,13 @@
   background: var(--lp-soft);
   color: var(--lp-ink);
   pointer-events: none;
-  font-size: 14px;
+  font-size: 16px;
 }
 .featureDemo * {
   pointer-events: none;
 }
 .featureDemo p {
-  font-size: 14px;
+  font-size: 16px;
 }
 .inviteCode {
   display: flex;
@@ -816,7 +816,7 @@
   color: var(--lp-paper);
   padding: 10px 16px;
   border-radius: 8px;
-  font: 600 14px var(--font-noto-sans-jp, sans-serif);
+  font: 600 16px var(--font-noto-sans-jp, sans-serif);
   animation: demoPress 10s var(--demo-delay) infinite;
 }
 .copyToast {
@@ -1262,7 +1262,7 @@
   margin-bottom: 24px;
 }
 .phaseJourney :where(h3) > span {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--lp-accent);
 }
 .phaseIssueNote {
@@ -1314,7 +1314,7 @@
 }
 .phaseBridge li {
   padding: 12px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
   background: var(--lp-paper);
   border-radius: 12px;
@@ -1351,7 +1351,7 @@
 .ideaFan p {
   width: 50%;
   padding: 16px 8px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
   font-weight: 600;
   background: var(--lp-note-blue);
@@ -1367,7 +1367,7 @@
   padding: 20px;
   background: var(--lp-note-yellow);
   box-shadow: 0 6px 16px var(--lp-shadow);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   line-height: 1.7;
 }
@@ -1375,7 +1375,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 12px;
   margin-bottom: 10px;
 }
 .selectionLabel svg {
@@ -1389,7 +1389,7 @@
 }
 .phaseDiagram figcaption {
   margin-top: 32px;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.8;
   color: var(--lp-body);
 }
@@ -1400,7 +1400,7 @@
   margin-top: 16px;
 }
 .diagramSources a {
-  font-size: 13px;
+  font-size: 12px;
   min-height: 32px;
 }
 @media (min-width: 1100px) {
@@ -1488,7 +1488,7 @@
   padding-block: 64px;
 }
 .afterWords > span {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
 }
 .comparisons {
@@ -1522,7 +1522,7 @@
 }
 .comparisonBefore {
   color: var(--lp-body);
-  font-size: 15px;
+  font-size: 16px;
 }
 .comparisonAfter {
   color: var(--lp-accent);
@@ -1581,7 +1581,7 @@
 }
 .comparisonNote {
   margin-top: 12px;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
   color: var(--lp-body);
 }
@@ -1726,7 +1726,7 @@
   padding: 8px 10px;
   border: 2px solid var(--lp-brand-blue);
   border-radius: 45% 55% 42% 50%;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   text-align: center;
   transform: rotate(5deg);
@@ -2011,7 +2011,7 @@
   padding: 4px 10px;
   border-radius: 999px;
   background: var(--lp-tape);
-  font-size: 13px;
+  font-size: 12px;
   margin-bottom: 24px;
 }
 .outcomeIdea {

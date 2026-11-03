@@ -108,22 +108,22 @@ export function HostTransferDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!target ? (
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="text-base text-muted-foreground">
             このユーザーは退出しました。参加者を選び直してください。
           </p>
         ) : null}
         {disconnected ? (
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="text-base text-muted-foreground">
             再接続してから操作してください。
           </p>
         ) : null}
         {blocked ? (
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="text-base text-muted-foreground">
             進行中の操作が終わってから操作してください。
           </p>
         ) : null}
         {error ? (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="text-base text-destructive">
             {error}
           </p>
         ) : null}
