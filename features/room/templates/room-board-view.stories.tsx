@@ -659,6 +659,19 @@ export const OutcomePublished: Story = {
     ...FinalDecisionPending.args,
     outcomePublished: true,
   },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("link", { name: "ホームへ戻る", exact: true }),
+    );
+    await expect(
+      canvas.getByRole("link", { name: "ホームへ戻る", exact: true }),
+    ).toHaveAttribute("href", "/home");
+    await expect(args.onLeave).not.toHaveBeenCalled();
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole("alertdialog"),
+    ).not.toBeInTheDocument();
+  },
 };
 
 // loading相当: WebSocket 接続の確立中（初回接続時。snapshot 未着なので付箋も空）。

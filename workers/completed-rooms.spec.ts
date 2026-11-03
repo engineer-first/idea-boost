@@ -367,7 +367,7 @@ it("途中の保全失敗・導入前・正常な空盤面を区別し、反映�
   room.socket.close();
 });
 
-it("在籍中の切断者は含め、完了前退出者は除き、完了後本人退出者の閲覧権は維持する", async () => {
+it("在籍中の切断者と完了前退出者を含め、完了後本人退出者の閲覧権も維持する", async () => {
   const room = await complete(async (instance) => {
     await instance.upsertMember(outsider.sub, outsider.name);
     await instance.leave(outsider.sub);
@@ -377,7 +377,7 @@ it("在籍中の切断者は含め、完了前退出者は除き、完了後本�
   );
   expect(
     (await request(`completed-rooms/${room.roomId}`, outsider)).status,
-  ).toBe(404);
+  ).toBe(200);
   expect(
     (await request(`rooms/${room.roomId}/leave`, guest, "POST")).status,
   ).toBe(204);
@@ -1091,50 +1091,32 @@ describe("ゲスト本人の完了成果", () => {
       room.socket.close();
     }
   });
-  it.each(["discard", "期限外"])(
-    "%sのゲストには一覧・詳細・場面を返さない",
-    async (condition) => {
-      const room = await complete(undefined, principal);
-      await runInRoomDO(room.roomId, (instance) => instance.alarm());
-      try {
-        if (condition === "discard") {
-          expect(
-            (
-              await request(`rooms/${room.roomId}/leave`, principal, "POST", {
-                intent: "self",
-                outcomeAccess: "discard",
-              })
-            ).status,
-          ).toBe(204);
-        } else {
-          await runInRoomDO(room.roomId, (_instance, state) => {
-            state.storage.sql.exec(
-              "UPDATE completed_room SET expires_at=?",
-              Date.now() - 1,
-            );
-          });
-        }
-        for (const suffix of ["", "/scenes/problem-grouping"])
-          expect(
-            (
-              await request(
-                `completed-rooms/${room.roomId}${suffix}`,
-                principal,
-              )
-            ).status,
-          ).toBe(404);
-        const list = await request("completed-rooms", principal);
-        expect(list.status).toBe(200);
-        expect(await list.json()).toMatchObject({
-          rooms: expect.not.arrayContaining([
-            expect.objectContaining({ roomId: room.roomId }),
-          ]),
-        });
-      } finally {
-        room.socket.close();
-      }
-    },
-  );
+  it("期限外のゲストには一覧・詳細・場面を返さない", async () => {
+    const room = await complete(undefined, principal);
+    await runInRoomDO(room.roomId, (instance) => instance.alarm());
+    try {
+      await runInRoomDO(room.roomId, (_instance, state) => {
+        state.storage.sql.exec(
+          "UPDATE completed_room SET expires_at=?",
+          Date.now() - 1,
+        );
+      });
+      for (const suffix of ["", "/scenes/problem-grouping"])
+        expect(
+          (await request(`completed-rooms/${room.roomId}${suffix}`, principal))
+            .status,
+        ).toBe(404);
+      const list = await request("completed-rooms", principal);
+      expect(list.status).toBe(200);
+      expect(await list.json()).toMatchObject({
+        rooms: expect.not.arrayContaining([
+          expect.objectContaining({ roomId: room.roomId }),
+        ]),
+      });
+    } finally {
+      room.socket.close();
+    }
+  });
 });
 
 it("完了済みのルームは全切断から24時間を過ぎても30日の閲覧期限を維持する", async () => {

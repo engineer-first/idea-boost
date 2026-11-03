@@ -3691,65 +3691,46 @@ describe("通知の重なり", () => {
 });
 
 describe("U13 通常入口の統合", () => {
-  it("公開後の本人退出はcancelで成果を保ちconfirm一回・pendingで二重送信しない host=%s", async () => {
+  it("完了後は退出・削除を表示せず確認なしのホームへのリンクを出す", () => {
     const idea = buildNote({ id: "idea", content: "採用案" });
-    const { props, rerender } = setup({
+    const { props } = setup({
       phase: buildPhaseStep(5, 3),
       notes: [idea],
-
-      hmwDecidedIssue: "課題",
-      decidedHmw: "問い",
-    });
-    const published = {
-      ...props,
       decision: buildDecision({ phase: 3, noteId: idea.id }),
       outcomePublished: true,
-    };
-    rerender(<TestBoardView {...published} />);
-    await userEvent.click(
-      screen.getByRole("button", { name: "退出してホームへ" }),
+    });
+    expect(screen.getByRole("link", { name: "ホームへ戻る" })).toHaveAttribute(
+      "href",
+      "/home",
     );
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("退出しますか？");
-    await userEvent.click(
-      screen.getByRole("button", { name: "退出をやめて成果へ戻る" }),
-    );
-    expect(props.onLeave).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("heading", { name: "チームで決めた成果" }),
-    ).toBeVisible();
-    await userEvent.click(
-      screen.getByRole("button", { name: "退出してホームへ" }),
-    );
-    await userEvent.click(screen.getByTestId("leave-confirm-action"));
-    expect(props.onLeave).toHaveBeenCalledTimes(1);
-    rerender(<TestBoardView {...published} isLeaving />);
-    expect(screen.getByTestId("leave-confirm-action")).toBeDisabled();
-    fireEvent.click(screen.getByTestId("leave-confirm-action"));
-    expect(props.onLeave).toHaveBeenCalledTimes(1);
-    rerender(<TestBoardView {...published} />);
-    expect(screen.getByTestId("leave-confirm-action")).not.toBeDisabled();
+      screen.queryByRole("button", { name: /退出|ルームを削除/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("href") === "/home"),
+    ).toHaveLength(1);
+    expect(props.onLeave).not.toHaveBeenCalled();
   });
-
-  it("確認中に公開されたら古い解散確認を本人退出に切り替える", async () => {
+  it("退出確認中に完了したら確認を閉じてホームへのリンクだけを出す", async () => {
     const idea = buildNote({ id: "idea", content: "採用案" });
     const { props, rerender } = setup({
       phase: buildPhaseStep(5, 3),
       notes: [idea],
-
       decision: buildDecision({ phase: 3, noteId: idea.id }),
-      hmwDecidedIssue: "課題",
-      decidedHmw: "問い",
     });
     openRoomMenu();
     await userEvent.click(screen.getByRole("button", { name: "退出する" }));
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("退出しますか？");
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     rerender(<TestBoardView {...props} outcomePublished />);
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("退出しますか？");
-    expect(
-      screen.queryByRole("button", { name: "退出する" }),
-    ).not.toBeInTheDocument();
-    await userEvent.click(screen.getByTestId("leave-confirm-action"));
-    expect(props.onLeave).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ホームへ戻る" })).toHaveAttribute(
+      "href",
+      "/home",
+    );
+    expect(props.onLeave).not.toHaveBeenCalled();
   });
 
   it("3-1 hint一回でマイ付箋を開き本文を編集でき、空付箋を増やさない", async () => {
@@ -3891,15 +3872,18 @@ describe("付箋上の投票結果", () => {
   );
 });
 
-it("参加者が作業画面で選んだ成果の扱いを退出へ渡す", async () => {
-  const onLeave = vi.fn();
+it("参加者が作業画面で成果を選ばず退出を確認できる", async () => {
   const user = userEvent.setup();
-  setup({ onLeave });
+  const { props } = setup();
   openRoomMenu();
   await user.click(screen.getByRole("button", { name: "退出する" }));
-  await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
-  await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
-  expect(onLeave).toHaveBeenCalledWith("discard");
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
+  await user.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "退出する",
+    }),
+  );
+  expect(props.onLeave).toHaveBeenCalledExactlyOnceWith();
 });
 
 // AT-001/004/006/007: 本人選択は共有・本文・工程コマンドと分離する。

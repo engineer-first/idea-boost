@@ -17,9 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button } from "@/components/ui/button";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
-import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
   isPhaseStep,
@@ -266,7 +264,7 @@ export type RoomBoardViewProps = {
   onRestartWriting?: () => void;
   onRevote?: () => void;
   // 退出。
-  onLeave: (outcomeAccess?: LeaveOutcomeAccess) => void;
+  onLeave: () => void;
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
   isLeaving: boolean;
   // 次フェーズへ。完了条件を満たした参加者が操作する。
@@ -524,7 +522,6 @@ export function RoomBoardView({
   const privateNoteAddRef = useRef<(() => void) | null>(null);
   const composingRef = useRef(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [outcomeDismissed, setOutcomeDismissed] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
   const [isVoteStickerReturnDropTarget, setIsVoteStickerReturnDropTarget] =
@@ -1606,8 +1603,7 @@ export function RoomBoardView({
   };
 
   const feedbackButtonRef = useRef<HTMLButtonElement>(null);
-  const outcomeLeaveButtonRef = useRef<HTMLButtonElement>(null);
-  if (hasFinalDecision && outcomePublished && !outcomeDismissed) {
+  if (hasFinalDecision && outcomePublished) {
     return (
       <>
         <RoomOutcomeView
@@ -1625,27 +1621,6 @@ export function RoomBoardView({
           }
           outcome={outcome}
           connected={!isDisconnected}
-        >
-          <Button
-            variant="outline"
-            className="min-h-11"
-            disabled={isLeaving}
-            onClick={() => setLeaveDialogOpen(true)}
-            ref={outcomeLeaveButtonRef}
-          >
-            退出してホームへ
-          </Button>
-        </RoomOutcomeView>
-        <LeaveConfirmDialog
-          key={`${outcomePublished}`}
-          open={leaveDialogOpen && !isRemovingMember}
-          onOpenChange={setLeaveDialogOpen}
-          onConfirm={onLeave}
-          isLeaving={isLeaving}
-          mode="leave"
-          completed
-          onReturnToOutcome={() => setLeaveDialogOpen(false)}
-          onClosed={() => outcomeLeaveButtonRef.current?.focus()}
         />
         {feedback ? <FeedbackPanel feedback={feedback} /> : null}
       </>
@@ -1990,7 +1965,6 @@ export function RoomBoardView({
           hasFinalDecision={hasFinalDecision}
           outcomePublished={outcomePublished}
           onPublishOutcome={onPublishOutcome}
-          onShowOutcome={() => setOutcomeDismissed(false)}
           signOutAction={signOutAction}
           sessionKind={sessionKind}
           isLeaving={isLeaving}
@@ -2295,13 +2269,11 @@ export function RoomBoardView({
         ) : null}
         <LeaveConfirmDialog
           key={`${outcomePublished}`}
-          open={leaveDialogOpen && !isRemovingMember}
+          open={leaveDialogOpen && !isRemovingMember && !outcomePublished}
           onOpenChange={setLeaveDialogOpen}
           onConfirm={onLeave}
           isLeaving={isLeaving}
-          completed={outcomePublished}
           lastMember={members.length === 1}
-          onReturnToOutcome={() => setOutcomeDismissed(false)}
           onClosed={() => {
             boardRootRef.current
               ?.querySelector<HTMLButtonElement>(

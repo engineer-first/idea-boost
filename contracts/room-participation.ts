@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CreateRoomInputSchema } from "./api";
+import { LeaveRoomRequestSchema } from "./completed-rooms";
 export const ParticipationTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("join"), code: z.string().length(6) }),
   z.strictObject({ kind: z.literal("create"), input: CreateRoomInputSchema }),
@@ -31,7 +32,7 @@ export const ParticipationPrepareSchema = z.strictObject({
 });
 export const ParticipationCommitSchema = z.strictObject({
   operationId: z.guid(),
-  outcomeAccess: z.enum(["retain", "discard"]).default("discard"),
+  outcomeAccess: LeaveRoomRequestSchema.shape.outcomeAccess,
   confirmationVersion: z.int().nonnegative(),
   expectedPrincipal: z.guid(),
 });

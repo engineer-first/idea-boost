@@ -74,6 +74,52 @@ function confirmation(result: ParticipationResult) {
   return result.confirmation;
 }
 describe("アカウントの参加切替", () => {
+  it("保存済みdiscardの参加切替をretain要求で再開しても拒否せず閲覧権を残す", async () => {
+    const source = await createRoomAs(B);
+    await joinRoomAs(A, source.inviteCode);
+    const target = await createRoomAs(C);
+    const prepared = confirmation(await prepare(target.inviteCode));
+    const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+    await runInDurableObject(account, async (_account, state) => {
+      const key = `op:${prepared.operationId}`;
+      const op = await state.storage.get<Record<string, unknown>>(key);
+      if (!op) throw new Error("operationなし");
+      op.phase = "leaving";
+      op.generation = 1;
+      op.outcomeAccess = "discard";
+      await state.storage.put(key, op);
+      await state.storage.put("generation", 1);
+      await state.storage.put("active", prepared.operationId);
+    });
+    expect(await commit(prepared.operationId, "retain")).toMatchObject({
+      kind: "ready",
+      roomId: target.roomId,
+    });
+    await runInRoomDO(source.roomId, (_room, state) => {
+      expect(
+        state.storage.sql
+          .exec("SELECT user_id FROM retained_outcome_participants")
+          .toArray(),
+      ).toContainEqual({ user_id: A.sub });
+    });
+  });
+  it("discardの参加切替でも元ルームの成果閲覧権を消さない", async () => {
+    const source = await createRoomAs(B);
+    await joinRoomAs(A, source.inviteCode);
+    const target = await createRoomAs(C);
+    const prepared = confirmation(await prepare(target.inviteCode));
+    expect(await commit(prepared.operationId, "discard")).toMatchObject({
+      kind: "ready",
+      roomId: target.roomId,
+    });
+    await runInRoomDO(source.roomId, (_room, state) => {
+      expect(
+        state.storage.sql
+          .exec("SELECT user_id FROM retained_outcome_participants")
+          .toArray(),
+      ).toContainEqual({ user_id: A.sub });
+    });
+  });
   it("確認だけでは退出せず、決定後は元の全接続と古い再送を失効させる", async () => {
     const source = await createRoomAs(A);
     const target = await createRoomAs(C);
@@ -396,7 +442,7 @@ it("古い途中操作のactive解除後に新移動が確定しても旧操作�
   expect(await listMemberIds(oldTarget.roomId)).not.toContain(A.sub);
   expect(await listMemberIds(source.roomId)).not.toContain(A.sub);
 });
-it("完了済み操作でも同じIDで成果の選択を変更した要求を拒否する", async () => {
+it("完了済み操作はdiscardとretainの再送を同じ本人退出として扱う", async () => {
   await createRoomAs(A);
   const target = await createRoomAs(C);
   const prepared = confirmation(await prepare(target.inviteCode));
@@ -404,8 +450,8 @@ it("完了済み操作でも同じIDで成果の選択を変更した要求を�
     kind: "ready",
   });
   expect(await commit(prepared.operationId, "retain")).toMatchObject({
-    kind: "rejected",
-    reason: "input_conflict",
+    kind: "ready",
+    roomId: target.roomId,
   });
 });
 

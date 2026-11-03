@@ -14,6 +14,7 @@ afterAll(async () => {
 // DOMの描画だけではplayの失敗を検出できない。storyの操作を最後まで実行する。
 test.each([
   "room-nextphaseconfirmdialog--all-ready",
+  "room-roomboardview--outcome-published",
   "notes-notecard--excluded-for-host",
   "notes-notecard--excluded-for-participant",
   "notes-notecard--result-with-candidate-action",
@@ -22,8 +23,6 @@ test.each([
   "roommembers-memberselection--disabled",
   "roommembers-memberselection--display-only",
   "room-boardcontext--hmw-expanded",
-  "room-leaveconfirmdialog--discard",
-  "room-leaveconfirmdialog--completed-discard",
   "room-roomboardcanvas--excluded-candidate",
   "room-roomtimer--ended-host",
   "room-roomboardlayout--reference-and-notes",

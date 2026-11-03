@@ -153,7 +153,7 @@ const TABLE: Array<{
     expected: true,
   },
   {
-    name: "成果を残して退出した作者も再訪記録では本人のprivate付箋を見られない",
+    name: "本人退出で閲覧権を保った作者も再訪記録では本人のprivate付箋を見られない",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "private", authorId: AUTHOR }),
     expected: false,

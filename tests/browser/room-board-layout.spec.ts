@@ -684,7 +684,7 @@ test("成果公開後は3件を表示し、編集ボードへ戻さずホーム�
   expect(await page.getByRole("button", { name: "ボードへ戻る" }).count()).toBe(
     0,
   );
-  const home = page.getByRole("link", { name: "保存を確認してホームへ" });
+  const home = page.getByRole("link", { name: "ホームへ戻る" });
   await home.scrollIntoViewIfNeeded();
   expect(await home.isVisible()).toBe(true);
   expect(await home.getAttribute("href")).toBe("/home");

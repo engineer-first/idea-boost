@@ -11,6 +11,7 @@ import {
   Pencil,
   UserPlus,
 } from "lucide-react";
+import Link from "next/link";
 import {
   type ReactNode,
   useCallback,
@@ -1141,20 +1142,30 @@ export function RoomBoardHeader({
                       onConfirm={onRollbackPhase}
                     />
                   ) : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-10 w-full justify-start gap-3 px-2 font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    disabled={isLeaving || isRemovingMember}
-                    data-testid="leave-button"
-                    onClick={() => {
-                      setRoomMenuOpen(false);
-                      onLeaveClick();
-                    }}
-                  >
-                    <DoorOpen className="size-4" aria-hidden="true" />
-                    {leaveLabel}
-                  </Button>
+                  {outcomePublished ? (
+                    <Button
+                      variant="ghost"
+                      className="h-10 w-full justify-start gap-3 px-2 font-normal"
+                      asChild
+                    >
+                      <Link href="/home">ホームへ戻る</Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-10 w-full justify-start gap-3 px-2 font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={isLeaving || isRemovingMember}
+                      data-testid="leave-button"
+                      onClick={() => {
+                        setRoomMenuOpen(false);
+                        onLeaveClick();
+                      }}
+                    >
+                      <DoorOpen className="size-4" aria-hidden="true" />
+                      {leaveLabel}
+                    </Button>
+                  )}
                   {signOutAction ? (
                     <SignOutControl
                       sessionKind={sessionKind}

@@ -845,12 +845,7 @@ export class AccountDO extends DurableObject<Env> {
         confirmation: op.confirmation,
         reason: "state_changed",
       };
-    if (op.generation !== undefined && op.outcomeAccess !== outcomeAccess)
-      return {
-        kind: "rejected",
-        reason: "input_conflict",
-        error: "同じ操作の成果の選択は変更できません。",
-      };
+    // 本人退出の成果は常に保持するため、旧discardとretainの再送を同じ操作として扱う。
     if (op.result) {
       if ((await this.activeOperation()) === id)
         await this.ctx.storage.delete("active");
