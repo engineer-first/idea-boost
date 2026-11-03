@@ -1037,13 +1037,13 @@ test.each([1280, 1024, 768])(
   },
 );
 
-test("考えるヒントは白地のタブにし、スクロールしても大分類を切り替えられる", async () => {
+test("考えるヒントはNoto Sans JPと白地のタブにし、スクロールしても大分類を切り替えられる", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
   await page.getByRole("button", { name: "考えるヒントを開く" }).click();
   await page.getByRole("tab", { name: "発想を広げる", exact: true }).click();
   const panel = page.getByTestId("board-help-panel");
   expect(await panel.evaluate((e) => getComputedStyle(e).fontFamily)).toContain(
-    "sans-serif",
+    "Noto Sans JP",
   );
   expect(
     await panel
