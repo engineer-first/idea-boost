@@ -121,15 +121,18 @@ describe("入室前のセッション準備", () => {
 
   it.each(
     [GUEST, ACCOUNT].flatMap((user) =>
-      [401, 403, 404, 409].map((status) => ({ user, status })),
+      [401, 403, 404, 409].map((status) => ({ user, status, kind: user.kind })),
     ),
   )(
-    "$user.kindの更新APIが$statusなら本人確認不可を返しCookieを書かない",
+    "$kindの更新APIが$statusなら拒否しCookieを書かない",
     async ({ user, status }) => {
       mocks.api.mockResolvedValue(new Response(null, { status }));
       expect(await prepareRoomEntrySession(user, NOW)).toEqual({
         ok: false,
-        reason: "identity_unavailable",
+        reason:
+          user.kind === "account" && status === 401
+            ? "reauth_required"
+            : "identity_unavailable",
       });
       expect(mocks.set).not.toHaveBeenCalled();
     },

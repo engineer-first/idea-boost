@@ -33,6 +33,7 @@ export {
 
 export {
   type GuestRoomEntryResult,
+  refreshAccountRoomEntry,
   refreshGuestRoomEntry,
 } from "./logic/guest-room-entry-actions";
 

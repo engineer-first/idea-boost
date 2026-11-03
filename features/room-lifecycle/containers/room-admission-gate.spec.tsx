@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const consume = vi.hoisted(() => vi.fn());
 const refreshGuest = vi.hoisted(() => vi.fn());
+const refreshAccount = vi.hoisted(() => vi.fn());
 vi.mock("@/features/auth", async () => {
   const { createContext } = await import("react");
   return {
     consumeRoomEntry: consume,
     refreshGuestRoomEntry: refreshGuest,
+    refreshAccountRoomEntry: refreshAccount,
     startRoomReauthentication: vi.fn(),
     RoomAdmissionContext: createContext<string | undefined>(undefined),
   };
@@ -138,6 +140,7 @@ describe("ゲストの入室前確認", () => {
   beforeEach(() => {
     sessionStorage.clear();
     refreshGuest.mockReset();
+    refreshAccount.mockReset();
   });
   it("StrictModeでも更新は一度だけで待機中はGoogle再認証を出さず、成功後に再読み込みする", async () => {
     let finish!: (value: { ok: true }) => void;
@@ -233,7 +236,7 @@ describe("ゲストの入室前確認", () => {
     ).toBeInTheDocument();
   });
   it("accountの残り時間不足も自動更新しGoogle再認証を表示しない", async () => {
-    refreshGuest.mockResolvedValue({ ok: true });
+    refreshAccount.mockResolvedValue({ ok: true });
     const onRefreshed = vi.fn();
     render(
       <RoomAdmissionGate
@@ -245,7 +248,7 @@ describe("ゲストの入室前確認", () => {
       </RoomAdmissionGate>,
     );
     await waitFor(() => expect(onRefreshed).toHaveBeenCalledOnce());
-    expect(refreshGuest).toHaveBeenCalledWith(roomId);
+    expect(refreshAccount).toHaveBeenCalledWith(roomId);
     expect(
       screen.queryByRole("button", { name: "Googleでログインして続ける" }),
     ).not.toBeInTheDocument();

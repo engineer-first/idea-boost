@@ -23,6 +23,8 @@ export async function prepareRoomEntrySession(
     const response = await apiFetch(`/api/auth/${user.kind}/refresh`, {
       method: "POST",
     });
+    if (response.status === 401 && user.kind === "account")
+      return { ok: false, reason: "reauth_required" };
     if ([401, 403, 404, 409].includes(response.status))
       return { ok: false, reason: "identity_unavailable" };
     if (!response.ok) return { ok: false, reason: "retry" };
