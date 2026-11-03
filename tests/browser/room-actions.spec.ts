@@ -44,7 +44,7 @@ for (const width of [390, 1280]) {
         await page.getByRole("button", { name: "招待URLをコピー" }).isVisible(),
       ).toBe(true);
       await page.keyboard.press("Escape");
-      await invite.waitFor({ state: "hidden" });
+      await invite.waitFor({ state: "detached" });
       await expect
         .poll(() =>
           page
@@ -53,10 +53,21 @@ for (const width of [390, 1280]) {
         )
         .toBe(true);
       await page.keyboard.press("Escape");
+      await page
+        .getByRole("dialog", { name: "ルームメニュー", exact: true })
+        .waitFor({ state: "detached" });
+      await expect
+        .poll(() => menu.evaluate((node) => node === document.activeElement))
+        .toBe(true);
       await menu.click();
       await page.getByRole("button", { name: "退出する", exact: true }).click();
       const dialog = page.getByRole("alertdialog");
       await dialog.waitFor();
+      await page.evaluate(async () => {
+        await Promise.allSettled(
+          document.getAnimations().map((animation) => animation.finished),
+        );
+      });
       expect(await dialog.innerText()).not.toContain("解散");
       await page.keyboard.press("Escape");
       await dialog.waitFor({ state: "hidden" });
@@ -74,6 +85,11 @@ test("ロビーの退出を取り消すと退出ボタンへ戻り、参加者�
   await leave.click();
   const dialog = page.getByRole("alertdialog");
   await dialog.waitFor();
+  await page.evaluate(async () => {
+    await Promise.allSettled(
+      document.getAnimations().map((animation) => animation.finished),
+    );
+  });
   expect(await dialog.innerText()).not.toContain("解散");
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
