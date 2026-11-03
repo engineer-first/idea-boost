@@ -7,16 +7,16 @@
   --lp-mood-lavender: #f1ecff;
   --lp-mood-sky: #e8f5fc;
   --lp-tape: #ffffffa6;
-  /* CTAは既存accentを維持し、brand色は装飾面と線に使う。 */
-  --lp-accent: #4f46e5;
-  --lp-accent-hover: #4338ca;
-  --lp-ink: #0f172a;
-  --lp-body: #334155;
-  --lp-surface: #f8fafc;
-  --lp-paper: #ffffff;
-  --lp-soft: #eef2ff;
-  --lp-tint: #e0e7ff;
-  --lp-line: #cbd5e1;
+  /* 部品はDESIGN.md、作例と装飾はLP固有の色を使う。 */
+  --lp-accent: var(--ib-color-primary);
+  --lp-accent-hover: var(--ib-color-primary-strong);
+  --lp-ink: var(--ib-color-ink);
+  --lp-body: var(--ib-color-muted);
+  --lp-surface: var(--ib-color-canvas);
+  --lp-paper: var(--ib-color-surface);
+  --lp-soft: var(--ib-color-primary-soft);
+  --lp-tint: var(--ib-color-primary-soft);
+  --lp-line: var(--ib-color-line);
   --lp-note-yellow: #f4d35e;
   --lp-note-blue: #88bdf2;
   --lp-note-pink: #f39ab5;
@@ -32,8 +32,12 @@
   padding: 8px 0 72px;
 }
 .heroHeading {
+  font-family: var(
+    --font-zen-maru-gothic,
+    var(--font-noto-sans-jp, sans-serif)
+  );
   font-size: 2rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.28;
   letter-spacing: -0.03em;
 }
@@ -807,7 +811,7 @@
   background: var(--lp-paper);
   border-radius: 12px;
   box-shadow: 0 6px 20px var(--lp-shadow);
-  font: 700 26px monospace;
+  font: 700 26px var(--font-geist-mono, ui-monospace, monospace);
 }
 .copyPress,
 .savePress {
@@ -816,7 +820,7 @@
   color: var(--lp-paper);
   padding: 10px 16px;
   border-radius: 8px;
-  font: 600 14px sans-serif;
+  font: 600 14px var(--font-noto-sans-jp, sans-serif);
   animation: demoPress 10s var(--demo-delay) infinite;
 }
 .copyToast {

@@ -35,6 +35,12 @@ jobs:
       - name: Check dependency graph
         run: npm ls --all > /dev/null
 
+      - name: Lint DESIGN.md
+        run: npm run lint:design
+
+      - name: Check generated design tokens
+        run: npm run check:design-tokens
+
       - name: Create .dev.vars for type generation
         run: cp workers/.dev.vars.example workers/.dev.vars
 
