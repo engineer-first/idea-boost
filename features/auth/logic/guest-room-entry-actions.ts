@@ -13,13 +13,28 @@ export type GuestRoomEntryResult =
 export async function refreshGuestRoomEntry(
   roomId: string,
 ): Promise<GuestRoomEntryResult> {
+  return refreshRoomEntry(roomId, "identity_unavailable");
+}
+
+export async function refreshAccountRoomEntry(
+  roomId: string,
+): Promise<GuestRoomEntryResult> {
+  return refreshRoomEntry(roomId, "reauth_required");
+}
+
+async function refreshRoomEntry(
+  roomId: string,
+  missingSessionReason: "identity_unavailable" | "reauth_required",
+): Promise<GuestRoomEntryResult> {
   if (!isUuid(roomId)) return { ok: false, reason: "identity_unavailable" };
   const user = await getCurrentUser();
-  if (!user) return { ok: false, reason: "identity_unavailable" };
+  if (!user) return { ok: false, reason: missingSessionReason };
   try {
     const response = await apiFetch(`/api/rooms/${roomId}`, {
       cache: "no-store",
     });
+    if (response.status === 401 && user.kind === "account")
+      return { ok: false, reason: "reauth_required" };
     if ([401, 403, 404].includes(response.status))
       return { ok: false, reason: "identity_unavailable" };
     if (response.status !== 200) return { ok: false, reason: "retry" };

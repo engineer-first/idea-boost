@@ -32,7 +32,7 @@ function setup(
     groups: [],
     phase: buildPhaseStep(2),
     decision: null,
-    isHost: false,
+
     permissions: getBoardPermissions(buildPhaseStep(2)),
     privateNotes: [],
     selectedNoteId: null,
@@ -283,7 +283,7 @@ describe("RoomBoardCanvas", () => {
       phase,
       permissions: getBoardPermissions(phase),
       boardInteractionBlocked: true,
-      isHost: true,
+
       isAdoptMode: true,
       notes: [
         buildNote({
@@ -325,7 +325,7 @@ describe("RoomBoardCanvas", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
       permissions: getBoardPermissions(buildPhaseStep(5)),
-      isHost: true,
+
       selectedNoteId: "note-1",
       onNoteExclude: vi.fn(),
     });
@@ -393,7 +393,6 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
     });
 
     expect(
@@ -413,7 +412,7 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       moveHistory,
     });
 
@@ -422,7 +421,7 @@ describe("RoomBoardCanvas", () => {
       screen.getByTestId("note-font-size-controls"),
     );
     expect(tools).toContainElement(screen.getByTestId("canvas-zoom-controls"));
-    expect(screen.getByText("14px")).toBeInTheDocument();
+    expect(screen.getByText("16px")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "移動を元に戻す" }),
     ).toBeInTheDocument();
@@ -459,7 +458,7 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       moveHistory: {
         undo: { label: "付箋の移動", reason: null, disabled: false },
         redo: { label: "付箋の移動", reason: null, disabled: false },
@@ -503,7 +502,7 @@ describe("RoomBoardCanvas", () => {
     const onAdoptNote = vi.fn();
     setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       isAdoptMode: true,
       onAdoptNote,
       notes: [
@@ -536,7 +535,7 @@ describe("RoomBoardCanvas", () => {
       setup({
         phase,
         permissions: getBoardPermissions(phase),
-        isHost: true,
+
         isAdoptMode: true,
         decision: buildDecision({ noteId: "note-1", phase: phase.phase }),
         notes: buildNotes(2),
@@ -553,7 +552,7 @@ describe("RoomBoardCanvas", () => {
       const { props, rerender } = setup({
         phase,
         permissions: getBoardPermissions(phase),
-        isHost: true,
+
         isAdoptMode: true,
         notes: [buildNote({ visibility: "private" })],
       });
@@ -563,17 +562,17 @@ describe("RoomBoardCanvas", () => {
       const notes = buildNotes(2);
       rerender(<RoomBoardCanvas {...props} notes={notes} isDisconnected />);
       expect(targets()).toHaveLength(0);
-      rerender(<RoomBoardCanvas {...props} notes={notes} isHost={false} />);
+      rerender(<RoomBoardCanvas {...props} notes={notes} />);
       expect(targets()).toHaveLength(2);
       rerender(<RoomBoardCanvas {...props} notes={notes} />);
       expect(targets()).toHaveLength(2);
     },
   );
 
-  it("通常キャンバスの採用候補は通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+  it("通常キャンバスの採用候補は透明な操作面とポインターを維持する", () => {
     setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       isAdoptMode: true,
       notes: [
         buildNote({ content: "通常キャンバス候補", visibility: "shared" }),
@@ -584,19 +583,15 @@ describe("RoomBoardCanvas", () => {
       screen.getByRole("button", {
         name: "採用する付箋: 通常キャンバス候補",
       }),
-    ).toHaveClass(
-      "border-transparent",
-      "hover:border-emerald-600",
-      "focus-visible:border-emerald-600",
-    );
+    ).toHaveClass("border-transparent", "cursor-pointer", "inset-0");
   });
 
-  it("アイデアマップの採用候補も通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+  it("アイデアマップの採用候補も透明な操作面とポインターを維持する", () => {
     const phase = buildPhaseStep(5, 3);
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       isAdoptMode: true,
       notes: [
         buildNote({ content: "アイデアマップ候補", visibility: "shared" }),
@@ -607,11 +602,7 @@ describe("RoomBoardCanvas", () => {
       screen.getByRole("button", {
         name: "採用するアイデア: アイデアマップ候補",
       }),
-    ).toHaveClass(
-      "border-transparent",
-      "hover:border-emerald-600",
-      "focus-visible:border-emerald-600",
-    );
+    ).toHaveClass("border-transparent", "cursor-pointer", "inset-0");
   });
 
   it.each([
@@ -622,7 +613,7 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       isAdoptMode: true,
       notes: [
         buildNote({ id: "note-1", content: "候補", visibility: "shared" }),
@@ -649,7 +640,7 @@ describe("RoomBoardCanvas", () => {
     ];
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       isAdoptMode: true,
       notes,
       onAdoptionFocusChange,
@@ -673,7 +664,7 @@ describe("RoomBoardCanvas", () => {
     const note = buildNote({ id: "note-1", visibility: "shared" });
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
-      isHost: false,
+
       notes: [note],
       adoptionFocusNoteId: "note-1",
     });
@@ -682,19 +673,17 @@ describe("RoomBoardCanvas", () => {
       "true",
     );
 
-    rerender(
-      <RoomBoardCanvas {...props} isHost adoptionFocusNoteId="note-1" />,
-    );
+    rerender(<RoomBoardCanvas {...props} adoptionFocusNoteId="note-1" />);
     expect(screen.getByTestId("note-card")).toHaveAttribute(
       "data-adoption-focused",
       "true",
     );
   });
 
-  it("非ホストにも確定済み付箋の緑枠とチェックを示す", () => {
+  it("非ホストにも確定済み付箋の緑枠とはんこを示す", () => {
     setup({
       phase: buildPhaseStep(5),
-      isHost: false,
+
       decision: {
         phase: 1,
         noteId: "note-1",
@@ -703,9 +692,9 @@ describe("RoomBoardCanvas", () => {
       notes: [buildNote({ id: "note-1", visibility: "shared" })],
     });
 
-    expect(screen.getByTestId("note-card")).toHaveClass(
-      "outline-4",
-      "outline-emerald-600",
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-decided",
+      "true",
     );
     expect(
       screen.getByRole("status", { name: "取り組む課題に決定済み" }),
@@ -899,7 +888,7 @@ describe("RoomBoardCanvas", () => {
     const onIdeaMapResize = vi.fn();
     setup({
       phase: buildPhaseStep(3, 3),
-      isHost: true,
+
       ideaMapSizeLevel: 2,
       ideaMapSizeInitialized: true,
       onIdeaMapResize,
@@ -925,7 +914,7 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       notes: [buildNote({ id: "note-1", excluded: true, x: 120, y: 240 })],
     });
 
@@ -1190,6 +1179,61 @@ describe("RoomBoardCanvas", () => {
         expect(ghostText).not.toHaveClass("dark:text-slate-50");
         unmount();
       }
+    },
+  );
+
+  it.each([
+    ["通常ボード", buildPhaseStep(5)],
+    ["2軸マップ", buildPhaseStep(5, 3)],
+  ] as const)(
+    "%sでは小さいstackOrderの決定付箋を最大値の一つ上へ出し、ドラッグはさらに上・候補外は0にする",
+    (_label, phase) => {
+      const notes = [
+        buildNote({ id: "decided", stackOrder: 1 }),
+        buildNote({ id: "front", stackOrder: 1500 }),
+        buildNote({ id: "own", stackOrder: 4 }),
+        buildNote({ id: "remote", stackOrder: 5 }),
+        buildNote({ id: "excluded", stackOrder: 2000, excluded: true }),
+      ];
+      const { props, rerender } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        notes,
+        decision: buildDecision({ noteId: "decided", phase: phase.phase }),
+        draggingNoteId: "own",
+        remoteCursors: [
+          {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "Taro",
+            color: "green",
+            x: 50,
+            y: 50,
+            draggingNoteId: "remote",
+            lastSeenAt: Date.now(),
+            isIdle: false,
+          },
+        ],
+      });
+      const wrapper = (id: string) =>
+        screen.getByTestId(
+          phase.phase === 3
+            ? `idea-value-feasibility-map-note-${id}`
+            : `board-note-${id}`,
+        );
+      expect(wrapper("decided")).toHaveStyle({ zIndex: "2001" });
+      expect(wrapper("front")).toHaveStyle({ zIndex: "1500" });
+      expect(wrapper("own")).toHaveStyle({ zIndex: "2147483647" });
+      expect(wrapper("remote")).toHaveStyle({ zIndex: "2147483647" });
+      expect(wrapper("excluded")).toHaveStyle({ zIndex: "0" });
+      rerender(
+        <RoomBoardCanvas
+          {...props}
+          notes={notes.map((note) =>
+            note.id === "front" ? { ...note, stackOrder: 2500 } : note,
+          )}
+        />,
+      );
+      expect(wrapper("decided")).toHaveStyle({ zIndex: "2501" });
     },
   );
 
@@ -1920,7 +1964,7 @@ it("採用選択中も候補をドラッグでき、ドラッグでは採用し�
   const { props } = setup({
     phase,
     permissions: getBoardPermissions(phase),
-    isHost: true,
+
     isAdoptMode: true,
   });
   const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];
@@ -1950,7 +1994,7 @@ it.each(["secondary", "released", "cancelled"])(
     const { props } = setup({
       phase,
       permissions: getBoardPermissions(phase),
-      isHost: true,
+
       isAdoptMode: true,
     });
     const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];

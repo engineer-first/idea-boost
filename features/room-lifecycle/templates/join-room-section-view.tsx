@@ -33,17 +33,17 @@ export function JoinRoomSectionView({
 }: JoinRoomSectionViewProps) {
   return (
     <Card
-      className="flex flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
+      className="flex flex-col border-border/80 transition-shadow "
       data-testid="home-join-room"
     >
       <CardHeader className="gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+        <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
           <LogIn className="size-5" aria-hidden />
         </div>
         <div className="space-y-1.5">
           <CardTitle className="text-base">ルームに参加</CardTitle>
-          <CardDescription className="leading-relaxed">
-            ホストから共有された 6 桁の招待コードを入力します。
+          <CardDescription className="min-h-[3.25rem] leading-relaxed">
+            共有された 6 桁の招待コードを入力します。
           </CardDescription>
         </div>
       </CardHeader>

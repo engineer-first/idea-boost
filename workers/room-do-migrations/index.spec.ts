@@ -3,7 +3,6 @@
 // まで収束できることを検証する。個々の migrateRoomStorage の振る舞い
 // （未適用IDのみ適用・原子性・fail-closed）は ./apply.spec.ts を参照。
 import { describe, expect, it } from "vitest";
-import { NOTE_DEFAULT_FONT_SIZE } from "../../contracts/board";
 import { findNote } from "../room/notes";
 import { runInRoomDO } from "../test-helpers";
 import {
@@ -49,6 +48,7 @@ const ALL_TABLES = [
   "progress_history_outbox",
   "retained_outcome_participants",
   "room_creation_marker",
+  "room_idle_deadline",
   "room_owner",
   "room_participation_fences",
   "room_participation_receipts",
@@ -205,9 +205,7 @@ describe("ROOM_DO_MIGRATIONS", () => {
         LEGACY_ROOM_DO_MIGRATION_IDS,
       );
 
-      expect(findNote(state.storage.sql, "note-old")?.font_size).toBe(
-        NOTE_DEFAULT_FONT_SIZE,
-      );
+      expect(findNote(state.storage.sql, "note-old")?.font_size).toBe(14);
       expect(() =>
         state.storage.sql.exec(
           "INSERT INTO note_appearances (note_id, font_size) VALUES ('note-old', 25)",

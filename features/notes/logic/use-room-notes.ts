@@ -270,7 +270,6 @@ export function useRoomNotes({
     draggingNoteIdRef.current = draggingNoteId;
   }, [draggingNoteId]);
 
-  // ホスト世代の更新で send が変わっても、付箋・ドラッグ状態を維持する。
   const sendRef = useRef(send);
   useEffect(() => {
     sendRef.current = send;

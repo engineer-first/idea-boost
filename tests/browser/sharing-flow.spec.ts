@@ -34,9 +34,7 @@ describe("共有HUD", () => {
       if (!next) throw new Error("進行ボタンがない");
       expect(next.x + next.width).toBeLessThan(width);
       await speaker.click();
-      expect(await page.getByText("ホスト", { exact: true }).isVisible()).toBe(
-        true,
-      );
+      expect(await page.getByText("ホスト", { exact: true }).count()).toBe(0);
       await page.close();
     },
   );

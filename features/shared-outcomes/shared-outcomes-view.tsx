@@ -115,7 +115,7 @@ export function SharedOutcomesView({
                   ? "成果の詳細"
                   : "共有成果"}
             </h1>
-            <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">
+            <p className="max-w-prose text-base leading-relaxed text-muted-foreground">
               {detailMode
                 ? "決定した内容と共有ボード、進行の記録を確認できます。"
                 : "ルームに残された成果を、名前・ID・進行状況・利用日から探せます。"}
@@ -185,7 +185,7 @@ export function SharedOutcomesView({
           </nav>
         )}
         {detailMode && copyMessage && (
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="text-base text-muted-foreground">
             {copyMessage}
           </p>
         )}
@@ -194,14 +194,14 @@ export function SharedOutcomesView({
         )}
 
         {loading && (detailMode || outcomes.length === 0) && (
-          <p role="status" className="rounded-xl border bg-card p-8">
+          <p role="status" className="rounded-lg border bg-card p-8">
             成果を読み込んでいます…
           </p>
         )}
         {error && !paginationError && (
           <div
             role="alert"
-            className="rounded-xl border border-destructive/40 bg-card p-6 text-destructive"
+            className="rounded-lg border border-destructive/40 bg-card p-6 text-destructive"
           >
             <p>{error}</p>
             <Button
@@ -216,17 +216,17 @@ export function SharedOutcomesView({
         {!detailMode && (outcomes.length > 0 || (!loading && !error)) && (
           <section aria-label="成果一覧" aria-busy={busy} className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p role="status" className="text-sm font-medium tabular-nums">
+              <p role="status" className="text-base font-medium tabular-nums">
                 {loading
                   ? "一覧を更新しています…"
                   : `${outcomes.length}件${nextCursor ? "を表示中" : filtered ? "の検索結果" : "の成果"}`}
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 最終利用が新しい順
               </p>
             </div>
             {outcomes.length > 0 && (
-              <div className="overflow-hidden rounded-xl border bg-card">
+              <div className="overflow-hidden rounded-lg border bg-card">
                 <div
                   aria-hidden
                   className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_11rem_11rem_1.25rem] gap-4 border-b bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground xl:grid"
@@ -270,12 +270,12 @@ export function SharedOutcomesView({
                           <p className="font-mono text-xs text-muted-foreground">
                             {outcome.displayId}
                           </p>
-                          <p className="text-sm tabular-nums text-muted-foreground">
+                          <p className="text-xs tabular-nums text-muted-foreground">
                             参加人数：
                             {formatParticipantCount(outcome.participantCount)}
                           </p>
                           <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 font-medium">
                               {outcome.status === "confirmed" && (
                                 <Check className="size-3" aria-hidden />
                               )}
@@ -292,13 +292,13 @@ export function SharedOutcomesView({
                             </span>
                           </div>
                         </div>
-                        <p className="break-words text-sm">
+                        <p className="break-words text-base">
                           <span className="mr-2 text-muted-foreground xl:hidden">
                             到達点
                           </span>
                           {getRoomPhaseLabel(outcome.phase)}
                         </p>
-                        <div className="space-y-1 text-sm tabular-nums">
+                        <div className="space-y-1 text-base tabular-nums">
                           <p>
                             <span className="mr-2 text-muted-foreground xl:hidden">
                               最終利用
@@ -312,7 +312,7 @@ export function SharedOutcomesView({
                               : formatOutcomeTime(outcome.lastSavedAt)}
                           </p>
                         </div>
-                        <p className="text-sm tabular-nums text-muted-foreground">
+                        <p className="text-xs tabular-nums text-muted-foreground">
                           <span className="mr-2 xl:hidden">閲覧期限</span>
                           {formatOutcomeTime(outcome.expiresAt)}
                         </p>
@@ -321,7 +321,7 @@ export function SharedOutcomesView({
                           aria-hidden
                         />
                         {outcome.saveStatus !== "saved" && (
-                          <p className="text-sm leading-relaxed text-amber-800 xl:col-span-5">
+                          <p className="text-base leading-relaxed text-amber-800 xl:col-span-5">
                             {outcome.lastSavedAt
                               ? "前回の正常保存分を表示します。"
                               : "正常保存分はまだありません。"}
@@ -335,7 +335,7 @@ export function SharedOutcomesView({
               </div>
             )}
             {outcomes.length === 0 && (
-              <div className="space-y-3 rounded-xl border bg-card px-6 py-10 text-center">
+              <div className="space-y-3 rounded-lg border bg-card px-6 py-10 text-center">
                 <h2 className="font-semibold">
                   {filtered
                     ? nextCursor
@@ -343,7 +343,7 @@ export function SharedOutcomesView({
                       : "条件に一致する成果はありません"
                     : "保存期間内の成果はありません。"}
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                   {filtered
                     ? nextCursor
                       ? "まだ続きがあります。続きを取得するか、検索条件を変えて探せます。"
@@ -364,9 +364,9 @@ export function SharedOutcomesView({
             {paginationError && (
               <div
                 role="alert"
-                className="flex flex-wrap items-center justify-center gap-3 rounded-xl border border-destructive/40 bg-card p-4"
+                className="flex flex-wrap items-center justify-center gap-3 rounded-lg border border-destructive/40 bg-card p-4"
               >
-                <p className="text-sm text-destructive">{error}</p>
+                <p className="text-base text-destructive">{error}</p>
                 <Button
                   variant="outline"
                   className="min-h-11"
@@ -400,11 +400,11 @@ export function SharedOutcomesView({
         )}
         {!loading && !error && detail && (
           <>
-            <section className="rounded-xl border bg-card p-5">
-              <p className="font-mono text-sm">{detail.displayId}</p>
+            <section className="rounded-lg border bg-card p-5">
+              <p className="font-mono text-base">{detail.displayId}</p>
               <OutcomeMetadata outcome={detail} />
               <p className="mt-3 text-xs text-muted-foreground">
-                参加人数は保存時点までの累計です。ホスト・途中退出者を含み、再参加は重複して数えません。人数を保存していない過去の成果は「未記録」と表示します。
+                参加人数は保存時点までの累計です。途中退出者を含み、再参加は重複して数えません。人数を保存していない過去の成果は「未記録」と表示します。
               </p>
               <p className="mt-3 text-xs text-muted-foreground">
                 閲覧期限：{formatOutcomeTime(detail.expiresAt)}
@@ -413,7 +413,7 @@ export function SharedOutcomesView({
             {detail.saveStatus !== "saved" && (
               <p
                 role="status"
-                className="rounded-xl border border-amber-500/40 bg-amber-50 p-5 text-amber-950"
+                className="rounded-lg border border-amber-500/40 bg-amber-50 p-5 text-amber-950"
               >
                 {detail.saveStatus === "failed"
                   ? "保存に失敗しました。"
@@ -425,7 +425,7 @@ export function SharedOutcomesView({
               </p>
             )}
             {!detail.snapshot ? (
-              <p className="rounded-xl border bg-card p-8">
+              <p className="rounded-lg border bg-card p-8">
                 正常保存された成果はまだありません。
               </p>
             ) : (
@@ -440,9 +440,9 @@ export function SharedOutcomesView({
                       return (
                         <article
                           key={label}
-                          className="rounded-xl border bg-card p-5"
+                          className="rounded-lg border bg-card p-5"
                         >
-                          <h3 className="text-sm font-semibold text-muted-foreground">
+                          <h3 className="text-base font-semibold text-muted-foreground">
                             {label}
                           </h3>
                           <p className="mt-3 whitespace-pre-wrap break-words leading-relaxed">
@@ -460,12 +460,12 @@ export function SharedOutcomesView({
                       ? "完了時点の共有ボード"
                       : "最後に正常保存した共有ボード"}
                   </h2>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-base text-muted-foreground">
                     記録時点：{formatOutcomeTime(detail.snapshot.capturedAt)} ·{" "}
                     {getRoomPhaseLabel(detail.snapshot.phase)}
                   </p>
                   {detail.snapshot.notes.length === 0 && (
-                    <p className="rounded-xl border bg-card p-8">
+                    <p className="rounded-lg border bg-card p-8">
                       保存済みの成果はありません。
                     </p>
                   )}
@@ -521,7 +521,7 @@ export function SharedOutcomesView({
 }
 function OutcomeMetadata({ outcome }: { outcome: SharedOutcomeSummary }) {
   return (
-    <dl className="mt-4 grid grid-cols-2 gap-4 text-sm lg:grid-cols-5">
+    <dl className="mt-4 grid grid-cols-2 gap-4 text-base lg:grid-cols-5">
       <div className="min-w-0 space-y-1">
         <dt className="text-muted-foreground">参加人数</dt>
         <dd className="tabular-nums">

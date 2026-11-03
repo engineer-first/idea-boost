@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { refreshGuestRoomEntry } from "./guest-room-entry-actions";
+import {
+  refreshAccountRoomEntry,
+  refreshGuestRoomEntry,
+} from "./guest-room-entry-actions";
 
 const mocks = vi.hoisted(() => ({
   user: vi.fn(),
@@ -22,8 +25,7 @@ const roomId = "22222222-2222-4222-8222-222222222222";
 const room = {
   roomId,
   inviteCode: "ABCDEF",
-  isHost: false,
-  hostUserId: user.sub,
+
   phase: { kind: "lobby" },
 };
 beforeEach(() => {
@@ -104,6 +106,46 @@ describe("入室前ゲスト更新Action", () => {
         reason,
       });
       expect(mocks.prepare).toHaveBeenCalledWith(user);
+    },
+  );
+});
+
+describe("accountの再入室中の認証失効", () => {
+  it("画面表示後にCookieが消失・期限切れになったら再ログインを求める", async () => {
+    mocks.user.mockResolvedValue(null);
+    expect(await refreshAccountRoomEntry(roomId)).toEqual({
+      ok: false,
+      reason: "reauth_required",
+    });
+    expect(mocks.prepare).not.toHaveBeenCalled();
+  });
+  it("在籍確認中にaccountが401になったら再ログインを求める", async () => {
+    mocks.user.mockResolvedValue({
+      ...user,
+      kind: "account",
+      email: "account@example.test",
+    });
+    mocks.api.mockResolvedValue(new Response(null, { status: 401 }));
+    expect(await refreshAccountRoomEntry(roomId)).toEqual({
+      ok: false,
+      reason: "reauth_required",
+    });
+    expect(mocks.prepare).not.toHaveBeenCalled();
+  });
+  it.each([403, 404])(
+    "在籍確認の%sは再ログインで回復する扱いにしない",
+    async (status) => {
+      mocks.user.mockResolvedValue({
+        ...user,
+        kind: "account",
+        email: "account@example.test",
+      });
+      mocks.api.mockResolvedValue(new Response(null, { status }));
+      expect(await refreshAccountRoomEntry(roomId)).toEqual({
+        ok: false,
+        reason: "identity_unavailable",
+      });
+      expect(mocks.prepare).not.toHaveBeenCalled();
     },
   );
 });

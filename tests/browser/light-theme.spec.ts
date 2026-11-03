@@ -58,7 +58,7 @@ test("OSが暗色設定でも20色のボードをライト表示し通常付箋�
   ).toEqual(darkStyles);
   const normal = page
     .getByTestId("member-color-1")
-    .locator('[data-slot="sticky-note"]');
+    .locator('[data-slot="sticky-note-paper"]');
   expect(
     await normal.evaluate(
       (element) => getComputedStyle(element).borderTopWidth,
@@ -69,21 +69,21 @@ test("OSが暗色設定でも20色のボードをライト表示し通常付箋�
   ).not.toBe("none");
   const selected = page
     .getByTestId("member-color-2")
-    .locator('[data-slot="sticky-note"]');
+    .locator('[data-slot="sticky-note-paper"]');
   expect(
-    await selected.evaluate(
-      (element) => getComputedStyle(element).outlineWidth,
-    ),
-  ).toBe("2px");
+    await selected.evaluate((element) => getComputedStyle(element).boxShadow),
+  ).toMatch(
+    /^rgb\(255, 255, 255\) 0px 0px 0px 1px, rgb\(11, 147, 245\) 0px 0px 0px 3px, /,
+  );
   const decided = page
     .getByTestId("member-color-3")
-    .locator('[data-slot="sticky-note"]');
+    .locator('[data-slot="sticky-note-paper"]');
   expect(
     await decided.evaluate((element) => getComputedStyle(element).outlineWidth),
   ).toBe("4px");
   const focused = page
     .getByTestId("member-color-4")
-    .locator('[data-slot="sticky-note"]');
+    .locator('[data-slot="sticky-note-paper"]');
   expect(
     await focused.evaluate((element) => getComputedStyle(element).outlineStyle),
   ).toBe("dashed");
@@ -146,7 +146,7 @@ test.each([
 
 test("候補外の付箋は破線と影なしで状態を示す", async () => {
   await openStory("notes-stickynote--excluded");
-  const note = page.locator('[data-slot="sticky-note"]');
+  const note = page.locator('[data-slot="sticky-note-paper"]');
   expect(
     await note.evaluate((element) => ({
       border: getComputedStyle(element).borderTopStyle,
@@ -306,7 +306,7 @@ test("タッチ端末では最後にタップした付箋だけ候補操作を�
 });
 
 test.each(["host", "participant"])(
-  "候補外の付箋は%sの実タッチで本文を読みやすくし、復帰操作はホストだけに出す",
+  "候補外の付箋（%s）は実タッチで本文を読みやすくし、復帰可能な場合だけ操作を出す",
   async (role) => {
     await page.close();
     page = await browser.newPage({

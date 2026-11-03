@@ -88,10 +88,9 @@ for (const width of [390, 1440]) {
         await page.evaluate(() => document.fonts.ready);
         const noticeBox = await notice.boundingBox();
         const privacyBox = await page
-          .getByText(
-            "途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。",
-            { exact: false },
-          )
+          .getByText("完了した成果は30日間、ホームから見返せます。", {
+            exact: false,
+          })
           .boundingBox();
         const cardBox = await page
           .getByTestId("room-lobby-view-invite")

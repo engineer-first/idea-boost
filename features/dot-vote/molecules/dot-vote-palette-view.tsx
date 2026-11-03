@@ -88,14 +88,14 @@ export function DotVotePaletteView({
       aria-describedby={`${paletteId}-help`}
       data-vote-palette="true"
       data-return-drop-target={isReturnDropTarget ? "true" : undefined}
-      className={`pointer-events-auto relative flex w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-xl border border-border bg-white p-2 shadow-[0_4px_12px_rgba(69,54,36,0.12)] ${
+      className={`pointer-events-auto relative flex w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-lg border border-border bg-white p-2 shadow-tool ${
         isReturnDropTarget
           ? "border-amber-500 bg-amber-50/95 ring-2 ring-amber-300/80 ring-offset-2 ring-offset-white"
           : ""
       }`}
     >
       {isReturnDropTarget ? (
-        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 shadow-sm">
+        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 shadow-tool">
           ここへ戻すと1票取り消しになります。
         </p>
       ) : null}

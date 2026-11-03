@@ -37,12 +37,12 @@ export function AccessView({
   const feedback = permission === PERMISSIONS.readFeedback;
   return (
     <section aria-labelledby={headingId} className="bg-muted/20 p-4 sm:p-6">
-      <div className="mx-auto max-w-3xl space-y-8 rounded-xl border bg-card p-6 sm:p-10">
+      <div className="mx-auto max-w-3xl space-y-8 rounded-lg border bg-card p-6 sm:p-10">
         <header className="space-y-2">
           <h2 id={headingId} className="text-2xl font-semibold">
             {feedback ? "意見閲覧権限" : "成果閲覧権限"}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             {feedback
               ? "意見の閲覧権限を追加・取消します。共有成果の閲覧権限や管理権限は変更されません。"
               : "共有成果の閲覧権限を追加・取消します。意見の閲覧権限や管理権限は変更されません。"}
@@ -51,7 +51,7 @@ export function AccessView({
         {error && (
           <div
             role="alert"
-            className="flex flex-wrap items-center gap-3 break-all text-sm text-destructive"
+            className="flex flex-wrap items-center gap-3 break-all text-base text-destructive"
           >
             {error}
             <Button
@@ -73,7 +73,7 @@ export function AccessView({
             {feedback ? "意見を閲覧できるユーザー" : "成果を閲覧できるユーザー"}
           </h3>
           {pending && (
-            <p role="status" className="text-sm text-muted-foreground">
+            <p role="status" className="text-base text-muted-foreground">
               閲覧権限を反映中…
             </p>
           )}
@@ -81,7 +81,7 @@ export function AccessView({
             <p role="status">読み込み中…</p>
           ) : users.length === 0 ? (
             !error && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 閲覧者はいません。
               </p>
             )
@@ -96,7 +96,7 @@ export function AccessView({
                     <p className="break-all font-medium">
                       {user.name || "名前未設定"}
                     </p>
-                    <p className="break-all text-sm text-muted-foreground">
+                    <p className="break-all text-base text-muted-foreground">
                       {user.email}
                     </p>
                   </div>
@@ -123,11 +123,11 @@ export function AccessView({
           }}
         >
           <h3 className="font-semibold">閲覧者を追加</h3>
-          <p id={helpId} className="text-sm text-muted-foreground">
+          <p id={helpId} className="text-base text-muted-foreground">
             Idea Boost に Google
             ログイン済みのメールアドレスを入力してください。
           </p>
-          <label className="block space-y-1 text-sm">
+          <label className="block space-y-1 text-base">
             <span>メールアドレス</span>
             <input
               type="email"
@@ -170,20 +170,20 @@ export function AccessDeniedView({
   const headingId = useId();
   return (
     <section aria-labelledby={headingId} className="bg-muted/20 p-4 sm:p-6">
-      <div className="mx-auto max-w-3xl space-y-4 rounded-xl border bg-card p-6 sm:p-10">
+      <div className="mx-auto max-w-3xl space-y-4 rounded-lg border bg-card p-6 sm:p-10">
         <h2 id={headingId} className="text-2xl font-semibold">
           {permission === PERMISSIONS.readFeedback
             ? "意見閲覧権限"
             : "成果閲覧権限"}
         </h2>
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-base text-destructive">
           {error}
         </p>
         {loading && <p role="status">管理権限を確認中…</p>}
         <div className="flex flex-wrap items-center gap-4">
           {unauthenticated && (
             <a
-              className="text-sm underline underline-offset-4"
+              className="text-base underline underline-offset-4"
               href="/login?next=%2Fadmin%2Faccess"
             >
               ログインする

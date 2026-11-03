@@ -11,7 +11,7 @@ export function HomeErrorAlert({ message }: HomeErrorAlertProps) {
   return (
     <Alert
       data-testid="home-error-alert"
-      className="border-destructive/20 bg-destructive/5 shadow-sm"
+      className="border-destructive/20 bg-destructive/5 "
     >
       <CircleAlert className="text-destructive" aria-hidden />
       <AlertTitle className="text-destructive">

@@ -50,7 +50,7 @@ export function InviteCodeDialogView({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {message && (
-          <p role="alert" className="text-sm leading-relaxed">
+          <p role="alert" className="text-base leading-relaxed">
             {message}
           </p>
         )}

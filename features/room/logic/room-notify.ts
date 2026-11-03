@@ -38,14 +38,6 @@ export const roomNotify = {
   roomLeft(): void {
     toast("ルームから退出しました");
   },
-  // ホストがルームを解散したとき（他メンバー向け）。
-  roomDisbanded(): void {
-    toast("ルームが解散されました");
-  },
-  // ホスト自身がルームを解散したとき。
-  roomDisbandedBySelf(): void {
-    toast("ルームを解散しました");
-  },
   cannotPublishNote() {
     toast.error("まだ共有できません");
   },

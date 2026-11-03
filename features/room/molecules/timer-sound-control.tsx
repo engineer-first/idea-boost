@@ -96,7 +96,7 @@ export function TimerSoundControl({
         hidden={!playbackBlocked || !noticeOpen}
         style={{ display: playbackBlocked && noticeOpen ? "block" : "none" }}
         aria-label="通知音の再生エラー"
-        className="board-hud fixed inset-auto z-50 m-0 w-64 max-w-[calc(100vw-2rem)] space-y-2 rounded-md border bg-background p-3 text-sm leading-relaxed text-foreground shadow-sm"
+        className="board-hud fixed inset-auto z-50 m-0 w-64 max-w-[calc(100vw-2rem)] space-y-2 rounded-xl border bg-background p-3 text-base leading-relaxed text-foreground shadow-tool"
       >
         <p>{playbackMessage}</p>
         <Button

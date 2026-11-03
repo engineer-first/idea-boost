@@ -49,7 +49,7 @@ describe("useRoomState", () => {
         members: buildMembers(2),
         completedVoterIds: [buildMembers(2)[1]?.userId ?? ""],
         phase: buildPhaseStep(2),
-        isHost: true,
+
         decision,
         carryovers: [],
         timer: { status: "running", endsAt: 1_000, durationMs: 60_000 },
@@ -89,7 +89,7 @@ describe("useRoomState", () => {
         notes: [],
         members: [],
         phase: buildPhaseStep(5, 3),
-        isHost: false,
+
         decision: buildDecision({ phase: 3 }),
         outcomePublished: true,
         carryovers: [],
@@ -110,7 +110,7 @@ describe("useRoomState", () => {
         notes: [],
         members: [],
         phase: buildPhaseStep(3, 2),
-        isHost: true,
+
         decision: null,
         carryovers: [],
         completedVoterIds: [],
@@ -176,7 +176,7 @@ describe("useRoomState", () => {
         notes: [],
         members: buildMembers(1),
         phase: buildPhaseStep(1, 2),
-        isHost: true,
+
         decision: null,
         carryovers: [carryover],
         completedVoterIds: [],
@@ -335,7 +335,7 @@ it("再接続snapshotに退出者がいなくても受信済み作者名を保�
     members: [member],
     completedVoterIds: [],
     phase: buildPhaseStep(2),
-    isHost: false,
+
     decision: null,
     carryovers: [],
     timer: { status: "idle" as const },

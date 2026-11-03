@@ -387,7 +387,7 @@ export function StepOneOnboardingSlide({
           data-testid="step-one-onboarding-trigger"
           type="button"
           variant="outline"
-          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-full border-border/80 bg-background/95 px-4 text-sm shadow-lg backdrop-blur transition hover:bg-muted max-[639px]:fixed max-[639px]:top-[calc(var(--board-location-top,7.25rem)-3rem)]"
+          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-lg border-border/80 bg-background/95 px-4 text-sm shadow-tool backdrop-blur transition hover:bg-muted max-[639px]:fixed max-[639px]:top-[calc(var(--board-location-top,7.25rem)-3rem)]"
           onClick={openGuide}
         >
           進め方
@@ -414,7 +414,7 @@ export function StepOneOnboardingSlide({
             guideButtonRef.current.focus();
           }}
           data-closing-to-guide={isClosingToGuide ? "true" : undefined}
-          className={`max-h-[calc(100dvh-5rem)] w-[calc(100%-2rem)] max-w-[56rem] gap-0 overflow-y-auto rounded-[32px] border-border bg-background p-5 text-foreground shadow-2xl sm:p-8 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}
+          className={`max-h-[calc(100dvh-5rem)] w-[calc(100%-2rem)] max-w-[56rem] gap-0 overflow-y-auto rounded-xl border-border bg-background p-5 text-foreground shadow-tool sm:p-8 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}
           style={{
             top: "4rem",
             translate: "-50% 0",
@@ -462,7 +462,7 @@ export function StepOneOnboardingSlide({
                   >
                     <button
                       aria-label={`${index + 1}枚目に戻る`}
-                      className="flex h-8 w-fit items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex h-8 w-fit items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       disabled={slideTransition !== null || index >= slideIndex}
                       onClick={() => transitionToSlide(index, "backward")}
                       type="button"
@@ -480,7 +480,7 @@ export function StepOneOnboardingSlide({
                 ))}
               </ol>
             </div>
-            <figure className="mt-4 aspect-[64/27] max-h-[22rem] w-full overflow-hidden rounded-[24px] bg-muted/50 p-2 sm:mt-5 sm:p-3">
+            <figure className="mt-4 aspect-[64/27] max-h-[22rem] w-full overflow-hidden rounded-lg bg-muted/50 p-2 sm:mt-5 sm:p-3">
               <StepOneOnboardingIllustration
                 kind={slide.illustration}
                 alt={slide.illustrationAlt}
@@ -490,14 +490,14 @@ export function StepOneOnboardingSlide({
               <DialogTitle className="text-xl leading-snug sm:text-2xl">
                 {slide.title}
               </DialogTitle>
-              <DialogDescription className="max-w-2xl text-balance text-sm leading-6 sm:text-base">
+              <DialogDescription className="max-w-2xl text-balance text-base leading-6">
                 {slide.description}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="mt-6 justify-center sm:justify-center">
               {isLastSlide ? (
                 <Button
-                  className="h-12 min-w-52 rounded-full px-8 text-base"
+                  className="h-12 min-w-52 rounded-lg px-8 text-base"
                   disabled={isClosingToGuide}
                   onClick={start}
                 >
@@ -505,7 +505,7 @@ export function StepOneOnboardingSlide({
                 </Button>
               ) : (
                 <Button
-                  className="h-12 min-w-52 rounded-full px-8 text-base"
+                  className="h-12 min-w-52 rounded-lg px-8 text-base"
                   onClick={advanceSlide}
                 >
                   次へ

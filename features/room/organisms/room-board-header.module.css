@@ -1,6 +1,6 @@
 .readyButton {
   gap: 8px;
-  border-radius: 999px;
+  border-radius: var(--ib-rounded-lg);
   border-color: color-mix(in oklab, var(--foreground) 14%, var(--background));
   background: var(--background);
   color: var(--foreground);

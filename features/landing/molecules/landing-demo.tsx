@@ -2,6 +2,7 @@ import { Heart, MousePointer2, Scale } from "lucide-react";
 import type { CSSProperties } from "react";
 import { landingBoardCopy, landingMembers } from "../logic/landing-board-copy";
 import { landingCopy as copy } from "../logic/landing-copy";
+import { landingPaperStyle } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 import { LandingBoardMock } from "./landing-board-mock";
 
@@ -12,7 +13,10 @@ export function LandingDemo() {
     styles.cursorThree,
   ];
   return (
-    <figure className={`${styles.theme} ${styles.demo}`}>
+    <figure
+      style={landingPaperStyle}
+      className={`${styles.theme} ${styles.demo}`}
+    >
       <div className={styles.board}>
         <LandingBoardMock variant="hero" />
         <div

@@ -1,7 +1,11 @@
 import { EyeOff, Lightbulb, Users } from "lucide-react";
 import Image from "next/image";
 import { landingCopy as copy } from "../logic/landing-copy";
-import { landingHeadingClass, landingLinkClass } from "../logic/landing-styles";
+import {
+  landingHeadingClass,
+  landingLinkClass,
+  landingPaperStyle,
+} from "../logic/landing-styles";
 import styles from "./landing.module.css";
 import { LandingBoardMock } from "./landing-board-mock";
 
@@ -11,6 +15,7 @@ const icons = [Lightbulb, Users, EyeOff];
 export function LandingMethodSection() {
   return (
     <section
+      style={landingPaperStyle}
       className={`${styles.theme} ${styles.method}`}
       aria-labelledby="landing-method"
     >

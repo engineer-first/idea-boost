@@ -497,8 +497,6 @@ it.each(["受信", "配信"])(
     const snapshot = await fresh.next();
     expect(before).toMatchObject({
       type: "snapshot",
-      hostUserId: guest.sub,
-      isHost: true,
       members: [{ userId: guest.sub }],
       notes: [
         {
@@ -511,8 +509,6 @@ it.each(["受信", "配信"])(
     expect(snapshot).toMatchObject({
       type: "snapshot",
       members: before?.members,
-      hostUserId: before?.hostUserId,
-      isHost: true,
       notes: before?.notes,
     });
     const closed = new Promise<number>((resolve) =>

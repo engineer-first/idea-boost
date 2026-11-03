@@ -19,8 +19,8 @@ async function start(options: string[] = [], body?: string) {
       import { spawn } from 'node:child_process';
       import { writeFileSync } from 'node:fs';
       const child = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"]);
-      writeFileSync(${JSON.stringify(join(directory, "pids.json"))}, JSON.stringify([process.pid, child.pid]));
       writeFileSync(${JSON.stringify(join(directory, "supervisor.txt"))}, String(process.ppid));
+      writeFileSync(${JSON.stringify(join(directory, "pids.json"))}, JSON.stringify([process.pid, child.pid]));
       setInterval(() => {}, 1000);
     `,
   );

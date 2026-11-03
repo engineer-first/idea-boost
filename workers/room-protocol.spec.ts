@@ -141,8 +141,9 @@ async function expectType<T extends ServerMessage["type"]>(
 ): Promise<Extract<ServerMessage, { type: T }>> {
   let message = await socket.next();
   while (
-    message.type === "note:content-saved" &&
-    type !== "note:content-saved"
+    (message.type === "note:content-saved" && type !== "note:content-saved") ||
+    (message.type === "presenter-follow:status" &&
+      type !== "presenter-follow:status")
   ) {
     message = await socket.next();
   }
@@ -621,7 +622,7 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
 
     const member = await connectRoomAs(MEMBER, roomId);
     const snapshot = await expectType(member, "snapshot");
-    expect(snapshot.isHost).toBe(false);
+    expect(snapshot).not.toHaveProperty("isHost");
 
     send(member, { type: "start_phase" });
     expect(await expectType(member, "phase:updated")).toMatchObject({
@@ -656,7 +657,7 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
     member.close();
   });
 
-  it("room_owner が NULL の旧ルームへホストが接続するとバックフィルされ、開始できる", async () => {
+  it("ホスト列がNULLの既存ルームでも作成者は開始でき、列を更新しない", async () => {
     const { roomId } = await createRoomAs(OWNER);
     await runInRoomDO(roomId, (_instance, state) => {
       state.storage.sql.exec(
@@ -666,8 +667,8 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
 
     const owner = await connectRoomAs(OWNER, roomId);
     const snapshot = await expectType(owner, "snapshot");
-    expect(snapshot.isHost).toBe(true);
-    expect(await storedHostId(roomId)).toBe(OWNER.sub);
+    expect(snapshot).not.toHaveProperty("isHost");
+    expect(await storedHostId(roomId)).toBeNull();
 
     send(owner, { type: "start_phase" });
     const updated = await expectType(owner, "phase:updated");
@@ -676,7 +677,7 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
     owner.close();
   });
 
-  it("room_owner が NULL の旧ルームへ非ホストが先に接続しても D1 のホストでバックフィルする", async () => {
+  it("ホスト列がNULLの既存ルームへ参加者が先に接続しても列を更新しない", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
     await runInRoomDO(roomId, (_instance, state) => {
@@ -687,12 +688,12 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
 
     const member = await connectRoomAs(MEMBER, roomId);
     const memberSnapshot = await expectType(member, "snapshot");
-    expect(memberSnapshot.isHost).toBe(false);
-    expect(await storedHostId(roomId)).toBe(OWNER.sub);
+    expect(memberSnapshot).not.toHaveProperty("isHost");
+    expect(await storedHostId(roomId)).toBeNull();
 
     const owner = await connectRoomAs(OWNER, roomId);
     const ownerSnapshot = await expectType(owner, "snapshot");
-    expect(ownerSnapshot.isHost).toBe(true);
+    expect(ownerSnapshot).not.toHaveProperty("isHost");
 
     member.close();
     owner.close();

@@ -15,8 +15,7 @@ const ROOM = "22222222-2222-4222-8222-222222222222";
 const preview = {
   members: buildMembers(3, ME),
   currentUserId: ME,
-  hostUserId: ME,
-  isHost: true,
+
   inviteCode: "AB12CD",
   inviteUrl: "https://example.test/invite/AB12CD",
 };

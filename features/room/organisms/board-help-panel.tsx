@@ -45,7 +45,7 @@ export function BoardHelpPanel({
       }}
     >
       <div
-        className={`board-hud pointer-events-auto flex max-h-full w-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm ${isOpen ? "h-full" : ""}`}
+        className={`board-hud pointer-events-auto flex max-h-full w-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-tool ${isOpen ? "h-full" : ""}`}
       >
         <Button
           type="button"

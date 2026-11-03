@@ -26,10 +26,10 @@ export function HmwTemplatePanel({
   return (
     <Card
       data-testid="hmw-template-panel"
-      className={cn("w-64 shadow-md", className)}
+      className={cn("w-64 shadow-tool", className)}
     >
       <CardContent className="flex flex-col gap-3 p-4">
-        <p className="font-semibold text-sm">{HMW_GUIDE_HEADING}</p>
+        <p className="font-semibold text-base">{HMW_GUIDE_HEADING}</p>
         <div className="flex flex-col gap-1.5">
           <span className="text-muted-foreground text-xs">書き出しを選ぶ</span>
           <p className="text-muted-foreground text-xs">

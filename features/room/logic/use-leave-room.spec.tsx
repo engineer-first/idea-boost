@@ -1,6 +1,4 @@
-// useLeaveRoom（退出 / 解散フロー）の単体テスト。
 // leaveRoom Server Action の成否と NEXT_REDIRECT の握りつぶし、
-// 多重押下ガード、toast の出し分け（ホスト=解散 / 参加者=退出）を検証する。
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -52,9 +50,7 @@ describe("useLeaveRoom", () => {
 
   it("leave() は isLeaving を立て、ref は setState を待たず同期で立つ", async () => {
     LEAVE_ROOM.mockImplementation(() => new Promise(() => {}));
-    const { result } = renderHook(() =>
-      useLeaveRoom({ roomId: ROOM_ID, isHost: false }),
-    );
+    const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
 
     act(() => {
       result.current.leave();
@@ -69,9 +65,7 @@ describe("useLeaveRoom", () => {
 
   it("成功（NEXT_REDIRECT）で参加者なら roomLeft を toast する", async () => {
     LEAVE_ROOM.mockRejectedValueOnce(nextRedirectError());
-    const { result } = renderHook(() =>
-      useLeaveRoom({ roomId: ROOM_ID, isHost: false }),
-    );
+    const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
 
     act(() => result.current.leave());
 
@@ -85,25 +79,21 @@ describe("useLeaveRoom", () => {
 
   it("成功（NEXT_REDIRECT）でホストなら roomDisbandedBySelf を toast する", async () => {
     LEAVE_ROOM.mockRejectedValueOnce(nextRedirectError());
-    const { result } = renderHook(() =>
-      useLeaveRoom({ roomId: ROOM_ID, isHost: true }),
-    );
+    const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
 
     act(() => result.current.leave());
 
     await waitFor(() => {
-      expect(notifyMocks.roomDisbandedBySelf).toHaveBeenCalledTimes(1);
+      expect(notifyMocks.roomLeft).toHaveBeenCalledTimes(1);
     });
-    expect(notifyMocks.roomLeft).not.toHaveBeenCalled();
+    expect(notifyMocks.roomDisbandedBySelf).not.toHaveBeenCalled();
   });
 
   it("5xx 等の失敗では error を toast し、再操作できる状態に戻す", async () => {
     LEAVE_ROOM.mockRejectedValueOnce(
       new Error("ルーム退出 API が失敗しました: 503"),
     );
-    const { result } = renderHook(() =>
-      useLeaveRoom({ roomId: ROOM_ID, isHost: false }),
-    );
+    const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
 
     act(() => result.current.leave());
 
@@ -118,9 +108,7 @@ describe("useLeaveRoom", () => {
 
   it("処理中の再呼び出しは無視する（多重送信ガード）", async () => {
     LEAVE_ROOM.mockImplementation(() => new Promise(() => {}));
-    const { result } = renderHook(() =>
-      useLeaveRoom({ roomId: ROOM_ID, isHost: false }),
-    );
+    const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
 
     act(() => result.current.leave());
     act(() => result.current.leave());
@@ -134,9 +122,7 @@ it("完了後のホストは本人退出を送り、解散通知を出さない"
   notifyMocks.roomLeft.mockReset();
   notifyMocks.roomDisbandedBySelf.mockReset();
   LEAVE_ROOM.mockRejectedValueOnce(nextRedirectError());
-  const { result } = renderHook(() =>
-    useLeaveRoom({ roomId: ROOM_ID, isHost: true, completed: true }),
-  );
+  const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
   act(() => result.current.leave());
   await waitFor(() => expect(notifyMocks.roomLeft).toHaveBeenCalledTimes(1));
   const formData = LEAVE_ROOM.mock.calls[0]?.[0];
@@ -150,43 +136,35 @@ it("完了後のホストは本人退出を送り、解散通知を出さない"
 it("ホストの解散と参加者の退出は明示的な意図と現在改訂を送る", () => {
   LEAVE_ROOM.mockReset();
   LEAVE_ROOM.mockImplementation(() => new Promise(() => {}));
-  const host = renderHook(() =>
-    useLeaveRoom({ roomId: ROOM_ID, isHost: true, hostRevision: 2 }),
-  );
+  const host = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
   act(() => host.result.current.leave());
   const hostForm = LEAVE_ROOM.mock.calls[0]?.[0] as FormData;
-  expect(hostForm.get("intent")).toBe("disband");
-  expect(hostForm.get("expectedHostRevision")).toBe("2");
-  const member = renderHook(() =>
-    useLeaveRoom({ roomId: ROOM_ID, isHost: false, hostRevision: 2 }),
-  );
+  expect(hostForm.get("intent")).toBe("self");
+  expect(hostForm.get("expectedHostRevision")).toBeNull();
+  const member = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
   act(() => member.result.current.leave());
   const memberForm = LEAVE_ROOM.mock.calls[1]?.[0] as FormData;
   expect(memberForm.get("intent")).toBe("self");
-  expect(memberForm.get("expectedHostRevision")).toBe("2");
+  expect(memberForm.get("expectedHostRevision")).toBeNull();
 });
 
-it.each(["retain", "discard"] as const)(
-  "本人退出は選択した閲覧権 %s を渡す",
-  (access) => {
-    LEAVE_ROOM.mockReset();
-    LEAVE_ROOM.mockImplementation(() => new Promise(() => {}));
-    const { result } = renderHook(() =>
-      useLeaveRoom({ roomId: ROOM_ID, isHost: false }),
-    );
-    act(() => result.current.leave(access));
-    const form = LEAVE_ROOM.mock.calls[0]?.[0] as FormData;
-    expect(form.get("outcomeAccess")).toBe(access);
-  },
-);
+it("本人退出では成果閲覧権を残す要求を送る", () => {
+  LEAVE_ROOM.mockReset();
+  LEAVE_ROOM.mockImplementation(() => new Promise(() => {}));
+  const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
+  act(() => result.current.leave());
+  const form = LEAVE_ROOM.mock.calls[0]?.[0];
+  expect(form).toBeInstanceOf(FormData);
+  if (!(form instanceof FormData))
+    throw new Error("退出要求が送信されていない");
+  expect(form.get("outcomeAccess")).toBe("retain");
+});
 
 it("退出成功時には候補を消す", async () => {
   const userId = "11111111-1111-4111-8111-111111111111";
   rememberLastRoom(userId, ROOM_ID);
   LEAVE_ROOM.mockRejectedValueOnce(nextRedirectError());
-  const { result } = renderHook(() =>
-    useLeaveRoom({ roomId: ROOM_ID, isHost: false }),
-  );
+  const { result } = renderHook(() => useLeaveRoom({ roomId: ROOM_ID }));
   act(() => result.current.leave());
   await waitFor(() => expect(readLastRoom(userId)).toBeNull());
 });

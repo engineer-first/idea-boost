@@ -1,44 +1,49 @@
-# 0009: WebSocketにも署名検証済みセッション期限を適用する
+---
+id: "0009"
+status: Proposed
+date: "2026-10-09"
+---
 
-- 状態：提案
-- 決定日：未決定（PRでレビューする）
-- 記録日：2026-10-09
+# ADR 0009: WebSocketにも署名検証済みセッション期限を適用する
 
-## 背景
+## Context
 
-HTTPでは期限切れのJWTを拒否するが、期限前に開いたWebSocketは継続して操作・配信できた。
-RoomDOはハイバネーションするため、接続時の認証結果をメモリだけに保持できない。
-期限切れは退出ではなく、同じ本人の新しい有効な接続と確定済み本文を維持する必要がある。
+HTTPは期限切れの認証を拒否していたが、期限前に開いたWebSocketは期限後も操作・配信できた。RoomDOは休止・復帰するため、接続時の認証結果をメモリだけへ持つ方式では継続した検査を保証できなかった。
 
-## 候補と決定
+## Decision
 
-署名検証済みclaimsの整数秒の`exp`を、発行用の本人情報とは別の`VerifiedSessionSchema`で保持する。
-API WorkerがユーザーIDと同様に入力ヘッダーを上書きし、DOへ期限を引き継ぐ。
-DOはupgradeの非同期処理の前後に期限を確認し、受理した接続のattachmentへ保存する。
-受信と全送信の共通経路で`exp > floor(Date.now()/1000)`を要求し、等値も拒否する。
-旧attachment・期限なし・不正値は認証専用close（4002）で再認証へ進める。
+署名検証済みのセッション期限を既存WebSocketにも適用し、期限後の共有操作と情報配信を拒否する。期限切れは接続の失効として扱い、在籍と確定済み本文は維持する。同じ本人の有効な別接続まで止めない。HTTPとWebSocketで認証の境界を一致させるためである。
 
-JWTの未検証decodeやクライアント申告期限は採用しない。DOの再起動後にも同じ拒否を保証するため、
-期限をメモリキャッシュには置かない。無通信接続を時刻ちょうどに閉じるalarmも追加しない。
-次の受信・送信時に閉じれば、期限後の操作と情報配信を拒否できる。
+### 本ADRで決定しないこと
 
-## 影響と見直す条件
+関数・通信形式・保存の具体手順と移行方法は、認証期限の実装PR・開発規約へ委譲する。参照先はReferencesに示す。
 
-一時所有権の解放は対象接続のattachmentと移動transaction・drag leaseに限定する。
-close再到達に備えて先に所有権を取り除き、同じ本人の新接続・メンバーシップ・本文を消さない。
-本人単位のカーソル通知は、同じ本人の別の有効接続がdrag中なら終了通知を送らず、その表示を維持する。
-期限前の受信だけでは保存成功としない。本文digest等の待機後・mutation前にも期限と接続・在籍を再検査する。
-進行・発表共有の非同期transactionはalarm待機後・commit前にも検査し、失効時は未確定の変更をrollbackした後にcloseする。
-期限前に確定済みの保存は巻き戻さず、期限後のACKを抑止する。
-期限前に永続確定済みの進行予約は、元接続の失効後も内部alarmで実行する。
-結果不明の保存は既存のoperation IDによる照会・再送とrevision競合検査で回復する。
+## Consequences
 
-既存の長時間接続も次の通信で再認証が必要になる。作業継続のための期限更新は別途設計する。
-セッションの途中失効や更新を導入するときは、署名済み期限だけで十分かを見直す。
+良い影響は、開いた接続を使い続けて認証期限を迂回できなくなること。悪い影響は、長時間の共同作業を継続するために認証の更新と再接続の体験が別途必要になること。中立の影響として、期限前に確定した保存を巻き戻さず、結果不明の回復も既存の操作識別と照会で扱う。途中失効や長時間作業の更新を導入するときに、署名済み期限だけで十分か見直す。
 
-## 根拠
+2026-11-03に実コード・一次資料を照合。根拠未確認：実装または提案記録は確認できるが、オーナーがこの技術方針・比較理由まで採用した元発言は確認できない。実装済みであることだけではAcceptedにしない。
 
+## Alternatives Considered
+
+クライアント申告や未検証の期限は信頼しない。無通信接続を期限ちょうどに閉じる専用タイマーは設けず、受信・配信時に期限を検査する技術案が実装されている。
+
+## Related ADRs
+
+- [ADR 0010](0010-room-entry-authentication.md)：関連する判断。
+- [ADR 0021](0021-guest-session-identity.md)：関連する判断。
+- [ADR 0022](0022-guest-session-refresh.md)：関連する判断。
+
+## References
+
+- dateは旧記録の提案日または記録日を引き継いだもの。オーナーの決定日の裏付けは未確認。
 - [Task #535](https://github.com/engineer-first/idea-boost/issues/535)
 - [継続体験のPBI #557](https://github.com/engineer-first/idea-boost/issues/557)
 - [更新方式のSpike #558](https://github.com/engineer-first/idea-boost/issues/558)
-- [共有状態の権威](0001-cloudflare-room-authority.md)
+- [実装 PR #573](https://github.com/engineer-first/idea-boost/pull/573)
+- [期限の拒否実装](../../workers/room/room-do.ts)
+- [期限境界の回帰テスト](../../workers/room/session-expiry.spec.ts)
+- [開発規約](../development/conventions.md)
+- [照合した実装・規約](../../workers/room/room-do.ts)（確認日：2026-11-03）。
+- セッション調査：2026-11-03にvaultのClaude/Codexとローカルの元セッションを検索したが、この判断の本人の採用発言は未確認。GitHub記録の投稿者名だけで本人の承認とは判定していない。
+- [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0009-websocket-session-expiry.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

@@ -23,7 +23,7 @@ import { RoomNameSchema } from "./room-name";
 import { SharingReactionKindSchema } from "./sharing-reactions";
 
 // 既存 ID の受理範囲を Zod のバージョンに依存させない。
-const HostUserIdSchema = z.string().regex(UUID_PATTERN);
+const ProtocolUserIdSchema = z.string().regex(UUID_PATTERN);
 
 export const NOTE_CONTENT_MAX_LENGTH = 2000;
 
@@ -157,7 +157,7 @@ export const NoteSchema = z.object({
   visibilityRevision: z.int().nonnegative().optional(),
   visibility: z.enum(["private", "shared"]),
   color: NoteColorSchema,
-  // 旧 Worker / 保存データにフィールドがなくても従来相当の14pxで復元する。
+  // プロトコル入力での省略時は新規作成と同じ16px。保存行のない古い付箋の14px補完はWorkerで行う。
   fontSize: NoteFontSizeSchema.default(NOTE_DEFAULT_FONT_SIZE),
   x: CanvasCoordinateSchema,
   y: CanvasCoordinateSchema,
@@ -292,6 +292,24 @@ export const CursorPresenceSchema = z.object({
 });
 export type CursorPresence = z.infer<typeof CursorPresenceSchema>;
 
+// 発表者が現在見ているホワイトボードの視点。
+// 付箋の座標やサイズそのものではなく、表示の中心とズーム倍率だけを扱う。
+export const PresenterViewSchema = z.discriminatedUnion("coordinateSpace", [
+  z.strictObject({
+    coordinateSpace: z.literal("canvas"),
+    centerX: CanvasCoordinateSchema,
+    centerY: CanvasCoordinateSchema,
+    zoom: z.number().finite().positive().max(4),
+  }),
+  z.strictObject({
+    coordinateSpace: z.literal("map"),
+    centerX: CanvasCoordinateSchema,
+    centerY: CanvasCoordinateSchema,
+    zoom: z.number().finite().positive().max(4),
+  }),
+]);
+export type PresenterView = z.infer<typeof PresenterViewSchema>;
+
 export const DecisionSchema = z.object({
   phase: z.int().min(1).max(3),
   noteId: z.guid(),
@@ -382,6 +400,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     ...NotePositionSchema,
     // null はドラッグ終了後もカーソル自体は表示し続けることを明示する。
     draggingNoteId: z.guid().nullable().optional(),
+  }),
+  z.strictObject({
+    type: z.literal("view:update"),
+    view: PresenterViewSchema,
+  }),
+  z.strictObject({
+    type: z.literal("presenter-follow:update"),
+    isFollowing: z.boolean(),
   }),
   z.object({ type: z.literal("cursor:leave") }),
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
@@ -606,16 +632,17 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("start_phase"),
     expectedHostRevision: z.int().nonnegative().optional(),
   }),
+  // 旧クライアントの入力互換のみ。サーバーは状態を変更せず拒否する。
   z.strictObject({
     type: z.literal("host:transfer"),
     operationId: OptimisticOperationIdSchema.optional(),
-    targetUserId: HostUserIdSchema,
+    targetUserId: ProtocolUserIdSchema,
     expectedHostRevision: z.int().nonnegative(),
   }),
   z.strictObject({
     type: z.literal("member:remove"),
-    targetUserId: HostUserIdSchema,
-    expectedHostRevision: z.int().nonnegative(),
+    targetUserId: ProtocolUserIdSchema,
+    expectedHostRevision: z.int().nonnegative().optional(),
     operationId: OptimisticOperationIdSchema,
   }),
   // 課題整理の次ステップへ。完了条件を満たした参加者が進める。
@@ -680,23 +707,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
-// ルーム管理権限で送る操作の世代。省略は移譲導入前の世代0との互換用。
-export const HOST_REVISION_MESSAGE_TYPES = [
-  "host:transfer",
-  "member:remove",
-] as const satisfies readonly ClientMessage["type"][];
-
-export function needsHostRevision(
-  message: ClientMessage,
-): message is Extract<
-  ClientMessage,
-  { type: (typeof HOST_REVISION_MESSAGE_TYPES)[number] }
-> {
-  return (HOST_REVISION_MESSAGE_TYPES as readonly string[]).includes(
-    message.type,
-  );
-}
-
 // ---------------------------------------------------------------
 // サーバー → クライアント
 // ---------------------------------------------------------------
@@ -742,7 +752,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("reaction:received"),
     id: z.guid(),
-    senderId: HostUserIdSchema,
+    senderId: ProtocolUserIdSchema,
     kind: SharingReactionKindSchema,
     phaseRevision: z.int().nonnegative(),
   }),
@@ -760,15 +770,10 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.strictObject({
     type: z.literal("member:removed"),
-    targetUserId: HostUserIdSchema,
+    targetUserId: ProtocolUserIdSchema,
     operationId: OptimisticOperationIdSchema,
   }),
-  z.object({
-    type: z.literal("host:updated"),
-    operationId: OptimisticOperationIdSchema.optional(),
-    hostUserId: HostUserIdSchema,
-    hostRevision: z.int().nonnegative(),
-  }),
+
   z.object({
     type: z.literal("sharing:updated"),
     sharing: SharingStateSchema,
@@ -792,9 +797,6 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     rollbackTarget: RoomPhaseSchema.nullable().optional(),
     rollbackRevision: z.int().nonnegative().optional(),
     pendingPhaseTransition: PendingPhaseTransitionSchema.nullable().optional(),
-    isHost: z.boolean(),
-    hostUserId: HostUserIdSchema.nullable().optional(),
-    hostRevision: z.int().nonnegative().optional(),
     decision: DecisionSchema.nullable(),
     outcomePublished: z.boolean().optional(),
     // 永続化しない一時状態。再接続直後にも現在の共有フォーカスを復元する。
@@ -940,6 +942,17 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     userId: z.guid(),
   }),
   z.object({ type: z.literal("cursor:left"), userId: z.guid() }),
+  // 発表者の視点を参加者へ一時的に中継する。視点は永続化しない。
+  z.strictObject({
+    type: z.literal("view:updated"),
+    userId: z.guid(),
+    view: PresenterViewSchema,
+  }),
+  z.strictObject({
+    type: z.literal("presenter-follow:status"),
+    presenterUserId: z.guid(),
+    isFollowed: z.boolean(),
+  }),
   // start_phase 成功時（ロビー離脱）にも phase:next 成功時にも使う。
   z.object({
     type: z.literal("phase:updated"),

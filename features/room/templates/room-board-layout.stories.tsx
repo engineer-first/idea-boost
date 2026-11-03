@@ -231,7 +231,7 @@ export const Reconnecting: Story = {
 export const Participant: Story = {
   ...step(3, 1),
   name: "参加者",
-  args: { ...step(3, 1).args, isHost: false },
+  args: { ...step(3, 1).args },
 };
 
 export const Completed: Story = {
@@ -282,7 +282,7 @@ export const SingleParticipant: Story = {
   name: "参加者が1人のときの左右パネル",
   args: {
     ...step(3, 1).args,
-    isHost: false,
+
     members: buildMembers(1, boardMeta.args.currentUserId),
   },
 };
@@ -389,7 +389,7 @@ export const SharingComplete: Story = {
 };
 export const SharingMember: Story = {
   ...SharingActive,
-  args: { ...SharingActive.args, isHost: false },
+  args: { ...SharingActive.args },
 };
 
 export const MapControls: Story = {

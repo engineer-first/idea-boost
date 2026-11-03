@@ -1,5 +1,5 @@
 import { env, exports } from "cloudflare:workers";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SharingState } from "../../contracts/room-protocol";
 import {
   connectRoomAs,
@@ -17,6 +17,14 @@ import { getPhase, phaseHandlers, savePhase } from "./phase";
 import { broadcastSharing, sharingHandlers } from "./sharing";
 import { resetSharingForPhase } from "./sharing-state";
 import { resetTimerState } from "./timer";
+
+// 発表者の操作を検証するテストでは抽選結果を固定する。
+beforeEach(() => {
+  vi.spyOn(Math, "random").mockReturnValue(0.999);
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 const host = {
   sub: "11111111-1111-4111-8111-111111111111",
@@ -74,6 +82,32 @@ async function markReady(roomId: string) {
   });
 }
 describe("一人ずつの共有", () => {
+  it("発表順の抽選に作成者も含める", async () => {
+    const { roomId } = await createRoomAs(host);
+    const room = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
+    await room.upsertMember(guest.sub, guest.name);
+    await runInRoomDO(roomId, (_, state) => {
+      const random = vi.spyOn(Math, "random").mockReturnValue(0);
+      try {
+        resetSharingForPhase(state.storage.sql, {
+          kind: "step",
+          phase: 1,
+          step: 2,
+        });
+        const row = state.storage.sql
+          .exec("SELECT state_json FROM sharing_state WHERE id=1")
+          .one();
+        const sharing = JSON.parse(String(row.state_json)) as SharingState;
+        expect(sharing.order.map(({ userId }) => userId)).toEqual([
+          guest.sub,
+          host.sub,
+        ]);
+      } finally {
+        random.mockRestore();
+      }
+    });
+  });
+
   it("開始前の共有進行を拒否する", async () => {
     const { owner, member } = await setup();
     member.ws.send(

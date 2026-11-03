@@ -113,7 +113,7 @@ function setup(
       durationMs: 60_000,
     } as const,
     timerServerOffsetMs: 0,
-    isHost: false,
+
     isNextPhasePending: false,
     hmwDecidedIssue: null,
     decidedHmw: null,
@@ -122,7 +122,7 @@ function setup(
     draggingNoteId: null,
     members: buildMembers(2, ME),
     currentUserId: ME,
-    hostUserId: ME,
+
     progress: {
       phaseRevision: 0,
       progressRevision: 1,
@@ -282,7 +282,7 @@ describe("2軸評価画面の周辺操作", () => {
     const onIdeaMapResize = vi.fn();
     setup({
       phase: buildPhaseStep(2, 3),
-      isHost: true,
+
       ideaMapSizeLevel: 2,
       ideaMapSizeInitialized: true,
       onIdeaMapResize,
@@ -320,7 +320,7 @@ describe("2軸評価画面の周辺操作", () => {
     const onIdeaMapResize = vi.fn();
     setup({
       phase: buildPhaseStep(3, 3),
-      isHost: true,
+
       ideaMapSizeLevel: 2,
       ideaMapSizeInitialized: true,
       onIdeaMapResize,
@@ -477,7 +477,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
   it("参加者がシール選択中にブラウザ外のupを取りこぼして次のパレット押下を拒否されても、ボタンなしの移動で入力を回復する", () => {
     const { props } = setup({
       phase: buildPhaseStep(3, 2),
-      isHost: false,
+
       notes: [buildNote()],
     });
     const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
@@ -611,7 +611,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
       });
       const { props } = setup({
         phase: buildPhaseStep(3, 2),
-        isHost: false,
+
         notes: [note],
       });
       const surface = getNoteSurface(screen.getByTestId("note-card"));
@@ -1117,7 +1117,7 @@ describe("採用する付箋の選択モード", () => {
     const onAdoptionFocusChange = vi.fn();
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       notes: [buildNote({ id: "note-1", content: "候補A" })],
       onAdoptionFocusChange,
     });
@@ -1149,7 +1149,7 @@ describe("採用する付箋の選択モード", () => {
     const onNoteDecide = vi.fn();
     setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       notes: [buildNote({ id: "note-1", content: "候補A" })],
       onNoteDecide,
     });
@@ -1169,7 +1169,6 @@ describe("採用する付箋の選択モード", () => {
   it("Escape・キャンセル・ステップ変更・切断で選択モードを解除する", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
-      isHost: true,
     });
     const start = () =>
       fireEvent.click(
@@ -1202,7 +1201,7 @@ describe("採用する付箋の選択モード", () => {
     const onNoteDecide = vi.fn();
     const { rerender, props } = setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       notes: [buildNote({ id: "note-1", content: "候補外", excluded: true })],
       onNoteDecide,
     });
@@ -1217,7 +1216,7 @@ describe("採用する付箋の選択モード", () => {
       screen.queryByRole("button", { name: /採用する付箋:/ }),
     ).not.toBeInTheDocument();
 
-    rerender(<TestBoardView {...props} isHost={false} />);
+    rerender(<TestBoardView {...props} />);
     expect(
       screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
     ).toBeDisabled();
@@ -1228,7 +1227,7 @@ describe("採用する付箋の選択モード", () => {
     const decision = buildDecision({ noteId: "note-1" });
     const { rerender, props } = setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       notes,
       decision,
     });
@@ -1236,7 +1235,7 @@ describe("採用する付箋の選択モード", () => {
     fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
     expect(props.onDecisionClear).toHaveBeenCalledOnce();
 
-    rerender(<TestBoardView {...props} isHost={false} />);
+    rerender(<TestBoardView {...props} />);
     expect(screen.getAllByText("決定した課題")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
     expect(props.onDecisionClear).toHaveBeenCalledTimes(2);
@@ -1266,7 +1265,7 @@ describe("考えるヒントの外部制御", () => {
     (connectionStatus) => {
       const { props } = setup({
         phase: buildPhaseStep(5),
-        isHost: true,
+
         decision: buildDecision({ noteId: "note-1" }),
         connectionStatus,
       });
@@ -1279,7 +1278,7 @@ describe("考えるヒントの外部制御", () => {
   it("3-5で確定を取り消しても結果ダイアログを再度開かずボードで選び直せる", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5, 3),
-      isHost: true,
+
       decision: buildDecision({ phase: 3, noteId: "note-1" }),
     });
     fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
@@ -1295,7 +1294,7 @@ describe("考えるヒントの外部制御", () => {
   it("成果公開後は確定を取り消せない", () => {
     setup({
       phase: buildPhaseStep(5, 3),
-      isHost: true,
+
       decision: buildDecision({ phase: 3, noteId: "note-1" }),
       outcomePublished: true,
       hmwDecidedIssue: "課題",
@@ -1339,7 +1338,7 @@ describe("決定フェーズのルームメニュー", () => {
     (phase) => {
       setup({
         phase: buildPhaseStep(phase === 2 ? 4 : 5, phase),
-        isHost: true,
+
         notes: [buildNote({ id: "note-1" })],
         decision: null,
       });
@@ -1469,7 +1468,7 @@ describe("RoomBoardView", () => {
   it("個人執筆中も既存HUDを保ち、共有キャンバスを操作できない背景として表示する", () => {
     setup({
       phase: buildPhaseStep(1),
-      isHost: true,
+
       timer: { status: "paused", remainingMs: 30_000, durationMs: 60_000 },
     });
 
@@ -1728,7 +1727,7 @@ describe("RoomBoardView", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5, 3),
       decision: null,
-      isHost: true,
+
       onPublishOutcome,
     });
 
@@ -1867,14 +1866,14 @@ describe("RoomBoardView", () => {
       outcomePublished: true,
       hmwDecidedIssue: "課題",
       decidedHmw: "問い",
-      isHost: true,
+
       onLeave,
     });
     expect(
       screen.queryByRole("button", { name: "ボードへ戻る" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /ルームを削除|ルームを解散/ }),
+      screen.queryByRole("button", { name: /ルームを削除|退出する/ }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "チームで決めた成果" }),
@@ -1884,7 +1883,6 @@ describe("RoomBoardView", () => {
 
   it("非ホストもタイマーを一時停止・再開できる", () => {
     setup({
-      isHost: false,
       timer: { status: "paused", remainingMs: 30_000, durationMs: 60_000 },
       timerServerOffsetMs: 0,
     });
@@ -1896,7 +1894,6 @@ describe("RoomBoardView", () => {
     const onTimerStart = vi.fn();
 
     setup({
-      isHost: true,
       timer: { status: "idle" },
       onTimerStart,
     });
@@ -1911,7 +1908,6 @@ describe("RoomBoardView", () => {
     const interactions = buildInteractions(notes, []);
     const onNoteDecide = vi.fn();
     setup({
-      isHost: true,
       notes,
       interactions,
       onNoteDecide,
@@ -1924,7 +1920,6 @@ describe("RoomBoardView", () => {
 
   it("host の招待URLと招待コードはルームメニューの招待から表示する", () => {
     setup({
-      isHost: true,
       inviteCode: "ZZ99XX",
       inviteUrl: "https://idea-flow.example/invite/ZZ99XX",
     });
@@ -2194,7 +2189,7 @@ describe("RoomBoardView", () => {
   it("投票パレットで対象・基準・操作を確認できる", () => {
     setup({
       phase: buildPhaseStep(4),
-      isHost: true,
+
       help: {
         kind: null,
         isOpen: true,
@@ -2748,7 +2743,6 @@ describe("RoomBoardView", () => {
 
   it("Step 1-4 のホストは Step 1-5 へ進める", () => {
     setup({
-      isHost: true,
       phase: buildPhaseStep(4),
       completedVoterIds: [ME, "22222222-2222-4222-8222-222222222222"],
       timer: { status: "ended", durationMs: 300_000 },
@@ -3059,15 +3053,12 @@ describe("RoomBoardView", () => {
 
   describe("確定フェーズのメンバー完了表示", () => {
     it.each([
-      [1, 5, true],
-      [2, 4, true],
-      [3, 5, true],
-      [1, 5, false],
-      [2, 4, false],
-      [3, 5, false],
+      [1, 5],
+      [2, 4],
+      [3, 5],
     ] as const)(
       "%i-%iで完了チェックを保ち、採用の確定・取消に応じて進行を切り替える（ホスト=%s）",
-      (phase, step, isHost) => {
+      (phase, step) => {
         const members = buildMembers(3, ME);
         const { props, rerender } = setup({
           phase: buildPhaseStep(step, phase),
@@ -3083,7 +3074,7 @@ describe("RoomBoardView", () => {
             canAdvance: true,
             allReady: true,
           },
-          isHost,
+
           decision: null,
         });
         const actionName =
@@ -3127,7 +3118,7 @@ describe("RoomBoardView", () => {
 
   describe("ステップ移行", () => {
     it("ホストの場合のみ「次のステップへ」ボタンを表示する", () => {
-      setup({ isHost: true, timer: { status: "idle" } });
+      setup({ timer: { status: "idle" } });
 
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),
@@ -3136,7 +3127,7 @@ describe("RoomBoardView", () => {
 
     it("全員完了済みなら確認なしでonNextPhaseを呼ぶ", () => {
       const onNextPhase = vi.fn();
-      setup({ isHost: true, onNextPhase, timer: { status: "idle" } });
+      setup({ onNextPhase, timer: { status: "idle" } });
 
       fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
@@ -3145,7 +3136,6 @@ describe("RoomBoardView", () => {
 
     it("Step 1-5 は未決定なら次への操作を無効にする", () => {
       setup({
-        isHost: true,
         phase: buildPhaseStep(5),
         decision: null,
         timer: { status: "ended", durationMs: 300_000 },
@@ -3158,7 +3148,6 @@ describe("RoomBoardView", () => {
 
     it("Step 1-5 で課題が決定されると2-1への「次のステップへ」を表示する", () => {
       setup({
-        isHost: true,
         phase: buildPhaseStep(5),
         decision: buildDecision({ noteId: "note-1" }),
         timer: { status: "ended", durationMs: 300_000 },
@@ -3171,7 +3160,6 @@ describe("RoomBoardView", () => {
 
     it("Step 2-1 では次のステップ(2-2)へ進める", () => {
       setup({
-        isHost: true,
         phase: buildPhaseStep(1, 2),
         notes: [],
         timer: { status: "ended", durationMs: 300_000 },
@@ -3394,33 +3382,33 @@ describe("RoomBoardView", () => {
 });
 
 describe("退出・解散ボタン", () => {
-  it("ホストは「ルームを解散」ボタンが描画される", () => {
-    setup({ isHost: true });
-    openRoomMenu();
-    expect(
-      screen.getByRole("button", { name: "ルームを解散" }),
-    ).toBeInTheDocument();
-  });
-
-  it("非ホストは「退出する」ボタンが描画される", () => {
-    setup({ isHost: false });
+  it("ホストは「退出する」ボタンが描画される", () => {
+    setup({});
     openRoomMenu();
     expect(
       screen.getByRole("button", { name: "退出する" }),
     ).toBeInTheDocument();
   });
 
-  it("ホストの「ルームを解散」で確認 Dialog が開き、確定で onLeave が呼ばれる", async () => {
+  it("非ホストは「退出する」ボタンが描画される", () => {
+    setup({});
+    openRoomMenu();
+    expect(
+      screen.getByRole("button", { name: "退出する" }),
+    ).toBeInTheDocument();
+  });
+
+  it("ホストの「退出する」で確認 Dialog が開き、確定で onLeave が呼ばれる", async () => {
     const onLeave = vi.fn();
     const user = userEvent.setup();
-    setup({ onLeave, isHost: true });
+    setup({ onLeave });
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: "ルームメニューを開く" }),
     );
-    await user.click(screen.getByRole("button", { name: "ルームを解散" }));
+    await user.click(screen.getByRole("button", { name: "退出する" }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-    expect(screen.getByText("ルームを解散しますか？")).toBeInTheDocument();
+    expect(screen.getByText("退出しますか？")).toBeInTheDocument();
     await user.click(screen.getByTestId("leave-confirm-action"));
     expect(onLeave).toHaveBeenCalledTimes(1);
   });
@@ -3428,30 +3416,29 @@ describe("退出・解散ボタン", () => {
   it("「キャンセル」で Dialog が閉じて onLeave は呼ばれない", async () => {
     const onLeave = vi.fn();
     const user = userEvent.setup();
-    setup({ onLeave, isHost: true });
+    setup({ onLeave });
     await user.click(
       screen.getByRole("button", { name: "ルームメニューを開く" }),
     );
-    await user.click(screen.getByRole("button", { name: "ルームを解散" }));
+    await user.click(screen.getByRole("button", { name: "退出する" }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(onLeave).not.toHaveBeenCalled();
   });
 
-  it("isLeaving=true のときホストボタンは disabled で文言が「解散中…」になる", () => {
-    setup({ isLeaving: true, isHost: true });
+  it("isLeaving=true のときホストボタンは disabled で文言が「退出中…」になる", () => {
+    setup({ isLeaving: true });
     openRoomMenu();
-    const button = screen.getByRole("button", { name: /解散/ });
+    const button = screen.getByRole("button", { name: /退出/ });
     expect(button).toBeDisabled();
-    expect(button).toHaveTextContent("解散中…");
+    expect(button).toHaveTextContent("退出中…");
   });
 });
 
 describe("招待URL/コード（host 限定表示）", () => {
   it("非 host のとき招待URL/コードが出ない", () => {
     setup({
-      isHost: false,
       inviteCode: "ZZ99XX",
       inviteUrl: "https://example/invite/ZZ99XX",
     });
@@ -3481,14 +3468,6 @@ describe("参加者 HUD", () => {
     expect(meRow).toHaveAttribute("data-self", "true");
     expect(meRow.textContent).toContain("Yuki Tanaka");
     expect(meRow.textContent).toContain("あなた");
-  });
-
-  it("ホストの名前に「ホスト」ラベルが出る", () => {
-    setup({ hostUserId: ME });
-    openMembers();
-    expect(screen.getByTestId(`member-host-label-${ME}`)).toHaveTextContent(
-      "ホスト",
-    );
   });
 
   it("10人を超えても HUD は最大10アバターと合計人数で折り返さない", () => {
@@ -3625,7 +3604,7 @@ describe("反復ワークフロー", () => {
   it("採用前は次への操作を無効にして再投票を確認できる", () => {
     setup({
       phase: buildPhaseStep(5),
-      isHost: true,
+
       timer: { status: "ended", durationMs: 300_000 },
     });
     expect(
@@ -3645,7 +3624,7 @@ describe("反復ワークフロー", () => {
     (phase, step, label) => {
       const { props } = setup({
         phase: buildPhaseStep(step, phase),
-        isHost: true,
+
         notes: [buildNote({ id: "candidate", content: "選んだ候補" })],
       });
       fireEvent.click(
@@ -3665,7 +3644,7 @@ describe("反復ワークフロー", () => {
 });
 
 it("同じ決定ステップのsnapshot更新では結果一覧を再表示しない", () => {
-  const { props, rerender } = setup({ phase: buildPhaseStep(5), isHost: true });
+  const { props, rerender } = setup({ phase: buildPhaseStep(5) });
   rerender(
     <TestBoardView
       {...props}
@@ -3712,72 +3691,46 @@ describe("通知の重なり", () => {
 });
 
 describe("U13 通常入口の統合", () => {
-  it.each([true, false])(
-    "公開後の本人退出はcancelで成果を保ちconfirm一回・pendingで二重送信しない host=%s",
-    async (isHost) => {
-      const idea = buildNote({ id: "idea", content: "採用案" });
-      const { props, rerender } = setup({
-        phase: buildPhaseStep(5, 3),
-        notes: [idea],
-        isHost,
-        hmwDecidedIssue: "課題",
-        decidedHmw: "問い",
-      });
-      const published = {
-        ...props,
-        decision: buildDecision({ phase: 3, noteId: idea.id }),
-        outcomePublished: true,
-      };
-      rerender(<TestBoardView {...published} />);
-      await userEvent.click(
-        screen.getByRole("button", { name: "退出してホームへ" }),
-      );
-      expect(screen.getByRole("alertdialog")).toHaveTextContent(
-        "退出しますか？",
-      );
-      await userEvent.click(
-        screen.getByRole("button", { name: "退出をやめて成果へ戻る" }),
-      );
-      expect(props.onLeave).not.toHaveBeenCalled();
-      expect(
-        screen.getByRole("heading", { name: "チームで決めた成果" }),
-      ).toBeVisible();
-      await userEvent.click(
-        screen.getByRole("button", { name: "退出してホームへ" }),
-      );
-      await userEvent.click(screen.getByTestId("leave-confirm-action"));
-      expect(props.onLeave).toHaveBeenCalledTimes(1);
-      rerender(<TestBoardView {...published} isLeaving />);
-      expect(screen.getByTestId("leave-confirm-action")).toBeDisabled();
-      fireEvent.click(screen.getByTestId("leave-confirm-action"));
-      expect(props.onLeave).toHaveBeenCalledTimes(1);
-      rerender(<TestBoardView {...published} />);
-      expect(screen.getByTestId("leave-confirm-action")).not.toBeDisabled();
-    },
-  );
-
-  it("確認中に公開されたら古い解散確認を本人退出に切り替える", async () => {
+  it("完了後は退出・削除を表示せず確認なしのホームへのリンクを出す", () => {
+    const idea = buildNote({ id: "idea", content: "採用案" });
+    const { props } = setup({
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
+    });
+    expect(screen.getByRole("link", { name: "ホームへ戻る" })).toHaveAttribute(
+      "href",
+      "/home",
+    );
+    expect(
+      screen.queryByRole("button", { name: /退出|ルームを削除/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("href") === "/home"),
+    ).toHaveLength(1);
+    expect(props.onLeave).not.toHaveBeenCalled();
+  });
+  it("退出確認中に完了したら確認を閉じてホームへのリンクだけを出す", async () => {
     const idea = buildNote({ id: "idea", content: "採用案" });
     const { props, rerender } = setup({
       phase: buildPhaseStep(5, 3),
       notes: [idea],
-      isHost: true,
       decision: buildDecision({ phase: 3, noteId: idea.id }),
-      hmwDecidedIssue: "課題",
-      decidedHmw: "問い",
     });
     openRoomMenu();
-    await userEvent.click(screen.getByRole("button", { name: "ルームを解散" }));
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "ルームを解散しますか？",
-    );
+    await userEvent.click(screen.getByRole("button", { name: "退出する" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     rerender(<TestBoardView {...props} outcomePublished />);
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("退出しますか？");
-    expect(
-      screen.queryByRole("button", { name: "ルームを解散" }),
-    ).not.toBeInTheDocument();
-    await userEvent.click(screen.getByTestId("leave-confirm-action"));
-    expect(props.onLeave).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ホームへ戻る" })).toHaveAttribute(
+      "href",
+      "/home",
+    );
+    expect(props.onLeave).not.toHaveBeenCalled();
   });
 
   it("3-1 hint一回でマイ付箋を開き本文を編集でき、空付箋を増やさない", async () => {
@@ -3896,7 +3849,7 @@ describe("付箋上の投票結果", () => {
           },
         }),
       ];
-      const { props, rerender } = setup({ phase: voting, notes, isHost: true });
+      const { props, rerender } = setup({ phase: voting, notes });
       rerender(<TestBoardView {...props} phase={result} />);
       expect(
         screen.queryByRole("dialog", { name: "投票結果" }),
@@ -3919,84 +3872,18 @@ describe("付箋上の投票結果", () => {
   );
 });
 
-describe("ホスト世代をまたぐ古い操作を破棄する", () => {
-  it("往復移譲で古い再投票確認を閉じ、前回の票を消さない", () => {
-    const onRevote = vi.fn();
-    const { props, rerender } = setup({
-      phase: buildPhaseStep(5),
-      isHost: true,
-      hostRevision: 0,
-      onRevote,
-    });
-    fireEvent.click(screen.getByRole("button", { name: "もう一度投票する" }));
-    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-    rerender(<TestBoardView {...props} hostRevision={2} />);
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(onRevote).not.toHaveBeenCalled();
-  });
-  it("同一描画内の往復移譲でも古い採用選択をやめる", () => {
-    const { props, rerender } = setup({
-      phase: buildPhaseStep(5),
-      isHost: true,
-      hostRevision: 0,
-    });
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    expect(
-      screen.getByRole("button", { name: "選択をキャンセル" }),
-    ).toBeInTheDocument();
-    rerender(<TestBoardView {...props} hostRevision={2} />);
-    expect(
-      screen.queryByRole("button", { name: "選択をキャンセル" }),
-    ).not.toBeInTheDocument();
-    expect(props.onNoteDecide).not.toHaveBeenCalled();
-  });
-  it("ホスト変更送信中は再投票・採用を開始しない", () => {
-    setup({ phase: buildPhaseStep(5), isHost: true, isTransferring: true });
-    expect(
-      screen.getByRole("button", { name: "もう一度投票する" }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
-    ).toBeDisabled();
-  });
-});
-
-it("ホスト変更で採用hoverを破棄するとき旧権限の解除要求を送らない", () => {
-  const oldFocus = vi.fn();
-  const newFocus = vi.fn();
-  const { props, rerender } = setup({
-    phase: buildPhaseStep(5),
-    isHost: true,
-    hostRevision: 0,
-    notes: [buildNote({ id: "note-1", content: "候補" })],
-    onAdoptionFocusChange: oldFocus,
-  });
-  fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-  fireEvent.pointerEnter(
-    screen.getByRole("button", { name: /採用する付箋: 候補/ }),
-  );
-  expect(oldFocus).toHaveBeenLastCalledWith("note-1");
-  oldFocus.mockClear();
-  rerender(
-    <TestBoardView
-      {...props}
-      hostRevision={2}
-      onAdoptionFocusChange={newFocus}
-    />,
-  );
-  expect(oldFocus).not.toHaveBeenCalled();
-  expect(newFocus).not.toHaveBeenCalled();
-});
-
-it("参加者が作業画面で選んだ成果の扱いを退出へ渡す", async () => {
-  const onLeave = vi.fn();
+it("参加者が作業画面で成果を選ばず退出を確認できる", async () => {
   const user = userEvent.setup();
-  setup({ isHost: false, onLeave });
+  const { props } = setup();
   openRoomMenu();
   await user.click(screen.getByRole("button", { name: "退出する" }));
-  await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
-  await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
-  expect(onLeave).toHaveBeenCalledWith("discard");
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
+  await user.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "退出する",
+    }),
+  );
+  expect(props.onLeave).toHaveBeenCalledExactlyOnceWith();
 });
 
 // AT-001/004/006/007: 本人選択は共有・本文・工程コマンドと分離する。
@@ -4777,7 +4664,7 @@ describe("CI-PHASE002: 採用semantic activationとgesture所有", () => {
     (owner, key) => {
       const { props } = setup({
         phase: buildPhaseStep(5),
-        isHost: true,
+
         notes: buildNotes(3),
       });
       fireEvent.click(
@@ -4902,3 +4789,19 @@ it("作者の退出・表示名更新後も共有付箋に作者名のホバー�
   );
   expect(screen.queryByTitle(/^作者:/)).not.toBeInTheDocument();
 });
+
+it.each([1, 2])(
+  "ボードの退出確認に残る在籍者数に応じた説明を渡す（在籍者%s人）",
+  async (count) => {
+    setup({ members: buildMembers(count, ME) });
+    await userEvent.click(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "退出する" }));
+    const warning = screen.queryByText(
+      /退出するとルームが終了し、招待URLは使えなくなります/,
+    );
+    if (count === 1) expect(warning).toBeInTheDocument();
+    else expect(warning).not.toBeInTheDocument();
+  },
+);

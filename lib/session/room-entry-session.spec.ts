@@ -48,16 +48,19 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("入室前のゲストセッション準備", () => {
-  it("残り5時間ちょうどなら本人をそのまま返しWorkerもCookieも変更しない", async () => {
-    const user = { ...GUEST, exp: NOW + ROOM_ENTRY_MIN_SECONDS };
-    expect(await prepareRoomEntrySession(user, NOW)).toEqual({
-      ok: true,
-      user,
-    });
-    expect(mocks.api).not.toHaveBeenCalled();
-    expect(mocks.set).not.toHaveBeenCalled();
-  });
+describe("入室前のセッション準備", () => {
+  it.each([GUEST, ACCOUNT])(
+    "$kindは残り5時間ちょうどなら本人をそのまま返しWorkerもCookieも変更しない",
+    async (session) => {
+      const user = { ...session, exp: NOW + ROOM_ENTRY_MIN_SECONDS };
+      expect(await prepareRoomEntrySession(user, NOW)).toEqual({
+        ok: true,
+        user,
+      });
+      expect(mocks.api).not.toHaveBeenCalled();
+      expect(mocks.set).not.toHaveBeenCalled();
+    },
+  );
 
   it("残り5時間−1秒なら同じゲストの7日Cookieを発行し更新後のexpを返す", async () => {
     expect(await prepareRoomEntrySession(GUEST, NOW)).toEqual({
@@ -85,22 +88,51 @@ describe("入室前のゲストセッション準備", () => {
     ).toEqual({ ...GUEST, exp: NOW + SESSION_TTL_SECONDS });
   });
 
-  it("accountの残り5時間−1秒は再認証を要求しWorkerを呼ばずCookieを書かない", async () => {
+  it("accountの残り5時間−1秒は同じ本人の7日Cookieへ更新する", async () => {
     expect(await prepareRoomEntrySession(ACCOUNT, NOW)).toEqual({
-      ok: false,
-      reason: "reauth_required",
+      ok: true,
+      user: { ...ACCOUNT, exp: NOW + SESSION_TTL_SECONDS },
     });
-    expect(mocks.api).not.toHaveBeenCalled();
-    expect(mocks.set).not.toHaveBeenCalled();
+    expect(mocks.api).toHaveBeenCalledWith("/api/auth/account/refresh", {
+      method: "POST",
+    });
+    expect(mocks.set).toHaveBeenCalledOnce();
+    expect(
+      await verifyToken(mocks.set.mock.calls[0][1], VerifiedSessionSchema, {
+        secret: SECRET,
+        audience: TOKEN_AUDIENCE.session,
+      }),
+    ).toEqual({ ...ACCOUNT, exp: NOW + SESSION_TTL_SECONDS });
   });
 
-  it.each([401, 403, 404, 409])(
-    "更新APIが%sなら本人確認不可を返しCookieを書かない",
-    async (status) => {
+  it.each(["guest", "account"] as const)(
+    "%sの実期限切れは更新せず再ログインを求める",
+    async (kind) => {
+      expect(
+        await prepareRoomEntrySession(
+          { ...(kind === "guest" ? GUEST : ACCOUNT), exp: NOW },
+          NOW,
+        ),
+      ).toEqual({ ok: false, reason: "reauth_required" });
+      expect(mocks.api).not.toHaveBeenCalled();
+      expect(mocks.set).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(
+    [GUEST, ACCOUNT].flatMap((user) =>
+      [401, 403, 404, 409].map((status) => ({ user, status, kind: user.kind })),
+    ),
+  )(
+    "$kindの更新APIが$statusなら拒否しCookieを書かない",
+    async ({ user, status }) => {
       mocks.api.mockResolvedValue(new Response(null, { status }));
-      expect(await prepareRoomEntrySession(GUEST, NOW)).toEqual({
+      expect(await prepareRoomEntrySession(user, NOW)).toEqual({
         ok: false,
-        reason: "identity_unavailable",
+        reason:
+          user.kind === "account" && status === 401
+            ? "reauth_required"
+            : "identity_unavailable",
       });
       expect(mocks.set).not.toHaveBeenCalled();
     },

@@ -11,7 +11,6 @@ const meta = {
   args: {
     members: buildMembers(3, ME),
     currentUserId: ME,
-    hostUserId: ME,
   },
   decorators: [
     (Story) => (
@@ -34,11 +33,10 @@ export const VotingComplete: Story = {
   },
 };
 
-/** ホスト以外視点（王冠が自分に付かない） */
+/** 別の参加者の視点 */
 export const NonHostView: Story = {
   args: {
     members: buildMembers(4, ME),
-    hostUserId: buildMembers(4, ME).find((m) => m.userId !== ME)?.userId ?? ME,
   },
 };
 
@@ -67,7 +65,7 @@ export const AllStates: Story = {
             <span className="font-mono text-xs text-muted-foreground">
               {label}（{members.length} 名）
             </span>
-            <RoomMembers members={members} currentUserId={ME} hostUserId={ME} />
+            <RoomMembers members={members} currentUserId={ME} />
           </div>
         ))}
       </div>

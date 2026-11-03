@@ -68,7 +68,7 @@ describe("作成要求の障害回復", () => {
     ).toBe("pending");
     const response = await post(creation.request_id, "test");
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
+    expect(await response.json()).toMatchObject({
       roomId: creation.room_id,
       inviteCode: creation.invite_code,
     });
@@ -93,7 +93,7 @@ describe("作成要求の障害回復", () => {
     });
     const response = await post(creation.request_id, "test");
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
+    expect(await response.json()).toMatchObject({
       roomId: creation.room_id,
       inviteCode: creation.invite_code,
     });

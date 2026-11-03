@@ -37,6 +37,7 @@ import {
   RoomEntryTicketSchema,
   RoomOAuthResumeSchema,
 } from "../contracts/room-entry";
+import type { ParticipationResult } from "../contracts/room-participation";
 import {
   type GuestRefreshResponse,
   LoginAssertionSchema,
@@ -53,7 +54,6 @@ import {
 } from "./feedback";
 import { hasPermission, seedDevOwnerAccess } from "./lib/access";
 import {
-  deleteRoom,
   ensureUser,
   findRoomByCode,
   findRoomById,
@@ -82,6 +82,7 @@ import {
   accountStub,
   handleRoomParticipation,
   participationResponse,
+  roomParticipationResponse,
 } from "./room-participation-api";
 import { handleSharedOutcomes } from "./shared-outcomes-api";
 
@@ -94,7 +95,10 @@ export type ApiWorkerEnv = Env & {
 };
 
 const SyncRequestSchema = z.object({ assertion: z.string().min(1) });
-const JoinRequestSchema = z.object({ code: z.string() });
+const JoinRequestSchema = z.object({
+  code: z.string(),
+  operationId: z.guid().optional(),
+});
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -183,7 +187,7 @@ async function handleLinkGoogle(
   return json(result, result.ok ? 200 : 409);
 }
 
-// POST /api/rooms — ルーム作成。D1 に行を作り、RoomDO に host を登録する。
+// POST /api/rooms — ルーム作成。D1 に行を作り、RoomDO に作成者を登録する。
 async function handleCreateRoom(
   request: Request,
   env: ApiWorkerEnv,
@@ -310,6 +314,7 @@ async function handleJoinRoom(
     session.sub,
     { kind: "join", code },
     true,
+    body.data.operationId,
   );
   if (result.kind === "ready")
     await syncMemberAccountName(env, result.roomId, session.sub).catch(
@@ -320,8 +325,6 @@ async function handleJoinRoom(
 
 // GET /api/rooms/:id — メンバーだけがルーム情報を取得できる。
 // 非メンバーには存在しないルームと同じ 404 を返し、存在を推測させない。
-// isHost / hostUserId / phase はこのエンドポイントでのみ返す。
-// メンバー限定（非メンバーは 404）。hostUserId はメンバー一覧でホスト表示に使う。
 async function handleGetRoom(
   env: ApiWorkerEnv,
   session: VerifiedSession,
@@ -338,22 +341,23 @@ async function handleGetRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  let departure: Extract<ParticipationResult, { kind: "ready" }> | undefined;
   if (await stub.isJoinable()) {
     const participation = await accountStub(env, session.sub).inspect(
       session.sub,
       roomId,
     );
-    if (participation) return participationResponse(participation, true);
+    const interruption = roomParticipationResponse(participation, roomId);
+    if (interruption) return interruption;
+    if (participation?.kind === "ready") departure = participation;
   }
   const phase = await stub.getPhase();
-  const host = await stub.getCurrentHost(room.hostId);
-  if (!host.hostUserId) return error(409, "ホスト情報を取得できませんでした。");
   return json({
     roomId: room.roomId,
     inviteCode: room.inviteCode,
-    isHost: host.hostUserId === session.sub,
-    hostUserId: host.hostUserId,
     phase,
+    operationId: departure?.operationId,
+    exitedRoomNames: departure?.exitedRoomNames,
   });
 }
 
@@ -380,13 +384,7 @@ async function handleListMembers(
   return json({ members });
 }
 
-// POST /api/rooms/:id/leave — 退出 / 解散。
-// - 非ホスト: 自分の WS close + members から外れ、他メンバーに member_left。
-// - ホスト: ルームを解散する（全 WS close + RoomDO クリア + D1 rooms 削除）。
-// 認可:
-//   - 未ログインは 401
-//   - ルームが存在しない、または自分がメンバーでない場合は 404
-//     （存在秘匿。クライアントは 204/404 を成功相当としてよい）
+// POST /api/rooms/:id/leave — 在籍者本人の退出。非在籍者には404を返す。
 async function handleLeaveRoom(
   request: Request,
   env: ApiWorkerEnv,
@@ -403,27 +401,18 @@ async function handleLeaveRoom(
     (await readJsonBody(request)) ?? {},
   );
   if (!body.success) return error(400, "リクエスト形式が不正です。");
-  // 作成者IDはlegacy seedのみ。判定と更新を別RPCに分けず、DOで直列化する。
-  if (
-    (body.data.intent !== "self" || body.data.outcomeAccess === "retain") &&
-    (await stub.isMember(session.sub))
-  )
-    await stub.ensureSharedOutcome(roomId, room.createdAt);
+  if (!(await stub.isMember(session.sub)))
+    return error(404, "ルームが見つかりませんでした。");
+  await stub.ensureSharedOutcome(roomId, room.createdAt);
   const result = await stub.leaveOrDisband(
     session.sub,
     room.hostId,
-    body.data.intent,
-    body.data.expectedHostRevision,
+    "self",
+    undefined,
     body.data.outcomeAccess,
   );
   if (result === "not-member")
     return error(404, "ルームが見つかりませんでした。");
-  if (result === "forbidden")
-    return error(
-      409,
-      "ホストまたはルームの状態が変わりました。画面を更新して操作し直してください。",
-    );
-  if (result === "disbanded") await deleteRoom(env.DB, roomId);
   return new Response(null, { status: 204 });
 }
 
@@ -464,7 +453,7 @@ async function handleLookupRoom(
   return json({
     roomId: room.roomId,
     inviteCode: room.inviteCode,
-    hostName: hostName ?? "ホスト",
+    hostName: hostName ?? "作成者",
   });
 }
 
@@ -497,7 +486,8 @@ async function handleRoomWebSocket(
     session.sub,
     roomId,
   );
-  if (participation) return participationResponse(participation, true);
+  const interruption = roomParticipationResponse(participation, roomId);
+  if (interruption) return interruption;
   await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);
@@ -562,6 +552,16 @@ export function createApiWorker(
         if (!identity) return error(404, "本人情報が見つかりません。");
         if (identity.email !== null || identity.google_sub !== null)
           return error(409, "本人情報が競合しています。");
+        return json({ userId: session.sub } satisfies GuestRefreshResponse);
+      }
+
+      if (method === "POST" && pathname === "/api/auth/account/refresh") {
+        if (session.kind !== "account")
+          return error(403, "Googleの本人情報が必要です。");
+        const identity = await findUserIdentityById(env.DB, session.sub);
+        if (!identity) return error(404, "本人情報が見つかりません。");
+        if (!identity.google_sub)
+          return error(409, "Googleの紐付けが見つかりません。");
         return json({ userId: session.sub } satisfies GuestRefreshResponse);
       }
 

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLobbyPhase } from "./phase.fixture";
-import { parseClientMessage, parseServerMessage } from "./room-protocol";
+import { parseClientMessage } from "./room-protocol";
 
 const boundaries = [
   {
@@ -10,34 +9,6 @@ const boundaries = [
       type: "host:transfer",
       targetUserId: id,
       expectedHostRevision: 0,
-    }),
-  },
-  {
-    name: "host:updated",
-    parse: parseServerMessage,
-    message: (id: unknown) => ({
-      type: "host:updated",
-      hostUserId: id,
-      hostRevision: 1,
-    }),
-  },
-  {
-    name: "snapshot",
-    parse: parseServerMessage,
-    message: (id: unknown) => ({
-      type: "snapshot",
-      hostUserId: id,
-      hostRevision: 1,
-      notes: [],
-      members: [],
-      phase: buildLobbyPhase(),
-      phaseRevision: 0,
-      isHost: false,
-      decision: null,
-      carryovers: [],
-      completedVoterIds: [],
-      timer: { status: "idle" },
-      serverNow: 1_700_000_000_000,
     }),
   },
 ];
@@ -66,12 +37,4 @@ describe.each(boundaries)("$name の既存 ID 互換性", ({ parse, message }) =
   ])("不正な形式 %j は拒否する", (id) => {
     expect(parse(JSON.stringify(message(id)))).toBeNull();
   });
-});
-
-it("旧 snapshot の hostUserId 省略と null の互換性を維持する", () => {
-  const snapshot = boundaries[2];
-  for (const id of [undefined, null]) {
-    const input = JSON.stringify(snapshot.message(id));
-    expect(snapshot.parse(input)).toEqual(JSON.parse(input));
-  }
 });

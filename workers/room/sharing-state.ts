@@ -4,7 +4,7 @@ import {
   type SharingState,
   SharingStateSchema,
 } from "../../contracts/room-protocol";
-import { isHostUser, listMembers } from "./members";
+import { listMembers } from "./members";
 
 export function getSharingState(sql: SqlStorage): SharingState | null {
   const row = sql
@@ -32,15 +32,12 @@ export function resetSharingForPhase(
   if (!sharing && !previous) return;
   let order = previous?.order ?? [];
   if (sharing && order.length === 0) {
-    const members = listMembers(sql);
-    const host = members.find(({ userId }) => isHostUser(sql, userId));
-    const others = members.filter(({ userId }) => !isHostUser(sql, userId));
-    // Fisher–Yates は最初の共有への入場時だけ。ホストは抽選対象にしない。
-    for (let index = others.length - 1; index > 0; index--) {
+    order = listMembers(sql);
+    // 全員を同じ抽選に含め、初回の共有入場時だけ順番を決める。
+    for (let index = order.length - 1; index > 0; index--) {
       const target = Math.floor(Math.random() * (index + 1));
-      [others[index], others[target]] = [others[target], others[index]];
+      [order[index], order[target]] = [order[target], order[index]];
     }
-    order = host ? [host, ...others] : others;
   }
   const startsFirstTurn = sharing && startFirstTurn && order.length > 0;
   saveSharingState(sql, {
@@ -66,7 +63,7 @@ export function appendSharingMember(
     state.order[index] = member;
   } else {
     state.order.push(member);
-    // 一巡後の途中参加もホストが明示的に開始する。
+    // 一巡後の途中参加も参加者が明示的に開始する。
     if (state.status === "complete") state.status = "ready";
   }
   saveSharingState(sql, state);

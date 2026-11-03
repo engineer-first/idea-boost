@@ -83,7 +83,7 @@ export function PhaseRollbackDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!finalConfirmation && (
-          <div className="rounded-xl bg-muted p-4">
+          <div className="rounded-lg bg-muted p-4">
             <p className="mb-1 text-xs leading-relaxed text-muted-foreground">
               {getPhaseLabel(phase)} から
             </p>
