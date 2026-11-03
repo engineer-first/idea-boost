@@ -9,7 +9,6 @@ const fonts = vi.hoisted(() => ({
 vi.mock("next/font/google", () => ({
   Noto_Sans_JP: fonts.noto,
   Zen_Maru_Gothic: fonts.zen,
-  Geist: () => ({ variable: "sans" }),
   Geist_Mono: () => ({ variable: "mono" }),
 }));
 vi.mock("@/lib/session/current-user", () => ({
@@ -28,7 +27,7 @@ it("日本語UIを日本語として読み上げる文書言語を配信する",
   expect(document.documentElement.lang).toBe("ja");
 });
 
-it("全画面の本文にswapの可変Notoを使い、LPのZenは読み込まない", async () => {
+it("LPを含む全画面の本文にswapの可変Notoを使い、Zenは読み込まない", async () => {
   const { default: RootLayout } = await import("./layout");
   const markup = renderToStaticMarkup(
     await RootLayout({ children: <main>本文</main> }),

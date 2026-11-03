@@ -32,12 +32,8 @@
   padding: 8px 0 72px;
 }
 .heroHeading {
-  font-family: var(
-    --font-zen-maru-gothic,
-    var(--font-noto-sans-jp, sans-serif)
-  );
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.28;
   letter-spacing: -0.03em;
 }
