@@ -14,6 +14,8 @@ export const SyncUserResponseSchema = z.object({
 
 // 作成・再送の結果。現在の進行状態は既存のルーム情報取得で確認する。
 export const RoomSummarySchema = z.object({
+  operationId: z.guid().optional(),
+  exitedRoomNames: z.array(z.string()).optional(),
   roomId: z.guid(),
   inviteCode: z.string(),
 });
@@ -27,6 +29,8 @@ export const CreateRoomInputSchema = z.strictObject({
 });
 
 export const JoinRoomResponseSchema = z.object({
+  operationId: z.guid().optional(),
+  exitedRoomNames: z.array(z.string()).optional(),
   roomId: z.guid(),
 });
 

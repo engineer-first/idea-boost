@@ -158,27 +158,28 @@ export default async function RoomPage({
   );
 
   const enough = hasRoomEntryTime(user);
-  if (!enough || query?.entry) {
-    return (
-      <RoomAdmissionGate
-        key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
-        roomId={id}
-        sessionKind={user.kind}
-        fallback={
-          <RoomEntryPreview
-            phase={parsed.data.phase}
-            members={initialMembers}
-            currentUserId={user.sub}
-            inviteCode={parsed.data.inviteCode}
-            inviteUrl={inviteUrl}
-          />
-        }
-        entryToken={query?.entry}
-        allowFreshEntry={enough}
-      >
-        {content}
-      </RoomAdmissionGate>
-    );
-  }
-  return content;
+  return (
+    <RoomAdmissionGate
+      key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
+      roomId={id}
+      departure={{
+        operationId: parsed.data.operationId,
+        exitedRoomNames: parsed.data.exitedRoomNames,
+      }}
+      sessionKind={user.kind}
+      fallback={
+        <RoomEntryPreview
+          phase={parsed.data.phase}
+          members={initialMembers}
+          currentUserId={user.sub}
+          inviteCode={parsed.data.inviteCode}
+          inviteUrl={inviteUrl}
+        />
+      }
+      entryToken={query?.entry}
+      allowFreshEntry={enough}
+    >
+      {content}
+    </RoomAdmissionGate>
+  );
 }

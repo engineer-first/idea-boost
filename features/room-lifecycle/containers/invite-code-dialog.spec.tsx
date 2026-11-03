@@ -25,17 +25,20 @@ vi.mock("../logic/actions", () => ({
 
 const notifyMocks = vi.hoisted(() => ({
   joinedAsGuest: vi.fn(),
+  rememberDeparture: vi.fn(),
   error: vi.fn(),
 }));
 vi.mock("@/lib/notify", () => ({
   notify: { error: notifyMocks.error },
 }));
 vi.mock("../logic/lifecycle-notify", () => ({
-  lifecycleNotify: { joinedAsGuest: notifyMocks.joinedAsGuest },
+  lifecycleNotify: {
+    joinedAsGuest: notifyMocks.joinedAsGuest,
+    rememberDeparture: notifyMocks.rememberDeparture,
+  },
 }));
 
 import { readLastRoom } from "@/lib/room-client/last-room-storage";
-import { switchConfirmation } from "../logic/participation.fixture";
 import { InviteCodeDialog } from "./invite-code-dialog";
 
 function renderDialog() {
@@ -105,20 +108,29 @@ describe("InviteCodeDialog", () => {
     expect(PUSH).not.toHaveBeenCalled();
   });
 
-  it("他ルーム参加中の確認結果なら退出確認を表示し、同意なしに移動しない", async () => {
+  it("招待の参加決定後は退出確認なしで移動し、元ルームの通知を引き継ぐ", async () => {
     JOIN_ROOM.mockResolvedValueOnce({
-      ok: false,
-      reason: "confirmation_required",
-      error: "確認が必要です",
-      confirmation: switchConfirmation(),
+      ok: true,
+      roomId: "123e4567-e89b-42d3-a456-426614174000",
+      operationId: "move",
+      exitedRoomNames: ["元の相談"],
     });
     renderDialog();
     await userEvent.click(screen.getByTestId("invite-join-action"));
+    await waitFor(() =>
+      expect(PUSH).toHaveBeenCalledWith(
+        "/rooms/123e4567-e89b-42d3-a456-426614174000/start",
+      ),
+    );
+    expect(notifyMocks.rememberDeparture).toHaveBeenCalledWith(
+      "123e4567-e89b-42d3-a456-426614174000",
+      "move",
+      ["元の相談"],
+    );
+    expect(notifyMocks.joinedAsGuest).not.toHaveBeenCalled();
     expect(
-      await screen.findByRole("button", { name: "退出して参加する" }),
-    ).toBeInTheDocument();
-    expect(JOIN_ROOM).toHaveBeenCalledOnce();
-    expect(PUSH).not.toHaveBeenCalled();
+      screen.queryByRole("button", { name: "退出して参加する" }),
+    ).not.toBeInTheDocument();
   });
 
   it("認証の残り時間不足なら招待コードを保持して再ログイン案内を表示する", async () => {

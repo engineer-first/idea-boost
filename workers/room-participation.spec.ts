@@ -28,8 +28,8 @@ it("旧APIから別ルームを作成しても活動中の参加先を増やせ�
     });
   expect((await create()).status).toBe(200);
   const second = await create();
-  expect(second.status).toBe(409);
+  expect(second.status).toBe(200);
   expect(await second.json()).toMatchObject({
-    reason: "confirmation_required",
+    exitedRoomNames: [expect.any(String)],
   });
 });

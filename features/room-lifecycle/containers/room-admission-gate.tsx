@@ -8,6 +8,7 @@ import {
   refreshAccountRoomEntry,
 } from "@/features/auth";
 import { takePendingRoomEntry } from "@/lib/room-client/entry-tab-storage";
+import { lifecycleNotify } from "../logic/lifecycle-notify";
 import { markRoomCreationOpened } from "../logic/room-creation-storage";
 import {
   getRoomEntryTabId,
@@ -18,6 +19,7 @@ import { RoomReauthentication } from "./room-reauthentication";
 
 export type RoomAdmissionGateProps = {
   roomId: string;
+  departure?: { operationId?: string; exitedRoomNames?: string[] };
   sessionKind?: "guest" | "account";
   onRefreshed?: () => void;
   refreshAction?: (roomId: string) => Promise<GuestRoomEntryResult>;
@@ -32,6 +34,7 @@ export type RoomAdmissionGateProps = {
 
 export function RoomAdmissionGate({
   roomId,
+  departure,
   sessionKind,
   onRefreshed,
   refreshAction,
@@ -89,8 +92,16 @@ export function RoomAdmissionGate({
     result ??
     (!entryToken ? { ok: allowFreshEntry, admission: freshAdmission } : null);
   useEffect(() => {
-    if (admission?.ok) markRoomCreationOpened(roomId);
-  }, [admission?.ok, roomId]);
+    if (admission?.ok) {
+      markRoomCreationOpened(roomId);
+      lifecycleNotify.rememberDeparture(
+        roomId,
+        departure?.operationId,
+        departure?.exitedRoomNames,
+      );
+      lifecycleNotify.arrived(roomId);
+    }
+  }, [admission?.ok, roomId, departure]);
 
   if (!result && entryToken) {
     return (

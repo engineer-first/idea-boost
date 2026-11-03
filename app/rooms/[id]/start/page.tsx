@@ -140,30 +140,30 @@ export default async function StartPage({
       </div>
     </main>
   );
-
-  if (!enough || query?.entry) {
-    return (
-      <RoomAdmissionGate
-        key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
-        roomId={id}
-        sessionKind={user.kind}
-        fallback={
-          <RoomEntryPreview
-            phase={parsed.data.phase}
-            members={initialMembers}
-            currentUserId={user.sub}
-            inviteCode={parsed.data.inviteCode}
-            inviteUrl={inviteUrl}
-          />
-        }
-        stage="lobby"
-        entryToken={query?.entry}
-        allowFreshEntry={enough}
-        freshAdmission={admission}
-      >
-        {content}
-      </RoomAdmissionGate>
-    );
-  }
-  return content;
+  return (
+    <RoomAdmissionGate
+      key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
+      roomId={id}
+      departure={{
+        operationId: parsed.data.operationId,
+        exitedRoomNames: parsed.data.exitedRoomNames,
+      }}
+      sessionKind={user.kind}
+      fallback={
+        <RoomEntryPreview
+          phase={parsed.data.phase}
+          members={initialMembers}
+          currentUserId={user.sub}
+          inviteCode={parsed.data.inviteCode}
+          inviteUrl={inviteUrl}
+        />
+      }
+      stage="lobby"
+      entryToken={query?.entry}
+      allowFreshEntry={enough}
+      freshAdmission={admission}
+    >
+      {content}
+    </RoomAdmissionGate>
+  );
 }
