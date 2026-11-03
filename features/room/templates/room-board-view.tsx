@@ -2300,6 +2300,7 @@ export function RoomBoardView({
           onConfirm={onLeave}
           isLeaving={isLeaving}
           completed={outcomePublished}
+          lastMember={members.length === 1}
           onReturnToOutcome={() => setOutcomeDismissed(false)}
           onClosed={() => {
             boardRootRef.current

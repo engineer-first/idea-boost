@@ -288,6 +288,7 @@ export function RoomLobbyView({
         onOpenChange={setLeaveDialogOpen}
         onConfirm={onLeave}
         isLeaving={isLeaving}
+        lastMember={members.length === 1}
         onClosed={() => leaveButtonRef.current?.focus()}
       />
     </div>

@@ -22,6 +22,7 @@ export type LeaveConfirmDialogProps = {
   isLeaving: boolean;
   mode?: LeaveConfirmMode;
   completed?: boolean;
+  lastMember?: boolean;
   onReturnToOutcome?: () => void;
   onClosed?: () => void;
 };
@@ -51,6 +52,7 @@ export function LeaveConfirmDialog({
   isLeaving,
   mode = "leave",
   completed = false,
+  lastMember = false,
   onReturnToOutcome,
   onClosed,
 }: LeaveConfirmDialogProps) {
@@ -82,7 +84,9 @@ export function LeaveConfirmDialog({
           <AlertDialogDescription>
             {mode === "leave" && completed
               ? "このルームから退出して、ホームへ戻ります。"
-              : copy.description}
+              : lastMember
+                ? "退出するとルームが終了し、招待URLは使えなくなります。"
+                : copy.description}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {mode === "leave" ? (

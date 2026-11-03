@@ -23,6 +23,10 @@ export const Leave: Story = {
   },
 };
 
+export const LastMember: Story = {
+  args: { lastMember: true },
+};
+
 export const CompletedLeave: Story = {
   args: {
     mode: "leave",

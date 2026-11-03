@@ -272,7 +272,10 @@ export class RoomDO extends DurableObject {
           leaseUntil,
         );
       }
+      this.syncIdleDeadline();
       if (
+        this.sql.exec("SELECT 1 FROM room_idle_deadline LIMIT 1").toArray()
+          .length > 0 ||
         this.sql.exec("SELECT 1 FROM legacy_note_drag_leases LIMIT 1").toArray()
           .length > 0
       )
@@ -292,7 +295,7 @@ export class RoomDO extends DurableObject {
     userId: string,
     name: string | undefined,
   ): Promise<UpsertMemberResult> {
-    if (isRoomClosed(this.sql)) return { ok: false, reason: "room-closed" };
+    if (!this.isJoinable()) return { ok: false, reason: "room-closed" };
     const result = upsertMember(this.sql, this.broadcaster, userId, name);
     const member = result.ok ? findMember(this.sql, userId) : null;
     if (member && appendSharingMember(this.sql, member))
@@ -458,6 +461,7 @@ export class RoomDO extends DurableObject {
     const result = this.decideCreation(identity, false, hostName, name);
     await this.ctx.storage.sync();
     if (result === "ready") {
+      this.syncIdleDeadline();
       await syncRoomAlarm(this.ctx.storage, this.sql);
       await this.outcomes.flushSharedOutcome();
     }
@@ -516,6 +520,7 @@ export class RoomDO extends DurableObject {
   }
 
   isJoinable(): boolean {
+    this.closeExpiredIdleRoom();
     return !isRoomClosed(this.sql);
   }
 
@@ -553,7 +558,7 @@ export class RoomDO extends DurableObject {
   }
 
   canAcceptParticipation(userId: string): "ok" | "room-full" | "room-closed" {
-    if (isRoomClosed(this.sql)) return "room-closed";
+    if (!this.isJoinable()) return "room-closed";
     if (isMember(this.sql, userId)) return "ok";
     const assigned = this.sql
       .exec("SELECT 1 FROM member_color_assignments WHERE user_id=?", userId)
@@ -729,7 +734,7 @@ export class RoomDO extends DurableObject {
     if (
       !reservation ||
       Number(reservation.expires_at) <= Date.now() ||
-      isRoomClosed(this.sql)
+      !this.isJoinable()
     )
       return "unavailable";
     const result = this.ctx.storage.transactionSync(() => {
@@ -836,6 +841,7 @@ export class RoomDO extends DurableObject {
   }
 
   private async flushLeave(): Promise<void> {
+    this.syncIdleDeadline();
     await this.completed.flush();
     await this.advanceAfterExtendedTimer();
     await syncRoomAlarm(this.ctx.storage, this.sql);
@@ -929,6 +935,10 @@ export class RoomDO extends DurableObject {
           buildIdeaMapServerState(this.sql, this.broadcaster),
         );
     }
+    // 本人の接続は先に退出として閉じる。このメソッドはawaitを挟まないため、
+    // 最後の在籍削除から閉鎖まで別の参加要求は入り込まない。
+    if (!isRoomClosed(this.sql) && listMembers(this.sql).length === 0)
+      this.closeRoom();
   }
 
   // ルーム解散。参加・編集用の状態を消去し、期限内の成果と再試行だけ残す。
@@ -949,6 +959,14 @@ export class RoomDO extends DurableObject {
       !readOutcomeState(this.sql)?.disbanded
     )
       return false;
+    this.closeRoom(operationId, byUserId);
+    await this.ctx.storage.sync();
+    await syncRoomAlarm(this.ctx.storage, this.sql);
+    return true;
+  }
+
+  // 閉鎖と在籍消去は、参加要求と競合しないようawaitより前に確定する。
+  private closeRoom(operationId?: string, byUserId?: string): void {
     for (const socket of this.ctx.getWebSockets()) {
       try {
         socket.close(WS_CLOSE_ROOM_DISBANDED, WS_CLOSE_ROOM_DISBANDED_REASON);
@@ -964,6 +982,7 @@ export class RoomDO extends DurableObject {
           operationId,
           byUserId,
         );
+      this.sql.exec("DELETE FROM room_idle_deadline");
       // 成果未初期化でも、閉鎖と参加状態の消去を同時に永続化する。
       this.sql.exec("UPDATE room_creation_marker SET closed=1 WHERE id=1");
       this.sql.exec(
@@ -1004,9 +1023,52 @@ export class RoomDO extends DurableObject {
       // D1削除失敗時の本人による解散再試行に使う。期限後の完全削除で消去する。
       // 閉鎖済みのDOではこのIDから操作権を復活させない。
     });
-    await this.ctx.storage.sync();
-    await syncRoomAlarm(this.ctx.storage, this.sql);
-    return true;
+  }
+
+  private closeExpiredIdleRoom(): void {
+    const idle = this.sql
+      .exec("SELECT expires_at FROM room_idle_deadline WHERE id=1")
+      .toArray()[0];
+    if (
+      typeof idle?.expires_at !== "number" ||
+      idle.expires_at > Date.now() ||
+      isRoomClosed(this.sql)
+    )
+      return;
+    this.syncIdleDeadline();
+    if (
+      this.sql
+        .exec(
+          "SELECT 1 FROM room_idle_deadline WHERE expires_at<=?",
+          Date.now(),
+        )
+        .toArray().length > 0
+    ) {
+      this.closeRoom();
+      this.ctx.waitUntil(syncRoomAlarm(this.ctx.storage, this.sql));
+    }
+  }
+
+  private syncIdleDeadline(exclude?: WebSocket): void {
+    if (isRoomClosed(this.sql)) {
+      this.sql.exec("DELETE FROM room_idle_deadline");
+      return;
+    }
+    const connected = this.ctx.getWebSockets().some((socket) => {
+      if (socket === exclude || !this.broadcaster.isAuthorized(socket))
+        return false;
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      return attachment !== null && isMember(this.sql, attachment.userId);
+    });
+    if (connected) this.sql.exec("DELETE FROM room_idle_deadline");
+    else if (
+      this.sql.exec("SELECT 1 FROM members LIMIT 1").toArray().length > 0
+    )
+      this.sql.exec(
+        "INSERT INTO room_idle_deadline(id,expires_at) VALUES(1,?) ON CONFLICT(id) DO NOTHING",
+        Date.now() + 24 * 60 * 60 * 1000,
+      );
   }
 
   async ensureSharedOutcome(roomId: string, createdAt?: number): Promise<void> {
@@ -1118,6 +1180,7 @@ export class RoomDO extends DurableObject {
     );
     if (!expiry.success || expiry.data <= Math.floor(Date.now() / 1000))
       return new Response("authentication required", { status: 401 });
+    this.closeExpiredIdleRoom();
     if (!(await this.processExpiredTransition()))
       return new Response("保存期限後の削除を再試行しています。", {
         status: 503,
@@ -1141,6 +1204,8 @@ export class RoomDO extends DurableObject {
       sessionExpiresAt: expiry.data,
     };
     server.serializeAttachment(attachment);
+    this.syncIdleDeadline();
+    this.ctx.waitUntil(syncRoomAlarm(this.ctx.storage, this.sql));
 
     const progressConnectionsChanged = syncProgressConnectedUsers(
       this.sql,
@@ -1242,6 +1307,8 @@ export class RoomDO extends DurableObject {
       ws.deserializeAttachment() as SocketAttachment | null;
     // closeイベントの再到達より前に接続単位の所有権を外す。
     // 同じ本人の新接続には触れず、二重cleanupも共有状態を消さない。
+    this.syncIdleDeadline(ws);
+    this.ctx.waitUntil(syncRoomAlarm(this.ctx.storage, this.sql));
     if (!previousAttachment) return;
     const followingPresenterUserId =
       previousAttachment.followingPresenterUserId;
@@ -1343,9 +1410,12 @@ export class RoomDO extends DurableObject {
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
     ws.close(1011, "websocket error");
+    await this.webSocketClose(ws, 1011, "websocket error", false);
   }
 
   override async alarm(): Promise<void> {
+    this.syncIdleDeadline();
+    this.closeExpiredIdleRoom();
     expireMoveOperations(this.sql);
     syncMovePresence(this.sql, this.broadcaster);
     const expiredDrags = this.broadcaster.expireActiveDrags();

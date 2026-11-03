@@ -1136,3 +1136,30 @@ describe("ゲスト本人の完了成果", () => {
     },
   );
 });
+
+it("完了済みのルームは全切断から24時間を過ぎても30日の閲覧期限を維持する", async () => {
+  const room = await complete();
+  const before = await env.ROOM_DO.get(
+    env.ROOM_DO.idFromName(room.roomId),
+  ).getCompletedRoom(host.sub);
+  room.socket.close();
+  await runInRoomDO(room.roomId, async (instance, state) => {
+    const now = Date.now();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now + 25 * 60 * 60 * 1000);
+    try {
+      await instance.alarm();
+      expect(await instance.getCompletedRoom(host.sub)).toMatchObject({
+        roomId: room.roomId,
+        completedAt: before?.completedAt,
+        expiresAt: before?.expiresAt,
+      });
+      expect(
+        state.storage.sql.exec("SELECT * FROM room_idle_deadline").toArray(),
+      ).toEqual([]);
+      expect(await state.storage.getAlarm()).toBe(before?.expiresAt);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

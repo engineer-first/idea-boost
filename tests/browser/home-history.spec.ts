@@ -629,6 +629,10 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
+      // URLの切替だけでは入室は未完了。実際に開けた後の新規作成を確認する。
+      await page
+        .getByRole("heading", { name: "メンバーが揃ったら開始" })
+        .waitFor();
       // 入室ごとの一回tokenは異なるので、戻り先のルームをURL pathで照合する。
       const first = new URL(page.url());
       await page.goto(`${app}/home`);
@@ -648,6 +652,10 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: "退出して作成する", exact: true })
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
+      // URLの切替だけでは入室は未完了。実際に開けた後の新規作成を確認する。
+      await page
+        .getByRole("heading", { name: "メンバーが揃ったら開始" })
+        .waitFor();
       const second = new URL(page.url());
       expect(second.pathname).not.toBe(first.pathname);
       await page.goto(`${app}/home`);

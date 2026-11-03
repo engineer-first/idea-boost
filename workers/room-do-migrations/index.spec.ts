@@ -48,6 +48,7 @@ const ALL_TABLES = [
   "progress_history_outbox",
   "retained_outcome_participants",
   "room_creation_marker",
+  "room_idle_deadline",
   "room_owner",
   "room_participation_fences",
   "room_participation_receipts",
