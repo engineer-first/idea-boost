@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 import {
   CreateRoomSectionView,
   type CreateRoomSectionViewProps,
@@ -39,6 +38,13 @@ export const AllStates: Story = {
     const states: { label: string; props: CreateRoomSectionViewProps }[] = [
       { label: "Default", props: { pending: false, onSubmit: fn() } },
       { label: "Pending", props: { pending: true, onSubmit: fn() } },
+      {
+        label: "Failure",
+        props: {
+          message: "ルームを開けませんでした。もう一度お試しください。",
+          onSubmit: fn(),
+        },
+      },
     ];
     return (
       <div className="flex w-[320px] flex-col gap-8">
@@ -55,78 +61,9 @@ export const AllStates: Story = {
   },
 };
 
-export const Unknown: Story = {
+export const Failure: Story = {
   args: {
-    recovering: true,
     intentName: "サービスの相談",
-    message: "ルームへの移動を完了できませんでした。もう一度お試しください。",
-    onNewIntent: fn(),
-  },
-};
-export const StorageError: Story = {
-  args: {
-    storageError: true,
-    message:
-      "このブラウザで作成を続けられません。保存設定を確認して再読み込みしてください。",
-  },
-};
-
-export const Prepared: Story = {
-  args: {
-    recovering: true,
-    recoveryState: "prepared",
-    intentName: "午後チーム",
-    onNewIntent: fn(),
-  },
-};
-export const Known: Story = {
-  args: { recovering: false, recoveryState: "known" },
-};
-export const Expired: Story = {
-  args: {
-    recovering: false,
-    requiresNewConfirmation: true,
-    onRecover: fn(),
-    recoveryState: "expired",
-    message:
-      "前のルームを開けませんでした。新しいルームを作成するか、もう一度探してください。",
-    onNewIntent: fn(),
-  },
-};
-export const ActorMismatch: Story = {
-  args: {
-    recovering: true,
-    recoveryState: "actor_mismatch",
-    intentName: "午前チーム",
-    message: "アカウントが変わりました。ログイン状態を確認してください。",
-    onNewIntent: fn(),
-  },
-};
-export const SeparateIntent: Story = {
-  args: { requiresNewConfirmation: true, onRecover: fn() },
-};
-
-export const ConfirmNew: Story = {
-  args: { requiresNewConfirmation: true, onRecover: fn() },
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: "新しいルームを作成" }),
-    );
-  },
-};
-
-export const CreatingPreparedIntent: Story = {
-  args: {
-    pending: true,
-    recovering: true,
-    recoveryState: "prepared",
-    intentName: "サービスの相談",
-    onNewIntent: fn(),
-  },
-};
-
-export const IdentityUnavailable: Story = {
-  args: {
-    message: GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE,
+    message: "ルームを開けませんでした。もう一度お試しください。",
   },
 };

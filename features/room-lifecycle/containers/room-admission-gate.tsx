@@ -8,6 +8,7 @@ import {
   refreshAccountRoomEntry,
 } from "@/features/auth";
 import { takePendingRoomEntry } from "@/lib/room-client/entry-tab-storage";
+import { markRoomCreationOpened } from "../logic/room-creation-storage";
 import {
   getRoomEntryTabId,
   matchesRoomEntryTab,
@@ -84,6 +85,13 @@ export function RoomAdmissionGate({
     };
   }, [entryToken, entryTabId, roomId, stage, allowFreshEntry, freshAdmission]);
 
+  const admission =
+    result ??
+    (!entryToken ? { ok: allowFreshEntry, admission: freshAdmission } : null);
+  useEffect(() => {
+    if (admission?.ok) markRoomCreationOpened(roomId);
+  }, [admission?.ok, roomId]);
+
   if (!result && entryToken) {
     return (
       <>
@@ -101,9 +109,6 @@ export function RoomAdmissionGate({
       </>
     );
   }
-  const admission =
-    result ??
-    (!entryToken ? { ok: allowFreshEntry, admission: freshAdmission } : null);
   if (!admission?.ok) {
     return (
       <>
