@@ -27,7 +27,7 @@ const FieldLabel = React.forwardRef<
     ref={ref}
     data-slot="field-label"
     className={cn(
-      "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+      "text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
       className,
     )}
     {...props}
@@ -56,7 +56,7 @@ function FieldError({
   return (
     <p
       data-slot="field-error"
-      className={cn("text-xs text-destructive", className)}
+      className={cn("text-base text-destructive", className)}
       {...props}
     />
   );

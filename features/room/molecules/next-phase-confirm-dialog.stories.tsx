@@ -72,3 +72,15 @@ export const WaitingForMember: Story = {
   },
   play: Opened.play,
 };
+
+export const ManyWaitingMembers: Story = {
+  args: {
+    phase: STEP_1_3,
+    requireConfirmation: true,
+    notReadyNames: Array.from(
+      { length: 20 },
+      (_, index) => `メンバー${index + 1}`,
+    ),
+  },
+  play: Opened.play,
+};

@@ -7,7 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
+import { getNoteHeight, NOTE_LEGACY_FONT_SIZE } from "@/contracts/board";
 import type { RoomPhase } from "@/contracts/phase";
 import type { Carryover } from "@/contracts/room-protocol";
 import { DotVoteSticker } from "@/features/dot-vote";
@@ -95,11 +95,12 @@ export function BoardContext({
                 }
                 color={disclosure.reference?.color ?? null}
                 isDecided
+                decisionPresentation="reference"
                 height={Math.min(
                   240,
                   getNoteHeight(
                     disclosure.content ?? "",
-                    disclosure.reference?.fontSize ?? NOTE_DEFAULT_FONT_SIZE,
+                    disclosure.reference?.fontSize ?? NOTE_LEGACY_FONT_SIZE,
                   ),
                 )}
                 className={styles.referenceNote}
@@ -111,7 +112,7 @@ export function BoardContext({
                   className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   style={{
                     fontSize:
-                      disclosure.reference?.fontSize ?? NOTE_DEFAULT_FONT_SIZE,
+                      disclosure.reference?.fontSize ?? NOTE_LEGACY_FONT_SIZE,
                     lineHeight: 1.5,
                   }}
                 >
@@ -119,7 +120,7 @@ export function BoardContext({
                     {disclosure.content}
                   </p>
                 </section>
-                <div className="flex h-10 shrink-0 items-center gap-2 px-2 pb-2">
+                <div className="grid h-16 shrink-0 content-center gap-1 pl-2 pr-16">
                   {disclosure.reference?.dotVotes ? (
                     <>
                       <DotVoteSticker
@@ -134,17 +135,6 @@ export function BoardContext({
                       />
                     </>
                   ) : null}
-                  <span
-                    role="status"
-                    aria-label="採用済み"
-                    className="ml-auto flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-lg"
-                  >
-                    <Check
-                      aria-hidden="true"
-                      className="size-5"
-                      strokeWidth={3}
-                    />
-                  </span>
                 </div>
               </StickyNote>
             );
@@ -155,7 +145,7 @@ export function BoardContext({
                 aria-label={usesIdeaMapViewport ? disclosure.label : undefined}
                 aria-expanded={isOpen}
                 aria-controls={contentId}
-                className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-2 py-1.5 text-left text-xs font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-lg bg-background px-2 py-1.5 text-left text-sm font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 onClick={
                   usesIdeaMapViewport
                     ? undefined

@@ -9,7 +9,6 @@ import type { DisplayNameResult } from "@/features/auth";
 // スタート画面（ロビー）のコンテナ。関心ごとの hook を束ねて view に渡す。
 //   - WebSocket 接続と切断時の遷移: use-room-connection
 //   - members / phase の適用と入退出通知: use-room-state
-//   - 退出 / 解散フロー: use-leave-room
 // このファイルに残るのは start_phase 送信と
 // 「phase が lobby を離れたらボードへ遷移する」というロビー固有の配線だけ。
 // ノートは扱わない。
@@ -40,9 +39,6 @@ export type RoomLobbyProps = {
   inviteCode: string;
   inviteUrl: string;
   currentUserId: string;
-  isHost: boolean;
-  // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
-  hostUserId: string;
   initialPhase: RoomPhase;
   initialMembers: Member[];
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
@@ -59,8 +55,6 @@ export function RoomLobby({
   inviteCode,
   inviteUrl,
   currentUserId,
-  isHost: initialIsHost,
-  hostUserId: initialHostUserId,
   initialPhase,
   initialMembers,
   webSocketFactory,
@@ -74,15 +68,7 @@ export function RoomLobby({
     request: Promise<string | null>;
   } | null>(null);
   const [isStarting, setIsStarting] = useState(false);
-  const [isTransferring, setIsTransferring] = useState(false);
-  const [transferError, setTransferError] = useState<string | null>(null);
-  const transferringRef = useRef(false);
-  const transferTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roomState = useRoomState({ initialMembers, initialPhase });
-  const hostUserId = roomState.host.hostUserId ?? initialHostUserId;
-  const isHost = roomState.host.hostUserId
-    ? hostUserId === currentUserId
-    : (roomState.host.isHost ?? initialIsHost);
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearStartTimeout = useCallback(() => {
@@ -95,14 +81,11 @@ export function RoomLobby({
   useEffect(() => {
     return () => {
       clearStartTimeout();
-      if (transferTimeoutRef.current) clearTimeout(transferTimeoutRef.current);
     };
   }, [clearStartTimeout]);
 
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
     roomId,
-    isHost,
-    hostRevision: roomState.host.hostRevision ?? 0,
   });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
   const { connectionStatus, connectionDelayed, send } = useRoomConnection({
@@ -114,7 +97,7 @@ export function RoomLobby({
   });
   const roomName = useRoomName({
     connected: connectionStatus === "open",
-    blocked: isStarting || isLeaving || isTransferring,
+    blocked: isStarting || isLeaving,
     send,
   });
   const displayName = useRoomDisplayName({
@@ -123,15 +106,13 @@ export function RoomLobby({
     currentUserId,
     members: roomState.members,
     connected: connectionStatus === "open",
-    blocked: isStarting || isLeaving || isTransferring,
+    blocked: isStarting || isLeaving,
     send,
   });
   const memberRemoval = useMemberRemoval({
-    isHost,
     currentUserId,
-    hostRevision: roomState.host.hostRevision,
     connected: connectionStatus === "open",
-    blocked: isStarting || isTransferring || isLeaving,
+    blocked: isStarting || isLeaving,
     members: roomState.members,
     send,
   });
@@ -181,40 +162,20 @@ export function RoomLobby({
     };
   }, [roomState.phase, roomId, boardHref, admission, router]);
 
-  function finishTransfer(error: string | null = null) {
-    transferringRef.current = false;
-    setIsTransferring(false);
-    setTransferError(error);
-    if (transferTimeoutRef.current) clearTimeout(transferTimeoutRef.current);
-    transferTimeoutRef.current = null;
-  }
-
   function handleServerMessage(message: ServerMessage) {
     if (roomName.applyMessage(message)) return;
     if (displayName.applyMessage(message)) return;
     if (memberRemoval.applyMessage(message)) return;
-    if (
-      message.type === "host:updated" ||
-      message.type === "snapshot" ||
-      message.type === "phase:updated"
-    ) {
-      finishTransfer();
+    if (message.type === "snapshot" || message.type === "phase:updated") {
       if (
         (message.type === "phase:updated" || message.type === "snapshot") &&
         !isLobby(message.phase)
       ) {
         clearStartTimeout();
         setIsStarting(true);
-      } else if (
-        message.type === "host:updated" &&
-        message.hostUserId !== currentUserId
-      ) {
-        clearStartTimeout();
-        setIsStarting(false);
       }
     }
     if (message.type === "error") {
-      if (transferringRef.current) finishTransfer(message.message);
       console.error(`ルーム操作エラー (${message.code}): ${message.message}`);
       if (message.code === "forbidden") {
         // 権限なしで start_phase を送った場合は「開始中」を解除してあげる
@@ -228,12 +189,7 @@ export function RoomLobby({
   }
 
   const handleStart = useCallback(() => {
-    if (
-      isStarting ||
-      connectionStatus !== "open" ||
-      transferringRef.current ||
-      memberRemoval.isPending()
-    )
+    if (isStarting || connectionStatus !== "open" || memberRemoval.isPending())
       return;
     setIsStarting(true);
     const sent = send({
@@ -259,55 +215,20 @@ export function RoomLobby({
     memberRemoval.isPending,
   ]);
 
-  function handleTransfer(targetUserId: string) {
-    if (
-      !isHost ||
-      isStarting ||
-      transferringRef.current ||
-      memberRemoval.isPending() ||
-      connectionStatus !== "open" ||
-      roomState.host.hostRevision === null
-    )
-      return;
-    transferringRef.current = true;
-    setIsTransferring(true);
-    setTransferError(null);
-    send({
-      type: "host:transfer",
-      targetUserId,
-      expectedHostRevision: roomState.host.hostRevision,
-    });
-    transferTimeoutRef.current = setTimeout(
-      () =>
-        finishTransfer(
-          "結果を確認できませんでした。接続を確認してから操作し直してください。",
-        ),
-      5000,
-    );
-  }
-
   return (
     <RoomLobbyView
       loginReturnHref={`/rooms/${roomId}`}
-      key={`${hostUserId}:${roomState.host.hostRevision ?? 0}`}
       displayName={displayName}
       roomName={roomName}
       memberRemoval={memberRemoval}
       members={roomState.members}
       currentUserId={currentUserId}
-      isHost={isHost}
-      hostUserId={hostUserId}
       phase={roomState.phase}
       inviteCode={inviteCode}
       inviteUrl={inviteUrl}
       connectionStatus={connectionStatus}
       connectionDelayed={connectionDelayed}
       isStarting={isStarting}
-      onTransferHost={
-        roomState.host.hostRevision === null ? undefined : handleTransfer
-      }
-      isTransferring={isTransferring}
-      transferError={transferError}
       onStart={handleStart}
       onLeave={leave}
       isLeaving={isLeaving}

@@ -266,26 +266,40 @@ describe("useCanvasCamera", () => {
     expect(result.current.cameraRef.current.x).toBe(0);
   });
 
-  it("表示操作にフォーカスした方向キーとPageDownで個人の視野を移動し、入力中は動かさない", async () => {
+  it("表示操作にフォーカスした方向キーとPageDownで視野を移動し、パン時だけフォローを解除する", async () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
+
     const frame = document.createElement("div");
     frame.dataset.testid = "board-frame";
+
     const canvasLayer = document.createElement("div");
     const controls = document.createElement("fieldset");
     controls.dataset.testid = "canvas-zoom-controls";
+
     const button = document.createElement("button");
     controls.append(button);
     canvasLayer.append(viewport);
     frame.append(canvasLayer, controls);
     document.body.append(frame);
+
     const input = document.createElement("textarea");
     viewport.append(input);
+
+    const onManualPanStart = vi.fn();
+
     const { result, unmount } = renderHook(() =>
-      useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
+      useCanvasCamera({
+        viewportRef: { current: viewport },
+        notes: [],
+        onManualPanStart,
+      }),
     );
+
     const original = result.current.camera;
+
     try {
+      // ArrowDownによるパン
       act(() =>
         button.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -294,10 +308,16 @@ describe("useCanvasCamera", () => {
           }),
         ),
       );
+
       await waitFor(() =>
         expect(result.current.camera.y).toBeLessThan(original.y),
       );
+
+      expect(onManualPanStart).toHaveBeenCalledTimes(1);
+
+      // PageDownによるパン
       const afterArrow = result.current.camera;
+
       act(() =>
         button.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -306,10 +326,34 @@ describe("useCanvasCamera", () => {
           }),
         ),
       );
+
       await waitFor(() =>
         expect(result.current.camera.y).toBeLessThan(afterArrow.y),
       );
+
+      expect(onManualPanStart).toHaveBeenCalledTimes(2);
+
+      // ズームではフォロー解除コールバックを呼ばない。
       const afterPage = result.current.camera;
+
+      act(() =>
+        button.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "+",
+            bubbles: true,
+          }),
+        ),
+      );
+
+      await waitFor(() =>
+        expect(result.current.camera.zoom).toBeGreaterThan(afterPage.zoom),
+      );
+
+      expect(onManualPanStart).toHaveBeenCalledTimes(2);
+
+      // 入力欄での方向キーはパンにもフォロー解除にも使わない。
+      const afterZoom = result.current.camera;
+
       act(() =>
         input.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -318,200 +362,198 @@ describe("useCanvasCamera", () => {
           }),
         ),
       );
-      expect(result.current.camera).toEqual(afterPage);
-      expect(result.current.camera.x).toBe(original.x);
-      expect(result.current.camera.zoom).toBe(original.zoom);
+
+      expect(result.current.camera).toEqual(afterZoom);
+      expect(onManualPanStart).toHaveBeenCalledTimes(2);
+
+      expect(result.current.camera.x).not.toBe(original.x);
     } finally {
       unmount();
       frame.remove();
     }
   });
+});
 
-  it("マップでは付箋座標ではなく1600×900の平面全体を初期表示する", () => {
-    const viewport = document.createElement("div");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 800);
-    const viewportRef = { current: viewport };
-    const { result } = renderHook(() =>
-      useCanvasCamera({
-        viewportRef,
-        notes: buildNotes(2),
-        fitViewport: true,
-      }),
-    );
-    expect(result.current.camera.zoom).toBeCloseTo(0.545);
-    expect(result.current.camera.x).toBeCloseTo(227.5);
-    expect(result.current.camera.y).toBeCloseTo(182);
+it("マップでは付箋座標ではなく1600×900の平面全体を初期表示する", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 800);
+  const viewportRef = { current: viewport };
+  const { result } = renderHook(() =>
+    useCanvasCamera({
+      viewportRef,
+      notes: buildNotes(2),
+      fitViewport: true,
+    }),
+  );
+  expect(result.current.camera.zoom).toBeCloseTo(0.545);
+  expect(result.current.camera.x).toBeCloseTo(227.5);
+  expect(result.current.camera.y).toBeCloseTo(182);
+});
+
+it("通常のカメラ付きマップでは初期表示と全体フィットで周辺UIの余白を確保する", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1454, 900);
+  const { result } = renderHook(() =>
+    useCanvasCamera({
+      viewportRef: { current: viewport },
+      notes: buildNotes(1),
+      fitViewport: true,
+      getFitInsets: () => ({ top: 350, right: 0, bottom: 100, left: 0 }),
+    }),
+  );
+
+  expect(result.current.camera.zoom).toBeCloseTo((900 - 350 - 100 - 128) / 900);
+  act(() => result.current.fitToNotes());
+  expect(result.current.camera.zoom).toBeCloseTo((900 - 350 - 100 - 128) / 900);
+});
+
+it("初期表示後にユーザーが付箋を動かした場合、最初の共有付箋でカメラを自動移動しない", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+  const note = document.createElement("div");
+  note.dataset.testid = "note-card";
+  const surface = document.createElement("button");
+  surface.dataset.canvasNoteSurface = "true";
+  note.append(surface);
+  const { result, rerender } = renderHook(
+    ({ notes }) =>
+      useCanvasCamera({ viewportRef: { current: viewport }, notes }),
+    { initialProps: { notes: [] as ReturnType<typeof buildNotes> } },
+  );
+  const cameraBeforeDrag = result.current.camera;
+
+  act(() => {
+    result.current.handlePointerDown({
+      target: surface,
+      currentTarget: viewport,
+      button: 0,
+      pointerId: 1,
+      clientX: 120,
+      clientY: 130,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as PointerEvent<HTMLDivElement>);
   });
+  act(() => rerender({ notes: buildNotes(1) }));
 
-  it("通常のカメラ付きマップでは初期表示と全体フィットで周辺UIの余白を確保する", () => {
-    const viewport = document.createElement("div");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1454, 900);
-    const { result } = renderHook(() =>
-      useCanvasCamera({
-        viewportRef: { current: viewport },
-        notes: buildNotes(1),
-        fitViewport: true,
-        getFitInsets: () => ({ top: 350, right: 0, bottom: 100, left: 0 }),
-      }),
-    );
+  expect(result.current.camera).toEqual(cameraBeforeDrag);
+});
 
-    expect(result.current.camera.zoom).toBeCloseTo(
-      (900 - 350 - 100 - 128) / 900,
-    );
-    act(() => result.current.fitToNotes());
-    expect(result.current.camera.zoom).toBeCloseTo(
-      (900 - 350 - 100 - 128) / 900,
-    );
-  });
+it("初期スナップショットとして後から届いた付箋には一度だけ自動フィットする", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+  const { result, rerender } = renderHook(
+    ({ notes }) =>
+      useCanvasCamera({ viewportRef: { current: viewport }, notes }),
+    { initialProps: { notes: [] as ReturnType<typeof buildNotes> } },
+  );
+  const defaultCamera = result.current.camera;
 
-  it("初期表示後にユーザーが付箋を動かした場合、最初の共有付箋でカメラを自動移動しない", () => {
-    const viewport = document.createElement("div");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
-    const note = document.createElement("div");
-    note.dataset.testid = "note-card";
-    const surface = document.createElement("button");
-    surface.dataset.canvasNoteSurface = "true";
-    note.append(surface);
-    const { result, rerender } = renderHook(
-      ({ notes }) =>
-        useCanvasCamera({ viewportRef: { current: viewport }, notes }),
-      { initialProps: { notes: [] as ReturnType<typeof buildNotes> } },
-    );
-    const cameraBeforeDrag = result.current.camera;
+  act(() => rerender({ notes: buildNotes(1) }));
 
-    act(() => {
-      result.current.handlePointerDown({
-        target: surface,
-        currentTarget: viewport,
-        button: 0,
-        pointerId: 1,
-        clientX: 120,
-        clientY: 130,
-        preventDefault: vi.fn(),
-        stopPropagation: vi.fn(),
-      } as unknown as PointerEvent<HTMLDivElement>);
-    });
-    act(() => rerender({ notes: buildNotes(1) }));
+  expect(result.current.camera).not.toEqual(defaultCamera);
+});
 
-    expect(result.current.camera).toEqual(cameraBeforeDrag);
-  });
+it("初期化されたサイズ段階の実寸で2軸マップを全体表示する", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+  const viewportRef = { current: viewport };
+  const { result } = renderHook(() =>
+    useCanvasCamera({
+      viewportRef,
+      notes: [],
+      fitViewport: true,
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+    }),
+  );
 
-  it("初期スナップショットとして後から届いた付箋には一度だけ自動フィットする", () => {
-    const viewport = document.createElement("div");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
-    const { result, rerender } = renderHook(
-      ({ notes }) =>
-        useCanvasCamera({ viewportRef: { current: viewport }, notes }),
-      { initialProps: { notes: [] as ReturnType<typeof buildNotes> } },
-    );
-    const defaultCamera = result.current.camera;
+  const expectedZoom = 372 / 1936;
+  expect(result.current.camera.zoom).toBeCloseTo(expectedZoom);
+  expect(result.current.camera.x).toBeCloseTo(
+    (500 - 1936 * expectedZoom) / 2 + 550 * expectedZoom,
+  );
+  expect(result.current.camera.y).toBeCloseTo(
+    (400 - 1089 * expectedZoom) / 2 + 439 * expectedZoom,
+  );
+});
 
-    act(() => rerender({ notes: buildNotes(1) }));
-
-    expect(result.current.camera).not.toEqual(defaultCamera);
-  });
-
-  it("初期化されたサイズ段階の実寸で2軸マップを全体表示する", () => {
-    const viewport = document.createElement("div");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
-    const viewportRef = { current: viewport };
-    const { result } = renderHook(() =>
+it("リモートのサイズ変更で個人カメラを保ち、手動fitは最新サイズを使う", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+  const viewportRef = { current: viewport };
+  const { result, rerender } = renderHook(
+    ({ ideaMapSizeLevel }) =>
       useCanvasCamera({
         viewportRef,
         notes: [],
         fitViewport: true,
-        ideaMapSizeLevel: 2,
+        ideaMapSizeLevel,
         ideaMapSizeInitialized: true,
       }),
-    );
+    { initialProps: { ideaMapSizeLevel: 0 } },
+  );
+  const personalCamera = result.current.camera;
 
-    const expectedZoom = 372 / 1936;
-    expect(result.current.camera.zoom).toBeCloseTo(expectedZoom);
-    expect(result.current.camera.x).toBeCloseTo(
-      (500 - 1936 * expectedZoom) / 2 + 550 * expectedZoom,
-    );
-    expect(result.current.camera.y).toBeCloseTo(
-      (400 - 1089 * expectedZoom) / 2 + 439 * expectedZoom,
-    );
-  });
+  rerender({ ideaMapSizeLevel: 3 });
+  expect(result.current.camera).toEqual(personalCamera);
 
-  it("リモートのサイズ変更で個人カメラを保ち、手動fitは最新サイズを使う", () => {
-    const viewport = document.createElement("div");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
-    const viewportRef = { current: viewport };
-    const { result, rerender } = renderHook(
-      ({ ideaMapSizeLevel }) =>
-        useCanvasCamera({
-          viewportRef,
-          notes: [],
-          fitViewport: true,
-          ideaMapSizeLevel,
-          ideaMapSizeInitialized: true,
-        }),
-      { initialProps: { ideaMapSizeLevel: 0 } },
-    );
-    const personalCamera = result.current.camera;
+  act(() => result.current.fitToNotes());
+  expect(result.current.camera.zoom).toBeCloseTo(372 / 2130);
+});
 
-    rerender({ ideaMapSizeLevel: 3 });
-    expect(result.current.camera).toEqual(personalCamera);
+it("付箋全体表示は長文で伸びた実高まで画面内へ収める", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
+  const viewportRef = { current: viewport };
+  const short = renderHook(() =>
+    useCanvasCamera({
+      viewportRef,
+      notes: buildNotes(1),
+    }),
+  );
+  const long = renderHook(() =>
+    useCanvasCamera({
+      viewportRef,
+      notes: [
+        {
+          ...buildNotes(1)[0],
+          content: "あ".repeat(2_000),
+          fontSize: 24,
+        },
+      ],
+    }),
+  );
 
-    act(() => result.current.fitToNotes());
-    expect(result.current.camera.zoom).toBeCloseTo(372 / 2130);
-  });
+  act(() => short.result.current.fitToNotes());
+  act(() => long.result.current.fitToNotes());
 
-  it("付箋全体表示は長文で伸びた実高まで画面内へ収める", () => {
-    const viewport = document.createElement("div");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
-    const viewportRef = { current: viewport };
-    const short = renderHook(() =>
-      useCanvasCamera({
-        viewportRef,
-        notes: buildNotes(1),
-      }),
-    );
-    const long = renderHook(() =>
-      useCanvasCamera({
-        viewportRef,
-        notes: [
-          {
-            ...buildNotes(1)[0],
-            content: "あ".repeat(2_000),
-            fontSize: 24,
-          },
-        ],
-      }),
-    );
+  expect(long.result.current.camera.zoom).toBeLessThan(
+    short.result.current.camera.zoom,
+  );
+});
 
-    act(() => short.result.current.fitToNotes());
-    act(() => long.result.current.fitToNotes());
-
-    expect(long.result.current.camera.zoom).toBeLessThan(
-      short.result.current.camera.zoom,
-    );
-  });
-
-  it("中ボタンのパンは付箋に伝播せず、通常の付箋ドラッグはパンしない", () => {
-    const viewport = document.createElement("div");
-    const { result } = renderHook(() =>
-      useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
-    );
-    const stopPropagation = vi.fn();
-    const event = {
-      target: document.createElement("button"),
-      currentTarget: viewport,
-      button: 0,
-      pointerId: 1,
-      clientX: 10,
-      clientY: 20,
-      preventDefault: vi.fn(),
-      stopPropagation,
-    } as unknown as PointerEvent<HTMLDivElement>;
-    act(() => result.current.handlePointerDown(event));
-    expect(result.current.isPanning).toBe(false);
-    act(() => result.current.handlePointerDown({ ...event, button: 1 }));
-    expect(result.current.isPanning).toBe(true);
-    expect(stopPropagation).toHaveBeenCalledOnce();
-  });
+it("中ボタンのパンは付箋に伝播せず、通常の付箋ドラッグはパンしない", () => {
+  const viewport = document.createElement("div");
+  const { result } = renderHook(() =>
+    useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
+  );
+  const stopPropagation = vi.fn();
+  const event = {
+    target: document.createElement("button"),
+    currentTarget: viewport,
+    button: 0,
+    pointerId: 1,
+    clientX: 10,
+    clientY: 20,
+    preventDefault: vi.fn(),
+    stopPropagation,
+  } as unknown as PointerEvent<HTMLDivElement>;
+  act(() => result.current.handlePointerDown(event));
+  expect(result.current.isPanning).toBe(false);
+  act(() => result.current.handlePointerDown({ ...event, button: 1 }));
+  expect(result.current.isPanning).toBe(true);
+  expect(stopPropagation).toHaveBeenCalledOnce();
 });
 
 it("HUD変更は本人視野を変えず、明示fitと初期fitだけ最新insetsを使い安全領域なしなら視野を保つ", () => {

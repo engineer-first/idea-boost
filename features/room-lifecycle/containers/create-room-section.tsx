@@ -19,7 +19,6 @@ export function CreateRoomSection({ currentUserId }: CreateRoomSectionProps) {
           key={participationSwitchKey(controls.switching)}
           currentUserId={currentUserId}
           {...participationSwitchProps(controls.switching)}
-          onCancel={controls.onCancelSwitch}
           onReady={controls.onSwitchReady}
         />
       )}

@@ -7,6 +7,7 @@ import {
   Users,
 } from "lucide-react";
 import { landingBoardCopy, landingMembers } from "../logic/landing-board-copy";
+import { landingPaperStyle } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
 export type LandingBoardMockProps = {
@@ -16,6 +17,7 @@ export type LandingBoardMockProps = {
 export function LandingBoardMock({ variant }: LandingBoardMockProps) {
   return (
     <div
+      style={landingPaperStyle}
       className={`${styles.theme} ${styles.mock} ${styles[`${variant}Mock`]}`}
       aria-hidden="true"
     >

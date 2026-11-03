@@ -77,7 +77,7 @@ async function leave(roomId: string, access: string | undefined, user = guest) {
   });
 }
 
-describe("退出時の成果閲覧選択", () => {
+describe("本人退出後の成果閲覧", () => {
   it("非参加者は保持を指定しても成果の取得権を作れず、未認証も退出できない", async () => {
     const room = await roomWithGuest();
     expect((await leave(room.roomId, "retain", outsider)).status).toBe(404);
@@ -129,13 +129,14 @@ describe("退出時の成果閲覧選択", () => {
     });
   });
   it.each(["discard", undefined])(
-    "%sで途中退出した本人の一覧・成果・場面は残らない",
+    "%sを送る本人退出でも一覧・成果・場面の閲覧権を失わない",
     async (access) => {
       const room = await roomWithGuest();
       expect((await leave(room.roomId, access)).status).toBe(204);
+      expect((await request(`rooms/${room.roomId}`)).status).toBe(404);
       await publish(room.roomId);
       expect((await request(`completed-rooms/${room.roomId}`)).status).toBe(
-        404,
+        200,
       );
       expect(
         (
@@ -143,63 +144,41 @@ describe("退出時の成果閲覧選択", () => {
             `completed-rooms/${room.roomId}/scenes/problem-grouping`,
           )
         ).status,
-      ).toBe(404);
-      expect(
-        (
-          (await (await request("completed-rooms")).json()) as {
-            rooms: Array<{ roomId: string }>;
-          }
-        ).rooms.some((item) => item.roomId === room.roomId),
-      ).toBe(false);
+      ).toBe(200);
+      expect(await (await request("completed-rooms")).json()).toMatchObject({
+        rooms: expect.arrayContaining([
+          expect.objectContaining({ roomId: room.roomId }),
+        ]),
+      });
     },
   );
-  it("再参加後の最後の退出選択で保持を決め、保持済み退出者へ二重付与しない", async () => {
+  it("RoomDOの本人退出へ直接discardを渡しても成果閲覧権を消さない", async () => {
+    const room = await roomWithGuest();
+    await env.ROOM_DO.get(env.ROOM_DO.idFromName(room.roomId)).leave(
+      guest.sub,
+      "discard",
+    );
+    await publish(room.roomId);
+    expect((await request(`completed-rooms/${room.roomId}`)).status).toBe(200);
+  });
+  it("再参加後にdiscardを送って退出しても閲覧権を失わない", async () => {
     const room = await roomWithGuest();
     await leave(room.roomId, "retain");
     await joinRoomAs(guest, room.inviteCode);
     await leave(room.roomId, "discard");
     await publish(room.roomId);
-    expect((await request(`completed-rooms/${room.roomId}`)).status).toBe(404);
+    expect((await request(`completed-rooms/${room.roomId}`)).status).toBe(200);
   });
-  it("完了が先でも明示discardで閲覧権を撤回し、古いD1索引から本文を返さない", async () => {
+  it("完了後にdiscardを送る本人退出でも閲覧権と期限を変えない", async () => {
     const room = await roomWithGuest();
     await publish(room.roomId);
+    const before = await (
+      await request(`completed-rooms/${room.roomId}`)
+    ).json();
     expect((await leave(room.roomId, "discard")).status).toBe(204);
-    // 古い投影の残存を再現。索引の本文を信頼せずDOを通す。
-    await env.DB.prepare(
-      "INSERT INTO completed_room_viewers(user_id,room_id,completed_at,expires_at) VALUES(?,?,?,?) ON CONFLICT(user_id,room_id) DO NOTHING",
-    )
-      .bind(guest.sub, room.roomId, Date.now(), Date.now() + 86400000)
-      .run();
     expect(
-      (
-        (await (await request("completed-rooms")).json()) as {
-          rooms: Array<{ roomId: string }>;
-        }
-      ).rooms.some((item) => item.roomId === room.roomId),
-    ).toBe(false);
-    expect((await request(`completed-rooms/${room.roomId}`)).status).toBe(404);
-    expect(
-      (await request(`completed-rooms/${room.roomId}/scenes/problem-grouping`))
-        .status,
-    ).toBe(404);
-    expect((await request(`completed-rooms/${room.roomId}`, host)).status).toBe(
-      200,
-    );
-    await runInRoomDO(room.roomId, (instance, state) => {
-      state.storage.sql.exec(
-        "UPDATE completed_room SET retry_at=?",
-        Date.now(),
-      );
-      return instance.alarm();
-    });
-    expect(
-      await env.DB.prepare(
-        "SELECT room_id FROM completed_room_viewers WHERE user_id=? AND room_id=?",
-      )
-        .bind(guest.sub, room.roomId)
-        .first(),
-    ).toBeNull();
+      await (await request(`completed-rooms/${room.roomId}`)).json(),
+    ).toEqual(before);
   });
   it("不正な選択を黙って保持せず400で拒否する", async () => {
     const room = await roomWithGuest();
@@ -241,7 +220,12 @@ it("投影のI/O中のdiscardも直ちに拒否し、古い投影の成功で新
       );
       const flushing = completed.flush();
       await started;
-      const leaving = instance.leave(guest.sub, "discard");
+      (
+        instance as unknown as {
+          leaveMember(userId: string, access: "discard"): void;
+        }
+      ).leaveMember(guest.sub, "discard");
+      const leaving = completed.flush();
       expect(await instance.getCompletedRoom(guest.sub)).toBeNull();
       expect(
         await instance.getCompletedBoard(guest.sub, "problem-grouping"),
@@ -345,7 +329,7 @@ it("保存期限を過ぎてからの退出で消去済みの参加者記録を�
     );
     await instance.alarm();
   });
-  expect((await leave(room.roomId, "retain")).status).toBe(204);
+  expect((await leave(room.roomId, "retain")).status).toBe(404);
   await runInRoomDO(room.roomId, (_instance, state) => {
     expect(
       state.storage.sql

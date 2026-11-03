@@ -20,30 +20,61 @@ const A = {
 const B = {
   sub: "63222222-2222-4222-8222-222222222222",
   email: "b632@example.test",
-  name: "引継ぎ先",
+  name: "残る参加者",
 };
 const C = {
   sub: "63333333-3333-4333-8333-333333333333",
   email: "c633@example.test",
-  name: "移動先のホスト",
+  name: "移動先の作成者",
 };
+/** 配備前に保存された確認待ち操作を再現する。新しい受付経路はautomatic-participation.specで検証する。 */
 async function prepare(code: string): Promise<ParticipationResult> {
-  return (
-    await exports.default.fetch(
-      "https://api.test/api/room-participation/prepare",
-      {
-        method: "POST",
-        headers: {
-          Cookie: await sessionCookieFor(A),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          target: { kind: "join", code },
-          expectedPrincipal: A.sub,
-        }),
-      },
-    )
-  ).json();
+  const { findRoomByCode } = await import("../lib/db");
+  const destination = await findRoomByCode(env.DB, code);
+  if (!destination) throw new Error("移動先なし");
+  const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+  return runInDurableObject(account, async (_account, state) => {
+    let rooms = await state.storage.get<
+      { roomId: string; inviteCode: string; hostId: string }[]
+    >("participation-index");
+    if (!rooms) {
+      const rows = await env.DB.prepare("SELECT id FROM rooms").all<{
+        id: string;
+      }>();
+      const { findRoomById } = await import("../lib/db");
+      rooms = (
+        await Promise.all(
+          rows.results.map((row) => findRoomById(env.DB, row.id)),
+        )
+      ).filter((room) => room !== null);
+    }
+    const sources = [];
+    for (const room of rooms) {
+      if (room.roomId === destination.roomId) continue;
+      const source = await env.ROOM_DO.get(
+        env.ROOM_DO.idFromName(room.roomId),
+      ).participationPreview(A.sub, room.roomId, room.inviteCode, room.hostId);
+      if (source) sources.push(source);
+    }
+    sources.sort((a, b) => a.roomId.localeCompare(b.roomId));
+    const confirmation = {
+      operationId: crypto.randomUUID(),
+      version: 0,
+      target: { kind: "join" as const, code },
+      targetName: "移動先",
+      sources,
+    };
+    await state.storage.put(`op:${confirmation.operationId}`, {
+      userId: A.sub,
+      confirmation,
+      phase: "confirmation",
+      left: [],
+      sourceHistory: [...sources],
+      outcomeAccess: "discard",
+      destination,
+    });
+    return { kind: "confirmation" as const, confirmation };
+  });
 }
 async function commit(
   operationId: string,
@@ -74,13 +105,59 @@ function confirmation(result: ParticipationResult) {
   return result.confirmation;
 }
 describe("アカウントの参加切替", () => {
-  it("確認だけでは退出せず、決定後は元の全接続と古い再送を失効させる", async () => {
+  it("保存済みdiscardの参加切替をretain要求で再開しても拒否せず閲覧権を残す", async () => {
+    const source = await createRoomAs(B);
+    await joinRoomAs(A, source.inviteCode);
+    const target = await createRoomAs(C);
+    const prepared = confirmation(await prepare(target.inviteCode));
+    const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+    await runInDurableObject(account, async (_account, state) => {
+      const key = `op:${prepared.operationId}`;
+      const op = await state.storage.get<Record<string, unknown>>(key);
+      if (!op) throw new Error("operationなし");
+      op.phase = "leaving";
+      op.generation = 1;
+      op.outcomeAccess = "discard";
+      await state.storage.put(key, op);
+      await state.storage.put("generation", 1);
+      await state.storage.put("active", prepared.operationId);
+    });
+    expect(await commit(prepared.operationId, "retain")).toMatchObject({
+      kind: "ready",
+      roomId: target.roomId,
+    });
+    await runInRoomDO(source.roomId, (_room, state) => {
+      expect(
+        state.storage.sql
+          .exec("SELECT user_id FROM retained_outcome_participants")
+          .toArray(),
+      ).toContainEqual({ user_id: A.sub });
+    });
+  });
+  it("discardの参加切替でも元ルームの成果閲覧権を消さない", async () => {
+    const source = await createRoomAs(B);
+    await joinRoomAs(A, source.inviteCode);
+    const target = await createRoomAs(C);
+    const prepared = confirmation(await prepare(target.inviteCode));
+    expect(await commit(prepared.operationId, "discard")).toMatchObject({
+      kind: "ready",
+      roomId: target.roomId,
+    });
+    await runInRoomDO(source.roomId, (_room, state) => {
+      expect(
+        state.storage.sql
+          .exec("SELECT user_id FROM retained_outcome_participants")
+          .toArray(),
+      ).toContainEqual({ user_id: A.sub });
+    });
+  });
+  it("保存済みの旧確認操作は決定後に元の全接続と古い再送を失効させる", async () => {
     const source = await createRoomAs(A);
     const target = await createRoomAs(C);
     const socket = await connectRoomAs(A, source.roomId);
     await socket.next();
     const prepared = confirmation(await prepare(target.inviteCode));
-    expect(prepared.sources[0].action).toBe("disband");
+    expect(prepared.sources[0].action).toBe("leave");
     expect(await listMemberIds(source.roomId)).toContain(A.sub);
     const result = await commit(prepared.operationId);
     expect(result).toMatchObject({ kind: "ready", roomId: target.roomId });
@@ -94,25 +171,25 @@ describe("アカウントの参加切替", () => {
     expect(old.status).toBe(404);
     socket.close();
   });
-  it("候補の接続変化を再確認し、勝手な解散に変更しない", async () => {
+  it("他の参加者が退出しても確認をやり直さず本人だけの参加切替を確定する", async () => {
     const source = await createRoomAs(A);
     await joinRoomAs(B, source.inviteCode);
-    const socket = await connectRoomAs(B, source.roomId);
-    await socket.next();
     const target = await createRoomAs(C);
     const prepared = confirmation(await prepare(target.inviteCode));
-    expect(prepared.sources[0].successor?.name).toBe(B.name);
-    await runInRoomDO(source.roomId, (room) => room.leave(B.sub));
-    socket.close();
-    const changed = await commit(prepared.operationId);
-    expect(changed).toMatchObject({
-      kind: "confirmation",
-      reason: "state_changed",
+    expect(prepared.sources[0]).toEqual({
+      roomId: source.roomId,
+      inviteCode: source.inviteCode,
+      name: prepared.sources[0].name,
+      action: "leave",
     });
-    expect(confirmation(changed).sources[0].action).toBe("disband");
-    expect(await listMemberIds(source.roomId)).toContain(A.sub);
+    await runInRoomDO(source.roomId, (room) => room.leave(B.sub));
+    expect(await commit(prepared.operationId)).toMatchObject({
+      kind: "ready",
+      roomId: target.roomId,
+    });
+    expect(await listMemberIds(source.roomId)).not.toContain(A.sub);
   });
-  it("同時にBとCへ移る要求は一方だけを確定し、同じルームの複数画面は許す", async () => {
+  it("同時にBとCへ移る要求も二重在籍にせず、同じルームの複数画面は許す", async () => {
     const source = await createRoomAs(A);
     const target = await createRoomAs(B);
     const other = await createRoomAs(C);
@@ -122,14 +199,19 @@ describe("アカウントの参加切替", () => {
       commit(one.operationId),
       commit(two.operationId),
     ]);
-    expect(results.filter((r) => r.kind === "ready")).toHaveLength(1);
+    expect(results.some((r) => r.kind === "ready")).toBe(true);
     const memberships = await Promise.all([
       listMemberIds(target.roomId),
       listMemberIds(other.roomId),
     ]);
     expect(memberships.filter((m) => m.includes(A.sub))).toHaveLength(1);
     expect(await listMemberIds(source.roomId)).not.toContain(A.sub);
-    const ready = results.find((r) => r.kind === "ready");
+    const currentId = memberships[0].includes(A.sub)
+      ? target.roomId
+      : other.roomId;
+    const ready = results.find(
+      (r) => r.kind === "ready" && r.roomId === currentId,
+    );
     if (ready?.kind !== "ready") throw new Error("readyなし");
     const x = await connectRoomAs(A, ready.roomId);
     const y = await connectRoomAs(A, ready.roomId);
@@ -197,12 +279,12 @@ describe("アカウントの参加切替", () => {
         { kind: "create", input: { expectedPrincipal: A.sub, requestId: id } },
         false,
       ),
-    ).toMatchObject({ kind: "confirmation" });
-    expect(await listMemberIds(source.roomId)).toContain(A.sub);
+    ).toMatchObject({ kind: "ready" });
+    expect(await listMemberIds(source.roomId)).not.toContain(A.sub);
   });
 });
 
-it("legacy複数在籍を端末履歴なしで検出し、同意までは登録を保ちながら操作を止める", async () => {
+it("legacy複数在籍を検出し、開いたルームだけを確認なしに残す", async () => {
   const first = await createRoomAs(A);
   const socket = await connectRoomAs(A, first.roomId);
   await socket.next();
@@ -223,26 +305,8 @@ it("legacy複数在籍を端末履歴なしで検出し、同意までは登録�
   expect(await account.mayOperate(A.sub, first.roomId)).toBe(false);
   const result = await account.inspect(A.sub, first.roomId);
   if (!result) throw new Error("legacy未検出");
-  expect(confirmation(result).sources.map((s) => s.roomId)).toEqual([
-    old.roomId,
-  ]);
+  expect(result).toMatchObject({ kind: "ready", roomId: first.roomId });
   expect(await listMemberIds(first.roomId)).toContain(A.sub);
-  expect(await listMemberIds(old.roomId)).toContain(A.sub);
-  socket.ws.send(
-    JSON.stringify({
-      type: "timer:start",
-      durationMs: 60000,
-      expectedHostRevision: 0,
-    }),
-  );
-  expect(await socket.next()).toMatchObject({
-    type: "error",
-    code: "forbidden",
-  });
-  expect(await commit(confirmation(result).operationId)).toMatchObject({
-    kind: "ready",
-    roomId: first.roomId,
-  });
   expect(await account.mayOperate(A.sub, first.roomId)).toBe(true);
   expect(await listMemberIds(old.roomId)).not.toContain(A.sub);
   socket.close();
@@ -302,7 +366,7 @@ it("古い参加commitと退出RPCが遅れても新世代の参加を変更し�
   expect(await stub.isMember(A.sub)).toBe(true);
 });
 
-it("接続中の参加順で交代し、ホストと退出をまとめて確定して進行・タイマーを維持する", async () => {
+it("作成者が参加切替しても残る参加者の進行・タイマーを維持する", async () => {
   const source = await createRoomAs(A);
   await joinRoomAs(B, source.inviteCode);
   const socket = await connectRoomAs(B, source.roomId);
@@ -324,7 +388,7 @@ it("接続中の参加順で交代し、ホストと退出をまとめて確定�
     roomId: target.roomId,
   });
   await runInRoomDO(source.roomId, (room, state) => {
-    expect(room.getCurrentHost().hostUserId).toBe(B.sub);
+    expect(room.isMember(B.sub)).toBe(true);
     expect(room.getPhase()).toEqual(before.phase);
     expect(state.storage.sql.exec("SELECT * FROM timer_state").one()).toEqual(
       before.timer,
@@ -396,7 +460,7 @@ it("古い途中操作のactive解除後に新移動が確定しても旧操作�
   expect(await listMemberIds(oldTarget.roomId)).not.toContain(A.sub);
   expect(await listMemberIds(source.roomId)).not.toContain(A.sub);
 });
-it("完了済み操作でも同じIDで成果の選択を変更した要求を拒否する", async () => {
+it("完了済み操作はdiscardとretainの再送を同じ本人退出として扱う", async () => {
   await createRoomAs(A);
   const target = await createRoomAs(C);
   const prepared = confirmation(await prepare(target.inviteCode));
@@ -404,8 +468,8 @@ it("完了済み操作でも同じIDで成果の選択を変更した要求を�
     kind: "ready",
   });
   expect(await commit(prepared.operationId, "retain")).toMatchObject({
-    kind: "rejected",
-    reason: "input_conflict",
+    kind: "ready",
+    roomId: target.roomId,
   });
 });
 
@@ -444,7 +508,7 @@ async function expireAndFill(roomId: string, operationId: string) {
   return stub;
 }
 it.each(["full", "closed"] as const)(
-  "停止中に予約が失効して移動先が%sなら、再開しても元ホスト・在籍・招待URLを保つ",
+  "停止中に予約が失効して移動先が%sなら、再開しても元の在籍・招待URLを保つ",
   async (reason) => {
     const source = await createRoomAs(A),
       target = await createRoomAs(C);
@@ -463,7 +527,7 @@ it.each(["full", "closed"] as const)(
     const original = env.ROOM_DO.get(env.ROOM_DO.idFromName(source.roomId));
     expect(await original.isMember(A.sub)).toBe(true);
     expect(await original.isJoinable()).toBe(true);
-    expect((await original.getCurrentHost()).hostUserId).toBe(A.sub);
+
     expect(result).toMatchObject({
       kind: "rejected",
       failure: {
@@ -497,14 +561,14 @@ it("source退出後の確定満員は終端となり、同ID・遅延RPCで復�
       "discard",
       1,
     ),
-  ).toBe("disbanded");
+  ).toBe("left");
   const destination = await expireAndFill(target.roomId, prepared.operationId);
   const result = await account.status(A.sub, prepared.operationId);
   expect(result).toMatchObject({
     kind: "rejected",
     reason: "destination_full",
     failure: {
-      exitedSources: [{ roomId: source.roomId, result: "disbanded" }],
+      exitedSources: [{ roomId: source.roomId, result: "left" }],
       remainingSources: [],
     },
   });
@@ -560,7 +624,7 @@ it("部分退出のreceiptを照合して、予約失効の満員では残りの
       "discard",
       1,
     ),
-  ).toBe("disbanded");
+  ).toBe("left");
   await expireAndFill(target.roomId, prepared.operationId);
   const result = await account.status(A.sub, prepared.operationId);
   expect(await survivor.isMember(A.sub)).toBe(true);
@@ -568,7 +632,7 @@ it("部分退出のreceiptを照合して、予約失効の満員では残りの
   expect(result).toMatchObject({
     kind: "rejected",
     failure: {
-      exitedSources: [{ roomId: first.roomId, result: "disbanded" }],
+      exitedSources: [{ roomId: first.roomId, result: "left" }],
       remainingSources: [{ roomId: remaining.roomId }],
       currentRoomId: remaining.roomId,
     },
@@ -658,7 +722,7 @@ it("参加commitの応答消失後に移動先が完了しても、receiptを結
       "discard",
       1,
     ),
-  ).toBe("disbanded");
+  ).toBe("left");
   const destination = env.ROOM_DO.get(env.ROOM_DO.idFromName(target.roomId));
   expect(
     await destination.reserveParticipation(A.sub, prepared.operationId, 1),
@@ -714,16 +778,29 @@ it("未公開の作成が失効した終端はRoomDOも閉じ、遅延initialize
   const source = await createRoomAs(A),
     issued = issueCreationId();
   const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
-  const prepared = confirmation(
-    await account.prepare(A.sub, {
-      kind: "create",
+  const target = await createRoomAs(C);
+  const legacy = confirmation(await prepare(target.inviteCode));
+  const prepared = {
+    ...legacy,
+    target: {
+      kind: "create" as const,
       input: {
         expectedPrincipal: A.sub,
         requestId: issued.requestId,
         name: "中断した作成",
       },
-    }),
-  );
+    },
+  };
+  await runInDurableObject(account, async (_account, state) => {
+    const op = await state.storage.get<Record<string, unknown>>(
+      `op:${legacy.operationId}`,
+    );
+    await state.storage.put(`op:${legacy.operationId}`, {
+      ...op,
+      confirmation: prepared,
+      destination: undefined,
+    });
+  });
   const { reserveRoomCreation, creationIdentity } = await import(
     "../lib/room-creation"
   );
@@ -756,7 +833,7 @@ it("未公開の作成が失効した終端はRoomDOも閉じ、遅延initialize
       "discard",
       1,
     ),
-  ).toBe("disbanded");
+  ).toBe("left");
   const destination = env.ROOM_DO.get(env.ROOM_DO.idFromName(creation.room_id));
   expect(
     await destination.initializeCreation(
@@ -783,33 +860,15 @@ it("未公開の作成が失効した終端はRoomDOも閉じ、遅延initialize
     ),
   ).toBe("closed");
 });
-it("候補切断の再確認後も古い決定の重複再送を新たな解散同意として扱わない", async () => {
+it("他の参加者の退出後も同じ決定の再送は確定済みの移動結果を返す", async () => {
   const source = await createRoomAs(A);
   await joinRoomAs(B, source.inviteCode);
-  const socket = await connectRoomAs(B, source.roomId);
-  await socket.next();
   const target = await createRoomAs(C);
   const prepared = confirmation(await prepare(target.inviteCode));
-  expect(prepared.sources[0].action).toBe("transfer");
   await env.ROOM_DO.get(env.ROOM_DO.idFromName(source.roomId)).leave(B.sub);
-  socket.close();
-  const changed = confirmation(await commit(prepared.operationId));
-  expect(changed.version).toBe(1);
-  expect(await commit(prepared.operationId)).toMatchObject({
-    kind: "confirmation",
-    reason: "state_changed",
-  });
-  expect(
-    await env.ROOM_DO.get(env.ROOM_DO.idFromName(source.roomId)).isMember(
-      A.sub,
-    ),
-  ).toBe(true);
-  expect(
-    await env.ROOM_DO.get(env.ROOM_DO.idFromName(source.roomId)).isJoinable(),
-  ).toBe(true);
-  expect(
-    await commit(prepared.operationId, "discard", changed.version ?? 0),
-  ).toMatchObject({ kind: "ready", roomId: target.roomId });
+  const result = await commit(prepared.operationId);
+  expect(result).toMatchObject({ kind: "ready", roomId: target.roomId });
+  expect(await commit(prepared.operationId)).toEqual(result);
 });
 
 it("公開commitは確認version欠落を現在versionで補わず拒否する", async () => {
@@ -938,7 +997,7 @@ it("初回の旧在籍照合が失敗したら操作を許可せず、再照合�
   });
   expect(
     await account.prepare(A.sub, { kind: "revisit", roomId: source.roomId }),
-  ).toMatchObject({ kind: "confirmation", confirmation: { sources: [] } });
+  ).toMatchObject({ kind: "ready", roomId: source.roomId });
   expect(await account.mayOperate(A.sub, source.roomId)).toBe(true);
 });
 
@@ -972,3 +1031,51 @@ it("複数ページの旧在籍照合を同時に開始しても候補を重複�
   ).toEqual([null, null]);
   expect(await account.mayOperate(A.sub, source.roomId)).toBe(true);
 });
+
+it("保存済み旧操作の開始前に移動先が終了しても、元を退出させずロックを解放する", async () => {
+  const source = await createRoomAs(A),
+    target = await createRoomAs(C);
+  const prepared = confirmation(await prepare(target.inviteCode));
+  await env.ROOM_DO.get(env.ROOM_DO.idFromName(target.roomId)).disband(C.sub);
+  const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+  expect(await commit(prepared.operationId)).toMatchObject({
+    kind: "rejected",
+    failure: {
+      exitedSources: [],
+      remainingSources: [{ roomId: source.roomId }],
+    },
+  });
+  expect(await listMemberIds(source.roomId)).toContain(A.sub);
+  expect(await account.mayOperate(A.sub, source.roomId)).toBe(true);
+});
+
+it.each(["info", "websocket"] as const)(
+  "別タブの移動を再開した%s応答を通常の200にせず、同じ操作の回復へ渡す",
+  async (entry) => {
+    const source = await createRoomAs(A),
+      target = await createRoomAs(C);
+    const prepared = confirmation(await prepare(target.inviteCode));
+    await suspendMove(prepared.operationId, "leaving");
+    const response = await exports.default.fetch(
+      `https://api.test/api/rooms/${source.roomId}${entry === "websocket" ? "/ws" : ""}`,
+      {
+        headers: {
+          Cookie: await sessionCookieFor(A),
+          ...(entry === "websocket" ? { Upgrade: "websocket" } : {}),
+        },
+      },
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      kind: "pending",
+      operationId: prepared.operationId,
+    });
+    const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+    expect(await account.status(A.sub, prepared.operationId)).toMatchObject({
+      kind: "ready",
+      roomId: target.roomId,
+    });
+    expect(await listMemberIds(source.roomId)).not.toContain(A.sub);
+    expect(await listMemberIds(target.roomId)).toContain(A.sub);
+  },
+);

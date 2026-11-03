@@ -55,7 +55,7 @@ export function SharingReactionControls({
           side="top"
           align="center"
           aria-label="リアクションを選ぶ"
-          className="flex w-max items-center justify-center gap-1 rounded-[14px] border-border bg-background p-1 shadow-lg shadow-black/5"
+          className="flex w-max items-center justify-center gap-1 rounded-xl border-border bg-background p-1 shadow-tool"
         >
           {SHARING_REACTION_KINDS.map((kind) => {
             const option = SHARING_REACTION_OPTIONS[kind];

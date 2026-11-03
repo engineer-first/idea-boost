@@ -32,3 +32,17 @@ it("本人や確認内容の偽装と操作IDの欠落を境界で拒否する",
     }).success,
   ).toBe(true);
 });
+
+it.each([undefined, "retain", "discard"])(
+  "参加切替の%sをretainへ正規化する",
+  (outcomeAccess) => {
+    expect(
+      ParticipationCommitSchema.parse({
+        operationId: crypto.randomUUID(),
+        expectedPrincipal: crypto.randomUUID(),
+        confirmationVersion: 0,
+        outcomeAccess,
+      }).outcomeAccess,
+    ).toBe("retain");
+  },
+);

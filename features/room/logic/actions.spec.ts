@@ -119,7 +119,7 @@ it("本人退出のintentをAPIへ渡し、古い画面の解散要求と区別�
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ intent: "self" }),
+      body: JSON.stringify({ outcomeAccess: "retain", intent: "self" }),
     },
   );
 });
@@ -135,13 +135,17 @@ it("解散の意図とホスト改訂をAPIへ渡す", async () => {
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ intent: "disband", expectedHostRevision: 2 }),
+      body: JSON.stringify({
+        outcomeAccess: "retain",
+        intent: "disband",
+        expectedHostRevision: 2,
+      }),
     },
   );
 });
 
 it.each(["retain", "discard"])(
-  "退出の閲覧権 %s をAPIへ渡す",
+  "本人退出の閲覧権 %s をretainとしてAPIへ渡す",
   async (access) => {
     apiFetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
     const form = leaveFormData(VALID_ROOM_ID);
@@ -153,7 +157,7 @@ it.each(["retain", "discard"])(
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outcomeAccess: access, intent: "self" }),
+        body: JSON.stringify({ outcomeAccess: "retain", intent: "self" }),
       },
     );
   },

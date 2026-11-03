@@ -1,5 +1,17 @@
 import type { Preview } from "@storybook/nextjs-vite";
+import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import "../app/globals.css";
+
+const notoSans = Noto_Sans_JP({
+  variable: "--font-noto-sans-jp",
+  display: "swap",
+  preload: false,
+});
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  preload: false,
+});
 
 const preview: Preview = {
   parameters: {
@@ -17,6 +29,11 @@ const preview: Preview = {
   },
   async beforeAll() {
     if (typeof window === "undefined") return;
+    // Portalも同じフォントを継承し、各storyの高さや配置は変えない。
+    document.documentElement.classList.add(
+      notoSans.variable,
+      geistMono.variable,
+    );
     if (import.meta.env.NEXT_PUBLIC_USE_MSW !== "true") return;
     try {
       const { startMockWorker } = await import("../app/mocks/browser");

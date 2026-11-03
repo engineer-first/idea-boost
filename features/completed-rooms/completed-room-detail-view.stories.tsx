@@ -173,7 +173,7 @@ export const FeedbackAfterLeave: Story = {
       args.room?.roomId ?? "completed-left-story",
       async () => ({
         ok: false,
-        error: "参加中のルームを確認できません。退出・解散後は送信できません。",
+        error: "参加中のルームを確認できません。退出後は送信できません。",
       }),
     );
     return <CompletedRoomDetailView {...args} feedback={feedback} />;

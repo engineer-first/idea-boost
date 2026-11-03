@@ -89,7 +89,10 @@ export const CompletedRoomsCursorSchema = z.object({
 export const LeaveOutcomeAccessSchema = z.enum(["retain", "discard"]);
 export type LeaveOutcomeAccess = z.infer<typeof LeaveOutcomeAccessSchema>;
 export const LeaveRoomRequestSchema = z.object({
-  outcomeAccess: LeaveOutcomeAccessSchema.optional(),
+  // discard は旧クライアント互換で受け取り、本人退出では常に保持する。
+  outcomeAccess: LeaveOutcomeAccessSchema.default("retain").transform(
+    () => "retain" as const,
+  ),
   intent: z.enum(["self", "disband"]).optional(),
   expectedHostRevision: z.int().nonnegative().optional(),
 });

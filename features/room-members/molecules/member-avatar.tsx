@@ -72,7 +72,7 @@ export function MemberAvatar({
           style={{
             width: size,
             height: size,
-            fontSize: Math.round(size * 0.4),
+            fontSize: Math.max(12, Math.round(size * 0.4)),
             backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
             color: NOTE_COLOR_STYLES[color].foregroundColor,
           }}
@@ -82,7 +82,7 @@ export function MemberAvatar({
             <span
               data-testid="member-voting-complete"
               aria-hidden="true"
-              className="absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full border-2 border-background bg-emerald-600 text-white shadow-sm"
+              className="absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full border-2 border-background bg-emerald-600 text-white "
             >
               <Check className="size-2.5" strokeWidth={3} />
             </span>

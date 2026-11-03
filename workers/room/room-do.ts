@@ -15,7 +15,7 @@ import { getRoomName, roomNameHandlers } from "./room-name";
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
 // エントリポイント（RPC / WebSocket）と横断ガード（phase ゲート）だけを持ち、
 // ドメインロジックは workers/room/ の各モジュールに委譲する:
-// - members.ts … メンバーシップ・表示色・ホスト（room_owner）の真実
+// - members.ts … メンバーシップ・表示色の真実
 // - phase.ts   … 進行状態 (lobby / phase1-4) の真実と phase ゲート判定
 // - timer.ts   … ルーム共有タイマーの真実（遷移は純粋関数）
 // - notes.ts / note-handlers.ts … 付箋の確定状態の真実と操作
@@ -45,7 +45,6 @@ import {
 } from "../../contracts/phase";
 import {
   type ClientMessage,
-  needsHostRevision,
   type ProtocolMember,
   parseClientMessage,
   type TimerState,
@@ -90,11 +89,7 @@ import {
 } from "./idea-map";
 import { memberRemovalHandlers } from "./member-removal";
 import {
-  ensureHost,
   findMember,
-  getHostState,
-  type HostState,
-  isHostUser,
   isMember,
   listMembers,
   removeMember,
@@ -153,16 +148,9 @@ import { listCompletedVoterIds } from "./votes";
 export const SESSION_EXPIRES_AT_HEADER = "X-Idea-Boost-Session-Expires-At";
 export const USER_ID_HEADER = "X-Idea-Boost-User-Id";
 
-// ルーム作成者のユーザーID。api-worker が D1 rooms.host_id を解決してセットする。
-// 認可判定（isHostUser）はこのヘッダーを参照せず、常に room_owner だけを見る。
-// それでもヘッダーが残るのはブートストラップ順序のため: room_owner テーブルを
-// 追加した DO migration は D1 に到達できないため host_id を埋められず、
-// それ以前に作られた旧ルームは WS 接続時にこの値でバックフィルしないと
-// ホスト不在（誰もフェーズを進められない）のまま固定される。
+// 旧api-workerとの入力互換用。ルーム認可には使用しない。
 export const HOST_ID_HEADER = "X-Idea-Boost-Host-Id";
 
-// 全 ClientMessage を網羅するハンドラ表。メッセージ型を追加すると、
-// ここでキー漏れがコンパイルエラーになる（旧 switch の never 網羅性チェック相当）。
 const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...hostHandlers,
   ...memberRemovalHandlers,
@@ -284,7 +272,10 @@ export class RoomDO extends DurableObject {
           leaseUntil,
         );
       }
+      this.syncIdleDeadline();
       if (
+        this.sql.exec("SELECT 1 FROM room_idle_deadline LIMIT 1").toArray()
+          .length > 0 ||
         this.sql.exec("SELECT 1 FROM legacy_note_drag_leases LIMIT 1").toArray()
           .length > 0
       )
@@ -304,7 +295,7 @@ export class RoomDO extends DurableObject {
     userId: string,
     name: string | undefined,
   ): Promise<UpsertMemberResult> {
-    if (isRoomClosed(this.sql)) return { ok: false, reason: "room-closed" };
+    if (!this.isJoinable()) return { ok: false, reason: "room-closed" };
     const result = upsertMember(this.sql, this.broadcaster, userId, name);
     const member = result.ok ? findMember(this.sql, userId) : null;
     if (member && appendSharingMember(this.sql, member))
@@ -421,8 +412,6 @@ export class RoomDO extends DurableObject {
       if (
         this.sql.exec("SELECT 1 FROM members LIMIT 1").toArray().length ||
         readOutcomeState(this.sql) ||
-        getHostState(this.sql).hostUserId !== null ||
-        getHostState(this.sql).hostRevision > 0 ||
         Number(
           this.sql
             .exec("SELECT phase_revision FROM room_state WHERE id=1")
@@ -450,7 +439,6 @@ export class RoomDO extends DurableObject {
         hostName,
       );
       if (!member.ok) throw new Error("作成者を登録できません。");
-      ensureHost(this.sql, identity.creator);
       savePhase(this.sql, { kind: "lobby" });
       this.outcomes.initializeSharedOutcomeState(identity.roomId, name);
       this.sql.exec(
@@ -473,6 +461,7 @@ export class RoomDO extends DurableObject {
     const result = this.decideCreation(identity, false, hostName, name);
     await this.ctx.storage.sync();
     if (result === "ready") {
+      this.syncIdleDeadline();
       await syncRoomAlarm(this.ctx.storage, this.sql);
       await this.outcomes.flushSharedOutcome();
     }
@@ -506,7 +495,6 @@ export class RoomDO extends DurableObject {
       if (
         !marker &&
         (this.sql.exec("SELECT 1 FROM members LIMIT 1").toArray().length ||
-          getHostState(this.sql).hostUserId !== null ||
           readOutcomeState(this.sql))
       )
         throw new Error("既存ルームの作成は取り消せません。");
@@ -532,6 +520,7 @@ export class RoomDO extends DurableObject {
   }
 
   isJoinable(): boolean {
+    this.closeExpiredIdleRoom();
     return !isRoomClosed(this.sql);
   }
 
@@ -544,12 +533,6 @@ export class RoomDO extends DurableObject {
     );
   }
 
-  getCurrentHost(creatorSeed?: string): HostState {
-    if (creatorSeed && !isRoomClosed(this.sql))
-      ensureHost(this.sql, creatorSeed);
-    return getHostState(this.sql);
-  }
-
   participationName(inviteCode: string): string {
     const identity = this.sql
       .exec("SELECT room_name FROM shared_outcome_identity WHERE id=1")
@@ -560,19 +543,9 @@ export class RoomDO extends DurableObject {
     userId: string,
     roomId: string,
     inviteCode: string,
-    creatorSeed: string,
+    _creatorSeed: string,
   ): ParticipationSource | null {
     if (!this.isMember(userId) || isRoomClosed(this.sql)) return null;
-    ensureHost(this.sql, creatorSeed);
-    const host = getHostState(this.sql);
-    const successor =
-      host.hostUserId === userId
-        ? (listMembers(this.sql).find(
-            (member) =>
-              member.userId !== userId &&
-              this.broadcaster.isConnected(member.userId),
-          ) ?? null)
-        : null;
     const identity = this.sql
       .exec("SELECT room_name FROM shared_outcome_identity WHERE id=1")
       .toArray()[0];
@@ -580,21 +553,12 @@ export class RoomDO extends DurableObject {
       roomId,
       inviteCode,
       name: String(identity?.room_name || `ルーム ${inviteCode}`),
-      ...host,
-      action:
-        host.hostUserId !== userId
-          ? "leave"
-          : successor
-            ? "transfer"
-            : "disband",
-      successor: successor
-        ? { userId: successor.userId, name: successor.name }
-        : null,
+      action: "leave",
     };
   }
 
   canAcceptParticipation(userId: string): "ok" | "room-full" | "room-closed" {
-    if (isRoomClosed(this.sql)) return "room-closed";
+    if (!this.isJoinable()) return "room-closed";
     if (isMember(this.sql, userId)) return "ok";
     const assigned = this.sql
       .exec("SELECT 1 FROM member_color_assignments WHERE user_id=?", userId)
@@ -770,7 +734,7 @@ export class RoomDO extends DurableObject {
     if (
       !reservation ||
       Number(reservation.expires_at) <= Date.now() ||
-      isRoomClosed(this.sql)
+      !this.isJoinable()
     )
       return "unavailable";
     const result = this.ctx.storage.transactionSync(() => {
@@ -809,7 +773,7 @@ export class RoomDO extends DurableObject {
     operationId: string,
     expected: ParticipationSource,
     creatorSeed: string,
-    outcomeAccess: LeaveOutcomeAccess,
+    _outcomeAccess: LeaveOutcomeAccess,
     generation: number,
     destinationLeaseExpiresAt?: number,
   ): Promise<
@@ -841,91 +805,43 @@ export class RoomDO extends DurableObject {
     );
     if (JSON.stringify(current) !== JSON.stringify(expected)) return "changed";
     if (getPendingPhaseTransition(this.sql)) return "busy";
-    if (expected.action === "disband") {
-      return (await this.disband(userId, undefined, operationId))
-        ? "disbanded"
-        : "changed";
-    }
-    // 閲覧権・ホスト・会員削除・receiptを同じ同期transactionで確定する。
-    this.leaveMember(userId, outcomeAccess, () => {
-      if (expected.action === "transfer")
-        this.sql.exec(
-          "UPDATE room_owner SET host_id=?,host_revision=host_revision+1 WHERE id=1",
-          expected.successor?.userId ?? null,
-        );
+    // 閲覧権・在籍・receiptを同じ同期transactionで確定する。
+    this.leaveMember(userId, "retain", () => {
       this.sql.exec(
         "INSERT INTO room_participation_receipts(operation_id,user_id,result) VALUES(?,?,'left')",
         operationId,
         userId,
       );
     });
-    if (expected.action === "transfer") {
-      const host = getHostState(this.sql);
-      if (host.hostUserId)
-        this.broadcaster.broadcastToAll({
-          type: "host:updated",
-          hostUserId: host.hostUserId,
-          hostRevision: host.hostRevision,
-        });
-      if (this.broadcaster.retireAllAdoptionFocus())
-        this.broadcaster.broadcastToAll({
-          type: "adoption-focus:updated",
-          noteId: null,
-        });
-    }
     await this.ctx.storage.sync();
     await this.flushLeave();
     return "left";
   }
 
-  // RESTの意図を現在の権限と同じDOイベント内で判定する。呼出側で
-  // isHostを取得してからleaveへ分岐すると、移譲との間に競合ができる。
+  // 旧intent・ホスト世代は無視し、本人の在籍だけを外す。
   async leaveOrDisband(
     userId: string,
-    creatorSeed: string,
-    intent?: "self" | "disband",
-    expectedHostRevision?: number,
+    _creatorSeed: string,
+    _intent?: "self" | "disband",
+    _expectedHostRevision?: number,
     outcomeAccess?: LeaveOutcomeAccess,
   ): Promise<"left" | "disbanded" | "not-member" | "forbidden"> {
-    if (userId === creatorSeed && !isRoomClosed(this.sql))
-      ensureHost(this.sql, creatorSeed);
-    const host = getHostState(this.sql);
-    const disbanded = Boolean(readOutcomeState(this.sql)?.disbanded);
-    const canRetryDisband =
-      disbanded &&
-      (host.hostUserId === userId ||
-        (!host.hostUserId &&
-          host.hostRevision === 0 &&
-          userId === creatorSeed));
-    if (!isMember(this.sql, userId) && !canRetryDisband) return "not-member";
-    if (
-      (expectedHostRevision !== undefined &&
-        expectedHostRevision !== host.hostRevision) ||
-      (host.hostRevision > 0 && (!intent || expectedHostRevision === undefined))
-    )
-      return "forbidden";
-    const isHost = host.hostUserId === userId;
-    if (intent === "disband" || (!intent && isHost)) {
-      if (!isHost && !canRetryDisband) return "forbidden";
-      if (canRetryDisband) return "disbanded";
-      return (await this.disband(userId)) ? "disbanded" : "forbidden";
-    }
     if (!isMember(this.sql, userId)) return "not-member";
-    if (isHost && !this.isCompleted()) return "forbidden";
     await this.leave(userId, outcomeAccess);
     return "left";
   }
 
-  // REST退出もWS除外も、閲覧権の更新と会員削除をawait前に完了する。
+  // 本人退出は旧クライアントのdiscard指定でも閲覧権を残す。
   async leave(
     userId: string,
-    outcomeAccess?: LeaveOutcomeAccess,
+    _outcomeAccess?: LeaveOutcomeAccess,
   ): Promise<void> {
-    this.leaveMember(userId, outcomeAccess);
+    this.leaveMember(userId, "retain");
     await this.flushLeave();
   }
 
   private async flushLeave(): Promise<void> {
+    this.syncIdleDeadline();
     await this.completed.flush();
     await this.advanceAfterExtendedTimer();
     await syncRoomAlarm(this.ctx.storage, this.sql);
@@ -933,7 +849,7 @@ export class RoomDO extends DurableObject {
 
   private leaveMember(
     userId: string,
-    outcomeAccess?: LeaveOutcomeAccess,
+    outcomeAccess: LeaveOutcomeAccess,
     beforeRemove?: () => void,
   ): void {
     if (!isMember(this.sql, userId)) return;
@@ -964,11 +880,18 @@ export class RoomDO extends DurableObject {
     );
     syncMovePresence(this.sql, this.broadcaster);
     const retiredSharedNotes = new Set<string>();
+    const followedPresenterIds = new Set<string>();
     let hadPresence = false;
     for (const socket of this.ctx.getWebSockets()) {
       const attachment =
         socket.deserializeAttachment() as SocketAttachment | null;
       if (attachment?.userId !== userId) continue;
+
+      // attachmentを削除する前に、フォロー先の発表者IDを退避する。
+      if (attachment.followingPresenterUserId) {
+        followedPresenterIds.add(attachment.followingPresenterUserId);
+      }
+
       hadPresence ||= Boolean(attachment.hasCursor || attachment.activeDrag);
       const active = this.broadcaster.retireActiveDrag(socket);
       if (active) retiredSharedNotes.add(active.noteId);
@@ -984,6 +907,10 @@ export class RoomDO extends DurableObject {
       { type: "member_left", userId },
       userId,
     );
+    // 退出によってフォロー接続がなくなった発表者へ状態を再通知する。
+    for (const presenterUserId of followedPresenterIds) {
+      this.broadcaster.broadcastPresenterFollowStatus(presenterUserId);
+    }
     if (progressConnectionsChanged)
       broadcastProgress(
         this.sql,
@@ -1008,12 +935,16 @@ export class RoomDO extends DurableObject {
           buildIdeaMapServerState(this.sql, this.broadcaster),
         );
     }
+    // 本人の接続は先に退出として閉じる。このメソッドはawaitを挟まないため、
+    // 最後の在籍削除から閉鎖まで別の参加要求は入り込まない。
+    if (!isRoomClosed(this.sql) && listMembers(this.sql).length === 0)
+      this.closeRoom();
   }
 
   // ルーム解散。参加・編集用の状態を消去し、期限内の成果と再試行だけ残す。
   async disband(
     byUserId?: string,
-    hostId?: string,
+    _creatorId?: string,
     operationId?: string,
   ): Promise<boolean> {
     if (
@@ -1022,14 +953,20 @@ export class RoomDO extends DurableObject {
         .outcome_published === 1
     )
       return false;
-    // WS 未接続の旧ルームも、api-worker が解決した D1 のホストで補完する。
-    if (hostId) ensureHost(this.sql, hostId);
     if (
       byUserId &&
-      !isHostUser(this.sql, byUserId) &&
+      !isMember(this.sql, byUserId) &&
       !readOutcomeState(this.sql)?.disbanded
     )
       return false;
+    this.closeRoom(operationId, byUserId);
+    await this.ctx.storage.sync();
+    await syncRoomAlarm(this.ctx.storage, this.sql);
+    return true;
+  }
+
+  // 閉鎖と在籍消去は、参加要求と競合しないようawaitより前に確定する。
+  private closeRoom(operationId?: string, byUserId?: string): void {
     for (const socket of this.ctx.getWebSockets()) {
       try {
         socket.close(WS_CLOSE_ROOM_DISBANDED, WS_CLOSE_ROOM_DISBANDED_REASON);
@@ -1045,13 +982,8 @@ export class RoomDO extends DurableObject {
           operationId,
           byUserId,
         );
+      this.sql.exec("DELETE FROM room_idle_deadline");
       // 成果未初期化でも、閉鎖と参加状態の消去を同時に永続化する。
-      const host = getHostState(this.sql).hostUserId;
-      if (host)
-        this.sql.exec(
-          "INSERT OR IGNORE INTO room_creation_marker(id,host_id,closed) VALUES(1,?,1)",
-          host,
-        );
       this.sql.exec("UPDATE room_creation_marker SET closed=1 WHERE id=1");
       this.sql.exec(
         "UPDATE shared_outcome_identity SET disbanded = 1 WHERE id = 1",
@@ -1091,9 +1023,52 @@ export class RoomDO extends DurableObject {
       // D1削除失敗時の本人による解散再試行に使う。期限後の完全削除で消去する。
       // 閉鎖済みのDOではこのIDから操作権を復活させない。
     });
-    await this.ctx.storage.sync();
-    await syncRoomAlarm(this.ctx.storage, this.sql);
-    return true;
+  }
+
+  private closeExpiredIdleRoom(): void {
+    const idle = this.sql
+      .exec("SELECT expires_at FROM room_idle_deadline WHERE id=1")
+      .toArray()[0];
+    if (
+      typeof idle?.expires_at !== "number" ||
+      idle.expires_at > Date.now() ||
+      isRoomClosed(this.sql)
+    )
+      return;
+    this.syncIdleDeadline();
+    if (
+      this.sql
+        .exec(
+          "SELECT 1 FROM room_idle_deadline WHERE expires_at<=?",
+          Date.now(),
+        )
+        .toArray().length > 0
+    ) {
+      this.closeRoom();
+      this.ctx.waitUntil(syncRoomAlarm(this.ctx.storage, this.sql));
+    }
+  }
+
+  private syncIdleDeadline(exclude?: WebSocket): void {
+    if (isRoomClosed(this.sql)) {
+      this.sql.exec("DELETE FROM room_idle_deadline");
+      return;
+    }
+    const connected = this.ctx.getWebSockets().some((socket) => {
+      if (socket === exclude || !this.broadcaster.isAuthorized(socket))
+        return false;
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      return attachment !== null && isMember(this.sql, attachment.userId);
+    });
+    if (connected) this.sql.exec("DELETE FROM room_idle_deadline");
+    else if (
+      this.sql.exec("SELECT 1 FROM members LIMIT 1").toArray().length > 0
+    )
+      this.sql.exec(
+        "INSERT INTO room_idle_deadline(id,expires_at) VALUES(1,?) ON CONFLICT(id) DO NOTHING",
+        Date.now() + 24 * 60 * 60 * 1000,
+      );
   }
 
   async ensureSharedOutcome(roomId: string, createdAt?: number): Promise<void> {
@@ -1184,7 +1159,7 @@ export class RoomDO extends DurableObject {
   // フェーズへ移動できるため、api-worker のエンドポイントなどクライアント
   // 到達経路には載せない（載せるとゲートが無言で無効化される）。
   async setPhase(phase: RoomPhase, byUserId: string): Promise<void> {
-    if (isRoomClosed(this.sql) || !isHostUser(this.sql, byUserId)) {
+    if (isRoomClosed(this.sql) || !isMember(this.sql, byUserId)) {
       throw new Error("進行状態を変更する権限がありません。");
     }
     savePhase(this.sql, phase);
@@ -1205,6 +1180,7 @@ export class RoomDO extends DurableObject {
     );
     if (!expiry.success || expiry.data <= Math.floor(Date.now() / 1000))
       return new Response("authentication required", { status: 401 });
+    this.closeExpiredIdleRoom();
     if (!(await this.processExpiredTransition()))
       return new Response("保存期限後の削除を再試行しています。", {
         status: 503,
@@ -1215,14 +1191,6 @@ export class RoomDO extends DurableObject {
     if (!userId || !isMember(this.sql, userId)) {
       return new Response("forbidden", { status: 403 });
     }
-
-    const hostId = request.headers.get(HOST_ID_HEADER);
-    if (!hostId) {
-      return new Response("forbidden", { status: 403 });
-    }
-    // hostId は api-worker が D1 rooms.host_id で必ず上書きした値。
-    // 接続者本人ではなくこの値で、旧ルームの room_owner だけを補完する。
-    ensureHost(this.sql, hostId);
 
     // awaitを含む引継ぎの間に期限をまたいだ接続も受理しない。
     if (expiry.data <= Math.floor(Date.now() / 1000))
@@ -1236,6 +1204,8 @@ export class RoomDO extends DurableObject {
       sessionExpiresAt: expiry.data,
     };
     server.serializeAttachment(attachment);
+    this.syncIdleDeadline();
+    this.ctx.waitUntil(syncRoomAlarm(this.ctx.storage, this.sql));
 
     const progressConnectionsChanged = syncProgressConnectedUsers(
       this.sql,
@@ -1337,7 +1307,11 @@ export class RoomDO extends DurableObject {
       ws.deserializeAttachment() as SocketAttachment | null;
     // closeイベントの再到達より前に接続単位の所有権を外す。
     // 同じ本人の新接続には触れず、二重cleanupも共有状態を消さない。
+    this.syncIdleDeadline(ws);
+    this.ctx.waitUntil(syncRoomAlarm(this.ctx.storage, this.sql));
     if (!previousAttachment) return;
+    const followingPresenterUserId =
+      previousAttachment.followingPresenterUserId;
     const {
       moveConnectionId: _connectionId,
       activeMoveOperationId: _operationId,
@@ -1345,9 +1319,13 @@ export class RoomDO extends DurableObject {
       hasCursor: _cursor,
       activeDrag: _drag,
       adoptionFocusNoteId: _focus,
+      followingPresenterUserId: _followingPresenterUserId,
       ...identity
     } = previousAttachment;
     ws.serializeAttachment(identity);
+    if (followingPresenterUserId) {
+      this.broadcaster.broadcastPresenterFollowStatus(followingPresenterUserId);
+    }
     if (previousAttachment?.moveConnectionId) {
       releaseConnectionMoves(this.sql, previousAttachment.moveConnectionId);
       syncMovePresence(this.sql, this.broadcaster);
@@ -1432,9 +1410,12 @@ export class RoomDO extends DurableObject {
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
     ws.close(1011, "websocket error");
+    await this.webSocketClose(ws, 1011, "websocket error", false);
   }
 
   override async alarm(): Promise<void> {
+    this.syncIdleDeadline();
+    this.closeExpiredIdleRoom();
     expireMoveOperations(this.sql);
     syncMovePresence(this.sql, this.broadcaster);
     const expiredDrags = this.broadcaster.expireActiveDrags();
@@ -1698,30 +1679,6 @@ export class RoomDO extends DurableObject {
         type: "error",
         code: "forbidden",
         message: "完了したルームは変更できません。",
-      });
-      return;
-    }
-    // 世代を持たない旧クライアントは初代ホストの期間のみ互換受理する。
-    // 発表者本人の完了はホストとは別の権限で、現在ターンのrevisionで検証する。
-    const sharing = getSharingState(this.sql);
-    const presenterDone =
-      message.type === "sharing:advance" &&
-      message.outcome === "done" &&
-      sharing?.status === "active" &&
-      sharing.currentIndex !== null &&
-      sharing.order[sharing.currentIndex]?.userId === attachment.userId;
-    if (
-      needsHostRevision(message) &&
-      message.type !== "host:transfer" &&
-      !presenterDone &&
-      (message.expectedHostRevision ?? 0) !==
-        getHostState(this.sql).hostRevision
-    ) {
-      ctx.reply({
-        type: "error",
-        code: "forbidden",
-        message:
-          "ホストが変更されています。現在の状態を確認して操作し直してください。",
       });
       return;
     }
@@ -2041,8 +1998,6 @@ export class RoomDO extends DurableObject {
           .exec("SELECT rollback_revision FROM room_state WHERE id=1")
           .one().rollback_revision,
       ),
-      isHost: isHostUser(this.sql, userId),
-      ...getHostState(this.sql),
       ideaMapSizeLevel: ideaMapState.sizeLevel,
       ideaMapSizeInitialized: ideaMapState.initialized,
       ideaMapDragging: ideaMapState.isDragging,
@@ -2068,5 +2023,23 @@ export class RoomDO extends DurableObject {
       timer: getTimerState(this.sql),
       serverNow: Date.now(),
     });
+    const sharing = getSharingState(this.sql);
+
+    const activePresenter =
+      sharing?.status === "active" &&
+      sharing.startsAt === null &&
+      sharing.currentIndex !== null
+        ? (sharing.order[sharing.currentIndex] ?? null)
+        : null;
+
+    if (activePresenter) {
+      this.broadcaster.sendTo(ws, {
+        type: "presenter-follow:status",
+        presenterUserId: activePresenter.userId,
+        isFollowed: this.broadcaster.isPresenterFollowed(
+          activePresenter.userId,
+        ),
+      });
+    }
   }
 }

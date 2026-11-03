@@ -116,7 +116,7 @@ export function NoteGroupCard({
                   setLocalName(name);
                 }
               }}
-              className="w-48 max-w-full rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] shadow-sm outline-none"
+              className="w-48 max-w-full rounded-md border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] outline-none"
             />
           ) : (
             <TooltipProvider>
@@ -125,7 +125,7 @@ export function NoteGroupCard({
                   {canGroupNote ? (
                     <button
                       type="button"
-                      className="group flex w-full cursor-pointer items-start gap-1 rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-left text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] shadow-sm select-none"
+                      className="group flex w-full cursor-pointer items-start gap-1 rounded-lg border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-left text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] select-none"
                       onClick={() => setIsEditing(true)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
@@ -147,7 +147,7 @@ export function NoteGroupCard({
                       />
                     </button>
                   ) : (
-                    <div className="flex w-full items-start rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] shadow-sm select-none">
+                    <div className="flex w-full items-start rounded-lg border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] select-none">
                       <span
                         data-testid="group-name-display"
                         className="line-clamp-2 min-w-0 flex-1 break-words text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)]"

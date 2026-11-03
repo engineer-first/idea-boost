@@ -5,8 +5,11 @@ import {
   consumeRoomEntry,
   type GuestRoomEntryResult,
   RoomAdmissionContext,
+  refreshAccountRoomEntry,
 } from "@/features/auth";
 import { takePendingRoomEntry } from "@/lib/room-client/entry-tab-storage";
+import { lifecycleNotify } from "../logic/lifecycle-notify";
+import { markRoomCreationOpened } from "../logic/room-creation-storage";
 import {
   getRoomEntryTabId,
   matchesRoomEntryTab,
@@ -16,6 +19,7 @@ import { RoomReauthentication } from "./room-reauthentication";
 
 export type RoomAdmissionGateProps = {
   roomId: string;
+  departure?: { operationId?: string; exitedRoomNames?: string[] };
   sessionKind?: "guest" | "account";
   onRefreshed?: () => void;
   refreshAction?: (roomId: string) => Promise<GuestRoomEntryResult>;
@@ -30,6 +34,7 @@ export type RoomAdmissionGateProps = {
 
 export function RoomAdmissionGate({
   roomId,
+  departure,
   sessionKind,
   onRefreshed,
   refreshAction,
@@ -83,6 +88,21 @@ export function RoomAdmissionGate({
     };
   }, [entryToken, entryTabId, roomId, stage, allowFreshEntry, freshAdmission]);
 
+  const admission =
+    result ??
+    (!entryToken ? { ok: allowFreshEntry, admission: freshAdmission } : null);
+  useEffect(() => {
+    if (admission?.ok) {
+      markRoomCreationOpened(roomId);
+      lifecycleNotify.rememberDeparture(
+        roomId,
+        departure?.operationId,
+        departure?.exitedRoomNames,
+      );
+      lifecycleNotify.arrived(roomId);
+    }
+  }, [admission?.ok, roomId, departure]);
+
   if (!result && entryToken) {
     return (
       <>
@@ -92,7 +112,7 @@ export function RoomAdmissionGate({
           className={
             stage === "lobby"
               ? "sr-only"
-              : "fixed inset-x-4 top-1/2 z-50 mx-auto max-w-md rounded-xl bg-background p-6 text-center shadow-lg"
+              : "fixed inset-x-4 top-1/2 z-50 mx-auto max-w-md rounded-xl bg-background p-6 text-center shadow-tool"
           }
         >
           ルームを確認しています…
@@ -100,18 +120,18 @@ export function RoomAdmissionGate({
       </>
     );
   }
-  const admission =
-    result ??
-    (!entryToken ? { ok: allowFreshEntry, admission: freshAdmission } : null);
   if (!admission?.ok) {
     return (
       <>
         {fallback}
-        {sessionKind === "guest" ? (
+        {sessionKind === "guest" || sessionKind === "account" ? (
           <GuestEntryRefresh
             roomId={roomId}
             onRefreshed={onRefreshed}
-            refreshAction={refreshAction}
+            refreshAction={
+              refreshAction ??
+              (sessionKind === "account" ? refreshAccountRoomEntry : undefined)
+            }
           />
         ) : (
           <RoomReauthentication operation={{ kind: "return", roomId }} />

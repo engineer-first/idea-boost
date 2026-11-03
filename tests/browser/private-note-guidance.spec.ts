@@ -148,7 +148,7 @@ for (const width of [390, 1280]) {
     await page.screenshot({ path: `${output}/${width}-returned-by-drag.png` });
   });
 
-  test(`${width}px: ホストの共有工程でも最初の付箋をスクロール前にドラッグできる`, async () => {
+  test(`${width}px: 共有工程でも最初の付箋をスクロール前にドラッグできる`, async () => {
     await openStory("sharing-host", width);
     const share = page
       .getByTestId("private-notes-toolbar")

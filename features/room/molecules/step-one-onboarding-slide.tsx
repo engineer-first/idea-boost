@@ -424,7 +424,7 @@ export function StepOneOnboardingSlide({
         {preview ? (
           <>
             <h2 className="text-xl font-semibold leading-snug">{item.title}</h2>
-            <p className="max-w-2xl text-balance text-sm leading-6 text-muted-foreground">
+            <p className="max-w-2xl text-balance text-base leading-6 text-muted-foreground">
               {item.description}
             </p>
           </>
@@ -433,7 +433,7 @@ export function StepOneOnboardingSlide({
             <DialogTitle className="text-xl leading-snug">
               {item.title}
             </DialogTitle>
-            <DialogDescription className="max-w-2xl text-balance text-sm leading-6">
+            <DialogDescription className="max-w-2xl text-balance text-base leading-6">
               {item.description}
             </DialogDescription>
           </>
@@ -494,7 +494,7 @@ export function StepOneOnboardingSlide({
           data-testid="step-one-onboarding-trigger"
           type="button"
           variant="outline"
-          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-full border-border/80 bg-background/95 px-4 text-sm shadow-lg backdrop-blur transition hover:bg-muted max-[639px]:fixed max-[639px]:top-[calc(var(--board-location-top,7.25rem)-3rem)]"
+          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-lg border-border/80 bg-background/95 px-4 text-sm shadow-tool backdrop-blur transition hover:bg-muted max-[639px]:fixed max-[639px]:top-[calc(var(--board-location-top,7.25rem)-3rem)]"
           onClick={openGuide}
         >
           進め方
@@ -522,7 +522,7 @@ export function StepOneOnboardingSlide({
               guideButtonRef.current.focus();
             }}
             data-closing-to-guide={isClosingToGuide ? "true" : undefined}
-            className={`${styles.dialog} gap-0 rounded-[28px] border-border bg-background text-foreground shadow-2xl data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}
+            className={`${styles.dialog} gap-0 rounded-xl border-border bg-background text-foreground shadow-tool data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}
             style={{
               top: "50%",
               translate: "-50% -50%",
@@ -551,7 +551,7 @@ export function StepOneOnboardingSlide({
                     >
                       <button
                         aria-label={`${index + 1}枚目に戻る`}
-                        className="flex h-8 w-fit items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex h-8 w-fit items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         disabled={
                           slideTransition !== null || index >= slideIndex
                         }
@@ -580,7 +580,7 @@ export function StepOneOnboardingSlide({
               <DialogFooter className="mt-4 shrink-0 justify-center sm:justify-center">
                 {isLastSlide ? (
                   <Button
-                    className="h-12 min-w-52 rounded-full px-8 text-base"
+                    className="h-12 min-w-52 rounded-lg px-8 text-base"
                     disabled={isClosingToGuide}
                     onClick={start}
                   >
@@ -588,7 +588,7 @@ export function StepOneOnboardingSlide({
                   </Button>
                 ) : (
                   <Button
-                    className="h-12 min-w-52 rounded-full px-8 text-base"
+                    className="h-12 min-w-52 rounded-lg px-8 text-base"
                     onClick={advanceSlide}
                   >
                     次へ

@@ -57,11 +57,11 @@ export function CompletedBoardView({ board }: { board: CompletedBoard }) {
       ) : (
         <>
           {map && (
-            <p className="text-sm leading-6 text-muted-foreground">
+            <p className="text-base leading-6 text-muted-foreground">
               縦軸：価値（上ほど高い）／ 横軸：実現のしやすさ（右ほど高い）
             </p>
           )}
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             配置図の下で、すべての付箋の全文を読めます。
           </p>
           <svg
@@ -161,19 +161,21 @@ export function CompletedBoardView({ board }: { board: CompletedBoard }) {
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   {board.decisions.some((d) => d.noteId === note.id) && (
-                    <span className="rounded border px-2 py-1 font-semibold">
+                    <span className="rounded-full border px-2 py-1 font-semibold">
                       採用済み
                     </span>
                   )}
                   {note.excluded && (
-                    <span className="rounded border px-2 py-1">候補外</span>
+                    <span className="rounded-full border px-2 py-1">
+                      候補外
+                    </span>
                   )}
                   {board.groups
                     .filter((g) => g.noteIds.includes(note.id))
                     .map((g) => (
                       <span
                         key={g.id}
-                        className="rounded border px-2 py-1 [overflow-wrap:anywhere]"
+                        className="rounded-full border px-2 py-1 [overflow-wrap:anywhere]"
                       >
                         グループ：{g.name}
                       </span>

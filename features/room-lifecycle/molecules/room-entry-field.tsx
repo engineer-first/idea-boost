@@ -35,8 +35,8 @@ export function RoomEntryField({
           aria-describedby={error ? errorId : undefined}
         />
       </Field>
-      {/* 空のときも1行ぶんだけ確保し、検証結果でボタンの位置を動かさない。 */}
-      <div className="min-h-5 pt-1">
+      {/* 空のときも16pxのエラー2行ぶんを確保し、検証結果でボタンの位置を動かさない。 */}
+      <div className="min-h-[3.25rem] pt-1">
         {error ? (
           <FieldError id={errorId} role="alert">
             {error}

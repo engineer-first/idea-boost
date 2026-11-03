@@ -1,6 +1,5 @@
 // useRoomConnection（RoomDO への WebSocket 接続配線）の単体テスト。
 // フェイク WebSocket を注入し、接続状態の遷移・メッセージ配送・
-// 退出/解散クローズ時のホーム遷移と通知抑制・破棄時の close を検証する。
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -231,7 +230,7 @@ describe("useRoomConnection", () => {
     expect(onMessage).not.toHaveBeenCalled();
   });
 
-  it("解散クローズでは roomDisbanded を通知してホームへ戻す", () => {
+  it("終了クローズではホームへ戻す", () => {
     renderHook(() =>
       useRoomConnection({
         roomId: ROOM_ID,
@@ -243,7 +242,7 @@ describe("useRoomConnection", () => {
     act(() => lastSocket().simulateOpen());
     act(() => lastSocket().simulateDisbandedClose());
 
-    expect(notifyMocks.roomDisbanded).toHaveBeenCalledTimes(1);
+    expect(notifyMocks.roomDisbanded).not.toHaveBeenCalled();
     expect(navigationMocks.replace).toHaveBeenCalledWith("/home");
   });
 
@@ -476,7 +475,7 @@ function snapshot() {
     notes: [],
     members: [],
     phase: { kind: "lobby" },
-    isHost: true,
+
     timer: { status: "idle" },
     serverNow: 1,
     decision: null,

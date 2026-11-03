@@ -1,40 +1,51 @@
-# 0021: ゲスト本人を署名付きCookieで保持する
+---
+id: "0021"
+status: Proposed
+date: "2026-10-28"
+---
 
-- 状態：提案
-- 決定日：2026-10-28
-- 記録日：2026-10-28
+# ADR 0021: ゲスト本人を署名付きCookieで保持する
 
-## 背景
+## Context
 
-Googleアカウントがなくても、名前を入れるだけのゲストとして作成・参加できるようにする（[PBI #749](https://github.com/engineer-first/idea-boost/issues/749)）。開始時には「Googleではじめる」か「ゲストではじめる」を選ぶ（[方針変更](https://github.com/engineer-first/idea-boost/issues/749#issuecomment-6538535072)、#885）。当初は選択を挟まない案だったが、Googleで始められることに気づきにくいため変更した。この選択は入口の表示だけを変え、本ADRのゲスト本人の保持方式は変えない。
-従来のセッションとユーザー行はメールアドレスを必須としていた。ゲストには仲間に表示する名前だけを入力してもらい、名前を本人確認に使わない。
-ゲストでも、本人証明・RoomDOの在籍・作成要求・入室チケット・成果の閲覧判定は維持する。再訪時の期限更新は #853、Google連携は #850 で扱う。
+オーナーはGoogleアカウントなしでも名前だけで作成・参加できる体験を求めた。既存のユーザーとセッションはメール必須で、名前を入れるだけでは本人の付箋や権限を再訪時に安全に引き継げなかった。後に、入口はGoogleとゲストを同等に選べる形へ明示的に修正された。
 
-## 候補と決定
+## Decision
 
-既存の署名付きHttpOnly Cookie（HS256 JWT）でゲストの本人IDを保持する。Cookie名・HttpOnly・本番Secure・SameSite=Lax・Path=/ と、発行から固定7日の期限を共通にする。
+ゲストも既存の署名付きHttpOnly Cookieで本人IDを証明し、Googleの本人と同じ認可境界を通す。ゲストとアカウントを明示的に区別し、表示名とメールの有無を本人確認の代わりにしない。初回の認証は発行から7日とし、有効な本人情報があれば同じ本人を再利用する。ゲスト用にルームと成果の認可を二重化せず、本人を偽装されないようにするためである。
 
-- セッションは `kind: "guest" | "account"` の判別可能なunionにする。guestは `email: null` を持つ。ゲスト判定はkindで行い、メールや表示名の有無を認可やゲスト判定に使わない。
-- kindのない旧Cookie（emailあり）は、署名と期限を検証したうえでaccountとして受理する。kindとemailが矛盾するトークンは拒否する。
-- 本人IDはNextのServer Actionで生成する。Nextが署名した短命のログイン主張（`kind: "guest"`）を、Workerが署名・issuer・audience・expで検証してからメールなしのユーザー行を登録する。登録が成功し応答を検証できた後にだけCookieを発行する。
-- 有効なCookieがあれば本人を再利用し、Google名や選択済みの表示名を上書きしない。
-- `users.email` はNULL可・UNIQUE維持とし、架空のメールを作らない。ゲストの名前は既存の `display_name` に保存する。
-- Preview（Cloudflare Access）は許可済みメールを前提とするため、ゲストのセッションとログイン主張を拒否する。
+### 本ADRで決定しないこと
 
-ブラウザが送るUUIDだけを保存する方式は、改ざんや他人のIDの指定を検出できないため採用しない。署名トークンをlocalStorageへ置く方式は、JavaScriptから認証情報を読めるため採用しない。ゲスト用の別Cookie・別検証経路は、作成・参加・WS・成果APIの認可を二重に持つことになるため採用しない。
+関数・通信形式・保存の具体手順と移行方法は、ゲスト本人の実装PR・PRDへ委譲する。参照先はReferencesに示す。
 
-## 影響と見直す条件
+## Consequences
 
-- Cookieを消す、別のブラウザ・端末を使う、期限が切れると同じゲストとして戻れない。名前や前回のIDから権限を復元しない。
-- 初回登録の再送で、使われないユーザー行が残ることがある。ルーム作成・参加を登録処理に混ぜないため、権限は二重に作られない。
-- ゲストはGoogleアカウントを必要とせず、名前を入れるだけで本人とユーザー行を繰り返し作れる。本人単位の作成制限は、本人を作り直せば回避できる。今回は既知のリスクとして受け入れ、流量制限や未使用行の掃除は乱用が観測された時点で別に扱う。
-- `users` の作り直しは `user_permissions` のON DELETE CASCADEで権限を消すため、migration 0013は同じ処理内で権限を退避・復元し、ホスト・作成要求・作成制御の参照と保護triggerを残す。外部キー違反が残る場合は移行全体を失敗させる。ローカルD1（miniflare）のmigrationテストで保持と整合性を確認した。リモートD1への適用はPR Previewで確認した。違反が残る場合にリモートで移行全体が戻ることは未確認のため、本番適用前には `PRAGMA foreign_key_check` が空であることを確かめる。
-- デプロイはmigration → 新旧セッションを受理するWorker → ゲストを発行するNextの順にする。旧WorkerはkindやNULLのemailを受理しないため。
+良い影響は、Googleなしでも既存の権限・在籍・成果の本人識別を使えること。悪い影響は、Cookieの消失や期限切れで同じゲストへ戻れず、本人を作り直して本人単位の制限を回避できること。中立の影響として、同じ名前でも別人であり、別端末への回復はGoogle連携など別の判断を要する。乱用、個別失効、長期の本人保持が必要になった場合に見直す。
 
-ゲストの保持期間を7日より延ばす必要が出た場合、または署名鍵の更新でセッションを個別に失効させる必要が出た場合は、保持方式を見直す。
+2026-11-03に実コード・一次資料を照合。根拠未確認：実装または提案記録は確認できるが、オーナーがこの技術方針・比較理由まで採用した元発言は確認できない。実装済みであることだけではAcceptedにしない。
 
-## 根拠
+## Alternatives Considered
 
-- [Issue #852](https://github.com/engineer-first/idea-boost/issues/852)（保持方式の比較と実装メモ）
-- [0009: WebSocketのセッション期限](0009-websocket-session-expiry.md)、[0010: 入室前の認証準備](0010-room-entry-authentication.md)、[0014: 共通の表示名](0014-account-display-name.md)
+ブラウザ申告のIDだけでは他人のID指定を検知できない。認証情報をJavaScriptから読める保存先へ置く案や、別のゲスト認可経路を作る案を実装比較では採用していない。
+
+## Related ADRs
+
+- [ADR 0009](0009-websocket-session-expiry.md)：関連する判断。
+- [ADR 0014](0014-account-display-name.md)：関連する判断。
+- [ADR 0022](0022-guest-session-refresh.md)：関連する判断。
+- [ADR 0023](0023-guest-google-link-same-identity.md)：関連する判断。
+
+## References
+
+- dateは旧記録の提案日または記録日を引き継いだもの。オーナーの決定日の裏付けは未確認。
+- [PBI #749](https://github.com/engineer-first/idea-boost/issues/749)
+- [方針変更](https://github.com/engineer-first/idea-boost/issues/749#issuecomment-6538535072)
+- [Issue #852](https://github.com/engineer-first/idea-boost/issues/852)
 - [Cloudflare D1の外部キー](https://developers.cloudflare.com/d1/sql-api/foreign-keys/)
+- [実装 PR #861](https://github.com/engineer-first/idea-boost/pull/861)
+- [セッションの形](../../contracts/session.ts)
+- [ゲストの準備](../../features/auth/logic/guest-identity-actions.ts)
+- [PRD](../prd.md)
+- [照合した実装・規約](../../contracts/session.ts)（確認日：2026-11-03）。
+- 2026-10-27 Claudeセッション 65fc6dc9-2297-40b6-aae5-d699de51e823（ゲスト開始の希望）、2026-10-31 9becd4fc-035e-4096-a8c1-a327fd7f1aa9（Googleとゲストを同等に選ぶ本人の訂正）。保持方式そのものの採用承認とは区別する。
+- [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0021-guest-session-identity.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

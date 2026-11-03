@@ -27,7 +27,7 @@ const snapshot: Extract<ServerMessage, { type: "snapshot" }> = {
     buildNote({ id: M, x: 400, y: 100 }),
   ],
   members: [],
-  isHost: true,
+
   decision: null,
   carryovers: [],
   completedVoterIds: [],

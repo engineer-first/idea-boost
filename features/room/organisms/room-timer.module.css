@@ -13,10 +13,11 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--background);
-  box-shadow:
-    0 4px 16px #0000000d,
-    0 1px 3px #00000012;
+  box-shadow: var(--elevation-tool);
   cursor: grab;
+}
+.floating[data-timer-expanded="true"] {
+  border-radius: var(--ib-rounded-xl);
 }
 .floating[data-dragging="true"] {
   cursor: grabbing;
@@ -33,8 +34,7 @@
 .floating[data-timer-attention="quiet"] {
   border-color: rgb(147 197 253 / 60%);
   box-shadow:
-    0 4px 16px #0000000d,
-    0 1px 3px #00000012,
+    var(--elevation-tool),
     0 0 0 4px rgb(59 130 246 / 4%);
 }
 .floating::before,
@@ -114,18 +114,18 @@
   border: 0;
   background: transparent;
   color: var(--foreground);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
 .actions button:first-child {
-  border-top-left-radius: 999px;
-  border-bottom-left-radius: 999px;
+  border-top-left-radius: var(--ib-rounded-xl);
+  border-bottom-left-radius: var(--ib-rounded-xl);
 }
 .actions button:last-child {
-  border-top-right-radius: 999px;
-  border-bottom-right-radius: 999px;
+  border-top-right-radius: var(--ib-rounded-xl);
+  border-bottom-right-radius: var(--ib-rounded-xl);
 }
 .actions button + button {
   border-left: 1px solid var(--border);
@@ -157,7 +157,7 @@
   .actions button {
     gap: 4px;
     padding: 0 6px;
-    font-size: 13px;
+    font-size: 12px;
   }
   .circle:disabled {
     cursor: default;

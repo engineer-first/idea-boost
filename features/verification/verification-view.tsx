@@ -43,7 +43,7 @@ export function VerificationView({
     <main className="min-h-0 flex-1 overflow-y-auto bg-muted/20">
       <div className="mx-auto max-w-5xl space-y-7 px-6 py-8">
         <header className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">
+          <p className="text-base font-medium text-muted-foreground">
             Idea Boost / 開発用
           </p>
           <h1 className="text-3xl font-bold">検証する状態を選ぶ</h1>
@@ -53,7 +53,7 @@ export function VerificationView({
         </header>
         <section
           aria-label="現在の検証"
-          className="space-y-3 rounded-xl border bg-background p-5"
+          className="space-y-3 rounded-lg border bg-background p-5"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p role="status" className="font-semibold">
@@ -73,11 +73,11 @@ export function VerificationView({
               </a>
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             ボードに検証用の操作UIは表示しません。作り直す前のルームは残ります。
           </p>
           {active && (
-            <div className="flex flex-wrap gap-4 text-sm">
+            <div className="flex flex-wrap gap-4 text-base">
               <a
                 className="underline"
                 href={`/rooms/${active.roomId}`}
@@ -94,7 +94,7 @@ export function VerificationView({
               <Button variant="outline" disabled={pending} onClick={onVote}>
                 他2人の投票を完了する
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-base text-muted-foreground">
                 他参加者 {status.completedOtherVoters}/2人完了
               </span>
             </div>
@@ -102,7 +102,7 @@ export function VerificationView({
           {error && (
             <div
               role="alert"
-              className="flex flex-wrap items-center gap-3 text-sm text-destructive"
+              className="flex flex-wrap items-center gap-3 text-base text-destructive"
             >
               {error}
               <Button variant="outline" disabled={pending} onClick={onRetry}>
@@ -114,13 +114,13 @@ export function VerificationView({
         {isOwner && (
           <section
             aria-label="共有成果の検証"
-            className="space-y-4 rounded-xl border bg-background p-5"
+            className="space-y-4 rounded-lg border bg-background p-5"
           >
             <h2 className="text-lg font-semibold">共有成果の保存と閲覧</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               各ケースは新しいルームを作ります。非共有メモは成果に含まれません。完了後にボードを編集しても確定した記録は変わりません。
             </p>
-            <label className="block space-y-2 text-sm">
+            <label className="block space-y-2 text-base">
               <span>成果検証のルーム名（任意）</span>
               <input
                 className="block w-full rounded-md border bg-background px-3 py-2"
@@ -149,7 +149,7 @@ export function VerificationView({
                 現在のルームの保存障害を解除
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               障害を解除するとサーバーの再試行が再開します。期限切れは実際の30日判定を通り、一覧から消えます。
             </p>
             <Button asChild>
@@ -179,9 +179,9 @@ export function VerificationView({
                     type="button"
                     disabled={pending}
                     onClick={() => onCreate(item.id)}
-                    className="w-full cursor-pointer rounded-xl border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-50"
+                    className="w-full cursor-pointer rounded-lg border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-50"
                   >
-                    <span className="block text-sm font-semibold">
+                    <span className="block text-base font-semibold">
                       {item.label}
                     </span>
                     <span className="mt-2 block text-xs leading-relaxed text-muted-foreground">
@@ -206,7 +206,7 @@ export function VerificationView({
             開始待ちを準備する
           </Button>
         )}
-        <section className="space-y-2 border-t pt-5 text-sm text-muted-foreground">
+        <section className="space-y-2 border-t pt-5 text-base text-muted-foreground">
           <h2 className="font-medium text-foreground">
             別ブラウザでも同じ検証に参加
           </h2>

@@ -9,7 +9,7 @@ import {
 function setup(overrides: Partial<PhaseLoopControlsProps> = {}) {
   const props = {
     phase: buildPhaseStep(5),
-    isHost: true,
+
     isSelecting: false,
     decisionContent: null,
     candidateCount: 2,
@@ -47,7 +47,7 @@ describe("PhaseLoopControls", () => {
     ).toBeDisabled();
   });
   it("参加者へ操作を出さず、候補0件の待機を案内する", () => {
-    setup({ isHost: false, candidateCount: 0 });
+    setup({ candidateCount: 0 });
     expect(
       screen
         .getAllByRole("button")

@@ -250,6 +250,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
       return true;
     case "reaction:send":
     case "cursor:update":
+    case "view:update":
+    case "presenter-follow:update":
     case "note:share:status":
     case "note:move:status":
     case "note:move:cancel":
@@ -495,9 +497,7 @@ export function getBoardMutationForbiddenMessage(
   return `${getRoomPhaseLabel(phase)}ではこの操作を行えません。`;
 }
 
-// フェーズ進行の認可は room_owner（isHostUser）に一本化している。
-// D1 由来の hostId ヘッダーを認可ソースに加えない（旧ルームのバックフィル
-// シードにすぎない。room-do.ts の HOST_ID_HEADER 参照）。
+// フェーズ進行は在籍者が行える。
 export const phaseHandlers: MessageHandlers<
   | "start_phase"
   | "phase:next"

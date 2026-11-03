@@ -26,7 +26,7 @@ export function CompletedRoomsUnavailableView({
         <Button asChild className="mt-6 min-h-11">
           <Link href={loginHref}>{COMPLETED_ROOMS_CHOICE_LABEL}</Link>
         </Button>
-        <p className="mt-6 text-sm text-muted-foreground">
+        <p className="mt-6 text-base text-muted-foreground">
           {COMPLETED_ROOMS_IDENTITY_CHOICE_MESSAGE}
         </p>
       </div>

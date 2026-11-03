@@ -1,41 +1,50 @@
-<!-- 読者: Preview基盤をレビューする開発者。説明なしで使ってよい語: 一般語、Issue、Cloudflare、セッション、PR、Preview、App、API、D1、RoomDO、namespace、Worker、Workers Preview、Google、Access、Secret、SQL、migration、CI、runner、build、bundle、artifact、develop、マージ、JWT、Cookie、export、Service Binding、fallback、URL、署名、鍵。 -->
+---
+id: "0012"
+status: Proposed
+date: "2026-10-11"
+---
 
-# 0012: PR Previewの画面・API・保存先をPRごとに分ける
+# ADR 0012: PR Previewの画面・API・保存先をPRごとに分ける
 
-- 状態: 採用
-- 決定日: 2026-10-11
-- 記録日: 2026-10-11
-- 対象: [Issue #362](https://github.com/engineer-first/idea-boost/issues/362)
-- 前の案: [0011](0011-pr-preview-identity.md)
+## Context
 
-## 背景
+初版のPreviewで画面はPR版、APIはdevelop版だったため、戻り先の情報が届かず「直前のステップに戻る」を確認できなかった。画面だけの公開ではAPIと保存処理を変えるPRをマージ前に検証できなかった。
 
-PR #587の画面は公開できましたが、APIがdevelop版のため、戻り先の情報が届かず「直前のステップに戻る」が表示されませんでした。初版では、APIを変更するPRの動作を確認できず、利用者が期待する動作確認を行えません。2026-10-11、利用者は画面・API・ルームの保存処理を含むPR全体をマージ前に確認する方針へ変更しました。
+## Decision
 
-## 決定
+PR版の画面とAPIを一緒に公開し、D1とRoomDOの保存先および認証をPRごとに分離する。PR同士と本番のデータを共有しない。本人のGoogleログインとルームの認可は維持する。PRコードのビルドと秘密情報を扱う公開処理を分ける。変更全体を試し、別PRや本番へ影響させずに確認するためである。
 
-PRのAppとAPIを同じWorkers Previewへまとめます。App内からAPIを呼ぶ場合も、同じプログラム内のAPI処理へ接続します。CloudflareのService Bindingは別Workerの対応するPreviewへ接続できないため、PRごとの別API Previewへの接続には使いません。
+### 本ADRで決定しないこと
 
-D1はPRごとに用意し、PRのmigrationをそのD1だけに適用します。同じWorkerからexportしたPreview用のRoomDOを使い、CloudflareがPreviewごとに分けるnamespaceへ接続します。異なるPRと本番の保存先を共有しません。
+関数・通信形式・保存の具体手順と移行方法は、PR Preview運用へ委譲する。参照先はReferencesに示す。
 
-CIの元の鍵・PR番号・D1の識別値を使い、PR専用のセッション鍵を作ります。Workerへ元の鍵を渡さず、他PRのセッションを再利用できなくします。PRを開き直してD1を作り直した場合も鍵を変えます。接続確認の鍵もPRごとに作ります。本人のGoogleアカウントでのログイン、許可一覧、Accessの保護対象は、0011の方式を引き継ぎます。
+## Consequences
 
-PRコードのbuildとWorker bundle生成はSecretのないCIで実行します。公開runnerは固定した構成、検査済みbundle、PRのSQL migrationだけを使い、PRのプログラム・実行命令・設定を実行しません。通常URLは最新の公開版へ更新され、固定URLは特定の公開版を開きます。通常URLと固定URLの両方で、APIの版がPRの版と一致し、接続確認が成功した場合だけ「疎通確認済み」と表示します。
+良い影響は、APIと保存を含む変更をPR単位で確認できること。悪い影響は、PRごとに保存先・鍵・削除対象を管理する費用が増えること。中立の影響として、PreviewデータはPR終了で消え、公開版の固定URLも過去の保存状態を固定しない。分離の運用費用が検証価値を上回るか、Preview固有の制約で必要な動作を試せなくなった場合に見直す。
 
-## 代償と移行
+2026-11-03に実コード・一次資料を照合。根拠未確認：実装または提案記録は確認できるが、オーナーがこの技術方針・比較理由まで採用した元発言は確認できない。実装済みであることだけではAcceptedにしない。
 
-PRごとのD1作成・migration・削除が必要になります。PR終了時はそのPreviewとPR専用D1を削除し、RoomDOの保存先もCloudflareのPreview終了に伴って削除されます。保存したデータが翌日も残ることは保証しません。PR終了後は、保存したデータを保持しません。再公開は同じPRの保存先を再利用しますが、固定URLも保存データやmigration前の状態まで固定するものではありません。
+## Alternatives Considered
 
-旧共通API・D1・RoomDOは既存の検証用ルームのために保持します。新方式へ移った通常URLでは、ステップ選択から新しいルームを作ります。Appだけを含む旧形式のartifactは公開前に拒否し、共通APIへのfallbackを行いません。公開基盤をマージした後、対象PRに最新developを取り込み、新しいCI artifactを作ってから公開します。
+画面だけPR版にする共通API案では今回の不具合を確認できなかった。PRごとの別API Workerへ接続する案には当時のPreview接続の制約があり、同じ公開単位へまとめる方式を実装した。
 
-手元のパソコンでのテストが成功しても、Cloudflareへの公開や実際のGoogleアカウントでのログインを確認したことにはなりません。Cloudflare Previewで動かない定期実行などの機能は、別途実行環境で確認します。
+## Related ADRs
 
-根拠: [CloudflareのPreview保存先・分離・Service Bindingの制約](https://developers.cloudflare.com/workers/previews/resources/)。
+- [ADR 0011](0011-pr-preview-identity.md)：関連する判断。
+- [ADR 0013](0013-pr-preview-migration-reset.md)：関連する判断。
 
-## 実公開での確認
+## References
 
-利用者の承認に従ってPR #591をdevelopへマージし、PR #587へ取り込みました。PR #587のApp/APIはb75edf4dで公開され、通常URLと固定URLの接続確認が成功しました。本人のGoogleアカウントで前進・戻る・再読み込み後の保存を確認しました。別のGoogleアカウントとの共同操作と、PRを開き直して保存先を作り直す際の動作は未確認です。[画像付き確認記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027)、[公開処理](https://github.com/engineer-first/idea-boost/actions/runs/38124268809)を参照してください。
-
-PR #621もApp/API 9d3d1eb0で公開し、同じGoogleアカウントでPR #587と比較しました。戻るボタンは#587だけに表示され、#621で変更した呼び名は#621内の既存2ルームと新規ルームへ反映されました。PRごとに編集した付箋が残り、相手PRのルームを開くと両方向とも404になりました。通常URL・固定版URLで#621の呼び名と編集した付箋を再読み込み後も確認しました。[画像付き比較記録](https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107797495)を参照してください。
-
-PR #622のマージ後は、対象PreviewとPR専用D1の削除が成功しました。[終了処理](https://github.com/engineer-first/idea-boost/actions/runs/38128051763)を参照してください。
+- dateは旧記録の提案日または記録日を引き継いだもの。オーナーの決定日の裏付けは未確認。
+- [Issue #362](https://github.com/engineer-first/idea-boost/issues/362)
+- [CloudflareのPreview保存先・分離・Service Bindingの制約](https://developers.cloudflare.com/workers/previews/resources/)
+- [画像付き確認記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027)
+- [公開処理](https://github.com/engineer-first/idea-boost/actions/runs/38124268809)
+- [画像付き比較記録](https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107797495)
+- [終了処理](https://github.com/engineer-first/idea-boost/actions/runs/38128051763)
+- [変更全体のPreview PR #591](https://github.com/engineer-first/idea-boost/pull/591)
+- [同じ公開単位への接続](../../workers/preview-full-stack.ts)
+- [PRごとの保存先管理](../../scripts/preview-resources.mts)
+- [照合した実装・規約](../../workers/preview-full-stack.ts)（確認日：2026-11-03）。
+- セッション調査：2026-11-03にvaultのClaude/Codexとローカルの元セッションを検索したが、この判断の本人の採用発言は未確認。GitHub記録の投稿者名だけで本人の承認とは判定していない。
+- [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0012-pr-preview-full-stack.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

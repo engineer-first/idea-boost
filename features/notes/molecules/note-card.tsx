@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ListMinus, ListPlus } from "lucide-react";
+import { ListMinus, ListPlus } from "lucide-react";
 
 // 付箋1枚の表示用コンポーネント。データ層には一切依存せず、位置(x, y)や
 // 本文はすべてpropsで受け取り、変化はコールバックpropsで親へ通知するだけの
@@ -130,8 +130,8 @@ type CandidateTouchActionOwner = {
 
 const CANDIDATE_ACTION_WIDTH_PX = 80;
 const CANDIDATE_ACTION_HEIGHT_PX = 44;
-const CANDIDATE_MENU_WIDTH_PX = 144;
-const CANDIDATE_MENU_HEIGHT_PX = 48;
+const CANDIDATE_MENU_WIDTH_PX = 160;
+const CANDIDATE_MENU_HEIGHT_PX = 50;
 const VIEWPORT_EDGE_MARGIN_PX = 8;
 const ACTION_SHOW_DELAY_MS = 150;
 const ACTION_HIDE_DELAY_MS = 1_000;
@@ -935,7 +935,7 @@ export function NoteCard({
                 event.stopPropagation();
                 performCandidateAction();
               }}
-              className={`fixed z-40 flex items-center justify-center gap-1 rounded-l-md border border-red-200 bg-red-50 text-xs font-bold text-red-800 shadow-md transition-opacity [mask-image:radial-gradient(circle_at_right_center,transparent_0_6px,#000_7px)] ${
+              className={`fixed z-40 flex items-center justify-center gap-1 rounded-l-lg border border-red-200 bg-red-50 text-xs font-bold text-red-800 shadow-tool transition-opacity [mask-image:radial-gradient(circle_at_right_center,transparent_0_6px,#000_7px)] ${
                 isCandidateActionVisible
                   ? "pointer-events-auto opacity-100"
                   : "pointer-events-none opacity-0"
@@ -974,7 +974,7 @@ export function NoteCard({
               <div
                 role="menu"
                 aria-label="付箋の候補操作"
-                className="fixed z-[41] min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+                className="fixed z-[41] min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-tool"
                 style={{
                   left: candidateOverlayLayout.menu.left,
                   top: candidateOverlayLayout.menu.top,
@@ -997,7 +997,7 @@ export function NoteCard({
                     event.stopPropagation();
                     performCandidateAction();
                   }}
-                  className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
+                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-base font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
                 >
                   {note.excluded ? (
                     <ListPlus aria-hidden="true" className="size-4" />
@@ -1046,7 +1046,7 @@ export function NoteCard({
     >
       {candidateOverlay}
       {note.excluded ? (
-        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-sm bg-white/90 px-1 py-0.5 text-[10px] font-semibold text-slate-700">
+        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-full bg-white/90 px-1 py-0.5 text-xs font-semibold text-slate-700">
           候補外
         </span>
       ) : null}
@@ -1133,21 +1133,10 @@ export function NoteCard({
         }}
         placeholder="メモを入力..."
       />
-      {isDecided ? (
-        <span
-          role="status"
-          aria-label="取り組む課題に決定済み"
-          className="pointer-events-none absolute bottom-1 right-1 z-30 flex size-9 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-lg"
-        >
-          <Check aria-hidden="true" className="size-5" strokeWidth={3} />
-        </span>
-      ) : null}
       {vote.displayMode === "result" ? (
         <div
           data-testid="note-vote-results"
-          className={`pointer-events-none relative z-20 flex h-10 shrink-0 items-end gap-2 pb-2 pl-2 ${
-            isDecided ? "pr-12" : "pr-2"
-          }`}
+          className="pointer-events-none relative z-20 flex h-10 shrink-0 items-end gap-2 pb-2 pl-2 pr-2"
         >
           <DotVoteSticker
             kind="subjective"

@@ -1,3 +1,4 @@
+import { isRoomClosed } from "./completed-rooms";
 import { getSharingState } from "./sharing-state";
 
 // DO の alarm は一件だけなので、永続状態から最も早い期限を毎回選ぶ。
@@ -6,6 +7,11 @@ export async function syncRoomAlarm(
   sql: SqlStorage,
 ): Promise<void> {
   const deadlines: number[] = [];
+  const idle = sql
+    .exec("SELECT expires_at FROM room_idle_deadline WHERE id=1")
+    .toArray()[0];
+  if (!isRoomClosed(sql) && typeof idle?.expires_at === "number")
+    deadlines.push(idle.expires_at);
   const legacyDragLease = sql
     .exec("SELECT MIN(lease_until) AS deadline FROM legacy_note_drag_leases")
     .toArray()[0];

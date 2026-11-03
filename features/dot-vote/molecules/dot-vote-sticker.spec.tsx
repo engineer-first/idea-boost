@@ -21,7 +21,7 @@ describe("DotVoteSticker", () => {
       "dot-vote-sticker-image-objective",
     );
 
-    expect(image).toHaveClass("size-7", "rounded-lg", "border-2");
+    expect(image).toHaveClass("size-7", "rounded-md", "border-2");
     expect(
       within(image).getByTestId("dot-vote-sticker-icon-objective"),
     ).toBeInTheDocument();

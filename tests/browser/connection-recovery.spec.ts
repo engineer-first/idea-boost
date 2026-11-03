@@ -250,7 +250,7 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
       expect(await page.getByTestId("step-guide").count()).toBe(0);
       await page.getByRole("button", { name: "ルームメニューを開く" }).click();
       await page
-        .getByRole("button", { name: "ルームを解散", exact: true })
+        .getByRole("button", { name: "退出する", exact: true })
         .waitFor();
       expect(
         await page.getByRole("button", { name: "再接続を試す" }).count(),

@@ -1,11 +1,9 @@
 "use client";
 
-// 退出 / 解散フローの hook。ロビー（RoomLobby）とボード（RoomBoard）の両方で使う。
 // API 成功後は Server Action の redirect でホームへ戻る。失敗時は WS を維持して
 // 再操作できる状態に戻す（先に close すると失敗時に再接続不能になるため、
 // close は RoomDO に任せる）。
 import { useCallback, useRef, useState, useTransition } from "react";
-import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 import { notify } from "@/lib/notify";
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import { leaveRoom } from "./actions";
@@ -29,59 +27,44 @@ export type UseLeaveRoomResult = {
   // WS close(4001) が leave 完了前に届いても roomDisbanded を出さないよう、
   // setState のコミットを待たず同期で読める ref。useRoomConnection へ渡す。
   isLeavingRef: React.RefObject<boolean>;
-  leave: (outcomeAccess?: LeaveOutcomeAccess) => void;
+  leave: () => void;
 };
 
-export function useLeaveRoom(options: {
-  roomId: string;
-  isHost: boolean;
-  completed?: boolean;
-  hostRevision?: number;
-}): UseLeaveRoomResult {
-  const { roomId, isHost, completed = false, hostRevision } = options;
+export function useLeaveRoom(options: { roomId: string }): UseLeaveRoomResult {
+  const { roomId } = options;
   const [isLeaving, setIsLeaving] = useState(false);
   const [isLeavePending, startLeaveTransition] = useTransition();
   const isLeavingRef = useRef(false);
 
-  const leave = useCallback(
-    (outcomeAccess?: LeaveOutcomeAccess) => {
-      if (isLeavingRef.current || isLeavePending) return;
-      isLeavingRef.current = true;
-      setIsLeaving(true);
-      startLeaveTransition(async () => {
-        const formData = new FormData();
-        formData.append("roomId", roomId);
-        formData.append("intent", isHost && !completed ? "disband" : "self");
-        if (outcomeAccess && !(isHost && !completed))
-          formData.append("outcomeAccess", outcomeAccess);
-        if (hostRevision !== undefined)
-          formData.append("expectedHostRevision", String(hostRevision));
-        try {
-          await leaveRoom(formData);
-        } catch (error) {
-          if (isNextRedirectError(error)) {
-            clearLastRoom(roomId);
-            // 自分の操作成功をトーストで伝える（ホーム遷移後も Toaster は root にある）。
-            if (isHost && !completed) {
-              roomNotify.roomDisbandedBySelf();
-            } else {
-              roomNotify.roomLeft();
-            }
-            return;
-          }
-          // 5xx 等: WS は開いたまま、操作可能に戻す。
-          isLeavingRef.current = false;
-          setIsLeaving(false);
-          const message =
-            error instanceof Error
-              ? error.message
-              : "ルームからの退出に失敗しました。";
-          notify.error(message);
+  const leave = useCallback(() => {
+    if (isLeavingRef.current || isLeavePending) return;
+    isLeavingRef.current = true;
+    setIsLeaving(true);
+    startLeaveTransition(async () => {
+      const formData = new FormData();
+      formData.append("roomId", roomId);
+      formData.append("intent", "self");
+      formData.append("outcomeAccess", "retain");
+      try {
+        await leaveRoom(formData);
+      } catch (error) {
+        if (isNextRedirectError(error)) {
+          clearLastRoom(roomId);
+          // 自分の操作成功をトーストで伝える（ホーム遷移後も Toaster は root にある）。
+          roomNotify.roomLeft();
+          return;
         }
-      });
-    },
-    [isLeavePending, roomId, isHost, completed, hostRevision],
-  );
+        // 5xx 等: WS は開いたまま、操作可能に戻す。
+        isLeavingRef.current = false;
+        setIsLeaving(false);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "ルームからの退出に失敗しました。";
+        notify.error(message);
+      }
+    });
+  }, [isLeavePending, roomId]);
 
   return { isLeaving, isLeavingRef, leave };
 }

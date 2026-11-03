@@ -34,3 +34,30 @@ describe("lifecycleNotify", () => {
     expect(mocks.success).toHaveBeenCalledWith("ルームに参加しました");
   });
 });
+
+it("退出通知は到着後に元ルーム名で1回にまとめ、再送・StrictModeでも重複しない", () => {
+  mocks.success.mockReset();
+  lifecycleNotify.rememberDeparture("destination", "operation", [
+    "朝の相談",
+    "昼の相談",
+  ]);
+  expect(mocks.success).not.toHaveBeenCalled();
+  lifecycleNotify.arrived("other");
+  expect(mocks.success).not.toHaveBeenCalled();
+  lifecycleNotify.arrived("destination");
+  lifecycleNotify.arrived("destination");
+  lifecycleNotify.rememberDeparture("destination", "operation", [
+    "朝の相談",
+    "昼の相談",
+  ]);
+  lifecycleNotify.arrived("destination");
+  expect(mocks.success).toHaveBeenCalledExactlyOnceWith(
+    "朝の相談ほか1件から退出しました",
+  );
+});
+it("元ルームがなければ退出通知を出さない", () => {
+  mocks.success.mockReset();
+  lifecycleNotify.rememberDeparture("destination", "normal", []);
+  lifecycleNotify.arrived("destination");
+  expect(mocks.success).not.toHaveBeenCalled();
+});

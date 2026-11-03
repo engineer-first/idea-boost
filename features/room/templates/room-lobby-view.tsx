@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 import { isLobby, type RoomPhase } from "@/contracts/phase";
 // スタート画面（メンバー一覧 + 開始ボタン）のプレゼンテーション層。
 // ホーム画面と同じ shadcn ベースのレイアウト言語（背景・ヘッダー・Card 分割）。
@@ -24,7 +23,6 @@ import type { Member } from "../logic/room-reducer";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
-import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
@@ -34,9 +32,6 @@ import { RoomNameDialog } from "../molecules/room-name-dialog";
 export type RoomLobbyViewProps = {
   members: Member[];
   currentUserId: string;
-  isHost: boolean;
-  // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
-  hostUserId: string;
   phase: RoomPhase;
   loginReturnHref?: string;
   inviteCode: string;
@@ -49,11 +44,8 @@ export type RoomLobbyViewProps = {
   isStarting: boolean;
   onStart: () => void;
   // 退出。
-  onLeave: (outcomeAccess?: LeaveOutcomeAccess) => void;
+  onLeave: () => void;
   isLeaving: boolean;
-  onTransferHost?: (targetUserId: string) => void;
-  isTransferring?: boolean;
-  transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
   roomName?: RoomNameControls;
@@ -62,8 +54,6 @@ export type RoomLobbyViewProps = {
 export function RoomLobbyView({
   members,
   currentUserId,
-  isHost,
-  hostUserId,
   phase,
   loginReturnHref,
   inviteCode,
@@ -74,19 +64,16 @@ export function RoomLobbyView({
   onStart,
   onLeave,
   isLeaving,
-  onTransferHost,
-  isTransferring: transferringHost = false,
-  transferError = null,
   memberRemoval,
   displayName,
   roomName,
 }: RoomLobbyViewProps) {
-  const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
+  const isRemovingMember = memberRemoval?.pending ?? false;
   const isDisconnected = connectionStatus !== "open";
   const lobbyRef = useRef<HTMLDivElement>(null);
+  const leaveButtonRef = useRef<HTMLButtonElement>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [hostTargetId, setHostTargetId] = useState<string | null>(null);
-  const transferTriggerRef = useRef<HTMLElement | null>(null);
+  const memberTriggerRef = useRef<HTMLElement | null>(null);
 
   return (
     <div
@@ -97,7 +84,6 @@ export function RoomLobbyView({
       data-phase={
         isLobby(phase) ? "lobby" : `phase${phase.phase}-step${phase.step}`
       }
-      data-host={isHost ? "true" : undefined}
     >
       {/* ホームと同じ背景言語 */}
       <div
@@ -117,7 +103,7 @@ export function RoomLobbyView({
         <header className="space-y-3 text-center">
           <div className="flex flex-col items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              "メンバーが揃ったら開始"
+              メンバーが揃ったら開始
             </h1>
             {roomName ? (
               <div className="flex min-w-0 max-w-full items-start justify-center gap-1">
@@ -141,22 +127,22 @@ export function RoomLobbyView({
                 </Button>
               </div>
             ) : null}
-            <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
-              "招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。"
+            <p className="mx-auto max-w-md text-base leading-relaxed text-muted-foreground">
+              招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。
             </p>
           </div>
-          <div className="min-h-5">
+          <div className="min-h-6">
             <RoomConnectionNotice
               returnHref={loginReturnHref}
               status={connectionStatus}
               delayed={connectionDelayed}
-              className="relative z-20 mx-auto w-fit rounded-lg bg-background px-3 text-sm text-muted-foreground"
+              className="relative z-20 mx-auto w-fit rounded-lg bg-background px-3 text-base text-muted-foreground"
             />
           </div>
         </header>
 
-        <p className="text-center text-sm text-muted-foreground">
-          途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了時に参加中の人と、成果を残して途中退出した人は、完了から30日間、成果と保存できた5つの場面を見返せます。
+        <p className="text-center text-base text-muted-foreground">
+          完了した成果は30日間、ホームから見返せます。
           <Link
             href="/privacy"
             target="_blank"
@@ -169,9 +155,9 @@ export function RoomLobbyView({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-stretch">
           {/* メンバー一覧カード */}
-          <Card className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md">
+          <Card className="flex h-full flex-col border-border/80 transition-shadow ">
             <CardHeader className="gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
                 <Users className="size-5" aria-hidden />
               </div>
               <div className="space-y-1.5">
@@ -186,70 +172,28 @@ export function RoomLobbyView({
                 onEditSelf={displayName?.request}
                 members={members}
                 currentUserId={currentUserId}
-                hostUserId={hostUserId}
                 selectionDisabled={
-                  isDisconnected || isStarting || isTransferring || isLeaving
+                  isDisconnected || isStarting || isRemovingMember || isLeaving
                 }
                 onSelectMember={
-                  isHost && isLobby(phase) && onTransferHost
+                  memberRemoval
                     ? (userId) => {
                         const source =
                           document.activeElement instanceof HTMLElement
                             ? document.activeElement
                             : null;
-                        transferTriggerRef.current = source?.closest(
+                        memberTriggerRef.current = source?.closest(
                           '[data-testid="room-members-overflow-dialog"]',
                         )
                           ? (lobbyRef.current?.querySelector<HTMLButtonElement>(
                               '[data-testid="room-members-overflow"]',
                             ) ?? null)
                           : source;
-                        setHostTargetId(userId);
+                        memberRemoval.request(userId);
                       }
                     : undefined
                 }
               />
-              {isHost &&
-              isLobby(phase) &&
-              onTransferHost &&
-              hostTargetId !== null ? (
-                <HostTransferDialog
-                  open
-                  onOpenChange={(open) => {
-                    if (!open) setHostTargetId(null);
-                  }}
-                  target={
-                    members.find((member) => member.userId === hostTargetId) ??
-                    null
-                  }
-                  onRequestRemove={
-                    memberRemoval
-                      ? () => {
-                          memberRemoval.request(hostTargetId);
-                          setHostTargetId(null);
-                        }
-                      : undefined
-                  }
-                  onConfirm={onTransferHost}
-                  pending={isTransferring}
-                  disconnected={isDisconnected}
-                  error={transferError}
-                  onClosed={() => {
-                    if (transferTriggerRef.current?.isConnected)
-                      transferTriggerRef.current.focus();
-                    else {
-                      const fallback =
-                        lobbyRef.current?.querySelector<HTMLButtonElement>(
-                          '[data-testid="room-members-overflow"]',
-                        ) ??
-                        lobbyRef.current?.querySelector<HTMLButtonElement>(
-                          '[data-testid="room-members"] button',
-                        );
-                      (fallback ?? lobbyRef.current)?.focus();
-                    }
-                  }}
-                />
-              ) : null}
             </CardContent>
             <CardFooter className="justify-center border-t border-border/60 pt-4">
               <span
@@ -264,11 +208,11 @@ export function RoomLobbyView({
           {/* 招待カード */}
           {
             <Card
-              className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
+              className="flex h-full flex-col border-border/80 transition-shadow "
               data-testid="room-lobby-view-invite"
             >
               <CardHeader className="gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground ">
                   <Link2 className="size-5" aria-hidden />
                 </div>
                 <div className="space-y-1.5">
@@ -296,12 +240,12 @@ export function RoomLobbyView({
         </div>
 
         {/* メインアクション */}
-        <Card className="border-border/80 shadow-sm">
+        <Card className="border-border/80 ">
           <CardFooter className="flex flex-col gap-2 p-4 sm:p-6">
             <Button
               type="button"
               onClick={onStart}
-              disabled={isDisconnected || isStarting || isTransferring}
+              disabled={isDisconnected || isStarting || isRemovingMember}
               data-testid="start-phase-button"
               size="lg"
               className="w-full"
@@ -314,18 +258,13 @@ export function RoomLobbyView({
               variant="outline"
               onClick={() => setLeaveDialogOpen(true)}
               disabled={isLeaving}
+              ref={leaveButtonRef}
               data-testid="leave-button"
               size="lg"
               className="w-full"
             >
               <DoorOpen className="size-4" aria-hidden />
-              {isHost
-                ? isLeaving
-                  ? "解散中…"
-                  : "ルームを解散"
-                : isLeaving
-                  ? "退出中…"
-                  : "退出する"}
+              {isLeaving ? "退出中…" : "退出する"}
             </Button>
           </CardFooter>
         </Card>
@@ -337,19 +276,19 @@ export function RoomLobbyView({
         <MemberRemoveDialog
           {...memberRemoval}
           onClosed={() => {
-            if (transferTriggerRef.current?.isConnected)
-              transferTriggerRef.current.focus();
+            if (memberTriggerRef.current?.isConnected)
+              memberTriggerRef.current.focus();
             else lobbyRef.current?.focus();
           }}
         />
       ) : null}
       <LeaveConfirmDialog
-        key={hostUserId}
-        open={leaveDialogOpen && !isTransferring}
+        open={leaveDialogOpen && !isRemovingMember}
         onOpenChange={setLeaveDialogOpen}
         onConfirm={onLeave}
         isLeaving={isLeaving}
-        mode={isHost ? "disband" : "leave"}
+        lastMember={members.length === 1}
+        onClosed={() => leaveButtonRef.current?.focus()}
       />
     </div>
   );
