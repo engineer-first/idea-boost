@@ -2,10 +2,11 @@
 
 import { Smile } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
@@ -29,12 +30,32 @@ export type SharingReactionControlsProps = {
   onSendReaction: (kind: SharingReactionKind) => void;
 };
 
+type ReactionToolbarAnchor = {
+  getBoundingClientRect: () => DOMRect;
+  readonly contextElement: Element | undefined;
+};
+
 export function SharingReactionControls({
   disabled,
   onSendReaction,
 }: SharingReactionControlsProps) {
   const [open, setOpen] = useState(false);
   const motion = useSharingReactionMotion(disabled);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const anchorRef = useRef<ReactionToolbarAnchor>({
+    getBoundingClientRect() {
+      const trigger = triggerRef.current;
+      const toolbar = trigger?.closest("[data-sharing-reaction-anchor]");
+      return (toolbar ?? trigger)?.getBoundingClientRect() ?? new DOMRect();
+    },
+    get contextElement() {
+      return (
+        triggerRef.current?.closest("[data-sharing-reaction-anchor]") ??
+        triggerRef.current ??
+        undefined
+      );
+    },
+  });
 
   return (
     <TooltipProvider delayDuration={1000}>
@@ -45,10 +66,12 @@ export function SharingReactionControls({
           if (!nextOpen || !disabled) setOpen(nextOpen);
         }}
       >
+        <PopoverAnchor virtualRef={anchorRef} />
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
               <Button
+                ref={triggerRef}
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -64,7 +87,7 @@ export function SharingReactionControls({
         </Tooltip>
         <PopoverContent
           side="top"
-          align="center"
+          align="end"
           aria-label="リアクションを選ぶ"
           className={`${styles.bar} flex w-max items-center justify-center border-border bg-background shadow-tool`}
         >

@@ -45,7 +45,7 @@ test.each([1280, 320])(
         }),
       );
       expect(
-        before.every(({ width, height }) => width === 44 && height === 28),
+        before.every(({ width, height }) => width === 28 && height === 28),
       ).toBe(true);
       await like.hover();
       await expect

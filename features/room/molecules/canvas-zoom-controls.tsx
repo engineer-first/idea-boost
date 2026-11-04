@@ -70,6 +70,7 @@ export function CanvasZoomControls({
       <fieldset
         className="board-hud pointer-events-auto relative flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-tool"
         data-testid="canvas-zoom-controls"
+        data-sharing-reaction-anchor=""
         aria-label={
           showNavigationControls ? "キャンバス表示操作" : "付箋の移動履歴"
         }

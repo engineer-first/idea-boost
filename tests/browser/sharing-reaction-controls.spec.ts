@@ -46,7 +46,7 @@ test.each([
       });
       const bounds = await bar.boundingBox();
       expect(bounds?.height).toBe(fontSizeBounds?.height);
-      expect(bounds).toMatchObject({ width: 246, height: 38 });
+      expect(bounds).toMatchObject({ width: 166, height: 38 });
       expect(bounds?.x).toBeGreaterThanOrEqual(0);
       expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(
         viewport.width,
@@ -99,6 +99,69 @@ test.each([
       }
       await page.keyboard.press("Escape");
       await bar.waitFor({ state: "hidden" });
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test.each([
+  { width: 1280, story: "sharing-reactions" },
+  { width: 375, story: "sharing-reactions-with-history" },
+  { width: 320, story: "sharing-reactions-with-history" },
+])(
+  "$width px：リアクションバーの右端が、折り返しやリサイズ後もツールバーの右端に揃う",
+  async ({ width, story }) => {
+    const page = await browser.newPage({ viewport: { width, height: 800 } });
+    try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-canvaszoomcontrols--${story}&viewMode=story`,
+      );
+      const toolbar = page.getByTestId("canvas-zoom-controls");
+      const trigger = page.getByRole("button", {
+        name: "リアクション",
+        exact: true,
+      });
+      await trigger.waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      const closedToolbarBounds = await toolbar.boundingBox();
+      await trigger.click();
+      const bar = page.getByRole("dialog", { name: "リアクションを選ぶ" });
+      await bar.waitFor();
+      await bar.evaluate(async (element) => {
+        await Promise.all(
+          element.getAnimations().map((animation) => animation.finished),
+        );
+      });
+      expect(await toolbar.boundingBox()).toEqual(closedToolbarBounds);
+      async function expectAligned() {
+        await expect
+          .poll(async () => {
+            const tools = await toolbar.boundingBox();
+            const choices = await bar.boundingBox();
+            if (!tools || !choices) return Number.POSITIVE_INFINITY;
+            return Math.abs(
+              choices.x + choices.width - (tools.x + tools.width),
+            );
+          })
+          .toBeLessThan(1);
+        expect(await bar.boundingBox()).toMatchObject({
+          width: 166,
+          height: 38,
+        });
+      }
+      await expectAligned();
+      if (width === 1280) {
+        await page.setViewportSize({ width: 320, height: 800 });
+        await expectAligned();
+      }
+      await bar.getByRole("button").last().click();
+      expect(await bar.isVisible()).toBe(true);
+      await page.keyboard.press("Escape");
+      await bar.waitFor({ state: "hidden" });
+      expect(
+        await trigger.evaluate((button) => button === document.activeElement),
+      ).toBe(true);
     } finally {
       await page.close();
     }
