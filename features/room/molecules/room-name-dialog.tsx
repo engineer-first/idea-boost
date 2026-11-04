@@ -85,11 +85,11 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
               </p>
             ) : null}
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-3">
             <Button
               type="button"
-              variant="outline"
-              className="min-h-11"
+              variant="secondary"
+              className="h-12"
               disabled={controls.pending}
               onClick={() => controls.onOpenChange(false)}
             >
@@ -97,7 +97,7 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
             </Button>
             <Button
               type="submit"
-              className="min-h-11"
+              className="h-12 font-bold"
               disabled={controls.pending || controls.disabled}
             >
               {controls.pending ? "保存中…" : "保存する"}

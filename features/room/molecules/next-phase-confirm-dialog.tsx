@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { type CSSProperties, useRef, useState } from "react";
 // 未完了メンバーがいる場合など、確認が必要な進行操作で表示する。
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -15,20 +14,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  isResultStep,
-  isVotingStep,
-  type RoomPhase,
-  VOTING_STEP_BY_PHASE,
-} from "@/contracts/phase";
 import { MemberAvatar } from "@/features/room-members";
-import { getPhaseLabel } from "../logic/phase-labels";
 import type { Member } from "../logic/room-reducer";
 import styles from "./next-phase-confirm-dialog.module.css";
 
+// 押せない間に、何を待てば進めるかをボタンの文言と面で示す。
+export type NextPhaseWaiting =
+  | { kind: "members"; remaining: number; total: number }
+  | { kind: "connection" };
+
 export type NextPhaseConfirmDialogProps = {
-  phase: RoomPhase;
   disabled: boolean;
+  waiting?: NextPhaseWaiting;
   onConfirm: () => void;
   onRequestAdvance?: (proceed: () => void) => void;
   requireConfirmation?: boolean;
@@ -36,9 +33,16 @@ export type NextPhaseConfirmDialogProps = {
   notReadyMembers?: ReadonlyArray<Pick<Member, "userId" | "name" | "color">>;
 };
 
+function waitingLabel(waiting: NextPhaseWaiting | undefined) {
+  if (waiting?.kind === "connection") return "再接続中…";
+  if (waiting?.kind === "members" && waiting.remaining > 0)
+    return `あと${waiting.remaining}人で次へ`;
+  return null;
+}
+
 export function NextPhaseConfirmDialog({
-  phase,
   disabled,
+  waiting,
   onConfirm,
   onRequestAdvance,
   requireConfirmation = true,
@@ -52,14 +56,20 @@ export function NextPhaseConfirmDialog({
     if (requireConfirmation) setOpen(true);
     else onConfirm();
   };
-  const beginsVoting =
-    phase.kind === "step" &&
-    phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1;
+  const pendingLabel = disabled ? waitingLabel(waiting) : null;
+  const readyRatio =
+    disabled && waiting?.kind === "members" && waiting.total > 0
+      ? (waiting.total - waiting.remaining) / waiting.total
+      : 0;
   const trigger = (
     <Button
       type="button"
-      variant={disabled ? "ghost" : "default"}
-      className={`text-sm h-10 px-4 max-[900px]:px-2 max-[900px]:text-sm ${disabled ? styles.pending : styles.ready}`}
+      className={`text-sm h-10 px-4 max-[900px]:px-2 max-[900px]:text-sm ${disabled ? styles.pending : styles.ready} ${disabled && waiting?.kind === "connection" ? styles.reconnecting : ""}`}
+      style={
+        disabled
+          ? ({ "--ready-ratio": readyRatio } as CSSProperties)
+          : undefined
+      }
       disabled={disabled}
       onClick={(event) => {
         if (onRequestAdvance) {
@@ -71,7 +81,13 @@ export function NextPhaseConfirmDialog({
         }
       }}
     >
-      次のステップへ
+      {/* 待ちの文言は「次のステップへ」の幅に収め、隣の操作の位置を動かさない。 */}
+      <span className={styles.label}>
+        <span>{pendingLabel ?? "次のステップへ"}</span>
+        <span aria-hidden="true" className={styles.reserve}>
+          次のステップへ
+        </span>
+      </span>
     </Button>
   );
   // 全員完了後も構造を維持し、閉じたときにトリガーへフォーカスを戻す。
@@ -79,7 +95,7 @@ export function NextPhaseConfirmDialog({
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
 
-      <AlertDialogContent>
+      <AlertDialogContent aria-describedby={undefined}>
         <AlertDialogHeader>
           <AlertDialogTitle>
             {notReadyNames.length > 0
@@ -89,56 +105,37 @@ export function NextPhaseConfirmDialog({
                 : "次のステップへ進みますか？"}
           </AlertDialogTitle>
 
-          <AlertDialogDescription>
-            {notReadyNames.length > 0 ? (
-              <span className="block">
-                全員の完了を待たずに、次のステップへ進みますか？
-              </span>
-            ) : !requireConfirmation ? (
-              <span className="block">このまま「次へ進む」を押せます。</span>
-            ) : null}
-            {getPhaseLabel(phase)}から次のステップへ進みます。
-            {beginsVoting
-              ? "投票へ進むと、このフェーズの個人作業・共有を終了します。未共有の下書きは残りますが、次フェーズへ進むとき（最終フェーズは採用時）に破棄されます。共有し忘れた付箋があれば、キャンセルして個人作業・共有へ戻ってください。"
-              : isResultStep(phase)
-                ? "決定内容を引き継ぎ、このフェーズの未共有の下書きを破棄します。"
-                : isVotingStep(phase)
-                  ? "投票を終了し、今回の結果を全員に表示します。"
-                  : "本文のある共有付箋と下書きは残ります。"}
-            このフェーズの空白だけの共有付箋は削除します。
-            {phase.kind === "step" && phase.step === 1
-              ? " この個人作業ステップの空白だけのマイ付箋も削除します。"
-              : phase.kind === "step" && phase.step === 2
-                ? " この共有ステップの空白だけのマイ付箋も削除します。"
-                : null}
-            タイマーは停止します。
-          </AlertDialogDescription>
           {notReadyNames.length > 0 ? (
             <TooltipProvider>
               <fieldset
                 aria-label="未完了のメンバー"
-                className="mt-3 flex flex-wrap gap-2"
+                className="mt-3 w-full rounded-lg border-0 bg-warning-soft px-3 py-3"
               >
-                {(notReadyMembers.length > 0
-                  ? notReadyMembers
-                  : notReadyNames.map((name, index) => ({
-                      userId: `not-ready-${index}`,
-                      name,
-                      color: "stone" as const,
-                    }))
-                ).map((member) => (
-                  <div
-                    key={member.userId}
-                    className="flex items-center gap-2 rounded-lg border px-2 py-1"
-                  >
-                    <MemberAvatar
-                      name={member.name}
-                      color={member.color}
-                      size={28}
-                    />
-                    <span className="text-base">{member.name}</span>
-                  </div>
-                ))}
+                <p className="mb-2 text-sm font-bold text-warning">
+                  まだ完了していない {notReadyNames.length} 人
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(notReadyMembers.length > 0
+                    ? notReadyMembers
+                    : notReadyNames.map((name, index) => ({
+                        userId: `not-ready-${index}`,
+                        name,
+                        color: "stone" as const,
+                      }))
+                  ).map((member) => (
+                    <div
+                      key={member.userId}
+                      className="flex items-center gap-2 rounded-full bg-background py-1 pr-3 pl-1"
+                    >
+                      <MemberAvatar
+                        name={member.name}
+                        color={member.color}
+                        size={28}
+                      />
+                      <span className="text-sm font-medium">{member.name}</span>
+                    </div>
+                  ))}
+                </div>
               </fieldset>
             </TooltipProvider>
           ) : null}

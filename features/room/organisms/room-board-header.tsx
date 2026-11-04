@@ -954,7 +954,17 @@ export function RoomBoardHeader({
             ) : phase.kind === "step" && !activeSharing ? (
               <NextPhaseConfirmDialog
                 key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
-                phase={phase}
+                waiting={
+                  isDisconnected
+                    ? { kind: "connection" }
+                    : !canProceedByTimeOrReady
+                      ? {
+                          kind: "members",
+                          remaining: progress.notReadyUserIds.length,
+                          total: progress.connectedUserIds.length,
+                        }
+                      : undefined
+                }
                 disabled={
                   isDisconnected ||
                   isNextPhasePending ||

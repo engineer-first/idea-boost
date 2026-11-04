@@ -378,7 +378,11 @@ describe("RoomBoardHeader", () => {
       within(screen.getByTestId("board-control-hud")).getByRole("button", {
         name: "次のステップへ",
       });
-    expect(next()).toBeDisabled();
+    expect(
+      within(screen.getByTestId("board-control-hud")).getByRole("button", {
+        name: "あと1人で次へ",
+      }),
+    ).toBeDisabled();
     rerender(
       <RoomBoardHeader {...props} progress={allReadyProgress(members)} />,
     );
@@ -1192,7 +1196,6 @@ describe("RoomBoardHeader", () => {
     });
 
     it.each([
-      ["未接続", { isDisconnected: true }],
       ["ステップ移行 pending", { isNextPhasePending: true }],
       // 決定待ち・次ステップ未実装などのブロック判定は view 側の責務。
       ["ブロック中", { isNextPhaseBlocked: true }],
@@ -1201,6 +1204,35 @@ describe("RoomBoardHeader", () => {
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),
       ).toBeDisabled();
+    });
+
+    it("タイマー中に未完了メンバーがいる間は、あと何人で進めるかを出す", () => {
+      const members = buildMembers(3, ME);
+      setup({
+        members,
+        timer: {
+          status: "running",
+          durationMs: 300_000,
+          endsAt: Date.now() + 300_000,
+        },
+        progress: {
+          ...allReadyProgress(members),
+          readyUserIds: [members[0].userId],
+          notReadyUserIds: [members[1].userId, members[2].userId],
+          canAdvance: false,
+          allReady: false,
+        },
+      });
+
+      expect(
+        screen.getByRole("button", { name: "あと2人で次へ" }),
+      ).toBeDisabled();
+    });
+
+    it("未接続の間は、再接続中と出す", () => {
+      setup({ isDisconnected: true });
+
+      expect(screen.getByRole("button", { name: "再接続中…" })).toBeDisabled();
     });
 
     it("最終ステップではホストにも「次のステップへ」を表示しない", () => {
@@ -1710,7 +1742,7 @@ describe("全員のチェック", () => {
       const props = setupProps({ members, progress, onToggleReady: vi.fn() });
       const { rerender } = render(<RoomBoardHeader {...props} />);
       expect(
-        screen.getByRole("button", { name: "次のステップへ" }),
+        screen.getByRole("button", { name: "あと2人で次へ" }),
       ).toBeDisabled();
       fireEvent.click(screen.getByRole("button", { name: "できた！" }));
       act(() => vi.advanceTimersByTime(440));
@@ -1743,7 +1775,7 @@ it("投票不足時の次へから手動完了を送らない", () => {
     },
   });
   const next = screen.getByRole("button", {
-    name: "次のステップへ",
+    name: "あと5人で次へ",
   });
   expect(next).toBeDisabled();
   fireEvent.click(next);
