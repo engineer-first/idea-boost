@@ -102,7 +102,7 @@ export function CompletedRoomDetailView({
         additionalNavigation={
           <Link
             href="/completed-rooms"
-            className="inline-flex min-h-10 items-center rounded-lg px-3 text-base font-semibold underline-offset-4 hover:underline"
+            className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
           >
             以前のルーム一覧へ
           </Link>
@@ -110,7 +110,7 @@ export function CompletedRoomDetailView({
         recordInfo={
           <section
             aria-label="記録情報"
-            className="mt-8 border-t border-border pt-5"
+            className="mt-8 border-t border-border pt-4"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">記録情報</h2>
@@ -169,7 +169,7 @@ export function CompletedRoomDetailView({
           {expanded && (
             <div
               id="completed-history"
-              className="space-y-5 rounded-lg border p-4 sm:p-6"
+              className="space-y-4 rounded-lg border p-4 sm:p-6"
             >
               <p className="text-base leading-6 text-muted-foreground">
                 共有されていた付箋と配置を見返せます。配置から採用理由を示すものではありません。

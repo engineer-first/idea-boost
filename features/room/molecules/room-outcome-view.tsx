@@ -153,7 +153,7 @@ export function RoomOutcomeView({
 
         <div
           aria-label="成果の流れ"
-          className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm font-medium text-muted-foreground"
+          className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm font-medium text-muted-foreground"
         >
           <span>01 課題</span>
           <span aria-hidden="true">→</span>
@@ -207,7 +207,7 @@ export function RoomOutcomeView({
           })}
         </div>
         {canExport ? (
-          <section className="mt-10 border-t border-border pt-6">
+          <section className="mt-8 border-t border-border pt-4">
             <h2 className="text-lg font-bold">成果を保存する</h2>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -268,7 +268,7 @@ export function RoomOutcomeView({
         ) : null}
         {feedbackPrompt}
         {children}
-        <section className="mt-10 rounded-lg border border-border bg-card p-5 sm:p-6">
+        <section className="mt-8 rounded-lg border border-border bg-card p-4 sm:p-6">
           <h2 className="text-lg font-bold">次に試すこと</h2>
           <p className="mt-2 text-base leading-7">
             誰の、どんな場面を確かめたい？
@@ -277,20 +277,25 @@ export function RoomOutcomeView({
         </section>
         {recordInfo}
 
-        <div className="mt-8 flex flex-wrap items-center gap-4 pb-8">
+        <nav
+          aria-label="ページ移動"
+          className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 pb-8"
+        >
           {onBackToBoard && (
             <Button type="button" variant="outline" onClick={onBackToBoard}>
               ボードへ戻る
             </Button>
           )}
-          {additionalNavigation}
+
           <Link
             href="/home"
-            className="inline-flex min-h-10 items-center rounded-lg px-3 text-base font-semibold underline-offset-4 hover:underline"
+            className="inline-flex min-h-10 items-center rounded-lg px-2 text-base font-semibold text-primary underline underline-offset-4 hover:no-underline"
           >
             ホームへ戻る
           </Link>
-        </div>
+
+          {additionalNavigation}
+        </nav>
 
         {!authorized ? (
           <p className="text-xs leading-5 text-muted-foreground">
@@ -300,7 +305,7 @@ export function RoomOutcomeView({
         ) : null}
 
         {footer || onOpenFeedback ? (
-          <footer className="mt-5 border-t border-border pt-4 pb-8">
+          <footer className="mt-6 border-t border-border pt-4 pb-8">
             {footer}
 
             {onOpenFeedback ? (
