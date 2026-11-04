@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { RoomOutcome } from "../logic/outcome-text";
-import { formatOutcomeText } from "../logic/outcome-text";
 import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
 import { StickyNote } from "@/features/notes";
+import {
+  formatOutcomeText,
+  type RoomOutcome,
+} from "../logic/outcome-text";
 
 export type RoomOutcomeViewProps = {
   outcome: RoomOutcome | null;
@@ -152,6 +154,7 @@ export function RoomOutcomeView({
         <hr className="mt-6 border-border" />
 
         <div
+          role="group"
           aria-label="成果の流れ"
           className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm font-medium text-muted-foreground"
         >
