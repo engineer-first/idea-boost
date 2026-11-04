@@ -93,14 +93,14 @@ export function SharingReactionDisplay({
         <span
           key={reaction.id}
           data-reaction-id={reaction.id}
+          data-kind={reaction.kind}
+          data-positioned={positions[reaction.id] !== undefined}
           className={styles.reaction}
           role="img"
           aria-label={SHARING_REACTION_OPTIONS[reaction.kind].label}
           style={
             {
               "--reaction-position": positions[reaction.id] ?? 0.5,
-              "--reaction-drift":
-                (positions[reaction.id] ?? 0.5) > 0.5 ? -0.08 : 0.08,
               visibility:
                 positions[reaction.id] === undefined ? "hidden" : "visible",
               animationName:
