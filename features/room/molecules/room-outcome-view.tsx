@@ -184,6 +184,7 @@ export function RoomOutcomeView({
                 noteId={`outcome-${key}`}
                 color="yellow"
                 height={getNoteHeight(noteText, NOTE_DEFAULT_FONT_SIZE)}
+                decisionPresentation="reference"
                 className="relative w-[200px]"
               >
                 <div className="flex h-full flex-col p-2">

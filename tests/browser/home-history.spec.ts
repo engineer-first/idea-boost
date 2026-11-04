@@ -929,7 +929,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         await expectNoHorizontalOverflow(page);
         await capture(page, `home-history-${width}-actual-detail`);
         const backToList = page.getByRole("link", {
-          name: "以前のルームへ",
+          name: "以前のルーム一覧へ",
           exact: true,
         });
         expect(await backToList.getAttribute("href")).toBe("/completed-rooms");
