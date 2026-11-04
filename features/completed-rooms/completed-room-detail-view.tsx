@@ -107,6 +107,40 @@ export function CompletedRoomDetailView({
             以前のルーム一覧へ
           </Link>
         }
+        recordInfo={
+          <section
+            aria-label="記録情報"
+            className="mt-8 border-t border-border pt-5"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">記録情報</h2>
+              <span className="text-xs text-muted-foreground">日本時間</span>
+            </div>
+
+            <dl className="mt-3 grid grid-cols-2 gap-4">
+              <div className="min-w-0">
+                <dt className="text-xs text-muted-foreground">完了日時</dt>
+                <dd className="mt-1 text-sm font-medium tabular-nums">
+                  {formatCompactCompletedDate(room.completedAt)}
+                </dd>
+              </div>
+
+              <div className="min-w-0">
+                <dt className="text-xs text-muted-foreground">閲覧期限</dt>
+                <dd className="mt-1 text-sm font-medium tabular-nums">
+                  {formatCompactCompletedDate(room.expiresAt)}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full bg-muted px-2 py-1">
+                読み取り専用
+              </span>
+              <span>再表示：ホーム ＞ 過去の成果</span>
+            </div>
+          </section>
+        }
         onOpenFeedback={feedback ? () => feedback.open("app") : undefined}
         feedbackButtonRef={feedbackButtonRef}
         onExportSuccess={feedback?.schedulePrompt}
@@ -119,45 +153,7 @@ export function CompletedRoomDetailView({
             />
           ) : null
         }
-        footer={
-          <footer className="mt-8 border-t border-border pt-5">
-            <section aria-label="記録情報">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">記録情報</h2>
-                <span className="text-xs text-muted-foreground">日本時間</span>
-              </div>
-
-              <dl className="mt-3 grid grid-cols-2 gap-4">
-                <div className="min-w-0">
-                  <dt className="text-xs text-muted-foreground">完了日時</dt>
-                  <dd className="mt-1 text-sm font-medium tabular-nums">
-                    {formatCompactCompletedDate(room.completedAt)}
-                  </dd>
-                </div>
-
-                <div className="min-w-0">
-                  <dt className="text-xs text-muted-foreground">閲覧期限</dt>
-                  <dd className="mt-1 text-sm font-medium tabular-nums">
-                    {formatCompactCompletedDate(room.expiresAt)}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span className="rounded-full bg-muted px-2 py-1">
-                  読み取り専用
-                </span>
-                <span>再表示：ホーム ＞ 過去の成果</span>
-              </div>
-            </section>
-
-            {accountLink ? (
-              <div className="mt-5 border-t border-border pt-5">
-                {accountLink}
-              </div>
-            ) : null}
-          </footer>
-        }
+        footer={accountLink}
       >
         <section className="mt-8 space-y-4" aria-label="完了ルームの記録">
           <Button

@@ -35,6 +35,7 @@ export default async function CompletedRoomPage({
       roomId={id}
       accountLink={
         <AccountLinkSection
+          layout="inline"
           status={user.kind === "guest" ? "guest" : "linked"}
           next={`/completed-rooms/${id}`}
           result={parseAccountLinkResult(query[ACCOUNT_LINK_RESULT_PARAM])}

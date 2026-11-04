@@ -9,26 +9,32 @@ export type AccountLinkSectionProps = {
   status: "guest" | "linked";
   next: string;
   result?: AccountLinkResult;
+  layout?: "section" | "inline";
 };
 
 export function AccountLinkSection({
   status,
   next,
   result,
+  layout = "section",
 }: AccountLinkSectionProps) {
   const resultRef = useRef<HTMLParagraphElement>(null);
   const focusedResult = useRef(false);
+
   useEffect(() => {
     if (!result || focusedResult.current) return;
     focusedResult.current = true;
     resultRef.current?.focus();
   }, [result]);
+
   const [, action, pending] = useActionState(async () => {
     await startGoogleAccountLink(next);
   }, undefined);
+
   return (
     <AccountLinkSectionView
       status={status}
+      layout={layout}
       result={result}
       resultRef={resultRef}
       pending={pending}

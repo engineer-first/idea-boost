@@ -14,6 +14,7 @@ export type RoomOutcomeViewProps = {
   authorized?: boolean;
   children?: ReactNode;
   additionalNavigation?: ReactNode;
+  recordInfo?: ReactNode;
   footer?: ReactNode;
   onBackToBoard?: () => void;
   onOpenFeedback?: () => void;
@@ -35,6 +36,7 @@ export function RoomOutcomeView({
   authorized,
   children,
   additionalNavigation,
+  recordInfo,
   onBackToBoard,
   onOpenFeedback,
   feedbackButtonRef,
@@ -273,6 +275,8 @@ export function RoomOutcomeView({
             簡単な画面を描き、その人に見せて確かめてみよう。
           </p>
         </section>
+        {recordInfo}
+
         <div className="mt-8 flex flex-wrap items-center gap-4 pb-8">
           {onBackToBoard && (
             <Button type="button" variant="outline" onClick={onBackToBoard}>
@@ -287,6 +291,7 @@ export function RoomOutcomeView({
             ホームへ戻る
           </Link>
         </div>
+
         {!authorized ? (
           <p className="text-xs leading-5 text-muted-foreground">
             完了したルームは、ホームの「過去の成果を見る」から見返せます。
@@ -294,20 +299,24 @@ export function RoomOutcomeView({
           </p>
         ) : null}
 
-        {footer}
+        {footer || onOpenFeedback ? (
+          <footer className="mt-5 border-t border-border pt-4 pb-8">
+            {footer}
 
-        {onOpenFeedback ? (
-          <div className="mt-5 border-t border-border pt-4 pb-8">
-            <Button
-              ref={feedbackButtonRef}
-              type="button"
-              variant="link"
-              className="h-auto px-0 text-sm text-muted-foreground"
-              onClick={onOpenFeedback}
-            >
-              フィードバック
-            </Button>
-          </div>
+            {onOpenFeedback ? (
+              <div className={footer ? "mt-3" : ""}>
+                <Button
+                  ref={feedbackButtonRef}
+                  type="button"
+                  variant="link"
+                  className="h-auto px-0 text-sm text-muted-foreground"
+                  onClick={onOpenFeedback}
+                >
+                  フィードバック
+                </Button>
+              </div>
+            ) : null}
+          </footer>
         ) : null}
       </div>
     </main>
