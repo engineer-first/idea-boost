@@ -25,6 +25,7 @@ export const ROOM_MEMBERS_MAX_VISIBLE = ROOM_MEMBERS_COLS * ROOM_MEMBERS_ROWS;
 
 export type RoomMembersProps = {
   members: ProtocolMember[];
+  connectedUserIds?: readonly string[];
   currentUserId: string;
   // 先頭から何個まで Avatar + 名前で描画するか。超過分は +N バッジ。
   // 既定は ROOM_MEMBERS_MAX_VISIBLE（12 = 4×3）。
@@ -38,6 +39,7 @@ export type RoomMembersProps = {
 
 export function RoomMembers({
   members,
+  connectedUserIds,
   currentUserId,
   maxVisible = ROOM_MEMBERS_MAX_VISIBLE,
   onSelectMember,
@@ -87,6 +89,8 @@ export function RoomMembers({
               >
                 <MemberAvatar
                   name={member.name}
+                  avatarId={member.avatarId}
+                  isConnected={connectedUserIds?.includes(member.userId)}
                   color={member.color}
                   isMe={isMe}
                   isVotingComplete={completedVoterIds.includes(member.userId)}
@@ -173,6 +177,8 @@ export function RoomMembers({
                 >
                   <MemberAvatar
                     name={member.name}
+                    avatarId={member.avatarId}
+                    isConnected={connectedUserIds?.includes(member.userId)}
                     color={member.color}
                     isMe={member.userId === currentUserId}
                     isVotingComplete={completedVoterIds.includes(member.userId)}

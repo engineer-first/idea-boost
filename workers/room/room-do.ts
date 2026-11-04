@@ -10,6 +10,7 @@ import {
   type ParticipationSource,
 } from "../../contracts/room-participation";
 import { SessionExpiresAtSchema } from "../../contracts/session";
+import { memberAvatarHandlers } from "./member-avatar-handlers";
 import { applyAccountName, memberNameHandlers } from "./member-name";
 import { getRoomName, roomNameHandlers } from "./room-name";
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
@@ -155,6 +156,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...hostHandlers,
   ...memberRemovalHandlers,
   ...memberNameHandlers,
+  ...memberAvatarHandlers,
   ...roomNameHandlers,
   ...adoptionFocusHandlers,
   ...noteHandlers,
@@ -184,6 +186,7 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
     case "member:remove":
     case "room:rename":
     case "member:rename":
+    case "member:cycle-avatar":
     case "note:create":
     case "note:exclude":
     case "note:restore":
@@ -1002,6 +1005,7 @@ export class RoomDO extends DurableObject {
         "note_move_locks",
         "note_move_operations",
         "note_share_operations",
+        "member_avatar_assignments",
         "member_color_assignments",
         "member_display_names",
         "member_account_name_revisions",

@@ -1396,6 +1396,7 @@ describe("共有の進行欄", () => {
     render(
       <RoomBoardHeader
         {...setupProps({
+          members: sharing.order,
           phase: buildPhaseStep(2),
           timer: { status: "ended", durationMs: 180_000 },
         })}

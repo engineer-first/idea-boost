@@ -188,6 +188,7 @@ describe("snapshot（接続・再接続の復帰パス）", () => {
         userId: OWNER.sub,
         name: OWNER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     ]);
     expect(snapshot.phase).toEqual(LOBBY);
@@ -229,11 +230,13 @@ describe("snapshot（接続・再接続の復帰パス）", () => {
         userId: OWNER.sub,
         name: OWNER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
       {
         userId: MEMBER.sub,
         name: MEMBER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     ]);
     // 移動後の Step 1-2 が復元される。
@@ -366,6 +369,7 @@ describe("member_joined（Realtime 反映）", () => {
         userId: newcomer.sub,
         name: newcomer.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     });
     expect(toMember).toEqual({
@@ -374,6 +378,7 @@ describe("member_joined（Realtime 反映）", () => {
         userId: newcomer.sub,
         name: newcomer.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     });
 
@@ -406,16 +411,19 @@ describe("member_joined（Realtime 反映）", () => {
           userId: OWNER.sub,
           name: OWNER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
         {
           userId: MEMBER.sub,
           name: MEMBER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
         {
           userId: newcomer.sub,
           name: newcomer.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
       ]),
     );
@@ -483,6 +491,7 @@ describe("member_joined（Realtime 反映）", () => {
       userId: newcomer.sub,
       name: newcomer.name,
       color: expect.stringMatching(NOTE_COLOR_PATTERN),
+      avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
     });
 
     owner.close();
@@ -568,6 +577,7 @@ describe("member_left（退出の Realtime 反映）", () => {
       userId: MEMBER.sub,
       name: MEMBER.name,
       color: colorBeforeLeave,
+      avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
     });
     owner.close();
   });

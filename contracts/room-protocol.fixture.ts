@@ -1,3 +1,4 @@
+import { MEMBER_AVATAR_IDS } from "./member-avatar";
 // contracts 型（ProtocolNote / ProtocolMember）を組み立てる spec / stories 共有の
 // テストデータビルダー。スキーマと同じ場所に置くことで、複数の feature と
 // contracts 自身の spec が同じ既定値を共有し、レイヤー間の逆流 import
@@ -138,6 +139,7 @@ export function buildMembers(
       userId,
       name: MEMBER_NAMES[index] ?? `Member ${index + 1}`,
       color: MEMBER_COLORS[index % MEMBER_COLORS.length],
+      avatarId: MEMBER_AVATAR_IDS[index % MEMBER_AVATAR_IDS.length],
     };
   });
 }
