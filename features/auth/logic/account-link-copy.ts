@@ -1,6 +1,6 @@
 import {
-  type AccountLinkResult,
   AccountLinkResultSchema,
+  type AccountLinkResult,
 } from "@/contracts/account-link";
 
 const messages: Record<AccountLinkResult, string> = {
