@@ -216,15 +216,96 @@ async function expectReachable(page: Page, target: Locator): Promise<void> {
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
-  expect(
-    await page.evaluate(
-      () =>
-        document.documentElement.scrollWidth <= innerWidth &&
-        Array.from(
-          document.querySelectorAll("main, [data-testid=home-view]"),
-        ).every((element) => element.scrollWidth <= element.clientWidth),
-    ),
-  ).toBe(true);
+  const hasNoOverflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth <= innerWidth &&
+      Array.from(
+        document.querySelectorAll("main, [data-testid=home-view]"),
+      ).every((element) => element.scrollWidth <= element.clientWidth),
+  );
+  if (hasNoOverflow) return;
+
+  const diagnostic = await page.evaluate(() => {
+    function describe(element: Element) {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const path: string[] = [];
+      for (
+        let current: Element | null = element;
+        current && path.length < 6;
+        current = current.parentElement
+      ) {
+        const id = current.id ? `#${current.id}` : "";
+        const testId = current.getAttribute("data-testid");
+        const noteId = current.getAttribute("data-note-id");
+        const slot = current.getAttribute("data-slot");
+        path.unshift(
+          `${current.tagName.toLowerCase()}${id}${testId ? `[data-testid="${testId}"]` : ""}${noteId ? `[data-note-id="${noteId}"]` : ""}${slot ? `[data-slot="${slot}"]` : ""}`,
+        );
+        if (current.tagName === "MAIN") break;
+      }
+
+      return {
+        path: path.join(" > "),
+        tag: element.tagName.toLowerCase(),
+        id: element.id || null,
+        testId: element.getAttribute("data-testid"),
+        noteId: element.getAttribute("data-note-id"),
+        slot: element.getAttribute("data-slot"),
+        className: (element.getAttribute("class") ?? "").slice(0, 240),
+        left: Math.round(rect.left * 10) / 10,
+        right: Math.round(rect.right * 10) / 10,
+        width: Math.round(rect.width * 10) / 10,
+        clientWidth: (element as HTMLElement).clientWidth,
+        scrollWidth: (element as HTMLElement).scrollWidth,
+        minWidth: style.minWidth,
+        maxWidth: style.maxWidth,
+        overflowX: style.overflowX,
+        position: style.position,
+        flex: style.flex,
+      };
+    }
+
+    const roots = [
+      document.documentElement,
+      document.body,
+      ...document.querySelectorAll("main, [data-testid=home-view]"),
+    ].map(describe);
+    const overflowing = Array.from(document.querySelectorAll("body *"))
+      .map(describe)
+      .filter(
+        (element) =>
+          element.scrollWidth > element.clientWidth + 1 ||
+          element.left < -1 ||
+          element.right > innerWidth + 1,
+      )
+      .sort((a, b) => {
+        const overflowA = Math.max(
+          a.scrollWidth - a.clientWidth,
+          -a.left,
+          a.right - innerWidth,
+        );
+        const overflowB = Math.max(
+          b.scrollWidth - b.clientWidth,
+          -b.left,
+          b.right - innerWidth,
+        );
+        return overflowB - overflowA;
+      })
+      .slice(0, 40);
+
+    return {
+      viewportWidth: innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      roots,
+      overflowing,
+    };
+  });
+
+  console.error(
+    `[horizontal-overflow-diagnostic] ${JSON.stringify(diagnostic, null, 2)}`,
+  );
+  expect(hasNoOverflow).toBe(true);
 }
 
 // Storybook の Next router はモック。実際の URL 遷移は下の実 Next/Worker で検証する。
