@@ -1,12 +1,12 @@
 .bar {
   gap: 4px;
-  padding: 8px;
+  padding: 4px;
   border-radius: var(--radius-xl);
 }
 
 .choice {
   width: 44px;
-  height: 44px;
+  height: 28px;
   padding: 0;
   touch-action: manipulation;
   transform: none;
@@ -24,7 +24,6 @@
 
 .choice[aria-disabled="true"] {
   opacity: 0.5;
-  cursor: wait;
 }
 
 .image {

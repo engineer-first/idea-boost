@@ -125,7 +125,7 @@ describe("SharingReactionControls", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("送信後の待機中もバーとフォーカスを保ち、キーとクリックを拒否してから再送できる", async () => {
+  it("送信後の待機中は処理中と通知せず、バーとフォーカスを保ち、再操作を拒否してから再送できる", async () => {
     const user = userEvent.setup();
     const onSendReaction = vi.fn();
     const { rerender } = render(
@@ -145,6 +145,7 @@ describe("SharingReactionControls", () => {
     expect(like).toBeEnabled();
     expect(like).toHaveFocus();
     expect(like).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("dialog")).not.toHaveAttribute("aria-busy", "true");
     await user.keyboard("{Enter} ");
     fireEvent.click(like);
     expect(onSendReaction).toHaveBeenCalledTimes(1);

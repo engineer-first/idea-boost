@@ -66,7 +66,6 @@ export function SharingReactionControls({
           side="top"
           align="center"
           aria-label="リアクションを選ぶ"
-          aria-busy={disabled}
           className={`${styles.bar} flex w-max items-center justify-center border-border bg-background shadow-tool`}
         >
           {SHARING_REACTION_KINDS.map((kind) => {

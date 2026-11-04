@@ -20,6 +20,12 @@ test.each([
   async (viewport) => {
     const page = await browser.newPage({ viewport });
     try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-notefontsizecontrols--default&viewMode=story`,
+      );
+      const fontSizeControls = page.getByTestId("note-font-size-controls");
+      await fontSizeControls.waitFor();
+      const fontSizeBounds = await fontSizeControls.boundingBox();
       await page.clock.install({ time: 0 });
       await page.clock.pauseAt(1000);
       await page.goto(
@@ -39,7 +45,8 @@ test.each([
         );
       });
       const bounds = await bar.boundingBox();
-      expect(bounds).toMatchObject({ width: 254, height: 62 });
+      expect(bounds?.height).toBe(fontSizeBounds?.height);
+      expect(bounds).toMatchObject({ width: 246, height: 38 });
       expect(bounds?.x).toBeGreaterThanOrEqual(0);
       expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(
         viewport.width,
@@ -102,7 +109,7 @@ test.each([
   { width: 1280, height: 800 },
   { width: 375, height: 812 },
 ])(
-  "$width × $height : 送信待機中もフォーカスを保ち、400ms後と3件上限の解除後にキーで再送できる",
+  "$width × $height : 送信待機中も通常カーソルとフォーカスを保ち、400ms後と3件上限の解除後に再送できる",
   async (viewport) => {
     const page = await browser.newPage({ viewport });
     try {
@@ -129,8 +136,14 @@ test.each([
       const sentCount = page.getByRole("status", {
         name: "リアクションの送信回数",
       });
+      const readyCursor = await like.evaluate(
+        (button) => getComputedStyle(button).cursor,
+      );
       await page.keyboard.press("Space");
       expect(await sentCount.textContent()).toBe("1");
+      expect(
+        await like.evaluate((button) => getComputedStyle(button).cursor),
+      ).toBe(readyCursor);
       await page.keyboard.press("Enter");
       await page.mouse.click(
         bounds.x + bounds.width / 2,
