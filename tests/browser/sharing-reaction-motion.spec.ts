@@ -87,7 +87,9 @@ test.each([1280, 320])(
       expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(
         width,
       );
-      await like.click();
+      await page.mouse.down();
+      expect(await like.boundingBox()).toEqual(before[0]);
+      await page.mouse.up();
       await expect
         .poll(() =>
           like.locator("img").evaluate((image) => image.getAnimations().length),
@@ -199,6 +201,7 @@ test.each([
       await page.waitForTimeout(100);
       expect(await button.boundingBox()).toEqual(before);
       await page.emulateMedia({ reducedMotion: "reduce" });
+      expect(await button.boundingBox()).toEqual(before);
       expect(
         await button
           .locator("svg")

@@ -1,7 +1,11 @@
 .button {
   transform: none;
-  translate: none;
   transition-property: background-color, color, border-color;
+}
+
+/* 圧縮時にtransformへ統合されないよう、押下のtranslateは単独で打ち消す。 */
+.button:enabled:active {
+  translate: none;
 }
 
 .button > svg,
