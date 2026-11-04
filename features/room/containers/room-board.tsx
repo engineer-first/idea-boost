@@ -8,6 +8,7 @@
 // このファイルに残るのはフェーズ進行の操作と画面反応だけ。
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
+import { useRouter } from "next/navigation";
 import {
   startTransition,
   useCallback,
@@ -58,8 +59,6 @@ import {
   RoomSharingReactions,
   type SharingReactionMessageHandler,
 } from "./room-sharing-reactions";
-import { useRouter } from "next/navigation";
-
 const renderSharingReactionControls = (disabled: boolean) => (
   <RoomSharingReactionControls disabled={disabled} />
 );
