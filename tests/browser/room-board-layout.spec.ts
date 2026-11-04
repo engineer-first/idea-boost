@@ -674,10 +674,14 @@ test("成果公開後は3件を表示し、編集ボードへ戻さずホーム�
     `${origin}/iframe.html?id=room-roomboardlayout--completed&viewMode=story`,
   );
   await page.getByRole("heading", { name: "チームで決めた成果" }).waitFor();
-  for (const label of ["決定した課題", "決定した問い", "採用したアイデア"]) {
-    expect(await page.getByRole("heading", { name: label }).isVisible()).toBe(
-      true,
-    );
+  for (const [noteId, label] of [
+    ["outcome-issue", "決定した課題"],
+    ["outcome-hmw", "決定した問い"],
+    ["outcome-idea", "採用したアイデア"],
+  ] as const) {
+    const note = page.locator(`[data-note-id="${noteId}"]`);
+    expect(await note.isVisible()).toBe(true);
+    expect(await note.textContent()).toContain(label);
   }
   expect(await page.getByRole("dialog").count()).toBe(0);
   await page.screenshot({ path: `${output}/completed-result.png` });

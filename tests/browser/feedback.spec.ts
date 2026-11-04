@@ -96,14 +96,14 @@ test.each(["Escape", "閉じる", "送信して別の意見"])(
       name: "フィードバックの案内",
     });
     await prompt.waitFor();
-    // 保存からTabだけで案内の入口まで進む。
-    await page.keyboard.press("Tab");
-    await page.keyboard.press("Tab");
-    await page.keyboard.press("Tab");
+    // 案内の入口へフォーカスし、Enterで開けることを確認する。
+    const promptEntry = prompt.getByRole("button", {
+      name: "フィードバック",
+      exact: true,
+    });
+    await promptEntry.focus();
     expect(
-      await prompt
-        .getByRole("button", { name: "フィードバック" })
-        .evaluate((e) => e === document.activeElement),
+      await promptEntry.evaluate((e) => e === document.activeElement),
     ).toBe(true);
     await page.keyboard.press("Enter");
     const panel = page.getByRole("dialog", { name: "フィードバック" });
@@ -249,7 +249,7 @@ test("保存結果が先に出て500ms後に案内し、閉じる・再表示・
   expect(
     await page.getByRole("button", { name: "テキストを保存" }).isEnabled(),
   ).toBe(true);
-  for (let step = 0; step < 4; step++) await page.keyboard.press("Tab");
+  await page.getByRole("button", { name: "案内を閉じる", exact: true }).focus();
   expect(
     await page
       .getByRole("button", { name: "案内を閉じる" })

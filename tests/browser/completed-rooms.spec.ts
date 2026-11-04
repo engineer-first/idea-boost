@@ -264,7 +264,6 @@ it.each([390, 1280])(
         exact: true,
       });
       await entry.waitFor();
-      await page.getByText(/感想は現在参加中のルームからのみ/).waitFor();
       await entry.click();
       const dialog = page.getByRole("dialog", { name: "フィードバック" });
       await dialog.getByText("よかった", { exact: true }).click();

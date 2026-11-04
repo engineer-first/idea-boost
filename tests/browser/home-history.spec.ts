@@ -841,7 +841,9 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         await page
           .getByRole("heading", { name: "チームで決めた成果", exact: true })
           .waitFor();
-        await page.getByText(room.idea, { exact: true }).waitFor();
+        const ideaNote = page.locator('[data-note-id="outcome-idea"]');
+        await ideaNote.waitFor();
+        expect(await ideaNote.textContent()).toContain(room.idea);
         expect(context.pages()).toHaveLength(1);
         await expectNoHorizontalOverflow(page);
         await capture(page, `home-history-${width}-actual-detail`);
