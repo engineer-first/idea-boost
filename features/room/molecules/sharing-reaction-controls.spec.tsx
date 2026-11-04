@@ -1,5 +1,12 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { ClientMessage } from "@/contracts/room-protocol";
@@ -30,6 +37,39 @@ function ControlsWithSendLimit({
 afterEach(() => vi.useRealTimers());
 
 describe("SharingReactionControls", () => {
+  it("StrictModeの再マウント後もツールバーを位置計算の基準にする", async () => {
+    const measure = vi
+      .spyOn(Element.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: Element) {
+        return this.hasAttribute("data-sharing-reaction-anchor")
+          ? new DOMRect(40, 600, 380, 38)
+          : new DOMRect(300, 605, 28, 28);
+      });
+    try {
+      render(
+        <StrictMode>
+          <fieldset data-sharing-reaction-anchor="">
+            <SharingReactionControls
+              disabled={false}
+              onSendReaction={vi.fn()}
+            />
+          </fieldset>
+        </StrictMode>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
+      await waitFor(() => {
+        const bar = screen.getByRole("dialog", { name: "リアクションを選ぶ" });
+        expect(
+          bar.parentElement?.style.getPropertyValue(
+            "--radix-popper-anchor-width",
+          ),
+        ).toBe("380px");
+      });
+    } finally {
+      measure.mockRestore();
+    }
+  });
+
   it("5種類を固定順で選べ、選んだ種類を送信してバーを維持する", () => {
     const onSendReaction = vi.fn();
     render(

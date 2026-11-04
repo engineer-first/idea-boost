@@ -2,7 +2,7 @@
 
 import { Smile } from "lucide-react";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -32,7 +32,7 @@ export type SharingReactionControlsProps = {
 
 type ReactionToolbarAnchor = {
   getBoundingClientRect: () => DOMRect;
-  readonly contextElement: Element | undefined;
+  contextElement: HTMLElement;
 };
 
 export function SharingReactionControls({
@@ -41,21 +41,19 @@ export function SharingReactionControls({
 }: SharingReactionControlsProps) {
   const [open, setOpen] = useState(false);
   const motion = useSharingReactionMotion(disabled);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const anchorRef = useRef<ReactionToolbarAnchor>({
-    getBoundingClientRect() {
-      const trigger = triggerRef.current;
-      const toolbar = trigger?.closest("[data-sharing-reaction-anchor]");
-      return (toolbar ?? trigger)?.getBoundingClientRect() ?? new DOMRect();
-    },
-    get contextElement() {
-      return (
-        triggerRef.current?.closest("[data-sharing-reaction-anchor]") ??
-        triggerRef.current ??
-        undefined
-      );
-    },
-  });
+  const anchorRef = useRef<ReactionToolbarAnchor | null>(null);
+  const attachTrigger = useCallback((trigger: HTMLButtonElement | null) => {
+    const anchor =
+      trigger?.closest<HTMLElement>("[data-sharing-reaction-anchor]") ??
+      trigger;
+    // 再接続時もRadixへ基準を渡し直し、破棄されたrefの寸法を残さない。
+    anchorRef.current = anchor
+      ? {
+          getBoundingClientRect: () => anchor.getBoundingClientRect(),
+          contextElement: anchor,
+        }
+      : null;
+  }, []);
 
   return (
     <TooltipProvider delayDuration={1000}>
@@ -71,7 +69,7 @@ export function SharingReactionControls({
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
               <Button
-                ref={triggerRef}
+                ref={attachTrigger}
                 type="button"
                 variant="ghost"
                 size="icon-sm"
