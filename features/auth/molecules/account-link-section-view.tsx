@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import type { AccountLinkResult } from "@/contracts/account-link";
 import {
   accountLinkButtonLabel,
+  accountLinkedNotice,
   accountLinkGuestNotice,
   accountLinkPendingLabel,
-  accountLinkedNotice,
   getAccountLinkResultMessage,
 } from "../logic/account-link-copy";
 

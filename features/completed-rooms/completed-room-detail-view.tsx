@@ -19,6 +19,7 @@ import {
   SCENE_LABELS,
   SCENE_STATUS,
 } from "./completed-rooms-content";
+
 function formatCompactCompletedDate(value: number): string {
   return new Intl.DateTimeFormat("ja-JP", {
     year: "numeric",

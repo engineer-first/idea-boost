@@ -59,6 +59,7 @@ import {
   RoomSharingReactions,
   type SharingReactionMessageHandler,
 } from "./room-sharing-reactions";
+
 const renderSharingReactionControls = (disabled: boolean) => (
   <RoomSharingReactionControls disabled={disabled} />
 );
