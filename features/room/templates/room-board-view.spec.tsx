@@ -170,6 +170,11 @@ function setup(
   };
 
   if (!options.showOnboarding) {
+    for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
+      sessionStorage.setItem(
+        `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:${step}`,
+        "seen",
+      );
     sessionStorage.setItem(
       `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:1-1`,
       "seen",

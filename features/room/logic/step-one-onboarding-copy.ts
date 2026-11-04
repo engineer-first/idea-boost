@@ -12,6 +12,7 @@ export const STEP_ONE_ONBOARDING_SLIDES = [
       "「付箋を追加」を押して困ったことを入力します。話題が変わったら、別の付箋に書きましょう。",
     illustration: "operation-video",
     illustrationAlt: "付箋を追加して書き出す操作",
+    videoSrc: "/onboarding/step-1-1.webm",
   },
   {
     title: "タイマーの時間内にできるだけ多く書き出そう",
