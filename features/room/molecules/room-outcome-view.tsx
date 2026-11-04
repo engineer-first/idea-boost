@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { NOTE_COLOR_STYLES } from "@/features/room-members";
-import { getPaperShadow } from "@/lib/paper-shadow";
 import type { RoomOutcome } from "../logic/outcome-text";
 import { formatOutcomeText } from "../logic/outcome-text";
+import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
+import { StickyNote } from "@/features/notes";
 
 export type RoomOutcomeViewProps = {
   outcome: RoomOutcome | null;
   connected?: boolean;
   authorized?: boolean;
   children?: ReactNode;
+  additionalNavigation?: ReactNode;
+  footer?: ReactNode;
   onBackToBoard?: () => void;
   onOpenFeedback?: () => void;
   feedbackButtonRef?: Ref<HTMLButtonElement>;
@@ -32,9 +34,11 @@ export function RoomOutcomeView({
   connected = false,
   authorized,
   children,
+  additionalNavigation,
   onBackToBoard,
   onOpenFeedback,
   feedbackButtonRef,
+  footer,
   onExportSuccess,
   onExportFailure,
   feedbackPrompt,
@@ -143,6 +147,18 @@ export function RoomOutcomeView({
         <p className="mt-3 text-balance text-base leading-6 text-muted-foreground">
           決めた内容を持ち帰り、次の制作に使いましょう。
         </p>
+        <hr className="mt-6 border-border" />
+
+        <div
+          aria-label="成果の流れ"
+          className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm font-medium text-muted-foreground"
+        >
+          <span>01 課題</span>
+          <span aria-hidden="true">→</span>
+          <span>02 問い</span>
+          <span aria-hidden="true">→</span>
+          <span>03 アイデア</span>
+        </div>
         {!available || !outcome ? (
           <p
             role="alert"
@@ -155,71 +171,69 @@ export function RoomOutcomeView({
                 : "決定内容をすべて確認できません。再接続してから成果を確認・保存してください。"}
           </p>
         ) : null}
-        <div className="mt-8 grid gap-4">
-          {CARDS.map(({ number, label, key }) => (
-            <section
-              key={key}
-              className="min-w-0 rounded-note px-5 py-5 sm:px-7"
-              style={{
-                boxShadow: getPaperShadow(key),
-                backgroundColor: NOTE_COLOR_STYLES.yellow.backgroundColor,
-                color: NOTE_COLOR_STYLES.yellow.foregroundColor,
-              }}
-            >
-              <h2 className="flex items-center gap-3 text-base font-bold">
-                <span
-                  aria-hidden="true"
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-base text-primary-foreground"
-                >
-                  {number}
-                </span>
-                {label}
-                {!available ? (
-                  <span className="ml-auto text-xs font-medium">未確認</span>
-                ) : null}
-              </h2>
-              <p className="mt-4 min-w-0 whitespace-pre-wrap text-base leading-8 [overflow-wrap:anywhere] select-text">
-                {outcome?.[key] ?? "確認できません"}
-              </p>
-            </section>
-          ))}
+
+        <div className="mt-6 flex flex-row flex-wrap justify-center gap-4">
+          {CARDS.map(({ number, label, key }) => {
+            const content = outcome?.[key] ?? "確認できません";
+            const noteText = `${number}. ${label}\n${content}`;
+
+            return (
+              <StickyNote
+                key={key}
+                noteId={`outcome-${key}`}
+                color="yellow"
+                height={getNoteHeight(noteText, NOTE_DEFAULT_FONT_SIZE)}
+                className="relative w-[200px]"
+              >
+                <div className="flex h-full flex-col p-2">
+                  <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-base leading-6 select-text">
+                    <span className="font-bold">
+                      {number}. {label}
+                    </span>
+                    {"\n"}
+                    {!available ? (
+                      <>
+                        <span className="text-xs font-medium">未確認</span>
+                        {"\n"}
+                      </>
+                    ) : null}
+                    {content}
+                  </p>
+                </div>
+              </StickyNote>
+            );
+          })}
         </div>
         {canExport ? (
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button
-              className="min-h-11"
-              type="button"
-              onClick={saveText}
-              disabled={copyPending}
-            >
-              テキストを保存
-            </Button>
-            <Button
-              className="min-h-11"
-              type="button"
-              variant="outline"
-              onClick={() => void copyText()}
-              disabled={copyPending}
-            >
-              {copyPending ? "コピー中…" : "全文をコピー"}
-            </Button>
-          </div>
-        ) : null}
-        {canExport ? (
-          <p className="mt-3 text-base leading-6 text-muted-foreground">
-            保存したファイルを開いて内容を確認してください。コピーしたらメモに貼り付けて保存してください。
-          </p>
-        ) : null}
-        {onOpenFeedback ? (
-          <Button
-            ref={feedbackButtonRef}
-            type="button"
-            variant="link"
-            className="mt-3"
-            onClick={onOpenFeedback}
-          >
-            フィードバック
-          </Button>
+          <section className="mt-10 border-t border-border pt-6">
+            <h2 className="text-lg font-bold">成果を保存する</h2>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button className="min-h-11" type="button" disabled>
+                PNGで保存
+              </Button>
+
+              <Button
+                className="min-h-11"
+                type="button"
+                variant="outline"
+                onClick={saveText}
+                disabled={copyPending}
+              >
+                テキストを保存
+              </Button>
+
+              <Button
+                className="min-h-11"
+                type="button"
+                variant="outline"
+                onClick={() => void copyText()}
+                disabled={copyPending}
+              >
+                {copyPending ? "コピー中…" : "全文をコピー"}
+              </Button>
+            </div>
+          </section>
         ) : null}
         {downloadStarted && canExport ? (
           <p role="status" className="mt-3 text-base">
@@ -265,6 +279,7 @@ export function RoomOutcomeView({
               ボードへ戻る
             </Button>
           )}
+          {additionalNavigation}
           <Link
             href="/home"
             className="inline-flex min-h-10 items-center rounded-lg px-3 text-base font-semibold underline-offset-4 hover:underline"
@@ -272,11 +287,28 @@ export function RoomOutcomeView({
             ホームへ戻る
           </Link>
         </div>
-        <p className="pb-8 text-xs leading-5 text-muted-foreground">
-          {authorized
-            ? "閲覧期限までは、ホームの「過去の成果を見る」から再び確認できます。"
-            : "完了したルームは、ホームの「過去の成果を見る」から見返せます。保存期限は完了から30日間です。"}
-        </p>
+        {!authorized ? (
+          <p className="text-xs leading-5 text-muted-foreground">
+            完了したルームは、ホームの「過去の成果を見る」から見返せます。
+            保存期限は完了から30日間です。
+          </p>
+        ) : null}
+
+        {footer}
+
+        {onOpenFeedback ? (
+          <div className="mt-5 border-t border-border pt-4 pb-8">
+            <Button
+              ref={feedbackButtonRef}
+              type="button"
+              variant="link"
+              className="h-auto px-0 text-sm text-muted-foreground"
+              onClick={onOpenFeedback}
+            >
+              フィードバック
+            </Button>
+          </div>
+        ) : null}
       </div>
     </main>
   );

@@ -19,6 +19,17 @@ import {
   SCENE_LABELS,
   SCENE_STATUS,
 } from "./completed-rooms-content";
+function formatCompactCompletedDate(value: number): string {
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Asia/Tokyo",
+  }).format(value);
+}
 export type CompletedRoomDetailViewProps = {
   accountLink?: ReactNode;
   feedback?: FeedbackControls;
@@ -88,6 +99,14 @@ export function CompletedRoomDetailView({
       <RoomOutcomeView
         authorized
         outcome={outcome}
+        additionalNavigation={
+          <Link
+            href="/completed-rooms"
+            className="inline-flex min-h-10 items-center rounded-lg px-3 text-base font-semibold underline-offset-4 hover:underline"
+          >
+            以前のルーム一覧へ
+          </Link>
+        }
         onOpenFeedback={feedback ? () => feedback.open("app") : undefined}
         feedbackButtonRef={feedbackButtonRef}
         onExportSuccess={feedback?.schedulePrompt}
@@ -100,31 +119,47 @@ export function CompletedRoomDetailView({
             />
           ) : null
         }
+        footer={
+          <footer className="mt-8 border-t border-border pt-5">
+            <section aria-label="記録情報">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold">記録情報</h2>
+                <span className="text-xs text-muted-foreground">日本時間</span>
+              </div>
+
+              <dl className="mt-3 grid grid-cols-2 gap-4">
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">完了日時</dt>
+                  <dd className="mt-1 text-sm font-medium tabular-nums">
+                    {formatCompactCompletedDate(room.completedAt)}
+                  </dd>
+                </div>
+
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">閲覧期限</dt>
+                  <dd className="mt-1 text-sm font-medium tabular-nums">
+                    {formatCompactCompletedDate(room.expiresAt)}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="rounded-full bg-muted px-2 py-1">
+                  読み取り専用
+                </span>
+                <span>再表示：ホーム ＞ 過去の成果</span>
+              </div>
+            </section>
+
+            {accountLink ? (
+              <div className="mt-5 border-t border-border pt-5">
+                {accountLink}
+              </div>
+            ) : null}
+          </footer>
+        }
       >
-        {feedback ? (
-          <p className="mt-3 text-base leading-6 text-muted-foreground">
-            感想は現在参加中のルームからのみ送信できます。退出後は送信できません。
-          </p>
-        ) : null}
         <section className="mt-8 space-y-4" aria-label="完了ルームの記録">
-          <div className="rounded-lg border bg-muted/20 p-4 text-base leading-7">
-            <p>完了日時：{formatCompletedDate(room.completedAt)}（日本時間）</p>
-            <p>閲覧期限：{formatCompletedDate(room.expiresAt)}（日本時間）</p>
-            <p className="text-muted-foreground">
-              完了時の内容を読み取り専用で表示しています。
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/completed-rooms"
-              className="inline-flex min-h-11 items-center px-2 underline underline-offset-4"
-            >
-              以前のルームへ
-            </Link>
-            <Button className="min-h-11" variant="outline" onClick={onRetry}>
-              成果を再取得
-            </Button>
-          </div>
           <Button
             className="min-h-11 w-full justify-between"
             variant="outline"
@@ -205,9 +240,6 @@ export function CompletedRoomDetailView({
             </div>
           )}
         </section>
-        {accountLink ? (
-          <div className="mt-8 border-t pt-6">{accountLink}</div>
-        ) : null}
       </RoomOutcomeView>
       {feedback ? <FeedbackPanel feedback={feedback} /> : null}
     </>
