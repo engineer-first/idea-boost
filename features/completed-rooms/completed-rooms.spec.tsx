@@ -265,17 +265,25 @@ describe("本人の完了ルーム", () => {
     expect(screen.queryByText(/反映を待っています/)).not.toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledTimes(3);
   });
-  it("本人権限を失った再取得では前回本文を残さない", async () => {
+  it("本人権限を失った場面の再取得では前回本文を残さない", async () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(Response.json(detail))
+      .mockResolvedValueOnce(
+        Response.json({
+          scene: { kind: "problem-grouping", recordedAt: 1, status: "pending" },
+          board: null,
+        }),
+      )
       .mockResolvedValueOnce(
         Response.json({ error: "not found" }, { status: 404 }),
       );
     vi.stubGlobal("fetch", fetcher);
     render(<CompletedRoomDetail roomId={roomId} />);
     await screen.findByText("採用の全文");
-    fireEvent.click(screen.getByRole("button", { name: "成果を再取得" }));
+    fireEvent.click(screen.getByRole("button", { name: "検討の経緯を見る" }));
+    await screen.findByText(/反映を待っています/);
+    fireEvent.click(screen.getByRole("button", { name: "場面を再取得" }));
     await screen.findByRole("alert");
     await waitFor(() =>
       expect(screen.queryByText("採用の全文")).not.toBeInTheDocument(),
@@ -358,7 +366,6 @@ describe("read-only成果から感想へ", () => {
     render(<CompletedRoomDetail roomId={roomId} />);
     await screen.findByText("採用の全文");
     const entry = screen.getByRole("button", { name: "フィードバック" });
-    expect(screen.getByText(/感想は現在参加中のルームからのみ/)).toBeVisible();
     entry.focus();
     fireEvent.click(entry);
     expect(

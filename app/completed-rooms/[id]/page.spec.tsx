@@ -50,7 +50,7 @@ it("ゲスト本人は成果コンテナを描画する", async () => {
   expect(screen.getByText(/詳細コンテナ/)).toBeVisible();
   expect(
     screen.getByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
+      name: "Googleと連携",
     }),
   ).toBeVisible();
   expect(mocks.redirect).not.toHaveBeenCalled();
@@ -102,10 +102,10 @@ it("アカウント本人には連携済み表示を出して連携ボタンを�
       searchParams: Promise.resolve({}),
     }),
   );
-  expect(screen.getByText(/Googleと連携済みです/)).toBeVisible();
+  expect(screen.getByText(/Google連携済み/)).toBeVisible();
   expect(
     screen.queryByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
+      name: "Googleと連携",
     }),
   ).not.toBeInTheDocument();
 });

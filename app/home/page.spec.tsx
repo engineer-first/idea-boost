@@ -43,7 +43,7 @@ it("ゲスト本人に連携の入口を表示する", async () => {
   expect(screen.getByTestId("home-view")).toBeInTheDocument();
   expect(
     screen.getByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
+      name: "Googleと連携する",
     }),
   ).toBeVisible();
 });
@@ -51,10 +51,10 @@ it("ゲスト本人に連携の入口を表示する", async () => {
 it("アカウント本人には連携済みの案内を表示し連携ボタンを表示しない", async () => {
   mocks.user.mockResolvedValue({ kind: "account", sub: "account" });
   render(await HomePage({ searchParams: Promise.resolve({}) }));
-  expect(screen.getByText(/Googleと連携済みです/)).toBeVisible();
+  expect(screen.getByText(/Google連携済み/)).toBeVisible();
   expect(
     screen.queryByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
+      name: "Googleと連携する",
     }),
   ).not.toBeInTheDocument();
 });
