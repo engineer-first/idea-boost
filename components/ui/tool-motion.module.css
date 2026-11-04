@@ -1,0 +1,40 @@
+.button {
+  transform: none;
+  translate: none;
+  transition-property: background-color, color, border-color;
+}
+
+.button > svg,
+.button > [data-tool-icon] {
+  transform: translateY(0px) scale(1);
+  transition: transform 120ms ease-out;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .button:not(:disabled):not([aria-disabled="true"]):hover > svg,
+  .button:not(:disabled):not([aria-disabled="true"]):hover > [data-tool-icon] {
+    transform: translateY(-2px) scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .button:not(:disabled):not([aria-disabled="true"]):focus-visible > svg,
+  .button:not(:disabled):not([aria-disabled="true"]):focus-visible
+    > [data-tool-icon] {
+    transform: translateY(-2px) scale(1.06);
+  }
+
+  .button:not(:disabled):not([aria-disabled="true"]):active > svg,
+  .button:not(:disabled):not([aria-disabled="true"]):active > [data-tool-icon] {
+    transform: translateY(0px) scale(0.94);
+    transition-duration: 80ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .button > svg,
+  .button > [data-tool-icon] {
+    transition: none;
+  }
+}

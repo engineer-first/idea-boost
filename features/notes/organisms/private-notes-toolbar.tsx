@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
+import toolMotion from "@/components/ui/tool-motion.module.css";
 import {
   Tooltip,
   TooltipContent,
@@ -604,6 +605,7 @@ export function PrivateNotesToolbar({
                       }
                       ref={addButtonRef}
                       aria-label="付箋を追加"
+                      className={toolMotion.button}
                       onClick={handleAdd}
                     >
                       <Plus aria-hidden="true" />
@@ -620,6 +622,7 @@ export function PrivateNotesToolbar({
                 size="icon-sm"
                 aria-expanded={isExpanded}
                 aria-label={`マイ付箋を${isExpanded ? "閉じる" : "開く"}`}
+                className={toolMotion.button}
                 onClick={() => setIsExpanded((expanded) => !expanded)}
               >
                 {isExpanded ? (

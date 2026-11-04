@@ -16,7 +16,7 @@ const meta = {
   decorators: [
     (Story) => (
       <div className="flex min-h-52 items-end justify-center bg-muted/20 p-6">
-        <div className="rounded-xl border border-border bg-background p-1 shadow-lg shadow-black/5">
+        <div className="rounded-xl border border-border bg-background p-1 shadow-tool">
           <Story />
         </div>
       </div>
@@ -46,23 +46,18 @@ export const BarOpen: Story = {
   },
 };
 
-export const LikeHint: Story = {
+export const HoverPreview: Story = {
   play: async ({ canvas, canvasElement }) => {
     await userEvent.click(canvas.getByRole("button", { name: "リアクション" }));
     const body = within(canvasElement.ownerDocument.body);
     await userEvent.hover(body.getByRole("button", { name: "いいねを送る" }));
-    await body.findByRole("tooltip", {}, { timeout: 2000 });
   },
 };
 
-export const QuestionHint: Story = {
-  play: async ({ canvas, canvasElement }) => {
+export const KeyboardFocus: Story = {
+  play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole("button", { name: "リアクション" }));
-    const body = within(canvasElement.ownerDocument.body);
-    await userEvent.hover(
-      body.getByRole("button", { name: "どうして？のリアクションを送る" }),
-    );
-    await body.findByRole("tooltip", {}, { timeout: 2000 });
+    for (let index = 0; index < 4; index++) await userEvent.tab();
   },
 };
 

@@ -3,6 +3,7 @@
 import { Redo2, Undo2 } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
+import toolMotion from "@/components/ui/tool-motion.module.css";
 import {
   Tooltip,
   TooltipContent,
@@ -77,6 +78,7 @@ export function MoveHistoryControls({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
+                    className={toolMotion.button}
                     disabled={disabled}
                     onClick={onClick}
                     aria-label={name}

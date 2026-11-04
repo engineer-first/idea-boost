@@ -39,7 +39,7 @@ test.each([
         );
       });
       const bounds = await bar.boundingBox();
-      expect(bounds).toMatchObject({ width: 166, height: 38 });
+      expect(bounds).toMatchObject({ width: 254, height: 62 });
       expect(bounds?.x).toBeGreaterThanOrEqual(0);
       expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(
         viewport.width,

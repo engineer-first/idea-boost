@@ -96,7 +96,7 @@ describe("RoomSharingReactions", () => {
         children: <RoomSharingReactionControls disabled={disabled} />,
       });
       const trigger = screen.getByRole("button", { name: "リアクション" });
-      expect(trigger).toBeDisabled();
+      expect(trigger).toHaveAttribute("aria-disabled", "true");
       fireEvent.click(trigger);
       expect(send).not.toHaveBeenCalled();
     },

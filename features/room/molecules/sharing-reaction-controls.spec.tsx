@@ -61,34 +61,43 @@ describe("SharingReactionControls", () => {
     }
   });
 
-  it("どうして？のヒントが理由や背景への関心を示し、Escapeで閉じられる", async () => {
+  it("個別の画像へフォーカスしても文字Tooltipやtitleを出さず、送信しない", () => {
+    vi.useFakeTimers();
+    const onSendReaction = vi.fn();
     render(
-      <SharingReactionControls onSendReaction={vi.fn()} disabled={false} />,
+      <SharingReactionControls
+        onSendReaction={onSendReaction}
+        disabled={false}
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
-    const question = screen.getByRole("button", {
-      name: "どうして？のリアクションを送る",
-    });
-    fireEvent.focus(question);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(
-      /^どうして？$/u,
-    );
-    fireEvent.keyDown(question, { key: "Escape" });
-    expect(question).not.toBeInTheDocument();
+    for (const choice of screen
+      .getByRole("dialog")
+      .querySelectorAll("button")) {
+      act(() => choice.focus());
+      act(() => vi.advanceTimersByTime(1100));
+      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+      expect(choice.closest("[title]")).toBeNull();
+      expect(choice.querySelector("[title]")).toBeNull();
+    }
+    expect(onSendReaction).not.toHaveBeenCalled();
   });
 
-  it("いいねのヒントが開いていてもEscape1回でバーを閉じる", async () => {
+  it("Enterを押し続けても1件だけ送り、キーを離した次の操作で再送できる", async () => {
+    const user = userEvent.setup();
+    const onSendReaction = vi.fn();
     render(
-      <SharingReactionControls onSendReaction={vi.fn()} disabled={false} />,
+      <SharingReactionControls
+        onSendReaction={onSendReaction}
+        disabled={false}
+      />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
-    const like = screen.getByRole("button", { name: "いいねを送る" });
-    fireEvent.focus(like);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("いいね");
-    fireEvent.keyDown(like, { key: "Escape" });
-    expect(
-      screen.queryByRole("button", { name: "いいねを送る" }),
-    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "リアクション" }));
+    act(() => screen.getByRole("button", { name: "いいねを送る" }).focus());
+    await user.keyboard("{Enter>3/}");
+    expect(onSendReaction).toHaveBeenCalledTimes(1);
+    await user.keyboard("{Enter}");
+    expect(onSendReaction).toHaveBeenCalledTimes(2);
   });
 
   it("いいねを送った後もバーを開いたまま続けて送れ、Escapeで閉じる", () => {
@@ -202,7 +211,9 @@ describe("SharingReactionControls", () => {
     render(
       <SharingReactionControls onSendReaction={onSendReaction} disabled />,
     );
-    expect(screen.getByRole("button", { name: "リアクション" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "リアクション" }),
+    ).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(screen.getByRole("button", { name: "リアクション" }));
     expect(onSendReaction).not.toHaveBeenCalled();
     expect(

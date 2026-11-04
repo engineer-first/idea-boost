@@ -3,6 +3,7 @@
 import { Hand, Maximize2, Minus, MousePointer2, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import toolMotion from "@/components/ui/tool-motion.module.css";
 import {
   Tooltip,
   TooltipContent,
@@ -89,6 +90,7 @@ export function CanvasZoomControls({
                   variant={interactionTool === "select" ? "secondary" : "ghost"}
                   size="icon-sm"
                   aria-label="選択ツール"
+                  className={toolMotion.button}
                   aria-pressed={interactionTool === "select"}
                   disabled={toolDisabled}
                   onClick={() => onToolChange("select")}
@@ -105,6 +107,7 @@ export function CanvasZoomControls({
                   variant={interactionTool === "hand" ? "secondary" : "ghost"}
                   size="icon-sm"
                   aria-label="手のひらツール"
+                  className={toolMotion.button}
                   aria-pressed={interactionTool === "hand"}
                   disabled={toolDisabled}
                   onClick={() => onToolChange("hand")}
@@ -138,6 +141,7 @@ export function CanvasZoomControls({
                   size="icon-sm"
                   disabled={toolDisabled || zoom <= 0.01}
                   aria-label="キャンバスを縮小"
+                  className={toolMotion.button}
                   onClick={onZoomOut}
                 >
                   <Minus aria-hidden="true" />
@@ -153,7 +157,7 @@ export function CanvasZoomControls({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="min-w-14 tabular-nums"
+                  className={`${toolMotion.button} min-w-14 tabular-nums`}
                   disabled={toolDisabled}
                   aria-label="ズームを100%に戻す"
                   onClick={onResetZoom}
@@ -173,6 +177,7 @@ export function CanvasZoomControls({
                   size="icon-sm"
                   disabled={toolDisabled || zoom >= 4}
                   aria-label="キャンバスを拡大"
+                  className={toolMotion.button}
                   onClick={onZoomIn}
                 >
                   <Plus aria-hidden="true" />
@@ -191,6 +196,7 @@ export function CanvasZoomControls({
                   size="icon-sm"
                   disabled={toolDisabled}
                   aria-label="付箋全体を表示"
+                  className={toolMotion.button}
                   onClick={onFitToNotes}
                 >
                   <Maximize2 aria-hidden="true" />
@@ -219,9 +225,11 @@ export function CanvasZoomControls({
             >
               <summary
                 aria-label="キャンバス操作のヒント"
-                className="flex size-7 cursor-pointer list-none items-center justify-center rounded-lg text-sm font-bold hover:bg-muted focus-visible:outline-2"
+                className={`${toolMotion.button} flex size-7 cursor-pointer list-none items-center justify-center rounded-lg text-sm font-bold hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring`}
               >
-                ?
+                <span aria-hidden="true" data-tool-icon>
+                  ?
+                </span>
               </summary>
               <section
                 aria-label="キャンバス操作のヒント内容"

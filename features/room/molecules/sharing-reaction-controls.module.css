@@ -1,0 +1,38 @@
+.bar {
+  gap: 4px;
+  padding: 8px;
+  border-radius: var(--radius-xl);
+}
+
+.choice {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  touch-action: manipulation;
+  transform: none;
+  translate: none;
+  transition-property: background-color, color, border-color;
+}
+
+.choice:focus-visible {
+  background: var(--muted);
+}
+
+.choice[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.image {
+  transform: translateY(0px) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+  }
+
+  .choice {
+    transition: none;
+  }
+}
