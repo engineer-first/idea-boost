@@ -53,6 +53,7 @@ import {
   type CanvasTool,
   useCanvasSelection,
 } from "../logic/use-canvas-selection";
+import { useCharacterHint } from "../logic/use-character-hint";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
@@ -61,6 +62,7 @@ import type {
   SharingReaction,
   SharingReactionControls,
 } from "../logic/use-sharing-reactions";
+import { BoardCharacter } from "../molecules/board-character";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -816,6 +818,13 @@ export function RoomBoardView({
 
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
+  const characterHint = useCharacterHint({
+    phase,
+    timer,
+    serverOffsetMs: timerServerOffsetMs,
+    noteCount: interactions.privateNotes.length,
+    active: !isDisconnected,
+  });
   const voteRemaining = {
     subjective: Math.max(
       0,
@@ -2076,6 +2085,12 @@ export function RoomBoardView({
           ideaMapPlaneRef={ideaMapPlaneRef}
           privateToolbarRef={privateToolbarRef}
           camera={camera}
+          character={
+            <BoardCharacter
+              message={characterHint.message}
+              onReplay={characterHint.replay}
+            />
+          }
           displayZoom={interactions.displayZoom}
           gridStyle={gridStyle}
           isPanning={isPanning}
