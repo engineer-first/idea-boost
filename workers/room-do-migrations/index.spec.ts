@@ -17,6 +17,7 @@ const USER_A = "11111111-1111-4111-8111-111111111111";
 const NORMALIZE_PHASE_MIGRATION_ID = "20260715042808";
 const VOTE_STICKERS_MIGRATION_ID = "20260909044704";
 const EXPAND_IDEA_MAP_SIZE_LEVEL_MIGRATION_ID = "20260921140000";
+const MEMBER_AVATAR_DUPLICATES_MIGRATION_ID = "20261104095400";
 
 const ALL_MIGRATION_IDS = ROOM_DO_MIGRATIONS.map((m) => m.id);
 
@@ -705,6 +706,50 @@ describe("RoomDO constructor の配線", () => {
       expect(tableNames(state.storage)).toEqual(ALL_TABLES);
     });
   });
+});
+
+it("既存の顔割当を保ったまま、同じ顔の重複を保存できる", async () => {
+  await runInRoomDO(
+    `avatar-duplicates-${crypto.randomUUID()}`,
+    (_room, state) => {
+      dropAllTables(state.storage);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.filter(
+          (m) => m.id < MEMBER_AVATAR_DUPLICATES_MIGRATION_ID,
+        ),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        "INSERT INTO member_avatar_assignments(user_id,avatar_id) VALUES('user-a','face-01'),('user-b','face-02')",
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      expect(
+        state.storage.sql
+          .exec("SELECT * FROM member_avatar_assignments ORDER BY user_id")
+          .toArray(),
+      ).toEqual([
+        { user_id: "user-a", avatar_id: "face-01" },
+        { user_id: "user-b", avatar_id: "face-02" },
+      ]);
+      expect(() =>
+        state.storage.sql.exec(
+          "INSERT INTO member_avatar_assignments(user_id,avatar_id) VALUES('user-c','face-02')",
+        ),
+      ).not.toThrow();
+      expect(() =>
+        state.storage.sql.exec(
+          "INSERT INTO member_avatar_assignments(user_id,avatar_id) VALUES('user-d','face-21')",
+        ),
+      ).toThrow();
+    },
+  );
 });
 
 it("既存ルームの退出者を含む20人に一意な顔を割り当て、再移行でも保つ", async () => {

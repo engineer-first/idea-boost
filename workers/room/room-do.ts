@@ -11,7 +11,6 @@ import {
 } from "../../contracts/room-participation";
 import { SessionExpiresAtSchema } from "../../contracts/session";
 import { memberAvatarHandlers } from "./member-avatar-handlers";
-import { availableMemberAvatars } from "./member-avatars";
 import { applyAccountName, memberNameHandlers } from "./member-name";
 import { getRoomName, roomNameHandlers } from "./room-name";
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
@@ -187,7 +186,7 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
     case "member:remove":
     case "room:rename":
     case "member:rename":
-    case "member:randomize-avatar":
+    case "member:cycle-avatar":
     case "note:create":
     case "note:exclude":
     case "note:restore":
@@ -1994,7 +1993,6 @@ export class RoomDO extends DurableObject {
       // フェーズ2では既存のフェーズ1グループも表示しない。
       groups: listBoardGroups(this.sql, userId, phase),
       members: listMembers(this.sql),
-      availableAvatarCount: availableMemberAvatars(this.sql).length,
       phase,
       phaseRevision: getPhaseRevision(this.sql),
       pendingPhaseTransition: getPendingPhaseTransition(this.sql),

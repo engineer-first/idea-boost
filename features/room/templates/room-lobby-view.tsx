@@ -142,9 +142,7 @@ export function RoomLobbyView({
                   : "参加メンバー"}
               </h2>
               <div id={avatarDescriptionId} className={styles.avatarMessage}>
-                {avatarChange?.unavailable ? (
-                  <p>未使用のアイコンがないため変更できません。</p>
-                ) : avatarChange?.pending ? (
+                {avatarChange?.pending ? (
                   <p role="status">アイコンを変更中…</p>
                 ) : isDisconnected ? (
                   <p>再接続すると、自分のアイコンを変更できます。</p>

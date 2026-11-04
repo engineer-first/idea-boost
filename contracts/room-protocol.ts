@@ -18,10 +18,7 @@ import {
   NOTE_FONT_SIZE_RANGE,
 } from "./board";
 import { UUID_PATTERN } from "./ids";
-import {
-  AvailableAvatarCountSchema,
-  MemberAvatarIdSchema,
-} from "./member-avatar";
+import { MemberAvatarIdSchema } from "./member-avatar";
 import { RoomPhaseSchema } from "./phase";
 import { RoomNameSchema } from "./room-name";
 import { SharingReactionKindSchema } from "./sharing-reactions";
@@ -373,7 +370,7 @@ export const RoomDisplayNameSchema = z
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.strictObject({
-    type: z.literal("member:randomize-avatar"),
+    type: z.literal("member:cycle-avatar"),
     operationId: z.guid(),
   }),
   z.strictObject({
@@ -792,7 +789,6 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("snapshot"),
-    availableAvatarCount: AvailableAvatarCountSchema.optional(),
     roomName: z.string().nullable().optional(),
     moveProtocolVersion: z.literal(1).optional(),
     shareProtocolVersion: z.literal(1).optional(),
@@ -937,12 +933,10 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("member_joined"),
     member: MemberSchema,
-    availableAvatarCount: AvailableAvatarCountSchema.optional(),
   }),
   z.strictObject({
     type: z.literal("member:avatar-updated"),
     member: MemberSchema,
-    availableAvatarCount: AvailableAvatarCountSchema,
     operationId: z.guid(),
   }),
   z.object({
@@ -1012,7 +1006,6 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("error"),
     code: z.enum([
-      "avatar-unavailable",
       "invalid-message",
       "forbidden",
       "not-found",

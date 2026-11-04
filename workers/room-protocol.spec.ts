@@ -365,7 +365,6 @@ describe("member_joined（Realtime 反映）", () => {
     const toMember = await expectType(member, "member_joined");
     expect(toOwner).toEqual({
       type: "member_joined",
-      availableAvatarCount: 17,
       member: {
         userId: newcomer.sub,
         name: newcomer.name,
@@ -375,7 +374,6 @@ describe("member_joined（Realtime 反映）", () => {
     });
     expect(toMember).toEqual({
       type: "member_joined",
-      availableAvatarCount: 17,
       member: {
         userId: newcomer.sub,
         name: newcomer.name,

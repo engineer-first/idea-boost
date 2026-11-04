@@ -571,7 +571,6 @@ it("顔変更通知で対象の顔IDだけを更新し、他の参加者は変�
   const next = applyMemberServerMessage(members, {
     type: "member:avatar-updated",
     member: { ...members[0], avatarId: "face-03" },
-    availableAvatarCount: 18,
     operationId: "operation",
   });
   expect(next).toEqual([{ ...members[0], avatarId: "face-03" }, members[1]]);

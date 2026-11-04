@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Shuffle } from "lucide-react";
+import { Pencil, Repeat } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   MemberAvatar,
@@ -112,12 +112,12 @@ export function LobbyMembers({
                         (avatarChange.disabled && !avatarChange.pending)
                       }
                       aria-disabled={avatarChange.pending || undefined}
-                      onClick={avatarChange.randomize}
+                      onClick={avatarChange.cycle}
                       data-testid="lobby-avatar-change"
                     >
                       {avatar}
                       <span className={styles.avatarOverlay} aria-hidden="true">
-                        <Shuffle size={28} />
+                        <Repeat size={28} />
                       </span>
                     </button>
                   ) : (

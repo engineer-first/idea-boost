@@ -259,15 +259,14 @@ it.each([1, 2])(
 
 describe("待機中のアイコン変更", () => {
   it("自分の顔だけを変更操作にし、名前の編集とは別に操作できる", async () => {
-    const randomize = vi.fn();
+    const cycle = vi.fn();
     const request = vi.fn();
     const member = buildMembers(3, ME)[0];
     renderView({
       avatarChange: {
-        randomize,
+        cycle,
         pending: false,
         disabled: false,
-        unavailable: false,
         error: null,
       },
       displayName: {
@@ -288,9 +287,9 @@ describe("待機中のアイコン変更", () => {
       screen.getByRole("img", { name: member.name }),
     );
     await user.hover(face);
-    expect(randomize).not.toHaveBeenCalled();
+    expect(cycle).not.toHaveBeenCalled();
     await user.click(face);
-    expect(randomize).toHaveBeenCalledOnce();
+    expect(cycle).toHaveBeenCalledOnce();
     expect(request).not.toHaveBeenCalled();
     const name = screen.getByRole("button", {
       name: `${member.name}：表示名を変更`,
@@ -303,36 +302,36 @@ describe("待機中のアイコン変更", () => {
       screen.getAllByRole("button", { name: "自分のアイコンを変更" }),
     ).toHaveLength(1);
   });
-  it("変更操作だけでランダム変更を要求し、保存・取消は求めない", async () => {
-    const randomize = vi.fn();
+  it("変更操作だけで次のアイコンを要求し、保存・取消は求めない", async () => {
+    const cycle = vi.fn();
     renderView({
       avatarChange: {
-        randomize,
+        cycle,
         pending: false,
         disabled: false,
-        unavailable: false,
         error: null,
       },
     });
     await userEvent
       .setup()
       .click(screen.getByRole("button", { name: "自分のアイコンを変更" }));
-    expect(randomize).toHaveBeenCalledTimes(1);
+    expect(cycle).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
-  it("未使用候補がない場合は変更できない理由を表示する", () => {
+  it("操作できない接続ではボタンを無効にし、候補なしの説明は出さない", () => {
     renderView({
       avatarChange: {
-        randomize: vi.fn(),
+        cycle: vi.fn(),
         pending: false,
         disabled: true,
-        unavailable: true,
         error: null,
       },
     });
     expect(
       screen.getByRole("button", { name: "自分のアイコンを変更" }),
     ).toBeDisabled();
-    expect(screen.getByText(/未使用のアイコンがない/)).toBeVisible();
+    expect(
+      screen.queryByText(/未使用のアイコンがない/),
+    ).not.toBeInTheDocument();
   });
 });

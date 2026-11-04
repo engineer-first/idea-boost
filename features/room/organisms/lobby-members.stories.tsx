@@ -17,9 +17,8 @@ const meta = {
     avatarChange: {
       pending: false,
       disabled: false,
-      unavailable: false,
       error: null,
-      randomize: fn(),
+      cycle: fn(),
     },
   },
 } satisfies Meta<typeof LobbyMembers>;
@@ -31,11 +30,6 @@ export const Ten: Story = { args: { members: buildLobbyMembers(10, ME) } };
 export const Twenty: Story = {
   args: {
     members: buildLobbyMembers(20, ME),
-    avatarChange: {
-      ...meta.args.avatarChange,
-      unavailable: true,
-      disabled: true,
-    },
   },
 };
 export const Disconnected: Story = { args: { connectedUserIds: [ME] } };

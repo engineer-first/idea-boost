@@ -8,7 +8,7 @@ import {
   type ProtocolMember,
 } from "../../contracts/room-protocol";
 import type { RoomBroadcaster } from "./broadcast";
-import { assignMemberAvatar, availableMemberAvatars } from "./member-avatars";
+import { assignMemberAvatar } from "./member-avatars";
 
 type MemberRow = {
   user_id: string;
@@ -110,7 +110,6 @@ export function upsertMember(
       {
         type: "member_joined",
         member: { userId, name: safeName, color, avatarId },
-        availableAvatarCount: availableMemberAvatars(sql).length,
       },
       userId,
     );

@@ -130,7 +130,7 @@ test.each(
   },
 );
 
-test("20人を5列4段で省略せず表示し、ヘッダーを除く1440×960内で顔・招待・開始を読める", async () => {
+test("20人を5列4段で省略せず表示し、ヘッダーを除く1440×960内で顔・招待・開始を読め、顔も変更できる", async () => {
   await open("host-twenty", 1440, 960);
   const avatars = page.getByTestId("room-members").getByTestId("avatar");
   expect(await avatars.count()).toBe(20);
@@ -161,8 +161,8 @@ test("20人を5列4段で省略せず表示し、ヘッダーを除く1440×960�
     await page
       .getByRole("button", { name: "自分のアイコンを変更" })
       .isDisabled(),
-  ).toBe(true);
-  expect(await page.getByText(/未使用のアイコンがない/).isVisible()).toBe(true);
+  ).toBe(false);
+  expect(await page.getByText(/未使用のアイコンがない/).count()).toBe(0);
   await page.screenshot({
     path: "test-results/board-layout/lobby-twenty-desktop.png",
   });

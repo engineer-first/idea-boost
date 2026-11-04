@@ -146,7 +146,6 @@ function renderStart(
     initialPhase?: RoomPhase;
     boardHref?: string;
     entryAdmission?: string;
-    availableAvatarCount?: number;
     saveDisplayNameAction?: import("./room-lobby").RoomLobbyProps["saveDisplayNameAction"];
   } = {},
 ) {
@@ -177,7 +176,6 @@ function renderStart(
         phaseRevision: 0,
         notes: [],
         members: options.initialMembers ?? [],
-        availableAvatarCount: options.availableAvatarCount,
         phase: options.initialPhase ?? buildLobbyPhase(),
 
         decision: null,
@@ -215,7 +213,6 @@ it("顔の変更中はフォーカスを維持し、再送を防ぎ、確定後�
   };
   const { socket } = renderStart({
     initialMembers: [member],
-    availableAvatarCount: 19,
   });
   const button = screen.getByTestId("lobby-avatar-change");
   button.focus();
@@ -226,13 +223,12 @@ it("顔の変更中はフォーカスを維持し、再送を防ぎ、確定後�
   fireEvent.click(button);
   const messages = socket.sent
     .map((message) => JSON.parse(message))
-    .filter((message) => message.type === "member:randomize-avatar");
+    .filter((message) => message.type === "member:cycle-avatar");
   expect(messages).toHaveLength(1);
   act(() =>
     socket.simulateServerMessage({
       type: "member:avatar-updated",
       member: { ...member, avatarId: "face-02" },
-      availableAvatarCount: 19,
       operationId: messages[0].operationId,
     }),
   );

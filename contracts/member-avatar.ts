@@ -25,7 +25,3 @@ export const MEMBER_AVATAR_IDS = [
 
 export const MemberAvatarIdSchema = z.enum(MEMBER_AVATAR_IDS);
 export type MemberAvatarId = z.infer<typeof MemberAvatarIdSchema>;
-export const AvailableAvatarCountSchema = z
-  .int()
-  .min(0)
-  .max(MEMBER_AVATAR_IDS.length);

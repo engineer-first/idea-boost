@@ -6,9 +6,8 @@ import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 export type RoomAvatarControls = {
   pending: boolean;
   disabled: boolean;
-  unavailable: boolean;
   error: string | null;
-  randomize: () => void;
+  cycle: () => void;
 };
 
 export function useRoomAvatar({
@@ -20,7 +19,6 @@ export function useRoomAvatar({
   blocked: boolean;
   send: (message: ClientMessage) => boolean;
 }): RoomAvatarControls & { applyMessage: (message: ServerMessage) => boolean } {
-  const [availableCount, setAvailableCount] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const operation = useRef<string | null>(null);
@@ -46,21 +44,18 @@ export function useRoomAvatar({
           : "接続が切れました。再接続後にアイコンを確認してください。",
       );
   }, [connected, blocked, finish]);
-  const unavailable = availableCount === 0;
-  const disabled =
-    !connected || blocked || pending || availableCount === null || unavailable;
+  const disabled = !connected || blocked || pending;
   return {
     pending,
     disabled,
-    unavailable,
     error,
-    randomize() {
+    cycle() {
       if (disabled || operation.current) return;
       const operationId = crypto.randomUUID();
       operation.current = operationId;
       setPending(true);
       setError(null);
-      if (!send({ type: "member:randomize-avatar", operationId })) {
+      if (!send({ type: "member:cycle-avatar", operationId })) {
         finish(
           "送信できませんでした。接続を確認して、もう一度お試しください。",
         );
@@ -76,28 +71,17 @@ export function useRoomAvatar({
         );
     },
     applyMessage(message) {
-      if (message.type === "snapshot") {
-        setAvailableCount(message.availableAvatarCount ?? null);
-        finish();
-      }
+      if (message.type === "snapshot") finish();
       if (
-        message.type === "member_joined" ||
-        message.type === "member:avatar-updated"
-      ) {
-        if (message.availableAvatarCount !== undefined)
-          setAvailableCount(message.availableAvatarCount);
-        if (
-          message.type === "member:avatar-updated" &&
-          message.operationId === operation.current
-        )
-          finish();
-      }
+        message.type === "member:avatar-updated" &&
+        message.operationId === operation.current
+      )
+        finish();
       if (
         message.type === "error" &&
         operation.current &&
         message.operationId === operation.current
       ) {
-        if (message.code === "avatar-unavailable") setAvailableCount(0);
         finish(message.message);
         return true;
       }
