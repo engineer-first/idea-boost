@@ -8,6 +8,7 @@
   --ib-color-ink: #121d2f;
   --ib-color-muted: #516079;
   --ib-color-line: #dde5f1;
+  --ib-color-line-strong: #8391a6;
   --ib-color-surface: #ffffff;
   --ib-color-surface-muted: #eff3f8;
   --ib-color-canvas: #f8fbfe;
@@ -17,6 +18,7 @@
   --ib-color-state-decided-text: #188038;
   --ib-color-state-excluded: #5f6c81;
   --ib-color-warning: #b45309;
+  --ib-color-warning-soft: #fef3e2;
   --ib-color-danger: #d92d4a;
   --ib-spacing-xs: 4px;
   --ib-spacing-sm: 8px;

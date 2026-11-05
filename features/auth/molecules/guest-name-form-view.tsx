@@ -2,18 +2,13 @@
 
 import { useEffect, useId, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { ROOM_DISPLAY_NAME_MAX_LENGTH } from "@/contracts/room-protocol";
 import {
   guestIdentityNotice,
   guestIdentityPendingLabel,
   guestIdentitySubmitLabel,
-  guestNameDescription,
   guestNameLabel,
 } from "../logic/guest-identity-copy";
 
@@ -29,12 +24,16 @@ export type GuestNameFormViewProps = {
 export function GuestNameFormView({
   name,
   pending,
-  error,
+  error: serverError,
   submitLabel = guestIdentitySubmitLabel,
   onNameChange,
   onSubmit,
 }: GuestNameFormViewProps) {
   const id = useId();
+  const tooLong = name.trim().length > ROOM_DISPLAY_NAME_MAX_LENGTH;
+  const error = tooLong
+    ? `表示名は${ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。`
+    : serverError;
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (error && !pending) inputRef.current?.focus();
@@ -44,7 +43,7 @@ export function GuestNameFormView({
       className="grid gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit();
+        if (!tooLong) onSubmit();
       }}
     >
       <Field className="gap-2">
@@ -58,15 +57,12 @@ export function GuestNameFormView({
           className="h-11 text-base"
           autoComplete="nickname"
           aria-invalid={error ? true : undefined}
-          aria-describedby={`${id}-hint${error ? ` ${id}-error` : ""}`}
+          aria-describedby={error ? `${id}-error` : undefined}
           onKeyDown={(event) => {
             if (event.key === "Enter" && event.nativeEvent.isComposing)
               event.preventDefault();
           }}
         />
-        <FieldDescription id={`${id}-hint`} className="text-base">
-          {guestNameDescription}
-        </FieldDescription>
         {error ? (
           <FieldError id={`${id}-error`} role="alert" className="text-base">
             {error}
@@ -74,7 +70,7 @@ export function GuestNameFormView({
         ) : null}
       </Field>
       <p className="text-base text-muted-foreground">{guestIdentityNotice}</p>
-      <Button type="submit" className="min-h-11" disabled={pending}>
+      <Button type="submit" className="min-h-11" disabled={pending || tooLong}>
         {pending ? guestIdentityPendingLabel : submitLabel}
       </Button>
     </form>

@@ -24,7 +24,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -945,14 +944,11 @@ export function RoomBoardHeader({
                       完了して成果を表示
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
+                  <AlertDialogContent aria-describedby={undefined}>
                     <AlertDialogHeader>
                       <AlertDialogTitle>
                         スプリントを完了しますか？
                       </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        全員に成果を表示します。完了後は作業ボードに戻って編集できません。
-                      </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>キャンセル</AlertDialogCancel>
@@ -975,7 +971,17 @@ export function RoomBoardHeader({
             ) : phase.kind === "step" && !activeSharing ? (
               <NextPhaseConfirmDialog
                 key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
-                phase={phase}
+                waiting={
+                  isDisconnected
+                    ? { kind: "connection" }
+                    : !canProceedByTimeOrReady
+                      ? {
+                          kind: "members",
+                          remaining: progress.notReadyUserIds.length,
+                          total: progress.connectedUserIds.length,
+                        }
+                      : undefined
+                }
                 disabled={
                   isDisconnected ||
                   isNextPhasePending ||

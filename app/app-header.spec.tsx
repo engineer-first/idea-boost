@@ -289,10 +289,7 @@ describe("本人情報の削除確認", () => {
         name: "本人情報を消しますか？",
       });
       expect(dialog).toHaveTextContent(
-        "消すと、同じ本人としてこのブラウザからルームや成果に戻れなくなります。",
-      );
-      expect(dialog).toHaveTextContent(
-        "ルームから抜けるだけなら「ルームを退出」を使ってください。",
+        "消すと、このブラウザからルームや成果に戻れなくなります。",
       );
       expect(signOut).not.toHaveBeenCalled();
       fireEvent.click(within(dialog).getByRole("button", { name: "消す" }));

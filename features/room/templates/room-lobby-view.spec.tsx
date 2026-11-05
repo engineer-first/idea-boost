@@ -244,19 +244,6 @@ it("待機画面でホスト=%sも現在名を確認して変更を開ける", (
   expect(request).toHaveBeenCalledOnce();
 });
 
-it.each([1, 2])(
-  "退出確認に残る在籍者数に応じた説明を渡す（在籍者%s人）",
-  async (count) => {
-    renderView({ members: buildMembers(count, ME) });
-    await userEvent.click(screen.getByRole("button", { name: "退出する" }));
-    const warning = screen.queryByText(
-      /退出するとルームが終了し、招待URLは使えなくなります/,
-    );
-    if (count === 1) expect(warning).toBeInTheDocument();
-    else expect(warning).not.toBeInTheDocument();
-  },
-);
-
 describe("待機中のアイコン変更", () => {
   it("自分の顔だけを変更操作にし、名前の編集とは別に操作できる", async () => {
     const cycle = vi.fn();

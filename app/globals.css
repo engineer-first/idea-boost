@@ -12,6 +12,9 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-line-strong: var(--ib-color-line-strong);
+  --color-warning: var(--ib-color-warning);
+  --color-warning-soft: var(--ib-color-warning-soft);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
