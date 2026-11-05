@@ -188,11 +188,11 @@ export function RoomOutcomeView({
                 className="relative w-[200px]"
               >
                 <div className="flex h-full flex-col p-2">
+                  <h2 className="text-base leading-6 font-bold">
+                    {number}. {label}
+                  </h2>
+
                   <p className="min-h-0 min-w-0 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere] text-base leading-6 select-text">
-                    <span className="font-bold">
-                      {number}. {label}
-                    </span>
-                    {"\n"}
                     {!available ? (
                       <>
                         <span className="text-xs font-medium">未確認</span>
