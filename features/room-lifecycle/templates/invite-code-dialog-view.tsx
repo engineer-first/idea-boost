@@ -8,6 +8,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -35,16 +36,15 @@ export function InviteCodeDialogView({
 }: InviteCodeDialogViewProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent
-        aria-describedby={undefined}
-        data-testid="invite-dialog"
-      >
+      <AlertDialogContent data-testid="invite-dialog">
         <AlertDialogHeader>
           <AlertDialogTitle>
             {hostName} さんが作成したルームに参加しますか？
           </AlertDialogTitle>
         </AlertDialogHeader>
-        <p className="font-mono font-semibold">{inviteCode}</p>
+        <AlertDialogDescription className="font-mono font-semibold text-foreground">
+          {inviteCode}
+        </AlertDialogDescription>
         {message && (
           <p role="alert" className="text-base leading-relaxed">
             {message}

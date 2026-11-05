@@ -78,7 +78,7 @@ export function RoomDisplayNameDialog({
                 >
                   {error}
                 </p>
-                {controls.onRetry ? (
+                {!tooLong && controls.error && controls.onRetry ? (
                   <Button
                     type="button"
                     variant="link"

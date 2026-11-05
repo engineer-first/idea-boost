@@ -62,3 +62,21 @@ it("15文字では案内せず16文字でエラーを出して保存を止め、
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "保存する" })).toBeEnabled();
 });
+it("文字数超過では保存済みの確認を出さず、保存の失敗では出す", () => {
+  const c = { ...controls, open: true, onRetry: vi.fn() };
+  const { rerender } = render(
+    <RoomDisplayNameDialog controls={{ ...c, draft: "あ".repeat(16) }} />,
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent("15文字以内");
+  expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(
+    expect.not.arrayContaining([expect.stringContaining("確認")]),
+  );
+  rerender(
+    <RoomDisplayNameDialog
+      controls={{ ...c, draft: "はな", error: "保存できませんでした。" }}
+    />,
+  );
+  expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(
+    expect.arrayContaining([expect.stringContaining("確認")]),
+  );
+});

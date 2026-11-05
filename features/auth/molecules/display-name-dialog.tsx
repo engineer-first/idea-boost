@@ -94,15 +94,17 @@ export function DisplayNameDialog({
                 >
                   {error}
                 </p>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto px-0 text-base"
-                  disabled={controls.pending || controls.loading}
-                  onClick={() => void controls.onRetry()}
-                >
-                  保存済みの表示名を確認
-                </Button>
+                {!tooLong && controls.error ? (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto px-0 text-base"
+                    disabled={controls.pending || controls.loading}
+                    onClick={() => void controls.onRetry()}
+                  >
+                    保存済みの表示名を確認
+                  </Button>
+                ) : null}
               </div>
             ) : null}
             {disabled ? (
