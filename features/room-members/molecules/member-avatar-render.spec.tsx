@@ -43,3 +43,36 @@ describe("MemberAvatar", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("顔と接続状態", () => {
+  it("指定した顔を付箋色の円の上に表示する", () => {
+    render(
+      <TooltipProvider>
+        <MemberAvatar name="はな" color="pink" avatarId="face-07" />
+      </TooltipProvider>,
+    );
+    expect(screen.getByTestId("avatar").querySelector("img")).toHaveAttribute(
+      "src",
+      "/avatars/face-07.webp",
+    );
+    expect(screen.getByTestId("avatar")).toHaveStyle({
+      backgroundColor: NOTE_COLOR_STYLES.pink.backgroundColor,
+    });
+  });
+  it("切断中も顔と名前を保ち、完了状態と区別した切断マークを出す", () => {
+    render(
+      <TooltipProvider>
+        <MemberAvatar
+          name="はな"
+          color="pink"
+          avatarId="face-07"
+          isConnected={false}
+          isVotingComplete
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.getByRole("img", { name: /はな.*接続切れ/ })).toBeVisible();
+    expect(screen.getByTestId("member-disconnected")).toBeVisible();
+    expect(screen.getByTestId("member-voting-complete")).toBeVisible();
+  });
+});

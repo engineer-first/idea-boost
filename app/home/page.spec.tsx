@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -43,18 +43,32 @@ it("ゲスト本人に連携の入口を表示する", async () => {
   expect(screen.getByTestId("home-view")).toBeInTheDocument();
   expect(
     screen.getByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
+      name: "Googleと連携する",
     }),
   ).toBeVisible();
+});
+
+it("認証済みホームの主要領域を一つのmainから辿れる", async () => {
+  mocks.user.mockResolvedValue({
+    kind: "guest",
+    sub: "11111111-1111-4111-8111-111111111111",
+  });
+  render(await HomePage({ searchParams: Promise.resolve({}) }));
+  expect(screen.getAllByRole("main")).toHaveLength(1);
+  const main = screen.getByRole("main");
+  expect(within(main).getByRole("heading", { level: 1 })).toBeInTheDocument();
+  expect(
+    within(main).getByRole("textbox", { name: "招待コード" }),
+  ).toBeInTheDocument();
 });
 
 it("アカウント本人には連携済みの案内を表示し連携ボタンを表示しない", async () => {
   mocks.user.mockResolvedValue({ kind: "account", sub: "account" });
   render(await HomePage({ searchParams: Promise.resolve({}) }));
-  expect(screen.getByText(/Googleと連携済みです/)).toBeVisible();
+  expect(screen.getByText(/Google連携済み/)).toBeVisible();
   expect(
     screen.queryByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
+      name: "Googleと連携する",
     }),
   ).not.toBeInTheDocument();
 });

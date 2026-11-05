@@ -303,7 +303,9 @@ test("採用はキーボードで候補を選ぶと確認ダイアログなし�
 
 test("最終採用済みは全員へ成果を示しループ操作を消す", async () => {
   await openStory("room-roomboardlayout--completed");
-  await page.getByRole("heading", { name: "採用したアイデア" }).waitFor();
+  const ideaNote = page.locator('[data-note-id="outcome-idea"]');
+  await ideaNote.waitFor();
+  expect(await ideaNote.textContent()).toContain("採用したアイデア");
   expect(await page.getByRole("dialog").count()).toBe(0);
   expect(
     await page

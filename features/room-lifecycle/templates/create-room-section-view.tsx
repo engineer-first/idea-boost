@@ -7,11 +7,11 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { ROOM_CREATION_NAME_MAX } from "@/contracts/room-creation";
 import { createRoomCopy } from "../logic/create-room-copy";
 import { RoomEntryField } from "../molecules/room-entry-field";
+import styles from "./room-entry-section.module.css";
 
 export type CreateRoomSectionViewProps = {
   pending?: boolean;
@@ -28,22 +28,14 @@ export function CreateRoomSectionView({
   message,
 }: CreateRoomSectionViewProps) {
   return (
-    <Card
-      className="flex flex-col border-border/80 transition-shadow "
-      data-testid="home-create-room"
-    >
-      <CardHeader className="gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground ">
-          <Plus className="size-5" aria-hidden />
-        </div>
-        <div className="space-y-1.5">
-          <CardTitle className="text-base">ルームを作成</CardTitle>
-          <CardDescription className="min-h-[3.25rem] leading-relaxed">
-            {createRoomCopy.description}
-          </CardDescription>
-        </div>
+    <Card className={styles.create} data-testid="home-create-room">
+      <CardHeader className={styles.createHeader}>
+        <h2>ルームを作成</h2>
+        <CardDescription className={styles.description}>
+          {createRoomCopy.description}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="mt-auto">
+      <CardContent className={styles.createContent}>
         <form
           className="flex w-full flex-col gap-1"
           onSubmit={(event) => {
@@ -67,7 +59,7 @@ export function CreateRoomSectionView({
           <Button
             type="submit"
             size="lg"
-            className="h-11 w-full"
+            className={styles.primaryAction}
             disabled={pending}
             data-icon="inline-start"
           >

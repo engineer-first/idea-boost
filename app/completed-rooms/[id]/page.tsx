@@ -11,6 +11,7 @@ import {
   CompletedRoomsUnavailableView,
 } from "@/features/completed-rooms";
 import { getCurrentUser } from "@/lib/session/current-user";
+
 export const dynamic = "force-dynamic";
 export default async function CompletedRoomPage({
   params,
@@ -35,6 +36,7 @@ export default async function CompletedRoomPage({
       roomId={id}
       accountLink={
         <AccountLinkSection
+          layout="inline"
           status={user.kind === "guest" ? "guest" : "linked"}
           next={`/completed-rooms/${id}`}
           result={parseAccountLinkResult(query[ACCOUNT_LINK_RESULT_PARAM])}

@@ -18,6 +18,7 @@ import {
   NOTE_FONT_SIZE_RANGE,
 } from "./board";
 import { UUID_PATTERN } from "./ids";
+import { MemberAvatarIdSchema } from "./member-avatar";
 import { RoomPhaseSchema } from "./phase";
 import { RoomNameSchema } from "./room-name";
 import { SharingReactionKindSchema } from "./sharing-reactions";
@@ -265,6 +266,8 @@ export const MemberSchema = z.object({
   userId: z.guid(),
   name: z.string(),
   color: NoteColorSchema,
+  // 段階的なWorker更新中は、顔IDを持たないスナップショットも読める。
+  avatarId: MemberAvatarIdSchema.optional(),
 });
 export type ProtocolMember = z.infer<typeof MemberSchema>;
 
@@ -366,6 +369,10 @@ export const RoomDisplayNameSchema = z
   );
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z.strictObject({
+    type: z.literal("member:cycle-avatar"),
+    operationId: z.guid(),
+  }),
   z.strictObject({
     type: z.literal("reaction:send"),
     kind: SharingReactionKindSchema,
@@ -926,6 +933,11 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("member_joined"),
     member: MemberSchema,
+  }),
+  z.strictObject({
+    type: z.literal("member:avatar-updated"),
+    member: MemberSchema,
+    operationId: z.guid(),
   }),
   z.object({
     type: z.literal("member_left"),

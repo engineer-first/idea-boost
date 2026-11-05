@@ -25,6 +25,7 @@ import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import type { Member } from "../logic/room-reducer";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useMemberRemoval } from "../logic/use-member-removal";
+import { useRoomAvatar } from "../logic/use-room-avatar";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
 import { useRoomName } from "../logic/use-room-name";
@@ -95,6 +96,11 @@ export function RoomLobby({
     webSocketFactory,
     isLeavingRef,
   });
+  const avatarChange = useRoomAvatar({
+    connected: connectionStatus === "open",
+    blocked: isStarting || isLeaving || !isLobby(roomState.phase),
+    send,
+  });
   const roomName = useRoomName({
     connected: connectionStatus === "open",
     blocked: isStarting || isLeaving,
@@ -163,6 +169,7 @@ export function RoomLobby({
   }, [roomState.phase, roomId, boardHref, admission, router]);
 
   function handleServerMessage(message: ServerMessage) {
+    if (avatarChange.applyMessage(message)) return;
     if (roomName.applyMessage(message)) return;
     if (displayName.applyMessage(message)) return;
     if (memberRemoval.applyMessage(message)) return;
@@ -218,6 +225,12 @@ export function RoomLobby({
   return (
     <RoomLobbyView
       loginReturnHref={`/rooms/${roomId}`}
+      avatarChange={avatarChange}
+      connectedUserIds={
+        roomState.progress.progressRevision > 0
+          ? roomState.progress.connectedUserIds
+          : undefined
+      }
       displayName={displayName}
       roomName={roomName}
       memberRemoval={memberRemoval}

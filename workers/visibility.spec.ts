@@ -45,6 +45,12 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "顔アイコンの全員共有でも他者の非共有付箋を公開しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
     name: "AT-910 他者を除外できる参加者にも他人の未共有付箋は不可視",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

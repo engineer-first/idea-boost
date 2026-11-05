@@ -90,89 +90,46 @@ function expectClose(actual: number, expected: number, label: string): void {
   expect.soft(Math.abs(actual - expected), label).toBeLessThanOrEqual(1);
 }
 
-function expectAlignedCards(
+function expectEntryLayout(
   layout: HomeLayout,
   width: number,
   state: string,
 ): void {
   const { create, join } = layout;
   const context = `${width}px ${state}`;
-  expectClose(create.card.width, join.card.width, `${context}: カード幅`);
-  expectClose(create.card.height, join.card.height, `${context}: カード高さ`);
-  if (width >= 640) {
-    expectClose(create.card.y, join.card.y, `${context}: カード上端`);
+  expect
+    .soft(join.card.y, `${context}: 参加は作成の下段`)
+    .toBeGreaterThanOrEqual(create.card.y + create.card.height);
+  if (width >= 1024) {
     expect
-      .soft(join.card.x, `${context}: 横並び`)
-      .toBeGreaterThanOrEqual(create.card.x + create.card.width);
+      .soft(join.card.width, `${context}: 参加は横幅を使う`)
+      .toBeGreaterThan(create.card.width);
+    expect
+      .soft(join.button.x, `${context}: 参加操作はコードの右`)
+      .toBeGreaterThanOrEqual(join.input.x + join.input.width);
+    expectClose(join.input.y, join.button.y, `${context}: コードと参加の上端`);
   } else {
-    expectClose(create.card.x, join.card.x, `${context}: カード左端`);
-    const gap = join.card.y - create.card.y - create.card.height;
-    expect.soft(gap, `${context}: 縦並び`).toBeGreaterThanOrEqual(0);
-    expect.soft(gap, `${context}: カード間の空白`).toBeLessThanOrEqual(24);
+    expectClose(create.card.x, join.card.x, `${context}: 縦並びの左端`);
+    expectClose(create.card.width, join.card.width, `${context}: 縦並びの幅`);
+    expect
+      .soft(join.button.y, `${context}: 参加操作はコードの下`)
+      .toBeGreaterThanOrEqual(join.input.y + join.input.height);
   }
-  for (const target of ["input", "button"] as const) {
-    for (const dimension of ["width", "height"] as const) {
-      expectClose(
-        create[target][dimension],
-        join[target][dimension],
-        `${context}: ${target} ${dimension}`,
-      );
+  for (const [name, section] of Object.entries({ create, join })) {
+    for (const target of ["input", "button"] as const) {
+      expect
+        .soft(section[target].height, `${context}: ${name} ${target}の操作面`)
+        .toBeGreaterThanOrEqual(44);
+      expect
+        .soft(section[target].x, `${context}: ${name} ${target}の左端`)
+        .toBeGreaterThanOrEqual(section.card.x);
+      expect
+        .soft(
+          section[target].x + section[target].width,
+          `${context}: ${name} ${target}の右端`,
+        )
+        .toBeLessThanOrEqual(section.card.x + section.card.width + 1);
     }
-    expectClose(
-      create[target].y - create.card.y,
-      join[target].y - join.card.y,
-      `${context}: ${target} のカード内の上端`,
-    );
-    if (width >= 640) {
-      expectClose(
-        create[target].y,
-        join[target].y,
-        `${context}: ${target} の上端`,
-      );
-    }
-  }
-  for (const [name, card] of Object.entries({ create, join })) {
-    const left = card.input.x - card.card.x;
-    const right =
-      card.card.x + card.card.width - card.input.x - card.input.width;
-    expectClose(left, right, `${context}: ${name} の左右内余白`);
-    expectClose(
-      left,
-      create.input.x - create.card.x,
-      `${context}: 左右カードの内余白`,
-    );
-    expectClose(
-      card.input.x,
-      card.button.x,
-      `${context}: ${name} のinput/button左端`,
-    );
-    expectClose(
-      card.input.width,
-      card.button.width,
-      `${context}: ${name} のinput/button幅`,
-    );
-    expect
-      .soft(
-        card.form.y - card.header.y - card.header.height,
-        `${context}: ${name} の見出しとフォーム間の空白`,
-      )
-      .toBeLessThanOrEqual(24);
-    const fieldGap = card.button.y - card.input.y - card.input.height;
-    expect
-      .soft(fieldGap, `${context}: ${name} のinput/button重なり`)
-      .toBeGreaterThanOrEqual(0);
-    // 2行の検証メッセージを確保しても、CTAの前を過剰に空けない。
-    expect
-      .soft(fieldGap, `${context}: ${name} のinput/button間の空白`)
-      .toBeLessThanOrEqual(64);
-    const bottom =
-      card.card.y + card.card.height - card.button.y - card.button.height;
-    expect
-      .soft(bottom, `${context}: ${name} のボタンのカード内への収まり`)
-      .toBeGreaterThanOrEqual(0);
-    expect
-      .soft(bottom, `${context}: ${name} のボタン下の空白`)
-      .toBeLessThanOrEqual(32);
   }
 }
 
@@ -202,7 +159,9 @@ function expectStableLayout(
 }
 
 async function expectReachable(page: Page, target: Locator): Promise<void> {
-  await target.scrollIntoViewIfNeeded();
+  await target.evaluate((element) =>
+    element.scrollIntoView({ block: "center" }),
+  );
   const bounds = await target.boundingBox();
   expect(bounds).not.toBeNull();
   expect(bounds?.x).toBeGreaterThanOrEqual(0);
@@ -216,20 +175,101 @@ async function expectReachable(page: Page, target: Locator): Promise<void> {
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
-  expect(
-    await page.evaluate(
-      () =>
-        document.documentElement.scrollWidth <= innerWidth &&
-        Array.from(
-          document.querySelectorAll("main, [data-testid=home-view]"),
-        ).every((element) => element.scrollWidth <= element.clientWidth),
-    ),
-  ).toBe(true);
+  const hasNoOverflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth <= innerWidth &&
+      Array.from(
+        document.querySelectorAll("main, [data-testid=home-view]"),
+      ).every((element) => element.scrollWidth <= element.clientWidth),
+  );
+  if (hasNoOverflow) return;
+
+  const diagnostic = await page.evaluate(() => {
+    function describe(element: Element) {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const path: string[] = [];
+      for (
+        let current: Element | null = element;
+        current && path.length < 6;
+        current = current.parentElement
+      ) {
+        const id = current.id ? `#${current.id}` : "";
+        const testId = current.getAttribute("data-testid");
+        const noteId = current.getAttribute("data-note-id");
+        const slot = current.getAttribute("data-slot");
+        path.unshift(
+          `${current.tagName.toLowerCase()}${id}${testId ? `[data-testid="${testId}"]` : ""}${noteId ? `[data-note-id="${noteId}"]` : ""}${slot ? `[data-slot="${slot}"]` : ""}`,
+        );
+        if (current.tagName === "MAIN") break;
+      }
+
+      return {
+        path: path.join(" > "),
+        tag: element.tagName.toLowerCase(),
+        id: element.id || null,
+        testId: element.getAttribute("data-testid"),
+        noteId: element.getAttribute("data-note-id"),
+        slot: element.getAttribute("data-slot"),
+        className: (element.getAttribute("class") ?? "").slice(0, 240),
+        left: Math.round(rect.left * 10) / 10,
+        right: Math.round(rect.right * 10) / 10,
+        width: Math.round(rect.width * 10) / 10,
+        clientWidth: (element as HTMLElement).clientWidth,
+        scrollWidth: (element as HTMLElement).scrollWidth,
+        minWidth: style.minWidth,
+        maxWidth: style.maxWidth,
+        overflowX: style.overflowX,
+        position: style.position,
+        flex: style.flex,
+      };
+    }
+
+    const roots = [
+      document.documentElement,
+      document.body,
+      ...document.querySelectorAll("main, [data-testid=home-view]"),
+    ].map(describe);
+    const overflowing = Array.from(document.querySelectorAll("body *"))
+      .map(describe)
+      .filter(
+        (element) =>
+          element.scrollWidth > element.clientWidth + 1 ||
+          element.left < -1 ||
+          element.right > innerWidth + 1,
+      )
+      .sort((a, b) => {
+        const overflowA = Math.max(
+          a.scrollWidth - a.clientWidth,
+          -a.left,
+          a.right - innerWidth,
+        );
+        const overflowB = Math.max(
+          b.scrollWidth - b.clientWidth,
+          -b.left,
+          b.right - innerWidth,
+        );
+        return overflowB - overflowA;
+      })
+      .slice(0, 40);
+
+    return {
+      viewportWidth: innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      roots,
+      overflowing,
+    };
+  });
+
+  console.error(
+    `[horizontal-overflow-diagnostic] ${JSON.stringify(diagnostic, null, 2)}`,
+  );
+  expect(hasNoOverflow).toBe(true);
 }
 
 // Storybook の Next router はモック。実際の URL 遷移は下の実 Next/Worker で検証する。
 it.each([390, 640, 1280])(
-  "左右カードの配置を保って招待コードのblur検証と履歴入口のTab操作を%ipxで行える",
+  "作成を主役に参加を下段へ配置し、blur検証と履歴入口のTab操作を%ipxで行える",
   async (width) => {
     const browser = await chromium.launch();
     try {
@@ -273,7 +313,7 @@ it.each([390, 640, 1280])(
       expect(await join.isDisabled()).toBe(true);
       await page.evaluate(() => document.fonts.ready);
       const initialLayout = await measureHomeLayout(page);
-      expectAlignedCards(initialLayout, width, "initial");
+      expectEntryLayout(initialLayout, width, "initial");
       for (const target of [name, create, code, join, entry]) {
         await expectReachable(page, target);
       }
@@ -305,7 +345,7 @@ it.each([390, 640, 1280])(
         )
         .toBe(destructive);
       const errorLayout = await measureHomeLayout(page);
-      expectAlignedCards(errorLayout, width, "error");
+      expectEntryLayout(errorLayout, width, "error");
       expectStableLayout(initialLayout, errorLayout, `${width}px error`);
       for (const target of [name, create, code, error, join, entry]) {
         await expectReachable(page, target);
@@ -320,7 +360,11 @@ it.each([390, 640, 1280])(
       );
       expect(
         (errorBounds?.y ?? 844) + (errorBounds?.height ?? 0),
-      ).toBeLessThanOrEqual(joinBounds?.y ?? 0);
+      ).toBeLessThanOrEqual(
+        width >= 1024
+          ? errorLayout.join.card.y + errorLayout.join.card.height
+          : (joinBounds?.y ?? 0),
+      );
       await expectNoHorizontalOverflow(page);
       await capture(page, `home-invite-${width}-error`, errorLayout);
 
@@ -343,7 +387,7 @@ it.each([390, 640, 1280])(
         .toBe(initialBorder);
       await expectNoHorizontalOverflow(page);
       const correctedLayout = await measureHomeLayout(page);
-      expectAlignedCards(correctedLayout, width, "corrected");
+      expectEntryLayout(correctedLayout, width, "corrected");
       expectStableLayout(
         initialLayout,
         correctedLayout,
@@ -630,9 +674,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
       // URLの切替だけでは入室は未完了。実際に開けた後の新規作成を確認する。
-      await page
-        .getByRole("heading", { name: "メンバーが揃ったら開始" })
-        .waitFor();
+      await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
       // 入室ごとの一回tokenは異なるので、戻り先のルームをURL pathで照合する。
       const first = new URL(page.url());
       await page.goto(`${app}/home`);
@@ -647,9 +689,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
       // URLの切替だけでは入室は未完了。実際に開けた後の新規作成を確認する。
-      await page
-        .getByRole("heading", { name: "メンバーが揃ったら開始" })
-        .waitFor();
+      await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
       await page.getByText("前の会から退出しました", { exact: true }).waitFor();
       expect(
         await page.getByRole("button", { name: "退出して作成する" }).count(),
@@ -657,7 +697,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       await expect
         .poll(() =>
           page
-            .getByRole("button", { name: "開始する", exact: true })
+            .getByRole("button", { name: "セッションを開始", exact: true })
             .isEnabled(),
         )
         .toBe(true);
@@ -679,17 +719,13 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
           url.origin === second.origin && url.pathname === second.pathname,
         { timeout: 5000 },
       );
-      await page
-        .getByRole("heading", { name: "メンバーが揃ったら開始" })
-        .waitFor();
+      await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
       expect(new URL(page.url()).pathname).toBe(second.pathname);
       // 前のルームは確認なしで退出済み。保存URLで権限を復活させない。
       await page.goto(first.origin + first.pathname);
       await page.getByRole("heading", { name: "404", exact: true }).waitFor();
       expect(
-        await page
-          .getByRole("heading", { name: "メンバーが揃ったら開始" })
-          .count(),
+        await page.getByRole("main").getByTestId("room-lobby-view").count(),
       ).toBe(0);
 
       const inviter = await browser.newPage({
@@ -735,7 +771,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       await expect
         .poll(() =>
           page
-            .getByRole("button", { name: "開始する", exact: true })
+            .getByRole("button", { name: "セッションを開始", exact: true })
             .isEnabled(),
         )
         .toBe(true);
@@ -753,7 +789,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       await expect
         .poll(() =>
           page
-            .getByRole("button", { name: "開始する", exact: true })
+            .getByRole("button", { name: "セッションを開始", exact: true })
             .isEnabled(),
         )
         .toBe(true);
@@ -841,12 +877,14 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         await page
           .getByRole("heading", { name: "チームで決めた成果", exact: true })
           .waitFor();
-        await page.getByText(room.idea, { exact: true }).waitFor();
+        const ideaNote = page.locator('[data-note-id="outcome-idea"]');
+        await ideaNote.waitFor();
+        expect(await ideaNote.textContent()).toContain(room.idea);
         expect(context.pages()).toHaveLength(1);
         await expectNoHorizontalOverflow(page);
         await capture(page, `home-history-${width}-actual-detail`);
         const backToList = page.getByRole("link", {
-          name: "以前のルームへ",
+          name: "以前のルーム一覧へ",
           exact: true,
         });
         expect(await backToList.getAttribute("href")).toBe("/completed-rooms");
@@ -873,4 +911,99 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
     },
     90_000,
   );
+  it("1280×632で再訪欄と閉じた履歴があっても作成・参加を初期画面に表示する", async () => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({
+        viewport: { width: 1280, height: 632 },
+      });
+      await page.goto(`${app}/login?next=%2Fhome`);
+      await page.getByLabel("メールアドレス").fill("member@example.test");
+      await page.getByLabel("パスワード").fill("password");
+      await page
+        .getByRole("button", { name: "開発用ユーザーでログイン" })
+        .click();
+      await page.waitForURL(`${app}/home`);
+      const create = page.getByRole("button", {
+        name: "新しいルームを作成",
+        exact: true,
+      });
+      const checkEntry = async (state: string): Promise<void> => {
+        await create.waitFor({ state: "visible" });
+        await page.evaluate(() => document.fonts.ready);
+        expect(
+          await page.getByTestId("home-view").evaluate((el) => el.scrollTop),
+        ).toBe(0);
+        for (const control of [
+          create,
+          page.getByRole("textbox", { name: "招待コード" }),
+          page.getByRole("button", { name: "参加する", exact: true }),
+        ]) {
+          const bounds = await control.boundingBox();
+          expect
+            .soft(bounds?.y, `${state}: 操作面の上端`)
+            .toBeGreaterThanOrEqual(0);
+          expect
+            .soft(
+              (bounds?.y ?? 632) + (bounds?.height ?? 0),
+              `${state}: 操作面の下端`,
+            )
+            .toBeLessThanOrEqual(632);
+        }
+        await capture(page, `home-short-${state}`);
+      };
+      await checkEntry("without-return");
+      await page
+        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .fill("高さ確認の会");
+      await create.click();
+      await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
+      await page.goto(`${app}/home`);
+      await page
+        .getByRole("button", { name: "前のルームに戻る", exact: true })
+        .waitFor();
+      await checkEntry("with-return");
+      // 作成済みの控えを複製し、過去のルームがある表示条件だけを再現する。
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            const request = indexedDB.open("idea-boost-room-creations", 1);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+              const db = request.result;
+              const tx = db.transaction("intents", "readwrite");
+              const store = tx.objectStore("intents");
+              const records = store.getAll();
+              records.onsuccess = () => {
+                const record = records.result[0];
+                const requestId = crypto.randomUUID();
+                store.put(
+                  {
+                    ...record,
+                    requestId,
+                    roomId: crypto.randomUUID(),
+                    name: "過去の相談",
+                  },
+                  `${record.expectedPrincipal}:${requestId}`,
+                );
+              };
+              tx.onerror = () => reject(tx.error);
+              tx.oncomplete = () => {
+                db.close();
+                window.dispatchEvent(new Event("idea-boost-room-creations"));
+                resolve();
+              };
+            };
+          }),
+      );
+      const history = page.getByText("以前のルーム", { exact: true });
+      await history.waitFor();
+      expect(await history.evaluate((el) => el.closest("details")?.open)).toBe(
+        false,
+      );
+      await checkEntry("with-history");
+    } finally {
+      await browser.close();
+    }
+  });
 });
