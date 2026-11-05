@@ -1,4 +1,0 @@
-interface:
-  display_name: "PBI"
-  short_description: "実績・要望・複数Taskから目的と背景を合わせてPBIを一緒に考え、直す"
-  default_prompt: "Use $pbi to collaboratively refine idea-boost PBIs from achievements, goals, consultation issues, or implementation tasks."
