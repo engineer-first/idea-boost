@@ -105,7 +105,7 @@ export function PhaseRollbackDialog({
             </AlertDialogAction>
           ) : (
             <Button
-              className="min-h-11"
+              className="h-12 w-full font-bold"
               type="button"
               disabled={disabled}
               onClick={() => {

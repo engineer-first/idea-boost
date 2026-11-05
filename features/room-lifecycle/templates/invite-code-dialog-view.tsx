@@ -8,13 +8,10 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/dialog";
-
-import { inviteCopy } from "../logic/invite-copy";
 
 export type InviteCodeDialogViewProps = {
   inviteCode: string;
@@ -38,17 +35,16 @@ export function InviteCodeDialogView({
 }: InviteCodeDialogViewProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent data-testid="invite-dialog">
+      <AlertDialogContent
+        aria-describedby={undefined}
+        data-testid="invite-dialog"
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>
             {hostName} さんが作成したルームに参加しますか？
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            {inviteCopy.codeLabel}{" "}
-            <span className="font-mono font-semibold">{inviteCode}</span>{" "}
-            のルームに参加します。
-          </AlertDialogDescription>
         </AlertDialogHeader>
+        <p className="font-mono font-semibold">{inviteCode}</p>
         {message && (
           <p role="alert" className="text-base leading-relaxed">
             {message}

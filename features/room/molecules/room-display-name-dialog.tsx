@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -19,9 +18,14 @@ export function RoomDisplayNameDialog({
   controls: RoomDisplayNameControls;
 }) {
   const id = useId();
+  const tooLong = controls.draft.trim().length > ROOM_DISPLAY_NAME_MAX_LENGTH;
+  const error = tooLong
+    ? `表示名は${ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。`
+    : controls.error;
   return (
     <Dialog open={controls.open} onOpenChange={controls.onOpenChange}>
       <DialogContent
+        aria-describedby={undefined}
         className={`w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto ${controls.pending ? "[&>[data-slot=dialog-close]]:hidden" : ""}`}
         onCloseAutoFocus={(event) => {
           if (controls.onClosed) {
@@ -39,15 +43,12 @@ export function RoomDisplayNameDialog({
       >
         <DialogHeader>
           <DialogTitle>表示名を変更</DialogTitle>
-          <DialogDescription>
-            このアプリで使う表示名を変更します。
-          </DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-4"
           onSubmit={(event) => {
             event.preventDefault();
-            controls.onConfirm();
+            if (!tooLong) controls.onConfirm();
           }}
         >
           <div className="grid gap-2">
@@ -59,8 +60,8 @@ export function RoomDisplayNameDialog({
               value={controls.draft}
               onChange={(event) => controls.onDraftChange(event.target.value)}
               disabled={controls.pending || controls.loading}
-              aria-invalid={!!controls.error}
-              aria-describedby={`${id}-hint${controls.error ? ` ${id}-error` : ""}`}
+              aria-invalid={!!error}
+              aria-describedby={error ? `${id}-error` : undefined}
               autoComplete="off"
               className="h-11 text-base"
               onKeyDown={(event) => {
@@ -68,18 +69,14 @@ export function RoomDisplayNameDialog({
                   event.preventDefault();
               }}
             />
-            <p id={`${id}-hint`} className="text-base text-muted-foreground">
-              {ROOM_DISPLAY_NAME_MAX_LENGTH}
-              文字以内
-            </p>
-            {controls.error ? (
+            {error ? (
               <div>
                 <p
                   id={`${id}-error`}
                   role="alert"
                   className="text-base text-destructive"
                 >
-                  {controls.error}
+                  {error}
                 </p>
                 {controls.onRetry ? (
                   <Button
@@ -114,7 +111,10 @@ export function RoomDisplayNameDialog({
               type="submit"
               className="h-12 font-bold"
               disabled={
-                controls.pending || controls.loading || controls.disabled
+                tooLong ||
+                controls.pending ||
+                controls.loading ||
+                controls.disabled
               }
             >
               {controls.pending ? "保存中…" : "保存する"}

@@ -232,7 +232,7 @@ test("共有一巡後の書き足し操作はタイマー内で選べる", async
 });
 
 test.each(phases)(
-  "フェーズ$phaseの再投票確認は候補件数と票の削除だけを説明する",
+  "フェーズ$phaseの再投票確認は候補件数と付箋が残ることを示す",
   async ({ phase, count }) => {
     await openStory(`room-roomboardlayout--phase-${phase}-step-${count}`);
     const trigger = page.getByRole("button", {
@@ -246,7 +246,6 @@ test.each(phases)(
     await dialog.waitFor();
     await expectReadable(dialog);
     expect(await dialog.innerText()).toContain("付箋は消えません");
-    expect(await dialog.innerText()).toContain("候補外");
     expect(await dialog.locator("li, blockquote").count()).toBe(0);
     await expectReachable(
       dialog.getByRole("button", {

@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,9 +14,14 @@ import type { RoomNameControls } from "../logic/use-room-name";
 
 export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
   const id = useId();
+  const tooLong = controls.draft.trim().length > ROOM_NAME_MAX_LENGTH;
+  const error = tooLong
+    ? `ルーム名は${ROOM_NAME_MAX_LENGTH}文字以内で入力してください。`
+    : controls.error;
   return (
     <Dialog open={controls.open} onOpenChange={controls.onOpenChange}>
       <DialogContent
+        aria-describedby={undefined}
         className={`w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto ${controls.pending ? "[&>[data-slot=dialog-close]]:hidden" : ""}`}
         onCloseAutoFocus={(event) => {
           if (controls.onClosed) {
@@ -35,15 +39,12 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
       >
         <DialogHeader>
           <DialogTitle>ルーム名を変更</DialogTitle>
-          <DialogDescription>
-            チームを識別できる名前に揃えられます。変更は参加者全員と成果一覧に反映されます。
-          </DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-4"
           onSubmit={(event) => {
             event.preventDefault();
-            controls.onConfirm();
+            if (!tooLong) controls.onConfirm();
           }}
         >
           <div className="grid gap-2">
@@ -55,8 +56,8 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
               value={controls.draft}
               onChange={(event) => controls.onDraftChange(event.target.value)}
               disabled={controls.pending}
-              aria-invalid={!!controls.error}
-              aria-describedby={`${id}-hint${controls.error ? ` ${id}-error` : ""}`}
+              aria-invalid={!!error}
+              aria-describedby={error ? `${id}-error` : undefined}
               autoComplete="off"
               className="h-11 text-base"
               onKeyDown={(event) => {
@@ -64,18 +65,14 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
                   event.preventDefault();
               }}
             />
-            <p id={`${id}-hint`} className="text-base text-muted-foreground">
-              {ROOM_NAME_MAX_LENGTH}
-              文字以内
-            </p>
-            {controls.error ? (
+            {error ? (
               <div>
                 <p
                   id={`${id}-error`}
                   role="alert"
                   className="text-base text-destructive"
                 >
-                  {controls.error}
+                  {error}
                 </p>
               </div>
             ) : null}
@@ -98,7 +95,7 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
             <Button
               type="submit"
               className="h-12 font-bold"
-              disabled={controls.pending || controls.disabled}
+              disabled={tooLong || controls.pending || controls.disabled}
             >
               {controls.pending ? "保存中…" : "保存する"}
             </Button>
