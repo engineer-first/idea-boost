@@ -18,7 +18,6 @@ export type LeaveConfirmDialogProps = {
   onConfirm: () => void;
   isLeaving: boolean;
   mode?: LeaveConfirmMode;
-  lastMember?: boolean;
   onClosed?: () => void;
 };
 
