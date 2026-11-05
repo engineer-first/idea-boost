@@ -5,6 +5,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -25,12 +26,14 @@ export function GuestIdentityRemovalDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       {/* ボードのルームメニュー（z-70）より前面で説明と操作を守る。 */}
       <AlertDialogContent
-        aria-describedby={undefined}
         overlayClassName="z-[80] bg-black/20 backdrop-blur-none"
         className="z-[80] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto"
       >
         <AlertDialogHeader>
           <AlertDialogTitle>本人情報を消しますか？</AlertDialogTitle>
+          <AlertDialogDescription>
+            消すと、このブラウザからルームや成果に戻れなくなります。
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="min-h-11">キャンセル</AlertDialogCancel>

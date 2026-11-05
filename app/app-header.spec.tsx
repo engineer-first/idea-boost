@@ -288,6 +288,9 @@ describe("本人情報の削除確認", () => {
       const dialog = await screen.findByRole("alertdialog", {
         name: "本人情報を消しますか？",
       });
+      expect(dialog).toHaveTextContent(
+        "消すと、このブラウザからルームや成果に戻れなくなります。",
+      );
       expect(signOut).not.toHaveBeenCalled();
       fireEvent.click(within(dialog).getByRole("button", { name: "消す" }));
       await waitFor(() => expect(signOut).toHaveBeenCalledOnce());
