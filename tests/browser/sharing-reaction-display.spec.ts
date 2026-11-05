@@ -13,10 +13,13 @@ afterAll(async () => {
 
 async function frame(reaction: Locator, time: number) {
   return reaction.evaluate((element, currentTime) => {
-    const animation = element.getAnimations()[0];
-    if (!animation) throw new Error("リアクションのアニメーションが必要です");
-    animation.pause();
-    animation.currentTime = currentTime;
+    const animations = element.getAnimations({ subtree: true });
+    if (!animations.length)
+      throw new Error("リアクションのアニメーションが必要です");
+    for (const animation of animations) {
+      animation.pause();
+      animation.currentTime = currentTime;
+    }
     const bounds = element.getBoundingClientRect();
     const style = getComputedStyle(element);
     return {
@@ -27,6 +30,56 @@ async function frame(reaction: Locator, time: number) {
     };
   }, time);
 }
+
+async function gestureFrame(image: Locator, time: number) {
+  return image.evaluate((element, currentTime) => {
+    const animations = element.getAnimations();
+    if (animations.length !== 1)
+      throw new Error("画像ごとに一度だけ弾むアニメーションが必要です");
+    const animation = animations[0];
+    animation.pause();
+    animation.currentTime = currentTime;
+    const matrix = new DOMMatrix(getComputedStyle(element).transform);
+    return {
+      scale: Math.hypot(matrix.a, matrix.b),
+      angle: Math.atan2(matrix.b, matrix.a),
+      iterations: animation.effect?.getTiming().iterations,
+    };
+  }, time);
+}
+
+test("5種類が小さく弾んで現れ、種類ごとに違う身振りを一度だけ見せて静まる", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+  });
+  try {
+    await page.goto(
+      `${origin}/iframe.html?id=room-sharingreactiondisplay--all-kinds&viewMode=story`,
+    );
+    const reactions = page.locator(
+      '[aria-label="届いたリアクション"] [role="img"]',
+    );
+    await reactions.first().waitFor({ state: "attached" });
+    const gestures = [];
+    for (let i = 0; i < 5; i++) {
+      const image = reactions.nth(i).locator("img");
+      const start = await gestureFrame(image, 0);
+      expect(start.scale).toBeLessThan(0.6);
+      const popped = await gestureFrame(image, 280);
+      expect(popped.scale).toBeGreaterThan(1);
+      expect(popped.iterations).toBe(1);
+      gestures.push(
+        [popped.scale.toFixed(2), popped.angle.toFixed(2)].join(":"),
+      );
+      const settled = await gestureFrame(image, 1_400);
+      expect(settled.scale).toBeCloseTo(1, 3);
+      expect(settled.angle).toBeCloseTo(0, 3);
+    }
+    expect(new Set(gestures).size).toBe(5);
+  } finally {
+    await page.close();
+  }
+});
 
 test("5種類の受信画像を読み込み、読み上げ名と表示する種類を一致させる", async () => {
   const page = await browser.newPage({
@@ -57,6 +110,34 @@ test("5種類の受信画像を読み込み、読み上げ名と表示する種�
       ).toContain(`/reactions/${kind}-3d.webp`);
       expect((await frame(reaction, 2250)).opacity).toBeGreaterThan(0.8);
       expect((await frame(reaction, 2999)).opacity).toBeLessThan(0.02);
+    }
+  } finally {
+    await page.close();
+  }
+});
+
+test("5種類とも浮上中の横位置を固定し、画像の中心がまっすぐ上がる", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+  });
+  try {
+    await page.goto(
+      `${origin}/iframe.html?id=room-sharingreactiondisplay--all-kinds&viewMode=story`,
+    );
+    const reactions = page.locator(
+      '[aria-label="届いたリアクション"] [role="img"]',
+    );
+    await reactions.first().waitFor({ state: "attached" });
+    for (let i = 0; i < 5; i++) {
+      const reaction = reactions.nth(i);
+      const start = await frame(reaction, 0);
+      for (const time of [180, 360, 900, 1500, 2160, 2999]) {
+        const current = await frame(reaction, time);
+        expect(current.x).toBeCloseTo(start.x, 3);
+        const image = await reaction.locator("img").boundingBox();
+        if (!image) throw new Error("画像が必要です");
+        expect(Math.abs(image.x + image.width / 2 - start.x)).toBeLessThan(0.5);
+      }
     }
   } finally {
     await page.close();
@@ -115,41 +196,61 @@ test.each([
   },
 );
 
-test("動きを減らす設定では上昇せず、中央の高さでフェードだけにする", async () => {
+test("動きを減らす設定では5種類とも上昇や身振りをせず、中央の高さでフェードだけにする", async () => {
   const page = await browser.newPage({
     viewport: { width: 375, height: 812 },
     reducedMotion: "reduce",
   });
   try {
     await page.goto(
-      `${origin}/iframe.html?id=room-sharingreactiondisplay--single-like&viewMode=story`,
+      `${origin}/iframe.html?id=room-sharingreactiondisplay--all-kinds&viewMode=story`,
     );
-    const reaction = page.getByRole("img", { name: "いいね", exact: true });
-    await reaction.waitFor({ state: "attached" });
-    const start = await frame(reaction, 300);
-    const middle = await frame(reaction, 2_250);
-    expect(middle.y).toBeGreaterThan(812 * 0.4);
-    expect(middle.y).toBeLessThan(812 * 0.6);
-    expect(middle.y).toBe(start.y);
-    expect(middle.transform).toBe("none");
-    expect((await frame(reaction, 2_999)).opacity).toBeLessThan(0.02);
+    const reactions = page.locator(
+      '[aria-label="届いたリアクション"] [role="img"]',
+    );
+    await reactions.first().waitFor({ state: "attached" });
+    for (let i = 0; i < 5; i++) {
+      const reaction = reactions.nth(i);
+      const start = await frame(reaction, 300);
+      const middle = await frame(reaction, 2_250);
+      expect(middle.y).toBeGreaterThan(812 * 0.4);
+      expect(middle.y).toBeLessThan(812 * 0.6);
+      expect(middle.y).toBe(start.y);
+      expect(middle.transform).toBe("none");
+      expect((await frame(reaction, 2_999)).opacity).toBeLessThan(0.02);
+      expect(
+        await reaction.locator("img").evaluate((element) => ({
+          animations: element.getAnimations().length,
+          transform: getComputedStyle(element).transform,
+        })),
+      ).toEqual({ animations: 0, transform: "none" });
+    }
   } finally {
     await page.close();
   }
 });
 
-test.each([1280, 375, 320])(
-  "幅%dで最大6画像の全軌跡を左1/3内に収める",
-  async (width) => {
+test.each(
+  [1280, 375, 320].flatMap((width) => [
+    { width, story: "simultaneous-likes", count: 6 },
+    { width, story: "all-kinds", count: 5 },
+  ]),
+)(
+  "幅$width・$storyで$count画像の身振りを含む全軌跡を左1/3内に収める",
+  async ({ width, story, count }) => {
     const page = await browser.newPage({ viewport: { width, height: 800 } });
     try {
       await page.goto(
-        `${origin}/iframe.html?id=room-sharingreactiondisplay--simultaneous-likes&viewMode=story`,
+        `${origin}/iframe.html?id=room-sharingreactiondisplay--${story}&viewMode=story`,
       );
-      const reactions = page.getByRole("img", { name: "いいね", exact: true });
+      const reactions = page.locator(
+        '[aria-label="届いたリアクション"] [role="img"]',
+      );
       await reactions.first().waitFor({ state: "attached" });
-      for (let i = 0; i < 6; i++) {
-        for (const time of [0, 180, 360, 900, 1500, 2160, 2999]) {
+      for (let i = 0; i < count; i++) {
+        for (const time of [
+          0, 180, 280, 360, 480, 680, 900, 1500, 2160, 2999,
+        ]) {
           await frame(reactions.nth(i), time);
           const bounds = await reactions.nth(i).locator("img").boundingBox();
           if (!bounds) throw new Error("画像が表示されていません");
