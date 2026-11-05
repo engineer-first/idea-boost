@@ -28,7 +28,7 @@ it("ゲスト本人は成果コンテナを描画する", async () => {
   expect(screen.getByText(/一覧コンテナ/)).toBeVisible();
   expect(
     screen.getByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
+      name: "Googleと連携する",
     }),
   ).toBeVisible();
   expect(mocks.redirect).not.toHaveBeenCalled();
@@ -60,10 +60,10 @@ it("本人情報が無いときは自動遷移せず、Googleは元の成果へ�
 it("アカウント本人には連携済み表示を出して連携ボタンを出さない", async () => {
   mocks.user.mockResolvedValue({ kind: "account", sub: "account" });
   render(await Page({ searchParams: Promise.resolve({}) }));
-  expect(screen.getByText(/Googleと連携済みです/)).toBeVisible();
+  expect(screen.getByText(/Google連携済み/)).toBeVisible();
   expect(
     screen.queryByRole("button", {
-      name: "Googleと連携して、別の端末からも記録を見返す",
+      name: "Googleと連携する",
     }),
   ).not.toBeInTheDocument();
 });

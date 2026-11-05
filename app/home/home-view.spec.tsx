@@ -81,7 +81,7 @@ it("過去の成果はホーム内に取得せず、同じタブの専用一覧�
 it("ゲストの連携入口より前に作成・参加の主操作と成果のリンクを配置する", async () => {
   renderView({ accountLinkStatus: "guest" });
   const link = screen.getByRole("button", {
-    name: "Googleと連携して、別の端末からも記録を見返す",
+    name: "Googleと連携する",
   });
   for (const primary of [
     await screen.findByRole("button", { name: "新しいルームを作成" }),

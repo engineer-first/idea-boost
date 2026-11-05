@@ -60,7 +60,7 @@ describe("Google連携の案内", () => {
       screen.getByRole("region", { name: "Googleとの連携" }),
     ).toBeVisible();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByText(/Googleと連携済みです/)).toBeInTheDocument();
+    expect(screen.getByText(/Google連携済み/)).toBeInTheDocument();
   });
   it("連携直後は成功結果だけを表示して連携済みの説明を重複させない", () => {
     render(
@@ -69,7 +69,7 @@ describe("Google連携の案内", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Googleと連携しました。",
     );
-    expect(screen.queryByText(/Googleと連携済みです/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Google連携済み/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
   it("結果の固定文言をstatusとして表示する", () => {
@@ -99,7 +99,7 @@ it.each(["guest", "linked"] as const)(
       screen.queryByRole("button", { name: accountLinkButtonLabel }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(accountLinkGuestNotice)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Googleと連携済みです/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Google連携済み/)).not.toBeInTheDocument();
   },
 );
 it("結果ありでマウントすると結果段落へ一度だけフォーカスする", () => {

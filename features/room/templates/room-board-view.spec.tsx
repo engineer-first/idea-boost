@@ -1792,7 +1792,7 @@ describe("RoomBoardView", () => {
       screen.getByRole("heading", { name: "チームで決めた成果" }),
     ).toBeVisible();
     expect(screen.getByText("決定課題")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "決定した問い" })).toBeVisible();
+    expect(screen.getByText(/2\.\s*決定した問い/)).toBeVisible();
     expect(screen.getByText(/採用する案/)).toBeVisible();
     expect(
       screen.queryByRole("dialog", { name: /投票結果/ }),

@@ -16,13 +16,11 @@ const messages: Record<AccountLinkResult, string> = {
     "連携を始めたときと利用状態が変わったため、連携しませんでした。いまの記録はそのまま残っています。",
   unavailable: "いまはGoogleと連携できません。このまま引き続き使えます。",
 };
-export const accountLinkButtonLabel =
-  "Googleと連携して、別の端末からも記録を見返す";
+export const accountLinkButtonLabel = "Googleと連携する";
 export const accountLinkPendingLabel = "Googleへ移動しています…";
 export const accountLinkGuestNotice =
-  "このままでも閲覧・保存できます。成果の保存期限は変わりません";
-export const accountLinkedNotice =
-  "Googleと連携済みです。別の端末でもGoogleでログインすると記録を見返せます。";
+  "Googleと連携すると、別の端末からもこの記録を見返せます。";
+export const accountLinkedNotice = "Google連携済み。別の端末からも見返せます。";
 
 export function getAccountLinkResultMessage(result: AccountLinkResult): string {
   return messages[result];

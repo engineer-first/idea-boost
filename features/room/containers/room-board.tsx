@@ -8,6 +8,7 @@
 // このファイルに残るのはフェーズ進行の操作と画面反応だけ。
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
+import { useRouter } from "next/navigation";
 import {
   startTransition,
   useCallback,
@@ -114,6 +115,8 @@ export function RoomBoard({
   saveDisplayNameAction,
 }: RoomBoardProps) {
   const feedback = useFeedback(roomId, submitFeedback);
+  const router = useRouter();
+  const completionNavigationStarted = useRef(false);
   const [completionResetVersion, setCompletionResetVersion] = useState(0);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isPrivateNotesHandoffPending, setIsPrivateNotesHandoffPending] =
@@ -124,6 +127,15 @@ export function RoomBoard({
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({ initialMembers, initialPhase });
+  // ルーム完了後は、既存の成果詳細画面へ移動する。
+  useEffect(() => {
+    if (!roomState.outcomePublished) return;
+    if (completionNavigationStarted.current) return;
+
+    completionNavigationStarted.current = true;
+
+    router.replace(`/completed-rooms/${encodeURIComponent(roomId)}`);
+  }, [roomId, roomState.outcomePublished, router]);
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
     roomId,
   });
