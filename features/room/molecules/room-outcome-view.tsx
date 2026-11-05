@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type Ref,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
 import { StickyNote } from "@/features/notes";
@@ -60,11 +67,13 @@ export function RoomOutcomeView({
     outcome?.hmw ?? null,
     outcome?.idea ?? null,
   ]);
-  const exportKeyRef = useRef(exportKey);
-  if (exportKeyRef.current !== exportKey) {
-    exportKeyRef.current = exportKey;
+  const generationKeyRef = useRef(exportKey);
+  useLayoutEffect(() => {
+    if (generationKeyRef.current === exportKey) return;
+
+    generationKeyRef.current = exportKey;
     exportGeneration.current += 1;
-  }
+  }, [exportKey]);
   const previousExportKey = useRef(exportKey);
   useEffect(() => {
     active.current = true;
