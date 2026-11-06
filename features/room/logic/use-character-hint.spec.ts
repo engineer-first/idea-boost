@@ -12,6 +12,11 @@ const running: TimerState = {
   endsAt: 180_000,
   durationMs: 180_000,
 };
+const long: TimerState = {
+  status: "running",
+  endsAt: 900_000,
+  durationMs: 900_000,
+};
 
 describe("キャラクターの一言", () => {
   it.each(
@@ -25,26 +30,26 @@ describe("キャラクターの一言", () => {
           }) as RoomPhase,
       ),
     ),
-  )("工程 $phase-$step で開始案内と2つのコツを出す", (phase) => {
+  )("工程 $phase-$step で開始案内と3つのコツを出す", (phase) => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     const { result } = renderHook(() =>
       useCharacterHint({
         phase,
-        timer: { ...running, endsAt: 900_000 },
+        timer: long,
         serverOffsetMs: 0,
         noteCount: 1,
       }),
     );
     const messages = [result.current.message];
-    for (let index = 0; index < 2; index += 1) {
-      act(() => vi.advanceTimersByTime(60_000));
+    for (const wait of [30_000, 60_000, 90_000]) {
+      act(() => vi.advanceTimersByTime(wait));
       messages.push(result.current.message);
     }
     expect(messages.every((message) => message && message.length <= 40)).toBe(
       true,
     );
-    expect(new Set(messages).size).toBe(3);
+    expect(new Set(messages).size).toBe(4);
   });
   it("コツの時刻に0枚案内が重なっても8秒間優先する", () => {
     vi.useFakeTimers();
@@ -53,13 +58,13 @@ describe("キャラクターの一言", () => {
       ({ noteCount }) =>
         useCharacterHint({
           phase,
-          timer: { ...running, endsAt: 900_000 },
+          timer: long,
           serverOffsetMs: 0,
           noteCount,
         }),
       { initialProps: { noteCount: 1 } },
     );
-    act(() => vi.advanceTimersByTime(59_000));
+    act(() => vi.advanceTimersByTime(29_000));
     rerender({ noteCount: 0 });
     act(() => vi.advanceTimersByTime(2_000));
     expect(result.current.message).toContain("まず1枚");
@@ -84,27 +89,42 @@ describe("キャラクターの一言", () => {
     expect(result.current.message).toBeTruthy();
     expect(result.current.message).not.toBe(first);
   });
-  it("60秒ごとに異なるコツを出し、使い切ると止める", () => {
+  it("タイマー開始から30秒・90秒・180秒にコツを出し、その後は止める", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     const { result } = renderHook(() =>
+      useCharacterHint({ phase, timer: long, serverOffsetMs: 0, noteCount: 1 }),
+    );
+    const shown: string[] = [result.current.message ?? ""];
+    act(() => vi.advanceTimersByTime(8_000));
+    for (let second = 9; second <= 600; second += 1) {
+      act(() => vi.advanceTimersByTime(1_000));
+      const message = result.current.message;
+      if (message && message !== shown.at(-1)) {
+        shown.push(message);
+        expect([30, 90, 180]).toContain(second);
+      }
+    }
+    expect(new Set(shown.slice(1)).size).toBe(3);
+  });
+  it("途中から参加しても、過ぎたコツはまとめて出さない", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+    const { result } = renderHook(() =>
       useCharacterHint({
         phase,
-        timer: { ...running, endsAt: 900_000 },
+        timer: long,
         serverOffsetMs: 0,
         noteCount: 1,
       }),
     );
-    const opening = result.current.message;
-    act(() => vi.advanceTimersByTime(60_000));
-    const first = result.current.message;
-    expect(first).toBeTruthy();
-    expect(first).not.toBe(opening);
-    act(() => vi.advanceTimersByTime(60_000));
-    expect(result.current.message).toBeTruthy();
-    expect(result.current.message).not.toBe(first);
-    act(() => vi.advanceTimersByTime(120_000));
+    expect(result.current.message).toContain("最近困ったこと");
+    act(() => vi.advanceTimersByTime(8_000));
     expect(result.current.message).toBeNull();
+    act(() => vi.advanceTimersByTime(71_000));
+    expect(result.current.message).toBeNull();
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(result.current.message).toBeTruthy();
   });
   it("停止中はコツを出さず、再開後に残りのコツを出す", () => {
     vi.useFakeTimers();
@@ -124,8 +144,8 @@ describe("キャラクターの一言", () => {
     );
     act(() => vi.advanceTimersByTime(120_000));
     expect(result.current.message).toBeNull();
-    rerender({ timer: { ...running, endsAt: 900_000 } });
-    act(() => vi.advanceTimersByTime(60_000));
+    rerender({ timer: { ...long, endsAt: 1_020_000 } });
+    act(() => vi.advanceTimersByTime(30_000));
     expect(result.current.message).toBeTruthy();
   });
   it("個人作業で30秒書いていないと案内し、8秒後に消えて再表示できる", () => {
@@ -211,7 +231,7 @@ describe("キャラクターの一言", () => {
       }),
     );
     act(() => vi.advanceTimersByTime(30_000));
-    expect(result.current.message).toBeNull();
+    expect(result.current.message ?? "").not.toContain("まず1枚");
     act(() => vi.advanceTimersByTime(20_000));
     expect(result.current.message).toContain("残り30秒");
   });
