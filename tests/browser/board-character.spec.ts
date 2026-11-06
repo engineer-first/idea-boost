@@ -23,11 +23,20 @@ async function reachable(page: Page): Promise<void> {
   expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(
     page.viewportSize()?.height ?? 0,
   );
-  const workspace = page.getByTestId("private-notes-workspace");
-  if (await workspace.isVisible()) {
-    const workspaceBox = await workspace.boundingBox();
-    expect((workspaceBox?.y ?? 0) + (workspaceBox?.height ?? 0)).toBeLessThan(
-      box?.y ?? 0,
+  expect(box?.x).toBeLessThanOrEqual(16);
+  expect(
+    Math.abs(
+      (box?.y ?? 0) +
+        (box?.height ?? 0) / 2 -
+        (page.viewportSize()?.height ?? 0) / 2,
+    ),
+  ).toBeLessThanOrEqual(2);
+  const bubble = page.getByTestId("board-character").getByRole("status");
+  if (await bubble.isVisible()) {
+    const bubbleBox = await bubble.boundingBox();
+    expect(bubbleBox?.y).toBeGreaterThanOrEqual(0);
+    expect((bubbleBox?.x ?? 0) + (bubbleBox?.width ?? 0)).toBeLessThanOrEqual(
+      page.viewportSize()?.width ?? 0,
     );
   }
   const zoom = page.getByTestId("canvas-zoom-hud");

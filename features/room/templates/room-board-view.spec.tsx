@@ -1153,15 +1153,23 @@ describe("採用する付箋の選択モード", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "採用する付箋をクリックしてください",
-    );
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) =>
+          status.textContent?.includes("採用する付箋をクリックしてください"),
+        ),
+    ).toBe(true);
 
     fireEvent.click(
       screen.getByRole("button", { name: "採用する付箋: 候補A" }),
     );
     expect(onNoteDecide).toHaveBeenCalledWith("note-1");
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("採用する付箋をクリックしてください", {
+        exact: false,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("Escape・キャンセル・ステップ変更・切断で選択モードを解除する", () => {

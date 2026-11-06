@@ -7,8 +7,10 @@ const meta = {
   component: BoardCharacter,
   decorators: [
     (Story) => (
-      <div className="flex h-64 items-end p-4">
-        <Story />
+      <div className="relative h-96">
+        <div className="absolute top-1/2 left-3 -translate-y-1/2">
+          <Story />
+        </div>
       </div>
     ),
   ],
