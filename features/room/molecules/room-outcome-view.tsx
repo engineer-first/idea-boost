@@ -1,10 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type Ref,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
 import { StickyNote } from "@/features/notes";
+import { createOutcomePng } from "../logic/outcome-png";
 import { formatOutcomeText, type RoomOutcome } from "../logic/outcome-text";
 
 export type RoomOutcomeViewProps = {
@@ -44,6 +52,9 @@ export function RoomOutcomeView({
   onExportFailure,
   feedbackPrompt,
 }: RoomOutcomeViewProps) {
+  const [pngPending, setPngPending] = useState(false);
+  const [pngSaved, setPngSaved] = useState(false);
+  const pngSavedTimeout = useRef<number | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
   const [copySucceeded, setCopySucceeded] = useState(false);
   const [downloadStarted, setDownloadStarted] = useState(false);
@@ -52,6 +63,20 @@ export function RoomOutcomeView({
   const active = useRef(true);
   const exportGeneration = useRef(0);
   const available = authorized ?? connected;
+  const exportKey = JSON.stringify([
+    available,
+    outcome?.issue ?? null,
+    outcome?.hmw ?? null,
+    outcome?.idea ?? null,
+  ]);
+  const generationKeyRef = useRef(exportKey);
+  useLayoutEffect(() => {
+    if (generationKeyRef.current === exportKey) return;
+
+    generationKeyRef.current = exportKey;
+    exportGeneration.current += 1;
+  }, [exportKey]);
+  const previousExportKey = useRef(exportKey);
   useEffect(() => {
     active.current = true;
     return () => {
@@ -60,21 +85,36 @@ export function RoomOutcomeView({
     };
   }, [onExportFailure]);
   useEffect(() => {
-    if (!available || !outcome) {
-      exportGeneration.current++;
-      setCopyPending(false);
-      setCopySucceeded(false);
-      setCopyFailed(false);
-      setDownloadStarted(false);
-      setSaveFailed(false);
-      onExportFailure?.();
+    if (previousExportKey.current === exportKey) return;
+    previousExportKey.current = exportKey;
+
+    if (pngSavedTimeout.current !== null) {
+      window.clearTimeout(pngSavedTimeout.current);
+      pngSavedTimeout.current = null;
     }
-  }, [available, outcome, onExportFailure]);
+
+    setPngSaved(false);
+    setCopyPending(false);
+    setPngPending(false);
+    setCopySucceeded(false);
+    setCopyFailed(false);
+    setDownloadStarted(false);
+    setSaveFailed(false);
+
+    onExportFailure?.();
+  }, [exportKey, onExportFailure]);
+  useEffect(() => {
+    return () => {
+      if (pngSavedTimeout.current !== null) {
+        window.clearTimeout(pngSavedTimeout.current);
+      }
+    };
+  }, []);
   const canExport = available && outcome !== null;
   const outputText = outcome ? formatOutcomeText(outcome, new Date()) : "";
 
   function saveText() {
-    if (!canExport || copyPending) return;
+    if (!canExport || copyPending || pngPending) return;
     setCopySucceeded(false);
     setCopyFailed(false);
     let url: string | undefined;
@@ -108,8 +148,94 @@ export function RoomOutcomeView({
     }
   }
 
+  async function savePng() {
+    if (!canExport || copyPending || pngPending || !outcome) return;
+
+    const generation = exportGeneration.current;
+    const currentOutcome = { ...outcome };
+    const now = new Date();
+
+    setPngPending(true);
+
+    if (pngSavedTimeout.current !== null) {
+      window.clearTimeout(pngSavedTimeout.current);
+      pngSavedTimeout.current = null;
+    }
+
+    setPngSaved(false);
+
+    if (copySucceeded || downloadStarted) {
+      onExportFailure?.();
+    }
+
+    setCopySucceeded(false);
+    setCopyFailed(false);
+    setDownloadStarted(false);
+    setSaveFailed(false);
+
+    let objectUrl: string | undefined;
+    let anchor: HTMLAnchorElement | undefined;
+
+    try {
+      // サーバーには送らず、ブラウザ内でCanvasを生成する。
+      const blob = await createOutcomePng(currentOutcome);
+
+      // 生成中に画面を離れた・権限が失効した・成果が変わった場合は破棄。
+      if (!active.current || generation !== exportGeneration.current) {
+        return;
+      }
+
+      objectUrl = URL.createObjectURL(blob);
+      anchor = document.createElement("a");
+
+      const localDate = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0"),
+      ].join("-");
+
+      anchor.href = objectUrl;
+      anchor.download = `idea-boost-outcome-${localDate}.png`;
+
+      document.body.append(anchor);
+      anchor.click();
+
+      setDownloadStarted(true);
+      setSaveFailed(false);
+      setPngSaved(true);
+
+      pngSavedTimeout.current = window.setTimeout(() => {
+        setPngSaved(false);
+        pngSavedTimeout.current = null;
+      }, 5000);
+
+      onExportSuccess?.();
+    } catch (error) {
+      console.error("[PNG保存失敗]", error);
+
+      if (!active.current || generation !== exportGeneration.current) {
+        return;
+      }
+
+      setDownloadStarted(false);
+      setSaveFailed(true);
+      onExportFailure?.();
+    } finally {
+      anchor?.remove();
+
+      if (objectUrl) {
+        const url = objectUrl;
+        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+
+      if (active.current && generation === exportGeneration.current) {
+        setPngPending(false);
+      }
+    }
+  }
+
   async function copyText() {
-    if (!canExport || copyPending) return;
+    if (!canExport || copyPending || pngPending) return;
     const generation = exportGeneration.current;
     setCopyPending(true);
     if (copySucceeded || downloadStarted) onExportFailure?.();
@@ -211,8 +337,17 @@ export function RoomOutcomeView({
             <h2 className="text-lg font-bold">成果を保存する</h2>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Button className="min-h-11" type="button" disabled>
-                PNGで保存
+              <Button
+                className="min-h-11"
+                type="button"
+                onClick={() => void savePng()}
+                disabled={copyPending || pngPending}
+              >
+                {pngPending
+                  ? "PNGを生成中…"
+                  : pngSaved
+                    ? "保存済み"
+                    : "PNGで保存"}
               </Button>
 
               <Button
@@ -220,7 +355,7 @@ export function RoomOutcomeView({
                 type="button"
                 variant="outline"
                 onClick={saveText}
-                disabled={copyPending}
+                disabled={copyPending || pngPending}
               >
                 テキストを保存
               </Button>
@@ -230,7 +365,7 @@ export function RoomOutcomeView({
                 type="button"
                 variant="outline"
                 onClick={() => void copyText()}
-                disabled={copyPending}
+                disabled={copyPending || pngPending}
               >
                 {copyPending ? "コピー中…" : "全文をコピー"}
               </Button>

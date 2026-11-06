@@ -297,3 +297,74 @@ test("保存失敗からコピーに回復し、成功通知の500ms後に感想
     await context.close();
   }
 });
+
+test("3枚横並びのPNGを保存でき、2000文字の長文でも生成できる", async () => {
+  // 通常の成果：3枚が横並びになっていることを画像サイズで確認する。
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomoutcomeview--complete&viewMode=story`,
+  );
+
+  await page.getByTestId("room-outcome-view").waitFor();
+
+  const downloadPromise = page.waitForEvent("download");
+
+  await page.getByRole("button", { name: "PNGで保存" }).click();
+
+  const download = await downloadPromise;
+
+  expect(download.suggestedFilename()).toMatch(/\.png$/);
+
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+
+  const png = Buffer.concat(chunks);
+
+  // PNGファイルのシグネチャを確認。
+  expect(png.subarray(0, 8)).toEqual(
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+  );
+
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+
+  // 成果カードが縦積みではなく横並びになっていること。
+  expect(width).toBeGreaterThan(height);
+
+  // 画面幅320pxでも、画像は3枚横並びの固定レイアウト。
+  expect(width).toBeGreaterThan(1000);
+
+  // 長文の成果でもPNGを生成できること。
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomoutcomeview--long-content&viewMode=story`,
+  );
+
+  await page.getByTestId("room-outcome-view").waitFor();
+
+  const longDownloadPromise = page.waitForEvent("download");
+
+  await page.getByRole("button", { name: "PNGで保存" }).click();
+
+  const longDownload = await longDownloadPromise;
+
+  expect(longDownload.suggestedFilename()).toMatch(/\.png$/);
+
+  const longStream = await longDownload.createReadStream();
+  const longChunks: Buffer[] = [];
+
+  for await (const chunk of longStream) {
+    longChunks.push(Buffer.from(chunk));
+  }
+
+  const longPng = Buffer.concat(longChunks);
+
+  expect(longPng.subarray(0, 8)).toEqual(
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+  );
+
+  expect(longPng.readUInt32BE(16)).toBeGreaterThan(1000);
+  expect(longPng.readUInt32BE(20)).toBeGreaterThan(1000);
+});
