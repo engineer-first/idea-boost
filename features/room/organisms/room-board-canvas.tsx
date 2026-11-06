@@ -823,7 +823,7 @@ export function RoomBoardCanvas({
             style={gridStyle}
           />
         ) : null}
-        <div className="pointer-events-none fixed top-1/2 left-3 z-40 -translate-y-1/2">
+        <div className="pointer-events-none fixed top-[calc(var(--board-location-bottom,4.25rem)+0.5rem)] left-3 z-[42]">
           {character}
         </div>
         <div

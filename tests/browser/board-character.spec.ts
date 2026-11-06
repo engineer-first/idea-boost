@@ -24,17 +24,21 @@ async function reachable(page: Page): Promise<void> {
     page.viewportSize()?.height ?? 0,
   );
   expect(box?.x).toBeLessThanOrEqual(16);
-  expect(
-    Math.abs(
-      (box?.y ?? 0) +
-        (box?.height ?? 0) / 2 -
-        (page.viewportSize()?.height ?? 0) / 2,
-    ),
-  ).toBeLessThanOrEqual(2);
+  // 左上の現在地カードのすぐ下に置く。
+  const location = await page.getByTestId("board-location-card").boundingBox();
+  expect(box?.y).toBeGreaterThanOrEqual(
+    (location?.y ?? 0) + (location?.height ?? 0),
+  );
+  expect(box?.y).toBeLessThanOrEqual(
+    (location?.y ?? 0) + (location?.height ?? 0) + 24,
+  );
   const bubble = page.getByTestId("board-character").getByRole("status");
   if (await bubble.isVisible()) {
     const bubbleBox = await bubble.boundingBox();
     expect(bubbleBox?.y).toBeGreaterThanOrEqual(0);
+    expect(bubbleBox?.x).toBeGreaterThanOrEqual(
+      (box?.x ?? 0) + (box?.width ?? 0),
+    );
     expect((bubbleBox?.x ?? 0) + (bubbleBox?.width ?? 0)).toBeLessThanOrEqual(
       page.viewportSize()?.width ?? 0,
     );

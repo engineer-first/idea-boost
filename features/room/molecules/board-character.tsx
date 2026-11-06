@@ -14,7 +14,7 @@ export function BoardCharacter({ message, onReplay }: BoardCharacterProps) {
       {message ? (
         <div
           role="status"
-          className="absolute bottom-full left-0 mb-2 w-52 max-w-[calc(100vw-2rem)] rounded-2xl rounded-bl-sm border bg-background/95 px-3 py-2 text-xs leading-relaxed shadow-sm"
+          className="absolute top-1 left-full ml-1.5 w-max max-w-[min(15rem,calc(100vw-6.5rem))] rounded-2xl rounded-tl-sm border bg-background px-3.5 py-2.5 font-medium text-[13px] text-foreground leading-snug shadow-[0_8px_20px_rgb(0_0_0/0.05)]"
         >
           {message}
         </div>
@@ -26,12 +26,12 @@ export function BoardCharacter({ message, onReplay }: BoardCharacterProps) {
         className="pointer-events-auto rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <Image
-          src="/landing/mood-g.webp"
-          width={180}
-          height={173}
+          src="/room/teacher.webp"
+          width={118}
+          height={139}
           alt=""
           aria-hidden="true"
-          className="h-auto w-16 sm:w-20"
+          className="h-auto w-12 sm:w-14"
           draggable={false}
         />
       </button>

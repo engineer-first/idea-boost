@@ -1433,6 +1433,14 @@ export function RoomBoardView({
           `${element?.getBoundingClientRect().height ?? 0}px`,
         );
       }
+      // 先生は左上の現在地カードの真下に置く。
+      const locationCard = root.querySelector<HTMLElement>(
+        '[data-testid="board-location-slot"]',
+      );
+      root.style.setProperty(
+        "--board-location-bottom",
+        `${Math.ceil(locationCard?.getBoundingClientRect().bottom ?? 68)}px`,
+      );
       if (isPersonalNoteEntryPhase) {
         const frame = root.querySelector<HTMLElement>(
           '[data-testid="board-frame"]',
