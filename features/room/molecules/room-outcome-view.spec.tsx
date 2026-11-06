@@ -367,3 +367,64 @@ it("PNG生成中に閲覧権限が失効したら古いPNGを保存しない", a
 
   click.mockRestore();
 });
+
+it("PNG保存後は5秒間保存済みと表示し、その後元に戻る", async () => {
+  let complete!: (blob: Blob) => void;
+
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
+  createOutcomePngMock.mockReset();
+  createOutcomePngMock.mockImplementationOnce(
+    () =>
+      new Promise<Blob>((resolve) => {
+        complete = resolve;
+      }),
+  );
+
+  URL.createObjectURL = vi.fn(() => "blob:outcome.png");
+  URL.revokeObjectURL = vi.fn();
+
+  const click = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(() => {});
+
+  vi.useFakeTimers();
+
+  const view = render(
+    <RoomOutcomeView
+      outcome={{ issue: "課題", hmw: "問い", idea: "アイデア" }}
+      connected
+    />,
+  );
+
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "PNGで保存" }));
+
+    expect(screen.getByRole("button", { name: "PNGを生成中…" })).toBeDisabled();
+
+    await act(async () => {
+      complete(new Blob(["png"], { type: "image/png" }));
+    });
+
+    expect(screen.getByRole("button", { name: "保存済み" })).toBeVisible();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4999);
+    });
+
+    expect(screen.getByRole("button", { name: "保存済み" })).toBeVisible();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(screen.getByRole("button", { name: "PNGで保存" })).toBeVisible();
+  } finally {
+    view.unmount();
+    click.mockRestore();
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+    vi.useRealTimers();
+  }
+});

@@ -53,6 +53,8 @@ export function RoomOutcomeView({
   feedbackPrompt,
 }: RoomOutcomeViewProps) {
   const [pngPending, setPngPending] = useState(false);
+  const [pngSaved, setPngSaved] = useState(false);
+  const pngSavedTimeout = useRef<number | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
   const [copySucceeded, setCopySucceeded] = useState(false);
   const [downloadStarted, setDownloadStarted] = useState(false);
@@ -85,14 +87,29 @@ export function RoomOutcomeView({
   useEffect(() => {
     if (previousExportKey.current === exportKey) return;
     previousExportKey.current = exportKey;
+
+    if (pngSavedTimeout.current !== null) {
+      window.clearTimeout(pngSavedTimeout.current);
+      pngSavedTimeout.current = null;
+    }
+
+    setPngSaved(false);
     setCopyPending(false);
     setPngPending(false);
     setCopySucceeded(false);
     setCopyFailed(false);
     setDownloadStarted(false);
     setSaveFailed(false);
+
     onExportFailure?.();
   }, [exportKey, onExportFailure]);
+  useEffect(() => {
+    return () => {
+      if (pngSavedTimeout.current !== null) {
+        window.clearTimeout(pngSavedTimeout.current);
+      }
+    };
+  }, []);
   const canExport = available && outcome !== null;
   const outputText = outcome ? formatOutcomeText(outcome, new Date()) : "";
 
@@ -140,6 +157,13 @@ export function RoomOutcomeView({
 
     setPngPending(true);
 
+    if (pngSavedTimeout.current !== null) {
+      window.clearTimeout(pngSavedTimeout.current);
+      pngSavedTimeout.current = null;
+    }
+
+    setPngSaved(false);
+
     if (copySucceeded || downloadStarted) {
       onExportFailure?.();
     }
@@ -178,6 +202,13 @@ export function RoomOutcomeView({
 
       setDownloadStarted(true);
       setSaveFailed(false);
+      setPngSaved(true);
+
+      pngSavedTimeout.current = window.setTimeout(() => {
+        setPngSaved(false);
+        pngSavedTimeout.current = null;
+      }, 5000);
+
       onExportSuccess?.();
     } catch (error) {
       console.error("[PNG保存失敗]", error);
@@ -312,7 +343,11 @@ export function RoomOutcomeView({
                 onClick={() => void savePng()}
                 disabled={copyPending || pngPending}
               >
-                {pngPending ? "PNGを生成中…" : "PNGで保存"}
+                {pngPending
+                  ? "PNGを生成中…"
+                  : pngSaved
+                    ? "保存済み"
+                    : "PNGで保存"}
               </Button>
 
               <Button
