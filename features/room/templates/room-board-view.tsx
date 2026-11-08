@@ -2273,7 +2273,6 @@ export function RoomBoardView({
           onOpenChange={setLeaveDialogOpen}
           onConfirm={onLeave}
           isLeaving={isLeaving}
-          lastMember={members.length === 1}
           onClosed={() => {
             boardRootRef.current
               ?.querySelector<HTMLButtonElement>(

@@ -26,6 +26,9 @@ export function ParticipationSwitchView({
   return (
     <AlertDialog open>
       <AlertDialogContent
+        aria-describedby={
+          pending ? undefined : "participation-switch-description"
+        }
         ref={content}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
@@ -38,13 +41,13 @@ export function ParticipationSwitchView({
               ? "ルームに移動しています…"
               : "ルームに移動できませんでした"}
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            {pending
-              ? "そのままお待ちください。"
-              : terminal
+          {!pending && (
+            <AlertDialogDescription id="participation-switch-description">
+              {terminal
                 ? "ホームから別のルームを選んでください。"
                 : "通信を確認して、もう一度お試しください。"}
-          </AlertDialogDescription>
+            </AlertDialogDescription>
+          )}
         </AlertDialogHeader>
         {pending ? (
           <p role="status" className="sr-only">

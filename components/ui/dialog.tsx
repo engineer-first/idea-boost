@@ -13,6 +13,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import * as React from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
@@ -199,7 +200,8 @@ function AlertDialogFooter({
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        // 帯や区切り線を付けず、横幅いっぱいの大きなボタンで次の行動を示す（DESIGN.md「ダイアログ」）。
+        "mt-2 grid auto-cols-fr grid-flow-col gap-3",
         className,
       )}
       {...props}
@@ -241,10 +243,7 @@ const AlertDialogAction = React.forwardRef<
   <AlertDialogPrimitive.Action
     ref={ref}
     data-slot="alert-dialog-action"
-    className={cn(
-      "inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-base font-medium text-primary-foreground transition-colors hover:bg-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-      className,
-    )}
+    className={cn(buttonVariants(), "h-12 w-full font-bold", className)}
     {...props}
   />
 ));
@@ -258,7 +257,8 @@ const AlertDialogCancel = React.forwardRef<
     ref={ref}
     data-slot="alert-dialog-cancel"
     className={cn(
-      "inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-base font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:mt-0",
+      buttonVariants({ variant: "secondary" }),
+      "h-12 w-full",
       className,
     )}
     {...props}

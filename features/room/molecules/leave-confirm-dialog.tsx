@@ -5,7 +5,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -19,7 +18,6 @@ export type LeaveConfirmDialogProps = {
   onConfirm: () => void;
   isLeaving: boolean;
   mode?: LeaveConfirmMode;
-  lastMember?: boolean;
   onClosed?: () => void;
 };
 
@@ -27,15 +25,12 @@ const COPY: Record<
   LeaveConfirmMode,
   {
     title: string;
-    description: string;
     confirm: string;
     confirming: string;
   }
 > = {
   leave: {
     title: "退出しますか？",
-    description:
-      "退出すると、このルームに戻るには招待URLから再度参加する必要があります。",
     confirm: "退出する",
     confirming: "退出中…",
   },
@@ -46,7 +41,6 @@ export function LeaveConfirmDialog({
   onOpenChange,
   onConfirm,
   isLeaving,
-  lastMember = false,
   onClosed,
 }: LeaveConfirmDialogProps) {
   const copy = COPY.leave;
@@ -60,6 +54,7 @@ export function LeaveConfirmDialog({
       }}
     >
       <AlertDialogContent
+        aria-describedby={undefined}
         className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
         onCloseAutoFocus={(event) => {
           if (onClosed) {
@@ -70,11 +65,6 @@ export function LeaveConfirmDialog({
       >
         <AlertDialogHeader>
           <AlertDialogTitle>{copy.title}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {lastMember
-              ? "退出するとルームが終了し、招待URLは使えなくなります。"
-              : copy.description}
-          </AlertDialogDescription>
         </AlertDialogHeader>
 
         <AlertDialogFooter>
@@ -86,7 +76,7 @@ export function LeaveConfirmDialog({
               event.preventDefault();
               onConfirm();
             }}
-            className="h-auto min-h-11 whitespace-normal"
+            className="h-12 whitespace-normal"
             disabled={isLeaving}
             data-testid="leave-confirm-action"
           >

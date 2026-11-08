@@ -4794,19 +4794,3 @@ it("作者の退出・表示名更新後も共有付箋に作者名のホバー�
   );
   expect(screen.queryByTitle(/^作者:/)).not.toBeInTheDocument();
 });
-
-it.each([1, 2])(
-  "ボードの退出確認に残る在籍者数に応じた説明を渡す（在籍者%s人）",
-  async (count) => {
-    setup({ members: buildMembers(count, ME) });
-    await userEvent.click(
-      screen.getByRole("button", { name: "ルームメニューを開く" }),
-    );
-    await userEvent.click(screen.getByRole("button", { name: "退出する" }));
-    const warning = screen.queryByText(
-      /退出するとルームが終了し、招待URLは使えなくなります/,
-    );
-    if (count === 1) expect(warning).toBeInTheDocument();
-    else expect(warning).not.toBeInTheDocument();
-  },
-);

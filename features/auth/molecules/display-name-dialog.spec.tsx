@@ -50,3 +50,57 @@ describe("本人が開く表示名の変更", () => {
     expect(c.onConfirm).toHaveBeenCalledOnce();
   });
 });
+
+it("15文字では案内せず16文字でエラーを出して保存を止め、短くすると解除する", () => {
+  const c = {
+    ...controls(),
+    open: true,
+    draft: "あ".repeat(15),
+    onConfirm: vi.fn(),
+  };
+  const { rerender } = render(<DisplayNameDialog controls={c} />);
+  expect(screen.queryByText(/15文字以内/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "保存する" })).toBeEnabled();
+  rerender(<DisplayNameDialog controls={{ ...c, draft: "あ".repeat(16) }} />);
+  expect(screen.getByRole("textbox")).toHaveValue("あ".repeat(16));
+  expect(screen.getByRole("alert")).toHaveTextContent("15文字以内");
+  expect(screen.getByRole("button", { name: "保存する" })).toBeDisabled();
+  const form = screen.getByRole("textbox").closest("form");
+  if (!form) throw new Error("入力フォームがありません");
+  fireEvent.submit(form);
+  expect(c.onConfirm).not.toHaveBeenCalled();
+  rerender(<DisplayNameDialog controls={c} />);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "保存する" })).toBeEnabled();
+});
+it("文字数超過では保存済みの確認を出さず、保存の失敗では出す", () => {
+  const c = controls();
+  const { rerender } = render(
+    <DisplayNameDialog controls={{ ...c, draft: "あ".repeat(16) }} />,
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent("15文字以内");
+  expect(
+    screen.queryByRole("button", { name: "保存済みの表示名を確認" }),
+  ).not.toBeInTheDocument();
+  rerender(
+    <DisplayNameDialog
+      controls={{
+        ...c,
+        draft: "あ".repeat(16),
+        error: "通信を確認してもう一度保存してください。",
+      }}
+    />,
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent("15文字以内");
+  expect(
+    screen.queryByRole("button", { name: "保存済みの表示名を確認" }),
+  ).not.toBeInTheDocument();
+  rerender(
+    <DisplayNameDialog
+      controls={{ ...c, error: "通信を確認してもう一度保存してください。" }}
+    />,
+  );
+  expect(
+    screen.getByRole("button", { name: "保存済みの表示名を確認" }),
+  ).toBeInTheDocument();
+});

@@ -137,6 +137,7 @@ export function RoomMembers({
 
       <Dialog open={overflowOpen} onOpenChange={setOverflowOpen}>
         <DialogContent
+          aria-describedby={undefined}
           className="max-w-sm"
           data-testid="room-members-overflow-dialog"
         >
