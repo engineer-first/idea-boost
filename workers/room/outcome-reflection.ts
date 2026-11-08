@@ -61,14 +61,12 @@ export const REFLECTION_LIMIT_ERROR =
 
 export function buildReflectionInput(
   original: ReflectionSource[],
-  scenes: unknown,
   extra: Record<string, unknown> = {},
   alreadyTruncated = false,
 ): { input: string; sources: ReflectionSource[]; truncated: boolean } {
   const sources = original.map((source) => ({ ...source }));
   let truncated = alreadyTruncated;
-  const serialize = () =>
-    JSON.stringify({ sources, scenes, ...extra, truncated });
+  const serialize = () => JSON.stringify({ sources, ...extra, truncated });
   let input = serialize();
   while (new TextEncoder().encode(input).length > REFLECTION_INPUT_MAX) {
     truncated = true;
@@ -115,14 +113,23 @@ export class OutcomeReflectionStorage {
     let remaining = REFLECTION_INPUT_MAX - JSON.stringify(sources).length;
     let truncated = false;
 
-    for (const scene of [...room.scenes].sort(
-      (a, b) =>
-        Number(b.kind.startsWith("idea-")) - Number(a.kind.startsWith("idea-")),
-    )) {
-      if (scene.status !== "saved") continue;
-      const result = await this.completed.board(userId, scene.kind);
+    const ideaMapping = room.scenes.find(
+      (scene) => scene.kind === "idea-mapping",
+    );
+    const adoptedId = room.decisions.find(
+      (decision) => decision.phase === 3,
+    )?.noteId;
+    if (ideaMapping?.status === "saved") {
+      const result = await this.completed.board(userId, ideaMapping.kind);
       for (const note of result?.board?.notes ?? []) {
-        if (sources.some((source) => source.id === `${scene.kind}:${note.id}`))
+        if (
+          note.excluded ||
+          !note.content.trim() ||
+          note.id === adoptedId ||
+          sources.some(
+            (source) => source.id === `${ideaMapping.kind}:${note.id}`,
+          )
+        )
           continue;
         if (note.content.length > remaining) {
           truncated = true;
@@ -130,31 +137,27 @@ export class OutcomeReflectionStorage {
         }
         remaining -= note.content.length;
         sources.push({
-          id: `${scene.kind}:${note.id}`,
+          id: `${ideaMapping.kind}:${note.id}`,
           label: "保存された共有付箋",
           content: note.content,
-          scene: scene.kind,
+          scene: ideaMapping.kind,
         });
       }
     }
     if (!(await this.completed.get(userId))) return null;
-    const prepared = buildReflectionInput(sources, room.scenes, {}, truncated);
+    const prepared = buildReflectionInput(sources, {}, truncated);
     sources = prepared.sources;
     truncated = prepared.truncated;
     const input = prepared.input;
-    const adoptedId = room.decisions.find(
-      (decision) => decision.phase === 3,
-    )?.noteId;
     const hasOtherIdea = sources.some(
       (source) =>
-        source.scene?.startsWith("idea-") &&
-        !source.id.endsWith(`:${adoptedId}`),
+        source.scene === "idea-mapping" && !source.id.endsWith(`:${adoptedId}`),
     );
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(input),
     );
-    const version = `v2:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+    const version = `v3:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
     const analysisKey = `${version}:analysis`;
     if (!(await this.completed.get(userId))) return null;
     let analysis = this.read(analysisKey);
@@ -203,7 +206,6 @@ export class OutcomeReflectionStorage {
         async () => {
           const promptInput = buildReflectionInput(
             sources,
-            room.scenes,
             {
               artifact,
               analysis: analysis

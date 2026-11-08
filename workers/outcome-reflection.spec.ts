@@ -89,7 +89,7 @@ describe("成果のAI振り返り", () => {
       content: '日本語の長い記録\\"'.repeat(500),
       scene: null,
     }));
-    const result = buildReflectionInput(sources, [], {
+    const result = buildReflectionInput(sources, {
       artifact: "説明スライド",
     });
     expect(new TextEncoder().encode(result.input).length).toBeLessThanOrEqual(
