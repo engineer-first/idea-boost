@@ -13,7 +13,7 @@ const meta = {
     data: reflectionResponseFixture(),
     busy: null,
     error: null,
-    artifact: "利用の流れを示す画面モック",
+    artifact: "モックアップ",
     copy: "idle",
     onStart: () => {},
     onArtifact: () => {},
@@ -44,7 +44,7 @@ export const Prompt: Story = {
   args: {
     data: reflectionResponseFixture({
       prompt: {
-        artifact: "説明スライド",
+        artifact: "説明するスライド",
         content:
           "採用案を説明する5枚のスライドを作成してください。\n課題、問い、利用場面、提案、確認したい前提を順に示してください。",
         generatedAt: 1794100000000,

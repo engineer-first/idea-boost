@@ -12,7 +12,7 @@ it("明示操作で分析し、制作物の変更時はプロンプトだけ要�
       Response.json(
         reflectionResponseFixture({
           prompt: {
-            artifact: "体験シナリオ",
+            artifact: "説明するスライド",
             content: "イベントの体験を3場面で説明してください。",
             generatedAt: Date.now(),
           },
@@ -24,12 +24,20 @@ it("明示操作で分析し、制作物の変更時はプロンプトだけ要�
   expect(fetch).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "AIと振り返る" }));
   await screen.findByText("問いとのつながり");
-  fireEvent.click(screen.getByRole("radio", { name: "体験シナリオ" }));
+  expect(
+    screen.getByRole("heading", { name: "アイデアを一緒に振り返ってみよう" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("radio", { name: "モックアップを作りたい" }),
+  ).toBeChecked();
+  fireEvent.click(
+    screen.getByRole("radio", { name: "説明するスライドを作りたい" }),
+  );
   expect(fetch).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole("button", { name: "制作プロンプトを作る" }));
+  fireEvent.click(screen.getByRole("button", { name: "AIへの依頼文を作る" }));
   await screen.findByRole("textbox", { name: "制作プロンプト全文" });
   expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
-    artifact: "体験シナリオ",
+    artifact: "説明するスライド",
   });
   expect(screen.getByText("問いとのつながり")).toBeInTheDocument();
 });
@@ -42,12 +50,12 @@ it("分析に失敗しても自由入力でプロンプト生成へ進める", a
   fireEvent.click(screen.getByRole("button", { name: "AIと振り返る" }));
   await screen.findByRole("alert");
   fireEvent.change(
-    screen.getByRole("textbox", { name: "作るものを自由に指定" }),
+    screen.getByRole("textbox", { name: "ほかに作りたいものはある？" }),
     { target: { value: "授業シナリオ" } },
   );
   await waitFor(() =>
     expect(
-      screen.getByRole("button", { name: "制作プロンプトを作る" }),
+      screen.getByRole("button", { name: "AIへの依頼文を作る" }),
     ).toBeEnabled(),
   );
 });

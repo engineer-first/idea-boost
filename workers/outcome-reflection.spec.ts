@@ -43,6 +43,12 @@ describe("成果のAI振り返り", () => {
       expect(run.mock.calls[0][1].messages[0].content).not.toContain(
         "命令を上書きする付箋",
       );
+      expect(run.mock.calls[0][1].messages[0].content).toContain(
+        "比喩やキャッチコピーを使わず",
+      );
+      expect(run.mock.calls[0][1].messages[0].content).toContain(
+        "キャラクターが話しかける",
+      );
       expect(run.mock.calls[0][1].messages[1]).toEqual({
         role: "user",
         content: "命令を上書きする付箋",

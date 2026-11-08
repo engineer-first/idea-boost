@@ -1,6 +1,7 @@
 "use client";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   REFLECTION_ARTIFACT_MAX,
@@ -27,6 +28,23 @@ const CHAPTERS = [
   { kind: "difference", title: "ほかの案との違い" },
   { kind: "assumptions", title: "まだ確かめたいこと" },
 ] as const;
+
+function ReflectionMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 sm:gap-4">
+      <Image
+        src="/landing/mood-a.webp"
+        alt=""
+        width={64}
+        height={64}
+        className="h-12 w-12 shrink-0 object-contain sm:h-16 sm:w-16"
+      />
+      <div className="min-w-0 flex-1 space-y-3 rounded-2xl rounded-tl-sm bg-primary/5 p-4 sm:p-6">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function OutcomeReflectionView({
   recordsHref,
@@ -57,24 +75,14 @@ export function OutcomeReflectionView({
       aria-label="AIと振り返る"
       className="mx-auto mt-12 min-w-0 max-w-4xl border-t border-border pt-8 [overflow-wrap:anywhere]"
     >
-      <div className="flex items-center justify-between gap-5">
-        <div className="space-y-3">
-          <p className="text-base font-semibold text-primary">次の一歩へ</p>
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            アイデアを、もう一歩先へ。
-          </h2>
-          <p className="text-base leading-7 text-muted-foreground">
-            チームの記録を振り返って、次に作るものを見つけよう。
-          </p>
-        </div>
-        <Image
-          src="/landing/mood-a.webp"
-          alt=""
-          width={112}
-          height={112}
-          className="h-20 w-20 shrink-0 object-contain sm:h-28 sm:w-28"
-        />
-      </div>
+      <ReflectionMessage>
+        <h2 className="text-xl font-bold sm:text-2xl">
+          アイデアを一緒に振り返ってみよう
+        </h2>
+        <p className="text-base leading-7">
+          チームの記録を読んで、アイデアの特徴や、まだ確かめたいことを整理するよ。
+        </p>
+      </ReflectionMessage>
       <details className="mt-4 text-base leading-7 text-muted-foreground">
         <summary className="cursor-pointer py-2 underline underline-offset-4">
           AIが使う記録について
@@ -92,11 +100,11 @@ export function OutcomeReflectionView({
         <div className="mt-8 space-y-8">
           {busy === "analysis" && (
             <p role="status" className="rounded-xl bg-primary/5 p-5">
-              記録を読み返しています…
+              チームの記録を読んでいるよ…
             </p>
           )}
           {analysis && (
-            <div className="border-l-2 border-primary/20 pl-5 sm:pl-8">
+            <div>
               {CHAPTERS.map(({ kind, title }, index) => {
                 const chapter = analysis.chapters.find(
                   (item) => item.kind === kind,
@@ -116,15 +124,17 @@ export function OutcomeReflectionView({
                       {title}
                     </summary>
                     <div className="space-y-5 py-6">
-                      <p className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-base font-semibold text-primary">
-                        AIの見立て
-                      </p>
-                      <h4 className="text-2xl font-bold leading-snug sm:text-3xl">
-                        {chapter.headline}
-                      </h4>
-                      <p className="whitespace-pre-wrap text-lg leading-8">
-                        {chapter.interpretation}
-                      </p>
+                      <ReflectionMessage>
+                        <p className="text-sm font-semibold text-primary">
+                          AIの見立て
+                        </p>
+                        <h4 className="text-xl font-bold leading-snug sm:text-2xl">
+                          {chapter.headline}
+                        </h4>
+                        <p className="whitespace-pre-wrap text-base leading-7 sm:text-lg sm:leading-8">
+                          {chapter.interpretation}
+                        </p>
+                      </ReflectionMessage>
                       <details className="text-base leading-7">
                         <summary className="cursor-pointer py-2 font-semibold text-primary underline underline-offset-4">
                           根拠の記録を見る
@@ -207,30 +217,34 @@ export function OutcomeReflectionView({
           {busy !== "analysis" && (
             <section
               id="reflection-artifacts"
-              className="space-y-5 rounded-xl bg-primary/5 p-5 sm:p-8"
+              className="space-y-5 border-t border-border pt-8"
               aria-label="次に作るもの"
             >
-              <h3 className="text-2xl font-bold">次は、何を作ってみる？</h3>
-              {recommendation ? (
-                <div className="space-y-3 text-base leading-7">
-                  <p className="font-bold text-primary">
-                    おすすめ：{recommendation.name}
+              <ReflectionMessage>
+                <h3 className="text-balance text-2xl font-bold">
+                  次は、何を作ってみる？
+                </h3>
+                {recommendation ? (
+                  <div className="space-y-3 text-base leading-7">
+                    <p className="font-bold text-primary">
+                      おすすめは「{recommendation.name}」だよ。
+                    </p>
+                    <p>{recommendation.reason}</p>
+                    <p>
+                      <span className="font-semibold">確かめられること：</span>
+                      {recommendation.checks}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-base leading-7">
+                    作りたいものを、下の欄に書いてみてね。
                   </p>
-                  <p>{recommendation.reason}</p>
-                  <p>
-                    <span className="font-semibold">確かめられること：</span>
-                    {recommendation.checks}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-base leading-7">
-                  作りたいものを選ぶか、自由に入力して進めます。
-                </p>
-              )}
+                )}
+              </ReflectionMessage>
               {candidates.length > 0 && (
                 <fieldset className="space-y-3">
                   <legend className="mb-2 text-base font-semibold">
-                    制作物の候補
+                    作ってみたいものを選んでね
                   </legend>
                   {candidates.map((candidate) => (
                     <label
@@ -245,7 +259,7 @@ export function OutcomeReflectionView({
                         onChange={() => onArtifact(candidate)}
                         className="mt-1.5"
                       />
-                      {candidate}
+                      {candidate}を作りたい
                     </label>
                   ))}
                 </fieldset>
@@ -255,14 +269,14 @@ export function OutcomeReflectionView({
                   htmlFor="reflection-artifact"
                   className="block text-base font-semibold"
                 >
-                  作るものを自由に指定
+                  ほかに作りたいものはある？
                 </label>
                 <input
                   id="reflection-artifact"
                   value={artifact}
                   maxLength={REFLECTION_ARTIFACT_MAX}
                   onChange={(event) => onArtifact(event.target.value)}
-                  placeholder="例：イベント当日の体験シナリオ"
+                  placeholder="例：イベント当日の進行台本"
                   className="min-h-12 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-base"
                 />
               </div>
@@ -272,19 +286,21 @@ export function OutcomeReflectionView({
                 className="min-h-12"
               >
                 {busy === "prompt"
-                  ? "プロンプトを作成中…"
-                  : "制作プロンプトを作る"}
+                  ? "AIへの依頼文を作っているよ…"
+                  : "AIへの依頼文を作る"}
               </Button>
             </section>
           )}
           {data?.prompt && (
             <section className="space-y-4" aria-label="制作プロンプト">
-              <h3 className="text-2xl font-bold">
-                そのまま持ち出して、作ってみよう。
-              </h3>
-              <p className="text-base leading-7 text-muted-foreground">
-                好きな外部AIツールに貼り付けて使えます。
-              </p>
+              <ReflectionMessage>
+                <h3 className="text-xl font-bold sm:text-2xl">
+                  この文章をAIに貼り付けてね
+                </h3>
+                <p className="text-base leading-7">
+                  選んだものを作るための依頼文だよ。コピーして、使いたいAIに渡してね。
+                </p>
+              </ReflectionMessage>
               <textarea
                 aria-label="制作プロンプト全文"
                 readOnly
