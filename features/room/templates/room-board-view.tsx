@@ -44,6 +44,7 @@ import {
   FeedbackPanel,
   FeedbackPrompt,
 } from "@/features/feedback";
+import { HmwHintCharacter, useHmwHintNudge } from "@/features/hmw";
 import type { Note } from "@/features/notes";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
@@ -221,7 +222,7 @@ export type RoomBoardViewProps = {
   decidedHmw: string | null;
   issueReference?: Carryover | null;
   hmwReference?: Carryover | null;
-  onAddPrivateNote: () => string | null;
+  onAddPrivateNote: (content?: string) => string | null;
   noteCreationPending?: boolean;
   noteCreationReceipt?: { operationId: string; noteId: string };
   noteCreationSupported?: boolean;
@@ -519,7 +520,7 @@ export function RoomBoardView({
   const [isAdoptRequested, setIsAdoptMode] = useState(false);
   const isAdoptMode = isAdoptRequested;
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
-  const privateNoteAddRef = useRef<(() => void) | null>(null);
+  const privateNoteAddRef = useRef<((content?: string) => void) | null>(null);
   const composingRef = useRef(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
@@ -1429,6 +1430,26 @@ export function RoomBoardView({
     onPrivateNoteDragStart: handlePrivateDragStart,
   } = interactions;
 
+  const isHmwWriting = isPhaseStep(phase, 2, 1);
+  const hmwHintNudge = useHmwHintNudge({
+    scope: `${inviteCode}:${currentUserId}:${phaseRevision}:${completionResetVersion}`,
+    enabled:
+      isHmwWriting &&
+      !isDisconnected &&
+      timer.status === "running" &&
+      !isNextPhasePending &&
+      !isLeaving &&
+      !isRemovingMember &&
+      !progress.readyUserIds.includes(currentUserId) &&
+      !outcomePublished &&
+      Boolean(hmwDecidedIssue?.trim()),
+    noteCount: toolbarNotes.filter(
+      (note) =>
+        note.authorId === currentUserId &&
+        (draftValue?.(note.id) ?? note.content).trim(),
+    ).length,
+  });
+
   const hasMoveHistory = moveHistory !== undefined;
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
@@ -1776,11 +1797,14 @@ export function RoomBoardView({
             cancelRootPress();
         }}
         onClickCapture={handleRootClickCapture}
+        onInputCapture={() => hmwHintNudge.markActivity()}
         onCompositionStartCapture={() => {
           composingRef.current = true;
+          hmwHintNudge.setComposing(true);
         }}
         onCompositionEndCapture={() => {
           composingRef.current = false;
+          hmwHintNudge.setComposing(false);
         }}
         onKeyDownCapture={(event) => {
           const target = event.target;
@@ -2174,7 +2198,12 @@ export function RoomBoardView({
           onAdoptNote={handleAdoptNote}
           onGroupCreate={onGroupCreate}
           onGroupUpdateName={onGroupUpdateName}
-          onAddPrivateNote={onAddPrivateNote}
+          onAddPrivateNote={(content) => {
+            hmwHintNudge.markActivity();
+            return content === undefined
+              ? onAddPrivateNote()
+              : onAddPrivateNote(content);
+          }}
           onPrivateNoteContentChange={onPrivateNoteContentChange}
           onPrivateNoteDelete={onPrivateNoteDelete}
           onPrivateNoteDragStart={handlePrivateDragStart}
@@ -2188,6 +2217,45 @@ export function RoomBoardView({
           onPresenterViewChange={onPresenterViewChange}
           onManualPanStart={onManualPanStart}
         />
+        {isHmwWriting ? (
+          <div
+            className="pointer-events-auto absolute bottom-3 left-3 z-40"
+            data-board-fit-edge="bottom"
+          >
+            <HmwHintCharacter
+              key={`${phaseRevision}:${hmwDecidedIssue}`}
+              decidedIssue={hmwDecidedIssue}
+              showNudge={hmwHintNudge.showNudge}
+              onHintOpen={hmwHintNudge.dismiss}
+              onDismissNudge={hmwHintNudge.dismiss}
+              pending={noteCreationPending}
+              disabled={
+                isDisconnected ||
+                boardInteractionBlocked ||
+                !permissions.canCreateNote ||
+                !noteCreationSupported ||
+                isNextPhasePending ||
+                isLeaving ||
+                isRemovingMember
+              }
+              onUseQuestion={(content) => {
+                if (
+                  isDisconnected ||
+                  boardInteractionBlocked ||
+                  !permissions.canCreateNote ||
+                  !noteCreationSupported ||
+                  noteCreationPending ||
+                  isNextPhasePending ||
+                  isLeaving ||
+                  isRemovingMember
+                )
+                  return;
+                privateNoteAddRef.current?.(content);
+                setExpandPrivateNotesRequest((request) => request + 1);
+              }}
+            />
+          </div>
+        ) : null}
         {isVotingStep(phase) ? (
           <div
             className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center min-[640px]:max-[1023px]:bottom-[5.25rem] max-[639px]:justify-center max-[639px]:bottom-[var(--board-mobile-controls-bottom)]"

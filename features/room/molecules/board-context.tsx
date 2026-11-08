@@ -8,7 +8,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { getNoteHeight, NOTE_LEGACY_FONT_SIZE } from "@/contracts/board";
-import type { RoomPhase } from "@/contracts/phase";
+import { isPhaseStep, type RoomPhase } from "@/contracts/phase";
 import type { Carryover } from "@/contracts/room-protocol";
 import { DotVoteSticker } from "@/features/dot-vote";
 import { StickyNote } from "@/features/notes";
@@ -75,6 +75,7 @@ export function BoardContext({
   return (
     <header
       data-testid="board-context-hud"
+      data-hmw-writing={isPhaseStep(phase, 2, 1) || undefined}
       className="pointer-events-none min-w-0 shrink-0"
     >
       <BoardLocation phase={phase} outcomePublished={outcomePublished} />

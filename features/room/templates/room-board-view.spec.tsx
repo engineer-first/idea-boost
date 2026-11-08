@@ -48,6 +48,45 @@ beforeEach(() => {
 
 const ME = "11111111-1111-4111-8111-111111111111";
 
+describe("2-1のキャラクターによる問いのヒント", () => {
+  it("ワード3つから選んだ問いに決定課題を含め、使う操作でマイ付箋へ渡す", async () => {
+    const { props } = setup({
+      phase: buildPhaseStep(1, 2),
+      hmwDecidedIssue: "睡眠不足で眠たい",
+    });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "問いのヒントを開く" }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "問いのヒント" });
+    const words = within(dialog).getByRole("group", { name: "考え方のワード" });
+    expect(within(words).getAllByRole("button")).toHaveLength(3);
+    await userEvent.click(
+      within(words).getByRole("button", { name: "先回り" }),
+    );
+    const question =
+      "どうしたら、「睡眠不足で眠たい」という状況を前もって防げるか？";
+    expect(
+      within(dialog).getByRole("textbox", { name: "問いの文例" }),
+    ).toHaveValue(question);
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "この問いを使う" }),
+    );
+    expect(props.onAddPrivateNote).toHaveBeenCalledExactlyOnceWith(question);
+  });
+
+  it.each([buildPhaseStep(2, 2), buildPhaseStep(1, 3)])(
+    "2-1以外の工程ではキャラクターの問いヒントを表示しない（%j）",
+    (phase) => {
+      setup({ phase, hmwDecidedIssue: "睡眠不足で眠たい" });
+      expect(
+        screen.queryByRole("button", { name: "問いのヒントを開く" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+});
+
 function buildInteractions(
   notes: Note[],
   privateNotes: Note[],
