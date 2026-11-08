@@ -1,3 +1,4 @@
+import type { ReflectionResponse } from "../../contracts/outcome-reflection";
 import {
   type CreationIdentity,
   type CreationInspection,
@@ -12,6 +13,10 @@ import {
 import { SessionExpiresAtSchema } from "../../contracts/session";
 import { memberAvatarHandlers } from "./member-avatar-handlers";
 import { applyAccountName, memberNameHandlers } from "./member-name";
+import {
+  generateReflection,
+  OutcomeReflectionStorage,
+} from "./outcome-reflection";
 import { getRoomName, roomNameHandlers } from "./room-name";
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
 // エントリポイント（RPC / WebSocket）と横断ガード（phase ゲート）だけを持ち、
@@ -216,6 +221,7 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
 }
 
 export class RoomDO extends DurableObject {
+  private readonly reflection: OutcomeReflectionStorage;
   private readonly broadcaster: RoomBroadcaster;
   private readonly outcomes: SharedOutcomeStorage;
   private readonly history: ProgressHistoryStorage;
@@ -248,6 +254,11 @@ export class RoomDO extends DurableObject {
       this.writeSharedOutcomeProjection(snapshot),
     );
     this.completed = new CompletedRoomStorage(ctx, env.DB, this.history);
+    this.reflection = new OutcomeReflectionStorage(
+      ctx,
+      this.completed,
+      (mode, input) => generateReflection(env.AI, mode, input),
+    );
     // スキーマは room-do-migrations/ の版管理で管理する。
     // マイグレーション完了までイベント配信を止め、移行中のストレージに
     // 古い・新しいスキーマ前提の操作が届かないようにする。
@@ -1116,6 +1127,14 @@ export class RoomDO extends DurableObject {
 
   async getCompletedRoom(userId: string): Promise<CompletedRoom | null> {
     return this.completed.get(userId);
+  }
+
+  async getOutcomeReflection(
+    userId: string,
+    artifact: string | undefined,
+    generate: boolean,
+  ): Promise<ReflectionResponse | null> {
+    return this.reflection.readOrGenerate(userId, artifact, generate);
   }
 
   async getCompletedBoard(

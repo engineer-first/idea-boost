@@ -45,6 +45,18 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "AI振り返りの共有記録へ個人付箋を含めない",
+    viewerId: OUTCOME_VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "AI振り返りは共有スナップショットの付箋を参照できる",
+    viewerId: OUTCOME_VIEWER,
+    note: note({ visibility: "shared" }),
+    expected: true,
+  },
+  {
     name: "顔アイコンの全員共有でも他者の非共有付箋を公開しない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

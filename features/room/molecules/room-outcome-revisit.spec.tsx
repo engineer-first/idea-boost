@@ -2,6 +2,22 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { RoomOutcomeView } from "./room-outcome-view";
 
+it("成果の持ち帰り操作と同じ画面でAI振り返りを表示する", () => {
+  render(
+    <RoomOutcomeView
+      outcome={{ issue: "課題", hmw: "問い", idea: "案" }}
+      authorized
+      reflection={<button type="button">AIと振り返る</button>}
+    />,
+  );
+  expect(
+    screen.getByRole("button", { name: "AIと振り返る" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "テキストを保存" }),
+  ).toBeInTheDocument();
+});
+
 it("認可済み再訪では作業用接続なしで全文コピーでき、ボードへ戻る操作を出さない", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {

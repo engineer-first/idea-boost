@@ -20,6 +20,7 @@ export type RoomOutcomeViewProps = {
   connected?: boolean;
   authorized?: boolean;
   children?: ReactNode;
+  reflection?: ReactNode;
   additionalNavigation?: ReactNode;
   recordInfo?: ReactNode;
   footer?: ReactNode;
@@ -42,6 +43,7 @@ export function RoomOutcomeView({
   connected = false,
   authorized,
   children,
+  reflection,
   additionalNavigation,
   recordInfo,
   onBackToBoard,
@@ -403,13 +405,15 @@ export function RoomOutcomeView({
         ) : null}
         {feedbackPrompt}
         {children}
-        <section className="mt-8 rounded-lg border border-border bg-card p-4 sm:p-6">
-          <h2 className="text-lg font-bold">次に試すこと</h2>
-          <p className="mt-2 text-base leading-7">
-            誰の、どんな場面を確かめたい？
-            簡単な画面を描き、その人に見せて確かめてみよう。
-          </p>
-        </section>
+        {reflection ?? (
+          <section className="mt-8 rounded-lg border border-border bg-card p-4 sm:p-6">
+            <h2 className="text-lg font-bold">次に試すこと</h2>
+            <p className="mt-2 text-base leading-7">
+              誰の、どんな場面を確かめたい？
+              簡単な画面を描き、その人に見せて確かめてみよう。
+            </p>
+          </section>
+        )}
         {recordInfo}
 
         <nav
