@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import {
+  type ReflectionChapterKind,
   type ReflectionResponse,
   ReflectionResponseSchema,
 } from "@/contracts/outcome-reflection";
@@ -8,9 +9,7 @@ import { OutcomeReflectionView } from "../molecules/outcome-reflection-view";
 
 export function OutcomeReflection({ roomId }: { roomId: string }) {
   const [open, setOpen] = useState(false);
-  const [chapter, setChapter] = useState<
-    "response" | "difference" | "assumptions"
-  >("response");
+  const [chapter, setChapter] = useState<ReflectionChapterKind>("change");
   const [data, setData] = useState<ReflectionResponse | null>(null);
   const [artifact, setArtifact] = useState("");
   const [busy, setBusy] = useState<"analysis" | "prompt" | null>(null);

@@ -5,13 +5,14 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   REFLECTION_ARTIFACT_MAX,
+  type ReflectionChapterKind,
   type ReflectionResponse,
 } from "@/contracts/outcome-reflection";
 
 export type OutcomeReflectionViewProps = {
   recordsHref?: string;
-  chapter?: "response" | "difference" | "assumptions";
-  onChapter?: (kind: "response" | "difference" | "assumptions") => void;
+  chapter?: ReflectionChapterKind;
+  onChapter?: (kind: ReflectionChapterKind) => void;
   open: boolean;
   data: ReflectionResponse | null;
   busy: "analysis" | "prompt" | null;
@@ -24,22 +25,22 @@ export type OutcomeReflectionViewProps = {
   onCopy: () => void;
 };
 const CHAPTERS = [
-  { kind: "response", title: "問いとのつながり" },
-  { kind: "difference", title: "ほかの案との違い" },
-  { kind: "assumptions", title: "まだ確かめたいこと" },
+  { kind: "change", title: "この案で、何が変わりそう？" },
+  { kind: "assumption", title: "最初に確かめたいこと" },
+  { kind: "experiment", title: "まず試してみること" },
 ] as const;
 
 function ReflectionMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-start gap-3 sm:gap-4">
+    <div className="flex items-start gap-4 sm:gap-6">
       <Image
         src="/landing/mood-a.webp"
         alt=""
-        width={64}
-        height={64}
-        className="h-12 w-12 shrink-0 object-contain sm:h-16 sm:w-16"
+        width={80}
+        height={80}
+        className="h-12 w-12 shrink-0 object-contain sm:h-20 sm:w-20"
       />
-      <div className="min-w-0 flex-1 space-y-3 rounded-2xl rounded-tl-sm bg-primary/5 p-4 sm:p-6">
+      <div className="relative min-w-0 flex-1 space-y-3 rounded-2xl bg-[var(--ib-color-primary-soft)] p-4 before:absolute before:top-6 before:-left-3 before:border-y-[10px] before:border-r-[14px] before:border-y-transparent before:border-r-[var(--ib-color-primary-soft)] before:content-[''] sm:p-6">
         {children}
       </div>
     </div>
@@ -48,7 +49,7 @@ function ReflectionMessage({ children }: { children: ReactNode }) {
 
 export function OutcomeReflectionView({
   recordsHref,
-  chapter: activeChapter = "response",
+  chapter: activeChapter = "change",
   onChapter,
   open,
   data,
@@ -77,10 +78,10 @@ export function OutcomeReflectionView({
     >
       <ReflectionMessage>
         <h2 className="text-xl font-bold sm:text-2xl">
-          アイデアを一緒に振り返ってみよう
+          このアイデア、まずどう試してみよう？
         </h2>
         <p className="text-base leading-7">
-          チームの記録を読んで、アイデアの特徴や、まだ確かめたいことを整理するよ。
+          チームの記録から、目指す変化と、最初に確かめたいことを整理するよ。小さく試す方法も一緒に考えてみよう。
         </p>
       </ReflectionMessage>
       <details className="mt-4 text-base leading-7 text-muted-foreground">
@@ -88,7 +89,7 @@ export function OutcomeReflectionView({
           AIが使う記録について
         </summary>
         <p>
-          確定した課題・問い・採用案と、他の案を比べるための保存済み共有アイデアを使います。その他の場面の付箋、個人付箋、保存されていない会話は含みません。AIの見立てには誤りが含まれることがあります。
+          確定した課題・問い・採用案と、課題のグループ化・問いの決定・アイデアの整理で保存された共有付箋を使います。個人付箋や保存されていない会話は含みません。チームで決めた内容と、利用者に確かめられた内容を分けて考えます。AIの提案には誤りが含まれることがあります。
         </p>
       </details>
       {!open && (
@@ -106,10 +107,7 @@ export function OutcomeReflectionView({
           {analysis && (
             <div>
               {CHAPTERS.map(({ kind, title }, index) => {
-                const chapter = analysis.chapters.find(
-                  (item) => item.kind === kind,
-                );
-                if (!chapter) return null;
+                const chapter = analysis[kind];
                 return (
                   <details
                     key={kind}
@@ -117,7 +115,7 @@ export function OutcomeReflectionView({
                     open={activeChapter === kind}
                     className="border-b border-border py-6"
                   >
-                    <summary className="cursor-pointer text-2xl font-bold sm:text-3xl">
+                    <summary className="cursor-pointer text-xl font-bold sm:text-2xl">
                       <span className="mr-3 text-base text-primary">
                         {index + 1}
                       </span>
@@ -126,14 +124,59 @@ export function OutcomeReflectionView({
                     <div className="space-y-5 py-6">
                       <ReflectionMessage>
                         <p className="text-sm font-semibold text-primary">
-                          AIの見立て
+                          AIからの提案
                         </p>
                         <h4 className="text-xl font-bold leading-snug sm:text-2xl">
                           {chapter.headline}
                         </h4>
-                        <p className="whitespace-pre-wrap text-base leading-7 sm:text-lg sm:leading-8">
-                          {chapter.interpretation}
-                        </p>
+                        {kind === "experiment" ? (
+                          <dl className="space-y-5 text-base leading-7">
+                            <div>
+                              <dt className="font-semibold">試す相手</dt>
+                              <dd className="mt-1">
+                                {analysis.experiment.who}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="font-semibold">やってみること</dt>
+                              <dd className="mt-2">
+                                <ol className="list-decimal space-y-2 pl-5">
+                                  {analysis.experiment.steps.map((step) => (
+                                    <li key={step}>{step}</li>
+                                  ))}
+                                </ol>
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="font-semibold">
+                                見ておきたいこと
+                              </dt>
+                              <dd className="mt-1">
+                                {analysis.experiment.observe}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="font-semibold">
+                                考えた通りだったら
+                              </dt>
+                              <dd className="mt-1">
+                                {analysis.experiment.ifSupported}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="font-semibold">
+                                違った・まだ分からなかったら
+                              </dt>
+                              <dd className="mt-1">
+                                {analysis.experiment.ifNotSupported}
+                              </dd>
+                            </div>
+                          </dl>
+                        ) : (
+                          <p className="whitespace-pre-wrap text-base leading-7 sm:text-lg sm:leading-8">
+                            {analysis[kind].interpretation}
+                          </p>
+                        )}
                       </ReflectionMessage>
                       <details className="text-base leading-7">
                         <summary className="cursor-pointer py-2 font-semibold text-primary underline underline-offset-4">
@@ -190,7 +233,7 @@ export function OutcomeReflectionView({
                           >
                             {index < 2
                               ? `${CHAPTERS[index + 1].title}へ`
-                              : "次に作るものへ"}
+                              : "試すための準備へ"}
                             <ArrowRight aria-hidden="true" className="ml-2" />
                           </a>
                         </Button>
@@ -227,7 +270,7 @@ export function OutcomeReflectionView({
                 {recommendation ? (
                   <div className="space-y-3 text-base leading-7">
                     <p className="font-bold text-primary">
-                      おすすめは「{recommendation.name}」だよ。
+                      試す準備に「{recommendation.name}」を作ってみよう。
                     </p>
                     <p>{recommendation.reason}</p>
                     <p>
@@ -237,7 +280,9 @@ export function OutcomeReflectionView({
                   </div>
                 ) : (
                   <p className="text-base leading-7">
-                    作りたいものを、下の欄に書いてみてね。
+                    {analysis
+                      ? "準備物がなくても、上の方法で試せるよ。何か用意したければ、下の欄に書いてみてね。"
+                      : "試すために用意したいものを、下の欄に書いてみてね。"}
                   </p>
                 )}
               </ReflectionMessage>
@@ -298,7 +343,7 @@ export function OutcomeReflectionView({
                   この文章をAIに貼り付けてね
                 </h3>
                 <p className="text-base leading-7">
-                  選んだものを作るための依頼文だよ。コピーして、使いたいAIに渡してね。
+                  選んだものを作って、この案を試すための依頼文だよ。コピーして、使いたいAIに渡してね。
                 </p>
               </ReflectionMessage>
               <textarea

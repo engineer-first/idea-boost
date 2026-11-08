@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { reflectionResponseFixture } from "@/contracts/outcome-reflection.fixture";
+import {
+  reflectionAnalysisFixture,
+  reflectionResponseFixture,
+} from "@/contracts/outcome-reflection.fixture";
 import { OutcomeReflection } from "./outcome-reflection";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -23,12 +26,24 @@ it("明示操作で分析し、制作物の変更時はプロンプトだけ要�
   render(<OutcomeReflection roomId="room" />);
   expect(fetch).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "AIと振り返る" }));
-  await screen.findByText("問いとのつながり");
+  await screen.findByText("この案で、何が変わりそう？");
   expect(
-    screen.getByRole("heading", { name: "アイデアを一緒に振り返ってみよう" }),
+    screen.getByRole("heading", {
+      name: "このアイデア、まずどう試してみよう？",
+    }),
   ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("link", { name: "最初に確かめたいことへ" }));
   expect(
-    screen.getByRole("radio", { name: "モックアップを作りたい" }),
+    screen.getByText(reflectionAnalysisFixture().assumption.headline),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("link", { name: "まず試してみることへ" }));
+  const experiment = reflectionAnalysisFixture().experiment;
+  expect(screen.getByText(experiment.who)).toBeVisible();
+  expect(screen.getByText(experiment.observe)).toBeVisible();
+  expect(screen.getByText(experiment.ifSupported)).toBeVisible();
+  expect(screen.getByText(experiment.ifNotSupported)).toBeVisible();
+  expect(
+    screen.getByRole("radio", { name: "聞くことのリストを作りたい" }),
   ).toBeChecked();
   fireEvent.click(
     screen.getByRole("radio", { name: "説明するスライドを作りたい" }),
@@ -39,7 +54,7 @@ it("明示操作で分析し、制作物の変更時はプロンプトだけ要�
   expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
     artifact: "説明するスライド",
   });
-  expect(screen.getByText("問いとのつながり")).toBeInTheDocument();
+  expect(screen.getByText("この案で、何が変わりそう？")).toBeInTheDocument();
 });
 it("分析に失敗しても自由入力でプロンプト生成へ進める", async () => {
   vi.stubGlobal(

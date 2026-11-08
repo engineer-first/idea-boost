@@ -9,24 +9,27 @@ export const ReflectionRequestSchema = z.strictObject({
   artifact: z.string().trim().min(1).max(REFLECTION_ARTIFACT_MAX).optional(),
 });
 export const ReflectionChapterKindSchema = z.enum([
-  "response",
-  "difference",
-  "assumptions",
+  "change",
+  "assumption",
+  "experiment",
 ]);
+const ReflectionExplanationSchema = z.object({
+  headline: z.string().min(1).max(50),
+  interpretation: z.string().min(1).max(300),
+  evidenceIds: z.array(z.string().max(200)).max(8),
+});
 export const ReflectionModelAnalysisSchema = z.object({
-  chapters: z
-    .array(
-      z.object({
-        kind: ReflectionChapterKindSchema,
-        headline: z.string().min(1).max(50),
-        interpretation: z.string().min(1).max(360),
-        evidenceIds: z.array(z.string().max(200)).max(8),
-      }),
-    )
-    .length(3)
-    .refine(
-      (chapters) => new Set(chapters.map((chapter) => chapter.kind)).size === 3,
-    ),
+  change: ReflectionExplanationSchema,
+  assumption: ReflectionExplanationSchema,
+  experiment: z.object({
+    headline: z.string().min(1).max(50),
+    who: z.string().min(1).max(160),
+    steps: z.array(z.string().min(1).max(180)).min(1).max(3),
+    observe: z.string().min(1).max(200),
+    ifSupported: z.string().min(1).max(160),
+    ifNotSupported: z.string().min(1).max(160),
+    evidenceIds: z.array(z.string().max(200)).max(8),
+  }),
   recommendation: z
     .object({
       name: z.string().min(1).max(REFLECTION_ARTIFACT_MAX),
@@ -58,5 +61,6 @@ export const ReflectionResponseSchema = z.object({
   prompt: ReflectionPromptSchema.nullable(),
 });
 export type ReflectionAnalysis = z.infer<typeof ReflectionAnalysisSchema>;
+export type ReflectionChapterKind = z.infer<typeof ReflectionChapterKindSchema>;
 export type ReflectionSource = z.infer<typeof ReflectionSourceSchema>;
 export type ReflectionResponse = z.infer<typeof ReflectionResponseSchema>;
