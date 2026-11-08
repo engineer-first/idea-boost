@@ -38,7 +38,8 @@ echo "==> Building (OpenNext / Cloudflare)"
 npm run build:cf
 
 echo "==> Starting preview server on :${PORT} (Next.js + api-worker, service binding)"
-npx wrangler dev -c wrangler.jsonc -c workers/wrangler.jsonc --port "$PORT" \
+# 疎通確認はローカルだけで完結させ、AI binding の追加で外部認証を要求しない。
+npx wrangler dev --local -c wrangler.jsonc -c workers/wrangler.jsonc --port "$PORT" \
   >"$LOG_FILE" 2>&1 &
 PID=$!
 
