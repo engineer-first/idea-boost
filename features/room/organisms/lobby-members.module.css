@@ -44,7 +44,7 @@
   border-radius: 20px;
 }
 button.peer:hover {
-  background: #fff8dc;
+  background: var(--ib-color-surface-muted);
 }
 
 .avatarButton {
@@ -68,7 +68,7 @@ button.peer:hover {
 }
 .avatarButton:focus-visible,
 .nameButton:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--ib-color-primary);
   outline-offset: 5px;
 }
 
@@ -80,7 +80,7 @@ button.peer:hover {
   justify-content: center;
   border-radius: 50%;
   background: rgb(255 255 255 / 55%);
-  color: #171717;
+  color: var(--ib-color-ink);
   opacity: 0;
   transition: opacity 120ms ease-out;
   pointer-events: none;
@@ -92,7 +92,7 @@ button.peer:hover {
 }
 .avatarButton:disabled .avatarOverlay,
 .avatarButton[aria-disabled="true"] .avatarOverlay {
-  color: #6b7280;
+  color: var(--ib-color-muted);
 }
 
 .name,
@@ -106,13 +106,13 @@ button.peer:hover {
   font-size: 13px;
   line-height: 18px;
   font-weight: 600;
-  color: #171717;
+  color: var(--ib-color-ink);
 }
 
 .nameButton {
   position: relative;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--ib-rounded-md);
   background: transparent;
   cursor: pointer;
   padding-inline: 20px;
@@ -122,7 +122,7 @@ button.peer:hover {
   cursor: default;
 }
 .nameButton:not(:disabled):active {
-  background: #f4f4f4;
+  background: var(--ib-color-surface-muted);
 }
 .nameText {
   min-width: 0;
@@ -144,7 +144,7 @@ button.peer:hover {
   min-height: 16px;
   font-size: 11px;
   line-height: 16px;
-  color: #666;
+  color: var(--ib-color-muted);
 }
 .status:empty {
   display: none;
@@ -162,9 +162,9 @@ button.peer:hover {
     inset: auto -3px -3px auto;
     width: 28px;
     height: 28px;
-    background: #fff;
+    background: var(--ib-color-surface);
     opacity: 1;
-    box-shadow: 0 1px 4px #0002;
+    box-shadow: 0 1px 4px rgb(from var(--ib-color-ink) r g b / 13%);
   }
   .avatarOverlay svg {
     width: 18px;

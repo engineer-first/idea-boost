@@ -81,7 +81,7 @@ export function TimerSoundControl({
         {playbackBlocked && (
           <CircleAlert
             aria-hidden="true"
-            className="absolute -top-1 -right-1 size-3 rounded-full bg-background text-red-700"
+            className="absolute -top-1 -right-1 size-3 rounded-full bg-background text-warning"
           />
         )}
       </Button>

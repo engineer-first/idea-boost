@@ -880,19 +880,19 @@ export function NoteCard({
             >
               <span
                 data-testid="candidate-target-corner"
-                className="absolute left-0 top-0 size-3 border-blue-600 border-l-2 border-t-2"
+                className="absolute left-0 top-0 size-3 border-state-select border-l-2 border-t-2"
               />
               <span
                 data-testid="candidate-target-corner"
-                className="absolute right-0 top-0 size-3 border-blue-600 border-r-2 border-t-2"
+                className="absolute right-0 top-0 size-3 border-state-select border-r-2 border-t-2"
               />
               <span
                 data-testid="candidate-target-corner"
-                className="absolute bottom-0 left-0 size-3 border-blue-600 border-b-2 border-l-2"
+                className="absolute bottom-0 left-0 size-3 border-state-select border-b-2 border-l-2"
               />
               <span
                 data-testid="candidate-target-corner"
-                className="absolute bottom-0 right-0 size-3 border-blue-600 border-b-2 border-r-2"
+                className="absolute bottom-0 right-0 size-3 border-state-select border-b-2 border-r-2"
               />
             </div>
             <button
@@ -974,7 +974,7 @@ export function NoteCard({
               <div
                 role="menu"
                 aria-label="付箋の候補操作"
-                className="fixed z-[41] min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-tool"
+                className="fixed z-[41] min-w-36 rounded-lg border border-border bg-popover p-1 shadow-tool"
                 style={{
                   left: candidateOverlayLayout.menu.left,
                   top: candidateOverlayLayout.menu.top,
@@ -997,7 +997,7 @@ export function NoteCard({
                     event.stopPropagation();
                     performCandidateAction();
                   }}
-                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-base font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
+                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-base font-semibold text-foreground outline-none hover:bg-muted focus:bg-muted"
                 >
                   {note.excluded ? (
                     <ListPlus aria-hidden="true" className="size-4" />
@@ -1046,7 +1046,7 @@ export function NoteCard({
     >
       {candidateOverlay}
       {note.excluded ? (
-        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-full bg-white/90 px-1 py-0.5 text-xs font-semibold text-slate-700">
+        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-full bg-background/90 px-1 py-0.5 text-xs font-semibold text-muted-foreground">
           候補外
         </span>
       ) : null}
@@ -1252,7 +1252,7 @@ export function NoteCard({
           onBlur={scheduleFocusActionHide}
           onKeyDown={handleKeyDown}
           onContextMenu={handleContextMenu}
-          className={`absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700 ${
+          className={`absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
             disabled
               ? "cursor-not-allowed"
               : selectedStampKind !== null

@@ -1488,7 +1488,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       screen
         .getByTestId("note-card")
         .querySelector('[data-slot="sticky-note-paper"]'),
-    ).toHaveStyle({ outline: "3px dashed #c2410c" });
+    ).toHaveStyle({ outline: "3px dashed var(--ib-color-state-focus)" });
     expect(socket.sent).not.toContain(
       JSON.stringify({ type: "adoption-focus:update", noteId: NOTE_ID }),
     );

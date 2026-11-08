@@ -92,7 +92,7 @@ export function MemberAvatar({
             <span
               data-testid="member-disconnected"
               aria-hidden="true"
-              className="absolute -bottom-1 -left-1 inline-flex size-4 items-center justify-center rounded-full border-2 border-background bg-slate-600 text-white"
+              className="absolute -bottom-1 -left-1 inline-flex size-4 items-center justify-center rounded-full border-2 border-background bg-muted-foreground text-background"
             >
               <WifiOff className="size-2.5" />
             </span>
@@ -101,7 +101,7 @@ export function MemberAvatar({
             <span
               data-testid="member-voting-complete"
               aria-hidden="true"
-              className="absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full border-2 border-background bg-emerald-600 text-white "
+              className="absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full border-2 border-background bg-state-decided text-background "
             >
               <Check className="size-2.5" strokeWidth={3} />
             </span>

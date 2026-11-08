@@ -43,7 +43,7 @@ describe("StickyNote", () => {
         '[data-slot="sticky-note-paper"]',
       );
       expect(paper?.style.boxShadow).toMatch(
-        /^0 0 0 1px #fff, 0 0 0 3px #0B93F5, /,
+        /^0 0 0 1px var\(--ib-color-surface\), 0 0 0 3px var\(--ib-color-state-select\), /,
       );
       expect(note.style.transform).toBe("");
       expect(note).not.toHaveClass("overflow-hidden");

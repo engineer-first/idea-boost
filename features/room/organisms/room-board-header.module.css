@@ -6,8 +6,8 @@
   color: var(--foreground);
   font-weight: 600;
   box-shadow:
-    0 2px 5px #00000008,
-    inset 0 1px 0 #ffffffb3;
+    0 2px 5px rgb(from var(--ib-color-ink) r g b / 3%),
+    inset 0 1px 0 rgb(from var(--ib-color-surface) r g b / 70%);
   transition:
     transform 180ms,
     border-color 180ms,
@@ -31,28 +31,76 @@
     color 180ms;
 }
 .readyButton:enabled:hover {
-  border-color: #a5bfb0;
-  background: #f6faf7;
-  box-shadow: 0 3px 8px #153d2510;
+  border-color: color-mix(
+    in oklab,
+    var(--ib-color-state-decided-text) 40%,
+    var(--ib-color-line)
+  );
+  background: color-mix(
+    in oklab,
+    var(--ib-color-state-decided) 4%,
+    var(--ib-color-surface)
+  );
+  box-shadow: 0 3px 8px rgb(from var(--ib-color-state-decided-text) r g b / 6%);
 }
 .readyButton:where(:enabled:hover) .completionMark {
-  border-color: #96b5a1;
-  background: #e0f0e5;
-  color: #286544;
+  border-color: color-mix(
+    in oklab,
+    var(--ib-color-state-decided-text) 50%,
+    var(--ib-color-line)
+  );
+  background: color-mix(
+    in oklab,
+    var(--ib-color-state-decided) 14%,
+    var(--ib-color-surface)
+  );
+  color: color-mix(
+    in oklab,
+    var(--ib-color-state-decided-text) 75%,
+    var(--ib-color-ink)
+  );
 }
 .readyButton[aria-pressed="true"] {
-  border-color: #b4d3c0;
-  background: #edf6f0;
-  color: #286544;
+  border-color: color-mix(
+    in oklab,
+    var(--ib-color-state-decided-text) 30%,
+    var(--ib-color-line)
+  );
+  background: color-mix(
+    in oklab,
+    var(--ib-color-state-decided) 9%,
+    var(--ib-color-surface)
+  );
+  color: color-mix(
+    in oklab,
+    var(--ib-color-state-decided-text) 75%,
+    var(--ib-color-ink)
+  );
 }
 .readyButton[aria-pressed="true"]:enabled:hover {
-  border-color: #8fb69e;
-  background: #e0f0e5;
+  border-color: color-mix(
+    in oklab,
+    var(--ib-color-state-decided-text) 55%,
+    var(--ib-color-line)
+  );
+  background: color-mix(
+    in oklab,
+    var(--ib-color-state-decided) 14%,
+    var(--ib-color-surface)
+  );
 }
 .readyButton[aria-pressed="true"] .completionMark {
-  border-color: #286544;
-  background: #286544;
-  color: #fff;
+  border-color: color-mix(
+    in oklab,
+    var(--ib-color-state-decided-text) 75%,
+    var(--ib-color-ink)
+  );
+  background: color-mix(
+    in oklab,
+    var(--ib-color-state-decided-text) 75%,
+    var(--ib-color-ink)
+  );
+  color: var(--ib-color-surface);
 }
 .nextWaiting:disabled {
   border-color: color-mix(in oklab, var(--foreground) 16%, var(--background));
@@ -61,8 +109,13 @@
   opacity: 1;
 }
 [data-completion-cue="button"] .readyButton {
-  background: #e0f0e5;
-  box-shadow: inset 0 2px 4px #28654433;
+  background: color-mix(
+    in oklab,
+    var(--ib-color-state-decided) 14%,
+    var(--ib-color-surface)
+  );
+  box-shadow: inset 0 2px 4px
+    rgb(from var(--ib-color-state-decided-text) r g b / 20%);
   transform: translateY(1px) scale(0.98);
 }
 .nextReady {
@@ -94,7 +147,12 @@
 [data-completion-cue="check"] .avatarCue[data-cue-self] {
   transform: scale(1.18);
 
-  box-shadow: 0 0 0 5px #dcece1;
+  box-shadow: 0 0 0 5px
+    color-mix(
+      in oklab,
+      var(--ib-color-state-decided) 16%,
+      var(--ib-color-surface)
+    );
 }
 [data-completion-cue="check"] .avatarCue[data-cue-self] svg polyline,
 [data-completion-cue="check"] .avatarCue[data-cue-self] svg path {
@@ -102,7 +160,7 @@
   animation: draw-check 400ms ease-out both;
 }
 [data-completion-cue="others"] .avatarCue[data-cue-waiting] {
-  box-shadow: 0 0 0 3px #c68a2c66;
+  box-shadow: 0 0 0 3px rgb(from var(--ib-color-warning) r g b / 40%);
 }
 @keyframes draw-check {
   from {
@@ -133,16 +191,16 @@
 
 @media (width < 1024px) {
   [data-completion-cue="others"] .overflowCue[data-waiting-small] {
-    box-shadow: 0 0 0 3px #c68a2c66;
+    box-shadow: 0 0 0 3px rgb(from var(--ib-color-warning) r g b / 40%);
   }
 }
 @media (1024px <= width < 1280px) {
   [data-completion-cue="others"] .overflowCue[data-waiting-medium] {
-    box-shadow: 0 0 0 3px #c68a2c66;
+    box-shadow: 0 0 0 3px rgb(from var(--ib-color-warning) r g b / 40%);
   }
 }
 @media (width >= 1280px) {
   [data-completion-cue="others"] .overflowCue[data-waiting-large] {
-    box-shadow: 0 0 0 3px #c68a2c66;
+    box-shadow: 0 0 0 3px rgb(from var(--ib-color-warning) r g b / 40%);
   }
 }

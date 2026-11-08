@@ -101,12 +101,12 @@ describe("RemoteCursor", () => {
       "remote-cursor-22222222-2222-4222-8222-222222222222",
     );
 
-    expect(cursor.querySelector("svg")).toHaveClass("text-slate-900");
+    expect(cursor.querySelector("svg")).toHaveClass("text-foreground");
     expect(cursor.querySelector("svg")).toHaveStyle({
       fill: expectedColor,
     });
     expect(screen.getByText("Taro").parentElement).toHaveClass(
-      "border-slate-950/15",
+      "border-foreground/15",
     );
     expect(screen.getByText("Taro").parentElement).toHaveStyle({
       backgroundColor: expectedColor,
