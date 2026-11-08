@@ -187,19 +187,9 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 
 ### 値を直接書かない
 
-色と角丸は、値ではなく名前で書きます。値を書いた部品は、この文書を変えても取り残されるためです。
+色と角丸は値ではなく名前で書きます。Tailwind では `bg-primary`・`rounded-lg`、CSS では `var(--ib-color-*)` を使い、淡い面は `color-mix(in oklab, …)` で名前から作ります（`oklch` は色相がずれる）。名前と値の一覧は Storybook の `Design/Tokens` で見られます。
 
-- **書く場所に合わせて名前を選ぶ。** Tailwind では `bg-primary`・`text-state-decided-text`・`rounded-lg` などのクラス、CSS Modules と inline style では `var(--ib-color-*)`・`var(--ib-rounded-*)` を使います。淡い面や影は `color-mix(in oklab, …)` や `rgb(from var(--ib-color-*) r g b / 8%)` で名前から作ります。`in oklch` で混ぜると色相が途中の値に回り、緑と灰青の混色が水色に寄るため、混色は `in oklab` にします。
-- **`npm run lint` が知らせる。** Biome の `noHexColors`（CSS の hex）と `noTailwindRawColors`（`bg-blue-600` などの Tailwind 既定パレット）を info で有効にしています。件数が減ったら error にします。tsx の中の hex（SVG の `fill`・inline style）と `bg-[#0B93F5]` は Biome が見ないので、レビューで確認します。
-- **1 箇所だけ値を持つときは、理由つきのコメントを置く。** `biome-ignore lint/style/noHexColors: <理由>` の形で、理由がないと効きません。
-- **ファイル全体が例外のときは、`biome.json` の `overrides` に置き、理由を下の表に書く。**
-
-| 例外のファイル                                                                                 | 理由                                                                                                                                                                                                                                                                              |
-| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `*.spec.*`・`*.stories.tsx`・`*.fixture.ts`・`tests/`                                          | 期待値や表示見本の色で、画面の色ではない                                                                                                                                                                                                                                          |
-| `features/landing/molecules/landing.module.css`                                                | LP 専用の配色（`--lp-*`）の定義元                                                                                                                                                                                                                                                 |
-| `features/room/molecules/step-guide-illustration.tsx`                                          | 付箋を模したガイドのイラスト                                                                                                                                                                                                                                                      |
-| `features/room/organisms/room-board-canvas.tsx`・`room-board-header.tsx`（パレットの検査だけ） | Biome 2.5.15 の `noTailwindRawColors` が `has-[[data-x]]:` のように角括弧が二重になる書き方を読めず、CI を落とすため。この 2 ファイルの Tailwind 既定パレットはレビューで見る。ルールが安定版になったら外す（追跡: [biome#11342](https://github.com/biomejs/biome/issues/11342)） |
+`npm run lint` が CSS の hex と Tailwind の既定パレットを info で知らせます。値を残すときは `biome-ignore lint/style/noHexColors: <理由>` を書き、ファイル全体なら `biome.json` の `overrides` に入れます。今の `overrides` はテスト・stories（見本の色）、LP の配色、ガイドのイラストです。`room-board-canvas.tsx`・`room-board-header.tsx` は Biome の不具合でパレットの検査だけ外しています（[biome#11342](https://github.com/biomejs/biome/issues/11342)）。
 
 ## Typography
 
@@ -282,6 +272,6 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 
 この文書のうち、まだ実装に入っていないものです。実装したら行を消します。
 
-| 項目                                                                                                                                                                                            | 今の実装      | 扱う Issue |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------- |
-| 役割のない色（ロビーの黄色いボタン・エラー表示の赤・ドット投票・アイデアマップ・共有画面の青・成果共有の注意・自分のアバターの輪・付箋の文字色）のトークン化と、直書きの検査を error にすること | info で検出中 | #877       |
+| 項目                                                        | 今の実装      | 扱う Issue |
+| ----------------------------------------------------------- | ------------- | ---------- |
+| 役割のない色のトークン化と、直書きの検査を error にすること | info で検出中 | #877       |
