@@ -24,6 +24,8 @@ colors:
   warning: "#B45309"
   warning-soft: "#FEF3E2"
   danger: "#D92D4A"
+  danger-soft: "#FDEEF1"
+  danger-text: "#B42339"
 typography:
   headline-display:
     fontFamily: Noto Sans JP
@@ -162,6 +164,8 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 
 - **注意の淡い面（`warning-soft`）：** ダイアログで気を付けてほしいこと（未完了のメンバーなど）を示すカードの背景です。文字は `warning` を乗せます。
 
+- **危険の淡い面（`danger-soft` / `danger-text`）：** エラー表示や削除の確認など、取り消せないことを伝える小さな面です。`danger` の文字は小さいと 4.5:1 に届かないため、文字は 1 段濃い `danger-text` にします。
+
 - **ページ背景：** `surface` の白を使います。ボード用の `canvas` と役割を分けます。
 
 - **キーボードフォーカス：** リングは `primary` を使います。操作対象を示し、採用候補の `state-focus` とは区別します。
@@ -189,7 +193,7 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 
 色と角丸は値ではなく名前で書きます。Tailwind では `bg-primary`・`rounded-lg`、CSS では `var(--ib-color-*)` を使い、淡い面は `color-mix(in oklab, …)` で名前から作ります（`oklch` は色相がずれる）。名前と値の一覧は Storybook の `Design/Tokens` で見られます。
 
-`npm run lint` が CSS の hex と Tailwind の既定パレットを info で知らせます。値を残すときは `biome-ignore lint/style/noHexColors: <理由>` を書き、ファイル全体なら `biome.json` の `overrides` に入れます。今の `overrides` はテスト・stories（見本の色）、LP の配色、ガイドのイラストです。`room-board-canvas.tsx`・`room-board-header.tsx` は Biome の不具合でパレットの検査だけ外しています（[biome#11342](https://github.com/biomejs/biome/issues/11342)）。
+`npm run lint` が CSS の hex と Tailwind の既定パレットをエラーにします。値を残すときは `biome-ignore lint/style/noHexColors: <理由>` を書き、ファイル全体なら `biome.json` の `overrides` に入れます。今の `overrides` はテスト・stories（見本の色）、LP の配色、ガイドのイラストです。`room-board-canvas.tsx`・`room-board-header.tsx` は Biome の不具合でパレットの検査だけ外しています（[biome#11342](https://github.com/biomejs/biome/issues/11342)）。
 
 ## Typography
 
@@ -272,6 +276,6 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 
 この文書のうち、まだ実装に入っていないものです。実装したら行を消します。
 
-| 項目                                                        | 今の実装      | 扱う Issue |
-| ----------------------------------------------------------- | ------------- | ---------- |
-| 役割のない色のトークン化と、直書きの検査を error にすること | info で検出中 | #877       |
+| 項目                                 | 今の実装                                                         | 扱う Issue |
+| ------------------------------------ | ---------------------------------------------------------------- | ---------- |
+| ドット投票のシールの色（主観・客観） | Tailwind の既定パレット。定数の文字列に書いており、lint の対象外 | 未起票     |

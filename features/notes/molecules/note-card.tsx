@@ -935,7 +935,7 @@ export function NoteCard({
                 event.stopPropagation();
                 performCandidateAction();
               }}
-              className={`fixed z-40 flex items-center justify-center gap-1 rounded-l-lg border border-red-200 bg-red-50 text-xs font-bold text-red-800 shadow-tool transition-opacity [mask-image:radial-gradient(circle_at_right_center,transparent_0_6px,#000_7px)] ${
+              className={`fixed z-40 flex items-center justify-center gap-1 rounded-l-lg border border-danger/30 bg-danger-soft text-xs font-bold text-danger-text shadow-tool transition-opacity [mask-image:radial-gradient(circle_at_right_center,transparent_0_6px,#000_7px)] ${
                 isCandidateActionVisible
                   ? "pointer-events-auto opacity-100"
                   : "pointer-events-none opacity-0"
@@ -1124,7 +1124,7 @@ export function NoteCard({
             setIsEditing(false);
           }
         }}
-        className={`min-h-0 flex-1 resize-none overflow-y-hidden bg-transparent px-2 pt-2 text-slate-900 outline-none ${
+        className={`min-h-0 flex-1 resize-none overflow-y-hidden bg-transparent px-2 pt-2 text-foreground outline-none ${
           vote.displayMode === "result" ? "pb-2" : "pb-12"
         } ${isEditing ? "" : "pointer-events-none select-none"}`}
         style={{

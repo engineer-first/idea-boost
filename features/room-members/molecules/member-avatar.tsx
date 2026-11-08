@@ -63,7 +63,7 @@ export function MemberAvatar({
           data-self={isMe ? "true" : undefined}
           className={`relative inline-flex shrink-0 items-center justify-center rounded-full border ${NOTE_COLOR_STYLES[color].avatarClassName} ${
             isMe
-              ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-background"
+              ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
               : ""
           }`}
           style={{

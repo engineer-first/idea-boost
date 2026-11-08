@@ -93,7 +93,7 @@ export function LoginCard({
         {loginError && (
           <div
             role="alert"
-            className="p-3 text-base bg-red-50 text-red-700 rounded-lg border border-red-100"
+            className="p-3 text-base bg-danger-soft text-danger-text rounded-lg border border-danger/20"
           >
             <span className="font-bold">エラー: </span>
             {loginError}

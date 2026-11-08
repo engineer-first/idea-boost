@@ -225,26 +225,27 @@
   right: 16px;
   width: calc(100% - 32px);
   height: 52px;
-  border: 1px solid #e5bc3d;
+  border: 1px solid var(--ib-color-primary);
   border-radius: 18px;
-  background: #f4d35e;
-  color: #171717;
+  background: var(--ib-color-primary);
+  color: var(--ib-color-on-primary);
   font-size: 16px;
   font-weight: 700;
-  box-shadow: 0 4px 12px #d3aa2626;
+  box-shadow: 0 4px 12px rgb(from var(--ib-color-primary) r g b / 15%);
   transition:
     transform 120ms ease-out,
     background-color 120ms ease-out;
 }
 .start:hover {
-  background: #edc84f;
+  background: var(--ib-color-primary-strong);
 }
 .start:active {
   transform: scale(0.98);
 }
 .start:disabled {
-  background: #f5e5ae;
-  color: #5e542f;
+  border-color: var(--ib-color-line);
+  background: var(--ib-color-surface-muted);
+  color: var(--ib-color-muted);
   box-shadow: none;
 }
 .footer {

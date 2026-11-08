@@ -24,7 +24,7 @@ describe("IdeaValueFeasibilityMap", () => {
       "relative",
     );
     expect(screen.getByTestId("idea-value-feasibility-map-plane")).toHaveClass(
-      "bg-sky-50/90",
+      "bg-primary-soft/90",
     );
     expect(
       screen.getByTestId("idea-value-feasibility-map-plane"),

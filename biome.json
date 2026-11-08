@@ -39,8 +39,8 @@
       "test": "recommended"
     },
     "rules": {
-      "style": { "noHexColors": "info" },
-      "nursery": { "noTailwindRawColors": "info" }
+      "style": { "noHexColors": "error" },
+      "nursery": { "noTailwindRawColors": "error" }
     }
   },
   "overrides": [

@@ -1192,7 +1192,7 @@ export function RoomBoardCanvas({
                 }}
               >
                 <p
-                  className={`min-h-0 flex-1 overflow-hidden p-2 text-slate-900 ${dragPreview.noteDisplayScale === undefined ? "text-sm" : ""}`}
+                  className={`min-h-0 flex-1 overflow-hidden p-2 text-foreground ${dragPreview.noteDisplayScale === undefined ? "text-sm" : ""}`}
                   style={
                     dragPreview.noteDisplayScale === undefined
                       ? undefined

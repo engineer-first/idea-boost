@@ -56,18 +56,18 @@
 .create button[type="submit"] {
   width: 100%;
   min-height: 52px;
-  border: 1px solid #e9bf38;
+  border: 1px solid var(--ib-color-primary);
   border-radius: var(--ib-rounded-full);
-  background: #f6d75b;
-  box-shadow: 0 3px 10px rgb(214 176 44 / 10%);
-  color: #171717;
+  background: var(--ib-color-primary);
+  box-shadow: 0 3px 10px rgb(from var(--ib-color-primary) r g b / 10%);
+  color: var(--ib-color-on-primary);
   font-size: 16px;
   font-weight: 600;
 }
 .primaryAction:hover:not(:disabled),
 .create button[type="submit"]:hover:not(:disabled) {
-  background: #f2cc45;
-  box-shadow: 0 4px 14px rgb(214 176 44 / 18%);
+  background: var(--ib-color-primary-strong);
+  box-shadow: 0 4px 14px rgb(from var(--ib-color-primary) r g b / 18%);
 }
 .create button:focus-visible,
 .join button:focus-visible {

@@ -135,7 +135,7 @@ export function DotVoteSticker({
         <span
           aria-hidden="true"
           data-testid={`dot-vote-result-count-${kind}`}
-          className="ml-[15px] min-w-[2ch] shrink-0 text-left text-sm leading-[22px] font-bold text-slate-900 tabular-nums"
+          className="ml-[15px] min-w-[2ch] shrink-0 text-left text-sm leading-[22px] font-bold text-foreground tabular-nums"
         >
           {count}
         </span>

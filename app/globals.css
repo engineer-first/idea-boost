@@ -32,6 +32,8 @@
   --color-state-decided: var(--ib-color-state-decided);
   --color-state-decided-text: var(--ib-color-state-decided-text);
   --color-state-excluded: var(--ib-color-state-excluded);
+  --color-danger-soft: var(--ib-color-danger-soft);
+  --color-danger-text: var(--ib-color-danger-text);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);

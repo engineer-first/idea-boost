@@ -657,7 +657,7 @@ describe("NoteCard", () => {
     setup();
 
     const textarea = screen.getByRole("textbox");
-    expect(textarea).toHaveClass("text-slate-900");
+    expect(textarea).toHaveClass("text-foreground");
     expect(textarea.className).not.toContain("dark:text-");
   });
 

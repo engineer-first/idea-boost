@@ -155,7 +155,7 @@ export function SharedOutcomeBoard({
                 height={noteHeight - 16}
               >
                 <div
-                  className="whitespace-pre-wrap break-words text-slate-900"
+                  className="whitespace-pre-wrap break-words text-foreground"
                   style={{ fontSize: note.fontSize }}
                 >
                   {note.content}

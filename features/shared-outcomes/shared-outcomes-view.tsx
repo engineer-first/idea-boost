@@ -285,7 +285,7 @@ export function SharedOutcomesView({
                               className={
                                 outcome.saveStatus === "saved"
                                   ? "text-muted-foreground"
-                                  : "font-medium text-amber-800"
+                                  : "font-medium text-warning"
                               }
                             >
                               {SAVE_STATUS_LABELS[outcome.saveStatus]}
@@ -321,7 +321,7 @@ export function SharedOutcomesView({
                           aria-hidden
                         />
                         {outcome.saveStatus !== "saved" && (
-                          <p className="text-base leading-relaxed text-amber-800 xl:col-span-5">
+                          <p className="text-base leading-relaxed text-warning xl:col-span-5">
                             {outcome.lastSavedAt
                               ? "前回の正常保存分を表示します。"
                               : "正常保存分はまだありません。"}
@@ -413,7 +413,7 @@ export function SharedOutcomesView({
             {detail.saveStatus !== "saved" && (
               <p
                 role="status"
-                className="rounded-lg border border-amber-500/40 bg-amber-50 p-5 text-amber-950"
+                className="rounded-lg border border-warning/20 bg-warning-soft p-5 text-warning"
               >
                 {detail.saveStatus === "failed"
                   ? "保存に失敗しました。"
