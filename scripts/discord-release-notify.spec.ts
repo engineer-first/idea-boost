@@ -9,7 +9,7 @@ const release = {
   url: "https://github.com/engineer-first/idea-boost/releases/tag/prod-2026.11.08.1",
 };
 const env = {
-  DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/example",
+  DISCORD_WEBHOOK_URL_RELEASE: "https://discord.com/api/webhooks/example",
   NEXT_PUBLIC_SITE_URL: "https://ideaboost.dev",
 };
 
@@ -67,7 +67,7 @@ describe("リリース完了通知", () => {
     await expect(notifyRelease(release, env, send)).rejects.toThrow(
       "Discord通知に失敗しました（HTTP 429）",
     );
-    send.mockRejectedValue(new Error(env.DISCORD_WEBHOOK_URL));
+    send.mockRejectedValue(new Error(env.DISCORD_WEBHOOK_URL_RELEASE));
     await expect(notifyRelease(release, env, send)).rejects.toThrow(
       "Discord通知の通信に失敗しました",
     );
@@ -78,7 +78,7 @@ it("Webhookの設定不備でも値をエラーに含めない", async () => {
   await expect(
     notifyRelease(
       release,
-      { DISCORD_WEBHOOK_URL: "secret-invalid-url" },
+      { DISCORD_WEBHOOK_URL_RELEASE: "secret-invalid-url" },
       vi.fn(),
     ),
   ).rejects.toThrow("Discord通知の通信に失敗しました");

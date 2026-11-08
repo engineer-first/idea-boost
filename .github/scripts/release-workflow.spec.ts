@@ -108,8 +108,8 @@ it("通常公開と記録のみ再試行の両方で通知先と本番URLを渡�
         step.run?.includes("release-automation.mts") &&
         step.run.includes("--publish"),
     );
-    expect(step.env.DISCORD_WEBHOOK_URL).toBe(
-      ["$", "{{ secrets.DISCORD_WEBHOOK_URL }}"].join(""),
+    expect(step.env.DISCORD_WEBHOOK_URL_RELEASE).toBe(
+      ["$", "{{ secrets.DISCORD_WEBHOOK_URL_RELEASE }}"].join(""),
     );
     expect(step.env.NEXT_PUBLIC_SITE_URL).toBe(
       ["$", "{{ vars.NEXT_PUBLIC_SITE_URL }}"].join(""),

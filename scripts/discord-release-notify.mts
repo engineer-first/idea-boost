@@ -7,9 +7,9 @@ export async function notifyRelease(
   send: typeof fetch = fetch,
 ): Promise<string> {
   if (!release.url) return "";
-  const webhook = env.DISCORD_WEBHOOK_URL;
+  const webhook = env.DISCORD_WEBHOOK_URL_RELEASE;
   if (!webhook)
-    return "Discord通知：DISCORD_WEBHOOK_URL が未設定のためスキップしました。";
+    return "Discord通知：DISCORD_WEBHOOK_URL_RELEASE が未設定のためスキップしました。";
   const siteUrl = env.NEXT_PUBLIC_SITE_URL || "https://ideaboost.dev";
   const lines = release.body.split("\n");
   const start = lines.findIndex((line) => line.startsWith("- **"));

@@ -14,7 +14,9 @@ const result = {
   existing: false,
   url: "https://github.com/engineer-first/idea-boost/releases/tag/prod-2026.11.08.1",
 };
-const env = { DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/test" };
+const env = {
+  DISCORD_WEBHOOK_URL_RELEASE: "https://discord.com/api/webhooks/test",
+};
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(recordActions).mockResolvedValue(result);

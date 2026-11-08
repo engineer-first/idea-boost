@@ -203,7 +203,11 @@ Deployの `gate`、`deploy-api`（migrationを含む）、`deploy-app`、`health
 ## Discordへの完了通知
 
 通常のDeployとRecord Releaseは、成功を確認した本番のタグ・GitHub Releaseの記録後に、
-変更要約付きの緑のカードを送ります。通知先はマージ通知と同じ `DISCORD_WEBHOOK_URL` secretです。
+変更要約付きの緑のカードを送ります。通知先はリリース専用の `DISCORD_WEBHOOK_URL_RELEASE` secretです。
+Discordでリリース通知用チャンネルを作り、「チャンネルの編集 → 連携サービス → ウェブフック」で
+そのチャンネルのWebhookを作成します。URLをGitHubのリポジトリ設定の
+「Secrets and variables → Actions → New repository secret」に上記の名前で登録してください。
+マージ通知用の `DISCORD_WEBHOOK_URL` はそのまま保持します。
 本番URLは `NEXT_PUBLIC_SITE_URL` variable（未設定時は `https://ideaboost.dev`）、
 リリースノート / タグは今回記録したReleaseへのリンクです。メンションは無効にします。
 要約・利用上の注意は公開済みのRelease本文から取得し、長い場合は省略してノートへ案内します。
