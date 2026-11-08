@@ -101,7 +101,7 @@ npm run test -- scripts/release-operator.spec.ts scripts/release-history.spec.ts
 
 個別のCloudflare操作をGitHubから自動観測する仕組みはありません。通常の入口は自動化し、
 外部操作も成功証跡を渡して同じ履歴へ合流できるようにしています。
-アプリ内の通知、配信、過去履歴の全面復元、ロールバック・データ復旧そのものの実装は対象外です。
+アプリ内の通知、過去履歴の全面復元、ロールバック・データ復旧そのものの実装は対象外です。
 
 ## 説明の形式と互換入口
 
@@ -199,6 +199,24 @@ Deployの `gate`、`deploy-api`（migrationを含む）、`deploy-app`、`health
 
 タグが異なるcommitを指す、同じ版がDraft/prerelease、識別情報が欠落・不一致、日時が前後する場合は
 自動上書きしません。HTTP障害を「履歴なし」とみなさず停止します。記録済み本文の訂正も保持します。
+
+## Discordへの完了通知
+
+通常のDeployとRecord Releaseは、成功を確認した本番のタグ・GitHub Releaseの記録後に、
+変更要約付きの緑のカードを送ります。通知先はマージ通知と同じ `DISCORD_WEBHOOK_URL` secretです。
+本番URLは `NEXT_PUBLIC_SITE_URL` variable（未設定時は `https://ideaboost.dev`）、
+リリースノート / タグは今回記録したReleaseへのリンクです。メンションは無効にします。
+要約・利用上の注意は公開済みのRelease本文から取得し、長い場合は省略してノートへ案内します。
+プレビューや記録に失敗した場合は送信しません。Webhook未設定の場合は送信をスキップし、Summaryに表示します。
+
+通知のHTTPエラーや通信失敗では記録ジョブを失敗にしますが、本番と公開済みReleaseは保持します。
+下記の「記録だけを再実行する」で同じ版の通知を再送でき、再デプロイは不要です。
+記録済みの版でも再送するため、成功後の再実行や、Discordが受理した後に応答が失われた場合は
+通知が重複することがあります。古い版の履歴補完でも、その版の完了通知が送られます。
+低水準の `release:record -- --publish` 直接操作には通知を付けず、通常のActions経路を使います。
+
+送信形式はDiscordの[Webhook API](https://docs.discord.com/developers/resources/webhook)と
+[Embed上限](https://docs.discord.com/developers/resources/message#embed-object)に従います。
 
 ## 記録だけを再実行する
 

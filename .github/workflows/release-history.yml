@@ -41,6 +41,8 @@ jobs:
       - name: Record without redeploying
         run: node scripts/release-automation.mts retry --publish
         env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.run_id }}
           RUN_ATTEMPT: ${{ inputs.attempt }}
