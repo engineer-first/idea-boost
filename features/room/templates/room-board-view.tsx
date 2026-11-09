@@ -58,11 +58,13 @@ import {
   type CanvasTool,
   useCanvasSelection,
 } from "../logic/use-canvas-selection";
+import { useCharacterHint } from "../logic/use-character-hint";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RemotePresenterView } from "../logic/use-presenter-view";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
+import { BoardCharacter } from "../molecules/board-character";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
@@ -874,6 +876,13 @@ export function RoomBoardView({
 
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
+  const characterHint = useCharacterHint({
+    phase,
+    timer,
+    serverOffsetMs: timerServerOffsetMs,
+    noteCount: interactions.privateNotes.length,
+    active: !isDisconnected,
+  });
   const voteRemaining = {
     subjective: Math.max(
       0,
@@ -1481,6 +1490,60 @@ export function RoomBoardView({
           `${element?.getBoundingClientRect().height ?? 0}px`,
         );
       }
+      // 先生は広い画面では現在地カードの右隣、スマホでは真下に置く。
+      const locationCard = root.querySelector<HTMLElement>(
+        '[data-testid="board-location-slot"]',
+      );
+      const locationBounds = locationCard?.getBoundingClientRect();
+      root.style.setProperty(
+        "--board-location-top",
+        `${locationBounds?.top ?? 12}px`,
+      );
+      root.style.setProperty(
+        "--board-location-right",
+        `${locationBounds?.right ?? 372}px`,
+      );
+      root.style.setProperty(
+        "--board-location-bottom",
+        `${Math.ceil(locationBounds?.bottom ?? 68)}px`,
+      );
+      const characterWidth =
+        root
+          .querySelector<HTMLElement>('[data-testid="board-character"] button')
+          ?.getBoundingClientRect().width ?? 56;
+      const centralGuide = isDisconnected
+        ? null
+        : root.querySelector<HTMLElement>(
+            '[data-testid="step-one-onboarding-trigger"]',
+          );
+      const guideBounds = centralGuide?.getBoundingClientRect();
+      const rem =
+        Number.parseFloat(
+          getComputedStyle(document.documentElement).fontSize,
+        ) || 16;
+      const bubbleLeft =
+        (locationBounds?.right ?? 372) + 12 + characterWidth + 6;
+      const availableBubbleWidth =
+        guideBounds && guideBounds.width > 0
+          ? guideBounds.left - bubbleLeft - 8
+          : 15 * rem;
+      const bubbleBelow = availableBubbleWidth < 10 * rem;
+      root.style.setProperty(
+        "--board-character-bubble-max-width",
+        `${bubbleBelow ? 15 * rem : Math.min(15 * rem, availableBubbleWidth)}px`,
+      );
+      root.style.setProperty(
+        "--board-character-bubble-top",
+        bubbleBelow ? "100%" : "0.25rem",
+      );
+      root.style.setProperty(
+        "--board-character-bubble-left",
+        bubbleBelow ? "0px" : "100%",
+      );
+      root.style.setProperty(
+        "--board-character-bubble-gap",
+        bubbleBelow ? "0px" : "0.375rem",
+      );
       if (isPersonalNoteEntryPhase) {
         const frame = root.querySelector<HTMLElement>(
           '[data-testid="board-frame"]',
@@ -1564,6 +1627,7 @@ export function RoomBoardView({
         (testId) => `[data-testid="${testId}"]`,
       ),
       '[data-testid="board-location-slot"]',
+      '[data-testid="step-one-onboarding-trigger"]',
       '[data-testid="board-help-panel"]',
       ...referenceSelectors,
     ]) {
@@ -1576,7 +1640,7 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, phase, isIdeaMapWorkspaceStep]);
+  }, [boardRootRef, phase, isIdeaMapWorkspaceStep, isDisconnected]);
 
   const handleNoteSelect = (
     noteId: string | null,
@@ -2099,6 +2163,7 @@ export function RoomBoardView({
           ideaMapPlaneRef={ideaMapPlaneRef}
           privateToolbarRef={privateToolbarRef}
           camera={camera}
+          character={<BoardCharacter message={characterHint.message} />}
           displayZoom={interactions.displayZoom}
           gridStyle={gridStyle}
           isPanning={isPanning}

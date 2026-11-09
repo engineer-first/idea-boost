@@ -3158,9 +3158,13 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     expect(
       screen.getByRole("button", { name: "主観シール 残り1票" }),
     ).toBeEnabled();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "この投票は受け付けられません。",
-    );
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) =>
+          status.textContent?.includes("この投票は受け付けられません。"),
+        ),
+    ).toBe(true);
     expect(notifyMocks.error).not.toHaveBeenCalled();
   });
 
@@ -3294,9 +3298,13 @@ it.each([false, true])(
         .map((raw) => JSON.parse(raw))
         .filter((message) => message.type === "note:publish");
     expect(publishes()).toHaveLength(0);
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "本文の保存を確認してから共有します",
-    );
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) =>
+          status.textContent?.includes("本文の保存を確認してから共有します"),
+        ),
+    ).toBe(true);
     act(() => {
       if (turnChanged)
         socket.simulateServerMessage({
