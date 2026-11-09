@@ -8,11 +8,12 @@ export async function startGoogleAuthorization(
   next: string,
   state: string,
   nonce: string,
+  purpose?: "account_link",
 ): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(
     OAUTH_STATE_COOKIE,
-    JSON.stringify({ state, nonce, next: sanitizeNextPath(next) }),
+    JSON.stringify({ state, nonce, next: sanitizeNextPath(next), purpose }),
     {
       httpOnly: true,
       sameSite: "lax",

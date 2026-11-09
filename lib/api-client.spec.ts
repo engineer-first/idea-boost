@@ -105,6 +105,40 @@ describe("lookupRoomByInviteCode", () => {
     });
   });
 
+  it("410 で reason ended と文字列 error があれば ended を返す", async () => {
+    fetchMock.mockResolvedValueOnce(
+      Response.json(
+        { reason: "ended", error: "このルームは終了しています。" },
+        { status: 410 },
+      ),
+    );
+    await expect(lookupRoomByInviteCode("ABC234")).resolves.toEqual({
+      kind: "ended",
+    });
+  });
+
+  it.each([
+    ["reason なし", { error: "このルームは終了しています。" }],
+    ["reason が異なる", { reason: "not_found", error: "失敗" }],
+    ["error なし", { reason: "ended" }],
+    ["error が文字列以外", { reason: "ended", error: 410 }],
+    ["null", null],
+  ])("410 でも不正ボディ（%s）は unavailable を返す", async (_label, body) => {
+    fetchMock.mockResolvedValueOnce(Response.json(body, { status: 410 }));
+    await expect(lookupRoomByInviteCode("ABC234")).resolves.toEqual({
+      kind: "unavailable",
+    });
+  });
+
+  it("410 でもJSONでないボディは unavailable を返す", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("壊れたJSON", { status: 410 }),
+    );
+    await expect(lookupRoomByInviteCode("ABC234")).resolves.toEqual({
+      kind: "unavailable",
+    });
+  });
+
   it("5xx は unavailable（ルームが見つからないとは言わない）", async () => {
     fetchMock.mockResolvedValueOnce(new Response("error", { status: 503 }));
     await expect(lookupRoomByInviteCode("ABC234")).resolves.toEqual({

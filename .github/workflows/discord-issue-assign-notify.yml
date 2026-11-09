@@ -29,13 +29,18 @@ jobs:
           script: |
             const { buildDiscordAssignPayload } = require("./.github/scripts/discord-issue-assign-notify.js");
 
+            const issue = context.payload.issue;
+            if (issue.state !== "open") {
+              core.info("open状態のIssueではないためアサイン通知をスキップしました");
+              return;
+            }
+
             const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
             if (!webhookUrl) {
               core.warning("DISCORD_WEBHOOK_URL_ISSUE_ASSIGN が未設定のため通知をスキップしました");
               return;
             }
 
-            const issue = context.payload.issue;
             const assignee = context.payload.assignee;
             const payload = buildDiscordAssignPayload({
               number: issue.number,

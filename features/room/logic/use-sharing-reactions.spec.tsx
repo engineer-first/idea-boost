@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ServerMessage } from "@/contracts/room-protocol";
+import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import { useSharingReactions } from "./use-sharing-reactions";
 
 const phase = { kind: "step", phase: 1, step: 2 } as const;
@@ -15,6 +15,80 @@ const event = {
 afterEach(() => vi.useRealTimers());
 
 describe("useSharingReactions", () => {
+  it.each(["like", "clap", "surprised", "insight", "question"] as const)(
+    "選んだ%sを種類を変えずに送る",
+    (kind) => {
+      const send = vi.fn(() => true);
+      const { result } = renderHook(() =>
+        useSharingReactions({
+          phase,
+          phaseRevision: 3,
+          connectionStatus: "open",
+          send,
+        }),
+      );
+      act(() => result.current.sendReaction(kind));
+      expect(send).toHaveBeenCalledExactlyOnceWith({
+        type: "reaction:send",
+        kind,
+        phaseRevision: 3,
+      });
+    },
+  );
+
+  it.each(["like", "clap", "surprised", "insight", "question"] as const)(
+    "受信した%sの種類を表示用の状態へ保持する",
+    (kind) => {
+      const { result } = renderHook(() =>
+        useSharingReactions({
+          phase,
+          phaseRevision: 3,
+          connectionStatus: "open",
+          send: vi.fn(),
+        }),
+      );
+      act(() => result.current.applyMessage({ ...event, kind }));
+      expect(result.current.reactions).toEqual([
+        expect.objectContaining({ id: event.id, kind }),
+      ]);
+    },
+  );
+
+  it("種類を切り替えても400ms間隔と3件上限を共通に適用する", () => {
+    vi.useFakeTimers();
+    const send = vi.fn<(message: ClientMessage) => boolean>(() => true);
+    const { result } = renderHook(() =>
+      useSharingReactions({
+        phase,
+        phaseRevision: 3,
+        connectionStatus: "open",
+        send,
+      }),
+    );
+    act(() => result.current.sendReaction("like"));
+    act(() => vi.advanceTimersByTime(399));
+    act(() => result.current.sendReaction("question"));
+    expect(send).toHaveBeenCalledTimes(1);
+    act(() => vi.advanceTimersByTime(1));
+    act(() => result.current.sendReaction("question"));
+    act(() => vi.advanceTimersByTime(400));
+    act(() => result.current.sendReaction("clap"));
+    act(() => vi.advanceTimersByTime(400));
+    act(() => result.current.sendReaction("insight"));
+    expect(
+      send.mock.calls.map(([message]) =>
+        message.type === "reaction:send" ? message.kind : undefined,
+      ),
+    ).toEqual(["like", "question", "clap"]);
+    act(() => vi.advanceTimersByTime(1_800));
+    act(() => result.current.sendReaction("surprised"));
+    expect(send).toHaveBeenLastCalledWith({
+      type: "reaction:send",
+      kind: "surprised",
+      phaseRevision: 3,
+    });
+  });
+
   it("接続中の共有画面からいいねを送り、連打を短時間抑える", () => {
     vi.useFakeTimers();
     const send = vi.fn(() => true);
@@ -27,8 +101,8 @@ describe("useSharingReactions", () => {
       }),
     );
     act(() => {
-      result.current.sendLike();
-      result.current.sendLike();
+      result.current.sendReaction("like");
+      result.current.sendReaction("like");
     });
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({
@@ -37,7 +111,7 @@ describe("useSharingReactions", () => {
       phaseRevision: 3,
     });
     act(() => vi.advanceTimersByTime(400));
-    act(() => result.current.sendLike());
+    act(() => result.current.sendReaction("like"));
     expect(send).toHaveBeenCalledTimes(2);
   });
 
@@ -52,19 +126,19 @@ describe("useSharingReactions", () => {
         send,
       }),
     );
-    act(() => result.current.sendLike());
+    act(() => result.current.sendReaction("like"));
     for (let index = 0; index < 2; index++) {
       act(() => vi.advanceTimersByTime(400));
-      act(() => result.current.sendLike());
+      act(() => result.current.sendReaction("like"));
     }
     expect(send).toHaveBeenCalledTimes(3);
-    expect(result.current.canSendLike).toBe(false);
+    expect(result.current.canSendReaction).toBe(false);
     act(() => vi.advanceTimersByTime(400));
-    act(() => result.current.sendLike());
+    act(() => result.current.sendReaction("like"));
     expect(send).toHaveBeenCalledTimes(3);
     act(() => vi.advanceTimersByTime(1_800));
-    expect(result.current.canSendLike).toBe(true);
-    act(() => result.current.sendLike());
+    expect(result.current.canSendReaction).toBe(true);
+    act(() => result.current.sendReaction("like"));
     expect(send).toHaveBeenCalledTimes(4);
   });
 
@@ -82,13 +156,13 @@ describe("useSharingReactions", () => {
       { initialProps: { revision: 3 } },
     );
     for (let index = 0; index < 3; index++) {
-      act(() => result.current.sendLike());
+      act(() => result.current.sendReaction("like"));
       act(() => vi.advanceTimersByTime(400));
     }
-    expect(result.current.canSendLike).toBe(false);
+    expect(result.current.canSendReaction).toBe(false);
     rerender({ revision: 4 });
-    expect(result.current.canSendLike).toBe(true);
-    act(() => result.current.sendLike());
+    expect(result.current.canSendReaction).toBe(true);
+    act(() => result.current.sendReaction("like"));
     expect(send).toHaveBeenCalledTimes(4);
   });
 
@@ -105,7 +179,7 @@ describe("useSharingReactions", () => {
         }),
       { initialProps: { revision: 3 } },
     );
-    act(() => result.current.sendLike());
+    act(() => result.current.sendReaction("like"));
     act(() => vi.advanceTimersByTime(100));
     act(() =>
       result.current.applyMessage({
@@ -115,12 +189,12 @@ describe("useSharingReactions", () => {
       } as ServerMessage),
     );
     rerender({ revision: 4 });
-    expect(result.current.canSendLike).toBe(false);
-    act(() => result.current.sendLike());
+    expect(result.current.canSendReaction).toBe(false);
+    act(() => result.current.sendReaction("like"));
     expect(send).toHaveBeenCalledTimes(1);
     act(() => vi.advanceTimersByTime(300));
-    expect(result.current.canSendLike).toBe(true);
-    act(() => result.current.sendLike());
+    expect(result.current.canSendReaction).toBe(true);
+    act(() => result.current.sendReaction("like"));
     expect(send).toHaveBeenLastCalledWith({
       type: "reaction:send",
       kind: "like",
@@ -151,7 +225,7 @@ describe("useSharingReactions", () => {
         { initialProps: { blocked: false, connectionStatus: "open" } },
       );
       for (let index = 0; index < 3; index++) {
-        act(() => result.current.sendLike());
+        act(() => result.current.sendReaction("like"));
         act(() => vi.advanceTimersByTime(400));
       }
       if (interruption === "snapshot") {
@@ -169,12 +243,12 @@ describe("useSharingReactions", () => {
         });
         rerender({ blocked: false, connectionStatus: "open" });
       }
-      expect(result.current.canSendLike).toBe(false);
-      act(() => result.current.sendLike());
+      expect(result.current.canSendReaction).toBe(false);
+      act(() => result.current.sendReaction("like"));
       expect(send).toHaveBeenCalledTimes(3);
       act(() => vi.advanceTimersByTime(1_800));
-      expect(result.current.canSendLike).toBe(true);
-      act(() => result.current.sendLike());
+      expect(result.current.canSendReaction).toBe(true);
+      act(() => result.current.sendReaction("like"));
       expect(send).toHaveBeenCalledTimes(4);
     },
   );
@@ -244,7 +318,7 @@ describe("useSharingReactions", () => {
     act(() => result.current.applyMessage(event));
     rerender({ connectionStatus: "closed" });
     expect(result.current.reactions).toHaveLength(0);
-    act(() => result.current.sendLike());
+    act(() => result.current.sendReaction("like"));
     expect(send).not.toHaveBeenCalled();
   });
 

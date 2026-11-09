@@ -21,7 +21,7 @@ export function DecideNoteAction({ x, y, onDecide }: DecideNoteActionProps) {
       variant="outline"
       aria-label="この付箋を取り組む課題に決定"
       title="この付箋を取り組む課題に決定"
-      className="absolute z-30 rounded-full bg-background/90 shadow-sm"
+      className="absolute z-30 rounded-full bg-background/90 shadow-tool"
       style={{ left: x, top: y }}
       onClick={onDecide}
     >

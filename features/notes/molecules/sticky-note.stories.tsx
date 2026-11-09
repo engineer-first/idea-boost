@@ -7,6 +7,13 @@ const note = buildNote();
 const meta = {
   title: "Notes/StickyNote",
   component: StickyNote,
+  decorators: [
+    (Story) => (
+      <div className="p-24">
+        <Story />
+      </div>
+    ),
+  ],
   args: {
     noteId: note.id,
     children: <p className="p-2 text-sm text-amber-950">付箋の本文</p>,
@@ -36,4 +43,29 @@ export const AdoptionFocused: Story = {
 
 export const Excluded: Story = {
   args: { "data-excluded": true },
+};
+
+export const DecidedSelected: Story = {
+  args: { isDecided: true, isSelected: true },
+};
+export const FocusedSelected: Story = {
+  args: { isAdoptionFocused: true, isSelected: true },
+};
+export const DecidedFocusedSelected: Story = {
+  args: { isDecided: true, isAdoptionFocused: true, isSelected: true },
+};
+
+export const ReferenceDecision: Story = {
+  args: {
+    isDecided: true,
+    decisionPresentation: "reference",
+    children: (
+      <>
+        <p className="min-h-0 flex-1 overflow-hidden p-2">
+          決定した内容を参照する付箋
+        </p>
+        <div className="h-16 shrink-0" />
+      </>
+    ),
+  },
 };

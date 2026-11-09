@@ -113,7 +113,10 @@ export default {
       const session = await getSessionFromRequest(request, env.SESSION_SECRET);
       if (!session)
         return Response.json({ error: "認証が必要です。" }, { status: 401 });
-      if (!isPreviewEmailAllowed(session.email, env.PREVIEW_ALLOWED_EMAILS))
+      if (
+        session.kind !== "account" ||
+        !isPreviewEmailAllowed(session.email, env.PREVIEW_ALLOWED_EMAILS)
+      )
         return Response.json(
           { error: "許可されていません。" },
           { status: 403 },

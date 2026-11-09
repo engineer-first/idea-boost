@@ -2,7 +2,11 @@
 // jose は Web Crypto を使う純ロジックのため node 環境で実行する。
 // jsdom 環境では realm を跨いだ Uint8Array の instanceof 判定に失敗する。
 import { describe, expect, it } from "vitest";
-import { SessionPayloadSchema, TOKEN_AUDIENCE } from "@/contracts/session";
+import {
+  SessionPayloadSchema,
+  TOKEN_AUDIENCE,
+  VerifiedSessionSchema,
+} from "@/contracts/session";
 import { signToken, verifyToken } from "@/lib/session/token";
 
 const SECRET = "test-secret-at-least-32-characters-long!!";
@@ -22,13 +26,13 @@ function sign(overrides?: Partial<Parameters<typeof signToken>[1]>) {
 }
 
 describe("signToken / verifyToken", () => {
-  it("署名したトークンを検証するとペイロードが取り出せる", async () => {
+  it("kindを含まない署名済みトークンを検証するとaccountに正規化したペイロードが取り出せる", async () => {
     const token = await sign();
     const verified = await verifyToken(token, SessionPayloadSchema, {
       secret: SECRET,
       audience: TOKEN_AUDIENCE.session,
     });
-    expect(verified).toEqual(PAYLOAD);
+    expect(verified).toEqual({ ...PAYLOAD, kind: "account" });
   });
 
   it("改ざんされたトークンは null になる", async () => {
@@ -94,5 +98,28 @@ describe("signToken / verifyToken", () => {
       audience: TOKEN_AUDIENCE.session,
     });
     expect(verified).toBeNull();
+  });
+});
+
+describe("kindを含まない署名済みセッション", () => {
+  it("有効なemailと期限があればaccountとして取得する", async () => {
+    const result = await verifyToken(await sign(), VerifiedSessionSchema, {
+      secret: SECRET,
+      audience: TOKEN_AUDIENCE.session,
+    });
+    expect(result).toMatchObject({
+      ...PAYLOAD,
+      kind: "account",
+      exp: expect.any(Number),
+    });
+  });
+  it("期限切れなら本人を取得しない", async () => {
+    expect(
+      await verifyToken(
+        await sign({ expiresInSeconds: -10 }),
+        VerifiedSessionSchema,
+        { secret: SECRET, audience: TOKEN_AUDIENCE.session },
+      ),
+    ).toBeNull();
   });
 });

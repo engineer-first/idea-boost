@@ -51,12 +51,12 @@ const meta = {
     phase: STEP_1_1,
     timer: { status: "idle" },
     timerServerOffsetMs: 0,
-    isHost: true,
+
     isDisconnected: false,
     connectionStatus: "open",
     members: buildMembers(3, ME),
     currentUserId: ME,
-    hostUserId: ME,
+
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
     hasFinalDecision: false,
@@ -68,6 +68,7 @@ const meta = {
 
     onLeaveClick: fn(),
     onNextPhase: fn(),
+    onToggleReady: fn(),
     onTimerStart: fn(),
     onTimerPause: fn(),
     onTimerResume: fn(),
@@ -77,13 +78,33 @@ const meta = {
   decorators: [
     (Story, context) => {
       const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      for (const member of context.args.members) {
+        for (const step of [
+          "1-1",
+          "1-2",
+          "1-3",
+          "1-4",
+          "1-5",
+          "2-1",
+          "3-1",
+          "3-3",
+        ]) {
+          window.sessionStorage.setItem(
+            `step-onboarding:${context.args.inviteCode}:${member.userId}:${step}`,
+            "seen",
+          );
+        }
+      }
       if (context.parameters.firstVisitOnboarding) {
         window.sessionStorage.removeItem(sessionKey);
       } else {
         window.sessionStorage.setItem(sessionKey, "seen");
       }
       return (
-        <div className="relative h-96 overflow-hidden bg-muted/20">
+        <div
+          data-testid="room-board-view-root"
+          className="relative min-h-screen overflow-hidden bg-muted/20"
+        >
           <Story />
         </div>
       );
@@ -94,15 +115,44 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// ホスト視点（招待情報・フェーズ移行・解散が全部見える）。
 export const Host: Story = {};
+
+export const ProgressControls: Story = {
+  args: {
+    phase: buildPhaseStep(3),
+    members: buildMembers(1, ME),
+    timer: {
+      status: "running",
+      endsAt: Date.now() + 600_000,
+      durationMs: 600_000,
+    },
+  },
+  render: function Render(args) {
+    const [ready, setReady] = useState(false);
+    const progress = completedProgress(args.members);
+    return (
+      <RoomBoardHeader
+        {...args}
+        progress={
+          ready
+            ? progress
+            : {
+                ...progress,
+                readyUserIds: [],
+                notReadyUserIds: [ME],
+                canAdvance: false,
+                allReady: false,
+              }
+        }
+        onToggleReady={setReady}
+      />
+    );
+  },
+};
 
 // 参加者視点（招待情報とフェーズ移行が出ない）。
 export const NonHost: Story = {
-  args: {
-    isHost: false,
-    hostUserId: buildMembers(3, ME).find((m) => m.userId !== ME)?.userId ?? ME,
-  },
+  args: {},
 };
 
 export const CollapsedGuide: Story = {
@@ -194,7 +244,6 @@ export const VotingComplete: Story = {
   },
 };
 
-// 解散処理中（多重押下防止）。
 export const Leaving: Story = {
   args: {
     isLeaving: true,
@@ -231,6 +280,7 @@ export const IdeaResultAwaitingDecision: Story = {
 export const IdeaResultDecided: Story = {
   args: {
     ...IdeaResultAwaitingDecision.args,
+    timer: { status: "ended", durationMs: 180_000 },
     hasFinalDecision: true,
     hasCurrentDecision: true,
     isNextPhaseBlocked: false,
@@ -262,7 +312,7 @@ export const VotingCompleteHud: Story = {
 export const VotingNonHostPaused: Story = {
   args: {
     phase: STEP_1_4,
-    isHost: false,
+
     members: VOTING_MEMBERS,
     timer: buildPausedTimer(),
   },
@@ -282,7 +332,7 @@ const SHARING_MEMBERS = buildMembers(3, ME);
 export const PresentingMember: Story = {
   args: {
     phase: buildPhaseStep(2),
-    isHost: false,
+
     currentUserId: SHARING_MEMBERS[1].userId,
     sharing: buildSharingState({
       order: SHARING_MEMBERS,
@@ -290,6 +340,49 @@ export const PresentingMember: Story = {
       currentIndex: 1,
     }),
     onSharingAdvance: fn(),
+  },
+};
+
+export const SharingCompletion: Story = {
+  args: { ...PresentingMember.args, members: buildMembers(2, ME) },
+  render: function Render(args) {
+    const [phase, setPhase] = useState(buildPhaseStep(2));
+    const [sharing, setSharing] = useState(() =>
+      buildSharingState({
+        order: args.members,
+        status: "active",
+        currentIndex: 0,
+        startsAt: null,
+      }),
+    );
+    return (
+      <RoomBoardHeader
+        {...args}
+        phase={phase}
+        sharing={phase.step === 2 ? sharing : null}
+        currentUserId={sharing.order[sharing.currentIndex ?? 0].userId}
+        timer={
+          phase.step === 2
+            ? {
+                status: "running",
+                endsAt: Date.now() + 180_000,
+                durationMs: 180_000,
+              }
+            : { status: "idle" }
+        }
+        onSharingAdvance={(outcome) => {
+          const next = (sharing.currentIndex ?? 0) + 1;
+          if (next >= sharing.order.length) setPhase(buildPhaseStep(3));
+          else
+            setSharing({
+              ...sharing,
+              currentIndex: next,
+              revision: crypto.randomUUID(),
+              results: [...sharing.results, outcome],
+            });
+        }}
+      />
+    );
   },
 };
 export const WaitingMember: Story = {
@@ -359,59 +452,37 @@ export const FinalCompletionDisconnected: Story = {
   },
 };
 
-// 5人中Bだけ完了。実通信は実アプリ検証で確認し、ここでは受信の遅延を再現する。
-export const CompletionCue: Story = {
+export const TimeUpProgress: Story = {
   args: {
     members: buildMembers(5, ME),
+    timer: { status: "ended", durationMs: 300_000 },
     progress: {
       phaseRevision: 0,
-      progressRevision: 1,
+      progressRevision: 0,
       connectedUserIds: buildMembers(5, ME).map((m) => m.userId),
-      readyUserIds: [buildMembers(5, ME)[1].userId],
-      notReadyUserIds: buildMembers(5, ME)
-        .filter((_, i) => i !== 1)
-        .map((m) => m.userId),
+      readyUserIds: [],
+      notReadyUserIds: buildMembers(5, ME).map((m) => m.userId),
       canAdvance: false,
       allReady: false,
     },
   },
   render: function Render(args) {
-    const [readyIds, setReadyIds] = useState(args.progress?.readyUserIds ?? []);
-    const ids = args.members.map((m) => m.userId);
+    const [count, setCount] = useState(0);
     return (
-      <RoomBoardHeader
-        {...args}
-        progress={{
-          phaseRevision: 0,
-          progressRevision: readyIds.length,
-          connectedUserIds: ids,
-          readyUserIds: readyIds,
-          notReadyUserIds: ids.filter((id) => !readyIds.includes(id)),
-          canAdvance: readyIds.length >= ids.length / 2,
-          allReady: readyIds.length === ids.length,
-        }}
-        onToggleReady={(ready) => {
-          setTimeout(
-            () =>
-              setReadyIds((current) =>
-                ready
-                  ? [...new Set([...current, ME])]
-                  : current.filter((id) => id !== ME),
-              ),
-            250,
-          );
-        }}
-      />
+      <>
+        <RoomBoardHeader {...args} onNextPhase={() => setCount((v) => v + 1)} />
+        <output className="sr-only" data-testid="phase-next-count">
+          {count}
+        </output>
+      </>
     );
   },
 };
-
-export const CompletionUpdatePending: Story = {
-  ...CompletionCue,
-  render: (args) => <RoomBoardHeader {...args} onToggleReady={fn()} />,
+export const TimeUpProgressPending: Story = {
+  ...TimeUpProgress,
+  args: { ...TimeUpProgress.args, isNextPhasePending: true },
 };
 
-export const CompletionUpdateFailed: Story = {
-  ...CompletionCue,
-  render: (args) => <RoomBoardHeader {...args} onToggleReady={() => false} />,
+export const GuestSession: Story = {
+  args: { sessionKind: "guest", signOutAction: fn() },
 };

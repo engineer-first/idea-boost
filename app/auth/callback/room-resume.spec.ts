@@ -2,6 +2,10 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ACCOUNT_LINK_AUDIENCE,
+  ACCOUNT_LINK_INTENT_COOKIE,
+} from "@/contracts/account-link";
+import {
   ROOM_ENTRY_AUDIENCE,
   ROOM_OAUTH_RESUME_COOKIE,
   ROOM_RESUME_COOKIE,
@@ -128,6 +132,48 @@ describe("Google成功と安全な元操作の対応", () => {
       "/login",
     );
     expect(mocks.establish).toHaveBeenCalledOnce();
+  });
+  it("放棄した連携intentが残っていても最新のルーム再認証を完了しintentを消費する", async () => {
+    mocks.store.set(
+      ACCOUNT_LINK_INTENT_COOKIE,
+      await signToken(
+        {
+          principal,
+          state: crypto.randomUUID(),
+          nonce: crypto.randomUUID(),
+          next: "/rooms",
+        },
+        {
+          secret,
+          audience: ACCOUNT_LINK_AUDIENCE.intent,
+          expiresInSeconds: 600,
+        },
+      ),
+    );
+    await prepare();
+    const response = await GET(request());
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/auth/resume",
+    );
+    expect(mocks.establish).toHaveBeenCalledOnce();
+    const grant = await verifyToken(
+      mocks.store.get(ROOM_RESUME_COOKIE) ?? "",
+      RoomOAuthResumeSchema,
+      {
+        secret,
+        audience: ROOM_ENTRY_AUDIENCE.resume,
+      },
+    );
+    expect(grant).toMatchObject({
+      principal,
+      tabId,
+      state,
+      nonce,
+      operation: { kind: "return" },
+    });
+    expect(mocks.store.has(ACCOUNT_LINK_INTENT_COOKIE)).toBe(false);
+    expect(mocks.store.has(OAUTH_STATE_COOKIE)).toBe(false);
+    expect(mocks.store.has(ROOM_OAUTH_RESUME_COOKIE)).toBe(false);
   });
   it("別アカウント成功では元操作を発行しない", async () => {
     await prepare();

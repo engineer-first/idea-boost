@@ -16,7 +16,7 @@ test.each([
   { width: 390, height: 640 },
   { width: 844, height: 390 },
 ])(
-  "開始待ちは $width × $height でも上端から開始・解散へ到達できる",
+  "開始待ちは $width × $height でも上端から開始・退出へ到達できる",
   async (viewport) => {
     const page = await browser.newPage({ viewport });
     try {
@@ -26,9 +26,7 @@ test.each([
       const lobby = page.getByTestId("room-lobby-view");
       await lobby.waitFor();
       await page.evaluate(() => document.fonts.ready);
-      const heading = page.getByRole("heading", {
-        name: "メンバーが揃ったら開始",
-      });
+      const heading = page.getByRole("heading", { level: 1 });
       expect(
         await heading.evaluate((el) => el.getBoundingClientRect().top),
       ).toBeGreaterThanOrEqual(0);
@@ -44,7 +42,7 @@ test.each([
         .poll(() => lobby.evaluate((el) => el.scrollTop))
         .toBeGreaterThan(0);
       const leave = page.getByRole("button", {
-        name: "ルームを解散",
+        name: "退出する",
         exact: true,
       });
       const box = await leave.boundingBox();

@@ -17,8 +17,6 @@ async function startWork(actor: Page, peer: Page): Promise<void> {
   if (await startSharing.count()) await startSharing.click();
   else {
     await actor.getByTestId("room-timer").click();
-    await actor.getByRole("button", { name: "開始", exact: true }).click();
-    await actor.keyboard.press("Escape");
   }
   // 発表開始のカウントダウンを含め、通常の操作可能な状態を待つ。
   for (const page of [actor, peer])

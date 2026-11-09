@@ -1683,15 +1683,9 @@ test.each([
       expectSameLayout(await readLayout(), initial);
 
       const timer = page.getByTestId("room-timer");
-      await timer.click();
-      await page.getByRole("button", { name: "一時停止", exact: true }).click();
-      await expect.poll(() => timer.getAttribute("data-status")).toBe("paused");
+      await timer.press("Alt+ArrowLeft");
       expectSameLayout(await readLayout(), initial);
-      await page.getByRole("button", { name: "再開", exact: true }).click();
-      await expect
-        .poll(() => timer.getAttribute("data-status"))
-        .toBe("running");
-      await timer.click();
+      await timer.press("Alt+ArrowRight");
       expectSameLayout(await readLayout(), initial);
 
       // ラベルを左へ戻しても、ズーム操作を妨げない。

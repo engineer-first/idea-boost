@@ -11,7 +11,7 @@ afterAll(async () => {
 });
 
 for (const width of [390, 1440]) {
-  test(`接続案内の切替でロビーの見出しとカードが動かない (${width}px)`, async () => {
+  test(`接続案内の切替でロビーの見出しと招待欄が動かない (${width}px)`, async () => {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
     try {
       const positions: { heading: number; card: number }[] = [];
@@ -23,11 +23,8 @@ for (const width of [390, 1440]) {
         await page.evaluate(() => document.fonts.ready);
         positions.push({
           heading:
-            (
-              await page
-                .getByRole("heading", { name: "メンバーが揃ったら開始" })
-                .boundingBox()
-            )?.y ?? -1,
+            (await page.getByRole("heading", { level: 1 }).boundingBox())?.y ??
+            -1,
           card:
             (await page.getByTestId("room-lobby-view-invite").boundingBox())
               ?.y ?? -1,
@@ -76,30 +73,25 @@ for (const width of [390, 1440]) {
     "delayed-connecting",
     "delayed-reconnecting",
   ])(
-    `ロビーの長い接続案内が説明とカードに重ならない (${width}px, %s)`,
+    `ロビーの長い接続案内が参加者と招待欄に重ならない (${width}px, %s)`,
     async (state) => {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
       try {
         await page.goto(
           `${origin}/iframe.html?id=room-roomlobbyview--${state}&viewMode=story`,
         );
-        const notice = page.locator("header").getByRole("status");
+        const notice = page.getByTestId("lobby-connection-status");
         await notice.waitFor();
         await page.evaluate(() => document.fonts.ready);
         const noticeBox = await notice.boundingBox();
-        const privacyBox = await page
-          .getByText(
-            "途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。",
-            { exact: false },
-          )
-          .boundingBox();
+        const membersBox = await page.getByTestId("room-members").boundingBox();
         const cardBox = await page
           .getByTestId("room-lobby-view-invite")
           .boundingBox();
-        if (!noticeBox || !privacyBox || !cardBox)
+        if (!noticeBox || !membersBox || !cardBox)
           throw new Error("ロビーの要素が見つかりません");
         expect(noticeBox.y + noticeBox.height).toBeLessThanOrEqual(
-          privacyBox.y,
+          membersBox.y,
         );
         expect(noticeBox.y + noticeBox.height).toBeLessThanOrEqual(cardBox.y);
       } finally {

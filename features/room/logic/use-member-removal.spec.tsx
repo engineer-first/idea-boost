@@ -10,9 +10,8 @@ function setup(
 ) {
   const send = vi.fn((_message: ClientMessage) => true);
   const props = {
-    isHost: true,
     currentUserId: HOST,
-    hostRevision: 3,
+
     connected: true,
     blocked: false,
     members: [{ userId: TARGET, name: "Hana Sato", color: "blue" as const }],
@@ -29,17 +28,25 @@ function setup(
 }
 afterEach(() => vi.useRealTimers());
 describe("参加者の退出操作", () => {
-  it.each([
-    { isHost: false },
-    { connected: false },
-    { blocked: true },
-    { hostRevision: null },
-  ])("権限・接続が揃わなければ確認を開かない %o", (state) => {
-    const { result, send } = setup(state);
+  it("参加者は接続中の他の在籍者を除外できる", () => {
+    const { result, send } = setup({});
     act(() => result.current.request(TARGET));
-    expect(result.current.open).toBe(false);
-    expect(send).not.toHaveBeenCalled();
+    expect(result.current.open).toBe(true);
+    act(() => result.current.onConfirm());
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "member:remove", targetUserId: TARGET }),
+    );
+    expect(send.mock.calls[0][0]).not.toHaveProperty("expectedHostRevision");
   });
+  it.each([{ connected: false }, { blocked: true }])(
+    "権限・接続が揃わなければ確認を開かない %o",
+    (state) => {
+      const { result, send } = setup(state);
+      act(() => result.current.request(TARGET));
+      expect(result.current.open).toBe(false);
+      expect(send).not.toHaveBeenCalled();
+    },
+  );
   it("自己と存在しない対象を選択しない", () => {
     const { result } = setup();
     act(() => result.current.request(HOST));
@@ -117,30 +124,5 @@ describe("参加者の退出操作", () => {
     rerender({ ...props, send: () => false });
     act(() => result.current.onConfirm());
     expect(result.current.error).toContain("送信できません");
-  });
-  it("ホスト世代変更で古い確認を閉じ、再接続のsnapshotで退出済みを確認する", () => {
-    const { result, rerender, props } = setup();
-    act(() => result.current.request(TARGET));
-    rerender({ ...props, hostRevision: 4 });
-    expect(result.current.open).toBe(false);
-    act(() => result.current.request(TARGET));
-    act(() =>
-      result.current.applyMessage({
-        type: "snapshot",
-        completedVoterIds: [],
-        phaseRevision: 0,
-        isHost: true,
-        decision: null,
-        carryovers: [],
-        outcomePublished: false,
-        timer: { status: "idle" },
-        serverNow: Date.now(),
-        notes: [],
-        members: [],
-        phase: { kind: "lobby" },
-        hostRevision: 4,
-      }),
-    );
-    expect(result.current.open).toBe(false);
   });
 });

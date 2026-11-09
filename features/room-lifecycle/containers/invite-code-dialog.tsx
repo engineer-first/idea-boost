@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type {
   ParticipationConfirmation,
   ParticipationResult,
@@ -36,11 +36,13 @@ export function InviteCodeDialog({
   hostName,
 }: InviteCodeDialogProps) {
   const router = useRouter();
+  const operationId = useRef<string | undefined>(undefined);
   const [switching, setSwitching] = useState<
     | ParticipationConfirmation
     | Extract<ParticipationResult, { kind: "pending" | "rejected" }>
   >();
   const [reauth, setReauth] = useState(false);
+  const [identityMessage, setIdentityMessage] = useState<string>();
   const [open, setOpen] = useState(true);
   const [pending, startTransition] = useTransition();
 
@@ -53,9 +55,12 @@ export function InviteCodeDialog({
   }, [open]);
 
   function joinConfirmed() {
+    setIdentityMessage(undefined);
     startTransition(async () => {
       const formData = new FormData();
       formData.append("code", inviteCode);
+      operationId.current ??= crypto.randomUUID();
+      formData.append("operationId", operationId.current);
       const result = await joinRoom(formData, currentUserId);
       if (!result.ok) {
         if (result.failedOperation) {
@@ -74,6 +79,8 @@ export function InviteCodeDialog({
           setReauth(true);
           return;
         }
+        if (result.reason === "identity_unavailable")
+          setIdentityMessage(result.error);
         notify.error(result.error);
         return;
       }
@@ -91,7 +98,12 @@ export function InviteCodeDialog({
         return;
       }
       if (currentUserId) rememberLastRoom(currentUserId, result.roomId);
-      lifecycleNotify.joinedAsGuest();
+      lifecycleNotify.rememberDeparture(
+        result.roomId,
+        result.operationId,
+        result.exitedRoomNames,
+      );
+      if (!result.exitedRoomNames?.length) lifecycleNotify.joinedAsGuest();
       router.push(href);
     });
   }
@@ -102,10 +114,6 @@ export function InviteCodeDialog({
         key={participationSwitchKey(switching)}
         currentUserId={currentUserId}
         {...participationSwitchProps(switching)}
-        onCancel={() => {
-          setSwitching(undefined);
-          setOpen(false);
-        }}
       />
     );
   if (reauth)
@@ -117,6 +125,7 @@ export function InviteCodeDialog({
     );
   return (
     <InviteCodeDialogView
+      message={identityMessage}
       inviteCode={inviteCode}
       hostName={hostName}
       open={open}

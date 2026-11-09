@@ -1,5 +1,4 @@
 // RoomMembers（Avatar + 名前・2 列グリッド）の単体テスト。
-// データ層に依存しないプレゼンテーション層として、自分判定・ホスト表示・
 // 省略表示・名前常時表示・a11y 属性を検証する。
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -94,29 +93,6 @@ describe("RoomMembers", () => {
     expect(meRow).not.toContain("（あなた）");
   });
 
-  it("hostUserId に一致するメンバーの名前下に「ホスト」が出る", () => {
-    const members = buildMembers(2, ME);
-    const hostId = members.find((m) => m.userId !== ME)?.userId ?? ME;
-    render(
-      <RoomMembers members={members} currentUserId={ME} hostUserId={hostId} />,
-    );
-    expect(screen.getByTestId(`member-host-label-${hostId}`)).toHaveTextContent(
-      "ホスト",
-    );
-    expect(
-      screen.queryByTestId(`member-host-label-${ME}`),
-    ).not.toBeInTheDocument();
-    expect(screen.getByTestId(`member-row-${hostId}`)).toHaveAttribute(
-      "data-host",
-      "true",
-    );
-  });
-
-  it("hostUserId 未指定ならホストラベルは出ない", () => {
-    render(<RoomMembers members={buildMembers(2, ME)} currentUserId={ME} />);
-    expect(screen.queryByText("ホスト")).not.toBeInTheDocument();
-  });
-
   it("既定の maxVisible=12（4×3）を超えると最終マスが +N になる", () => {
     // 13 人 → 表示 11 + +2（4×3=12 マスを維持）
     render(
@@ -184,7 +160,6 @@ describe("RoomMembers", () => {
     expect(within(dialog).getByLabelText("Saburo Kato")).toBeInTheDocument();
     // 一覧側に出ているメンバーは Dialog に出さない
     expect(within(dialog).queryByText("Yuki Tanaka")).not.toBeInTheDocument();
-    // ホストラベルなどは出さない（アイコン + 名前のみ）
     expect(within(dialog).queryByText("ホスト")).not.toBeInTheDocument();
   });
 
@@ -234,28 +209,4 @@ it("選択操作を渡したときだけ自分以外の参加者をタップし�
     .setup()
     .click(screen.getByRole("button", { name: "Taro Yamada" }));
   expect(onSelectMember).toHaveBeenCalledExactlyOnceWith(members[1].userId);
-});
-
-it("省略された参加者への移譲もホストラベルを更新する", async () => {
-  const members = buildMembers(14, ME);
-  const target = members[13];
-  const { rerender } = render(
-    <RoomMembers members={members} currentUserId={ME} hostUserId={ME} />,
-  );
-  await userEvent
-    .setup()
-    .click(screen.getByRole("button", { name: "他 3 名" }));
-  rerender(
-    <RoomMembers
-      members={members}
-      currentUserId={ME}
-      hostUserId={target.userId}
-    />,
-  );
-  expect(
-    screen.getByTestId(`member-host-label-${target.userId}`),
-  ).toHaveTextContent("ホスト");
-  expect(
-    screen.queryByTestId(`member-host-label-${ME}`),
-  ).not.toBeInTheDocument();
 });

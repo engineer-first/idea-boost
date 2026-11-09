@@ -97,3 +97,22 @@ it("古いジョブだけの再実行でも、各Workerの直前に現行の本�
     );
   }
 });
+
+it("通常公開と記録のみ再試行の両方で通知先と本番URLを渡す", () => {
+  for (const [name, job] of [
+    ["deploy", "record-release"],
+    ["release-history", "record"],
+  ]) {
+    const step = workflow(name).jobs[job].steps.find(
+      (step: { run?: string }) =>
+        step.run?.includes("release-automation.mts") &&
+        step.run.includes("--publish"),
+    );
+    expect(step.env.DISCORD_WEBHOOK_URL_RELEASE).toBe(
+      ["$", "{{ secrets.DISCORD_WEBHOOK_URL_RELEASE }}"].join(""),
+    );
+    expect(step.env.NEXT_PUBLIC_SITE_URL).toBe(
+      ["$", "{{ vars.NEXT_PUBLIC_SITE_URL }}"].join(""),
+    );
+  }
+});

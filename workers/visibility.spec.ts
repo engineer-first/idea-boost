@@ -45,6 +45,25 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "顔アイコンの全員共有でも他者の非共有付箋を公開しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "AT-910 他者を除外できる参加者にも他人の未共有付箋は不可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "AT-909 作成者が退出しても残る参加者に共有付箋は可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared" }),
+    expected: true,
+  },
+
+  {
     name: "AT-678 ルーム名を全員共有しても他者の非共有付箋は公開しない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),
@@ -140,7 +159,7 @@ const TABLE: Array<{
     expected: true,
   },
   {
-    name: "成果を残して退出した作者も再訪記録では本人のprivate付箋を見られない",
+    name: "本人退出で閲覧権を保った作者も再訪記録では本人のprivate付箋を見られない",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "private", authorId: AUTHOR }),
     expected: false,
@@ -323,6 +342,7 @@ it.each([
   "note",
   "group",
   "reaction",
+  "reaction-question",
   "move-ended",
   "move-preview",
   "move-batch",
@@ -361,12 +381,13 @@ it.each([
       );
       break;
     case "reaction":
+    case "reaction-question":
       broadcaster.broadcastReaction(
         {
           type: "reaction:received",
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           senderId: "11111111-1111-4111-8111-111111111111",
-          kind: "like",
+          kind: route === "reaction-question" ? "question" : "like",
           phaseRevision: 1,
         },
         () => true,

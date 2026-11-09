@@ -1,16 +1,20 @@
-// メンバーシップ（誰がこのルームに入れるか）と表示色の割当、
-// ルームオーナー（room_owner = ホスト）の真実。
+// メンバーシップ（誰がこのルームに入れるか）と表示色と顔の割当。
+
+import type { MemberAvatarId } from "../../contracts/member-avatar";
+
 import {
   MEMBER_COLOR_ASSIGNMENT_ORDER,
   type NoteColor,
   type ProtocolMember,
 } from "../../contracts/room-protocol";
 import type { RoomBroadcaster } from "./broadcast";
+import { assignMemberAvatar } from "./member-avatars";
 
 type MemberRow = {
   user_id: string;
   name: string;
   color: NoteColor;
+  avatar_id?: MemberAvatarId;
 };
 
 export function findMember(
@@ -18,9 +22,19 @@ export function findMember(
   userId: string,
 ): ProtocolMember | null {
   const row = sql
-    .exec("SELECT user_id, name, color FROM members WHERE user_id = ?1", userId)
+    .exec(
+      "SELECT m.user_id, m.name, m.color, a.avatar_id FROM members m LEFT JOIN member_avatar_assignments a ON a.user_id=m.user_id WHERE m.user_id = ?1",
+      userId,
+    )
     .toArray()[0] as unknown as MemberRow | undefined;
-  return row ? { userId: row.user_id, name: row.name, color: row.color } : null;
+  return row
+    ? {
+        userId: row.user_id,
+        name: row.name,
+        color: row.color,
+        ...(row.avatar_id ? { avatarId: row.avatar_id } : {}),
+      }
+    : null;
 }
 
 export type UpsertMemberResult =
@@ -79,6 +93,7 @@ export function upsertMember(
     );
   }
 
+  const avatarId = assignMemberAvatar(sql, userId);
   sql.exec(
     `INSERT INTO members (user_id, name, color) VALUES (?1, ?2, ?3)
      ON CONFLICT (user_id) DO UPDATE SET name = ?2, color = ?3`,
@@ -94,7 +109,7 @@ export function upsertMember(
     broadcaster.broadcastToAllExcept(
       {
         type: "member_joined",
-        member: { userId, name: safeName, color },
+        member: { userId, name: safeName, color, avatarId },
       },
       userId,
     );
@@ -115,12 +130,17 @@ export function removeMember(sql: SqlStorage, userId: string): void {
 export function listMembers(sql: SqlStorage): ProtocolMember[] {
   const rows = sql
     .exec(
-      "SELECT user_id, name, color FROM members ORDER BY joined_at, user_id",
+      "SELECT m.user_id, m.name, m.color, a.avatar_id FROM members m LEFT JOIN member_avatar_assignments a ON a.user_id=m.user_id ORDER BY m.joined_at, m.user_id",
     )
     .toArray();
   return rows.map((row) => {
     const member = row as unknown as MemberRow;
-    return { userId: member.user_id, name: member.name, color: member.color };
+    return {
+      userId: member.user_id,
+      name: member.name,
+      color: member.color,
+      ...(member.avatar_id ? { avatarId: member.avatar_id } : {}),
+    };
   });
 }
 
@@ -133,47 +153,4 @@ export function getMemberColor(
     .exec("SELECT color FROM members WHERE user_id = ?1", userId)
     .toArray()[0] as { color: NoteColor } | undefined;
   return row?.color;
-}
-
-// room_owner が未設定のときだけ userId をホストとして記録する。
-// 移譲後・消去後は古いD1シードで復活させない。
-export function ensureHost(sql: SqlStorage, userId: string): void {
-  const existing = sql
-    .exec("SELECT host_id, host_revision FROM room_owner WHERE id = 1")
-    .toArray()[0] as
-    | { host_id: string | null; host_revision: number }
-    | undefined;
-  if (existing && !existing.host_id && existing.host_revision === 0) {
-    sql.exec("UPDATE room_owner SET host_id = ?1 WHERE id = 1", userId);
-  }
-}
-
-export function isHostUser(sql: SqlStorage, userId: string): boolean {
-  const row = sql
-    .exec("SELECT host_id FROM room_owner WHERE id = 1")
-    .toArray()[0] as { host_id: string | null } | undefined;
-  return row?.host_id === userId;
-}
-
-export type HostState = { hostUserId: string | null; hostRevision: number };
-export function getHostState(sql: SqlStorage): HostState {
-  const row = sql
-    .exec("SELECT host_id, host_revision FROM room_owner WHERE id=1")
-    .one();
-  return {
-    hostUserId: row.host_id as string | null,
-    hostRevision: Number(row.host_revision),
-  };
-}
-
-// 開始後の移譲も含め、同じ人へ戻るABAをホスト世代で区別する。
-export function isCurrentHost(
-  sql: SqlStorage,
-  userId: string,
-  expectedHostRevision = 0,
-): boolean {
-  const host = getHostState(sql);
-  return (
-    host.hostUserId === userId && host.hostRevision === expectedHostRevision
-  );
 }

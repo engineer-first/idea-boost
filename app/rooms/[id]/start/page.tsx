@@ -6,9 +6,11 @@ import {
 import { isUuid } from "@/contracts/ids";
 import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
+import { getLoginPath } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomEntryPreview, RoomLobby } from "@/features/room";
 import {
+  GuestIdentityUnavailable,
   ParticipationSwitch,
   RoomAdmissionGate,
   readParticipationRecovery,
@@ -48,7 +50,11 @@ export default async function StartPage({
 
   const user = await getCurrentUser();
   if (!user) {
-    redirect(`/login?next=${encodeURIComponent(`/rooms/${id}${suffix}`)}`);
+    return (
+      <GuestIdentityUnavailable
+        loginHref={getLoginPath(`/rooms/${id}/start${suffix}`, "/home")}
+      />
+    );
   }
 
   // セッション必須・メンバー必須（api-worker 側で判定、404 なら notFound）。
@@ -117,7 +123,7 @@ export default async function StartPage({
     ? await issueRoomEntry(id, user, "board")
     : undefined;
   const content = (
-    <main className="flex h-full min-h-0 flex-1 flex-col gap-6 overflow-hidden p-4">
+    <main className="flex h-full min-h-0 flex-1 flex-col gap-6 overflow-hidden py-4">
       {follow && <VerificationFollower roomId={id} />}
       <div className="min-h-0 flex-1 overflow-hidden">
         <RoomLobby
@@ -128,39 +134,36 @@ export default async function StartPage({
           inviteCode={parsed.data.inviteCode}
           inviteUrl={inviteUrl}
           currentUserId={user.sub}
-          isHost={parsed.data.isHost}
-          hostUserId={parsed.data.hostUserId}
           initialPhase={parsed.data.phase}
           initialMembers={initialMembers}
         />
       </div>
     </main>
   );
-
-  if (!enough || query?.entry) {
-    return (
-      <RoomAdmissionGate
-        key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
-        roomId={id}
-        fallback={
-          <RoomEntryPreview
-            phase={parsed.data.phase}
-            members={initialMembers}
-            currentUserId={user.sub}
-            hostUserId={parsed.data.hostUserId}
-            isHost={parsed.data.isHost}
-            inviteCode={parsed.data.inviteCode}
-            inviteUrl={inviteUrl}
-          />
-        }
-        stage="lobby"
-        entryToken={query?.entry}
-        allowFreshEntry={enough}
-        freshAdmission={admission}
-      >
-        {content}
-      </RoomAdmissionGate>
-    );
-  }
-  return content;
+  return (
+    <RoomAdmissionGate
+      key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
+      roomId={id}
+      departure={{
+        operationId: parsed.data.operationId,
+        exitedRoomNames: parsed.data.exitedRoomNames,
+      }}
+      sessionKind={user.kind}
+      fallback={
+        <RoomEntryPreview
+          phase={parsed.data.phase}
+          members={initialMembers}
+          currentUserId={user.sub}
+          inviteCode={parsed.data.inviteCode}
+          inviteUrl={inviteUrl}
+        />
+      }
+      stage="lobby"
+      entryToken={query?.entry}
+      allowFreshEntry={enough}
+      freshAdmission={admission}
+    >
+      {content}
+    </RoomAdmissionGate>
+  );
 }

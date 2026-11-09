@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import { inviteCopy } from "../logic/invite-copy";
 import {
   JoinRoomSectionView,
   type JoinRoomSectionViewProps,
@@ -7,17 +8,13 @@ import {
 
 const baseArgs: JoinRoomSectionViewProps = {
   code: "",
+  canSubmit: false,
   onCodeChange: fn(),
   onCodeBlur: fn(),
-  lookingUp: false,
-  joining: false,
-  dialogOpen: false,
-  onDialogOpenChange: fn(),
-  hostName: "",
+  moving: false,
   onSubmit: fn((event: React.FormEvent) => {
     event.preventDefault();
   }),
-  onConfirm: fn(),
 };
 
 const meta = {
@@ -46,40 +43,15 @@ export const IncompleteCode: Story = {
 };
 
 export const InvalidCode: Story = {
-  args: { code: "AB12", codeError: "英数字6桁で入力してください。" },
+  args: { code: "AB12", codeError: inviteCopy.codeError },
 };
 
 export const ValidCode: Story = {
-  args: { code: "AB12CD" },
+  args: { code: "AB12CD", canSubmit: true },
 };
 
-export const LookingUp: Story = {
-  args: { code: "AB12CD", lookingUp: true },
-};
-
-export const ConfirmDialog: Story = {
-  args: {
-    code: "AB12CD",
-    hostName: "田中太郎",
-    dialogOpen: true,
-  },
-};
-
-export const ConfirmDialogWithoutHost: Story = {
-  args: {
-    code: "AB12CD",
-    hostName: "",
-    dialogOpen: true,
-  },
-};
-
-export const Joining: Story = {
-  args: {
-    code: "AB12CD",
-    hostName: "田中太郎",
-    dialogOpen: true,
-    joining: true,
-  },
+export const Moving: Story = {
+  args: { code: "AB12CD", canSubmit: true, moving: true },
 };
 
 export const AllStates: Story = {
@@ -92,13 +64,16 @@ export const AllStates: Story = {
         props: {
           ...baseArgs,
           code: "AB12",
-          codeError: "英数字6桁で入力してください。",
+          codeError: inviteCopy.codeError,
         },
       },
-      { label: "ValidCode", props: { ...baseArgs, code: "AB12CD" } },
       {
-        label: "LookingUp",
-        props: { ...baseArgs, code: "AB12CD", lookingUp: true },
+        label: "ValidCode",
+        props: { ...baseArgs, code: "AB12CD", canSubmit: true },
+      },
+      {
+        label: "Moving",
+        props: { ...baseArgs, code: "AB12CD", canSubmit: true, moving: true },
       },
     ];
     return (

@@ -9,7 +9,7 @@ const meta = {
   args: {
     sizeLevel: 2,
     initialized: true,
-    isHost: true,
+
     isDisconnected: false,
     isDragging: false,
     onResize: fn(),
@@ -29,7 +29,7 @@ type Story = StoryObj<typeof meta>;
 export const HostCanAdjust: Story = {};
 
 export const ParticipantControlsHidden: Story = {
-  args: { isHost: false },
+  args: {},
 };
 
 export const DraggingBlocked: Story = {

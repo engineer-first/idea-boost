@@ -6,17 +6,18 @@ import {
   resolveCurrentSprint,
 } from "./assign-current-sprint.js";
 
-const period = (start = "2026-10-05") =>
-  `成果の説明\n<!-- idea-boost-sprint:v2\n${JSON.stringify({ schema_version: 2, timezone: "Asia/Tokyo", assignment_start_date: start })}\n-->`;
+const period = (start = "2026-10-05", version: 2 | 3 = 2) =>
+  `成果の説明\n<!-- idea-boost-sprint:v${version}\n${JSON.stringify({ schema_version: version, timezone: "Asia/Tokyo", assignment_start_date: start })}\n-->`;
 const milestone = (
   number = 7,
   start = "2026-10-05",
   due: string | null = "2026-10-14T00:00:00Z",
+  version: 2 | 3 = 2,
 ) => ({
   number,
   title: `Sprint ${number}`,
   state: "open",
-  description: period(start),
+  description: period(start, version),
   due_on: due,
 });
 const now = () => new Date("2026-10-08T03:00:00Z");
@@ -64,7 +65,7 @@ function fixture(issues = [issue()], milestones = [milestone()]) {
   };
 }
 
-describe("MilestoneのJST割当期間を使う", () => {
+describe("v2のMilestoneはdue日のJST 00:00未満を割当期間にする", () => {
   it.each([
     ["2026-10-04T14:59:59.999Z", null],
     ["2026-10-04T15:00:00.000Z", 7],
@@ -163,6 +164,195 @@ describe("MilestoneのJST割当期間を使う", () => {
   });
 });
 
+describe("v3のMilestoneはreview/demo当日いっぱいを割当期間にする", () => {
+  const all = () => [
+    milestone(9, "2026-10-20", "2026-10-28T00:00:00Z", 3),
+    milestone(10, "2026-10-29", "2026-11-09T00:00:00Z", 3),
+    milestone(11, "2026-11-10", null, 3),
+  ];
+
+  it.each([
+    ["2026-10-19T14:59:59.999Z", null],
+    ["2026-10-19T15:00:00.000Z", 9],
+    ["2026-10-27T15:00:00.000Z", 9],
+    ["2026-10-28T14:59:59.999Z", 9],
+    ["2026-10-28T15:00:00.000Z", 10],
+    ["2026-11-09T14:59:59.999Z", 10],
+    ["2026-11-09T15:00:00.000Z", 11],
+  ])("明示開始日からdue翌日のJST 00:00直前まで選ぶ %s", (instant, expected) => {
+    expect(
+      resolveCurrentSprint(all(), new Date(instant)).milestone?.number ?? null,
+    ).toBe(expected);
+  });
+
+  it("dueはUTC日付でなくJSTの日付にし、年を跨いでも翌日まで含める", () => {
+    const current = milestone(14, "2026-12-20", "2026-12-30T15:00:00Z", 3);
+    expect(
+      resolveCurrentSprint([current], new Date("2026-12-31T14:59:59.999Z"))
+        .milestone?.number,
+    ).toBe(14);
+    expect(
+      resolveCurrentSprint([current], new Date("2026-12-31T15:00:00.000Z"))
+        .reason,
+    ).toBe("no-current-sprint");
+  });
+
+  it("開始日とdueが同じ日なら、その1日だけ割り当てる", () => {
+    const current = milestone(9, "2026-10-28", "2026-10-28T00:00:00Z", 3);
+    expect(
+      resolveCurrentSprint([current], new Date("2026-10-28T03:00:00Z"))
+        .milestone?.number,
+    ).toBe(9);
+    expect(
+      resolveCurrentSprint([current], new Date("2026-10-28T15:00:00Z")).reason,
+    ).toBe("no-current-sprint");
+  });
+
+  it.each([2, 3] as const)(
+    "v%dの後続開始がreview日に重なれば、番号や並び順から優先しない",
+    (version) => {
+      const overlapping = [
+        all()[0],
+        milestone(10, "2026-10-28", "2026-11-09T00:00:00Z", version),
+      ];
+      const instant = new Date("2026-10-28T03:00:00Z");
+      expect(resolveCurrentSprint(overlapping, instant).reason).toBe(
+        "ambiguous-current-sprint",
+      );
+      expect(resolveCurrentSprint(overlapping.reverse(), instant).reason).toBe(
+        "ambiguous-current-sprint",
+      );
+    },
+  );
+
+  it("v2と混在しても、v2の終了日を1日延長しない", () => {
+    const mixed = [
+      milestone(9, "2026-10-20", "2026-10-28T00:00:00Z"),
+      milestone(10, "2026-10-28", "2026-11-09T00:00:00Z", 3),
+    ];
+    expect(
+      resolveCurrentSprint(mixed, new Date("2026-10-27T14:59:59.999Z"))
+        .milestone?.number,
+    ).toBe(9);
+    expect(
+      resolveCurrentSprint(mixed, new Date("2026-10-27T15:00:00.000Z"))
+        .milestone?.number,
+    ).toBe(10);
+  });
+
+  it("due未確定を使い、closedの期間を次のopen Sprintへ読み替えない", () => {
+    expect(
+      resolveCurrentSprint(
+        [milestone(9, "2026-10-20", null, 3)],
+        new Date("2027-01-01T03:00:00Z"),
+      ).milestone?.number,
+    ).toBe(9);
+    expect(
+      resolveCurrentSprint(
+        [{ ...all()[0], state: "closed" }, ...all().slice(1)],
+        new Date("2026-10-28T03:00:00Z"),
+      ).reason,
+    ).toBe("current-sprint-closed");
+  });
+
+  it.each([
+    period("2026-10-20", 3).replace('"schema_version":3', '"schema_version":2'),
+    period("2026-10-20", 2).replace('"schema_version":2', '"schema_version":3'),
+    period("2026-10-20", 3).replace("v3", "v4"),
+    `${period("2026-10-20")}\n${period("2026-10-20", 3)}`,
+    period("2026-02-30", 3),
+  ])(
+    "不一致version・未知version・複数metadata・不正日付では割り当てない",
+    (description) => {
+      expect(
+        resolveCurrentSprint(
+          [{ ...all()[0], description }],
+          new Date("2026-10-28T03:00:00Z"),
+        ).reason,
+      ).toBe("invalid-sprint-period");
+    },
+  );
+
+  it("開始日前のdueはinclusiveでも不正とする", () => {
+    expect(
+      resolveCurrentSprint(
+        [milestone(9, "2026-10-29", "2026-10-28T00:00:00Z", 3)],
+        new Date("2026-10-28T03:00:00Z"),
+      ).reason,
+    ).toBe("invalid-sprint-period");
+  });
+});
+
+describe("v3のレビュー日を終えてから未完了Issueを繰り越す", () => {
+  const sprint9 = () => milestone(9, "2026-10-20", "2026-10-28T00:00:00Z", 3);
+  const sprint10 = () => milestone(10, "2026-10-29", "2026-11-09T00:00:00Z", 3);
+
+  it("review当日は保持し、翌日00:00から対象のopenだけ次期へ移す", async () => {
+    const issues = [
+      issue(42, 9),
+      { ...issue(43, 9), state: "closed" },
+      { ...issue(44, 9), type: { name: "成果データ" } },
+    ];
+    const input = fixture(issues, [sprint9(), sprint10()]);
+    const reviewDay = await assignCurrentSprint({
+      ...input,
+      now: () => new Date("2026-10-28T14:59:59.999Z"),
+    });
+    expect(reviewDay.milestone).toBe(9);
+    expect(input.github.rest.issues.update).not.toHaveBeenCalled();
+    const nextDay = await assignCurrentSprint({
+      ...input,
+      now: () => new Date("2026-10-28T15:00:00.000Z"),
+    });
+    expect(nextDay.updated).toEqual([{ number: 42, from: 9, to: 10 }]);
+    expect(issues.map((x) => x.milestone?.number)).toEqual([10, 9, 9]);
+  });
+
+  it("dry-runはv3の翌日繰越しを予定にだけ残す", async () => {
+    const input = fixture([issue(42, 9)], [sprint9(), sprint10()]);
+    const result = await assignCurrentSprint({
+      ...input,
+      dryRun: true,
+      now: () => new Date("2026-10-28T15:00:00Z"),
+    });
+    expect(result.planned).toEqual([{ number: 42, from: 9, to: 10 }]);
+    expect(input.github.rest.issues.update).not.toHaveBeenCalled();
+  });
+
+  it("Issue再読取中にreview翌日になれば、前期への書込を止める", async () => {
+    const input = fixture([issue(42)], [sprint9(), sprint10()]);
+    const clock = vi
+      .fn()
+      .mockReturnValueOnce(new Date("2026-10-28T14:59:59.999Z"))
+      .mockReturnValueOnce(new Date("2026-10-28T14:59:59.999Z"))
+      .mockReturnValue(new Date("2026-10-28T15:00:00Z"));
+    const result = await assignCurrentSprint({ ...input, now: clock });
+    expect(result.updated).toEqual([]);
+    expect(input.github.rest.issues.update).not.toHaveBeenCalled();
+  });
+
+  it.each([2, 3] as const)(
+    "Issue再読取中にv%dの次期との重複期間へ入ったら、書込を止める",
+    async (version) => {
+      const input = fixture(
+        [issue(42)],
+        [
+          milestone(9, "2026-10-20", "2026-10-29T00:00:00Z", version),
+          milestone(10, "2026-10-28", "2026-11-09T00:00:00Z", version),
+        ],
+      );
+      const clock = vi
+        .fn()
+        .mockReturnValueOnce(new Date("2026-10-27T14:59:59.999Z"))
+        .mockReturnValueOnce(new Date("2026-10-27T14:59:59.999Z"))
+        .mockReturnValue(new Date("2026-10-27T15:00:00Z"));
+      const result = await assignCurrentSprint({ ...input, now: clock });
+      expect(result.reason).toBe("ambiguous-current-sprint");
+      expect(input.github.rest.issues.update).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe("全open Issueを現在sprintへ付け替える", () => {
   it.each([
     "Task",
@@ -209,7 +399,7 @@ describe("全open Issueを現在sprintへ付け替える", () => {
     ]);
     expect(input.github.rest.issues.update).toHaveBeenCalledTimes(1);
   });
-  it("review/demo当日00:00から未完了を次期へ移し、closedは前期に残す", async () => {
+  it("v2はreview/demo当日00:00から未完了を次期へ移し、closedは前期に残す", async () => {
     const issues = [issue(42, 7), { ...issue(43, 7), state: "closed" }];
     const input = fixture(issues, [
       milestone(),

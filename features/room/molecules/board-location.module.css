@@ -7,10 +7,10 @@
   pointer-events: auto;
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--ib-rounded-xl);
   background: var(--background);
   color: var(--foreground);
-  box-shadow: 0 8px 20px rgb(0 0 0 / 0.05);
+  box-shadow: var(--elevation-tool);
 }
 .card[data-state="compact"] {
   height: 44px;
@@ -34,7 +34,7 @@
   padding: 4px 12px;
   cursor: pointer;
   flex-shrink: 0;
-  border-radius: 15px;
+  border-radius: inherit;
   white-space: nowrap;
 }
 .currentAction {
@@ -65,7 +65,7 @@
   min-width: 0;
   height: 5px;
   border: 1px solid var(--muted-foreground);
-  border-radius: 2px;
+  border-radius: var(--ib-rounded-note);
 }
 .progressRail > span[data-phase-start="true"] {
   margin-left: 7px;
@@ -117,7 +117,7 @@
   flex-shrink: 0;
   border: 1px solid var(--border);
   border-radius: 50%;
-  font-size: 10px;
+  font-size: 12px;
 }
 .phaseNumber[data-current="true"] {
   background: var(--foreground);
@@ -133,7 +133,7 @@
 .stepScroll:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: -3px;
-  border-radius: 8px;
+  border-radius: var(--ib-rounded-lg);
 }
 .steps {
   display: flex;
@@ -147,7 +147,7 @@
   padding: 10px 8px;
   font-size: 14px;
   line-height: 22px;
-  border-radius: 8px;
+  border-radius: var(--ib-rounded-lg);
 }
 .steps > li[aria-current="step"] {
   font-weight: 600;
@@ -169,7 +169,7 @@
   border-color: var(--foreground);
 }
 .currentLabel {
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 @media (width >= 901px) {

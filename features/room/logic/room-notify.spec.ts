@@ -45,18 +45,6 @@ describe("roomNotify", () => {
     expect(mocks.toast).toHaveBeenCalledWith("ルームから退出しました");
   });
 
-  it("roomDisbanded は toast を「ルームが解散されました」で呼ぶ", () => {
-    roomNotify.roomDisbanded();
-    expect(mocks.toast).toHaveBeenCalledTimes(1);
-    expect(mocks.toast).toHaveBeenCalledWith("ルームが解散されました");
-  });
-
-  it("roomDisbandedBySelf は toast を「ルームを解散しました」で呼ぶ", () => {
-    roomNotify.roomDisbandedBySelf();
-    expect(mocks.toast).toHaveBeenCalledTimes(1);
-    expect(mocks.toast).toHaveBeenCalledWith("ルームを解散しました");
-  });
-
   it("自動整理は結果モーダルを閉じた後もホストがUndoを見つけられるよう保持する", () => {
     const onUndo = vi.fn();
 

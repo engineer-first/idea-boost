@@ -38,6 +38,20 @@ const detail = {
 };
 afterEach(() => vi.unstubAllGlobals());
 describe("本人の完了ルーム", () => {
+  it("閲覧対象と成果の保存期限を分けて案内する", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
+    );
+    render(<CompletedRooms />);
+    await screen.findByText("以前のルームはまだありません。");
+    // 本人Cookieの有効期間とは異なるため、30日を閲覧保証として案内しない。
+    expect(
+      screen.getByText(
+        "完了時に参加していたルームと、成果を残して途中退出したルームを見返せます。成果の保存期限は完了から30日間です。",
+      ),
+    ).toBeVisible();
+  });
   it("正常空から一覧を開き直さず、遅れて反映された同じルームを再取得できる", async () => {
     let resolveIndexed!: (response: Response) => void;
     const indexed = new Promise<Response>((resolve) => {
@@ -251,17 +265,25 @@ describe("本人の完了ルーム", () => {
     expect(screen.queryByText(/反映を待っています/)).not.toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledTimes(3);
   });
-  it("本人権限を失った再取得では前回本文を残さない", async () => {
+  it("本人権限を失った場面の再取得では前回本文を残さない", async () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(Response.json(detail))
+      .mockResolvedValueOnce(
+        Response.json({
+          scene: { kind: "problem-grouping", recordedAt: 1, status: "pending" },
+          board: null,
+        }),
+      )
       .mockResolvedValueOnce(
         Response.json({ error: "not found" }, { status: 404 }),
       );
     vi.stubGlobal("fetch", fetcher);
     render(<CompletedRoomDetail roomId={roomId} />);
     await screen.findByText("採用の全文");
-    fireEvent.click(screen.getByRole("button", { name: "成果を再取得" }));
+    fireEvent.click(screen.getByRole("button", { name: "検討の経緯を見る" }));
+    await screen.findByText(/反映を待っています/);
+    fireEvent.click(screen.getByRole("button", { name: "場面を再取得" }));
     await screen.findByRole("alert");
     await waitFor(() =>
       expect(screen.queryByText("採用の全文")).not.toBeInTheDocument(),
@@ -344,7 +366,6 @@ describe("read-only成果から感想へ", () => {
     render(<CompletedRoomDetail roomId={roomId} />);
     await screen.findByText("採用の全文");
     const entry = screen.getByRole("button", { name: "フィードバック" });
-    expect(screen.getByText(/感想は現在参加中のルームからのみ/)).toBeVisible();
     entry.focus();
     fireEvent.click(entry);
     expect(
@@ -374,7 +395,7 @@ describe("read-only成果から感想へ", () => {
       .mockReset()
       .mockResolvedValue({
         ok: false,
-        error: "参加中のルームを確認できません。退出・解散後は送信できません。",
+        error: "参加中のルームを確認できません。退出後は送信できません。",
       })
       .mockReturnValueOnce(
         new Promise((done) => {
@@ -396,11 +417,11 @@ describe("read-only成果から感想へ", () => {
     await act(async () =>
       resolve({
         ok: false,
-        error: "参加中のルームを確認できません。退出・解散後は送信できません。",
+        error: "参加中のルームを確認できません。退出後は送信できません。",
       }),
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "退出・解散後は送信できません",
+      "退出後は送信できません",
     );
     expect(screen.getByRole("textbox", { name: "文章（任意）" })).toHaveValue(
       "退出後の入力を残す",
@@ -431,4 +452,47 @@ describe("read-only成果から感想へ", () => {
       "退出後の入力を残す",
     );
   });
+});
+
+it("一覧の401では同じブラウザの案内を表示しログインを要求しない", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(Response.json({}, { status: 401 })),
+  );
+  render(<CompletedRooms />);
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent(
+    "本人情報を確認できないため、成果を表示できません。成果を残したときと同じブラウザで開いてください。",
+  );
+  expect(alert).not.toHaveTextContent(/ログイン|Google/);
+});
+
+it("一覧コンテナは成果の操作より下へ任意の連携スロットを渡す", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
+  );
+  render(<CompletedRooms accountLink={<aside>連携の補助領域</aside>} />);
+  const content = await screen.findByText("以前のルームはまだありません。");
+  const slot = screen.getByText("連携の補助領域");
+  expect(
+    content.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
+it("詳細コンテナは成果の内容より下へ任意の連携スロットを渡す", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(detail)));
+  render(
+    <CompletedRoomDetail
+      roomId={roomId}
+      accountLink={<aside>連携の補助領域</aside>}
+    />,
+  );
+  const content = await screen.findByRole("button", {
+    name: "検討の経緯を見る",
+  });
+  const slot = screen.getByText("連携の補助領域");
+  expect(
+    content.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
 });

@@ -1,0 +1,49 @@
+# sideEffects 宣言で消えてはいけない初期化の追加を、レビューへ明示的に出す。
+# トップレベル式の副作用や import 先の実装の純粋性までは判定しない。
+id: no-bare-side-effect-import
+language: typescript
+severity: error
+ignores:
+  - vitest.setup.ts
+  - workers/test-setup.ts
+message: CSS以外の副作用目的のimportは、初期化の保持を確認してから追加する
+note: |
+  import先の副作用モジュールをpackage.jsonのsideEffectsに列挙し、
+  必要なら入口側も列挙する。保持と動作を確認してから、この入口をignoresへ追加する。
+rule:
+  all:
+    - kind: import_statement
+    - has:
+        field: source
+        kind: string
+    - not:
+        has:
+          kind: import_clause
+    - not:
+        has:
+          field: source
+          regex: '\.css["\x27]$'
+---
+id: no-bare-side-effect-import-tsx
+language: tsx
+severity: error
+ignores:
+  - vitest.setup.ts
+  - workers/test-setup.ts
+message: CSS以外の副作用目的のimportは、初期化の保持を確認してから追加する
+note: |
+  import先の副作用モジュールをpackage.jsonのsideEffectsに列挙し、
+  必要なら入口側も列挙する。保持と動作を確認してから、この入口をignoresへ追加する。
+rule:
+  all:
+    - kind: import_statement
+    - has:
+        field: source
+        kind: string
+    - not:
+        has:
+          kind: import_clause
+    - not:
+        has:
+          field: source
+          regex: '\.css["\x27]$'

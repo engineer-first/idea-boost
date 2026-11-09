@@ -59,6 +59,12 @@ const meta = {
   decorators: [
     (Story, context) => {
       const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"]) {
+        window.sessionStorage.setItem(
+          `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:${step}`,
+          "seen",
+        );
+      }
       if (context.parameters.firstVisitOnboarding) {
         window.sessionStorage.removeItem(sessionKey);
       } else {
@@ -231,7 +237,7 @@ export const Reconnecting: Story = {
 export const Participant: Story = {
   ...step(3, 1),
   name: "参加者",
-  args: { ...step(3, 1).args, isHost: false },
+  args: { ...step(3, 1).args },
 };
 
 export const Completed: Story = {
@@ -282,7 +288,7 @@ export const SingleParticipant: Story = {
   name: "参加者が1人のときの左右パネル",
   args: {
     ...step(3, 1).args,
-    isHost: false,
+
     members: buildMembers(1, boardMeta.args.currentUserId),
   },
 };
@@ -335,7 +341,11 @@ export const SharingActive: Story = {
   ...SharingReady,
   args: {
     ...SharingReady.args,
-    timer: { status: "paused", remainingMs: 138000, durationMs: 180000 },
+    timer: {
+      status: "running",
+      endsAt: Date.now() + 138000,
+      durationMs: 180000,
+    },
     sharing: buildSharingState({
       status: "active",
       currentIndex: 1,
@@ -385,7 +395,7 @@ export const SharingComplete: Story = {
 };
 export const SharingMember: Story = {
   ...SharingActive,
-  args: { ...SharingActive.args, isHost: false },
+  args: { ...SharingActive.args },
 };
 
 export const MapControls: Story = {

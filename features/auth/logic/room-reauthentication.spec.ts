@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ACCOUNT_LINK_INTENT_COOKIE } from "@/contracts/account-link";
 import {
   ROOM_ENTRY_AUDIENCE,
   ROOM_RESUME_COOKIE,
@@ -82,6 +83,15 @@ afterEach(() => vi.unstubAllEnvs());
 describe("同じタブの再ログイン", () => {
   it("有効な認証でも明示操作でGoogleを開始する", async () => {
     await startRoomReauthentication(operation, tabId);
+    expect(mocks.google).toHaveBeenCalledOnce();
+  });
+  it("ルーム再認証開始時に連携intent Cookieを消してからOAuthを開始する", async () => {
+    mocks.store.set(ACCOUNT_LINK_INTENT_COOKIE, "放棄した連携intent");
+    mocks.google.mockImplementationOnce(() => {
+      expect(mocks.store.has(ACCOUNT_LINK_INTENT_COOKIE)).toBe(false);
+    });
+    await startRoomReauthentication(operation, tabId);
+    expect(mocks.store.has(ACCOUNT_LINK_INTENT_COOKIE)).toBe(false);
     expect(mocks.google).toHaveBeenCalledOnce();
   });
   it("署名情報と同じタブだけ元操作を一度受け取る", async () => {

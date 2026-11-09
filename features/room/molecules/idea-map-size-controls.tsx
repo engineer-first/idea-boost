@@ -15,7 +15,6 @@ import { IDEA_MAP_SIZE_HELP } from "../logic/idea-value-feasibility-map";
 export type IdeaMapSizeControlsProps = {
   sizeLevel: number;
   initialized: boolean;
-  isHost: boolean;
   isDisconnected: boolean;
   isDragging: boolean;
   onResize: (sizeLevel: number) => void;
@@ -50,7 +49,7 @@ export function IdeaMapSizeControls({
     <fieldset
       aria-label="2軸マップの広さ操作"
       aria-description={IDEA_MAP_SIZE_HELP.scope}
-      className="board-hud pointer-events-auto flex items-center gap-1 rounded-xl border border-sky-200 bg-sky-50/95 p-1.5 shadow-lg shadow-black/5"
+      className="board-hud pointer-events-auto flex items-center gap-1 rounded-xl border border-sky-200 bg-sky-50/95 p-1.5 shadow-tool"
       data-testid="idea-map-size-controls"
     >
       <Popover>
@@ -67,7 +66,7 @@ export function IdeaMapSizeControls({
               data-map-size-label
             >
               <span className="text-xs font-semibold">マップの広さ</span>
-              <span className="text-[10px] font-normal text-muted-foreground">
+              <span className="text-xs font-normal text-muted-foreground">
                 全員に反映
               </span>
             </span>
@@ -77,7 +76,7 @@ export function IdeaMapSizeControls({
         <PopoverContent
           side="top"
           align="end"
-          className="w-72 max-w-[calc(100vw-1.5rem)] space-y-2 text-sm"
+          className="w-72 max-w-[calc(100vw-1.5rem)] space-y-2 text-base"
           aria-label="マップの広さについて"
         >
           <p className="font-semibold">マップの広さについて</p>

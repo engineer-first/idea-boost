@@ -37,9 +37,11 @@ import type {
   ParticipationConfirmation,
   ParticipationResult,
 } from "@/contracts/room-participation";
-import { apiFetch, lookupRoomByInviteCode } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
-import { hasRoomEntryTime, issueRoomEntry } from "@/lib/session/room-entry";
+import { issueRoomEntry } from "@/lib/session/room-entry";
+import { prepareRoomEntrySession } from "@/lib/session/room-entry-session";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "./guest-identity-message";
 import {
   participationActionFailure,
   readParticipationRecovery,
@@ -58,7 +60,13 @@ const JoinRoomInputSchema = z.object({
 // （Server Action の redirect 後に toast する方式は、遷移でクライアント状態が
 // 消えるため使わない）
 export type CreateRoomResult =
-  | { ok: true; roomId: string; entryToken?: string }
+  | {
+      ok: true;
+      roomId: string;
+      entryToken?: string;
+      operationId?: string;
+      exitedRoomNames?: string[];
+    }
   | {
       ok: false;
       error: string;
@@ -70,7 +78,13 @@ export type CreateRoomResult =
     };
 
 export type JoinRoomResult =
-  | { ok: true; roomId: string; entryToken?: string }
+  | {
+      ok: true;
+      roomId: string;
+      entryToken?: string;
+      operationId?: string;
+      exitedRoomNames?: string[];
+    }
   | {
       ok: false;
       error: string;
@@ -79,50 +93,6 @@ export type JoinRoomResult =
       pendingOperation?: Extract<ParticipationResult, { kind: "pending" }>;
       failedOperation?: Extract<ParticipationResult, { kind: "rejected" }>;
     };
-
-// 参加確認 Dialog 用。ホスト名を先に解決し、存在しないコードは Dialog を開かない。
-export type LookupInviteResult =
-  | { ok: true; hostName: string; inviteCode: string }
-  | { ok: false; error: string; reason?: string };
-
-export async function lookupInviteRoom(
-  code: string,
-): Promise<LookupInviteResult> {
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/login");
-  }
-
-  const parsedInput = JoinRoomInputSchema.safeParse({ code });
-  if (!parsedInput.success) {
-    return {
-      ok: false,
-      error: "招待コードは英数字6桁で入力してください。",
-    };
-  }
-
-  const lookup = await lookupRoomByInviteCode(parsedInput.data.code);
-  if (lookup.kind === "not_found") {
-    return {
-      ok: false,
-      error:
-        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
-    };
-  }
-  if (lookup.kind === "unavailable") {
-    return {
-      ok: false,
-      error:
-        "ルーム情報を取得できませんでした。しばらくしてから再度お試しください。",
-    };
-  }
-
-  return {
-    ok: true,
-    hostName: lookup.room.hostName,
-    inviteCode: lookup.room.inviteCode,
-  };
-}
 
 export async function createRoom(
   input: z.infer<typeof CreateRoomInputSchema>,
@@ -148,12 +118,18 @@ export async function createRoom(
       reason: "actor_mismatch",
       error: "アカウントが変わりました。ログイン状態を確認してください。",
     };
-  if (!hasRoomEntryTime(user))
+  const prepared = await prepareRoomEntrySession(user);
+  if (!prepared.ok)
     return {
       ok: false,
       outcome: "rejected",
-      reason: "reauth_required",
-      error: "ログインし直して続けてください。",
+      reason: prepared.reason,
+      error:
+        prepared.reason === "identity_unavailable"
+          ? GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE
+          : prepared.reason === "retry"
+            ? "通信を確認して、もう一度お試しください。"
+            : "ログインし直して続けてください。",
     };
   try {
     const res = await apiFetch("/api/rooms", {
@@ -182,7 +158,13 @@ export async function createRoom(
       return {
         ok: true,
         roomId: parsed.data.roomId,
-        entryToken: await issueRoomEntry(parsed.data.roomId, user, "lobby"),
+        operationId: parsed.data.operationId,
+        exitedRoomNames: parsed.data.exitedRoomNames,
+        entryToken: await issueRoomEntry(
+          parsed.data.roomId,
+          prepared.user,
+          "lobby",
+        ),
       };
   } catch {
     // 送信後の通信失敗では成功・失敗を決めない。
@@ -285,18 +267,27 @@ export async function joinRoom(
       reason: "actor_mismatch",
       error: "アカウントが変わりました。元のアカウントでログインしてください。",
     };
-  if (!hasRoomEntryTime(user))
+  const prepared = await prepareRoomEntrySession(user);
+  if (!prepared.ok)
     return {
       ok: false,
-      reason: "reauth_required",
-      error: "ログインし直して続けてください。",
+      reason: prepared.reason,
+      error:
+        prepared.reason === "identity_unavailable"
+          ? GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE
+          : prepared.reason === "retry"
+            ? "通信を確認して、もう一度お試しください。"
+            : "ログインし直して続けてください。",
     };
   let res: Response;
   try {
     res = await apiFetch("/api/rooms/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: parsedInput.data.code }),
+      body: JSON.stringify({
+        code: parsedInput.data.code,
+        operationId: formData.get("operationId") ?? crypto.randomUUID(),
+      }),
     });
   } catch {
     // タイムアウト・ネットワーク障害は「見つからない」と誤案内しない。
@@ -330,7 +321,7 @@ export async function joinRoom(
       return {
         ok: false,
         error:
-          "このルームは終了しているため参加できません。新しい招待コードをホストに確認してください。",
+          "このルームは終了しているため参加できません。新しい招待コードを招待元に確認してください。",
       };
     }
     if (
@@ -340,7 +331,7 @@ export async function joinRoom(
       return {
         ok: false,
         error:
-          "ルームが満員（上限20人）のため参加できません。ホストに確認してください。",
+          "ルームが満員（上限20人）のため参加できません。招待元に確認してください。",
       };
     }
   }
@@ -368,7 +359,13 @@ export async function joinRoom(
   return {
     ok: true,
     roomId: parsed.data.roomId,
-    entryToken: await issueRoomEntry(parsed.data.roomId, user, "lobby"),
+    operationId: parsed.data.operationId,
+    exitedRoomNames: parsed.data.exitedRoomNames,
+    entryToken: await issueRoomEntry(
+      parsed.data.roomId,
+      prepared.user,
+      "lobby",
+    ),
   };
 }
 
@@ -410,10 +407,11 @@ export async function returnToRoom(
     );
     if (!parsed.success || parsed.data.roomId !== roomId)
       return { kind: "retry" };
-    if (!hasRoomEntryTime(user)) return { kind: "reauth_required" };
+    const prepared = await prepareRoomEntrySession(user);
+    if (!prepared.ok) return { kind: prepared.reason };
     const entryToken = await issueRoomEntry(
       roomId,
-      user,
+      prepared.user,
       isLobby(parsed.data.phase) ? "lobby" : "board",
     );
     return {

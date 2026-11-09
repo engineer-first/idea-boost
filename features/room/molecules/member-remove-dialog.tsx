@@ -5,7 +5,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -32,6 +31,7 @@ export function MemberRemoveDialog({
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent
+        aria-describedby={undefined}
         className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
@@ -53,7 +53,11 @@ export function MemberRemoveDialog({
           {target ? (
             <div className="flex min-w-0 items-center gap-3">
               <TooltipProvider>
-                <MemberAvatar name={target.name} color={target.color} />
+                <MemberAvatar
+                  name={target.name}
+                  avatarId={target.avatarId}
+                  color={target.color}
+                />
               </TooltipProvider>
               <div className="min-w-0">
                 <p className="break-all text-base font-semibold">
@@ -65,27 +69,24 @@ export function MemberRemoveDialog({
               </div>
             </div>
           ) : null}
-          <AlertDialogDescription className="leading-relaxed">
-            この参加者の画面はホームに戻ります。付箋や投票は残り、招待リンク・コードから再参加できます。
-          </AlertDialogDescription>
         </AlertDialogHeader>
         {!target ? (
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="text-base text-muted-foreground">
             この参加者は退出しました。参加者を選び直してください。
           </p>
         ) : null}
         {disconnected ? (
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="text-base text-muted-foreground">
             再接続してから操作してください。
           </p>
         ) : null}
         {blocked ? (
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="text-base text-muted-foreground">
             進行中の操作が終わってから操作してください。
           </p>
         ) : null}
         {error ? (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="text-base text-destructive">
             {error}
           </p>
         ) : null}

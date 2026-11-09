@@ -5,6 +5,28 @@ import { buildCarryover } from "@/contracts/room-protocol.fixture";
 import { BoardContext } from "./board-context";
 
 describe("現在地と補足情報", () => {
+  it.each(["issue", "hmw"] as const)(
+    "%s の参照付箋は『採用済み』のはんこだけを表示し、決定済みを二重に読み上げない",
+    (reference) => {
+      render(
+        <BoardContext
+          phase={buildPhaseStep(1, 3)}
+          initialDisclosureId={reference}
+          hmwDecidedIssue="決定した課題"
+          decidedHmw="決定した問い"
+        />,
+      );
+      const stamp = screen.getByRole("status", { name: "採用済み" });
+      expect(stamp).toHaveTextContent("決定");
+      expect(
+        screen.queryByRole("status", { name: "取り組む課題に決定済み" }),
+      ).not.toBeInTheDocument();
+      expect(stamp.closest('[data-slot="sticky-note"]')).toHaveAttribute(
+        "data-decision-presentation",
+        "reference",
+      );
+    },
+  );
   it.each([
     [1, 1, 1],
     [1, 2, 2],

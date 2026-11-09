@@ -26,7 +26,7 @@ afterAll(async () => {
 
 for (const width of [390, 1440]) {
   for (const terminal of [
-    { story: "auth-required", label: "ログインする", href: "/login" },
+    { story: "auth-required", label: "再読み込みして続ける", href: null },
     { story: "unavailable", label: "ホームへ戻る", href: "/home" },
   ]) {
     test(`停止後も文章をコピーでき、${terminal.label}へ到達できる (${width}px)`, async () => {
@@ -34,9 +34,10 @@ for (const width of [390, 1440]) {
       await page
         .context()
         .grantPermissions(["clipboard-read", "clipboard-write"]);
-      await page.goto(
-        `${origin}/iframe.html?id=room-roomboardlayout--${terminal.story}-with-draft&viewMode=story`,
-      );
+      const storyUrl = `${origin}/iframe.html?id=room-roomboardlayout--${terminal.story}-with-draft&viewMode=story`;
+      // 戻り先未指定の story では、現在の URL へ再読み込みする。
+      const expectedHref = terminal.href ?? storyUrl;
+      await page.goto(storyUrl);
       const entry = page.getByRole("link", { name: terminal.label });
       await entry.waitFor();
       await page.evaluate(() => document.fonts.ready);
@@ -86,9 +87,9 @@ for (const width of [390, 1440]) {
           return target !== null && element.contains(target);
         }),
       ).toBe(true);
-      expect(await entry.getAttribute("href")).toBe(terminal.href);
-      await entry.press("Enter");
-      await page.waitForURL(`**${terminal.href}`);
+      expect(await entry.getAttribute("href")).toBe(expectedHref);
+      await Promise.all([page.waitForEvent("load"), entry.press("Enter")]);
+      await page.waitForURL(new URL(expectedHref, origin).href);
     });
   }
 }
@@ -249,7 +250,7 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
       expect(await page.getByTestId("step-guide").count()).toBe(0);
       await page.getByRole("button", { name: "ルームメニューを開く" }).click();
       await page
-        .getByRole("button", { name: "ルームを解散", exact: true })
+        .getByRole("button", { name: "退出する", exact: true })
         .waitFor();
       expect(
         await page.getByRole("button", { name: "再接続を試す" }).count(),

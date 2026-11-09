@@ -18,7 +18,8 @@ export const sharingReactionHandlers: MessageHandlers<"reaction:send"> = {
       ctx.reply({
         type: "error",
         code: "forbidden",
-        message: "リアクションは現在の課題・問いの共有画面で送れます。",
+        message:
+          "リアクションは現在の課題・問い・アイデアの共有画面で送れます。",
       });
       return;
     }

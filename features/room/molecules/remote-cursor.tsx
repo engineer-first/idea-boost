@@ -43,7 +43,7 @@ export function RemoteCursor({
         style={{ fill: color }}
       />
       <div
-        className="absolute top-5 left-3 flex w-max max-w-44 items-center gap-1 rounded-md border border-slate-950/15 px-2 py-1 text-xs font-medium shadow-md"
+        className="absolute top-5 left-3 flex w-max max-w-44 items-center gap-1 rounded-lg border border-slate-950/15 px-2 py-1 text-xs font-medium shadow-tool"
         style={{
           backgroundColor: color,
           color: NOTE_COLOR_STYLES[cursor.color].foregroundColor,

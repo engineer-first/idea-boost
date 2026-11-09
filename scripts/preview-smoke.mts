@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { readD1Migrations } from "@cloudflare/vitest-plugin";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { createFetchMock, Miniflare } from "miniflare";
+import { landingCopy } from "../features/landing/logic/landing-copy.ts";
 import { previewProbeToken, previewSessionSecret } from "./preview-secrets.mts";
 import type { PreviewBrowserSmokeInput } from "./preview-smoke-browser.mts";
 
@@ -178,7 +179,7 @@ export async function smokePreviewBundle(
       redirect: "manual",
     });
     assert.equal(landing.status, 200);
-    assert.match(await landing.text(), /Googleでログインして始める/);
+    assert.ok((await landing.text()).includes(landingCopy.cta.normal[0]));
     const login = await a.fetch(`${origin}/login?next=%2Fhome`, {
       headers: { ...headers, Cookie: signedOutCookie },
       redirect: "manual",

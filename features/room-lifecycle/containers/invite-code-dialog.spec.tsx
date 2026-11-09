@@ -1,4 +1,5 @@
 import { loadDisplayName } from "@/features/auth";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "../logic/guest-identity-message";
 
 vi.mock("@/features/auth/logic/display-name-actions", () => ({
   loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
@@ -24,13 +25,17 @@ vi.mock("../logic/actions", () => ({
 
 const notifyMocks = vi.hoisted(() => ({
   joinedAsGuest: vi.fn(),
+  rememberDeparture: vi.fn(),
   error: vi.fn(),
 }));
 vi.mock("@/lib/notify", () => ({
   notify: { error: notifyMocks.error },
 }));
 vi.mock("../logic/lifecycle-notify", () => ({
-  lifecycleNotify: { joinedAsGuest: notifyMocks.joinedAsGuest },
+  lifecycleNotify: {
+    joinedAsGuest: notifyMocks.joinedAsGuest,
+    rememberDeparture: notifyMocks.rememberDeparture,
+  },
 }));
 
 import { readLastRoom } from "@/lib/room-client/last-room-storage";
@@ -57,6 +62,7 @@ describe("InviteCodeDialog", () => {
 
   it("招待コードとホスト名付きタイトルで Dialog が開く", () => {
     renderDialog();
+    expect(JOIN_ROOM).not.toHaveBeenCalled();
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(screen.getByText("ABC234")).toBeInTheDocument();
     expect(
@@ -102,7 +108,48 @@ describe("InviteCodeDialog", () => {
     expect(PUSH).not.toHaveBeenCalled();
   });
 
-  it("「キャンセル」クリックで /home へ戻る", async () => {
+  it("招待の参加決定後は退出確認なしで移動し、元ルームの通知を引き継ぐ", async () => {
+    JOIN_ROOM.mockResolvedValueOnce({
+      ok: true,
+      roomId: "123e4567-e89b-42d3-a456-426614174000",
+      operationId: "move",
+      exitedRoomNames: ["元の相談"],
+    });
+    renderDialog();
+    await userEvent.click(screen.getByTestId("invite-join-action"));
+    await waitFor(() =>
+      expect(PUSH).toHaveBeenCalledWith(
+        "/rooms/123e4567-e89b-42d3-a456-426614174000/start",
+      ),
+    );
+    expect(notifyMocks.rememberDeparture).toHaveBeenCalledWith(
+      "123e4567-e89b-42d3-a456-426614174000",
+      "move",
+      ["元の相談"],
+    );
+    expect(notifyMocks.joinedAsGuest).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "退出して参加する" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("認証の残り時間不足なら招待コードを保持して再ログイン案内を表示する", async () => {
+    JOIN_ROOM.mockResolvedValueOnce({
+      ok: false,
+      reason: "reauth_required",
+      error: "ログインし直してください",
+    });
+    renderDialog();
+    await userEvent.click(screen.getByTestId("invite-join-action"));
+    expect(
+      await screen.findByRole("button", { name: "Googleでログインして続ける" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/招待コード ABC234/)).toBeInTheDocument();
+    expect(JOIN_ROOM).toHaveBeenCalledOnce();
+    expect(PUSH).not.toHaveBeenCalled();
+  });
+
+  it("「キャンセル」クリックで参加せず /home へ戻る", async () => {
     const user = userEvent.setup();
     const originalLocation = window.location;
     Object.defineProperty(window, "location", {
@@ -114,6 +161,7 @@ describe("InviteCodeDialog", () => {
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(window.location.href).toBe("/home");
+    expect(JOIN_ROOM).not.toHaveBeenCalled();
     Object.defineProperty(window, "location", {
       value: originalLocation,
       configurable: true,
@@ -131,4 +179,23 @@ it("共通表示名が未設定でも表示名の設定を要求せず招待に�
   await userEvent.click(screen.getByTestId("invite-join-action"));
   await waitFor(() => expect(JOIN_ROOM).toHaveBeenCalledOnce());
   expect(loadDisplayName).not.toHaveBeenCalled();
+});
+
+it("本人確認不可ではActionの説明を通知しGoogle再認証へ進まない", async () => {
+  PUSH.mockClear();
+  notifyMocks.error.mockClear();
+  const user = userEvent.setup();
+  renderDialog();
+  const error = GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE;
+  JOIN_ROOM.mockResolvedValueOnce({
+    ok: false,
+    reason: "identity_unavailable",
+    error,
+  });
+  await user.click(screen.getByTestId("invite-join-action"));
+  await waitFor(() => expect(notifyMocks.error).toHaveBeenCalledWith(error));
+  expect(
+    screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+  ).not.toBeInTheDocument();
+  expect(PUSH).not.toHaveBeenCalled();
 });

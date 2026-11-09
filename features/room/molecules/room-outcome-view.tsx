@@ -1,17 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type Ref,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
-import { NOTE_COLOR_STYLES } from "@/features/room-members";
-import type { RoomOutcome } from "../logic/outcome-text";
-import { formatOutcomeText } from "../logic/outcome-text";
+import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
+import { StickyNote } from "@/features/notes";
+import { createOutcomePng } from "../logic/outcome-png";
+import { formatOutcomeText, type RoomOutcome } from "../logic/outcome-text";
 
 export type RoomOutcomeViewProps = {
   outcome: RoomOutcome | null;
   connected?: boolean;
   authorized?: boolean;
   children?: ReactNode;
+  additionalNavigation?: ReactNode;
+  recordInfo?: ReactNode;
+  footer?: ReactNode;
   onBackToBoard?: () => void;
   onOpenFeedback?: () => void;
   feedbackButtonRef?: Ref<HTMLButtonElement>;
@@ -31,13 +42,19 @@ export function RoomOutcomeView({
   connected = false,
   authorized,
   children,
+  additionalNavigation,
+  recordInfo,
   onBackToBoard,
   onOpenFeedback,
   feedbackButtonRef,
+  footer,
   onExportSuccess,
   onExportFailure,
   feedbackPrompt,
 }: RoomOutcomeViewProps) {
+  const [pngPending, setPngPending] = useState(false);
+  const [pngSaved, setPngSaved] = useState(false);
+  const pngSavedTimeout = useRef<number | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
   const [copySucceeded, setCopySucceeded] = useState(false);
   const [downloadStarted, setDownloadStarted] = useState(false);
@@ -46,6 +63,20 @@ export function RoomOutcomeView({
   const active = useRef(true);
   const exportGeneration = useRef(0);
   const available = authorized ?? connected;
+  const exportKey = JSON.stringify([
+    available,
+    outcome?.issue ?? null,
+    outcome?.hmw ?? null,
+    outcome?.idea ?? null,
+  ]);
+  const generationKeyRef = useRef(exportKey);
+  useLayoutEffect(() => {
+    if (generationKeyRef.current === exportKey) return;
+
+    generationKeyRef.current = exportKey;
+    exportGeneration.current += 1;
+  }, [exportKey]);
+  const previousExportKey = useRef(exportKey);
   useEffect(() => {
     active.current = true;
     return () => {
@@ -54,21 +85,36 @@ export function RoomOutcomeView({
     };
   }, [onExportFailure]);
   useEffect(() => {
-    if (!available || !outcome) {
-      exportGeneration.current++;
-      setCopyPending(false);
-      setCopySucceeded(false);
-      setCopyFailed(false);
-      setDownloadStarted(false);
-      setSaveFailed(false);
-      onExportFailure?.();
+    if (previousExportKey.current === exportKey) return;
+    previousExportKey.current = exportKey;
+
+    if (pngSavedTimeout.current !== null) {
+      window.clearTimeout(pngSavedTimeout.current);
+      pngSavedTimeout.current = null;
     }
-  }, [available, outcome, onExportFailure]);
+
+    setPngSaved(false);
+    setCopyPending(false);
+    setPngPending(false);
+    setCopySucceeded(false);
+    setCopyFailed(false);
+    setDownloadStarted(false);
+    setSaveFailed(false);
+
+    onExportFailure?.();
+  }, [exportKey, onExportFailure]);
+  useEffect(() => {
+    return () => {
+      if (pngSavedTimeout.current !== null) {
+        window.clearTimeout(pngSavedTimeout.current);
+      }
+    };
+  }, []);
   const canExport = available && outcome !== null;
   const outputText = outcome ? formatOutcomeText(outcome, new Date()) : "";
 
   function saveText() {
-    if (!canExport || copyPending) return;
+    if (!canExport || copyPending || pngPending) return;
     setCopySucceeded(false);
     setCopyFailed(false);
     let url: string | undefined;
@@ -102,8 +148,94 @@ export function RoomOutcomeView({
     }
   }
 
+  async function savePng() {
+    if (!canExport || copyPending || pngPending || !outcome) return;
+
+    const generation = exportGeneration.current;
+    const currentOutcome = { ...outcome };
+    const now = new Date();
+
+    setPngPending(true);
+
+    if (pngSavedTimeout.current !== null) {
+      window.clearTimeout(pngSavedTimeout.current);
+      pngSavedTimeout.current = null;
+    }
+
+    setPngSaved(false);
+
+    if (copySucceeded || downloadStarted) {
+      onExportFailure?.();
+    }
+
+    setCopySucceeded(false);
+    setCopyFailed(false);
+    setDownloadStarted(false);
+    setSaveFailed(false);
+
+    let objectUrl: string | undefined;
+    let anchor: HTMLAnchorElement | undefined;
+
+    try {
+      // サーバーには送らず、ブラウザ内でCanvasを生成する。
+      const blob = await createOutcomePng(currentOutcome);
+
+      // 生成中に画面を離れた・権限が失効した・成果が変わった場合は破棄。
+      if (!active.current || generation !== exportGeneration.current) {
+        return;
+      }
+
+      objectUrl = URL.createObjectURL(blob);
+      anchor = document.createElement("a");
+
+      const localDate = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0"),
+      ].join("-");
+
+      anchor.href = objectUrl;
+      anchor.download = `idea-boost-outcome-${localDate}.png`;
+
+      document.body.append(anchor);
+      anchor.click();
+
+      setDownloadStarted(true);
+      setSaveFailed(false);
+      setPngSaved(true);
+
+      pngSavedTimeout.current = window.setTimeout(() => {
+        setPngSaved(false);
+        pngSavedTimeout.current = null;
+      }, 5000);
+
+      onExportSuccess?.();
+    } catch (error) {
+      console.error("[PNG保存失敗]", error);
+
+      if (!active.current || generation !== exportGeneration.current) {
+        return;
+      }
+
+      setDownloadStarted(false);
+      setSaveFailed(true);
+      onExportFailure?.();
+    } finally {
+      anchor?.remove();
+
+      if (objectUrl) {
+        const url = objectUrl;
+        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+
+      if (active.current && generation === exportGeneration.current) {
+        setPngPending(false);
+      }
+    }
+  }
+
   async function copyText() {
-    if (!canExport || copyPending) return;
+    if (!canExport || copyPending || pngPending) return;
     const generation = exportGeneration.current;
     setCopyPending(true);
     if (copySucceeded || downloadStarted) onExportFailure?.();
@@ -139,13 +271,25 @@ export function RoomOutcomeView({
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           チームで決めた成果
         </h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 text-balance text-base leading-6 text-muted-foreground">
           決めた内容を持ち帰り、次の制作に使いましょう。
         </p>
+        <hr className="mt-6 border-border" />
+
+        <ol
+          aria-label="成果の流れ"
+          className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm font-medium text-muted-foreground"
+        >
+          <li>01 課題</li>
+          <li aria-hidden="true">→</li>
+          <li>02 問い</li>
+          <li aria-hidden="true">→</li>
+          <li>03 アイデア</li>
+        </ol>
         {!available || !outcome ? (
           <p
             role="alert"
-            className="mt-6 rounded-lg border border-border bg-muted px-4 py-3 text-sm leading-6"
+            className="mt-6 rounded-lg border border-border bg-muted px-4 py-3 text-base leading-6"
           >
             {authorized === false
               ? "閲覧権限を確認できません。ホームの「過去の成果を見る」から開き直してください。"
@@ -154,95 +298,104 @@ export function RoomOutcomeView({
                 : "決定内容をすべて確認できません。再接続してから成果を確認・保存してください。"}
           </p>
         ) : null}
-        <div className="mt-8 grid gap-4">
-          {CARDS.map(({ number, label, key }) => (
-            <section
-              key={key}
-              className="min-w-0 rounded-[2px] px-5 py-5 shadow-md sm:px-7"
-              style={{
-                backgroundColor: NOTE_COLOR_STYLES.yellow.backgroundColor,
-                color: NOTE_COLOR_STYLES.yellow.foregroundColor,
-              }}
-            >
-              <h2 className="flex items-center gap-3 text-base font-bold">
-                <span
-                  aria-hidden="true"
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground"
-                >
-                  {number}
-                </span>
-                {label}
-                {!available ? (
-                  <span className="ml-auto text-xs font-medium">未確認</span>
-                ) : null}
-              </h2>
-              <p className="mt-4 min-w-0 whitespace-pre-wrap text-base leading-8 [overflow-wrap:anywhere] select-text">
-                {outcome?.[key] ?? "確認できません"}
-              </p>
-            </section>
-          ))}
+
+        <div className="mt-6 flex flex-row flex-wrap justify-center gap-4">
+          {CARDS.map(({ number, label, key }) => {
+            const content = outcome?.[key] ?? "確認できません";
+            const noteText = `${number}. ${label}\n${content}`;
+
+            return (
+              <StickyNote
+                key={key}
+                noteId={`outcome-${key}`}
+                color="yellow"
+                height={getNoteHeight(noteText, NOTE_DEFAULT_FONT_SIZE)}
+                decisionPresentation="reference"
+                className="relative w-[200px]"
+              >
+                <div className="flex h-full flex-col p-2">
+                  <h2 className="text-base leading-6 font-bold">
+                    {number}. {label}
+                  </h2>
+
+                  <p className="min-h-0 min-w-0 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere] text-base leading-6 select-text">
+                    {!available ? (
+                      <>
+                        <span className="text-xs font-medium">未確認</span>
+                        {"\n"}
+                      </>
+                    ) : null}
+                    {content}
+                  </p>
+                </div>
+              </StickyNote>
+            );
+          })}
         </div>
         {canExport ? (
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button
-              className="min-h-11"
-              type="button"
-              onClick={saveText}
-              disabled={copyPending}
-            >
-              テキストを保存
-            </Button>
-            <Button
-              className="min-h-11"
-              type="button"
-              variant="outline"
-              onClick={() => void copyText()}
-              disabled={copyPending}
-            >
-              {copyPending ? "コピー中…" : "全文をコピー"}
-            </Button>
-          </div>
-        ) : null}
-        {canExport ? (
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            保存したファイルを開いて内容を確認してください。コピーしたらメモに貼り付けて保存してください。
-          </p>
-        ) : null}
-        {onOpenFeedback ? (
-          <Button
-            ref={feedbackButtonRef}
-            type="button"
-            variant="link"
-            className="mt-3"
-            onClick={onOpenFeedback}
-          >
-            フィードバック
-          </Button>
+          <section className="mt-8 border-t border-border pt-4">
+            <h2 className="text-lg font-bold">成果を保存する</h2>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button
+                className="min-h-11"
+                type="button"
+                onClick={() => void savePng()}
+                disabled={copyPending || pngPending}
+              >
+                {pngPending
+                  ? "PNGを生成中…"
+                  : pngSaved
+                    ? "保存済み"
+                    : "PNGで保存"}
+              </Button>
+
+              <Button
+                className="min-h-11"
+                type="button"
+                variant="outline"
+                onClick={saveText}
+                disabled={copyPending || pngPending}
+              >
+                テキストを保存
+              </Button>
+
+              <Button
+                className="min-h-11"
+                type="button"
+                variant="outline"
+                onClick={() => void copyText()}
+                disabled={copyPending || pngPending}
+              >
+                {copyPending ? "コピー中…" : "全文をコピー"}
+              </Button>
+            </div>
+          </section>
         ) : null}
         {downloadStarted && canExport ? (
-          <p role="status" className="mt-3 text-sm">
+          <p role="status" className="mt-3 text-base">
             ダウンロードを開始しました。保存したファイルを確認してください。
           </p>
         ) : null}
         {copySucceeded && canExport ? (
-          <p role="status" className="mt-3 text-sm">
+          <p role="status" className="mt-3 text-base">
             コピーしました。メモに貼り付けて保存してください。
           </p>
         ) : null}
         {saveFailed && canExport ? (
-          <p role="alert" className="mt-3 text-sm text-destructive">
+          <p role="alert" className="mt-3 text-base text-destructive">
             保存を開始できませんでした。もう一度試すか、全文をコピーしてください。
           </p>
         ) : null}
         {copyFailed && canExport ? (
           <div className="mt-4 rounded-lg border border-destructive/40 bg-white p-4">
-            <p role="alert" className="text-sm">
+            <p role="alert" className="text-base">
               コピーできませんでした。下の全文を選択して手動でコピーしてください。
             </p>
             <textarea
               readOnly
               aria-label="手動でコピーする成果全文"
-              className="mt-3 h-56 w-full rounded-md border p-3 text-sm"
+              className="mt-3 h-56 w-full rounded-md border p-3 text-base"
               value={outputText}
               onFocus={(event) => event.currentTarget.select()}
             />
@@ -250,31 +403,61 @@ export function RoomOutcomeView({
         ) : null}
         {feedbackPrompt}
         {children}
-        <section className="mt-10 rounded-xl border border-border bg-card p-5 sm:p-6">
+        <section className="mt-8 rounded-lg border border-border bg-card p-4 sm:p-6">
           <h2 className="text-lg font-bold">次に試すこと</h2>
-          <p className="mt-2 text-sm leading-7">
+          <p className="mt-2 text-base leading-7">
             誰の、どんな場面を確かめたい？
             簡単な画面を描き、その人に見せて確かめてみよう。
           </p>
         </section>
-        <div className="mt-8 flex flex-wrap items-center gap-4 pb-8">
+        {recordInfo}
+
+        <nav
+          aria-label="ページ移動"
+          className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 pb-8"
+        >
           {onBackToBoard && (
             <Button type="button" variant="outline" onClick={onBackToBoard}>
               ボードへ戻る
             </Button>
           )}
+
           <Link
             href="/home"
-            className="inline-flex min-h-10 items-center rounded-md px-3 text-sm font-semibold underline-offset-4 hover:underline"
+            className="inline-flex min-h-10 items-center rounded-lg px-2 text-base font-semibold text-primary underline underline-offset-4 hover:no-underline"
           >
-            保存を確認してホームへ
+            ホームへ戻る
           </Link>
-        </div>
-        <p className="pb-8 text-xs leading-5 text-muted-foreground">
-          {authorized
-            ? "閲覧期限までは、ホームの「過去の成果を見る」から再び確認できます。"
-            : "完了したルームは、ホームの「過去の成果を見る」から完了後30日間見返せます。"}
-        </p>
+
+          {additionalNavigation}
+        </nav>
+
+        {!authorized ? (
+          <p className="text-xs leading-5 text-muted-foreground">
+            完了したルームは、ホームの「過去の成果を見る」から見返せます。
+            保存期限は完了から30日間です。
+          </p>
+        ) : null}
+
+        {footer || onOpenFeedback ? (
+          <footer className="mt-6 border-t border-border pt-4 pb-8">
+            {footer}
+
+            {onOpenFeedback ? (
+              <div className={footer ? "mt-3" : ""}>
+                <Button
+                  ref={feedbackButtonRef}
+                  type="button"
+                  variant="link"
+                  className="h-auto px-0 text-sm text-muted-foreground"
+                  onClick={onOpenFeedback}
+                >
+                  フィードバック
+                </Button>
+              </div>
+            ) : null}
+          </footer>
+        ) : null}
       </div>
     </main>
   );

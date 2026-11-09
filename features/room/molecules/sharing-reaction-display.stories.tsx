@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { SHARING_REACTION_MAX_VISIBLE } from "@/contracts/sharing-reactions";
+import {
+  SHARING_REACTION_KINDS,
+  SHARING_REACTION_MAX_VISIBLE,
+} from "@/contracts/sharing-reactions";
 import { SharingReactionDisplay } from "./sharing-reaction-display";
 import { buildSharingReactionDisplayFixture } from "./sharing-reaction-display.fixture";
 
@@ -46,6 +49,41 @@ export const SimultaneousLikes: Story = {
   },
 };
 
+export const AllKinds: Story = {
+  args: {
+    reactions: buildSharingReactionDisplayFixture(
+      SHARING_REACTION_KINDS.length,
+      SHARING_REACTION_KINDS,
+    ),
+  },
+};
+
+export const SingleQuestion: Story = {
+  args: { reactions: buildSharingReactionDisplayFixture(1, ["question"]) },
+};
+
 export const Empty: Story = {
   args: { reactions: [] },
+};
+
+export const SuccessiveReactions: Story = {
+  render: function SuccessiveReactions() {
+    const [count, setCount] = useState(0);
+    const reactions = buildSharingReactionDisplayFixture(
+      count,
+      SHARING_REACTION_KINDS,
+    ).slice(-SHARING_REACTION_MAX_VISIBLE);
+    return (
+      <div className="p-4">
+        <Button onClick={() => setCount((current) => current + 1)}>
+          受信を追加
+        </Button>
+        <label>
+          入力確認
+          <input aria-label="入力確認" className="border" />
+        </label>
+        <SharingReactionDisplay reactions={reactions} />
+      </div>
+    );
+  },
 };

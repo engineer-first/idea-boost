@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn, userEvent } from "storybook/test";
 import { CanvasZoomControls } from "./canvas-zoom-controls";
 import type { MoveHistoryControlsProps } from "./move-history-controls";
+import { SharingReactionControls } from "./sharing-reaction-controls";
 
 const meta = {
   title: "Room/CanvasZoomControls",
@@ -56,6 +57,25 @@ const moveHistory: MoveHistoryControlsProps = {
   onRedo: fn(),
 };
 export const MoveHistory: Story = { args: { ...Tools.args, moveHistory } };
+export const SharingReactions: Story = {
+  args: {
+    ...Tools.args,
+    reactionControls: (disabled) => (
+      <SharingReactionControls disabled={disabled} onSendReaction={fn()} />
+    ),
+  },
+  render: (args) => (
+    <div className="flex min-h-60 items-end p-6">
+      <div className="w-fit max-w-full">
+        <CanvasZoomControls {...args} />
+      </div>
+    </div>
+  ),
+};
+export const SharingReactionsWithHistory: Story = {
+  ...SharingReactions,
+  args: { ...SharingReactions.args, moveHistory },
+};
 export const MoveHistoryPending: Story = {
   args: { ...Tools.args, moveHistory: { ...moveHistory, pending: true } },
 };

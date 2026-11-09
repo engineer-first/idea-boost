@@ -2,43 +2,80 @@
 
 import { Smile } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import toolMotion from "@/components/ui/tool-motion.module.css";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  SHARING_REACTION_KINDS,
+  type SharingReactionKind,
+} from "@/contracts/sharing-reactions";
+import { SHARING_REACTION_OPTIONS } from "../logic/sharing-reaction-options";
+import { useSharingReactionMotion } from "../logic/use-sharing-reaction-motion";
+import styles from "./sharing-reaction-controls.module.css";
 
 export type SharingReactionControlsProps = {
   disabled: boolean;
-  onSendLike: () => void;
+  onSendReaction: (kind: SharingReactionKind) => void;
+};
+
+type ReactionToolbarAnchor = {
+  getBoundingClientRect: () => DOMRect;
+  contextElement: HTMLElement;
 };
 
 export function SharingReactionControls({
   disabled,
-  onSendLike,
+  onSendReaction,
 }: SharingReactionControlsProps) {
   const [open, setOpen] = useState(false);
+  const motion = useSharingReactionMotion(disabled);
+  const anchorRef = useRef<ReactionToolbarAnchor | null>(null);
+  const attachTrigger = useCallback((trigger: HTMLButtonElement | null) => {
+    const anchor =
+      trigger?.closest<HTMLElement>("[data-sharing-reaction-anchor]") ??
+      trigger;
+    // 再接続時もRadixへ基準を渡し直し、破棄されたrefの寸法を残さない。
+    anchorRef.current = anchor
+      ? {
+          getBoundingClientRect: () => anchor.getBoundingClientRect(),
+          contextElement: anchor,
+        }
+      : null;
+  }, []);
 
   return (
     <TooltipProvider delayDuration={1000}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          motion.stop();
+          if (!nextOpen || !disabled) setOpen(nextOpen);
+        }}
+      >
+        <PopoverAnchor virtualRef={anchorRef} />
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
               <Button
+                ref={attachTrigger}
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 aria-label="リアクション"
-                disabled={disabled}
+                aria-disabled={disabled}
+                className={`${toolMotion.button} aria-disabled:opacity-50 aria-disabled:hover:bg-transparent`}
               >
                 <Smile aria-hidden="true" />
               </Button>
@@ -48,38 +85,57 @@ export function SharingReactionControls({
         </Tooltip>
         <PopoverContent
           side="top"
-          align="center"
+          align="end"
           aria-label="リアクションを選ぶ"
-          className="flex min-w-24 items-center justify-center rounded-xl border-border bg-background p-1 shadow-lg shadow-black/5"
+          className={`${styles.bar} flex w-max items-center justify-center border-border bg-background shadow-tool`}
         >
-          <Tooltip>
-            <TooltipTrigger asChild>
+          {SHARING_REACTION_KINDS.map((kind) => {
+            const option = SHARING_REACTION_OPTIONS[kind];
+            return (
               <Button
+                key={kind}
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="いいねを送る"
+                aria-label={option.sendLabel}
                 aria-disabled={disabled}
-                className="aria-disabled:opacity-50 aria-disabled:hover:bg-transparent"
-                onClick={() => {
-                  if (!disabled) onSendLike();
+                className={`${styles.choice} aria-disabled:hover:bg-transparent`}
+                onPointerEnter={(event) => {
+                  if (event.pointerType !== "touch")
+                    motion.preview(event.currentTarget, true);
+                }}
+                onPointerLeave={(event) => motion.stop(event.currentTarget)}
+                onPointerCancel={(event) => motion.stop(event.currentTarget)}
+                onFocus={(event) => {
+                  if (event.currentTarget.matches(":focus-visible"))
+                    motion.preview(event.currentTarget);
+                }}
+                onBlur={(event) => motion.stop(event.currentTarget)}
+                onKeyDown={(event) => {
+                  if (
+                    (event.key === "Enter" || event.key === " ") &&
+                    (event.repeat || event.nativeEvent.isComposing)
+                  )
+                    event.preventDefault();
+                }}
+                onClick={(event) => {
+                  if (disabled) return;
+                  motion.press(event.currentTarget);
+                  onSendReaction(kind);
                 }}
               >
                 <Image
-                  src="/reactions/like-3d.webp"
+                  src={option.imageSrc}
                   alt=""
                   width={28}
                   height={28}
                   loading="eager"
                   draggable={false}
-                  className="h-auto w-7 max-w-none shrink-0"
+                  className={`${styles.image} h-auto w-7 max-w-none shrink-0`}
                 />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" onEscapeKeyDown={() => setOpen(false)}>
-              いいね
-            </TooltipContent>
-          </Tooltip>
+            );
+          })}
         </PopoverContent>
       </Popover>
     </TooltipProvider>

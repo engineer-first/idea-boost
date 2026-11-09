@@ -11,32 +11,34 @@ import {
   ACTIVE_PREVIEW_MEMBERS,
   ACTIVE_PREVIEW_NOTES,
   ACTIVE_PREVIEW_TIMER,
-  createHostTransferPreview,
-  type HostPreviewMode,
-  PREVIEW_HOST,
+  createRoomConnectionPreview,
+  PREVIEW_SELF,
   PREVIEW_TARGET,
-} from "../logic/host-transfer-preview.fixture";
+  type RoomPreviewMode,
+} from "../logic/room-connection-preview.fixture";
 import { RoomBoard } from "./room-board";
 
 const ACTIVE_PHASE = buildPhaseStep(3);
 
-type ActiveHostTransferPreviewProps = {
-  mode: HostPreviewMode;
+type ActiveRoomConnectionPreviewProps = {
+  mode: RoomPreviewMode;
+  sessionKind?: "guest" | "account";
   phase: RoomPhase;
   participant: boolean;
   completed: boolean;
 };
 
-function ActiveHostTransferPreview({
+function ActiveRoomConnectionPreview({
   mode,
+  sessionKind,
   phase,
   participant,
   completed,
-}: ActiveHostTransferPreviewProps) {
-  const currentUserId = participant ? PREVIEW_TARGET : PREVIEW_HOST;
+}: ActiveRoomConnectionPreviewProps) {
+  const currentUserId = participant ? PREVIEW_TARGET : PREVIEW_SELF;
   const server = useMemo(
     () =>
-      createHostTransferPreview(mode, {
+      createRoomConnectionPreview(mode, {
         phase,
         currentUserId,
         members: ACTIVE_PREVIEW_MEMBERS,
@@ -67,8 +69,6 @@ function ActiveHostTransferPreview({
       const kind = (event as CustomEvent<unknown>).detail;
       if (
         kind === "timer-tick" ||
-        kind === "transfer" ||
-        kind === "aba" ||
         kind === "recipient-left" ||
         kind === "disconnect" ||
         kind === "reconnect"
@@ -76,8 +76,9 @@ function ActiveHostTransferPreview({
         server.serverEvent(kind);
       }
     };
-    window.addEventListener("host-transfer-preview", listener);
-    return () => window.removeEventListener("host-transfer-preview", listener);
+    window.addEventListener("room-connection-preview", listener);
+    return () =>
+      window.removeEventListener("room-connection-preview", listener);
   }, [server]);
   return (
     <div style={{ height: "100dvh" }}>
@@ -86,12 +87,12 @@ function ActiveHostTransferPreview({
         inviteCode="ABC234"
         inviteUrl="https://example.test/invite/ABC234"
         currentUserId={currentUserId}
-        isHost={!participant}
-        hostUserId={PREVIEW_HOST}
         initialPhase={phase}
         initialMembers={ACTIVE_PREVIEW_MEMBERS}
         webSocketFactory={server.factory}
         saveDisplayNameAction={server.saveDisplayName}
+        sessionKind={sessionKind}
+        signOutAction={async () => {}}
       />
       <Toaster />
     </div>
@@ -99,8 +100,8 @@ function ActiveHostTransferPreview({
 }
 
 const meta = {
-  title: "Room/ActiveHostTransferFlow",
-  component: ActiveHostTransferPreview,
+  title: "Room/ActiveRoomFlow",
+  component: ActiveRoomConnectionPreview,
   parameters: {
     layout: "fullscreen",
     activeRoomConnection: true,
@@ -115,15 +116,29 @@ const meta = {
     (Story, context) => {
       const currentUserId = context.args.participant
         ? PREVIEW_TARGET
-        : PREVIEW_HOST;
+        : PREVIEW_SELF;
       window.sessionStorage.setItem(
         `step-onboarding:ABC234:${currentUserId}:1-1`,
         "seen",
       );
+      for (const phaseKey of [
+        "1-2",
+        "1-3",
+        "1-4",
+        "1-5",
+        "2-1",
+        "3-1",
+        "3-3",
+      ]) {
+        window.sessionStorage.setItem(
+          `step-onboarding:ABC234:${currentUserId}:${phaseKey}`,
+          "seen",
+        );
+      }
       return <Story />;
     },
   ],
-} satisfies Meta<typeof ActiveHostTransferPreview>;
+} satisfies Meta<typeof ActiveRoomConnectionPreview>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -156,4 +171,8 @@ export const Phase3Step5: Story = phaseStory(3, 5);
 
 export const Phase1Step1Participant: Story = {
   args: { phase: buildPhaseStep(1), participant: true },
+};
+
+export const GuestSession: Story = {
+  args: { sessionKind: "guest" },
 };

@@ -20,7 +20,8 @@
       "!.claude/worktrees",
       "!.wrangler",
       "!**/.wrangler",
-      "!workers/worker-configuration.d.ts"
+      "!workers/worker-configuration.d.ts",
+      "!app/design-tokens.css"
     ]
   },
   "formatter": {

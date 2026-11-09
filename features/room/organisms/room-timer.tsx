@@ -1,552 +1,239 @@
 "use client";
 
-import { Pause, Play, RotateCcw, Settings2, Square } from "lucide-react";
-import {
-  type ChangeEvent,
-  type CompositionEvent,
-  type FocusEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  TIMER_MAX_DURATION_MS,
-  type TimerState,
-} from "@/contracts/room-protocol";
-import { cn } from "@/lib/utils";
-import type { TimerSoundControls } from "../logic/use-room-timer-sounds";
-import { TimerSoundControl } from "../molecules/timer-sound-control";
+import { Pencil, Play, RotateCcw } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { TimerState } from "@/contracts/room-protocol";
+import { getRoomTimerDisplay } from "../logic/room-timer-display";
+import { useFloatingTimer } from "../logic/use-floating-timer";
+import styles from "./room-timer.module.css";
 
 export const TIMER_DEFAULT_DURATION_MS = 3 * 60_000;
 
 export type RoomTimerProps = {
-  configureOnly?: boolean;
-  onConfigureDuration?: (durationMs: number) => void;
   timer: TimerState;
   serverOffsetMs: number;
-  soundControls: TimerSoundControls;
-  isHost: boolean;
   disabled: boolean;
   onStart: (durationMs: number) => void;
-  onPause: () => void;
-  onResume: () => void;
-  onExtend: () => void;
-  onStop: () => void;
+  onResume?: () => void;
+  onExtend?: () => void;
+  onReplay?: () => void;
+  sharingComplete?: boolean;
+  onRestartWriting?: () => void;
   now?: () => number;
   initialDurationMs?: number;
-  defaultPanelOpen?: boolean;
 };
 
 const systemNow = (): number => Date.now();
 
-function parseDuration(minutes: string, seconds: string): number | null {
-  const durationMs = (Number(minutes) * 60 + Number(seconds)) * 1_000;
-  if (
-    !Number.isFinite(durationMs) ||
-    durationMs < 1 ||
-    durationMs > TIMER_MAX_DURATION_MS
-  )
-    return null;
-  return durationMs;
-}
-
-function formatPart(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
-function fieldsFromDuration(durationMs: number): {
-  minutes: string;
-  seconds: string;
-} {
-  const totalSeconds = Math.floor(
-    Math.min(Math.max(durationMs, 0), TIMER_MAX_DURATION_MS) / 1_000,
-  );
-  return {
-    minutes: formatPart(Math.floor(totalSeconds / 60)),
-    seconds: formatPart(totalSeconds % 60),
-  };
-}
-
-function normalizeEditingPart(value: string, max: number): string {
-  const digits = value
-    .replace(/[０-９]/g, (digit) =>
-      String.fromCharCode(digit.charCodeAt(0) - 0xfee0),
-    )
-    .replace(/\D/g, "");
-  if (digits === "") return "";
-  return Number(digits) > max ? String(max) : digits;
-}
-
-function normalizeBlurredPart(value: string, max: number): string {
-  const numeric = Number(normalizeEditingPart(value, max));
-  return formatPart(Math.min(numeric, max));
-}
-
-function formatDuration(durationMs: number): string {
-  const totalSeconds = Math.ceil(Math.max(0, durationMs) / 1_000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
 export function RoomTimer({
-  configureOnly = false,
-  onConfigureDuration,
   timer,
   serverOffsetMs,
-  soundControls,
   disabled,
   onStart,
-  onPause,
   onResume,
   onExtend,
-  onStop,
+  onReplay,
+  sharingComplete = false,
+  onRestartWriting,
   now: getNow = systemNow,
   initialDurationMs = TIMER_DEFAULT_DURATION_MS,
-  defaultPanelOpen = false,
 }: RoomTimerProps) {
-  const [now, setNow] = useState(() => getNow());
-  const initialFields = fieldsFromDuration(initialDurationMs);
-  const [minutesInput, setMinutesInput] = useState(initialFields.minutes);
-  const [secondsInput, setSecondsInput] = useState(initialFields.seconds);
-  const [isComposing, setIsComposing] = useState(false);
-  const composingRef = useRef(false);
-  const [panelOpen, setPanelOpen] = useState(defaultPanelOpen);
-  const [isReconfiguring, setIsReconfiguring] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const timerControlsRef = useRef<HTMLDivElement>(null);
-  const pauseOrStopRef = useRef<HTMLButtonElement>(null);
-  const previousStatusRef = useRef(timer.status);
-  const wasPanelOpenRef = useRef(panelOpen);
-  const panelOpenRef = useRef(panelOpen);
-
-  const handlePanelOpenChange = (open: boolean) => {
-    panelOpenRef.current = open;
-    setPanelOpen(open);
-  };
-
-  useEffect(() => {
-    if (wasPanelOpenRef.current && !panelOpen) {
-      triggerRef.current?.focus();
-    }
-    wasPanelOpenRef.current = panelOpen;
-  }, [panelOpen]);
-
-  useEffect(() => {
-    if (
-      previousStatusRef.current === "running" &&
-      timer.status === "paused" &&
-      document.activeElement === pauseOrStopRef.current
-    ) {
-      // 一時停止ボタンと同じ位置の「終了」へ連続入力を引き継がない。
-      triggerRef.current?.focus();
-    }
-    previousStatusRef.current = timer.status;
-  }, [timer.status]);
-
-  useEffect(() => {
-    let suppressedPointer:
-      | { pointerId: number; pointerDownTarget: Node }
-      | undefined;
-    let releaseTimer: number | undefined;
-
-    const clearSuppressedPointer = () => {
-      if (releaseTimer !== undefined) {
-        window.clearTimeout(releaseTimer);
-        releaseTimer = undefined;
-      }
-      suppressedPointer = undefined;
-    };
-    const handleOutsidePointerDown = (event: PointerEvent) => {
-      // 前回のジェスチャーが click を生成しなかった場合でも、新しい
-      // pointerdown は独立した操作なので抑止対象にしない。
-      clearSuppressedPointer();
-      const target = event.target;
-      if (
-        !panelOpenRef.current ||
-        event.button !== 0 ||
-        !(target instanceof Node) ||
-        triggerRef.current?.contains(target) ||
-        panelRef.current?.contains(target) ||
-        timerControlsRef.current?.contains(target)
-      ) {
-        return;
-      }
-
-      // ボード面はパン開始のため pointerdown を capture して止める。
-      // パネルが閉じた後も同じジェスチャーの pointerup/click を識別できるよう、
-      // pointerId と開始対象を保持してジェスチャー全体を消費する。
-      suppressedPointer = {
-        pointerId: event.pointerId,
-        pointerDownTarget: target,
-      };
-      event.preventDefault();
-      event.stopPropagation();
-      panelOpenRef.current = false;
-      setPanelOpen(false);
-    };
-    const handleOutsidePointerUp = (event: PointerEvent) => {
-      if (suppressedPointer?.pointerId !== event.pointerId) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      // click は pointerup の直後に同じタスクで発火する。ドラッグなどで
-      // click が生成されない場合は次のタスクまでに抑止状態を解放する。
-      releaseTimer = window.setTimeout(clearSuppressedPointer, 0);
-    };
-    const handleOutsidePointerCancel = (event: PointerEvent) => {
-      if (suppressedPointer?.pointerId !== event.pointerId) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      clearSuppressedPointer();
-    };
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!suppressedPointer) return;
-
-      const clickTarget = event.target;
-      const { pointerDownTarget } = suppressedPointer;
-      const isSameGestureTarget =
-        clickTarget instanceof Node &&
-        (clickTarget === pointerDownTarget ||
-          clickTarget.contains(pointerDownTarget) ||
-          pointerDownTarget.contains(clickTarget));
-      clearSuppressedPointer();
-      if (!isSameGestureTarget) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-    };
-
-    document.addEventListener("pointerdown", handleOutsidePointerDown, {
-      capture: true,
-    });
-    document.addEventListener("pointerup", handleOutsidePointerUp, {
-      capture: true,
-    });
-    document.addEventListener("pointercancel", handleOutsidePointerCancel, {
-      capture: true,
-    });
-    document.addEventListener("click", handleOutsideClick, { capture: true });
-    return () => {
-      clearSuppressedPointer();
-      document.removeEventListener("pointerdown", handleOutsidePointerDown, {
-        capture: true,
-      });
-      document.removeEventListener("pointerup", handleOutsidePointerUp, {
-        capture: true,
-      });
-      document.removeEventListener(
-        "pointercancel",
-        handleOutsidePointerCancel,
-        { capture: true },
-      );
-      document.removeEventListener("click", handleOutsideClick, {
-        capture: true,
-      });
-    };
-  }, []);
+  const [now, setNow] = useState(getNow);
+  const [collapsed, setCollapsed] = useState(false);
+  const ref = useRef<HTMLFieldSetElement>(null);
+  const circleRef = useRef<HTMLButtonElement>(null);
+  const primaryActionRef = useRef<HTMLButtonElement>(null);
+  const focusTarget = useRef<"circle" | "actions" | null>(null);
+  const display = getRoomTimerDisplay(
+    sharingComplete
+      ? { status: "ended", durationMs: initialDurationMs }
+      : timer,
+    initialDurationMs,
+    now + serverOffsetMs,
+  );
+  const ended = display.ended || sharingComplete;
+  const paused = timer.status === "paused" && !sharingComplete;
+  const extensionUsed = timer.status !== "idle" && !!timer.extensionUsed;
+  const hasActions = sharingComplete || paused || (ended && !extensionUsed);
+  const expanded = hasActions && !collapsed;
+  const [attention, setAttention] = useState<"none" | "pulse" | "quiet">(() =>
+    ended && !disabled ? "quiet" : "none",
+  );
+  const previousStatus = useRef({ ended, sharingComplete, disabled });
+  const { dragging, ...floating } = useFloatingTimer(
+    ref,
+    expanded,
+    !sharingComplete && !paused,
+  );
 
   useEffect(() => {
     if (timer.status !== "running") return;
-    const tick = () => {
-      const clientNow = getNow();
-      setNow(clientNow);
-      if (clientNow + serverOffsetMs >= timer.endsAt) {
-        window.clearInterval(intervalId);
-      }
-    };
-    const intervalId = window.setInterval(tick, 250);
+    const tick = () => setNow(getNow());
     tick();
-    return () => window.clearInterval(intervalId);
-  }, [getNow, serverOffsetMs, timer]);
-
-  const remainingMs =
-    timer.status === "running"
-      ? Math.max(0, timer.endsAt - (now + serverOffsetMs))
-      : timer.status === "paused"
-        ? timer.remainingMs
-        : null;
-  const isEnded =
-    timer.status === "ended" ||
-    (timer.status === "running" && remainingMs === 0);
-
+    const interval = window.setInterval(tick, 100);
+    return () => window.clearInterval(interval);
+  }, [timer.status, getNow]);
   useEffect(() => {
-    if (!isEnded) setIsReconfiguring(false);
-  }, [isEnded]);
-
-  const hasDurationInputs =
-    timer.status === "idle" || (isEnded && isReconfiguring);
+    if (!hasActions) setCollapsed(false);
+  }, [hasActions]);
   useEffect(() => {
-    if (panelOpen && hasDurationInputs) return;
-    // 閉じる操作や共有状態の更新でinputが消えるとblur/compositionendが来ない。
-    // その経路でも変換状態を終え、再表示時に開始できる値へ揃える。
-    composingRef.current = false;
-    setIsComposing(false);
-    setMinutesInput((value) => normalizeBlurredPart(value, 99));
-    setSecondsInput((value) => normalizeBlurredPart(value, 59));
-  }, [panelOpen, hasDurationInputs]);
+    const previous = previousStatus.current;
+    previousStatus.current = { ended, sharingComplete, disabled };
+    if (!ended || disabled) setAttention("none");
+    else if (previous.disabled) setAttention("quiet");
+    else if (!previous.ended || (sharingComplete && !previous.sharingComplete))
+      setAttention("pulse");
+  }, [ended, sharingComplete, disabled]);
+  useLayoutEffect(() => {
+    if (
+      !focusTarget.current ||
+      (focusTarget.current === "actions") !== expanded
+    )
+      return;
+    const button =
+      focusTarget.current === "circle"
+        ? circleRef.current
+        : primaryActionRef.current;
+    if (button) {
+      focusTarget.current = null;
+      button.focus();
+    }
+  }, [expanded]);
 
-  const parsedDuration = useMemo(
-    () => (isComposing ? null : parseDuration(minutesInput, secondsInput)),
-    [isComposing, minutesInput, secondsInput],
-  );
-
-  const inputHandlers = (setValue: (value: string) => void, max: number) => ({
-    onCompositionStart: () => {
-      composingRef.current = true;
-      setIsComposing(true);
-    },
-    onCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => {
-      composingRef.current = false;
-      setIsComposing(false);
-      setValue(normalizeEditingPart(event.currentTarget.value, max));
-    },
-    onChange: (event: ChangeEvent<HTMLInputElement>) => {
-      const value = event.currentTarget.value;
-      setValue(composingRef.current ? value : normalizeEditingPart(value, max));
-    },
-    onBlur: (event: FocusEvent<HTMLInputElement>) => {
-      composingRef.current = false;
-      setIsComposing(false);
-      setValue(normalizeBlurredPart(event.currentTarget.value, max));
-    },
-  });
-
-  const setDuration = (durationMs: number) => {
-    const fields = fieldsFromDuration(durationMs);
-    setMinutesInput(fields.minutes);
-    setSecondsInput(fields.seconds);
+  const label = sharingComplete
+    ? "共有が一巡しました"
+    : `タイマー ${ended ? "終了" : timer.status === "idle" ? "未開始" : timer.status === "paused" ? "一時停止中" : "残り"} ${display.label}`;
+  const replay = () => {
+    if (disabled) return;
+    if (onReplay) onReplay();
+    else onStart(initialDurationMs);
   };
 
-  const adjustDuration = (deltaMs: number) => {
-    const currentMs =
-      (Number(minutesInput) * 60 + Number(secondsInput)) * 1_000;
-    // 上限は自由入力と同じ TIMER_MAX_DURATION_MS に揃える。調整専用の
-    // 低い上限を持つと、上限超過の入力値が「+1分」で逆に減少してしまう。
-    setDuration(
-      Math.min(Math.max(currentMs + deltaMs, 0), TIMER_MAX_DURATION_MS),
-    );
-  };
-
-  const chipClassName = cn(
-    "board-hud h-10 w-28 shrink-0 justify-start rounded-lg border-transparent bg-muted py-2 pr-10 pl-3 shadow-none hover:bg-muted disabled:opacity-100",
-    "font-mono font-bold tabular-nums",
-    timer.status === "paused" &&
-      "text-amber-800 hover:text-amber-800 aria-expanded:text-amber-800",
-    isEnded && "text-red-700 hover:text-red-700 aria-expanded:text-red-700",
-  );
-  const chipDurationMs =
-    timer.status === "idle" ? initialDurationMs : (remainingMs ?? 0);
-  const chipDuration = formatDuration(chipDurationMs);
-  const chipLabel =
-    timer.status === "idle"
-      ? `タイマー 未開始 ${chipDuration}。設定を開く`
-      : `タイマー${timer.status === "paused" ? " 一時停止中" : isEnded ? " 終了" : ""} ${chipDuration}。設定を開く`;
-  const chipContent = (
-    <span role="timer" aria-label={chipLabel} className="text-base">
-      {chipDuration}
-    </span>
-  );
-  const hostChip = (
-    <Button
-      ref={triggerRef}
-      type="button"
-      data-testid="room-timer"
-      data-ended={String(isEnded)}
-      data-status={isEnded ? "ended" : timer.status}
-      aria-label={chipLabel}
-      aria-expanded={panelOpen}
-      disabled={disabled}
-      variant="outline"
-      className={chipClassName}
-    >
-      {chipContent}
-    </Button>
-  );
-  const panel = (
-    <PopoverContent
-      ref={panelRef}
-      data-testid="room-timer-panel"
-      aria-label="タイマー操作"
-      align="end"
-      className="board-hud w-72 bg-background motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none"
-      onInteractOutside={(event) => {
+  return (
+    <fieldset
+      ref={ref}
+      className={styles.floating}
+      hidden={ended && extensionUsed && !sharingComplete}
+      data-testid="timer-floating"
+      data-timer-expanded={expanded}
+      data-timer-attention={
+        expanded && sharingComplete && !disabled ? attention : "none"
+      }
+      data-dragging={dragging}
+      data-board-native-control
+      aria-label="タイマー。Altと矢印キーで移動できます"
+      {...floating}
+      onPointerDownCapture={() => setAttention("none")}
+      onFocusCapture={() => setAttention("none")}
+      onBlurCapture={(event) => {
         if (
-          event.target instanceof Node &&
-          timerControlsRef.current?.contains(event.target)
-        ) {
-          event.preventDefault();
+          event.relatedTarget &&
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          focusTarget.current = null;
+      }}
+      onKeyDown={(event) => {
+        setAttention("none");
+        floating.onKeyDown(event);
+        if (event.key === "Escape" && expanded) {
+          event.stopPropagation();
+          if (event.currentTarget.contains(document.activeElement))
+            focusTarget.current = "circle";
+          setCollapsed(true);
         }
       }}
     >
-      {hasDurationInputs ? (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              disabled={disabled || isComposing}
-              onClick={() => adjustDuration(-60_000)}
-            >
-              -1分
-            </Button>
-            <Input
-              aria-label="タイマー時間（分）"
-              aria-invalid={!isComposing && parsedDuration === null}
-              inputMode="numeric"
-              maxLength={2}
-              placeholder="00"
-              value={minutesInput}
-              disabled={disabled}
-              className="h-8 w-12 px-2 text-center font-mono tabular-nums"
-              onFocus={(event) => event.currentTarget.select()}
-              {...inputHandlers(setMinutesInput, 99)}
-            />
-            <span className="font-mono font-bold">:</span>
-            <Input
-              aria-label="タイマー時間（秒）"
-              aria-invalid={!isComposing && parsedDuration === null}
-              inputMode="numeric"
-              maxLength={2}
-              placeholder="00"
-              value={secondsInput}
-              disabled={disabled}
-              className="h-8 w-12 px-2 text-center font-mono tabular-nums"
-              onFocus={(event) => event.currentTarget.select()}
-              {...inputHandlers(setSecondsInput, 59)}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              disabled={disabled || isComposing}
-              onClick={() => adjustDuration(60_000)}
-            >
-              +1分
-            </Button>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 w-full"
-            disabled={disabled || parsedDuration === null}
-            onClick={() => {
-              if (parsedDuration === null) return;
-              if (configureOnly) {
-                onConfigureDuration?.(parsedDuration);
-                handlePanelOpenChange(false);
-              } else onStart(parsedDuration);
-            }}
-          >
-            {configureOnly ? "持ち時間を設定" : "開始"}
-          </Button>
-        </div>
-      ) : isEnded ? (
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 flex-1"
-            disabled={disabled}
-            onClick={() => onStart(timer.durationMs)}
-          >
-            <RotateCcw aria-hidden="true" />
-            もう一度
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 flex-1"
-            disabled={disabled}
-            onClick={() => {
-              setDuration(initialDurationMs);
-              setIsReconfiguring(true);
-            }}
-          >
-            <Settings2 aria-hidden="true" />
-            設定し直す
-          </Button>
-        </div>
-      ) : (
-        <div className="flex gap-2">
-          {timer.status === "paused" ? (
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 flex-1"
-              disabled={disabled}
-              onClick={onResume}
-            >
-              <Play data-testid="timer-resume-icon" aria-hidden="true" />
-              再開
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 flex-1"
-              disabled={disabled}
-              onClick={onExtend}
-            >
-              +1分
-            </Button>
-          )}
-          {timer.status === "paused" ? (
-            <Button
-              type="button"
-              ref={pauseOrStopRef}
-              variant="destructive"
-              size="sm"
-              className="h-8 flex-1"
-              disabled={disabled}
-              onClick={onStop}
-            >
-              <Square data-testid="timer-end-icon" aria-hidden="true" />
-              終了
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 flex-1"
-              disabled={disabled}
-              ref={pauseOrStopRef}
-              onClick={onPause}
-            >
-              <Pause aria-hidden="true" />
-              一時停止
-            </Button>
-          )}
-        </div>
-      )}
-    </PopoverContent>
-  );
-
-  return (
-    <div ref={timerControlsRef} className="relative h-10 w-28 shrink-0">
-      <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
-        <PopoverTrigger asChild>{hostChip}</PopoverTrigger>
-        {panel}
-      </Popover>
-      <TimerSoundControl {...soundControls} />
-      <span aria-live="polite" className="sr-only">
-        {isEnded ? "タイマーが終了しました。時間になりました。" : null}
+      <span className="sr-only" role="timer" aria-label={label}>
+        {display.label}
       </span>
-    </div>
+      <div className={styles.surface}>
+        {!expanded ? (
+          <button
+            type="button"
+            ref={circleRef}
+            data-testid="room-timer"
+            data-ended={ended}
+            data-status={ended ? "ended" : timer.status}
+            className={styles.circle}
+            disabled={disabled}
+            aria-label={`${label}${hasActions ? "。操作を開く" : timer.status === "idle" ? "。規定時間で開始" : "。ドラッグして移動"}`}
+            title={`${label}（ドラッグ、またはAltと矢印キーで移動）`}
+            onClick={(event) => {
+              if (event.currentTarget === document.activeElement && hasActions)
+                focusTarget.current = "actions";
+              if (hasActions) setCollapsed(false);
+              else if (timer.status === "idle") onStart(initialDurationMs);
+            }}
+          >
+            <span
+              data-testid="room-timer-disk"
+              className={styles.disk}
+              style={{
+                background: `conic-gradient(from 0deg, #e5e7eb 0deg ${display.elapsedDegrees}deg, ${display.color} ${display.elapsedDegrees}deg 360deg)`,
+              }}
+              aria-hidden="true"
+            />
+            {!ended &&
+            (timer.status === "idle" || timer.status === "paused") ? (
+              <Play className={styles.startIcon} aria-hidden="true" />
+            ) : null}
+            {ended ? (
+              <RotateCcw className={styles.startIcon} aria-hidden="true" />
+            ) : null}
+          </button>
+        ) : (
+          <div className={styles.actions} data-testid="room-timer-actions">
+            <button
+              type="button"
+              ref={primaryActionRef}
+              disabled={disabled || (!paused && !sharingComplete && !onExtend)}
+              onClick={(event) => {
+                if (event.currentTarget === document.activeElement)
+                  focusTarget.current = "circle";
+                if (paused) onResume?.();
+                else if (sharingComplete) replay();
+                else onExtend?.();
+              }}
+              title={
+                paused
+                  ? `残り${display.label}から再開します`
+                  : sharingComplete
+                    ? "共有をもう一巡します"
+                    : "1分延長し、終了後に進行条件が揃えば自動で次へ進みます"
+              }
+            >
+              {paused ? (
+                <Play aria-hidden="true" />
+              ) : sharingComplete ? (
+                <RotateCcw aria-hidden="true" />
+              ) : null}
+              {paused ? "再開" : sharingComplete ? "共有を続ける" : "＋1分"}
+            </button>
+            {sharingComplete && onRestartWriting ? (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={onRestartWriting}
+                title="全員で個人作業へ戻ります。共有済み付箋と下書きは残ります。"
+              >
+                <Pencil aria-hidden="true" />
+                付箋を書き足す
+              </button>
+            ) : null}
+          </div>
+        )}
+      </div>
+      <span aria-live="polite" className="sr-only">
+        {sharingComplete
+          ? "全員の共有が一巡しました。共有を続けるか、付箋を書き足すか、みんなに確認して次へ進んでください。"
+          : paused
+            ? `タイマーを再開すると残り${display.label}から計時します。`
+            : ended
+              ? extensionUsed
+                ? "時間になりました。進行条件を確認してください。"
+                : "時間になりました。1分延長できます。延長終了後は、進行条件が揃うと自動で次へ進みます。"
+              : null}
+      </span>
+    </fieldset>
   );
 }

@@ -1,17 +1,23 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const consume = vi.hoisted(() => vi.fn());
+const refreshGuest = vi.hoisted(() => vi.fn());
+const refreshAccount = vi.hoisted(() => vi.fn());
 vi.mock("@/features/auth", async () => {
   const { createContext } = await import("react");
   return {
     consumeRoomEntry: consume,
+    refreshGuestRoomEntry: refreshGuest,
+    refreshAccountRoomEntry: refreshAccount,
     startRoomReauthentication: vi.fn(),
     RoomAdmissionContext: createContext<string | undefined>(undefined),
   };
 });
 
 import { rememberPendingRoomEntry } from "@/lib/room-client/entry-tab-storage";
+import { GUEST_IDENTITY_UNAVAILABLE_MESSAGE } from "../logic/guest-identity-message";
 import { RoomAdmissionGate } from "./room-admission-gate";
 
 const roomId = "11111111-1111-4111-8111-111111111111";
@@ -128,4 +134,173 @@ it("認証待ちはルームの背景を残し、接続する子はマウント�
   expect(screen.getByText("ルームの枠")).toBeInTheDocument();
   expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   expect(connected).not.toHaveBeenCalled();
+});
+
+describe("ゲストの入室前確認", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    refreshGuest.mockReset();
+    refreshAccount.mockReset();
+  });
+  it("StrictModeでも更新は一度だけで待機中はGoogle再認証を出さず、成功後に再読み込みする", async () => {
+    let finish!: (value: { ok: true }) => void;
+    refreshGuest.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const onRefreshed = vi.fn();
+    render(
+      <StrictMode>
+        <RoomAdmissionGate
+          roomId={roomId}
+          sessionKind="guest"
+          onRefreshed={onRefreshed}
+        >
+          <p>ルーム本文</p>
+        </RoomAdmissionGate>
+      </StrictMode>,
+    );
+    await waitFor(() => expect(refreshGuest).toHaveBeenCalledOnce());
+    expect(refreshGuest).toHaveBeenCalledWith(roomId);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "ルームを確認しています…",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+    ).not.toBeInTheDocument();
+    finish({ ok: true });
+    await waitFor(() => expect(onRefreshed).toHaveBeenCalledOnce());
+    expect(refreshGuest).toHaveBeenCalledOnce();
+    expect(screen.queryByText("ルーム本文")).not.toBeInTheDocument();
+  });
+  it("通信失敗では手動で再試行し成功後に再読み込みする", async () => {
+    refreshGuest
+      .mockResolvedValueOnce({ ok: false, reason: "retry" })
+      .mockResolvedValueOnce({ ok: true });
+    const onRefreshed = vi.fn();
+    render(
+      <RoomAdmissionGate
+        roomId={roomId}
+        sessionKind="guest"
+        onRefreshed={onRefreshed}
+      >
+        <p>ルーム本文</p>
+      </RoomAdmissionGate>,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "もう一度試す" }),
+    );
+    await waitFor(() => expect(onRefreshed).toHaveBeenCalledOnce());
+    expect(refreshGuest).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+    ).not.toBeInTheDocument();
+  });
+  it("本人確認不可でセッションが残る場合はホームから新しく始めるリンクを表示する", async () => {
+    refreshGuest.mockResolvedValue({
+      ok: false,
+      reason: "identity_unavailable",
+    });
+    render(
+      <RoomAdmissionGate roomId={roomId} sessionKind="guest">
+        <p>ルーム本文</p>
+      </RoomAdmissionGate>,
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "このブラウザでは、以前の参加者として確認できません",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "ホームから新しく始める" }),
+    ).toHaveAttribute("href", "/home");
+    expect(
+      screen.getByText(GUEST_IDENTITY_UNAVAILABLE_MESSAGE),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+    ).not.toBeInTheDocument();
+  });
+  it("更新結果が再認証要求ならGoogle再認証を表示する", async () => {
+    refreshGuest.mockResolvedValue({ ok: false, reason: "reauth_required" });
+    render(
+      <RoomAdmissionGate roomId={roomId} sessionKind="guest">
+        <p>ルーム本文</p>
+      </RoomAdmissionGate>,
+    );
+    await waitFor(() => expect(refreshGuest).toHaveBeenCalledOnce());
+    expect(
+      await screen.findByRole("button", { name: "Googleでログインして続ける" }),
+    ).toBeInTheDocument();
+  });
+  it("accountの残り時間不足も自動更新しGoogle再認証を表示しない", async () => {
+    refreshAccount.mockResolvedValue({ ok: true });
+    const onRefreshed = vi.fn();
+    render(
+      <RoomAdmissionGate
+        roomId={roomId}
+        sessionKind="account"
+        onRefreshed={onRefreshed}
+      >
+        <p>ルーム本文</p>
+      </RoomAdmissionGate>,
+    );
+    await waitFor(() => expect(onRefreshed).toHaveBeenCalledOnce());
+    expect(refreshAccount).toHaveBeenCalledWith(roomId);
+    expect(
+      screen.queryByRole("button", { name: "Googleでログインして続ける" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+it("注入したゲスト更新ActionにroomIdを渡し、待機・再試行中も背景を残す", async () => {
+  refreshGuest.mockResolvedValue({ ok: false, reason: "retry" });
+  const refreshAction = vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "retry" });
+  render(
+    <RoomAdmissionGate
+      roomId={roomId}
+      sessionKind="guest"
+      refreshAction={refreshAction}
+      fallback={<p>ルームの枠</p>}
+    >
+      <p>ルーム本文</p>
+    </RoomAdmissionGate>,
+  );
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "ルームを確認しています…",
+  );
+  expect(screen.getByText("ルームの枠")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "もう一度試す" }));
+  await waitFor(() => expect(refreshAction).toHaveBeenCalledTimes(2));
+  expect(refreshAction).toHaveBeenCalledWith(roomId);
+  expect(screen.getByText("ルームの枠")).toBeInTheDocument();
+  expect(screen.queryByText("ルーム本文")).not.toBeInTheDocument();
+});
+
+it("入室が成立するまで開いた記録を残さない", async () => {
+  const roomId = "99999999-9999-4999-8999-999999999999";
+  const { wasRoomCreationOpened } = await import(
+    "../logic/room-creation-storage"
+  );
+  localStorage.clear();
+  const view = render(
+    <RoomAdmissionGate roomId={roomId}>
+      <p>ルーム本文</p>
+    </RoomAdmissionGate>,
+  );
+  expect(wasRoomCreationOpened(roomId)).toBe(false);
+  view.rerender(
+    <RoomAdmissionGate
+      roomId={roomId}
+      allowFreshEntry
+      freshAdmission="admission"
+    >
+      <p>ルーム本文</p>
+    </RoomAdmissionGate>,
+  );
+  await waitFor(() => expect(wasRoomCreationOpened(roomId)).toBe(true));
 });

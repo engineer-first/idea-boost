@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { fn } from "storybook/test";
 import { LeaveConfirmDialog } from "./leave-confirm-dialog";
 
 const meta = {
@@ -23,44 +23,10 @@ export const Leave: Story = {
   },
 };
 
-export const CompletedLeave: Story = {
-  args: {
-    mode: "leave",
-    completed: true,
-  },
-};
-
-// ホストの解散確認（ルーム削除の警告文言になる）。
-export const Disband: Story = {
-  args: {
-    mode: "disband",
-  },
-};
-
 // 退出処理中（多重押下防止で操作が無効化される）。
 export const Leaving: Story = {
   args: {
     mode: "leave",
     isLeaving: true,
   },
-};
-
-export const Discard: Story = {
-  args: { mode: "leave" },
-  play: async ({ canvasElement }) => {
-    const dialog = within(
-      await within(canvasElement.ownerDocument.body).findByRole("alertdialog"),
-    );
-    await userEvent.click(
-      dialog.getByRole("radio", { name: "成果を残さず退出" }),
-    );
-    await expect(
-      dialog.getByRole("radio", { name: "成果を残さず退出" }),
-    ).toBeChecked();
-  },
-};
-
-export const CompletedDiscard: Story = {
-  ...Discard,
-  args: { mode: "leave", completed: true },
 };

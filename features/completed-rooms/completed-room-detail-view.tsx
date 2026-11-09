@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRef } from "react";
+import { type ReactNode, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import type {
   CompletedBoardResponse,
@@ -19,7 +19,20 @@ import {
   SCENE_LABELS,
   SCENE_STATUS,
 } from "./completed-rooms-content";
+
+function formatCompactCompletedDate(value: number): string {
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Asia/Tokyo",
+  }).format(value);
+}
 export type CompletedRoomDetailViewProps = {
+  accountLink?: ReactNode;
   feedback?: FeedbackControls;
   room: CompletedRoom | null;
   loading: boolean;
@@ -37,6 +50,7 @@ export type CompletedRoomDetailViewProps = {
 export function CompletedRoomDetailView({
   feedback,
   room,
+  accountLink,
   loading,
   error,
   expanded,
@@ -70,6 +84,9 @@ export function CompletedRoomDetailView({
               </Button>
             </>
           )}
+          {accountLink ? (
+            <div className="border-t pt-6">{accountLink}</div>
+          ) : null}
         </div>
       </main>
     );
@@ -83,6 +100,48 @@ export function CompletedRoomDetailView({
       <RoomOutcomeView
         authorized
         outcome={outcome}
+        additionalNavigation={
+          <Link
+            href="/completed-rooms"
+            className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            以前のルーム一覧へ
+          </Link>
+        }
+        recordInfo={
+          <section
+            aria-label="記録情報"
+            className="mt-8 border-t border-border pt-4"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">記録情報</h2>
+              <span className="text-xs text-muted-foreground">日本時間</span>
+            </div>
+
+            <dl className="mt-3 grid grid-cols-2 gap-4">
+              <div className="min-w-0">
+                <dt className="text-xs text-muted-foreground">完了日時</dt>
+                <dd className="mt-1 text-sm font-medium tabular-nums">
+                  {formatCompactCompletedDate(room.completedAt)}
+                </dd>
+              </div>
+
+              <div className="min-w-0">
+                <dt className="text-xs text-muted-foreground">閲覧期限</dt>
+                <dd className="mt-1 text-sm font-medium tabular-nums">
+                  {formatCompactCompletedDate(room.expiresAt)}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full bg-muted px-2 py-1">
+                読み取り専用
+              </span>
+              <span>再表示：ホーム ＞ 過去の成果</span>
+            </div>
+          </section>
+        }
         onOpenFeedback={feedback ? () => feedback.open("app") : undefined}
         feedbackButtonRef={feedbackButtonRef}
         onExportSuccess={feedback?.schedulePrompt}
@@ -95,31 +154,9 @@ export function CompletedRoomDetailView({
             />
           ) : null
         }
+        footer={accountLink}
       >
-        {feedback ? (
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            感想は現在参加中のルームからのみ送信できます。退出・解散後は送信できません。
-          </p>
-        ) : null}
         <section className="mt-8 space-y-4" aria-label="完了ルームの記録">
-          <div className="rounded-xl border bg-muted/20 p-4 text-sm leading-7">
-            <p>完了日時：{formatCompletedDate(room.completedAt)}（日本時間）</p>
-            <p>閲覧期限：{formatCompletedDate(room.expiresAt)}（日本時間）</p>
-            <p className="text-muted-foreground">
-              完了時の内容を読み取り専用で表示しています。
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/completed-rooms"
-              className="inline-flex min-h-11 items-center px-2 underline underline-offset-4"
-            >
-              以前のルームへ
-            </Link>
-            <Button className="min-h-11" variant="outline" onClick={onRetry}>
-              成果を再取得
-            </Button>
-          </div>
           <Button
             className="min-h-11 w-full justify-between"
             variant="outline"
@@ -133,21 +170,21 @@ export function CompletedRoomDetailView({
           {expanded && (
             <div
               id="completed-history"
-              className="space-y-5 rounded-xl border p-4 sm:p-6"
+              className="space-y-4 rounded-lg border p-4 sm:p-6"
             >
-              <p className="text-sm leading-6 text-muted-foreground">
+              <p className="text-base leading-6 text-muted-foreground">
                 共有されていた付箋と配置を見返せます。配置から採用理由を示すものではありません。
               </p>
               <div className="space-y-2">
                 <label
                   htmlFor="completed-scene"
-                  className="block text-sm font-semibold"
+                  className="block text-base font-semibold"
                 >
                   見返す場面
                 </label>
                 <select
                   id="completed-scene"
-                  className="min-h-11 w-full min-w-0 rounded-md border bg-background px-3 text-sm"
+                  className="min-h-11 w-full min-w-0 rounded-md border bg-background px-3 text-base"
                   value={selected}
                   onChange={(e) =>
                     onSelect(e.target.value as CompletedSceneKind)
@@ -180,7 +217,7 @@ export function CompletedRoomDetailView({
                         {SCENE_LABELS[selected]}
                       </h2>
                       {scene.scene.recordedAt !== null && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-base text-muted-foreground">
                           記録日時：
                           {formatCompletedDate(scene.scene.recordedAt)}
                           （日本時間）
@@ -189,7 +226,7 @@ export function CompletedRoomDetailView({
                       {scene.board ? (
                         <CompletedBoardView board={scene.board} />
                       ) : (
-                        <p className="rounded-lg bg-muted/40 p-4 text-sm leading-7">
+                        <p className="rounded-lg bg-muted/40 p-4 text-base leading-7">
                           {SCENE_STATUS[scene.scene.status]}
                         </p>
                       )}

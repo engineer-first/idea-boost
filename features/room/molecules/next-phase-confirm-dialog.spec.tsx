@@ -1,13 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { NextPhaseConfirmDialog } from "./next-phase-confirm-dialog";
 
 function setup(
   overrides: Partial<Parameters<typeof NextPhaseConfirmDialog>[0]> = {},
 ) {
   const props = {
-    phase: buildPhaseStep(1),
     disabled: false,
     onConfirm: vi.fn(),
     ...overrides,
@@ -33,61 +31,43 @@ describe("NextPhaseConfirmDialog", () => {
     ).toBeDisabled();
   });
 
-  it("未完了メンバーがいる場合も工程終了の確認内容を表示する", () => {
+  it("メンバーを待って押せない間は、あと何人で進めるかをボタンに出す", () => {
+    setup({
+      disabled: true,
+      waiting: { kind: "members", remaining: 2, total: 5 },
+    });
+
+    expect(
+      screen.getByRole("button", { name: "あと2人で次へ" }),
+    ).toBeDisabled();
+  });
+
+  it("通信を待って押せない間は、通信が戻ると進めるとボタンに出す", () => {
+    setup({ disabled: true, waiting: { kind: "connection" } });
+
+    expect(screen.getByRole("button", { name: "再接続中…" })).toBeDisabled();
+  });
+
+  it("押せるときは待ちの情報があっても「次のステップへ」を出す", () => {
+    setup({ waiting: { kind: "members", remaining: 1, total: 3 } });
+
+    expect(
+      screen.getByRole("button", { name: "次のステップへ" }),
+    ).toBeEnabled();
+  });
+
+  it("確認ダイアログは補足説明を出さず、未完了メンバーと操作だけを示す", () => {
     setup({ notReadyNames: ["Owner"] });
 
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
     const dialog = screen.getByRole("alertdialog");
-    expect(
-      screen.getByText("完了していないメンバーがいます"),
-    ).toBeInTheDocument();
-    expect(dialog).toHaveTextContent(
-      "全員の完了を待たずに、次のステップへ進みますか？",
-    );
-    expect(dialog).toHaveTextContent("Owner");
+    expect(dialog).toHaveTextContent("完了していないメンバーがいます");
     expect(screen.getByRole("img", { name: "Owner" })).toBeInTheDocument();
-    expect(dialog).toHaveTextContent("本文のある共有付箋と下書きは残ります。");
+    expect(dialog).not.toHaveTextContent("付箋");
+    expect(dialog).not.toHaveTextContent("タイマー");
+    expect(dialog).not.toHaveTextContent("下書き");
   });
-
-  it("確認ダイアログで現在ステップと、空白の付箋を削除する範囲を説明する", () => {
-    setup({ phase: buildPhaseStep(2) });
-
-    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-
-    expect(screen.getByText("次のステップへ進みますか？")).toBeInTheDocument();
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("1-2 課題共有");
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "このフェーズの空白だけの共有付箋は削除します。",
-    );
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "本文のある共有付箋と下書きは残ります。",
-    );
-  });
-
-  it.each([1, 2, 3] as const)(
-    "フェーズ%sの共有を離れるときは空白のマイ付箋を整理すると説明する",
-    (phase) => {
-      setup({ phase: buildPhaseStep(2, phase) });
-
-      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-
-      expect(screen.getByRole("alertdialog")).toHaveTextContent(
-        "この共有ステップの空白だけのマイ付箋も削除します。",
-      );
-    },
-  );
-
-  it.each([1, 2, 3] as const)(
-    "フェーズ%sの個人作業を離れるときは空白のマイ付箋を削除すると説明する",
-    (phase) => {
-      setup({ phase: buildPhaseStep(1, phase) });
-      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-      expect(screen.getByRole("alertdialog")).toHaveTextContent(
-        "この個人作業ステップの空白だけのマイ付箋も削除します。",
-      );
-    },
-  );
 
   it("「次へ進む」で onConfirm を呼ぶ（確認前には呼ばない）", () => {
     const { onConfirm } = setup();
@@ -109,19 +89,8 @@ describe("NextPhaseConfirmDialog", () => {
   });
 });
 
-it.each([3, 5])(
-  "step%sの進行確認は緊急復元を不可能と説明せず、下書きの扱いを伝える",
-  (step) => {
-    setup({ phase: buildPhaseStep(step, 1) });
-    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    expect(screen.getByRole("alertdialog")).not.toHaveTextContent("戻れません");
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(/下書き.*破棄/);
-  },
-);
-
 it("確認中に全員完了してキャンセルしても進行ボタンへフォーカスを戻す", async () => {
   const props = {
-    phase: buildPhaseStep(1),
     disabled: false,
     onConfirm: vi.fn(),
   };

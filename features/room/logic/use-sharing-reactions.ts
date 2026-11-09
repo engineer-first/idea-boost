@@ -15,25 +15,27 @@ import {
   SHARING_REACTION_INTERVAL_MS,
   SHARING_REACTION_MAX_PER_ACCOUNT,
   SHARING_REACTION_MAX_VISIBLE,
+  type SharingReactionKind,
 } from "@/contracts/sharing-reactions";
 import type { RoomScreenConnectionStatus } from "./connection-status";
 
 export type SharingReaction = {
   id: string;
   senderId: string;
+  kind: SharingReactionKind;
   slot: number;
   expiresAt: number;
 };
 
 export type SharingReactionControls = {
   disabled: boolean;
-  onSendLike: () => void;
+  onSendReaction: (kind: SharingReactionKind) => void;
 };
 
 export type UseSharingReactionsResult = {
   reactions: SharingReaction[];
-  canSendLike: boolean;
-  sendLike: () => void;
+  canSendReaction: boolean;
+  sendReaction: (kind: SharingReactionKind) => void;
   applyMessage: (message: ServerMessage, receivedAt?: number) => void;
 };
 
@@ -146,32 +148,35 @@ export function useSharingReactions({
     [],
   );
 
-  const sendLike = useCallback((): void => {
-    const current = contextRef.current;
-    const now = Date.now();
-    const recentSends = sentAtRef.current.filter(
-      (sentAt) => sentAt + SHARING_REACTION_DURATION_MS > now,
-    );
-    if (
-      current.connectionStatus !== "open" ||
-      current.blocked ||
-      !canSendSharingReaction(current.phase) ||
-      now < cooldownUntilRef.current ||
-      recentSends.length >= SHARING_REACTION_MAX_PER_ACCOUNT
-    )
-      return;
-    if (
-      send({
-        type: "reaction:send",
-        kind: "like",
-        phaseRevision: current.phaseRevision,
-      }) === false
-    )
-      return;
-    sentAtRef.current = [...recentSends, now];
-    lastSentAtRef.current = now;
-    refreshSendLimit();
-  }, [send, refreshSendLimit]);
+  const sendReaction = useCallback(
+    (kind: SharingReactionKind): void => {
+      const current = contextRef.current;
+      const now = Date.now();
+      const recentSends = sentAtRef.current.filter(
+        (sentAt) => sentAt + SHARING_REACTION_DURATION_MS > now,
+      );
+      if (
+        current.connectionStatus !== "open" ||
+        current.blocked ||
+        !canSendSharingReaction(current.phase) ||
+        now < cooldownUntilRef.current ||
+        recentSends.length >= SHARING_REACTION_MAX_PER_ACCOUNT
+      )
+        return;
+      if (
+        send({
+          type: "reaction:send",
+          kind,
+          phaseRevision: current.phaseRevision,
+        }) === false
+      )
+        return;
+      sentAtRef.current = [...recentSends, now];
+      lastSentAtRef.current = now;
+      refreshSendLimit();
+    },
+    [send, refreshSendLimit],
+  );
 
   const applyMessage = useCallback(
     (message: ServerMessage, receivedAt = Date.now()): void => {
@@ -205,6 +210,7 @@ export function useSharingReactions({
       const reaction: SharingReaction = {
         id: message.id,
         senderId: message.senderId,
+        kind: message.kind,
         slot: nextSlotRef.current++ % SHARING_REACTION_MAX_VISIBLE,
         expiresAt: receivedAt + SHARING_REACTION_DURATION_MS,
       };
@@ -224,12 +230,12 @@ export function useSharingReactions({
 
   return {
     reactions,
-    canSendLike:
+    canSendReaction:
       connectionStatus === "open" &&
       !blocked &&
       !coolingDown &&
       canSendSharingReaction(phase),
-    sendLike,
+    sendReaction,
     applyMessage,
   };
 }

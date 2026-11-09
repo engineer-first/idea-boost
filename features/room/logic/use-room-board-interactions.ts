@@ -37,6 +37,7 @@ import { roomNotify } from "./room-notify";
 import { type BoardDrag, useBoardDrag } from "./use-board-drag";
 import { useCanvasCamera } from "./use-canvas-camera";
 import { useIdeaValueFeasibilityMapInput } from "./use-idea-value-feasibility-map-input";
+import type { RemotePresenterView } from "./use-presenter-view";
 
 export type UseRoomBoardInteractionsArgs = {
   getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
@@ -72,6 +73,9 @@ export type UseRoomBoardInteractionsArgs = {
     draggingNoteId: string | null,
   ) => void;
   onCursorLeave: () => void;
+  presenterView?: RemotePresenterView | null;
+  isFollowingPresenter?: boolean;
+  onManualPanStart?: () => void;
 };
 
 export type RoomBoardInteractions = {
@@ -160,11 +164,38 @@ export function useRoomBoardInteractions({
   onPrivateNoteUnpublish,
   onCursorMove,
   onCursorLeave,
+  presenterView = null,
+  isFollowingPresenter = true,
+  onManualPanStart,
 }: UseRoomBoardInteractionsArgs): RoomBoardInteractions {
   const boardRootRef = useRef<HTMLDivElement>(null);
   const boardScrollerRef = useRef<HTMLDivElement>(null);
   const privateToolbarRef = useRef<HTMLDivElement>(null);
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
+  const presenterViewRef = useRef<RemotePresenterView | null>(presenterView);
+  presenterViewRef.current = presenterView;
+
+  const isFollowingPresenterRef = useRef(isFollowingPresenter);
+  isFollowingPresenterRef.current = isFollowingPresenter;
+
+  const zoomRatioRef = useRef<number | null>(null);
+  const lastPresenterUserIdRef = useRef<string | null>(null);
+  const wasFollowingRef = useRef(false);
+
+  const handleCameraZoomChange = useCallback((zoom: number) => {
+    const view = presenterViewRef.current?.view;
+
+    if (
+      !isFollowingPresenterRef.current ||
+      !view ||
+      view.coordinateSpace !== "canvas" ||
+      view.zoom <= 0
+    ) {
+      return;
+    }
+
+    zoomRatioRef.current = zoom / view.zoom;
+  }, []);
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" &&
     phase.phase === 3 &&
@@ -187,6 +218,9 @@ export function useRoomBoardInteractions({
     hasPan,
     cancelPan,
     consumePanClick,
+    cameraRef,
+    followWorldCenter,
+    cancelFollowAnimation,
     handlePointerDown: onCanvasPointerDown,
     handlePointerMove: onCanvasPointerMove,
     handlePointerEnd: onCanvasPointerEnd,
@@ -207,10 +241,64 @@ export function useRoomBoardInteractions({
     navigationDisabled: usesIdeaMapViewport,
     ideaMapSizeLevel,
     ideaMapSizeInitialized,
+    onManualPanStart,
+    onZoomChange: handleCameraZoomChange,
   });
   useEffect(() => {
     if (usesIdeaMapViewport) preserveCamera();
   }, [usesIdeaMapViewport, preserveCamera]);
+  useEffect(() => {
+    if (
+      !isFollowingPresenter ||
+      !presenterView ||
+      usesIdeaMapViewport ||
+      presenterView.view.coordinateSpace !== "canvas"
+    ) {
+      if (!isFollowingPresenter || !presenterView || usesIdeaMapViewport) {
+        wasFollowingRef.current = false;
+        cancelFollowAnimation();
+      }
+      return;
+    }
+
+    const presenterChanged =
+      lastPresenterUserIdRef.current !== presenterView.userId;
+
+    // 初回フォロー、または発表者が変わった時点で、
+    // 現在の個人ズームを維持する比率を初期化する。
+    if (
+      presenterChanged ||
+      !wasFollowingRef.current ||
+      zoomRatioRef.current === null
+    ) {
+      zoomRatioRef.current = cameraRef.current.zoom / presenterView.view.zoom;
+    }
+
+    lastPresenterUserIdRef.current = presenterView.userId;
+    wasFollowingRef.current = true;
+
+    const localZoom = presenterView.view.zoom * (zoomRatioRef.current ?? 1);
+
+    followWorldCenter(
+      {
+        x: presenterView.view.centerX,
+        y: presenterView.view.centerY,
+      },
+      localZoom,
+    );
+  }, [
+    isFollowingPresenter,
+    presenterView?.userId,
+    presenterView?.view.coordinateSpace,
+    presenterView?.view.centerX,
+    presenterView?.view.centerY,
+    presenterView?.view.zoom,
+    usesIdeaMapViewport,
+    cameraRef,
+    followWorldCenter,
+    cancelFollowAnimation,
+    presenterView,
+  ]);
   const mapNoteGeometry = useMemo(
     () =>
       getIdeaMapNoteGeometry(

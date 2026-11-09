@@ -7,6 +7,7 @@ import {
   PreviewAccessClaimsSchema,
 } from "../contracts/preview";
 import {
+  LoginAssertionSchema,
   SESSION_COOKIE_NAME,
   TOKEN_AUDIENCE,
   VerifiedSessionSchema,
@@ -109,6 +110,25 @@ export async function previewGateway(
     request.headers.get("Origin") !== url.origin
   )
     return deny(403, "同じPreview画面から操作してください。");
+  if (url.pathname === "/api/auth/sync" && request.method === "POST") {
+    const body: unknown = await request
+      .clone()
+      .json()
+      .catch(() => null);
+    const token =
+      typeof body === "object" &&
+      body !== null &&
+      "assertion" in body &&
+      typeof body.assertion === "string"
+        ? body.assertion
+        : "";
+    const assertion = await verifyToken(token, LoginAssertionSchema, {
+      secret,
+      audience: TOKEN_AUDIENCE.loginAssertion,
+    });
+    if (!assertion) return deny(401, "ログイン主張を検証できませんでした。");
+    if (assertion.kind === "guest") return deny(403, "許可されていません。");
+  }
   if (
     (url.pathname === PREVIEW_SIGNED_OUT_PATH ||
       url.pathname === PREVIEW_SIGN_IN_PATH) &&
@@ -149,7 +169,7 @@ export async function previewGateway(
   let ttl = Math.min(3600, identity.exp - Math.floor(Date.now() / 1000));
   if (ttl <= 0) return deny(401, "ログインの期限が切れました。");
   if (
-    !session ||
+    session?.kind !== "account" ||
     session.email !== identity.email ||
     session.exp > identity.exp
   ) {
@@ -182,6 +202,7 @@ export async function previewGateway(
       if (ttl <= 0) return deny(401, "ログインの期限が切れました。");
       appToken = await signToken(
         {
+          kind: "account",
           sub: result.userId,
           email: identity.email,
           name: identity.email.split("@")[0],

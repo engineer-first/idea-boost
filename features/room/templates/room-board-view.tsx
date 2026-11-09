@@ -10,15 +10,14 @@
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
-import { Button } from "@/components/ui/button";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
-import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
   isPhaseStep,
@@ -26,7 +25,12 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import type { Carryover, SharingState } from "@/contracts/room-protocol";
+import type {
+  Carryover,
+  NoteColor,
+  PresenterView,
+  SharingState,
+} from "@/contracts/room-protocol";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
@@ -41,6 +45,7 @@ import {
   FeedbackPrompt,
 } from "@/features/feedback";
 import type { Note } from "@/features/notes";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { CanvasFitInsets } from "../logic/canvas-camera";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
@@ -55,15 +60,11 @@ import {
 } from "../logic/use-canvas-selection";
 import { useCharacterHint } from "../logic/use-character-hint";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
+import type { RemotePresenterView } from "../logic/use-presenter-view";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
-import type {
-  SharingReaction,
-  SharingReactionControls,
-} from "../logic/use-sharing-reactions";
 import { BoardCharacter } from "../molecules/board-character";
-import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
@@ -72,7 +73,6 @@ import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
 import { RoomNameDialog } from "../molecules/room-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
-import { SharingReactionDisplay } from "../molecules/sharing-reaction-display";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
@@ -152,8 +152,8 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
 }
 
 export type RoomBoardViewProps = {
-  sharingReactions?: SharingReaction[];
-  reactionControls?: SharingReactionControls;
+  sharingReactionDisplay?: ReactNode;
+  reactionControls?: (disabled: boolean) => ReactNode;
   feedback?: FeedbackControls;
   moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
@@ -179,17 +179,17 @@ export type RoomBoardViewProps = {
   timer: TimerState;
   timerServerOffsetMs: number;
   timerUpdateVersion?: number;
-  isHost: boolean;
-  hostRevision?: number;
-  onTransferHost?: (targetUserId: string) => void;
-  isTransferring?: boolean;
-  transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
   roomName?: RoomNameControls;
   decision: Decision | null;
   outcomePublished: boolean;
   adoptionFocusNoteId?: string | null;
+  isPresenterViewOwner?: boolean;
+  isPresenterViewFollowedByOthers?: boolean;
+  presenterViewName?: string | null;
+  presenterViewColor?: NoteColor | null;
+  onUnfollowPresenterView?: () => void;
   // WebSocket 接続の表示用状態。値の生成は room-board（コンテナ）の責務で、
   // ここでは受け取った状態を表示するだけ（このコンポーネントはデータ層に依存しない）。
   connectionStatus: RoomScreenConnectionStatus;
@@ -198,8 +198,6 @@ export type RoomBoardViewProps = {
   members: Member[];
   loginReturnHref?: string;
   currentUserId: string;
-  // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
-  hostUserId: string;
   // 全票を使い切ったメンバーの userId。投票先は含まない。
   completedVoterIds?: ReadonlyArray<string>;
   progress?: import("../logic/room-reducer").PhaseProgressState;
@@ -211,6 +209,13 @@ export type RoomBoardViewProps = {
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
   remoteCursors: RenderedRemoteCursorPresence[];
+  presenterView?: RemotePresenterView | null;
+  isFollowingPresenterView?: boolean;
+  canFollowPresenterView?: boolean;
+  onFollowPresenterView?: () => void;
+  onPresenterViewChange?: (view: PresenterView) => void;
+  onManualPanStart?: () => void;
+  sessionKind?: "guest" | "account";
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
@@ -261,7 +266,7 @@ export type RoomBoardViewProps = {
   onRestartWriting?: () => void;
   onRevote?: () => void;
   // 退出。
-  onLeave: (outcomeAccess?: LeaveOutcomeAccess) => void;
+  onLeave: () => void;
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
   isLeaving: boolean;
   // 次フェーズへ。完了条件を満たした参加者が操作する。
@@ -291,7 +296,7 @@ type VoteStampPointer = {
 };
 
 export function RoomBoardView({
-  sharingReactions = [],
+  sharingReactionDisplay,
   reactionControls,
   feedback,
   moveHistory,
@@ -318,11 +323,6 @@ export function RoomBoardView({
   timer,
   timerServerOffsetMs,
   timerUpdateVersion = 0,
-  isHost,
-  hostRevision = 0,
-  onTransferHost,
-  isTransferring: transferringHost = false,
-  transferError = null,
   memberRemoval,
   displayName,
   roomName,
@@ -335,7 +335,6 @@ export function RoomBoardView({
   members,
   loginReturnHref,
   currentUserId,
-  hostUserId,
   completedVoterIds = [],
   progress = {
     phaseRevision: 0,
@@ -354,7 +353,19 @@ export function RoomBoardView({
   interactions,
   help,
   remoteCursors,
+  isFollowingPresenterView = false,
+  canFollowPresenterView = false,
+  isPresenterViewOwner = false,
+  isPresenterViewFollowedByOthers = false,
+  presenterViewName = null,
+  presenterViewColor = null,
+  onFollowPresenterView,
+  onUnfollowPresenterView,
+  presenterView,
+  onPresenterViewChange,
+  onManualPanStart,
   signOutAction,
+  sessionKind,
   hmwDecidedIssue,
   decidedHmw,
   issueReference,
@@ -400,9 +411,74 @@ export function RoomBoardView({
   onTimerExtend,
   onTimerStop,
 }: RoomBoardViewProps) {
-  const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
+  const isRemovingMember = memberRemoval?.pending ?? false;
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
+
+  const presenterViewStatusControl =
+    isPresenterViewOwner &&
+    isPresenterViewFollowedByOthers &&
+    presenterViewColor ? (
+      <div
+        role="status"
+        className="pointer-events-auto flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm shadow-tool"
+        style={{
+          borderColor: NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full"
+          style={{
+            backgroundColor:
+              NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
+          }}
+        />
+        <span>あなたの視点がフォローされています</span>
+      </div>
+    ) : isFollowingPresenterView &&
+      !isPresenterViewOwner &&
+      presenterViewName &&
+      presenterViewColor ? (
+      <div
+        className="pointer-events-auto flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm shadow-tool"
+        style={{
+          borderColor: NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full"
+          style={{
+            backgroundColor:
+              NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
+          }}
+        />
+        <span className="whitespace-nowrap">
+          {presenterViewName}さんをフォロー中
+        </span>
+        <button
+          type="button"
+          className="whitespace-nowrap rounded-lg px-2 py-1 hover:bg-muted"
+          onClick={onUnfollowPresenterView}
+        >
+          フォローを外す
+        </button>
+      </div>
+    ) : !isPresenterViewOwner && canFollowPresenterView ? (
+      <button
+        type="button"
+        className="pointer-events-auto rounded-lg border bg-background px-3 py-2 text-sm font-medium shadow-tool hover:bg-muted"
+        style={{
+          borderColor: presenterViewColor
+            ? NOTE_COLOR_STYLES[presenterViewColor].backgroundColor
+            : undefined,
+        }}
+        onClick={onFollowPresenterView}
+      >
+        発表者をフォロー
+      </button>
+    ) : null;
   const shouldExpandPrivateNotes =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
   const selection = useCanvasSelection({
@@ -447,17 +523,7 @@ export function RoomBoardView({
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
   const privateNoteAddRef = useRef<(() => void) | null>(null);
   const composingRef = useRef(false);
-  const [leaveDialogRevision, setLeaveDialogRevision] = useState<number | null>(
-    null,
-  );
-  const leaveDialogOpen = leaveDialogRevision === hostRevision;
-  const setLeaveDialogOpen = (open: boolean) =>
-    setLeaveDialogRevision(open ? hostRevision : null);
-  const [hostTarget, setHostTarget] = useState<{
-    userId: string;
-    revision: number;
-  } | null>(null);
-  const [outcomeDismissed, setOutcomeDismissed] = useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
   const [isVoteStickerReturnDropTarget, setIsVoteStickerReturnDropTarget] =
@@ -467,7 +533,6 @@ export function RoomBoardView({
   const sharedAdoptionFocusRef = useRef<string | null>(null);
   const adoptionFocusCallbackRef = useRef(notifyAdoptionFocusChange);
   const suppressAdoptionFocusClearRef = useRef(false);
-  const previousHostRevisionRef = useRef(hostRevision);
   const [selectedVoteKind, setSelectedVoteKind] = useState<DotVoteKind | null>(
     null,
   );
@@ -501,7 +566,8 @@ export function RoomBoardView({
         : moveHistory.redo.reason,
     },
   };
-  const boardInteractionBlocked = timer.status !== "running";
+  const boardInteractionBlocked =
+    timer.status === "idle" || timer.status === "paused";
 
   const cancelVoteDrag = useCallback((): boolean => {
     const current = voteStickerDragRef.current;
@@ -604,14 +670,6 @@ export function RoomBoardView({
     if (connectionStatus === "open" && decision === null) return;
     setIsAdoptMode(false);
   }, [boardInteractionBlocked, connectionStatus, decision]);
-
-  useEffect(() => {
-    if (previousHostRevisionRef.current === hostRevision) return;
-    previousHostRevisionRef.current = hostRevision;
-    suppressAdoptionFocusClearRef.current =
-      isAdoptMode || sharedAdoptionFocusRef.current !== null;
-    setIsAdoptMode(false);
-  }, [hostRevision, isAdoptMode]);
 
   useEffect(() => {
     if (connectionStatus !== "open") {
@@ -859,7 +917,7 @@ export function RoomBoardView({
 
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
-  //   UI 側の入口無効化）
+  // UI 側の入口無効化）
   const candidateNotes = confirmedNotes.filter(
     (note) => note.visibility === "shared" && !note.excluded,
   );
@@ -868,7 +926,7 @@ export function RoomBoardView({
     (isResultStep(phase) &&
       (decision === null || candidateNotes.length === 0)) ||
     (phase.kind === "step" &&
-      phase.step > 1 &&
+      phase.step > 2 &&
       !isResultStep(phase) &&
       candidateNotes.length === 0);
   const hasFinalDecision = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
@@ -885,11 +943,10 @@ export function RoomBoardView({
       ? null
       : (notes.find((note) => note.id === decision.noteId)?.content ??
         "確定した内容");
-  const phaseLoopControls = (
+  const phaseLoopControls = isResultStep(phase) ? (
     <PhaseLoopControls
-      key={`${phaseKey}:${phaseRevision}:${hostRevision}:${connectionStatus}`}
+      key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
       phase={phase}
-      isHost={isHost}
       isSelecting={isAdoptMode}
       decisionContent={decisionContent}
       candidateCount={candidateNotes.length}
@@ -897,7 +954,7 @@ export function RoomBoardView({
         isDisconnected ||
         isNextPhasePending ||
         isCandidatePending ||
-        isTransferring
+        isRemovingMember
       }
       selectionDisabled={boardInteractionBlocked}
       onRestartWriting={onRestartWriting}
@@ -909,7 +966,7 @@ export function RoomBoardView({
       onCancelSelection={() => setIsAdoptMode(false)}
       onClearDecision={outcomePublished ? undefined : onDecisionClear}
     />
-  );
+  ) : null;
 
   function hasActiveCanvasGesture(): boolean {
     return Boolean(
@@ -1563,7 +1620,7 @@ export function RoomBoardView({
   };
 
   const feedbackButtonRef = useRef<HTMLButtonElement>(null);
-  if (hasFinalDecision && outcomePublished && !outcomeDismissed) {
+  if (hasFinalDecision && outcomePublished) {
     return (
       <>
         <RoomOutcomeView
@@ -1581,25 +1638,6 @@ export function RoomBoardView({
           }
           outcome={outcome}
           connected={!isDisconnected}
-        >
-          <Button
-            variant="outline"
-            className="min-h-11"
-            disabled={isLeaving}
-            onClick={() => setLeaveDialogOpen(true)}
-          >
-            退出してホームへ
-          </Button>
-        </RoomOutcomeView>
-        <LeaveConfirmDialog
-          key={`${hostRevision}:${outcomePublished}`}
-          open={leaveDialogOpen && !isTransferring}
-          onOpenChange={setLeaveDialogOpen}
-          onConfirm={onLeave}
-          isLeaving={isLeaving}
-          mode="leave"
-          completed
-          onReturnToOutcome={() => setLeaveDialogOpen(false)}
         />
         {feedback ? <FeedbackPanel feedback={feedback} /> : null}
       </>
@@ -1627,11 +1665,10 @@ export function RoomBoardView({
             "--board-private-dock-bottom":
               "calc(var(--board-mobile-phase-bottom) + var(--board-phase-hud-height, 0px) + 0.5rem)",
             "--board-private-dock-top":
-              "max(16.5rem, calc(var(--board-connection-notice-bottom, 0px) + 3.5rem))",
-            "--board-private-dock-height": hasMoveHistory
-              ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))"
-              : connectionStatus === "open"
-                ? "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))"
+              "max(16.5rem, var(--board-timer-row-bottom, 0px), calc(var(--board-connection-notice-bottom, 0px) + 3.5rem))",
+            "--board-private-dock-height":
+              hasMoveHistory || connectionStatus === "open"
+                ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))"
                 : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)), max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))",
           } as CSSProperties
         }
@@ -1921,26 +1958,18 @@ export function RoomBoardView({
           onRollbackPhase={onRollbackPhase}
           sharing={sharing}
           onSharingStart={onSharingStart}
+          onRestartWriting={onRestartWriting}
           onSharingAdvance={onSharingAdvance}
           timer={timer}
           timerServerOffsetMs={timerServerOffsetMs}
           timerUpdateVersion={timerUpdateVersion}
-          isHost={isHost}
-          hostRevision={hostRevision}
-          onSelectHostTarget={
-            onTransferHost
-              ? (userId) => {
-                  setHostTarget({ userId, revision: hostRevision });
-                }
-              : undefined
-          }
-          isTransferring={isTransferring}
+          onSelectMember={memberRemoval?.request}
+          isRemovingMember={isRemovingMember}
           isDisconnected={isDisconnected}
           connectionStatus={connectionStatus}
           connectionDelayed={connectionDelayed}
           members={members}
           currentUserId={currentUserId}
-          hostUserId={hostUserId}
           completedVoterIds={completedVoterIds}
           progress={progress}
           onToggleReady={onToggleReady}
@@ -1953,8 +1982,8 @@ export function RoomBoardView({
           hasFinalDecision={hasFinalDecision}
           outcomePublished={outcomePublished}
           onPublishOutcome={onPublishOutcome}
-          onShowOutcome={() => setOutcomeDismissed(false)}
           signOutAction={signOutAction}
+          sessionKind={sessionKind}
           isLeaving={isLeaving}
           onLeaveClick={() => setLeaveDialogOpen(true)}
           onNextPhase={onNextPhase}
@@ -1979,10 +2008,12 @@ export function RoomBoardView({
             />
           ) : null}
         </RoomBoardHeader>
-        {canSendSharingReaction(phase) && !outcomePublished ? (
-          <SharingReactionDisplay reactions={sharingReactions} />
-        ) : null}
-        {boardInteractionBlocked &&
+        {canSendSharingReaction(phase) && !outcomePublished
+          ? sharingReactionDisplay
+          : null}
+        {timer.status === "idle" &&
+        sharing?.status !== "complete" &&
+        !sharing?.startsAt &&
         phase.kind === "step" &&
         !isDisconnected &&
         decision === null ? (
@@ -1991,20 +2022,14 @@ export function RoomBoardView({
               role="status"
               aria-live="polite"
               data-testid="timer-work-hint"
-              className="w-full max-w-md rounded-xl border border-border/40 bg-background/75 px-6 py-5 text-center shadow-xl backdrop-blur-[2px]"
+              className="w-full max-w-md rounded-lg border border-border/40 bg-background/75 px-6 py-5 text-center shadow-tool backdrop-blur-[2px]"
             >
               <p className="text-lg font-semibold">
-                {timer.status === "paused"
-                  ? "タイマーが一時停止中です"
-                  : timer.status === "ended"
-                    ? "タイマーが終了しました"
-                    : "タイマーが開始されていません"}
+                タイマーが開始されていません
               </p>
 
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {timer.status === "paused"
-                  ? "タイマーを再開すると、ボードで作業できます。"
-                  : "タイマーを設定して開始すると、ボードで作業できます。"}
+                円形のタイマーを押すと、この工程の規定時間で作業を始められます。
               </p>
             </div>
           </div>
@@ -2012,7 +2037,7 @@ export function RoomBoardView({
         {isAdoptMode && interactionTool === "hand" ? (
           <p
             role="status"
-            className="pointer-events-none absolute bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-background px-3 py-2 text-sm shadow"
+            className="pointer-events-none absolute bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-background px-3 py-2 text-sm shadow-tool"
           >
             採用するには「選択」に戻してください
           </p>
@@ -2030,7 +2055,6 @@ export function RoomBoardView({
           permissions={permissions}
           decision={decision}
           adoptionFocusNoteId={adoptionFocusNoteId}
-          isHost={isHost}
           privateNotes={toolbarNotes}
           exampleNotes={exampleNotes}
           isSavingBeforeShare={isSavingBeforeShare}
@@ -2071,7 +2095,6 @@ export function RoomBoardView({
                     <IdeaMapSizeControls
                       sizeLevel={ideaMapSizeLevel}
                       initialized={ideaMapSizeInitialized}
-                      isHost={isHost}
                       isDisconnected={isDisconnected}
                       isDragging={ideaMapIsDragging || isNoteDragging}
                       onResize={onIdeaMapResize}
@@ -2179,6 +2202,14 @@ export function RoomBoardView({
           onPrivateNoteDelete={onPrivateNoteDelete}
           onPrivateNoteDragStart={handlePrivateDragStart}
           remoteCursors={remoteCursors}
+          isFollowingPresenterView={isFollowingPresenterView}
+          isPresenterViewOwner={isPresenterViewOwner}
+          isPresenterViewFollowedByOthers={isPresenterViewFollowedByOthers}
+          presenterViewName={presenterViewName}
+          presenterViewColor={presenterViewColor}
+          presenterView={presenterView}
+          onPresenterViewChange={onPresenterViewChange}
+          onManualPanStart={onManualPanStart}
         />
         {isVotingStep(phase) ? (
           <div
@@ -2200,13 +2231,18 @@ export function RoomBoardView({
           </div>
         ) : null}
 
-        {!isIdeaMapWorkspaceStep ? (
+        {!isIdeaMapWorkspaceStep || presenterViewStatusControl !== null ? (
           <div
             className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
-            data-testid="phase-loop-hud"
+            data-testid={
+              !isIdeaMapWorkspaceStep ? "phase-loop-hud" : "presenter-view-hud"
+            }
             data-board-fit-edge="bottom"
           >
-            {phaseLoopControls}
+            <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
+              {presenterViewStatusControl}
+              {!isIdeaMapWorkspaceStep ? phaseLoopControls : null}
+            </div>
           </div>
         ) : null}
 
@@ -2242,45 +2278,6 @@ export function RoomBoardView({
             <DotVoteSticker kind={selectedVoteKind} count={1} state="preview" />
           </div>
         ) : null}
-
-        {isHost &&
-        !outcomePublished &&
-        onTransferHost &&
-        hostTarget?.revision === hostRevision ? (
-          <HostTransferDialog
-            key={hostRevision}
-            open
-            onOpenChange={(open) => {
-              if (!open) setHostTarget(null);
-            }}
-            target={
-              members.find((member) => member.userId === hostTarget?.userId) ??
-              null
-            }
-            onRequestRemove={
-              memberRemoval && hostTarget
-                ? () => {
-                    memberRemoval.request(hostTarget.userId);
-                    setHostTarget(null);
-                  }
-                : undefined
-            }
-            onConfirm={onTransferHost}
-            pending={isTransferring}
-            disconnected={isDisconnected}
-            blocked={isNextPhasePending || isLeaving}
-            error={transferError}
-            onClosed={() => {
-              // 選択行はPopoverの退出アニメーション中もDOMに残る。
-              // 行へ戻すと直後のunmountでfocusを失うため、常設入口に戻す。
-              boardRootRef.current
-                ?.querySelector<HTMLButtonElement>(
-                  "[data-host-transfer-origin]",
-                )
-                ?.focus();
-            }}
-          />
-        ) : null}
         {roomName ? <RoomNameDialog controls={roomName} /> : null}
         {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
         {memberRemoval ? (
@@ -2288,22 +2285,24 @@ export function RoomBoardView({
             {...memberRemoval}
             onClosed={() => {
               boardRootRef.current
-                ?.querySelector<HTMLButtonElement>(
-                  "[data-host-transfer-origin]",
-                )
+                ?.querySelector<HTMLButtonElement>("[data-member-menu-origin]")
                 ?.focus();
             }}
           />
         ) : null}
         <LeaveConfirmDialog
-          key={`${hostRevision}:${outcomePublished}`}
-          open={leaveDialogOpen && !isTransferring}
+          key={`${outcomePublished}`}
+          open={leaveDialogOpen && !isRemovingMember && !outcomePublished}
           onOpenChange={setLeaveDialogOpen}
           onConfirm={onLeave}
           isLeaving={isLeaving}
-          mode={isHost && !outcomePublished ? "disband" : "leave"}
-          completed={outcomePublished}
-          onReturnToOutcome={() => setOutcomeDismissed(false)}
+          onClosed={() => {
+            boardRootRef.current
+              ?.querySelector<HTMLButtonElement>(
+                '[data-testid="room-menu-trigger"]',
+              )
+              ?.focus();
+          }}
         />
       </div>
       {feedback ? <FeedbackPanel feedback={feedback} /> : null}

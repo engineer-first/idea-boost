@@ -4,10 +4,8 @@
 // 再接続の考え方: 予期しない切断では指数バックオフで再接続する。
 // 再接続後はサーバー（RoomDO）が snapshot を送ってくるため、クライアント側で
 // 差分の取りこぼしを追跡する必要がない（復帰パスをサーバーの契約にしている）。
-// 退出・解散による close は再接続せず ended / disbanded を通知する。
 import {
   type ClientMessage,
-  needsHostRevision,
   parseServerMessage,
   type ServerMessage,
   WS_CLOSE_AUTH_REQUIRED,
@@ -30,15 +28,13 @@ export type RoomSocketFactory = (url: string) => WebSocket;
 // - closed: 予期しない切断（再接続待ち）
 // - auth-required: 認証期限切れ（再接続しない・同じタブで下書きを保護）
 // - ended: 個人の退出など（再接続しない・ホームへ）
-// - disbanded: ホストがルームを解散（再接続しない・理由通知してホームへ）
 // close() によるクライアント主導の終了では通知しない。
 export type RoomConnectionStatus =
   | "auth-required"
   | "connecting"
   | "open"
   | "closed"
-  | "ended"
-  | "disbanded";
+  | "ended";
 
 export type RoomClientOptions = {
   url: string;
@@ -75,7 +71,6 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
 
   let socket: WebSocket | null = null;
   let closedByUser = false;
-  let hostRevision: number | null = null;
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -136,11 +131,6 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
         );
         return;
       }
-      if (
-        (message.type === "snapshot" || message.type === "host:updated") &&
-        message.hostRevision !== undefined
-      )
-        hostRevision = Math.max(hostRevision ?? 0, message.hostRevision);
       options.onMessage(message);
     };
 
@@ -156,10 +146,9 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
         options.onStatusChange?.("auth-required");
         return;
       }
-      // 解散: 再接続せず disbanded（UI が理由を出してホームへ）
       if (isDisbandedClose(event)) {
         stop();
-        options.onStatusChange?.("disbanded");
+        options.onStatusChange?.("ended");
         return;
       }
       // 個人退出: 再接続せず ended
@@ -208,13 +197,7 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
         return false;
       }
       try {
-        const request =
-          needsHostRevision(message) &&
-          message.expectedHostRevision === undefined &&
-          hostRevision !== null
-            ? { ...message, expectedHostRevision: hostRevision }
-            : message;
-        socket.send(JSON.stringify(request));
+        socket.send(JSON.stringify(message));
         return true;
       } catch {
         return false;

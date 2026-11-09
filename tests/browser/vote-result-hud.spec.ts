@@ -7,7 +7,10 @@ it.each([360, 375, 640, 900, 1440])(
   async (width) => {
     const browser = await chromium.launch();
     try {
-      const page = await browser.newPage({ viewport: { width, height: 1000 } });
+      const page = await browser.newPage({
+        viewport: { width, height: 1000 },
+        reducedMotion: "reduce",
+      });
       for (const scenario of [
         {
           stories: [
@@ -16,7 +19,6 @@ it.each([360, 375, 640, 900, 1440])(
             "vote-result-awaiting-decision",
           ],
           memberCount: 12,
-          isHost: true,
         },
         {
           stories: [
@@ -25,7 +27,6 @@ it.each([360, 375, 640, 900, 1440])(
             "idea-result-awaiting-decision",
           ],
           memberCount: 12,
-          isHost: true,
         },
         {
           stories: [
@@ -34,7 +35,6 @@ it.each([360, 375, 640, 900, 1440])(
             "vote-result-non-host-paused",
           ],
           memberCount: 3,
-          isHost: false,
         },
       ]) {
         let reference: unknown;
@@ -59,7 +59,7 @@ it.each([360, 375, 640, 900, 1440])(
           const avatar = page.getByRole("button", {
             name: `参加者 ${scenario.memberCount}人`,
           });
-          const timer = page.getByTestId("room-timer");
+          const timer = page.getByTestId("timer-floating");
           const read = async () => ({
             hudHeight: (await hud.boundingBox())?.height,
             menu: await page
@@ -72,43 +72,21 @@ it.each([360, 375, 640, 900, 1440])(
             width < 900 ? 98 : 56,
           );
           const label = page.getByTestId("vote-completion-label");
-          if (story.includes("complete")) {
-            expect(await label.isVisible()).toBe(true);
-            const labelBox = await label.boundingBox();
-            const hudBox = await hud.boundingBox();
-            expect(labelBox).not.toBeNull();
-            expect(hudBox).not.toBeNull();
-            if (!labelBox || !hudBox)
-              throw new Error("完了表示または操作バーがありません");
-            if (width < 900) {
-              expect(labelBox.y).toBeGreaterThanOrEqual(
-                hudBox.y + hudBox.height,
-              );
-              const context = await page
-                .getByTestId("board-context-column")
-                .boundingBox();
-              if (!context) throw new Error("現在地表示がありません");
-              if (width < 640)
-                expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(
-                  context.y,
-                );
-            } else {
-              const avatarBox = await avatar.boundingBox();
-              if (!avatarBox) throw new Error("参加者ボタンがありません");
-              expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(
-                avatarBox.x,
-              );
-            }
-          } else {
-            // 非表示ラベルが幅を占有していた #487 の回帰を検知する。
-            expect(await label.count()).toBe(0);
-            if (width >= 900) {
-              const hudBox = await hud.boundingBox();
-              const avatarBox = await avatar.boundingBox();
-              if (!hudBox || !avatarBox)
-                throw new Error("操作バーまたは参加者ボタンがありません");
-              expect(avatarBox.x - hudBox.x).toBeLessThanOrEqual(8);
-            }
+          expect(await label.count()).toBe(0);
+          const ready = page.getByRole("button", {
+            name: /できた！|準備OK！/,
+          });
+          expect(await ready.getAttribute("aria-pressed")).toBe(
+            story.includes("complete") ? "true" : "false",
+          );
+          if (width >= 900) {
+            const avatarBox = await avatar.boundingBox();
+            const readyBox = await ready.boundingBox();
+            if (!avatarBox || !readyBox)
+              throw new Error("参加者または準備ボタンがありません");
+            expect(
+              avatarBox.x - (readyBox.x + readyBox.width),
+            ).toBeLessThanOrEqual(8);
           }
           const next = page.getByRole("button", { name: "次のステップへ" });
           if (await next.count()) {
@@ -157,24 +135,12 @@ it.each([360, 375, 640, 900, 1440])(
                 .getByRole("button", { name: "投票結果を表示" })
                 .count(),
             ).toBe(0);
-            if (scenario.isHost && !result?.startsWith("idea"))
+            if (!result?.startsWith("idea"))
               expect(
                 await page
                   .getByRole("button", { name: "次のステップへ" })
                   .isDisabled(),
               ).toBe(true);
-            else if (result?.startsWith("idea"))
-              expect(
-                await page
-                  .getByRole("button", { name: "完了して成果を表示" })
-                  .isDisabled(),
-              ).toBe(true);
-            else
-              expect(
-                await page
-                  .getByRole("button", { name: "完了して成果を表示" })
-                  .count(),
-              ).toBe(0);
           }
         }
       }
@@ -189,7 +155,10 @@ it.each([360, 375, 640, 900, 1440])(
   async (width) => {
     const browser = await chromium.launch();
     try {
-      const page = await browser.newPage({ viewport: { width, height: 1000 } });
+      const page = await browser.newPage({
+        viewport: { width, height: 1000 },
+        reducedMotion: "reduce",
+      });
       let reference: unknown;
       for (const story of [
         "idea-result-awaiting-decision",
@@ -201,6 +170,13 @@ it.each([360, 375, 640, 900, 1440])(
         const button = page.getByRole("button", { name: "完了して成果を表示" });
         await button.waitFor();
         await page.evaluate(() => document.fonts.ready);
+        await expect
+          .poll(() =>
+            page.evaluate(
+              () => getComputedStyle(document.documentElement).colorScheme,
+            ),
+          )
+          .toBe("light");
         const box = await button.boundingBox();
         if (!reference) {
           reference = box;

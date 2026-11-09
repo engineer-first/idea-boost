@@ -44,3 +44,7 @@ export const Failed: Story = {
 export const AtLimit: Story = {
   args: { controls: { ...meta.args.controls, draft: "あ".repeat(15) } },
 };
+
+export const TooLong: Story = {
+  args: { controls: { ...meta.args.controls, draft: "あ".repeat(16) } },
+};

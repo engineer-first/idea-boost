@@ -52,3 +52,16 @@ it.each([404, 500, 502])(
     expect(res.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
   },
 );
+
+it("ゲスト本人の一覧要求をWorkerへ転送しprivate, no-storeで返す", async () => {
+  mocks.user.mockResolvedValue({ kind: "guest", sub: "guest", email: null });
+  mocks.api.mockResolvedValue(Response.json({ rooms: [], nextCursor: null }));
+  const response = await GET(
+    new Request("https://app.test/api/completed-rooms"),
+  );
+  expect(response.status).toBe(200);
+  expect(mocks.api).toHaveBeenCalledWith("/api/completed-rooms", {
+    cache: "no-store",
+  });
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+});

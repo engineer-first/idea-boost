@@ -100,3 +100,77 @@ describe("establishSession", () => {
     });
   });
 });
+
+describe("本人種別に応じたCookie発行", () => {
+  it("ゲスト主張ではkind guest・email null・主張と同じsubを発行しnameを含めない", async () => {
+    const assertion = {
+      kind: "guest",
+      userId: ASSERTION.userId,
+      displayName: "はな",
+    } as const;
+    apiFetchMock.mockResolvedValue(Response.json({ userId: assertion.userId }));
+    expect((await establishSession(assertion)).ok).toBe(true);
+    expect(setSessionCookieMock).toHaveBeenCalledOnce();
+    const claims = decodeJwt(setSessionCookieMock.mock.calls[0]?.[0] ?? "");
+    expect(claims).toMatchObject({
+      kind: "guest",
+      email: null,
+      sub: assertion.userId,
+    });
+    expect(claims).not.toHaveProperty("name");
+  });
+  it.each(["guest", "dev"] as const)(
+    "%s主張と同期応答のuserIdが違えば失敗しCookieを発行しない",
+    async (kind) => {
+      apiFetchMock.mockResolvedValue(
+        Response.json({ userId: "22222222-2222-4222-8222-222222222222" }),
+      );
+      const assertion =
+        kind === "dev"
+          ? ASSERTION
+          : { kind, userId: ASSERTION.userId, displayName: "はな" };
+      expect(await establishSession(assertion)).toMatchObject({
+        ok: false,
+        error: expect.any(String),
+      });
+      expect(setSessionCookieMock).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    ASSERTION,
+    {
+      kind: "google",
+      googleSub: "google-sub",
+      email: "hana@example.test",
+      name: "はな",
+    } as const,
+  ])(
+    "$kind 主張ではkind account・email・nameをCookieへ入れる",
+    async (assertion) => {
+      apiFetchMock.mockResolvedValue(
+        Response.json({ userId: ASSERTION.userId }),
+      );
+      expect((await establishSession(assertion)).ok).toBe(true);
+      expect(
+        decodeJwt(setSessionCookieMock.mock.calls[0]?.[0] ?? ""),
+      ).toMatchObject({
+        kind: "account",
+        sub: ASSERTION.userId,
+        email: assertion.email,
+        name: assertion.name,
+      });
+    },
+  );
+});
+
+it("ゲスト本人の同期が503ならCookieを発行しない", async () => {
+  apiFetchMock.mockResolvedValue(new Response("同期失敗", { status: 503 }));
+  expect(
+    await establishSession({
+      kind: "guest",
+      userId: ASSERTION.userId,
+      displayName: "はな",
+    }),
+  ).toMatchObject({ ok: false, error: expect.any(String) });
+  expect(setSessionCookieMock).not.toHaveBeenCalled();
+});

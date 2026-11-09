@@ -36,14 +36,23 @@ async function connect(roomName: string): Promise<WebSocket> {
 }
 
 describe("本文の確定", () => {
-  it.each(["paused", "ended", "expired"] as const)(
-    "本文digestの待機中にタイマーが%sになったら保存を拒否する",
-    async (status) => {
-      const roomName = `note-content-timer-${status}`;
+  it.each([
+    { timing: "受信前", status: "idle", result: "拒否" },
+    { timing: "受信前", status: "paused", result: "拒否" },
+    { timing: "受信前", status: "ended", result: "受理" },
+    { timing: "受信前", status: "expired", result: "受理" },
+    { timing: "digest待機中", status: "idle", result: "拒否" },
+    { timing: "digest待機中", status: "paused", result: "拒否" },
+    { timing: "digest待機中", status: "ended", result: "受理" },
+    { timing: "digest待機中", status: "expired", result: "受理" },
+  ] as const)(
+    "タイマーが $timing に $status になったら本文保存を $result する",
+    async ({ timing, status, result }) => {
+      const roomName = `note-content-timer-${timing}-${status}`;
       const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
       await initializeTestRoom(stub, hostId, "Host");
       // 1-1は個人の下書きをタイマー状態に関係なく編集できる。
-      // 共有ステップ1-2では停止中の保存が引き続き拒否されることを検証する。
+      // 共有ステップ1-2で、未開始・一時停止と時間切れの保存可否を区別する。
       await stub.setPhase(buildPhaseStep(2, 1), hostId);
       await startTimerForTest(roomName);
       const socket = await connect(roomName);
@@ -51,7 +60,7 @@ describe("本文の確定", () => {
         const sql = state.storage.sql;
         const now = new Date().toISOString();
         sql.exec(
-          "INSERT INTO notes (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at) VALUES (?1, ?2, '最初', 'private', 'yellow', 0, 0, 1, ?3, ?3)",
+          "INSERT INTO notes (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at) VALUES (?1, ?2, '最初', 'shared', 'yellow', 0, 0, 1, ?3, ?3)",
           noteId,
           hostId,
           now,
@@ -60,14 +69,13 @@ describe("本文の確定", () => {
           sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
             .phase_revision,
         );
-        const digest = crypto.subtle.digest.bind(crypto.subtle);
-        const delayed = vi
-          .spyOn(crypto.subtle, "digest")
-          .mockImplementation(async (...args) => {
-            const result = await digest(...args);
-            saveTimerState(
-              sql,
-              status === "paused"
+        // expired はセッション期限ではなく、終了時刻を過ぎた running タイマー。
+        const applyTimer = () =>
+          saveTimerState(
+            sql,
+            status === "idle"
+              ? { status: "idle" }
+              : status === "paused"
                 ? { status: "paused", remainingMs: 30_000, durationMs: 60_000 }
                 : status === "ended"
                   ? { status: "ended", durationMs: 60_000 }
@@ -76,7 +84,14 @@ describe("本文の確定", () => {
                       endsAt: Date.now() - 1,
                       durationMs: 60_000,
                     },
-            );
+          );
+        if (timing === "受信前") applyTimer();
+        const digest = crypto.subtle.digest.bind(crypto.subtle);
+        const delayed = vi
+          .spyOn(crypto.subtle, "digest")
+          .mockImplementation(async (...args) => {
+            const result = await digest(...args);
+            if (timing === "digest待機中") applyTimer();
             return result;
           });
         const replies: unknown[] = [];
@@ -86,35 +101,58 @@ describe("本文の確定", () => {
           .mockImplementation((data) => {
             replies.push(JSON.parse(String(data)));
           });
+        const operationId = crypto.randomUUID();
         try {
           await room.webSocketMessage(
             serverSocket,
             JSON.stringify({
               type: "note:update-content",
               noteId,
-              content: "停止後の本文",
-              operationId: crypto.randomUUID(),
+              content: "保存する本文",
+              operationId,
               expectedContentRevision: 0,
               expectedPhaseRevision: revision,
             }),
           );
-          expect(delayed).toHaveBeenCalledOnce();
+          if (timing === "digest待機中" || result === "受理")
+            expect(delayed).toHaveBeenCalledOnce();
+          else expect(delayed).not.toHaveBeenCalled();
+          const receipts = sql
+            .exec("SELECT * FROM note_content_receipts")
+            .toArray();
+          if (result === "受理") {
+            expect(replies).not.toContainEqual(
+              expect.objectContaining({ type: "error" }),
+            );
+            expect(receipts).toMatchObject([
+              {
+                operation_id: operationId,
+                user_id: hostId,
+                note_id: noteId,
+                content_revision: 1,
+              },
+            ]);
+            expect(replies).toContainEqual(
+              expect.objectContaining({
+                type: "note:content-saved",
+                operationId,
+                noteId,
+                contentRevision: 1,
+              }),
+            );
+          } else {
+            expect(receipts).toEqual([]);
+            expect(replies).toContainEqual(
+              expect.objectContaining({ type: "error", code: "forbidden" }),
+            );
+            expect(replies).not.toContainEqual(
+              expect.objectContaining({ type: "note:content-saved" }),
+            );
+          }
           expect(
             sql.exec("SELECT content FROM notes WHERE id=?1", noteId).one()
               .content,
-          ).toBe("最初");
-          expect(
-            sql.exec("SELECT * FROM note_content_receipts").toArray(),
-          ).toEqual([]);
-          expect(replies).toContainEqual(
-            expect.objectContaining({ type: "error", code: "forbidden" }),
-          );
-          expect(
-            replies.some(
-              (reply) =>
-                (reply as { type: string }).type === "note:content-saved",
-            ),
-          ).toBe(false);
+          ).toBe(result === "受理" ? "保存する本文" : "最初");
         } finally {
           delayed.mockRestore();
           send.mockRestore();

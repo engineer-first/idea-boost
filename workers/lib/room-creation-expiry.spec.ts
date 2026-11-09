@@ -131,7 +131,8 @@ describe("24h作成と独立した公開・回復契約", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       kind: "ready",
-      ...(result as object),
+      roomId: (result as { roomId: string }).roomId,
+      inviteCode: (result as { inviteCode: string }).inviteCode,
     });
     const outsider = await exports.default.fetch(
       `https://api.test/api/room-creations/${id}?expectedPrincipal=${other.sub}`,
@@ -228,7 +229,8 @@ it("受付期限後もread-only statusがreadyを返し、POSTは拒否", async 
   expect(await status.json()).toEqual({
     kind: "ready",
     acceptance: "expired",
-    ...(room as object),
+    roomId: (room as { roomId: string }).roomId,
+    inviteCode: (room as { inviteCode: string }).inviteCode,
   });
 });
 it("遅いready応答は解散・削除後に公開gateを復活させない", async () => {
@@ -342,15 +344,12 @@ it("retired watermarkは時計後退時にも新規予約を拒否", async () =>
     "UPDATE room_creation_policy SET retired_before=0 WHERE id=1",
   ).run();
 });
-it("marker無しでownerやphase revisionのあるlegacyは新RPCでも初期化しない", async () => {
+it("marker無しでphase revisionのある既存ルームは新RPCでも初期化しない", async () => {
   const { creationIdentity } = await import("./room-creation");
   await ensureUser(env.DB, { id: owner.sub, email: owner.email });
   const c = await reserveRoomCreation(env.DB, owner.sub, v7(), "test");
   await runInRoomDO(c.room_id, async (instance, state) => {
-    state.storage.sql.exec(
-      "UPDATE room_owner SET host_id=? WHERE id=1",
-      owner.sub,
-    );
+    state.storage.sql.exec("UPDATE room_state SET phase_revision=1 WHERE id=1");
     await expect(
       instance.initializeCreation(creationIdentity(c), owner.name, c.name),
     ).rejects.toThrow("再初期化");

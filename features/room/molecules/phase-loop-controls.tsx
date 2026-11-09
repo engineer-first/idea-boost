@@ -22,7 +22,6 @@ import { AdoptNoteControl } from "./adopt-note-control";
 
 export type PhaseLoopControlsProps = {
   phase: RoomPhase;
-  isHost: boolean;
   isSelecting: boolean;
   decisionContent: string | null;
   candidateCount: number;
@@ -57,7 +56,6 @@ export function PhaseLoopControls({
     return (
       <AdoptNoteControl
         phaseNumber={phase.phase}
-        isHost
         canSelect
         isSelecting={false}
         decisionContent={decisionContent}
@@ -72,12 +70,12 @@ export function PhaseLoopControls({
       {isResult && candidateCount === 0 ? (
         <p
           role="status"
-          className="rounded-xl border bg-background px-4 py-2 text-sm"
+          className="rounded-lg border bg-background px-4 py-2 text-sm"
         >
           候補がありません。薄く表示された付箋のメニューから「候補に戻す」を選んでください。
         </p>
       ) : null}
-      <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-border bg-background p-2 shadow-lg shadow-black/5">
+      <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl border border-border bg-background p-2 shadow-tool">
         {!isSelecting ? (
           <AlertDialog
             open={dialog !== null}
@@ -94,18 +92,22 @@ export function PhaseLoopControls({
                 {canRestart ? "もう一度付箋を書く" : "もう一度投票する"}
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent
+              aria-describedby={
+                dialog === "writing" ? undefined : "revote-description"
+              }
+            >
               <AlertDialogHeader>
                 <AlertDialogTitle>
                   {dialog === "writing"
                     ? "もう少し考えるために、個人作業へ戻りますか？"
                     : `候補${candidateCount}件に投票し直しますか？`}
                 </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {dialog === "writing"
-                    ? "全員がこのフェーズの個人作業へ戻り、タイマーは停止します。共有済み付箋と下書きは残ります。共有済み付箋は閲覧のみです。下書きは本人が共有するまで他の人には見えません。"
-                    : "付箋は消えません。本文・作者・色・位置・グループ・候補の状態は残ります。このフェーズの前回の票だけを、候補外の付箋への票も含めて消します。前回結果には戻せません。タイマーを停止し、全員が主観1票・客観3票から投票し直します。"}
-                </AlertDialogDescription>
+                {dialog === "revote" && (
+                  <AlertDialogDescription id="revote-description">
+                    付箋は消えません。
+                  </AlertDialogDescription>
+                )}
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>キャンセル</AlertDialogCancel>
@@ -124,7 +126,6 @@ export function PhaseLoopControls({
         {isResult ? (
           <AdoptNoteControl
             phaseNumber={phase.phase}
-            isHost
             canSelect={isResult}
             isSelecting={isSelecting}
             decisionContent={null}

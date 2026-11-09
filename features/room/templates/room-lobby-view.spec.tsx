@@ -1,10 +1,18 @@
 // スタート画面のプレゼンテーション層の単体テスト。
-import { fireEvent, render, screen } from "@testing-library/react";
+
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { buildLobbyPhase } from "@/contracts/phase.fixture";
 import { buildMembers } from "@/contracts/room-protocol.fixture";
 import { buildRoomNameControls } from "../logic/room-name.fixture";
+import { useMemberRemoval } from "../logic/use-member-removal";
 import { RoomLobbyView } from "./room-lobby-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -16,8 +24,6 @@ function renderView(
     <RoomLobbyView
       members={buildMembers(3, ME)}
       currentUserId={ME}
-      isHost
-      hostUserId={ME}
       phase={buildLobbyPhase()}
       inviteCode="AB12CD"
       inviteUrl="https://idea-flow.example/invite/AB12CD"
@@ -35,12 +41,12 @@ describe("RoomLobbyView", () => {
   it("ホストのとき「開始する」ボタンが表示される", () => {
     renderView();
     expect(screen.getByTestId("start-phase-button")).toHaveTextContent(
-      "開始する",
+      "セッションを開始",
     );
   });
 
   it("非ホストのときも開始ボタンが表示される", () => {
-    renderView({ isHost: false });
+    renderView({});
     expect(screen.getByTestId("start-phase-button")).toBeInTheDocument();
   });
 
@@ -64,6 +70,11 @@ describe("RoomLobbyView", () => {
     expect(screen.getByTestId("start-phase-button")).toBeDisabled();
   });
 
+  it("退出処理中にはセッションを開始できない", () => {
+    renderView({ isLeaving: true });
+    expect(screen.getByTestId("start-phase-button")).toBeDisabled();
+  });
+
   it("接続が切れているときは再接続中の表示が出る", () => {
     renderView({ connectionStatus: "closed" });
     expect(
@@ -81,36 +92,36 @@ describe("RoomLobbyView", () => {
   });
 
   it("data-phase と data-host を container がテストから参照できる形で持つ", () => {
-    renderView({ phase: buildLobbyPhase(), isHost: true });
+    renderView({ phase: buildLobbyPhase() });
     const view = screen.getByTestId("room-lobby-view");
     expect(view).toHaveAttribute("data-phase", "lobby");
-    expect(view).toHaveAttribute("data-host", "true");
+    expect(view).not.toHaveAttribute("data-host");
   });
 });
 
 describe("退出ボタン", () => {
-  it("ホストは「ルームを解散」ボタンが描画される", () => {
-    renderView({ isHost: true });
-    expect(
-      screen.getByRole("button", { name: "ルームを解散" }),
-    ).toBeInTheDocument();
-  });
-
-  it("非ホストは「退出する」ボタンが描画される", () => {
-    renderView({ isHost: false });
+  it("ホストは「退出する」ボタンが描画される", () => {
+    renderView({});
     expect(
       screen.getByRole("button", { name: "退出する" }),
     ).toBeInTheDocument();
   });
 
-  it("ホストの「ルームを解散」で確認 Dialog が開き、確定で onLeave が呼ばれる", async () => {
+  it("非ホストは「退出する」ボタンが描画される", () => {
+    renderView({});
+    expect(
+      screen.getByRole("button", { name: "退出する" }),
+    ).toBeInTheDocument();
+  });
+
+  it("ホストの「退出する」で確認 Dialog が開き、確定で onLeave が呼ばれる", async () => {
     const onLeave = vi.fn();
     const user = userEvent.setup();
-    renderView({ onLeave, isHost: true });
+    renderView({ onLeave });
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "ルームを解散" }));
+    await user.click(screen.getByRole("button", { name: "退出する" }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-    expect(screen.getByText("ルームを解散しますか？")).toBeInTheDocument();
+    expect(screen.getByText("退出しますか？")).toBeInTheDocument();
     await user.click(screen.getByTestId("leave-confirm-action"));
     expect(onLeave).toHaveBeenCalledTimes(1);
   });
@@ -118,42 +129,28 @@ describe("退出ボタン", () => {
   it("「キャンセル」で Dialog が閉じて onLeave は呼ばれない", async () => {
     const onLeave = vi.fn();
     const user = userEvent.setup();
-    renderView({ onLeave, isHost: true });
-    await user.click(screen.getByRole("button", { name: "ルームを解散" }));
+    renderView({ onLeave });
+    await user.click(screen.getByRole("button", { name: "退出する" }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(onLeave).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId("leave-button")).toHaveFocus(),
+    );
   });
 
-  it("isLeaving=true のときホストボタンは disabled で文言が「解散中…」", () => {
-    renderView({ isLeaving: true, isHost: true });
-    const button = screen.getByRole("button", { name: /解散/ });
+  it("isLeaving=true のときホストボタンは disabled で文言が「退出中…」", () => {
+    renderView({ isLeaving: true });
+    const button = screen.getByRole("button", { name: /退出/ });
     expect(button).toBeDisabled();
-    expect(button).toHaveTextContent("解散中…");
+    expect(button).toHaveTextContent("退出中…");
   });
 });
 
 describe("招待URL/コード（host 限定表示）", () => {
-  it("host のとき招待URLと招待コードのラベルと値が表示される", () => {
-    renderView({
-      isHost: true,
-      inviteCode: "ZZ99XX",
-      inviteUrl: "https://example/invite/ZZ99XX",
-    });
-    expect(screen.getByText("招待URL")).toBeInTheDocument();
-    expect(screen.getByText("招待コード")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "招待URLをコピー" }),
-    ).toHaveTextContent("https://example/invite/ZZ99XX");
-    expect(
-      screen.getByRole("button", { name: "招待コードをコピー" }),
-    ).toHaveTextContent("ZZ99XX");
-  });
-
   it("非 host のときも招待URL/コードが出る", () => {
     renderView({
-      isHost: false,
       inviteCode: "ZZ99XX",
       inviteUrl: "https://example/invite/ZZ99XX",
     });
@@ -186,37 +183,142 @@ it("招待URLの共有は明示操作からURLだけを送る", async () => {
   }
 });
 
-it("省略された参加者から確認を開いて取消すと一覧の入口へ戻る", async () => {
-  const members = buildMembers(14, ME);
-  const onTransferHost = vi.fn();
+it("20人全員を表示し、参加者の除外を取消すと選んだ参加者へ戻る", async () => {
+  const members = buildMembers(20, ME);
   const user = userEvent.setup();
-  renderView({ members, onTransferHost });
-  const overflow = screen.getByRole("button", { name: "他 3 名" });
-  await user.click(overflow);
-  await user.click(screen.getByRole("button", { name: members[13].name }));
+  function Preview() {
+    const memberRemoval = useMemberRemoval({
+      currentUserId: ME,
+      members,
+      connected: true,
+      blocked: false,
+      send: () => true,
+    });
+    return (
+      <RoomLobbyView
+        members={members}
+        currentUserId={ME}
+        phase={buildLobbyPhase()}
+        inviteCode="AB12CD"
+        inviteUrl="https://example.test"
+        connectionStatus="open"
+        isStarting={false}
+        onStart={vi.fn()}
+        onLeave={vi.fn()}
+        isLeaving={false}
+        memberRemoval={memberRemoval}
+      />
+    );
+  }
+  render(<Preview />);
+  expect(screen.queryByTestId("room-members-overflow")).not.toBeInTheDocument();
+  for (const member of members)
+    expect(screen.getByText(member.name)).toBeVisible();
+  const target = screen.getByRole("button", { name: members[19].name });
+  await user.click(target);
   expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "キャンセル" }));
-  await vi.waitFor(() => expect(overflow).toHaveFocus());
-  expect(onTransferHost).not.toHaveBeenCalled();
+  await vi.waitFor(() => expect(target).toHaveFocus());
 });
 
-it("参加者がロビーで選んだ成果の扱いを退出へ渡す", async () => {
-  const onLeave = vi.fn();
+it("参加者がロビーで成果を選ばず退出を確認できる", async () => {
   const user = userEvent.setup();
-  renderView({ isHost: false, onLeave });
+  const onLeave = vi.fn();
+  renderView({ onLeave });
+
   await user.click(screen.getByRole("button", { name: "退出する" }));
-  await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
-  await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
-  expect(onLeave).toHaveBeenCalledWith("discard");
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
+  await user.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "退出する",
+    }),
+  );
+  expect(onLeave).toHaveBeenCalledExactlyOnceWith();
 });
 
-it.each([true, false])(
-  "待機画面でホスト=%sも現在名を確認して変更を開ける",
-  (isHost) => {
+it("待機画面でホスト=%sも現在名を確認して変更を開ける", () => {
+  const request = vi.fn();
+  renderView({ roomName: buildRoomNameControls({ request }) });
+  expect(screen.getByText("J05")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "ルーム名を変更" }));
+  expect(request).toHaveBeenCalledOnce();
+});
+
+describe("待機中のアイコン変更", () => {
+  it("自分の顔だけを変更操作にし、名前の編集とは別に操作できる", async () => {
+    const cycle = vi.fn();
     const request = vi.fn();
-    renderView({ isHost, roomName: buildRoomNameControls({ request }) });
-    expect(screen.getByText("J05")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "ルーム名を変更" }));
+    const member = buildMembers(3, ME)[0];
+    renderView({
+      avatarChange: {
+        cycle,
+        pending: false,
+        disabled: false,
+        error: null,
+      },
+      displayName: {
+        draft: member.name,
+        onDraftChange: vi.fn(),
+        open: false,
+        pending: false,
+        disabled: false,
+        error: null,
+        request,
+        onOpenChange: vi.fn(),
+        onConfirm: vi.fn(),
+      },
+    });
+    const user = userEvent.setup();
+    const face = screen.getByRole("button", { name: "自分のアイコンを変更" });
+    expect(face).toContainElement(
+      screen.getByRole("img", { name: member.name }),
+    );
+    await user.hover(face);
+    expect(cycle).not.toHaveBeenCalled();
+    await user.click(face);
+    expect(cycle).toHaveBeenCalledOnce();
+    expect(request).not.toHaveBeenCalled();
+    const name = screen.getByRole("button", {
+      name: `${member.name}：表示名を変更`,
+    });
+    expect(name.querySelector('[data-testid="avatar"]')).toBeNull();
+    name.focus();
+    await user.keyboard("{Enter}");
     expect(request).toHaveBeenCalledOnce();
-  },
-);
+    expect(
+      screen.getAllByRole("button", { name: "自分のアイコンを変更" }),
+    ).toHaveLength(1);
+  });
+  it("変更操作だけで次のアイコンを要求し、保存・取消は求めない", async () => {
+    const cycle = vi.fn();
+    renderView({
+      avatarChange: {
+        cycle,
+        pending: false,
+        disabled: false,
+        error: null,
+      },
+    });
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "自分のアイコンを変更" }));
+    expect(cycle).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  it("操作できない接続ではボタンを無効にし、候補なしの説明は出さない", () => {
+    renderView({
+      avatarChange: {
+        cycle: vi.fn(),
+        pending: false,
+        disabled: true,
+        error: null,
+      },
+    });
+    expect(
+      screen.getByRole("button", { name: "自分のアイコンを変更" }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByText(/未使用のアイコンがない/),
+    ).not.toBeInTheDocument();
+  });
+});

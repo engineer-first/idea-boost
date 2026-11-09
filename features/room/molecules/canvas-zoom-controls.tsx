@@ -1,23 +1,22 @@
 "use client";
 
 import { Hand, Maximize2, Minus, MousePointer2, Plus } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import toolMotion from "@/components/ui/tool-motion.module.css";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { SharingReactionControls as SharingReactionControlsOptions } from "../logic/use-sharing-reactions";
 import {
   MoveHistoryControls,
   type MoveHistoryControlsProps,
 } from "./move-history-controls";
-import { SharingReactionControls } from "./sharing-reaction-controls";
 
 export type CanvasZoomControlsProps = {
-  reactionControls?: SharingReactionControlsOptions;
+  reactionControls?: (disabled: boolean) => ReactNode;
   moveHistory?: MoveHistoryControlsProps;
   showNavigationControls?: boolean;
   interactionTool?: "select" | "hand";
@@ -69,8 +68,9 @@ export function CanvasZoomControls({
   return (
     <TooltipProvider delayDuration={1000}>
       <fieldset
-        className="board-hud pointer-events-auto relative flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-lg shadow-black/5"
+        className="board-hud pointer-events-auto relative flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-tool"
         data-testid="canvas-zoom-controls"
+        data-sharing-reaction-anchor=""
         aria-label={
           showNavigationControls ? "キャンバス表示操作" : "付箋の移動履歴"
         }
@@ -91,6 +91,7 @@ export function CanvasZoomControls({
                   variant={interactionTool === "select" ? "secondary" : "ghost"}
                   size="icon-sm"
                   aria-label="選択ツール"
+                  className={toolMotion.button}
                   aria-pressed={interactionTool === "select"}
                   disabled={toolDisabled}
                   onClick={() => onToolChange("select")}
@@ -107,6 +108,7 @@ export function CanvasZoomControls({
                   variant={interactionTool === "hand" ? "secondary" : "ghost"}
                   size="icon-sm"
                   aria-label="手のひらツール"
+                  className={toolMotion.button}
                   aria-pressed={interactionTool === "hand"}
                   disabled={toolDisabled}
                   onClick={() => onToolChange("hand")}
@@ -140,6 +142,7 @@ export function CanvasZoomControls({
                   size="icon-sm"
                   disabled={toolDisabled || zoom <= 0.01}
                   aria-label="キャンバスを縮小"
+                  className={toolMotion.button}
                   onClick={onZoomOut}
                 >
                   <Minus aria-hidden="true" />
@@ -155,7 +158,7 @@ export function CanvasZoomControls({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="min-w-14 tabular-nums"
+                  className={`${toolMotion.button} min-w-14 tabular-nums`}
                   disabled={toolDisabled}
                   aria-label="ズームを100%に戻す"
                   onClick={onResetZoom}
@@ -175,6 +178,7 @@ export function CanvasZoomControls({
                   size="icon-sm"
                   disabled={toolDisabled || zoom >= 4}
                   aria-label="キャンバスを拡大"
+                  className={toolMotion.button}
                   onClick={onZoomIn}
                 >
                   <Plus aria-hidden="true" />
@@ -193,6 +197,7 @@ export function CanvasZoomControls({
                   size="icon-sm"
                   disabled={toolDisabled}
                   aria-label="付箋全体を表示"
+                  className={toolMotion.button}
                   onClick={onFitToNotes}
                 >
                   <Maximize2 aria-hidden="true" />
@@ -202,12 +207,7 @@ export function CanvasZoomControls({
                 付箋全体を表示（自分だけの表示）
               </TooltipContent>
             </Tooltip>
-            {reactionControls ? (
-              <SharingReactionControls
-                {...reactionControls}
-                disabled={reactionControls.disabled || toolDisabled}
-              />
-            ) : null}
+            {reactionControls?.(toolDisabled)}
             <details
               ref={helpRef}
               data-canvas-help="true"
@@ -226,9 +226,11 @@ export function CanvasZoomControls({
             >
               <summary
                 aria-label="キャンバス操作のヒント"
-                className="flex size-7 cursor-pointer list-none items-center justify-center rounded text-sm font-bold hover:bg-muted focus-visible:outline-2"
+                className={`${toolMotion.button} flex size-7 cursor-pointer list-none items-center justify-center rounded-lg text-sm font-bold hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring`}
               >
-                ?
+                <span aria-hidden="true" data-tool-icon>
+                  ?
+                </span>
               </summary>
               <section
                 aria-label="キャンバス操作のヒント内容"
@@ -255,12 +257,12 @@ export function CanvasZoomControls({
                 }}
                 // biome-ignore lint/a11y/noNoninteractiveTabindex: スクロールするヒントをキーボードで読み、Escapeを内側で処理するため。
                 tabIndex={0}
-                className="absolute bottom-full left-0 z-50 mb-2 max-h-[calc(100dvh-13rem)] w-[min(23rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-border bg-background p-4 text-sm leading-6 shadow-lg focus-visible:outline-2"
+                className="absolute bottom-full left-0 z-50 mb-2 max-h-[calc(100dvh-13rem)] w-[min(23rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-lg border border-border bg-background p-4 text-base leading-6 shadow-tool focus-visible:outline-2"
               >
                 <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
                   <h2 className="text-base font-semibold">操作ヒント</h2>
                   <span className="shrink-0 text-muted-foreground">
-                    <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                    <kbd className="rounded-full border border-border bg-muted px-1 font-mono text-base">
                       Escape
                     </kbd>
                     で閉じる
@@ -281,7 +283,7 @@ export function CanvasZoomControls({
                     <dd className="mt-1 space-y-1">
                       <p>選択ツールで空白を囲むと、複数選択。</p>
                       <p>
-                        <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                        <kbd className="rounded-full border border-border bg-muted px-1 font-mono text-base">
                           Shift
                         </kbd>{" "}
                         ＋ クリックで追加・解除。
@@ -307,17 +309,17 @@ export function CanvasZoomControls({
                       <dd className="mt-1 space-y-1">
                         <p>
                           背景で{" "}
-                          <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                          <kbd className="rounded-full border border-border bg-muted px-1 font-mono text-base">
                             V
                           </kbd>{" "}
                           は選択、
-                          <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                          <kbd className="rounded-full border border-border bg-muted px-1 font-mono text-base">
                             H
                           </kbd>{" "}
                           は手のひら。
                         </p>
                         <p>
-                          <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                          <kbd className="rounded-full border border-border bg-muted px-1 font-mono text-base">
                             Space
                           </kbd>{" "}
                           を押しながらドラッグで画面移動。
@@ -329,7 +331,7 @@ export function CanvasZoomControls({
                     <dt className="font-semibold">付箋を編集する</dt>
                     <dd className="mt-1">
                       編集できる付箋を選び、もう一度クリックまたは{" "}
-                      <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                      <kbd className="rounded-full border border-border bg-muted px-1 font-mono text-base">
                         Enter
                       </kbd>{" "}
                       で編集。
@@ -338,7 +340,7 @@ export function CanvasZoomControls({
                   <div>
                     <dt className="font-semibold">操作を終了する</dt>
                     <dd className="mt-1">
-                      <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                      <kbd className="rounded-full border border-border bg-muted px-1 font-mono text-base">
                         Escape
                       </kbd>{" "}
                       で編集・操作・選択の順に、1段ずつ終了。
@@ -349,11 +351,11 @@ export function CanvasZoomControls({
                     <dd className="mt-1 space-y-1">
                       <p>
                         個人作業中は、選択した付箋を{" "}
-                        <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                        <kbd className="rounded-full border border-border bg-muted px-1 font-mono text-base">
                           Delete
                         </kbd>{" "}
                         または{" "}
-                        <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                        <kbd className="rounded-full border border-border bg-muted px-1 font-mono text-base">
                           Backspace
                         </kbd>{" "}
                         で削除。

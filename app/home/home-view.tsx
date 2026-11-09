@@ -2,65 +2,53 @@
 // Server Action や認証は app/home/page.tsx の責務。
 // アプリ名 Idea Boost は root layout の AppHeader のみが担う。
 //
-// UX: 2 つの明確な入口（作成 / 参加）を並列に置き、視線誘導と行動の選択を最短にする。
+// UX: 作成を主役にし、招待コードによる参加をすぐ下の段で案内する。
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { type AccountLinkResult, AccountLinkSection } from "@/features/auth";
 import {
   CreateRoomSection,
   JoinRoomSection,
   ReturnRoomSection,
 } from "@/features/room-lifecycle";
 import { HomeErrorAlert } from "./home-error-alert";
+import styles from "./home-view.module.css";
 
 export type HomeViewProps = {
   error?: string;
-  currentUserId?: string;
+  currentUserId: string;
+  accountLinkStatus: "guest" | "linked";
+  accountLinkResult?: AccountLinkResult;
 };
 
-export function HomeView({ error, currentUserId }: HomeViewProps) {
+export function HomeView({
+  error,
+  currentUserId,
+  accountLinkStatus,
+  accountLinkResult,
+}: HomeViewProps) {
   return (
-    <div
-      className="relative flex h-full min-h-0 flex-1 items-start justify-center overflow-y-auto p-4 sm:p-6"
-      data-testid="home-view"
-    >
-      {/* 装飾はスクロール領域からはみ出さないよう、この枠内で切り取る。 */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-muted/40" />
-        <div className="absolute -left-24 top-1/4 size-72 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -right-16 bottom-1/4 size-80 rounded-full bg-secondary blur-3xl" />
-      </div>
-
-      <div className="relative z-10 my-auto flex w-full max-w-2xl flex-col gap-6">
-        <header className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-            アイデア出しを始めましょう
-          </h1>
-          <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
-            新しいルームを作成するか、招待コードを入力して参加できます。
-          </p>
-        </header>
-
+    <div className={styles.home} data-testid="home-view">
+      <div aria-hidden className={styles.art} />
+      <div className={styles.content}>
         {error ? <HomeErrorAlert message={error} /> : null}
-
-        {currentUserId ? (
-          <ReturnRoomSection currentUserId={currentUserId} />
-        ) : null}
-
-        <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+        <ReturnRoomSection currentUserId={currentUserId} />
+        <div className={styles.hero}>
+          <header className={styles.intro}>
+            <h1>
+              <span>そのひらめき、</span>
+              <span>みんなで育てよう。</span>
+            </h1>
+            <p>ルームを作って、仲間とアイデア出しを始めましょう。</p>
+          </header>
           <CreateRoomSection currentUserId={currentUserId} />
-          <JoinRoomSection currentUserId={currentUserId} />
         </div>
-        <nav
-          aria-label="過去の成果"
-          className="flex justify-end border-t border-border/60 pt-2"
-        >
+        <JoinRoomSection />
+        <nav aria-label="過去の成果" className={styles.history}>
           <Link
             href="/completed-rooms"
-            className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-base font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             <span className="underline underline-offset-4">
               過去の成果を見る
@@ -68,6 +56,11 @@ export function HomeView({ error, currentUserId }: HomeViewProps) {
             <ArrowRight className="size-4 shrink-0" aria-hidden />
           </Link>
         </nav>
+        <AccountLinkSection
+          status={accountLinkStatus}
+          next="/home"
+          result={accountLinkResult}
+        />
       </div>
     </div>
   );

@@ -6,7 +6,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
+import { createOutcomePng } from "../logic/outcome-png";
 import { RoomOutcomeView } from "./room-outcome-view";
+
+vi.mock("../logic/outcome-png", () => ({
+  createOutcomePng: vi.fn(),
+}));
+
+const createOutcomePngMock = vi.mocked(createOutcomePng);
 
 it("再コピーを待つ間は前の成功を消し、コピーと保存の二重操作を防ぐ", async () => {
   let complete!: () => void;
@@ -203,5 +210,221 @@ it("コピー後の保存失敗では前の成功表示を残さない", async (
     expect(screen.queryByText(/コピーしました/)).not.toBeInTheDocument();
   } finally {
     URL.createObjectURL = original;
+  }
+});
+
+it("完了直後は本人の保持期間と混同せず成果の保存期限を案内する", () => {
+  render(
+    <RoomOutcomeView
+      outcome={{ issue: "課題", hmw: "問い", idea: "案" }}
+      connected
+    />,
+  );
+  expect(screen.getByText(/保存期限は完了から30日間です。/)).toBeVisible();
+  expect(screen.queryByText(/完了後30日間見返せます/)).not.toBeInTheDocument();
+});
+
+it("PNGを生成してダウンロードできる", async () => {
+  const outcome = {
+    issue: "課題",
+    hmw: "問い",
+    idea: "アイデア",
+  };
+
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
+  createOutcomePngMock.mockReset();
+  createOutcomePngMock.mockResolvedValue(
+    new Blob(["png"], { type: "image/png" }),
+  );
+
+  URL.createObjectURL = vi.fn(() => "blob:outcome.png");
+  URL.revokeObjectURL = vi.fn();
+
+  let downloadedFilename = "";
+
+  const click = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(function (this: HTMLAnchorElement) {
+      downloadedFilename = this.download;
+    });
+
+  try {
+    render(<RoomOutcomeView outcome={outcome} connected />);
+
+    fireEvent.click(screen.getByRole("button", { name: "PNGで保存" }));
+
+    await waitFor(() => {
+      expect(downloadedFilename).toMatch(
+        /^idea-boost-outcome-\d{4}-\d{2}-\d{2}\.png$/,
+      );
+    });
+
+    expect(createOutcomePngMock).toHaveBeenCalledWith(outcome);
+    expect(click).toHaveBeenCalledOnce();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "ダウンロードを開始しました",
+    );
+  } finally {
+    click.mockRestore();
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  }
+});
+
+it("PNG生成に失敗しても再試行できる", async () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
+  createOutcomePngMock.mockReset();
+  createOutcomePngMock
+    .mockRejectedValueOnce(new Error("Canvas unavailable"))
+    .mockResolvedValueOnce(new Blob(["png"], { type: "image/png" }));
+
+  URL.createObjectURL = vi.fn(() => "blob:outcome.png");
+  URL.revokeObjectURL = vi.fn();
+
+  const click = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(() => {});
+
+  try {
+    render(
+      <RoomOutcomeView
+        outcome={{ issue: "課題", hmw: "問い", idea: "アイデア" }}
+        connected
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "PNGで保存" });
+
+    fireEvent.click(button);
+
+    await screen.findByRole("alert");
+
+    expect(button).toBeEnabled();
+    expect(createOutcomePngMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(click).toHaveBeenCalledOnce();
+    });
+
+    expect(createOutcomePngMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "ダウンロードを開始しました",
+    );
+  } finally {
+    click.mockRestore();
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  }
+});
+
+it("PNG生成中に閲覧権限が失効したら古いPNGを保存しない", async () => {
+  let complete!: (blob: Blob) => void;
+
+  createOutcomePngMock.mockReset();
+  createOutcomePngMock.mockImplementationOnce(
+    () =>
+      new Promise<Blob>((resolve) => {
+        complete = resolve;
+      }),
+  );
+
+  const click = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(() => {});
+
+  const success = vi.fn();
+
+  const props = {
+    outcome: {
+      issue: "課題",
+      hmw: "問い",
+      idea: "アイデア",
+    },
+    onExportSuccess: success,
+  };
+
+  const view = render(<RoomOutcomeView {...props} connected />);
+
+  fireEvent.click(screen.getByRole("button", { name: "PNGで保存" }));
+
+  expect(screen.getByRole("button", { name: "PNGを生成中…" })).toBeDisabled();
+
+  view.rerender(<RoomOutcomeView {...props} connected={false} />);
+  view.rerender(<RoomOutcomeView {...props} connected />);
+
+  await act(async () => {
+    complete(new Blob(["png"], { type: "image/png" }));
+  });
+
+  expect(click).not.toHaveBeenCalled();
+  expect(success).not.toHaveBeenCalled();
+
+  click.mockRestore();
+});
+
+it("PNG保存後は5秒間保存済みと表示し、その後元に戻る", async () => {
+  let complete!: (blob: Blob) => void;
+
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
+  createOutcomePngMock.mockReset();
+  createOutcomePngMock.mockImplementationOnce(
+    () =>
+      new Promise<Blob>((resolve) => {
+        complete = resolve;
+      }),
+  );
+
+  URL.createObjectURL = vi.fn(() => "blob:outcome.png");
+  URL.revokeObjectURL = vi.fn();
+
+  const click = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(() => {});
+
+  vi.useFakeTimers();
+
+  const view = render(
+    <RoomOutcomeView
+      outcome={{ issue: "課題", hmw: "問い", idea: "アイデア" }}
+      connected
+    />,
+  );
+
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "PNGで保存" }));
+
+    expect(screen.getByRole("button", { name: "PNGを生成中…" })).toBeDisabled();
+
+    await act(async () => {
+      complete(new Blob(["png"], { type: "image/png" }));
+    });
+
+    expect(screen.getByRole("button", { name: "保存済み" })).toBeVisible();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4999);
+    });
+
+    expect(screen.getByRole("button", { name: "保存済み" })).toBeVisible();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(screen.getByRole("button", { name: "PNGで保存" })).toBeVisible();
+  } finally {
+    view.unmount();
+    click.mockRestore();
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+    vi.useRealTimers();
   }
 });

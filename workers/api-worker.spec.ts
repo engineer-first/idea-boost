@@ -4,6 +4,7 @@
 // - 非メンバーにはルームの存在自体を見せない (404)
 // - join は冪等（複数回呼んでもメンバーは重複しない）
 import { env, exports } from "cloudflare:workers";
+import { base64url } from "jose";
 import { describe, expect, it } from "vitest";
 import { buildLobbyPhase } from "../contracts/phase.fixture";
 import { issueCreationId } from "../contracts/room-creation";
@@ -103,7 +104,7 @@ describe("ルーム作成", () => {
     expect(memberIds).toEqual([OWNER.sub]);
   });
 
-  it("作成した host はルーム情報を取得できる（isHost=true, phase=lobby）", async () => {
+  it("作成者はホスト情報を含まないルーム情報を取得できる", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     const res = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}`,
@@ -115,15 +116,13 @@ describe("ルーム作成", () => {
     expect(await res.json()).toEqual({
       roomId,
       inviteCode,
-      isHost: true,
-      hostUserId: OWNER.sub,
       phase: LOBBY,
     });
   });
 });
 
-describe("ルーム情報（isHost / hostUserId / phase）", () => {
-  it("参加者は isHost=false と hostUserId（作成者）を取得できる", async () => {
+describe("ルーム情報", () => {
+  it("参加者はホスト情報を含まないルーム情報を取得できる", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
     const res = await exports.default.fetch(
@@ -136,8 +135,6 @@ describe("ルーム情報（isHost / hostUserId / phase）", () => {
     expect(await res.json()).toEqual({
       roomId,
       inviteCode,
-      isHost: false,
-      hostUserId: OWNER.sub,
       phase: LOBBY,
     });
   });
@@ -158,11 +155,13 @@ describe("メンバー一覧（GET /api/rooms/:id/members）", () => {
           userId: OWNER.sub,
           name: OWNER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
         {
           userId: MEMBER.sub,
           name: MEMBER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
       ],
     });
@@ -231,7 +230,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
       },
     );
     expect(join.status).toBe(200);
-    expect(await join.json()).toEqual({ roomId });
+    expect(await join.json()).toMatchObject({ roomId, exitedRoomNames: [] });
 
     const after = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}`,
@@ -322,7 +321,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
       body: JSON.stringify({ code: ` ${inviteCode.toLowerCase()} ` }),
     });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ roomId });
+    expect(await res.json()).toMatchObject({ roomId, exitedRoomNames: [] });
   });
 
   it("存在しない招待コードは 404", async () => {
@@ -434,7 +433,7 @@ describe("ユーザー同期（ログイン時の upsert）", () => {
 });
 
 describe("退出（POST /api/rooms/:id/leave）", () => {
-  it("旧ルームでも未認証・非ホストからの要求はホストを補完せず、ルームを解散しない", async () => {
+  it("旧ルームでも未認証・非在籍者の退出要求を拒否し、参加者の退出は本人だけに適用する", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
     await runInRoomDO(roomId, (_instance, state) => {
@@ -474,7 +473,7 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
     expect(await listMemberIds(roomId)).toEqual([OWNER.sub]);
   });
 
-  it("ホスト未補完の旧ルームをWS再接続なしで解散できる", async () => {
+  it("作成者情報未補完の旧ルームでも本人が退出できる", async () => {
     const { roomId } = await createRoomAs(OWNER);
     await runInRoomDO(roomId, (_instance, state) => {
       state.storage.sql.exec(
@@ -496,7 +495,7 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
       await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
         .bind(roomId)
         .first(),
-    ).toBeNull();
+    ).not.toBeNull();
     expect(await listMemberIds(roomId)).toEqual([]);
   });
 
@@ -540,42 +539,28 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
     expect(second.status).toBe(404);
   });
 
-  it("ホストの leave はルームを解散し、D1 からも消える", async () => {
-    const { roomId, inviteCode } = await createRoomAs(OWNER);
-    await joinRoomAs(MEMBER, inviteCode);
-
-    const res = await exports.default.fetch(
-      `https://api.test/api/rooms/${roomId}/leave`,
-      {
-        method: "POST",
-        headers: { Cookie: await sessionCookie(OWNER) },
-      },
-    );
-    expect(res.status).toBe(204);
-
-    // ルーム行が消えている → GET は 404
-    const getRes = await exports.default.fetch(
-      `https://api.test/api/rooms/${roomId}`,
-      {
-        headers: { Cookie: await sessionCookie(MEMBER) },
-      },
-    );
-    expect(getRes.status).toBe(404);
-
-    // 招待コードでも解決できない
-    const joinRes = await exports.default.fetch(
-      "https://api.test/api/rooms/join",
-      {
-        method: "POST",
-        headers: {
-          Cookie: await sessionCookie(MEMBER),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ code: inviteCode }),
-      },
-    );
-    expect(joinRes.status).toBe(404);
-  });
+  it.each([{}, { intent: "disband", expectedHostRevision: 99 }])(
+    "作成者の退出要求 %j は本人だけを退出させ、再送は在籍認可で拒否する",
+    async (body) => {
+      const { roomId, inviteCode } = await createRoomAs(OWNER);
+      await joinRoomAs(MEMBER, inviteCode);
+      const leave = () =>
+        exports.default.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
+          method: "POST",
+          headers: { Cookie: awaitCookie, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      const awaitCookie = await sessionCookie(OWNER);
+      expect((await leave()).status).toBe(204);
+      expect(await listMemberIds(roomId)).toEqual([MEMBER.sub]);
+      expect((await leave()).status).toBe(404);
+      const get = await exports.default.fetch(
+        `https://api.test/api/rooms/${roomId}`,
+        { headers: { Cookie: await sessionCookie(MEMBER) } },
+      );
+      expect(get.status).toBe(200);
+    },
+  );
 
   it("非メンバーは 404（ルームの存在自体を見せない）", async () => {
     const { roomId } = await createRoomAs(OWNER);
@@ -668,7 +653,7 @@ describe("WebSocket 接続の認可", () => {
     res.webSocket?.close();
   });
 
-  it("クライアントが HOST_ID_HEADER を偽装しても api-worker が D1 の値で上書きする", async () => {
+  it("クライアントが HOST_ID_HEADER を偽装してもホスト操作を受理しない", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
     const res = await exports.default.fetch(
@@ -696,7 +681,6 @@ describe("WebSocket 接続の認可", () => {
       });
     await expect(nextMessage()).resolves.toMatchObject({
       type: "snapshot",
-      isHost: false,
     });
 
     ws.send(
@@ -713,7 +697,7 @@ describe("WebSocket 接続の認可", () => {
     ws.close();
   });
 
-  it("room_owner が NULL でも非ホストの偽装ヘッダーを無効化し D1 ホストでバックフィルする", async () => {
+  it("作成者情報が空でも偽装ヘッダーでホスト操作を復活させない", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
     await runInRoomDO(roomId, (_instance, state) => {
@@ -747,14 +731,13 @@ describe("WebSocket 接続の認可", () => {
 
     await expect(nextMessage()).resolves.toMatchObject({
       type: "snapshot",
-      isHost: false,
     });
     await runInRoomDO(roomId, (_instance, state) => {
       expect(
         state.storage.sql
           .exec("SELECT host_id FROM room_owner WHERE id = 1")
           .toArray(),
-      ).toEqual([{ host_id: OWNER.sub }]);
+      ).toEqual([{ host_id: null }]);
     });
 
     ws.send(
@@ -803,198 +786,40 @@ async function connectHostTest(user: typeof OWNER, roomId: string) {
   const snapshot = await nextHostMessage(socket);
   return { socket, snapshot };
 }
-async function transferred() {
+async function roomWithMembers() {
   const room = await createRoomAs(OWNER);
   await joinRoomAs(MEMBER, room.inviteCode);
-  const oldHost = await connectHostTest(OWNER, room.roomId);
-  const newHost = await connectHostTest(MEMBER, room.roomId);
-  const oldUpdate = nextHostMessage(oldHost.socket);
-  const newUpdate = nextHostMessage(newHost.socket);
-  oldHost.socket.send(
-    JSON.stringify({
-      type: "host:transfer",
-      targetUserId: MEMBER.sub,
-      expectedHostRevision: 0,
-    }),
-  );
-  expect(await oldUpdate).toMatchObject({
-    type: "host:updated",
-    hostUserId: MEMBER.sub,
-    hostRevision: 1,
-  });
-  expect(await newUpdate).toMatchObject({
-    type: "host:updated",
-    hostUserId: MEMBER.sub,
-    hostRevision: 1,
-  });
-  oldHost.socket.close();
-  newHost.socket.close();
   return room;
 }
 
-describe("移譲後のREST権限", () => {
-  it("D1作成者ではなくDOの現在ホストを返す", async () => {
-    const { roomId } = await transferred();
-    const res = await exports.default.fetch(
-      `https://api.test/api/rooms/${roomId}`,
+it("退出・除外済みの本人は情報取得・退出・WS接続を要求できない", async () => {
+  const { roomId } = await roomWithMembers();
+  await runInRoomDO(roomId, (room) => room.leave(MEMBER.sub));
+  for (const [suffix, method, upgrade] of [
+    ["", "GET", false],
+    ["/members", "GET", false],
+    ["/leave", "POST", false],
+    ["/ws", "GET", true],
+  ] as const) {
+    const response = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}${suffix}`,
       {
-        headers: { Cookie: await sessionCookie(MEMBER) },
-      },
-    );
-    expect(await res.json()).toMatchObject({
-      isHost: true,
-      hostUserId: MEMBER.sub,
-    });
-  });
-  it("旧ホストの本人退出はルームを解散せず、新ホストが解散できる", async () => {
-    const { roomId } = await transferred();
-    const oldLeave = await exports.default.fetch(
-      `https://api.test/api/rooms/${roomId}/leave`,
-      {
-        method: "POST",
-        headers: {
-          Cookie: await sessionCookie(OWNER),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ intent: "self", expectedHostRevision: 1 }),
-      },
-    );
-    expect(oldLeave.status).toBe(204);
-    expect(await listMemberIds(roomId)).toContain(MEMBER.sub);
-    const newDisband = await exports.default.fetch(
-      `https://api.test/api/rooms/${roomId}/leave`,
-      {
-        method: "POST",
+        method,
         headers: {
           Cookie: await sessionCookie(MEMBER),
-          "Content-Type": "application/json",
+          ...(upgrade ? { Upgrade: "websocket" } : {}),
         },
-        body: JSON.stringify({ intent: "disband", expectedHostRevision: 1 }),
       },
     );
-    expect(newDisband.status).toBe(204);
-    const room = await env.DB.prepare("SELECT id FROM rooms WHERE id=?1")
-      .bind(roomId)
-      .first();
-    expect(room).toBeNull();
-  });
+    expect(response.status).toBe(404);
+  }
+  expect(await listMemberIds(roomId)).toEqual([OWNER.sub]);
 });
 
-describe("移譲改訂と退出要求の境界", () => {
-  it("移譲後の曖昧な旧クライアント要求、古い改訂、第三者の解散を拒否する", async () => {
-    const { roomId, inviteCode } = await createRoomAs(OWNER);
-    await joinRoomAs(MEMBER, inviteCode);
-    await runInRoomDO(roomId, (_room, state) =>
-      state.storage.sql.exec(
-        "UPDATE room_owner SET host_id=?1, host_revision=1 WHERE id=1",
-        MEMBER.sub,
-      ),
-    );
-    for (const [user, body, expected] of [
-      [MEMBER, {}, 409],
-      [OWNER, { intent: "disband", expectedHostRevision: 0 }, 409],
-      [MEMBER, { intent: "self", expectedHostRevision: 0 }, 409],
-      [OUTSIDER, { intent: "disband", expectedHostRevision: 1 }, 404],
-    ] as const) {
-      const result = await exports.default.fetch(
-        `https://api.test/api/rooms/${roomId}/leave`,
-        {
-          method: "POST",
-          headers: {
-            Cookie: await sessionCookie(user),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        },
-      );
-      expect(result.status).toBe(expected);
-    }
-    expect(await listMemberIds(roomId)).toEqual([OWNER.sub, MEMBER.sub]);
-    expect(
-      await env.DB.prepare("SELECT host_id FROM rooms WHERE id=?1")
-        .bind(roomId)
-        .first(),
-    ).toMatchObject({ host_id: OWNER.sub });
-  });
-  it("移譲済みのownerが空でも旧D1シードで権限を復活させない", async () => {
-    const { roomId } = await createRoomAs(OWNER);
-    await runInRoomDO(roomId, (_room, state) =>
-      state.storage.sql.exec(
-        "UPDATE room_owner SET host_id=NULL, host_revision=1 WHERE id=1",
-      ),
-    );
-    const response = await exports.default.fetch(
-      `https://api.test/api/rooms/${roomId}`,
-      {
-        headers: { Cookie: await sessionCookie(OWNER) },
-      },
-    );
-    expect(response.status).toBe(409);
-    const host = await env.ROOM_DO.get(
-      env.ROOM_DO.idFromName(roomId),
-    ).getCurrentHost(OWNER.sub);
-    expect(host).toEqual({ hostUserId: null, hostRevision: 1 });
-  });
-  it("新ホストの解散後にD1削除を再試行しても旧作成者へ戻らない", async () => {
-    const { roomId, inviteCode } = await createRoomAs(OWNER);
-    await joinRoomAs(MEMBER, inviteCode);
-    await runInRoomDO(roomId, (_room, state) =>
-      state.storage.sql.exec(
-        "UPDATE room_owner SET host_id=?1, host_revision=1 WHERE id=1",
-        MEMBER.sub,
-      ),
-    );
-    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
-    // DOで確定した直後にD1削除が届かなかった状態を再現する。
-    expect(await stub.leaveOrDisband(MEMBER.sub, OWNER.sub, "disband", 1)).toBe(
-      "disbanded",
-    );
-    expect(await stub.leaveOrDisband(OWNER.sub, OWNER.sub, "disband", 1)).toBe(
-      "not-member",
-    );
-    const response = await exports.default.fetch(
-      `https://api.test/api/rooms/${roomId}/leave`,
-      {
-        method: "POST",
-        headers: {
-          Cookie: await sessionCookie(MEMBER),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ intent: "disband", expectedHostRevision: 1 }),
-      },
-    );
-    expect(response.status).toBe(204);
-    expect(
-      await env.DB.prepare("SELECT id FROM rooms WHERE id=?1")
-        .bind(roomId)
-        .first(),
-    ).toBeNull();
-  });
-});
-
-it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メモを含まない", async () => {
-  const { roomId } = await transferred();
+it("参加者の再接続snapshotは他者の未共有メモを含まない", async () => {
+  const { roomId } = await roomWithMembers();
   const old = await connectHostTest(OWNER, roomId);
   const current = await connectHostTest(MEMBER, roomId);
-  expect(old.snapshot).toMatchObject({
-    isHost: false,
-    hostUserId: MEMBER.sub,
-    hostRevision: 1,
-  });
-  expect(current.snapshot).toMatchObject({
-    isHost: true,
-    hostUserId: MEMBER.sub,
-    hostRevision: 1,
-  });
-  const denied = nextHostMessage(old.socket);
-  old.socket.send(
-    JSON.stringify({
-      type: "host:transfer",
-      targetUserId: OWNER.sub,
-      expectedHostRevision: 1,
-    }),
-  );
-  expect(await denied).toMatchObject({ type: "error", code: "forbidden" });
   const oldStart = nextHostMessage(old.socket);
   const currentStart = nextHostMessage(current.socket);
   current.socket.send(
@@ -1018,7 +843,7 @@ it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メ�
   await oldTimer;
   for (const [socket, content] of [
     [old.socket, "作成者だけの未共有メモ"],
-    [current.socket, "新ホストだけの未共有メモ"],
+    [current.socket, "参加者だけの未共有メモ"],
   ] as const) {
     const inserted = nextHostMessage(socket);
     socket.send(JSON.stringify({ type: "note:create", content }));
@@ -1040,7 +865,7 @@ it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メ�
   expect(currentAgain.snapshot.notes).toEqual([
     expect.objectContaining({
       authorId: MEMBER.sub,
-      content: "新ホストだけの未共有メモ",
+      content: "参加者だけの未共有メモ",
     }),
   ]);
   expect(JSON.stringify(currentAgain.snapshot)).not.toContain(
@@ -1079,4 +904,378 @@ describe("作成要求の再送", () => {
     const responses = await Promise.all([send(), send()]);
     expect(await responses[0].json()).toEqual(await responses[1].json());
   });
+});
+
+describe("ゲスト本人の同期と永続化", () => {
+  async function sync(assertion: string | Record<string, unknown>) {
+    return exports.default.fetch("https://api.test/api/auth/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assertion }),
+    });
+  }
+  async function signed(userId: string, displayName = "はな", options = {}) {
+    return signToken(
+      { kind: "guest", userId, displayName },
+      {
+        secret: env.SESSION_SECRET,
+        audience: TOKEN_AUDIENCE.loginAssertion,
+        expiresInSeconds: 60,
+        ...options,
+      },
+    );
+  }
+  async function row(id: string) {
+    return env.DB.prepare("SELECT * FROM users WHERE id=?").bind(id).first();
+  }
+  it("署名したゲスト主張でemailとnameがNULL・表示名と更新番号が設定された本人を登録する", async () => {
+    const id = crypto.randomUUID();
+    await env.DB.prepare("DELETE FROM user_permissions").run();
+    const response = await sync(await signed(id));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ userId: id });
+    expect(await row(id)).toMatchObject({
+      id,
+      email: null,
+      name: null,
+      google_sub: null,
+      display_name: "はな",
+      display_name_revision: 1,
+    });
+    expect(
+      (await env.DB.prepare("SELECT * FROM user_permissions").all()).results,
+    ).toEqual([]);
+  });
+  it("同じ主張の再送や別の表示名を含む再送でも本人と保存済み表示名を維持する", async () => {
+    const id = crypto.randomUUID();
+    const assertion = await signed(id);
+    expect((await sync(assertion)).status).toBe(200);
+    await env.DB.prepare(
+      "UPDATE users SET display_name='保存済み', display_name_revision=7 WHERE id=?",
+    )
+      .bind(id)
+      .run();
+    const before = await row(id);
+    for (const token of [assertion, await signed(id, "別の名前")]) {
+      const response = await sync(token);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ userId: id });
+      expect(await row(id)).toEqual(before);
+    }
+  });
+  it("同じ名前でも異なるIDの主張は2人の本人として登録する", async () => {
+    const ids = [crypto.randomUUID(), crypto.randomUUID()];
+    for (const id of ids) {
+      const response = await sync(await signed(id));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ userId: id });
+    }
+    expect(
+      (
+        await env.DB.prepare(
+          "SELECT id FROM users WHERE id IN (?,?) AND display_name='はな'",
+        )
+          .bind(...ids)
+          .all()
+      ).results,
+    ).toHaveLength(2);
+  });
+  it.each(["メールあり", "Google連携あり"])(
+    "%sのアカウントIDと衝突したら409で全列を保持する",
+    async (condition) => {
+      const id = crypto.randomUUID();
+      // email NULLのGoogle行も、ゲスト化の対象にならない。
+      await env.DB.prepare(
+        "INSERT INTO users(id,email,name,google_sub,display_name,display_name_revision) VALUES(?,?,?,?,?,?)",
+      )
+        .bind(
+          id,
+          condition === "メールあり" ? `${id}@example.test` : null,
+          "本人",
+          condition === "Google連携あり" ? `google:${id}` : null,
+          "保存済み",
+          3,
+        )
+        .run();
+      const before = await row(id);
+      expect((await sync(await signed(id))).status).toBe(409);
+      expect(await row(id)).toEqual(before);
+    },
+  );
+  it("assertionがJSONオブジェクトなら400でユーザーを作らない", async () => {
+    const id = crypto.randomUUID();
+    const response = await sync({
+      kind: "guest",
+      userId: id,
+      displayName: "はな",
+    });
+    expect(response.status).toBe(400);
+    expect(await row(id)).toBeNull();
+  });
+  it.each(["無署名", "別秘密", "別audience"])(
+    "%sのゲスト主張は401でユーザーを作らない",
+    async (condition) => {
+      const id = crypto.randomUUID();
+      const assertion =
+        condition === "無署名"
+          ? `${base64url.encode(JSON.stringify({ alg: "none", typ: "JWT" }))}.${base64url.encode(
+              JSON.stringify({
+                iss: "idea-boost",
+                aud: TOKEN_AUDIENCE.loginAssertion,
+                exp: Math.floor(Date.now() / 1000) + 60,
+                kind: "guest",
+                userId: id,
+                displayName: "はな",
+              }),
+            )}.`
+          : await signed(
+              id,
+              "はな",
+              condition === "別秘密"
+                ? { secret: "other-test-session-secret-long-enough" }
+                : { audience: TOKEN_AUDIENCE.session },
+            );
+      expect((await sync(assertion)).status).toBe(401);
+      expect(await row(id)).toBeNull();
+    },
+  );
+  it("期限切れの署名済みゲスト主張は401で本人行を作らない", async () => {
+    const id = crypto.randomUUID();
+    const assertion = await signed(id, "はな", {
+      expiresAtSeconds: Math.floor(Date.now() / 1000) - 60,
+    });
+    expect((await sync(assertion)).status).toBe(401);
+    expect(await row(id)).toBeNull();
+  });
+  it("D1に本人行がないゲストCookieからルームを作成してもFK違反にならない", async () => {
+    const id = crypto.randomUUID();
+    expect(await row(id)).toBeNull();
+    const token = await signToken(
+      { kind: "guest", sub: id, email: null },
+      {
+        secret: env.SESSION_SECRET,
+        audience: TOKEN_AUDIENCE.session,
+        expiresInSeconds: 600,
+      },
+    );
+    const response = await exports.default.fetch("https://api.test/api/rooms", {
+      method: "POST",
+      headers: {
+        Cookie: `idea_boost_session=${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        requestId: issueCreationId().requestId,
+        expectedPrincipal: id,
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await row(id)).toMatchObject({ id, email: null });
+    const room = await response.json<{ roomId: string }>();
+    expect(
+      await env.DB.prepare("SELECT host_id FROM rooms WHERE id=?")
+        .bind(room.roomId)
+        .first(),
+    ).toEqual({ host_id: id });
+    expect(
+      (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
+    ).toEqual([]);
+  });
+});
+
+describe("ゲストの入室前更新API", () => {
+  const url = "https://api.test/api/auth/guest/refresh";
+  async function seed(
+    email: string | null = null,
+    googleSub: string | null = null,
+  ) {
+    const sub = crypto.randomUUID();
+    await env.DB.prepare(
+      "INSERT INTO users(id,email,google_sub,display_name,display_name_revision) VALUES(?,?,?,?,?)",
+    )
+      .bind(sub, email, googleSub, "保存済みの名前", 7)
+      .run();
+    return { kind: "guest" as const, sub, email: null };
+  }
+  async function rows() {
+    return (await env.DB.prepare("SELECT * FROM users ORDER BY id").all())
+      .results;
+  }
+  async function cookie(payload: Record<string, unknown>, options = {}) {
+    return `idea_boost_session=${await signToken(payload, {
+      secret: env.SESSION_SECRET,
+      audience: TOKEN_AUDIENCE.session,
+      expiresInSeconds: 600,
+      ...options,
+    })}`;
+  }
+
+  it.each(["本文なし", "別人のIDを含む本文", "不正JSONの本文"])(
+    "%sでも署名済みゲストsubだけを返しD1を変更しない",
+    async (condition) => {
+      const guest = await seed();
+      const other = await seed();
+      const before = await rows();
+      const response = await exports.default.fetch(url, {
+        method: "POST",
+        headers: {
+          Cookie: await cookie(guest),
+          "Content-Type": "application/json",
+        },
+        ...(condition === "本文なし"
+          ? {}
+          : {
+              body:
+                condition === "不正JSONの本文"
+                  ? "{"
+                  : JSON.stringify({ userId: other.sub, exp: 9999999999 }),
+            }),
+      });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ userId: guest.sub });
+      expect(await rows()).toEqual(before);
+    },
+  );
+
+  it.each(["セッションなし", "期限切れ", "別秘密"])(
+    "%sは401でD1を変更しない",
+    async (condition) => {
+      const guest = await seed();
+      const before = await rows();
+      const token =
+        condition === "セッションなし"
+          ? undefined
+          : await cookie(
+              guest,
+              condition === "期限切れ"
+                ? { expiresInSeconds: -1 }
+                : { secret: "another-secret-with-more-than-32-bytes" },
+            );
+      const response = await exports.default.fetch(url, {
+        method: "POST",
+        headers: token ? { Cookie: token } : {},
+      });
+      expect(response.status).toBe(401);
+      expect(await rows()).toEqual(before);
+    },
+  );
+
+  it("accountセッションは403でD1を変更しない", async () => {
+    const guest = await seed();
+    const before = await rows();
+    const response = await exports.default.fetch(url, {
+      method: "POST",
+      headers: {
+        Cookie: await cookie({
+          ...guest,
+          kind: "account",
+          email: "account@example.test",
+        }),
+      },
+    });
+    expect(response.status).toBe(403);
+    expect(await rows()).toEqual(before);
+  });
+
+  it("D1に行がなければ404で本人行を作らない", async () => {
+    const before = await rows();
+    const response = await exports.default.fetch(url, {
+      method: "POST",
+      headers: {
+        Cookie: await cookie({
+          kind: "guest",
+          sub: crypto.randomUUID(),
+          email: null,
+        }),
+      },
+    });
+    expect(response.status).toBe(404);
+    expect(await rows()).toEqual(before);
+  });
+
+  it.each(["email", "google_sub"])(
+    "D1の%sが設定済みなら409で全行を変更しない",
+    async (column) => {
+      const guest = await seed(
+        column === "email" ? "linked@example.test" : null,
+        column === "google_sub" ? "linked-google-sub" : null,
+      );
+      const before = await rows();
+      const response = await exports.default.fetch(url, {
+        method: "POST",
+        headers: { Cookie: await cookie(guest) },
+      });
+      expect(response.status).toBe(409);
+      expect(await rows()).toEqual(before);
+    },
+  );
+});
+
+describe("Google本人の入室前更新API", () => {
+  const url = "https://api.test/api/auth/account/refresh";
+  it.each([
+    "有効",
+    "紐付けなし",
+    "本人行なし",
+    "期限切れ",
+    "署名不正",
+    "Cookieなし",
+    "guest",
+  ])(
+    "%sの場合に検証済subのGoogle紐付けだけで更新可否を決める",
+    async (condition) => {
+      const sub = crypto.randomUUID();
+      if (condition !== "本人行なし")
+        await env.DB.prepare(
+          "INSERT INTO users(id,email,google_sub) VALUES(?,?,?)",
+        )
+          .bind(
+            sub,
+            `${sub}@example.test`,
+            condition === "紐付けなし" ? null : `google-${sub}`,
+          )
+          .run();
+      const before = (
+        await env.DB.prepare("SELECT * FROM users ORDER BY id").all()
+      ).results;
+      const token = await signToken(
+        {
+          kind: condition === "guest" ? "guest" : "account",
+          sub,
+          email: condition === "guest" ? null : `${sub}@example.test`,
+        },
+        {
+          secret:
+            condition === "署名不正"
+              ? "another-secret-with-more-than-32-bytes"
+              : env.SESSION_SECRET,
+          audience: TOKEN_AUDIENCE.session,
+          expiresInSeconds: condition === "期限切れ" ? -1 : 17999,
+        },
+      );
+      const response = await exports.default.fetch(url, {
+        method: "POST",
+        headers:
+          condition === "Cookieなし"
+            ? {}
+            : { Cookie: `idea_boost_session=${token}` },
+        body: JSON.stringify({ userId: crypto.randomUUID(), exp: 9999999999 }),
+      });
+      expect(response.status).toBe(
+        condition === "有効"
+          ? 200
+          : condition === "紐付けなし"
+            ? 409
+            : condition === "本人行なし"
+              ? 404
+              : condition === "guest"
+                ? 403
+                : 401,
+      );
+      if (response.ok) expect(await response.json()).toEqual({ userId: sub });
+      expect(
+        (await env.DB.prepare("SELECT * FROM users ORDER BY id").all()).results,
+      ).toEqual(before);
+    },
+  );
 });

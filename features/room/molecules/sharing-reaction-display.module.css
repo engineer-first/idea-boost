@@ -1,59 +1,136 @@
 .display {
+  --reaction-size: clamp(3.5rem, 6.25vw, 5rem);
+  --reaction-envelope: calc(var(--reaction-size) * 1.3);
   position: fixed;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: max(8px, env(safe-area-inset-left, 0px));
+  width: max(
+    0px,
+    calc(100% / 3 - max(8px, env(safe-area-inset-left, 0px)) - 8px)
+  );
   z-index: 40;
-  overflow: hidden;
   pointer-events: none;
   user-select: none;
 }
 
 .reaction {
-  --reaction-rise: calc(50dvh - 2.25rem - env(safe-area-inset-bottom, 0px));
+  --reaction-entry-angle: -10deg;
+  --reaction-pop-angle: 8deg;
+  --reaction-rebound-angle: -6deg;
+  --reaction-pop-scale: 1.1;
+  --reaction-hop: -3px;
+  --reaction-rise: calc(
+    50dvh -
+    var(--reaction-envelope) /
+    2 -
+    8px -
+    env(safe-area-inset-bottom, 0px)
+  );
   position: absolute;
-  bottom: env(safe-area-inset-bottom, 0px);
-  left: 50%;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  left: calc((100% - var(--reaction-envelope)) * var(--reaction-position));
   display: grid;
-  width: 4.5rem;
-  height: 4.5rem;
-  margin-left: -2.25rem;
+  width: var(--reaction-envelope);
+  height: var(--reaction-envelope);
   place-items: center;
-  animation-name: float-like;
-  animation-timing-function: ease-out;
+  animation-name: float-reaction;
+  animation-timing-function: linear;
   animation-fill-mode: both;
 }
 
-.image {
-  width: clamp(3.5rem, 6.25vw, 5rem);
-  max-width: none;
-  height: auto;
+.reaction[data-kind="clap"] {
+  --reaction-entry-angle: -8deg;
+  --reaction-pop-angle: 6deg;
+  --reaction-rebound-angle: -9deg;
+  --reaction-pop-scale: 1.08;
+  --reaction-hop: 0px;
 }
 
-@keyframes float-like {
+.reaction[data-kind="surprised"] {
+  --reaction-entry-angle: 0deg;
+  --reaction-pop-angle: 0deg;
+  --reaction-rebound-angle: 0deg;
+  --reaction-pop-scale: 1.16;
+  --reaction-hop: -2px;
+}
+
+.reaction[data-kind="insight"] {
+  --reaction-entry-angle: -6deg;
+  --reaction-pop-angle: 0deg;
+  --reaction-rebound-angle: 4deg;
+  --reaction-hop: -5px;
+}
+
+.reaction[data-kind="question"] {
+  --reaction-entry-angle: -12deg;
+  --reaction-pop-angle: -10deg;
+  --reaction-rebound-angle: 12deg;
+  --reaction-pop-scale: 1.07;
+  --reaction-hop: 0px;
+}
+
+.image {
+  width: var(--reaction-size);
+  max-width: none;
+  height: auto;
+  animation: reaction-gesture 1400ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.reaction[data-positioned="false"] .image {
+  animation-name: none;
+}
+
+@keyframes float-reaction {
   0% {
     opacity: 0;
-    transform: translateY(100%) scale(0.72);
+    transform: translateY(0);
   }
   12% {
     opacity: 1;
-    transform: translate(
-        calc(var(--reaction-drift) * 0.08),
-        calc(var(--reaction-rise) * -0.12)
-      )
-      scale(1.06);
+    transform: translateY(calc(var(--reaction-rise) * -0.12));
+  }
+  36% {
+    opacity: 1;
+    transform: translateY(calc(var(--reaction-rise) * -0.46));
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(calc(var(--reaction-rise) * -0.84));
   }
   72% {
     opacity: 1;
-    transform: translate(var(--reaction-drift), calc(var(--reaction-rise) * -1))
-      scale(1);
+    transform: translateY(calc(var(--reaction-rise) * -1));
   }
   100% {
     opacity: 0;
-    transform: translate(var(--reaction-drift), calc(var(--reaction-rise) * -1))
-      scale(0.96);
+    transform: translateY(calc(var(--reaction-rise) * -1));
   }
 }
 
-@keyframes fade-like {
+@keyframes reaction-gesture {
+  0% {
+    transform: translateY(8px) rotate(var(--reaction-entry-angle)) scale(0.4);
+  }
+  20% {
+    transform: translateY(var(--reaction-hop)) rotate(var(--reaction-pop-angle))
+      scale(var(--reaction-pop-scale));
+  }
+  38% {
+    transform: translateY(2px) rotate(var(--reaction-rebound-angle)) scale(0.96);
+  }
+  56% {
+    transform: rotate(calc(var(--reaction-rebound-angle) * -0.5)) scale(1.04);
+  }
+  76% {
+    transform: rotate(calc(var(--reaction-rebound-angle) * 0.2)) scale(0.99);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes fade-reaction {
   0% {
     opacity: 0;
   }
@@ -68,8 +145,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .reaction {
-    bottom: calc(50% - 2.25rem);
-    left: calc(50% + var(--reaction-drift));
-    animation-name: fade-like;
+    bottom: calc(50% - var(--reaction-envelope) / 2);
+    animation-name: fade-reaction;
+  }
+
+  .image {
+    animation: none;
+    transform: none;
   }
 }

@@ -6,7 +6,7 @@ import {
   CreationRequestIdSchema,
   ROOM_CREATION_NAME_MAX,
 } from "./room-creation";
-import { NoteColorSchema } from "./room-protocol";
+import { MemberSchema } from "./room-protocol";
 
 export const SyncUserResponseSchema = z.object({
   userId: z.guid(),
@@ -14,6 +14,8 @@ export const SyncUserResponseSchema = z.object({
 
 // 作成・再送の結果。現在の進行状態は既存のルーム情報取得で確認する。
 export const RoomSummarySchema = z.object({
+  operationId: z.guid().optional(),
+  exitedRoomNames: z.array(z.string()).optional(),
   roomId: z.guid(),
   inviteCode: z.string(),
 });
@@ -27,19 +29,13 @@ export const CreateRoomInputSchema = z.strictObject({
 });
 
 export const JoinRoomResponseSchema = z.object({
+  operationId: z.guid().optional(),
+  exitedRoomNames: z.array(z.string()).optional(),
   roomId: z.guid(),
 });
 
-// ルーム情報取得のレスポンス。isHost / hostUserId / phase はこのエンドポイント
-// でのみ返す（メンバー限定。非メンバーには 404 で存在も漏らさない）。
-// - isHost: クライアントが「開始」ボタンの表示を制御するために必要。
-// - hostUserId: メンバー一覧で「誰がホストか」を名前下に表示するために必要。
-//   既にメンバーだけが userId 一覧を見られる前提なので、ホストの userId を
-//   メンバーに返すことは追加の存在漏洩にならない。
-// - phase: 現在の進行状態。start_phase の二重防御用に進行状態を観測可能にする。
+// 在籍者だけに現在の進行状態を返す。非在籍者には存在を公開しない。
 export const RoomInfoResponseSchema = RoomSummarySchema.extend({
-  isHost: z.boolean(),
-  hostUserId: z.guid(),
   phase: RoomPhaseSchema,
   name: z.string().nullable().optional(),
   displayId: z.string().optional(),
@@ -47,11 +43,7 @@ export const RoomInfoResponseSchema = RoomSummarySchema.extend({
 
 // メンバー一覧のレスポンス。SSR で初期表示を組み立てるために使う。
 // Realtime での member_joined は WS 側で別途配信する。
-export const RoomMemberSchema = z.object({
-  userId: z.guid(),
-  name: z.string(),
-  color: NoteColorSchema,
-});
+export const RoomMemberSchema = MemberSchema;
 export const RoomMembersResponseSchema = z.object({
   members: z.array(RoomMemberSchema),
 });
@@ -61,6 +53,12 @@ export const RoomLookupResponseSchema = z.object({
   roomId: z.guid(),
   inviteCode: z.string(),
   hostName: z.string(),
+});
+
+// 410で返す照会失敗。終了状態だけを知らせ、ルームや招待の情報は含めない。
+export const RoomLookupFailureSchema = z.object({
+  reason: z.literal("ended"),
+  error: z.string(),
 });
 
 // 復帰確認の結果だけを返す。認可済み情報や盤面は既存APIに留める。
@@ -73,5 +71,6 @@ export const ReturnToRoomResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("unavailable_room") }),
   z.object({ kind: z.literal("retry") }),
   z.object({ kind: z.literal("reauth_required") }),
+  z.object({ kind: z.literal("identity_unavailable") }),
 ]);
 export type ReturnToRoomResult = z.infer<typeof ReturnToRoomResultSchema>;

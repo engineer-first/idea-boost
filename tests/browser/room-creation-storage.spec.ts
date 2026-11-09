@@ -342,3 +342,35 @@ it.each(["prepared", "submitted", "legacy"] as const)(
     await p.close();
   },
 );
+
+it("入室した記録を別タブと再読込後も共有する", async () => {
+  const a = await tab(),
+    b = await tab();
+  const roomId = crypto.randomUUID();
+  expect(
+    await a.evaluate(
+      (id) => window.creationStore.wasRoomCreationOpened(id),
+      roomId,
+    ),
+  ).toBe(false);
+  await a.evaluate(
+    (id) => window.creationStore.markRoomCreationOpened(id),
+    roomId,
+  );
+  expect(
+    await b.evaluate(
+      (id) => window.creationStore.wasRoomCreationOpened(id),
+      roomId,
+    ),
+  ).toBe(true);
+  await a.reload();
+  await a.addScriptTag({ content: bundle });
+  expect(
+    await a.evaluate(
+      (id) => window.creationStore.wasRoomCreationOpened(id),
+      roomId,
+    ),
+  ).toBe(true);
+  await a.close();
+  await b.close();
+});

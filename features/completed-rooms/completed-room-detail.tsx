@@ -1,5 +1,11 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   type CompletedBoardResponse,
   CompletedBoardResponseSchema,
@@ -9,7 +15,17 @@ import {
 } from "@/contracts/completed-rooms";
 import { submitFeedback, useFeedback } from "@/features/feedback";
 import { CompletedRoomDetailView } from "./completed-room-detail-view";
-export function CompletedRoomDetail({ roomId }: { roomId: string }) {
+import {
+  COMPLETED_ROOMS_IDENTITY_ERROR,
+  COMPLETED_ROOMS_UNAVAILABLE_ERROR,
+} from "./completed-rooms-content";
+export function CompletedRoomDetail({
+  roomId,
+  accountLink,
+}: {
+  roomId: string;
+  accountLink?: ReactNode;
+}) {
   const feedback = useFeedback(roomId, submitFeedback);
   const [room, setRoom] = useState<CompletedRoom | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,9 +54,9 @@ export function CompletedRoomDetail({ roomId }: { roomId: string }) {
       if (!response.ok)
         throw new Error(
           response.status === 404
-            ? "この成果は表示できません。閲覧期限とログインしているアカウントを確認してください。"
+            ? COMPLETED_ROOMS_UNAVAILABLE_ERROR
             : response.status === 401
-              ? "ログインし直してから再取得してください。"
+              ? COMPLETED_ROOMS_IDENTITY_ERROR
               : "成果を取得できませんでした。再取得をお試しください。",
         );
       const data = CompletedRoomSchema.parse(await response.json());
@@ -78,7 +94,9 @@ export function CompletedRoomDetail({ roomId }: { roomId: string }) {
           if (response.status === 401 || response.status === 404) {
             setRoom(null);
             setError(
-              "この成果は表示できません。閲覧期限とログインしているアカウントを確認してください。",
+              response.status === 401
+                ? COMPLETED_ROOMS_IDENTITY_ERROR
+                : COMPLETED_ROOMS_UNAVAILABLE_ERROR,
             );
           }
           throw new Error();
@@ -105,6 +123,7 @@ export function CompletedRoomDetail({ roomId }: { roomId: string }) {
     <CompletedRoomDetailView
       feedback={feedback}
       room={room}
+      accountLink={accountLink}
       loading={loading}
       error={error}
       expanded={expanded}

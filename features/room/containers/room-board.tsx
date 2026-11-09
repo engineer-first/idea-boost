@@ -5,10 +5,10 @@
 //   - 付箋の状態・楽観更新ポリシー・プロトコル化: use-room-notes
 //   - グループの状態とプロトコル化: use-note-groups
 //   - members / phase / timer の適用と入退出通知: use-room-state
-//   - 退出 / 解散フロー: use-leave-room
 // このファイルに残るのはフェーズ進行の操作と画面反応だけ。
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
+import { useRouter } from "next/navigation";
 import {
   startTransition,
   useCallback,
@@ -17,12 +17,12 @@ import {
   useState,
 } from "react";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
-import { isResultStep, type RoomPhase } from "@/contracts/phase";
 import {
-  type ClientMessage,
-  needsHostRevision,
-  type ServerMessage,
-} from "@/contracts/room-protocol";
+  isPresenterViewFollowStep,
+  isResultStep,
+  type RoomPhase,
+} from "@/contracts/phase";
+import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import { canPublishNoteInTurn } from "@/contracts/sharing";
 import type { DisplayNameResult } from "@/features/auth";
 import { submitFeedback, useFeedback } from "@/features/feedback";
@@ -37,34 +37,42 @@ import {
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { getBoardPermissions } from "../logic/board-permissions";
+import { clampCanvasCoordinate, screenToWorld } from "../logic/canvas-camera";
+import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
 import { useCandidateOperations } from "../logic/use-candidate-operations";
 import { useCursorPresence } from "../logic/use-cursor-presence";
-import { useHostTransfer } from "../logic/use-host-transfer";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useMemberRemoval } from "../logic/use-member-removal";
+import { usePresenterView } from "../logic/use-presenter-view";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
 import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
-import { useSharingReactions } from "../logic/use-sharing-reactions";
 import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
+import {
+  RoomSharingReactionControls,
+  RoomSharingReactionDisplay,
+  RoomSharingReactions,
+  type SharingReactionMessageHandler,
+} from "./room-sharing-reactions";
+
+const renderSharingReactionControls = (disabled: boolean) => (
+  <RoomSharingReactionControls disabled={disabled} />
+);
 
 export type RoomBoardProps = {
   roomId: string;
   inviteCode: string;
   inviteUrl: string;
   currentUserId: string;
-  // 自分がこのルームのホストかどうか（表示用・操作制御）。
-  isHost: boolean;
-  // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
-  hostUserId: string;
   // SSR 時にサーバーから取得した初期状態。再接続時の flicker を抑える。
   initialMembers: Member[];
   initialPhase: RoomPhase;
+  sessionKind?: "guest" | "account";
   signOutAction?: () => Promise<void>;
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
@@ -99,15 +107,16 @@ export function RoomBoard({
   inviteCode,
   inviteUrl,
   currentUserId,
-  isHost: initialIsHost,
-  hostUserId: initialHostUserId,
   initialMembers,
   initialPhase,
   signOutAction,
+  sessionKind,
   webSocketFactory,
   saveDisplayNameAction,
 }: RoomBoardProps) {
   const feedback = useFeedback(roomId, submitFeedback);
+  const router = useRouter();
+  const completionNavigationStarted = useRef(false);
   const [completionResetVersion, setCompletionResetVersion] = useState(0);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isPrivateNotesHandoffPending, setIsPrivateNotesHandoffPending] =
@@ -118,15 +127,17 @@ export function RoomBoard({
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({ initialMembers, initialPhase });
-  const hostUserId = roomState.host.hostUserId ?? initialHostUserId;
-  const isHost = roomState.host.hostUserId
-    ? hostUserId === currentUserId
-    : (roomState.host.isHost ?? initialIsHost);
+  // ルーム完了後は、既存の成果詳細画面へ移動する。
+  useEffect(() => {
+    if (!roomState.outcomePublished) return;
+    if (completionNavigationStarted.current) return;
+
+    completionNavigationStarted.current = true;
+
+    router.replace(`/completed-rooms/${encodeURIComponent(roomId)}`);
+  }, [roomId, roomState.outcomePublished, router]);
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
     roomId,
-    isHost,
-    completed: roomState.outcomePublished,
-    hostRevision: roomState.host.hostRevision ?? 0,
   });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
   // useRoomConnection は常に最新のハンドラへ配送するため、
@@ -149,25 +160,12 @@ export function RoomBoard({
   );
   const send = useCallback(
     (message: ClientMessage) => {
-      const sent = sendRaw(
-        needsHostRevision(message) &&
-          message.expectedHostRevision === undefined &&
-          roomState.host.hostRevision !== null
-          ? { ...message, expectedHostRevision: roomState.host.hostRevision }
-          : message,
-      );
+      const sent = sendRaw(message);
       if (sent !== false) historyObserverRef.current?.(message);
       return sent;
     },
-    [sendRaw, roomState.host.hostRevision],
+    [sendRaw],
   );
-  const hostTransfer = useHostTransfer({
-    isHost,
-    hostRevision: roomState.host.hostRevision,
-    connected: connectionStatus === "open",
-    blocked: isNextPhasePending || isLeaving || roomState.outcomePublished,
-    send,
-  });
   const roomName = useRoomName({
     connected: connectionStatus === "open",
     blocked: isLeaving || roomState.outcomePublished,
@@ -183,15 +181,9 @@ export function RoomBoard({
     send,
   });
   const memberRemoval = useMemberRemoval({
-    isHost,
     currentUserId,
-    hostRevision: roomState.host.hostRevision,
     connected: connectionStatus === "open",
-    blocked:
-      isNextPhasePending ||
-      hostTransfer.pending ||
-      isLeaving ||
-      roomState.outcomePublished,
+    blocked: isNextPhasePending || isLeaving || roomState.outcomePublished,
     members: roomState.members,
     send,
   });
@@ -224,7 +216,6 @@ export function RoomBoard({
     blocked:
       notes.movePending ||
       notes.draggingNoteId !== null ||
-      hostTransfer.pending ||
       memberRemoval.pending ||
       isNextPhasePending ||
       isLeaving ||
@@ -247,13 +238,151 @@ export function RoomBoard({
     connectionStatus,
     send,
   });
-  const sharingReactions = useSharingReactions({
+  const presenterViewPresence = usePresenterView({
+    currentUserId,
     phase: roomState.phase,
-    phaseRevision: roomState.phaseRevision,
     connectionStatus,
-    blocked: isLeaving || isNextPhasePending || roomState.outcomePublished,
     send,
   });
+
+  const [isFollowingPresenterView, setIsFollowingPresenterView] =
+    useState(true);
+
+  const phaseKey =
+    roomState.phase.kind === "lobby"
+      ? "lobby"
+      : `${roomState.phase.phase}-${roomState.phase.step}`;
+
+  const shouldFollowPresenterView = isPresenterViewFollowStep(roomState.phase);
+
+  const previousPhaseKeyRef = useRef<string | null>(null);
+
+  const activePresenterId =
+    isPresenterViewFollowStep(roomState.phase) &&
+    roomState.sharing?.status === "active" &&
+    roomState.sharing.startsAt === null &&
+    roomState.sharing.currentIndex !== null
+      ? (roomState.sharing.order[roomState.sharing.currentIndex]?.userId ??
+        null)
+      : null;
+  // 発表者の切り替え待ち時間中も、次の発表者の表示情報は保持する。
+  // activePresenterId は実際に発表が始まるまで null になるため、
+  // UI 表示用には startsAt を条件に含めず別途取得する。
+  const displayPresenterId =
+    isPresenterViewFollowStep(roomState.phase) &&
+    roomState.sharing?.status === "active" &&
+    roomState.sharing.currentIndex !== null
+      ? (roomState.sharing.order[roomState.sharing.currentIndex]?.userId ??
+        null)
+      : null;
+
+  const displayPresenter =
+    displayPresenterId === null
+      ? null
+      : (roomState.sharing?.order.find(
+          (member) => member.userId === displayPresenterId,
+        ) ?? null);
+
+  const isCurrentUserPresenter =
+    activePresenterId !== null && activePresenterId === currentUserId;
+
+  const remotePresenterView =
+    activePresenterId !== null &&
+    activePresenterId !== currentUserId &&
+    presenterViewPresence.remoteView?.userId === activePresenterId
+      ? presenterViewPresence.remoteView
+      : null;
+
+  const canFollowPresenterView = remotePresenterView !== null;
+
+  // 最後にサーバーへフォロー先として通知した発表者。
+  const lastPublishedFollowPresenterIdRef = useRef<string | null>(null);
+
+  // 次の発表者への切り替え待ち状態。
+  // この間は activePresenterId が null でも、フォロー解除を送らない。
+  const isWaitingForNextPresenter =
+    isPresenterViewFollowStep(roomState.phase) &&
+    roomState.sharing?.status === "active" &&
+    roomState.sharing.startsAt !== null;
+
+  useEffect(() => {
+    // 切断時はサーバー側の WebSocket クローズ処理でフォローが解除される。
+    if (connectionStatus !== "open") {
+      lastPublishedFollowPresenterIdRef.current = null;
+      return;
+    }
+
+    const clearPublishedFollow = () => {
+      if (lastPublishedFollowPresenterIdRef.current === null) {
+        return;
+      }
+
+      lastPublishedFollowPresenterIdRef.current = null;
+
+      send({
+        type: "presenter-follow:update",
+        isFollowing: false,
+      });
+    };
+
+    // 対象フェーズ外、またはユーザーが手動でフォローを解除した場合。
+    if (
+      !isPresenterViewFollowStep(roomState.phase) ||
+      !isFollowingPresenterView
+    ) {
+      clearPublishedFollow();
+      return;
+    }
+
+    // 次の発表者が開始するまで、現在のフォロー状態を維持する。
+    if (isWaitingForNextPresenter) {
+      return;
+    }
+
+    // 発表者がいない場合は、切り替え待ち以外ではフォローを終了する。
+    if (activePresenterId === null) {
+      clearPublishedFollow();
+      return;
+    }
+
+    // 自分が発表者になった場合、自分自身へのフォローは解除する。
+    // フォローする意思（isFollowingPresenterView）は維持するので、
+    // 次に別の人が発表者になれば自動的にフォローを再開できる。
+    if (activePresenterId === currentUserId) {
+      clearPublishedFollow();
+      return;
+    }
+
+    // 同じ発表者への通知は重複して送らない。
+    if (lastPublishedFollowPresenterIdRef.current === activePresenterId) {
+      return;
+    }
+
+    // 新しい発表者へのフォローをサーバーに通知する。
+    lastPublishedFollowPresenterIdRef.current = activePresenterId;
+
+    send({
+      type: "presenter-follow:update",
+      isFollowing: true,
+    });
+  }, [
+    connectionStatus,
+    isFollowingPresenterView,
+    isWaitingForNextPresenter,
+    activePresenterId,
+    currentUserId,
+    roomState.phase,
+    send,
+  ]);
+
+  useEffect(() => {
+    // ステップが変わったときだけ、フォロー状態を初期化する。
+    if (previousPhaseKeyRef.current === phaseKey) return;
+
+    previousPhaseKeyRef.current = phaseKey;
+    setIsFollowingPresenterView(shouldFollowPresenterView);
+  }, [phaseKey, shouldFollowPresenterView]);
+  const sharingReactionMessageRef = useRef<SharingReactionMessageHandler>(null);
 
   function clearCandidateNotices(): void {
     bulkUndoIdsRef.current.clear();
@@ -317,18 +446,15 @@ export function RoomBoard({
   );
 
   function handleServerMessage(message: ServerMessage) {
+    if (message.type === "reaction:received") {
+      sharingReactionMessageRef.current?.applyMessage(message, Date.now());
+      return;
+    }
     if (message.type === "sharing:updated") sharingGenerationRef.current += 1;
     if (roomName.applyMessage(message)) return;
     if (displayName.applyMessage(message)) return;
     moveHistory.applyMessage(message);
     if (memberRemoval.applyMessage(message)) return;
-    if (hostTransfer.applyMessage(message)) return;
-    if (
-      message.type === "host:updated" &&
-      message.hostRevision > (roomState.host.hostRevision ?? -1)
-    ) {
-      setIsNextPhasePending(false);
-    }
     if (
       message.type === "snapshot" ||
       message.type === "outcome:published" ||
@@ -419,14 +545,14 @@ export function RoomBoard({
       roomState.applyMessage(message, receivedAt);
     }
     cursorPresence.applyMessage(message, receivedAt);
-    sharingReactions.applyMessage(message, receivedAt);
+    presenterViewPresence.applyMessage(message);
+    sharingReactionMessageRef.current?.applyMessage(message, receivedAt);
   }
 
   const handleNextPhase = useCallback(
     (confirmedProgressRevision?: number) => {
       if (
         connectionStatus !== "open" ||
-        hostTransfer.isPending() ||
         memberRemoval.isPending() ||
         isNextPhasePending
       )
@@ -442,7 +568,6 @@ export function RoomBoard({
     },
     [
       connectionStatus,
-      hostTransfer.isPending,
       memberRemoval.isPending,
       isNextPhasePending,
       send,
@@ -476,7 +601,6 @@ export function RoomBoard({
       !roomState.rollbackTarget ||
       roomState.outcomePublished ||
       connectionStatus !== "open" ||
-      hostTransfer.isPending() ||
       memberRemoval.isPending() ||
       isNextPhasePending ||
       isLeaving
@@ -493,7 +617,6 @@ export function RoomBoard({
     roomState.rollbackTarget,
     roomState.outcomePublished,
     connectionStatus,
-    hostTransfer.isPending,
     memberRemoval.isPending,
     isNextPhasePending,
     isLeaving,
@@ -521,12 +644,7 @@ export function RoomBoard({
 
   const handleLoopPhase = useCallback(
     (type: "phase:restart-writing" | "phase:revote") => {
-      if (
-        hostTransfer.isPending() ||
-        memberRemoval.isPending() ||
-        isNextPhasePending
-      )
-        return;
+      if (memberRemoval.isPending() || isNextPhasePending) return;
       setIsNextPhasePending(true);
       send({
         type,
@@ -535,7 +653,6 @@ export function RoomBoard({
       });
     },
     [
-      hostTransfer.isPending,
       memberRemoval.isPending,
       isNextPhasePending,
       send,
@@ -663,6 +780,8 @@ export function RoomBoard({
     ideaMapSizeLevel: roomState.ideaMap.sizeLevel,
     sharing: roomState.sharing,
     ideaMapSizeInitialized: roomState.ideaMap.initialized,
+    presenterView: remotePresenterView,
+    isFollowingPresenter: isFollowingPresenterView,
     onNoteDragStart: notes.startNoteDrag,
     onNoteDragMove: notes.moveNote,
     onNoteDragEnd: notes.endNoteDrag,
@@ -671,7 +790,104 @@ export function RoomBoard({
     onPrivateNoteUnpublish: notes.unpublishNote,
     onCursorMove: cursorPresence.updateCursor,
     onCursorLeave: cursorPresence.leaveCanvas,
+    onManualPanStart: () => {
+      // 発表者自身の視点操作では、フォローする意思を解除しない。
+      if (displayPresenterId !== currentUserId) {
+        setIsFollowingPresenterView(false);
+      }
+    },
   });
+
+  useEffect(() => {
+    if (
+      !isCurrentUserPresenter ||
+      connectionStatus !== "open" ||
+      !isPresenterViewFollowStep(roomState.phase) ||
+      isIdeaMapViewportStep(roomState.phase) ||
+      !roomState.members.some((member) => member.userId === currentUserId)
+    ) {
+      return;
+    }
+
+    const viewport = boardInteractions.boardScrollerRef.current;
+    if (!viewport) return;
+
+    let frameId: number | null = null;
+    let observer: ResizeObserver | null = null;
+    let disposed = false;
+
+    const publishView = (): boolean => {
+      if (disposed) return true;
+
+      const rect = viewport.getBoundingClientRect();
+
+      // 表示領域がまだレイアウトされていない場合は、
+      // サイズが決まったあとで再試行する。
+      if (rect.width <= 0 || rect.height <= 0) {
+        return false;
+      }
+
+      const insets = getBoardFitInsets(viewport);
+
+      const centerScreen = {
+        x: (insets.left + rect.width - insets.right) / 2,
+        y: (insets.top + rect.height - insets.bottom) / 2,
+      };
+
+      const center = screenToWorld(centerScreen, boardInteractions.camera);
+
+      presenterViewPresence.updateView({
+        coordinateSpace: "canvas",
+        centerX: clampCanvasCoordinate(center.x),
+        centerY: clampCanvasCoordinate(center.y),
+        zoom: boardInteractions.camera.zoom,
+      });
+
+      return true;
+    };
+
+    const disconnectObserver = () => {
+      observer?.disconnect();
+      observer = null;
+    };
+
+    // 発表者の切り替え直後ではなく、レイアウトが反映された
+    // 次のフレームで表示領域を測定する。
+    frameId = window.requestAnimationFrame(() => {
+      frameId = null;
+
+      if (publishView()) return;
+
+      // まだサイズが取得できなかった場合は、表示領域の
+      // サイズが確定するまで待ち、確定したら一度だけ送信する。
+      observer = new ResizeObserver(() => {
+        if (publishView()) {
+          disconnectObserver();
+        }
+      });
+
+      observer.observe(viewport);
+    });
+
+    return () => {
+      disposed = true;
+
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      disconnectObserver();
+    };
+  }, [
+    isCurrentUserPresenter,
+    connectionStatus,
+    roomState.phase,
+    roomState.members,
+    currentUserId,
+    boardInteractions.camera,
+    boardInteractions.boardScrollerRef,
+    presenterViewPresence.updateView,
+  ]);
 
   useEffect(() => {
     if (connectionStatus === "open") return;
@@ -696,14 +912,18 @@ export function RoomBoard({
   ]);
 
   return (
-    <>
+    <RoomSharingReactions
+      phase={roomState.phase}
+      phaseRevision={roomState.phaseRevision}
+      connectionStatus={connectionStatus}
+      blocked={isLeaving || isNextPhasePending || roomState.outcomePublished}
+      send={send}
+      messageRef={sharingReactionMessageRef}
+    >
       <RoomBoardView
         isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
-        sharingReactions={sharingReactions.reactions}
-        reactionControls={{
-          disabled: !sharingReactions.canSendLike,
-          onSendLike: sharingReactions.sendLike,
-        }}
+        sharingReactionDisplay={<RoomSharingReactionDisplay />}
+        reactionControls={renderSharingReactionControls}
         loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
           undo: moveHistory.undoState,
@@ -764,18 +984,9 @@ export function RoomBoard({
         timer={roomState.timer}
         timerServerOffsetMs={roomState.timerServerOffsetMs}
         timerUpdateVersion={roomState.timerUpdateVersion}
-        isHost={isHost}
-        hostRevision={roomState.host.hostRevision ?? 0}
-        onTransferHost={
-          roomState.host.hostRevision === null
-            ? undefined
-            : hostTransfer.transfer
-        }
-        isTransferring={hostTransfer.pending}
         displayName={displayName}
         roomName={roomName}
         memberRemoval={memberRemoval}
-        transferError={hostTransfer.error}
         decision={roomState.decision}
         outcomePublished={roomState.outcomePublished}
         adoptionFocusNoteId={roomState.adoptionFocusNoteId}
@@ -784,7 +995,6 @@ export function RoomBoard({
         draggingNoteId={notes.frontNoteId}
         members={roomState.members}
         currentUserId={currentUserId}
-        hostUserId={hostUserId}
         completedVoterIds={roomState.completedVoterIds}
         progress={roomState.progress}
         onToggleReady={handleToggleReady}
@@ -792,9 +1002,31 @@ export function RoomBoard({
         isNextPhasePending={isNextPhasePending}
         isSavingBeforeShare={drafts.sharingSavePending}
         signOutAction={signOutAction}
+        sessionKind={sessionKind}
         interactions={boardInteractions}
         help={help}
         remoteCursors={cursorPresence.remoteCursors}
+        presenterView={remotePresenterView}
+        isFollowingPresenterView={
+          isFollowingPresenterView &&
+          displayPresenterId !== null &&
+          displayPresenterId !== currentUserId
+        }
+        canFollowPresenterView={
+          !isFollowingPresenterView && canFollowPresenterView
+        }
+        isPresenterViewOwner={isCurrentUserPresenter}
+        isPresenterViewFollowedByOthers={
+          presenterViewPresence.isFollowedByOthers
+        }
+        presenterViewName={displayPresenter?.name ?? null}
+        presenterViewColor={displayPresenter?.color ?? null}
+        onFollowPresenterView={() => setIsFollowingPresenterView(true)}
+        onUnfollowPresenterView={() => setIsFollowingPresenterView(false)}
+        onPresenterViewChange={
+          isCurrentUserPresenter ? presenterViewPresence.updateView : undefined
+        }
+        onManualPanStart={() => setIsFollowingPresenterView(false)}
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}
@@ -837,6 +1069,6 @@ export function RoomBoard({
         isLeaving={isLeaving}
       />
       <NoteDraftRecovery items={drafts.recoveries} />
-    </>
+    </RoomSharingReactions>
   );
 }

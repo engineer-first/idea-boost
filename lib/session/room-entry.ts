@@ -11,12 +11,15 @@ import { apiFetch } from "@/lib/api-client";
 import { getSessionSecret } from "./env";
 import { signToken, verifyToken } from "./token";
 
+// 入室証明に必要なのは本人 ID とセッション期限だけ。メールや本人種別には依存しない。
+type RoomEntryPrincipal = Pick<VerifiedSession, "sub" | "exp">;
+
 export type RoomEntryStage = "lobby" | "board";
 export type ConsumeRoomEntryResult =
   | { ok: true; admission?: string }
   | { ok: false };
 export function hasRoomEntryTime(
-  user: VerifiedSession | null,
+  user: RoomEntryPrincipal | null,
   now = Math.floor(Date.now() / 1000),
 ): boolean {
   // PreviewはAccessが各リクエストで本人を検証し、最大1時間のセッションを渡す。
@@ -27,7 +30,7 @@ export function hasRoomEntryTime(
 }
 export async function issueRoomEntry(
   roomId: string,
-  user: VerifiedSession,
+  user: RoomEntryPrincipal,
   stage: RoomEntryStage = "board",
   tabId?: string,
 ): Promise<string> {
@@ -55,7 +58,7 @@ export async function issueRoomEntry(
 export async function bindRoomEntry(
   admission: string,
   roomId: string,
-  user: VerifiedSession,
+  user: RoomEntryPrincipal,
   tabId: string,
 ): Promise<string | null> {
   const ticket = await verifyToken(admission, RoomAdmissionSchema, {
@@ -93,7 +96,7 @@ export async function bindRoomEntry(
 export async function verifyRoomEntry(
   token: string | undefined,
   roomId: string,
-  user: VerifiedSession,
+  user: RoomEntryPrincipal,
   tabId: string,
   stage: RoomEntryStage = "board",
 ): Promise<ConsumeRoomEntryResult> {

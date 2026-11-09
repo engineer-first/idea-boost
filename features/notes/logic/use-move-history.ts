@@ -80,7 +80,6 @@ export function useMoveHistory({
       ownMoves.current.add(message.operationId);
     else if (
       [
-        "host:transfer",
         "note:create",
         "note:delete",
         "note:publish",

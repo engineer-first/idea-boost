@@ -50,7 +50,9 @@ function shouldMoveIssueToReview(input) {
     repository,
     directPullRequests,
   } = input;
-  if (!new Set(["review_requested", "ready_for_review"]).has(action)) {
+  if (
+    !new Set(["opened", "review_requested", "ready_for_review"]).has(action)
+  ) {
     return { allowed: false, reason: "unsupported-event" };
   }
   if (pullRequest.state !== "open" || pullRequest.draft) {
@@ -64,7 +66,10 @@ function shouldMoveIssueToReview(input) {
       reason: "explicit-issue-reference-missing-or-mismatched",
     };
   }
-  if (!hasRequestedReviewer(pullRequest, event, action)) {
+  if (
+    action === "review_requested" &&
+    !hasRequestedReviewer(pullRequest, event, action)
+  ) {
     return { allowed: false, reason: "no-current-review-request" };
   }
 
@@ -78,7 +83,7 @@ function shouldMoveIssueToReview(input) {
   if (
     !projectItem?.exists ||
     projectItem.archived ||
-    projectItem.status !== "作業中"
+    !["壁打ち中", "着手可能", "作業中"].includes(projectItem.status)
   ) {
     return { allowed: false, reason: "project-item-not-in-working-state" };
   }
@@ -145,14 +150,75 @@ function resolvePullRequestIssue(pullRequest, repository) {
   return Number.isSafeInteger(number) && number > 0 ? number : null;
 }
 
+function closedIssueStatus(stateReason) {
+  if (stateReason === "COMPLETED") return "完了";
+  if (["NOT_PLANNED", "DUPLICATE"].includes(stateReason)) return "見送り";
+  return null;
+}
+
 function decideStatusTransition(input) {
-  if (["review_requested", "ready_for_review"].includes(input.action)) {
+  if (
+    ["review_requested", "ready_for_review"].includes(input.action) ||
+    (input.action === "opened" && input.pullRequest && !input.pullRequest.draft)
+  ) {
     const decision = shouldMoveIssueToReview(input);
     return decision.allowed
-      ? { ...decision, from: "作業中", to: "レビュー中" }
+      ? { ...decision, from: input.projectItem.status, to: "レビュー中" }
       : decision;
   }
   const { issue, projectItem, event, pullRequest, action } = input;
+  if (
+    ["closed", "reopened"].includes(action) &&
+    event.issue &&
+    !event.issue.pull_request
+  ) {
+    const target =
+      action === "reopened"
+        ? issue.state === "OPEN"
+          ? "着手可能"
+          : null
+        : issue.state === "CLOSED"
+          ? closedIssueStatus(issue.stateReason)
+          : null;
+    if (
+      !target ||
+      !projectItem.exists ||
+      projectItem.archived ||
+      projectItem.status === target
+    ) {
+      return {
+        allowed: false,
+        reason: "issue-or-project-not-eligible-for-lifecycle",
+      };
+    }
+    return {
+      allowed: true,
+      issueNumber: issue.number,
+      from: projectItem.status,
+      to: target,
+    };
+  }
+  if (action === "assigned") {
+    if (
+      issue.state !== "OPEN" ||
+      !projectItem.exists ||
+      projectItem.archived ||
+      projectItem.status !== "未整理" ||
+      !event.assignee?.login ||
+      !issue.assignees.includes(event.assignee.login)
+    ) {
+      return {
+        allowed: false,
+        reason: "issue-not-untriaged-or-assignment-removed",
+      };
+    }
+    return {
+      allowed: true,
+      issueNumber: issue.number,
+      from: "未整理",
+      to: "壁打ち中",
+    };
+  }
   if (action === "closed") {
     if (!pullRequest?.merged) {
       return { allowed: false, reason: "pull-request-not-merged" };
@@ -164,6 +230,8 @@ function decideStatusTransition(input) {
       return { allowed: false, reason: "pull-request-does-not-close-issue" };
     }
     if (
+      issue.state !== "CLOSED" ||
+      issue.stateReason !== "COMPLETED" ||
       !projectItem.exists ||
       projectItem.archived ||
       !projectItem.status ||
@@ -186,26 +254,12 @@ function decideStatusTransition(input) {
   ) {
     return { allowed: false, reason: "issue-or-project-not-eligible" };
   }
-  if (action === "assigned" || action === "opened") {
+  if (action === "opened") {
     if (
       !["Task", "Bug", "Spike"].includes(issue.type) ||
-      projectItem.status !== "着手可能"
+      !["壁打ち中", "着手可能"].includes(projectItem.status)
     ) {
       return { allowed: false, reason: "issue-not-ready-to-start" };
-    }
-    if (action === "assigned") {
-      if (
-        event.sender?.login !== event.assignee?.login ||
-        !issue.assignees.includes(event.sender?.login)
-      ) {
-        return { allowed: false, reason: "not-current-self-assignment" };
-      }
-      return {
-        allowed: true,
-        issueNumber: issue.number,
-        from: "着手可能",
-        to: "作業中",
-      };
     }
   } else if (action !== "converted_to_draft") {
     return { allowed: false, reason: "unsupported-event" };
@@ -215,7 +269,8 @@ function decideStatusTransition(input) {
   }
   const direct = directPullRequestDecision(input);
   if (!direct.allowed) return direct;
-  if (action === "opened") return { ...direct, from: "着手可能", to: "作業中" };
+  if (action === "opened")
+    return { ...direct, from: projectItem.status, to: "作業中" };
   let record;
   try {
     record = JSON.parse(projectItem.automation ?? "");

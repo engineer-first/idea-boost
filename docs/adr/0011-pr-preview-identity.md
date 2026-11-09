@@ -1,33 +1,45 @@
-# 0011: PR PreviewをAccess本人ログインと共通APIで動かす
+---
+id: "0011"
+status: Superseded by ADR 0012
+date: "2026-10-10"
+---
 
-- 状態: 提案
-- 決定日: 未確定（PRレビューで判断する）
-- 記録日: 2026-10-10
-- 対象: [PBI #362](https://github.com/engineer-first/idea-boost/issues/362)
-- 後継案: [0012: PR全体と保存先の分離](0012-pr-preview-full-stack.md)（2026-10-11の要求変更）。以下は初版で共通APIを選んだ記録。
+# ADR 0011: PR PreviewをAccess本人ログインと共通APIで動かす
 
-## 背景
+## Context
 
-レビュー担当者がPRの変更画面を好きなステップから操作し、実際の本人同士で同じルームを共有したい。本番データを使わず、PRごとにAPIと保存先まで複製する運用も避けたい。
+レビュー担当者はローカル起動せずにPRの画面を好きなステップから操作し、実際の本人同士で同じルームを共有する必要があった。初版は本番データを使わず、PRごとのAPIと保存先の複製運用を避ける前提だった。
 
-## 決定案
+## Decision
 
-PRごとにAppだけをWorkers Previewsへ公開し、CI成功したdevelopの共通Preview API、専用D1、PreviewRoomDO namespaceへ接続する。APIとRoomDOを変えるPRは、その版をPreviewで確認できないことをPRの案内へ明記する。
+PRごとの画面を公開し、共通の検証用APIと専用保存先へ接続する案を提案した。入口ではCloudflare Accessで許可されたGoogle本人を確認し、アプリのルーム認可は維持する。本番と検証環境の認証を分け、初版の公開・削除対象を抑えるためである。
 
-Cloudflare AccessのGoogle限定applicationとメール許可一覧で本人ログインを受ける。Appの全入口（静的assetsとWebSocketを含む）でJWTのRS256署名・issuer・audience・期限を検証し、署名済みの短命な本人主張でAPIへユーザーを登録する。既存のGoogle本人主張を使い、Access subjectを`access:<subject>`としてPreview専用D1の本人へ対応付ける。Access applicationへGoogle以外のIdPを加えないことを初期設定の前提にする。
+### 本ADRで決定しないこと
 
-本番と別の秘密でPreviewセッションを署名する。ブラウザにはhost限定の`__Host-idea_boost_preview_session`を持たせ、内部のNext/APIへ検証済み本人のCookieだけを渡す。APIはメール許可一覧を再検査し、ルーム所属・ホスト・付箋可視性は既存のアプリ認可を継承する。セッション期限はAccess JWTの期限以下とし、WebSocketもその期限で閉じる。
+関数・通信形式・保存の具体手順と移行方法は、PR Preview運用へ委譲する。参照先はReferencesに示す。
 
-Previewの入室準備は、期限が残る署名検証済みセッションで許可する。本番の残り5時間以上という入室条件は維持する。Previewの最大1時間のセッションは、短い操作確認に使い、5時間の会議や翌日の再開を保証しない。入室ticketの本人・ルーム・セッション期限・タブ・一回消費の確認は両環境で維持する。
+## Consequences
 
-## 比較した方式
+良い影響は、本人の共同操作を保ちながらPRごとの公開対象を減らせること。悪い影響は、APIや保存処理を変えるPRでも共通APIの動作しか確認できないこと。中立の影響として、Access設定とアプリの許可範囲の両方を管理する必要がある。実際にPRの画面とAPIが一致せず変更を確認できなかったため、後継ではPR全体と保存先を分離する。
 
-既存AppのGoogle OAuthを各PRで使う方式では、可変のPR URLとOAuth戻り先の登録・分離を管理する必要がある。Accessの共通applicationで本人性を検証すると、その入口を集約できるため採用案とする。ただしAccessの実契約・Google設定・URL対象・許可一覧を#360で確認できることが条件となる。
+2026-11-03に実コード・一次資料を照合。旧提案の個別の採用承認は根拠未確認。後継本文は新しい提案として別に評価する。現コードは共通API案から後継のPR全体分離方式へ変わっている。
 
-API・D1・RoomDOもPRごとに作る方式は、PR版バックエンドを確認できる代わりにmigration・Secret・削除対象が増える。初版で最も使うUX確認を優先し、Issueで決定済みの共通API方式を使う。
+## Alternatives Considered
 
-## 代償と確認
+各PRで通常のGoogle OAuthを使う案では可変URLの戻り先管理が増える。API・保存先もPRごとに作る案は初版では運用対象が増えるとして見送ったが、後継でこの判断を変更する。
 
-Access policyとApp/APIの許可一覧を揃えて更新する必要がある。JWTだけではGoogle限定policyの実設定を証明できないため、実環境のGoogle本人ログインと別メンバー2ブラウザの確認を公開前に残す。PRコードのbuildはSecretのない別runnerに分離し、公開runnerは信頼済みoperatorと構成だけを使う。同一repoのPRのみ対象で、forkにはSecretを渡さない。
+## Related ADRs
 
-手順と実施記録は[Preview運用](../operations/preview.md)へ案内する。コードがマージされただけで、実設定・本番release・PBI受け入れ条件の完了とは扱わない。
+- [ADR 0012](0012-pr-preview-full-stack.md)：関連する判断。
+
+## Supersession
+
+[ADR 0012](0012-pr-preview-full-stack.md)がこの提案を置き換える。後継もProposedであり、後継の採用を示すものではない。
+
+## References
+
+- [PBI #362](https://github.com/engineer-first/idea-boost/issues/362)
+- [Preview運用](../operations/preview.md)
+- [照合した実装・規約](../../workers/preview-gateway.ts)（確認日：2026-11-03）。
+- セッション調査：2026-11-03にvaultのClaude/Codexとローカルの元セッションを検索したが、この判断の本人の採用発言は未確認。GitHub記録の投稿者名だけで本人の承認とは判定していない。
+- [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0011-pr-preview-identity.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

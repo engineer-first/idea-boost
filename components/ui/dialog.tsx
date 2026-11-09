@@ -13,6 +13,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import * as React from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
@@ -49,7 +50,7 @@ const DialogContent = React.forwardRef<
       data-slot="dialog-content"
       className={cn(
         "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
-        "gap-4 border border-border bg-card p-6 shadow-lg rounded-lg",
+        "gap-4 border border-border bg-card p-6 shadow-tool rounded-xl",
         "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
         "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
         className,
@@ -59,7 +60,7 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         data-slot="dialog-close"
-        className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+        className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
       >
         <X className="h-4 w-4" aria-hidden="true" />
         <span className="sr-only">閉じる</span>
@@ -120,7 +121,7 @@ const DialogDescription = React.forwardRef<
   <DialogPrimitive.Description
     ref={ref}
     data-slot="dialog-description"
-    className={cn("text-sm text-muted-foreground", className)}
+    className={cn("text-balance text-base text-muted-foreground", className)}
     {...props}
   />
 ));
@@ -164,7 +165,7 @@ const AlertDialogContent = React.forwardRef<
       data-slot="alert-dialog-content"
       className={cn(
         "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
-        "gap-4 border border-border bg-card p-6 shadow-lg rounded-lg",
+        "gap-4 border border-border bg-card p-6 shadow-tool rounded-xl",
         "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
         "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
         className,
@@ -199,7 +200,8 @@ function AlertDialogFooter({
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        // 帯や区切り線を付けず、横幅いっぱいの大きなボタンで次の行動を示す（DESIGN.md「ダイアログ」）。
+        "mt-2 grid auto-cols-fr grid-flow-col gap-3",
         className,
       )}
       {...props}
@@ -228,7 +230,7 @@ const AlertDialogDescription = React.forwardRef<
   <AlertDialogPrimitive.Description
     ref={ref}
     data-slot="alert-dialog-description"
-    className={cn("text-sm text-muted-foreground", className)}
+    className={cn("text-balance text-base text-muted-foreground", className)}
     {...props}
   />
 ));
@@ -241,10 +243,7 @@ const AlertDialogAction = React.forwardRef<
   <AlertDialogPrimitive.Action
     ref={ref}
     data-slot="alert-dialog-action"
-    className={cn(
-      "inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-      className,
-    )}
+    className={cn(buttonVariants(), "h-12 w-full font-bold", className)}
     {...props}
   />
 ));
@@ -258,7 +257,8 @@ const AlertDialogCancel = React.forwardRef<
     ref={ref}
     data-slot="alert-dialog-cancel"
     className={cn(
-      "inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:mt-0",
+      buttonVariants({ variant: "secondary" }),
+      "h-12 w-full",
       className,
     )}
     {...props}

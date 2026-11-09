@@ -1,16 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { NextPhaseConfirmDialog } from "./next-phase-confirm-dialog";
-
-const STEP_1_1 = buildPhaseStep(1);
-const STEP_1_3 = buildPhaseStep(3);
 
 const meta = {
   title: "Room/NextPhaseConfirmDialog",
   component: NextPhaseConfirmDialog,
   args: {
-    phase: STEP_1_1,
     disabled: false,
     onConfirm: fn(),
   },
@@ -36,18 +31,38 @@ export const AllReady: Story = {
   },
 };
 
-// 未接続・移行処理中・最終フェーズでは操作できない。
+// 移行処理中など、待つ理由を示せない場合は破線の枠だけで押せないことを示す。
 export const Disabled: Story = {
   args: {
     disabled: true,
   },
 };
 
-// 押下後、確認ダイアログが開いた状態（現在フェーズのラベルが説明に入る）。
-export const Opened: Story = {
+// メンバーの完了を待つ間は、完了した人数ぶん面が満ち、あと何人かを示す。
+export const WaitingMembers: Story = {
   args: {
-    phase: STEP_1_3,
+    disabled: true,
+    waiting: { kind: "members", remaining: 2, total: 5 },
   },
+};
+
+export const WaitingLastMember: Story = {
+  args: {
+    disabled: true,
+    waiting: { kind: "members", remaining: 1, total: 5 },
+  },
+};
+
+// 通信が戻るのを待つ間は、淡い帯が往復する。
+export const WaitingConnection: Story = {
+  args: {
+    disabled: true,
+    waiting: { kind: "connection" },
+  },
+};
+
+// 押下後、確認ダイアログが開いた状態。
+export const Opened: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
@@ -56,19 +71,23 @@ export const Opened: Story = {
   },
 };
 
-// 個人作業から共有へ進む際の空白付箋の整理を説明する。
-export const LeavingPersonalWork: Story = {
-  args: { phase: STEP_1_1 },
-  play: Opened.play,
-};
-
 // 開いた後にControlsでrequireConfirmationをfalse、notReadyNamesを[]にすると、
 // 全員完了後もダイアログが残り「次へ進む」を押せることを確認できる。
 export const WaitingForMember: Story = {
   args: {
-    phase: STEP_1_1,
     requireConfirmation: true,
     notReadyNames: ["Member"],
+  },
+  play: Opened.play,
+};
+
+export const ManyWaitingMembers: Story = {
+  args: {
+    requireConfirmation: true,
+    notReadyNames: Array.from(
+      { length: 20 },
+      (_, index) => `メンバー${index + 1}`,
+    ),
   },
   play: Opened.play,
 };

@@ -18,7 +18,6 @@ export function getAdoptionTargetLabel(phaseNumber: AdoptionPhaseNumber) {
 
 export type AdoptNoteControlProps = {
   phaseNumber: AdoptionPhaseNumber;
-  isHost: boolean;
   canSelect?: boolean;
   isSelecting: boolean;
   decisionContent: string | null;
@@ -30,8 +29,7 @@ export type AdoptNoteControlProps = {
 
 export function AdoptNoteControl({
   phaseNumber,
-  isHost,
-  canSelect = isHost,
+  canSelect = true,
   isSelecting,
   decisionContent,
   disabled,
@@ -45,7 +43,7 @@ export function AdoptNoteControl({
     return (
       <section
         aria-label={`採用する${targetLabel}の確定状態`}
-        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-2xl border border-emerald-600/40 bg-background px-4 py-3 shadow-lg shadow-black/5"
+        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-xl border border-emerald-600/40 bg-background px-4 py-3 shadow-tool"
       >
         <CheckCircle2
           aria-hidden="true"
@@ -82,7 +80,7 @@ export function AdoptNoteControl({
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-2xl border-2 border-primary bg-background px-4 py-3 shadow-lg shadow-black/5"
+        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-xl border-2 border-primary bg-background px-4 py-3 shadow-tool"
       >
         <MousePointerClick aria-hidden="true" className="size-5 shrink-0" />
         <div className="min-w-0 flex-1">

@@ -29,6 +29,7 @@ import {
   createRoomAs,
   currentPhaseExpectation,
   currentProgressConfirmation,
+  endTimerForTest,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
@@ -140,8 +141,9 @@ async function expectType<T extends ServerMessage["type"]>(
 ): Promise<Extract<ServerMessage, { type: T }>> {
   let message = await socket.next();
   while (
-    message.type === "note:content-saved" &&
-    type !== "note:content-saved"
+    (message.type === "note:content-saved" && type !== "note:content-saved") ||
+    (message.type === "presenter-follow:status" &&
+      type !== "presenter-follow:status")
   ) {
     message = await socket.next();
   }
@@ -186,6 +188,7 @@ describe("snapshot（接続・再接続の復帰パス）", () => {
         userId: OWNER.sub,
         name: OWNER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     ]);
     expect(snapshot.phase).toEqual(LOBBY);
@@ -227,11 +230,13 @@ describe("snapshot（接続・再接続の復帰パス）", () => {
         userId: OWNER.sub,
         name: OWNER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
       {
         userId: MEMBER.sub,
         name: MEMBER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     ]);
     // 移動後の Step 1-2 が復元される。
@@ -364,6 +369,7 @@ describe("member_joined（Realtime 反映）", () => {
         userId: newcomer.sub,
         name: newcomer.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     });
     expect(toMember).toEqual({
@@ -372,6 +378,7 @@ describe("member_joined（Realtime 反映）", () => {
         userId: newcomer.sub,
         name: newcomer.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
       },
     });
 
@@ -404,16 +411,19 @@ describe("member_joined（Realtime 反映）", () => {
           userId: OWNER.sub,
           name: OWNER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
         {
           userId: MEMBER.sub,
           name: MEMBER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
         {
           userId: newcomer.sub,
           name: newcomer.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
+          avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
         },
       ]),
     );
@@ -481,6 +491,7 @@ describe("member_joined（Realtime 反映）", () => {
       userId: newcomer.sub,
       name: newcomer.name,
       color: expect.stringMatching(NOTE_COLOR_PATTERN),
+      avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
     });
 
     owner.close();
@@ -566,6 +577,7 @@ describe("member_left（退出の Realtime 反映）", () => {
       userId: MEMBER.sub,
       name: MEMBER.name,
       color: colorBeforeLeave,
+      avatarId: expect.stringMatching(/^face-(0[1-9]|1[0-9]|20)$/),
     });
     owner.close();
   });
@@ -620,7 +632,7 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
 
     const member = await connectRoomAs(MEMBER, roomId);
     const snapshot = await expectType(member, "snapshot");
-    expect(snapshot.isHost).toBe(false);
+    expect(snapshot).not.toHaveProperty("isHost");
 
     send(member, { type: "start_phase" });
     expect(await expectType(member, "phase:updated")).toMatchObject({
@@ -655,7 +667,7 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
     member.close();
   });
 
-  it("room_owner が NULL の旧ルームへホストが接続するとバックフィルされ、開始できる", async () => {
+  it("ホスト列がNULLの既存ルームでも作成者は開始でき、列を更新しない", async () => {
     const { roomId } = await createRoomAs(OWNER);
     await runInRoomDO(roomId, (_instance, state) => {
       state.storage.sql.exec(
@@ -665,8 +677,8 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
 
     const owner = await connectRoomAs(OWNER, roomId);
     const snapshot = await expectType(owner, "snapshot");
-    expect(snapshot.isHost).toBe(true);
-    expect(await storedHostId(roomId)).toBe(OWNER.sub);
+    expect(snapshot).not.toHaveProperty("isHost");
+    expect(await storedHostId(roomId)).toBeNull();
 
     send(owner, { type: "start_phase" });
     const updated = await expectType(owner, "phase:updated");
@@ -675,7 +687,7 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
     owner.close();
   });
 
-  it("room_owner が NULL の旧ルームへ非ホストが先に接続しても D1 のホストでバックフィルする", async () => {
+  it("ホスト列がNULLの既存ルームへ参加者が先に接続しても列を更新しない", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
     await runInRoomDO(roomId, (_instance, state) => {
@@ -686,12 +698,12 @@ describe("start_phase / phase:updated（在籍メンバーが開始できる）"
 
     const member = await connectRoomAs(MEMBER, roomId);
     const memberSnapshot = await expectType(member, "snapshot");
-    expect(memberSnapshot.isHost).toBe(false);
-    expect(await storedHostId(roomId)).toBe(OWNER.sub);
+    expect(memberSnapshot).not.toHaveProperty("isHost");
+    expect(await storedHostId(roomId)).toBeNull();
 
     const owner = await connectRoomAs(OWNER, roomId);
     const ownerSnapshot = await expectType(owner, "snapshot");
-    expect(ownerSnapshot.isHost).toBe(true);
+    expect(ownerSnapshot).not.toHaveProperty("isHost");
 
     member.close();
     owner.close();
@@ -1538,6 +1550,26 @@ async function completeMemberObjectiveVotes(
   });
 }
 
+async function completeOwnerVotes(roomId: string): Promise<void> {
+  await runInRoomDO(roomId, (_room, state) => {
+    const noteId = crypto.randomUUID();
+    state.storage.sql.exec(
+      "INSERT INTO notes(id,author_id,content,visibility,color,x,y,phase,created_at,updated_at) VALUES(?,?,'別の候補','shared','yellow',0,0,1,'now','now')",
+      noteId,
+      OWNER.sub,
+    );
+    for (const kind of ["subjective", "objective"] as const)
+      for (let i = 0; i < (kind === "subjective" ? 1 : 3); i++)
+        state.storage.sql.exec(
+          "INSERT INTO note_vote_stickers(id,note_id,user_id,kind,x,y,created_at) VALUES(?,?,?,?,0.2,0.3,'now')",
+          crypto.randomUUID(),
+          noteId,
+          OWNER.sub,
+          kind,
+        );
+  });
+}
+
 describe("note:vote（課題ドット投票）", () => {
   it("Step 1-5 へ接続を維持したまま進むと、全参加者の集計を復元する", async () => {
     const { owner, member, roomId } = await setupStartedRoom();
@@ -1548,6 +1580,8 @@ describe("note:vote（課題ドット投票）", () => {
     await expectType(member, "note:updated");
 
     await completeMemberObjectiveVotes(roomId, noteId);
+    await completeOwnerVotes(roomId);
+    await endTimerForTest(roomId);
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
@@ -1613,6 +1647,8 @@ describe("note:vote（課題ドット投票）", () => {
     // 投票イベントが owner に届いていれば、ここで snapshot ではなく
     // note:updated を受け取るため失敗する。
     await completeMemberObjectiveVotes(roomId, noteId);
+    await completeOwnerVotes(roomId);
+    await endTimerForTest(roomId);
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
@@ -1691,6 +1727,8 @@ describe("note:vote（課題ドット投票）", () => {
     const snapshot = await expectType(reconnected, "snapshot");
     expect(snapshot.completedVoterIds).toEqual([MEMBER.sub]);
 
+    await completeOwnerVotes(roomId);
+    await endTimerForTest(roomId);
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
@@ -2827,6 +2865,7 @@ describe("note:drag（エフェメラル同期）", () => {
     });
     await expectType(room.member, "note:drag:result");
     await arrangeSharingComplete(room.roomId);
+    await endTimerForTest(room.roomId);
     send(room.owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(room.roomId)),
@@ -2836,6 +2875,7 @@ describe("note:drag（エフェメラル同期）", () => {
     await expectType(room.owner, "phase:updated");
     await expectType(room.member, "phase:updated");
 
+    await startTimerForTest(room.roomId);
     send(room.member, {
       type: "note:drag:start",
       noteId,
@@ -3374,6 +3414,7 @@ describe("グループ指向のグループ同期", () => {
     await expectType(member, "note:updated");
 
     await arrangeSharingComplete(roomId);
+    await endTimerForTest(roomId);
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),

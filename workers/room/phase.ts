@@ -48,7 +48,7 @@ import {
 } from "./progress";
 import { recordProgressTransition } from "./progress-history";
 import { getSharingState, resetSharingForPhase } from "./sharing-state";
-import { getTimerState, resetTimerState, saveTimerState } from "./timer";
+import { getTimerState, resetTimerState } from "./timer";
 import { deleteNoteVotes, hasCompletedVoting } from "./votes";
 
 export function getPhase(sql: SqlStorage): RoomPhase {
@@ -86,25 +86,6 @@ export function getPhaseRevision(sql: SqlStorage): number {
   return Number(
     sql.exec("SELECT phase_revision FROM room_state WHERE id = 1").one()
       .phase_revision,
-  );
-}
-
-function canProceedWithProgress(
-  ctx: HandlerCtx,
-  current: RoomPhase,
-  message: Extract<ClientMessage, { type: "phase:next" }>,
-): boolean {
-  if (!isManualProgressStep(current) && !isVotingStep(current)) return true;
-  const progress = getProgressState(
-    ctx.sql,
-    ctx.broadcaster,
-    current,
-    getPhaseRevision(ctx.sql),
-  );
-  return (
-    progress.canAdvance &&
-    (progress.allReady ||
-      message.confirmedProgressRevision === progress.progressRevision)
   );
 }
 
@@ -269,6 +250,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
       return true;
     case "reaction:send":
     case "cursor:update":
+    case "view:update":
+    case "presenter-follow:update":
     case "note:share:status":
     case "note:move:status":
     case "note:move:cancel":
@@ -279,6 +262,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "member:remove":
     case "room:rename":
     case "member:rename":
+    case "member:cycle-avatar":
     case "start_phase":
     case "phase:rollback":
     case "phase:next":
@@ -514,9 +498,7 @@ export function getBoardMutationForbiddenMessage(
   return `${getRoomPhaseLabel(phase)}ではこの操作を行えません。`;
 }
 
-// フェーズ進行の認可は room_owner（isHostUser）に一本化している。
-// D1 由来の hostId ヘッダーを認可ソースに加えない（旧ルームのバックフィル
-// シードにすぎない。room-do.ts の HOST_ID_HEADER 参照）。
+// フェーズ進行は在籍者が行える。
 export const phaseHandlers: MessageHandlers<
   | "start_phase"
   | "phase:next"
@@ -632,38 +614,29 @@ export const phaseHandlers: MessageHandlers<
       current,
       getPhaseRevision(ctx.sql),
     );
-    if (isManualProgressStep(current) || isVotingStep(current)) {
-      if (!progress.canAdvance) {
-        ctx.reply({
-          type: "error",
-          code: "phase-not-ready",
-          message: "参加者の過半数が完了するまで進めません。",
-        });
-        broadcastProgress(
-          ctx.sql,
-          ctx.broadcaster,
-          current,
-          getPhaseRevision(ctx.sql),
-        );
-        return;
-      }
-      if (
-        !progress.allReady &&
-        message.confirmedProgressRevision !== progress.progressRevision
-      ) {
-        ctx.reply({
-          type: "error",
-          code: "phase-confirmation-required",
-          message: "完了していない参加者を確認してください。",
-        });
-        broadcastProgress(
-          ctx.sql,
-          ctx.broadcaster,
-          current,
-          getPhaseRevision(ctx.sql),
-        );
-        return;
-      }
+    if (
+      isVotingStep(current) &&
+      (progress.connectedUserIds.length === 0 ||
+        progress.connectedUserIds.some(
+          (userId) => !hasCompletedVoting(ctx.sql, userId, current.phase),
+        ))
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "全員の投票が完了するまで次へ進めません。",
+      });
+      return;
+    }
+    const timer = getTimerState(ctx.sql);
+    if (timer.status !== "ended" && !progress.allReady) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message:
+          "全員のチェックかタイマーの終了を待ってから次へ進んでください。",
+      });
+      return;
     }
     if (isResultStep(current) && !hasCandidateNotes(ctx.sql, current.phase)) {
       ctx.reply({
@@ -674,7 +647,12 @@ export const phaseHandlers: MessageHandlers<
       return;
     }
     const next = nextRoomPhase(current);
-    if (isVotingStep(next) && !hasCandidateNotes(ctx.sql, current.phase)) {
+    if (
+      isVotingStep(next) &&
+      current.kind === "step" &&
+      current.step !== 2 &&
+      !hasCandidateNotes(ctx.sql, current.phase)
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -726,8 +704,23 @@ export const phaseHandlers: MessageHandlers<
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
     const committed = await runAuthorizedMutationTransaction(ctx, async () => {
+      const sharingAtCommit =
+        current.step === 2 ? getSharingState(ctx.sql) : null;
+      const progressAtCommit = getProgressState(
+        ctx.sql,
+        ctx.broadcaster,
+        current,
+        getPhaseRevision(ctx.sql),
+      );
       if (
-        !canProceedWithProgress(ctx, current, message) ||
+        (getTimerState(ctx.sql).status !== "ended" &&
+          !progressAtCommit.allReady) ||
+        (isVotingStep(current) &&
+          (progressAtCommit.connectedUserIds.length === 0 ||
+            progressAtCommit.connectedUserIds.some(
+              (userId) => !hasCompletedVoting(ctx.sql, userId, current.phase),
+            ))) ||
+        (sharingAtCommit !== null && sharingAtCommit.status !== "complete") ||
         isRoomClosed(ctx.sql) ||
         !matchesExpectedPhase(ctx, message)
       ) {
@@ -793,24 +786,11 @@ export const phaseHandlers: MessageHandlers<
       }
       savePhase(ctx.sql, next);
       ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
-      resetSharingForPhase(ctx.sql, next, true);
+      resetSharingForPhase(ctx.sql, next);
       if (crossesPhaseBoundary) {
         clearUsedNoteDragIds(ctx.sql);
       }
       timerWasReset = resetTimerState(ctx.sql);
-      if (
-        next.kind === "step" &&
-        next.step === 3 &&
-        (next.phase === 1 || next.phase === 3)
-      ) {
-        const durationMs = next.phase === 1 ? 240_000 : 420_000;
-        saveTimerState(ctx.sql, {
-          status: "running",
-          durationMs,
-          endsAt: Date.now() + durationMs,
-        });
-        timerWasReset = true;
-      }
       await syncRoomAlarm(ctx.storage, ctx.sql);
       return true;
     });

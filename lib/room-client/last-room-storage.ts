@@ -1,7 +1,13 @@
 // ブラウザに保持する入口候補。参加・閲覧の認可には使わない。本文は保存しない。
 import { z } from "zod";
 
-export const LAST_ROOM_STORAGE_KEY = "idea-boost:last-room";
+import {
+  clearStoredLastRoom,
+  LAST_ROOM_STORAGE_KEY,
+} from "./last-room-storage-cleanup";
+
+export { LAST_ROOM_STORAGE_KEY } from "./last-room-storage-cleanup";
+
 const CandidateSchema = z.strictObject({ userId: z.guid(), roomId: z.guid() });
 export function rememberLastRoom(userId: string, roomId: string): void {
   const candidate = CandidateSchema.safeParse({ userId, roomId });
@@ -32,7 +38,7 @@ export function clearLastRoom(roomId?: string): void {
       );
       if (candidate.success && candidate.data.roomId !== roomId) return;
     }
-    localStorage.removeItem(LAST_ROOM_STORAGE_KEY);
+    clearStoredLastRoom();
   } catch {
     /* 利用できない保存領域に依存しない。 */
   }

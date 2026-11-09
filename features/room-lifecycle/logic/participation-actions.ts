@@ -1,4 +1,5 @@
 "use server";
+
 import {
   ParticipationCommitSchema,
   type ParticipationResult,
@@ -6,7 +7,9 @@ import {
 } from "@/contracts/room-participation";
 import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
-import { hasRoomEntryTime, issueRoomEntry } from "@/lib/session/room-entry";
+import { issueRoomEntry } from "@/lib/session/room-entry";
+import { prepareRoomEntrySession } from "@/lib/session/room-entry-session";
+import { GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE } from "./guest-identity-message";
 export type ParticipationActionResult = ParticipationResult & {
   entryToken?: string;
 };
@@ -22,11 +25,17 @@ async function requestParticipation(
       reason: "actor_mismatch",
       error: "アカウントが変わりました。ログイン状態を確認してください。",
     };
-  if (!hasRoomEntryTime(user))
+  const prepared = await prepareRoomEntrySession(user);
+  if (!prepared.ok)
     return {
       kind: "rejected",
-      reason: "reauth_required",
-      error: "ログインし直して続けてください。",
+      reason: prepared.reason,
+      error:
+        prepared.reason === "identity_unavailable"
+          ? GUEST_IDENTITY_UNAVAILABLE_ACTION_MESSAGE
+          : prepared.reason === "retry"
+            ? "通信を確認して、もう一度お試しください。"
+            : "ログインし直して続けてください。",
     };
   const response = await apiFetch(
     path,
@@ -42,7 +51,7 @@ async function requestParticipation(
   return result.kind === "ready"
     ? {
         ...result,
-        entryToken: await issueRoomEntry(result.roomId, user, "lobby"),
+        entryToken: await issueRoomEntry(result.roomId, prepared.user, "lobby"),
       }
     : result;
 }

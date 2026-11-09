@@ -6,7 +6,10 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { cookies } from "next/headers";
 import type { z } from "zod";
-import { RoomLookupResponseSchema } from "@/contracts/api";
+import {
+  RoomLookupFailureSchema,
+  RoomLookupResponseSchema,
+} from "@/contracts/api";
 import { SESSION_COOKIE_NAME } from "@/contracts/session";
 
 type FetcherLike = {
@@ -68,12 +71,14 @@ export async function apiFetch(
 export type RoomLookupResult = z.infer<typeof RoomLookupResponseSchema>;
 
 // 招待コードからルームを解決する。
-// - found: 404/400 以外の成功レスポンスでボディがスキーマに合う
+// - found: 成功レスポンスでボディがスキーマに合う
 // - not_found: 404 / 400（存在しない・形式不正）
-// - unavailable: 5xx・ネットワーク障害・不正ボディ（不存在と誤案内しない）
+// - ended: 410で終了を示すボディがスキーマに合う
+// - unavailable: 不正な410・5xx・ネットワーク障害・不正ボディ（不存在と誤案内しない）
 export type RoomLookupOutcome =
   | { kind: "found"; room: RoomLookupResult }
   | { kind: "not_found" }
+  | { kind: "ended" }
   | { kind: "unavailable" };
 
 export async function lookupRoomByInviteCode(
@@ -85,6 +90,12 @@ export async function lookupRoomByInviteCode(
     );
     if (res.status === 404 || res.status === 400) {
       return { kind: "not_found" };
+    }
+    if (res.status === 410) {
+      const parsed = RoomLookupFailureSchema.safeParse(
+        await res.json().catch(() => null),
+      );
+      return { kind: parsed.success ? "ended" : "unavailable" };
     }
     if (!res.ok) {
       return { kind: "unavailable" };

@@ -24,3 +24,10 @@ export const Unavailable: Story = { args: { status: "unavailable" } };
 
 export const InitialConnection: Story = { args: { status: "connecting" } };
 export const ReSynchronizing: Story = { args: { status: "reconnecting" } };
+
+export const AuthRequiredWithReturnPath: Story = {
+  args: {
+    status: "auth-required",
+    returnHref: "/rooms/11111111-1111-4111-8111-111111111111",
+  },
+};

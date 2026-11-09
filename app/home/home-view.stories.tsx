@@ -10,12 +10,24 @@ import {
 } from "@/lib/room-client/last-room-storage";
 import { HomeErrorAlert } from "./home-error-alert";
 import { HomeView } from "./home-view";
+import styles from "./home-view.module.css";
 
 const meta = {
   title: "Home/HomeView",
   component: HomeView,
-  parameters: { layout: "fullscreen" },
-  args: { currentUserId: "11111111-1111-4111-8111-111111111111" },
+  parameters: {
+    layout: "fullscreen",
+    docs: {
+      description: {
+        component:
+          "AccountLinkSection は container をそのまま描画するため、連携ボタンを押すと実際の Server Action を呼びます。操作は Auth/AccountLinkSection で確認してください。",
+      },
+    },
+  },
+  args: {
+    currentUserId: "11111111-1111-4111-8111-111111111111",
+    accountLinkStatus: "guest",
+  },
   decorators: [
     (Story) => (
       <div style={{ height: "100vh" }}>
@@ -75,36 +87,37 @@ export const AllStates: Story = {
           </span>
           <div className="min-h-[520px] overflow-hidden rounded-xl border border-border">
             {/* HomeView は Server Action 付き子を含むため、見た目カタログは View 合成 */}
-            <div className="relative flex min-h-[520px] items-center justify-center overflow-hidden bg-muted/40 p-6">
-              <div className="relative z-10 flex w-full max-w-2xl flex-col gap-6">
-                <header className="space-y-2 text-center">
-                  <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                    アイデア出しを始めましょう
-                  </h1>
-                  <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                    新しいルームを作成するか、招待コードを入力して参加できます。
-                  </p>
-                </header>
+            <div className={styles.home}>
+              <div aria-hidden className={styles.art} />
+              <div className={styles.content}>
                 {error ? <HomeErrorAlert message={error} /> : null}
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className={styles.hero}>
+                  <header className={styles.intro}>
+                    <h1>
+                      <span>そのひらめき、</span>
+                      <span>みんなで育てよう。</span>
+                    </h1>
+                    <p>ルームを作って、仲間とアイデア出しを始めましょう。</p>
+                  </header>
                   <CreateRoomSectionView
                     pending={false}
                     onSubmit={fn()}
-                    recovering={label === "Recovering"}
+                    message={
+                      label === "Recovering"
+                        ? "ルームを開けませんでした。もう一度お試しください。"
+                        : undefined
+                    }
                     intentName={
                       label === "Recovering" ? "サービスの相談" : undefined
                     }
                   />
-                  <JoinRoomSectionView
-                    code=""
-                    onCodeChange={fn()}
-                    dialogOpen={false}
-                    onDialogOpenChange={fn()}
-                    hostName=""
-                    onSubmit={fn()}
-                    onConfirm={fn()}
-                  />
                 </div>
+                <JoinRoomSectionView
+                  canSubmit={false}
+                  code=""
+                  onCodeChange={fn()}
+                  onSubmit={fn()}
+                />
               </div>
             </div>
           </div>
@@ -115,7 +128,6 @@ export const AllStates: Story = {
 };
 
 export const WithReturnRoom: Story = {
-  args: { currentUserId: "11111111-1111-4111-8111-111111111111" },
   beforeEach: () => {
     rememberLastRoom(
       "11111111-1111-4111-8111-111111111111",
@@ -123,4 +135,24 @@ export const WithReturnRoom: Story = {
     );
     return () => clearLastRoom();
   },
+};
+
+export const Guest: Story = {
+  name: "ゲスト（任意のGoogle連携）",
+  args: { accountLinkStatus: "guest" },
+};
+export const Account: Story = {
+  name: "Google連携済み",
+  args: { accountLinkStatus: "linked" },
+};
+export const AccountLinkConflict: Story = {
+  name: "別の記録で使用中のGoogleアカウント",
+  args: {
+    accountLinkStatus: "guest",
+    accountLinkResult: "google_account_in_use",
+  },
+};
+export const AccountLinkSuccess: Story = {
+  name: "Google連携完了",
+  args: { accountLinkStatus: "linked", accountLinkResult: "linked" },
 };

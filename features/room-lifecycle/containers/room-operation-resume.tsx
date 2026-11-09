@@ -14,6 +14,7 @@ import {
   returnToRoom,
 } from "../logic/actions";
 import { entryDestination } from "../logic/entry-destination";
+import { lifecycleNotify } from "../logic/lifecycle-notify";
 import { participationSwitchProps } from "../logic/participation-switch-props";
 import {
   readRoomCreationIntent,
@@ -91,6 +92,11 @@ export function RoomOperationResume({
           }
           roomId = result.roomId;
           admission = result.entryToken;
+          lifecycleNotify.rememberDeparture(
+            result.roomId,
+            result.operationId,
+            result.exitedRoomNames,
+          );
         }
         const saved = await readRoomCreationIntent(principal);
         if (saved?.requestId === operation.input.requestId)
@@ -132,6 +138,11 @@ export function RoomOperationResume({
         }
         roomId = result.roomId;
         admission = result.entryToken;
+        lifecycleNotify.rememberDeparture(
+          result.roomId,
+          result.operationId,
+          result.exitedRoomNames,
+        );
         href = `/rooms/${roomId}/start`;
       } else {
         roomId = operation.roomId;

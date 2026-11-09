@@ -14,6 +14,7 @@ import {
   sessionCookieFor,
   startTimerForTest,
 } from "../test-helpers";
+import type { SocketAttachment } from "./broadcast";
 
 const A = {
   sub: "11111111-1111-4111-8111-111111111111",
@@ -136,7 +137,7 @@ async function expectNoOutcomeAccess(roomId: string) {
   ).toBe(404);
 }
 
-describe("ホストによるメンバー除外", () => {
+describe("参加者によるメンバー除外", () => {
   it("除外は成果を残さない退出として一覧・成果・経緯を拒否し、他者の保持退出の権利は残す", async () => {
     const { roomId, a, b, stub } = await setup();
     await stub.leave(C.sub, "retain");
@@ -211,16 +212,16 @@ describe("ホストによるメンバー除外", () => {
     });
   });
 
-  it("非ホストは他者を外せず操作ID付きで拒否する", async () => {
-    const { a, b, stub } = await setup();
-    const operationId = remove(b, C.sub);
-    expect(await receive(b, "error")).toMatchObject({
-      code: "forbidden",
-      operationId,
-    });
-    expect(await stub.isMember(C.sub)).toBe(true);
-    expect(await stub.isMember(A.sub)).toBe(true);
-    a.close();
+  it("参加者は接続中の作成者を外せる", async () => {
+    const { b, stub } = await setup();
+    await removeAccepted(b, A.sub);
+    expect(await stub.isMember(A.sub)).toBe(false);
+    expect(await stub.isMember(B.sub)).toBe(true);
+  });
+  it("古い要求のホスト世代が一致しなくても在籍者は除外できる", async () => {
+    const { a, stub } = await setup();
+    await removeAccepted(a, C.sub, 999);
+    expect(await stub.isMember(C.sub)).toBe(false);
   });
   it.each([A.sub, OUTSIDER])(
     "自己または非メンバー %s を拒否する",
@@ -265,28 +266,16 @@ describe("ホストによるメンバー除外", () => {
     );
     expect(response.status).toBe(404);
   });
-  it("ホスト移譲後は古いホストと古い世代の除外を拒否する", async () => {
+  it("古い移譲要求は拒否し、参加者の除外権限を変えない", async () => {
     const { a, b, stub } = await setup();
     send(a, {
       type: "host:transfer",
       targetUserId: B.sub,
       expectedHostRevision: 0,
     });
-    await receive(a, "host:updated");
-    await receive(b, "host:updated");
-    for (const [socket, revision] of [
-      [a, 0],
-      [b, 0],
-    ] as const) {
-      const operationId = remove(socket, C.sub, revision);
-      expect(await receive(socket, "error")).toMatchObject({
-        code: "forbidden",
-        operationId,
-      });
-    }
-    expect(await stub.isMember(C.sub)).toBe(true);
-    await removeAccepted(b, C.sub, 1);
-    await receive(a, "member_left");
+    expect(await receive(a, "error")).toMatchObject({ code: "forbidden" });
+    await removeAccepted(b, C.sub, 999);
+    expect(await stub.isMember(C.sub)).toBe(false);
   });
   it("即時進行後にメンバーを除外できる", async () => {
     const { roomId, stub, a, b } = await setup();
@@ -306,7 +295,7 @@ describe("ホストによるメンバー除外", () => {
   });
 
   it("完了したルームでは除外を拒否する", async () => {
-    const { roomId, stub, a } = await setup();
+    const { roomId, a } = await setup();
     await runInRoomDO(roomId, (_room, state) =>
       state.storage.sql.exec(
         "UPDATE room_state SET outcome_published=1 WHERE id=1",
@@ -325,7 +314,6 @@ describe("ホストによるメンバー除外", () => {
           .toArray(),
       ),
     ).toHaveLength(1);
-    expect(await stub.getCurrentHost()).toMatchObject({ hostUserId: A.sub });
   });
   it("進行中も除外でき、再招待で同じ色・付箋・票を復元する", async () => {
     const { roomId, inviteCode, a, b, stub } = await setup();
@@ -424,6 +412,56 @@ describe("ホストによるメンバー除外", () => {
       );
       expect(sent).not.toHaveBeenCalled();
       sent.mockRestore();
+    });
+  });
+
+  it("フォロー中のメンバーを除外すると発表者へフォロー解除を通知する", async () => {
+    const { roomId, a } = await setup();
+
+    // BがAをフォローしている状態をソケットのattachmentに設定する。
+    await runInRoomDO(roomId, (_room, state) => {
+      const followerSocket = state.getWebSockets().find((socket) => {
+        const attachment =
+          socket.deserializeAttachment() as SocketAttachment | null;
+
+        return attachment?.userId === B.sub;
+      });
+
+      if (!followerSocket) {
+        throw new Error("フォロー対象のソケットが見つかりません。");
+      }
+
+      const attachment =
+        followerSocket.deserializeAttachment() as SocketAttachment | null;
+
+      if (!attachment) {
+        throw new Error("ソケットのattachmentを取得できません。");
+      }
+
+      followerSocket.serializeAttachment({
+        ...attachment,
+        followingPresenterUserId: A.sub,
+      });
+    });
+
+    // ホストAが参加者Bを除外する。
+    const operationId = remove(a);
+
+    expect(await receive(a, "member_left")).toMatchObject({
+      userId: B.sub,
+    });
+
+    // Bの接続が消えたあと、Aへのフォロー状態がfalseに更新される。
+    expect(await receive(a, "presenter-follow:status")).toEqual({
+      type: "presenter-follow:status",
+      presenterUserId: A.sub,
+      isFollowed: false,
+    });
+
+    expect(await receive(a, "member:removed")).toEqual({
+      type: "member:removed",
+      targetUserId: B.sub,
+      operationId,
     });
   });
 

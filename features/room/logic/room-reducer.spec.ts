@@ -40,7 +40,7 @@ describe("applyIdeaMapServerMessage", () => {
           notes: [],
           members: [A],
           phase: buildPhaseStep(3, 2),
-          isHost: true,
+
           decision: null,
           carryovers: [],
           completedVoterIds: [],
@@ -77,7 +77,7 @@ describe("applyMemberServerMessage", () => {
       notes: [],
       members: [A, B],
       phase: LOBBY,
-      isHost: true,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],
@@ -213,7 +213,7 @@ describe("applyVotingCompletionServerMessage", () => {
         members: [A, B],
         completedVoterIds: [B.userId],
         phase: buildPhaseStep(4),
-        isHost: true,
+
         decision: null,
         carryovers: [],
         timer: { status: "idle" },
@@ -306,7 +306,7 @@ describe("applyPhaseServerMessage", () => {
       notes: [],
       members: [A],
       phase: buildPhaseStep(1),
-      isHost: true,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],
@@ -342,7 +342,7 @@ describe("applyTimerServerMessage", () => {
       notes: [],
       members: [A],
       phase: buildPhaseStep(1),
-      isHost: true,
+
       decision: null,
       carryovers: [],
       completedVoterIds: [],
@@ -417,7 +417,7 @@ describe("applyDecisionServerMessage", () => {
         notes: [],
         members: [A],
         phase: buildPhaseStep(5),
-        isHost: true,
+
         decision,
         carryovers: [],
         completedVoterIds: [],
@@ -472,7 +472,7 @@ describe("applyAdoptionFocusServerMessage", () => {
       notes: [],
       members: [A],
       phase: buildPhaseStep(5),
-      isHost: false,
+
       decision: null,
       adoptionFocusNoteId: noteId,
       carryovers: [],
@@ -508,7 +508,7 @@ describe("applyCarryoverServerMessage", () => {
         notes: [],
         members: [A],
         phase: buildPhaseStep(1, 2),
-        isHost: true,
+
         decision: null,
         carryovers: [carryover],
         completedVoterIds: [],
@@ -551,4 +551,27 @@ it("同じ表示名でも別の参加者として保持し現在の発表者名�
     first,
     message.member,
   ]);
+});
+
+it("顔変更通知で対象の顔IDだけを更新し、他の参加者は変えない", () => {
+  const members = [
+    {
+      userId: "self",
+      name: "はな",
+      color: "yellow" as const,
+      avatarId: "face-01" as const,
+    },
+    {
+      userId: "peer",
+      name: "たろう",
+      color: "blue" as const,
+      avatarId: "face-02" as const,
+    },
+  ];
+  const next = applyMemberServerMessage(members, {
+    type: "member:avatar-updated",
+    member: { ...members[0], avatarId: "face-03" },
+    operationId: "operation",
+  });
+  expect(next).toEqual([{ ...members[0], avatarId: "face-03" }, members[1]]);
 });

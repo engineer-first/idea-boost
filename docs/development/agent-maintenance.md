@@ -12,6 +12,7 @@
 | 作業                           | 共有する入口                                                                                                                                                                                       |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | CI失敗の原因・保証範囲を調べる | [ci-triage](../../.agents/skills/ci-triage/SKILL.md)                                                                                                                                               |
+| 作業Issueを起票する            | [create-work-issue](../../.agents/skills/create-work-issue/SKILL.md)                                                                                                                               |
 | PBIを一緒に考える              | [pbi](../../.agents/skills/pbi/SKILL.md)                                                                                                                                                           |
 | UI部品・境界・migrationを作る  | [new-component](../../.agents/skills/new-component/SKILL.md)、[contract-change](../../.agents/skills/contract-change/SKILL.md)、[create-migration](../../.agents/skills/create-migration/SKILL.md) |
 | ローカル起動で確認する         | [verify](../../.agents/skills/verify/SKILL.md)、[サーバーの期限と停止](dev-server-lifecycle.md)                                                                                                    |
@@ -32,6 +33,8 @@ Claudeの既存hooksは [.claude/settings.json](../../.claude/settings.json) で
 
 個人のCodex履歴、認証情報、ユーザースキル、実行中の引き継ぎ文書は配布物に含めない。
 履歴から採用した判断と検証結果だけを保守記録へ残す。
+
+ADRを書く・レビューする際の規約は[ADR運用](../adr/README.md)を正本とする。指示・skillへ複製せず、`npm run check:adr`で構造・索引・相対リンクを検査する。
 
 ## 保守する場所
 

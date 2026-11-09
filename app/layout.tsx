@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import { AppHeader } from "@/app/app-header";
 import { Toaster } from "@/components/ui/sonner";
 import { loadDisplayName } from "@/features/auth";
@@ -7,12 +7,14 @@ import { landingCopy } from "@/features/landing";
 import { getCurrentUser } from "@/lib/session/current-user";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const notoSans = Noto_Sans_JP({
+  variable: "--font-noto-sans-jp",
+  display: "swap",
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
+  preload: false,
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
@@ -35,12 +37,13 @@ export default async function RootLayout({
   return (
     <html
       lang="ja"
-      className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased`}
+      className={`${notoSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased`}
     >
       <body className="flex h-full flex-col overflow-hidden">
         {user ? (
           <AppHeader
             currentUserId={user.sub}
+            sessionKind={user.kind}
             userName={displayName?.ok ? (displayName.name ?? "") : ""}
           />
         ) : null}

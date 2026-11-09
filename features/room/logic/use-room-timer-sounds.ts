@@ -12,38 +12,51 @@ const END_LATE_TOLERANCE_MS = 2_000;
 const TIMER_SOUND_PEAK_GAIN = 0.04;
 const TIMER_SOUND_GAP_SECONDS = 0.05;
 
-type TimerSoundKind = "start" | "warning" | "end" | "votingComplete";
-
 type TimerSoundTone = {
   frequencyHz: number;
   durationMs: number;
   oscillatorType?: OscillatorType;
 };
 
-const TIMER_SOUND_PATTERNS: Record<TimerSoundKind, readonly TimerSoundTone[]> =
-  {
-    start: [
-      { frequencyHz: 523.25, durationMs: 110 },
-      { frequencyHz: 659.25, durationMs: 130 },
-    ],
-    warning: [{ frequencyHz: 880, durationMs: 85 }],
-    end: [
-      { frequencyHz: 392, durationMs: 170 },
-      { frequencyHz: 329.63, durationMs: 230 },
-    ],
-    votingComplete: [
-      {
-        frequencyHz: 783.99,
-        durationMs: 90,
-        oscillatorType: "triangle",
-      },
-      {
-        frequencyHz: 1174.66,
-        durationMs: 180,
-        oscillatorType: "triangle",
-      },
-    ],
-  };
+type TimerSoundPattern = readonly TimerSoundTone[];
+type WarningSecond = (typeof WARNING_SECONDS)[number];
+
+const TIMER_SOUND_PATTERNS: Record<
+  "start" | "end" | "votingComplete",
+  TimerSoundPattern
+> = {
+  start: [
+    { frequencyHz: 523.25, durationMs: 105 },
+    { frequencyHz: 659.25, durationMs: 115 },
+    { frequencyHz: 783.99, durationMs: 155 },
+  ],
+  end: [
+    { frequencyHz: 523.25, durationMs: 90, oscillatorType: "triangle" },
+    { frequencyHz: 659.25, durationMs: 100, oscillatorType: "triangle" },
+    { frequencyHz: 783.99, durationMs: 120, oscillatorType: "triangle" },
+    { frequencyHz: 1046.5, durationMs: 220, oscillatorType: "triangle" },
+  ],
+  votingComplete: [
+    {
+      frequencyHz: 783.99,
+      durationMs: 90,
+      oscillatorType: "triangle",
+    },
+    {
+      frequencyHz: 1174.66,
+      durationMs: 180,
+      oscillatorType: "triangle",
+    },
+  ],
+};
+
+const WARNING_SOUND_PATTERNS: Record<WarningSecond, TimerSoundPattern> = {
+  5: [{ frequencyHz: 523.25, durationMs: 85, oscillatorType: "triangle" }],
+  4: [{ frequencyHz: 587.33, durationMs: 85, oscillatorType: "triangle" }],
+  3: [{ frequencyHz: 659.25, durationMs: 85, oscillatorType: "triangle" }],
+  2: [{ frequencyHz: 783.99, durationMs: 85, oscillatorType: "triangle" }],
+  1: [{ frequencyHz: 880, durationMs: 85, oscillatorType: "triangle" }],
+};
 
 export type TimerSoundControls = {
   enabled: boolean;
@@ -95,12 +108,12 @@ function writeSoundPreference(enabled: boolean): void {
 
 function createTimerSound(
   context: AudioContext,
-  kind: TimerSoundKind,
+  pattern: TimerSoundPattern,
   onCreated: (oscillator: OscillatorNode) => void,
   onEnded: (oscillator: OscillatorNode) => void,
 ): void {
   let startsAt = context.currentTime;
-  for (const tone of TIMER_SOUND_PATTERNS[kind]) {
+  for (const tone of pattern) {
     const endsAt = startsAt + tone.durationMs / 1_000;
     const oscillator = context.createOscillator();
     const envelope = context.createGain();
@@ -206,7 +219,7 @@ export function useRoomTimerSounds({
   }, []);
 
   const playSound = useCallback(
-    (kind: TimerSoundKind, canPlay: () => boolean = () => true) => {
+    (pattern: TimerSoundPattern, canPlay: () => boolean = () => true) => {
       if (!enabledRef.current) return;
       const generation = playbackGenerationRef.current;
       const isCurrent = () =>
@@ -216,7 +229,7 @@ export function useRoomTimerSounds({
           if (!enabledRef.current || !isCurrent()) return;
           createTimerSound(
             context,
-            kind,
+            pattern,
             (oscillator) => activeOscillatorsRef.current.add(oscillator),
             (oscillator) => activeOscillatorsRef.current.delete(oscillator),
           );
@@ -229,12 +242,12 @@ export function useRoomTimerSounds({
   );
 
   const playCueOnce = useCallback(
-    (key: string, kind: TimerSoundKind, expiresAt?: number) => {
+    (key: string, pattern: TimerSoundPattern, expiresAt?: number) => {
       if (!enabledRef.current || firedCueKeysRef.current.has(key)) return;
       firedCueKeysRef.current.add(key);
       const generation = timerCueGenerationRef.current;
       playSound(
-        kind,
+        pattern,
         () =>
           generation === timerCueGenerationRef.current &&
           (expiresAt === undefined || now() <= expiresAt),
@@ -266,7 +279,10 @@ export function useRoomTimerSounds({
         timer.status === "running" &&
         (previous.timer.status === "idle" || previous.timer.status === "ended")
       ) {
-        playCueOnce(`start:${timerUpdateVersion}:${timer.endsAt}`, "start");
+        playCueOnce(
+          `start:${timerUpdateVersion}:${timer.endsAt}`,
+          TIMER_SOUND_PATTERNS.start,
+        );
       }
 
       if (timer.status === "ended" && previous.timer.status === "running") {
@@ -282,7 +298,7 @@ export function useRoomTimerSounds({
         ) {
           playCueOnce(
             `end:${previousRunKey}`,
-            "end",
+            TIMER_SOUND_PATTERNS.end,
             previous.timer.endsAt - serverOffsetMs + END_LATE_TOLERANCE_MS,
           );
         }
@@ -323,7 +339,7 @@ export function useRoomTimerSounds({
     ) {
       // 消音中でも通知済みにし、後から有効化されたときに過去音を鳴らさない。
       notifiedVotingRoundsRef.current.add(roundKey);
-      playSound("votingComplete");
+      playSound(TIMER_SOUND_PATTERNS.votingComplete);
     }
 
     previousVotingCompletionRef.current = votingCompletion;
@@ -378,7 +394,7 @@ export function useRoomTimerSounds({
         if (lateByMs > WARNING_LATE_TOLERANCE_MS) return;
         playCueOnce(
           `warning:${runKey}:${seconds}`,
-          "warning",
+          WARNING_SOUND_PATTERNS[seconds],
           dueAt + WARNING_LATE_TOLERANCE_MS,
         );
       });
@@ -412,7 +428,7 @@ export function useRoomTimerSounds({
       if (generation !== playbackGenerationRef.current) return;
       createTimerSound(
         context,
-        "start",
+        TIMER_SOUND_PATTERNS.start,
         (oscillator) => activeOscillatorsRef.current.add(oscillator),
         (oscillator) => activeOscillatorsRef.current.delete(oscillator),
       );

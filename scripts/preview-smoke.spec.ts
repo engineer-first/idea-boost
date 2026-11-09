@@ -51,7 +51,7 @@ vi.mock("miniflare", () => ({
               status: 307,
               headers: { Location: "/home" },
             });
-          if (path === "/") return new Response("Googleでログインして始める");
+          if (path === "/") return new Response("無料で始める");
           if (path === "/login") return new Response("IdeaBoostとは？");
           return init?.headers
             ? new Response("確認するステップを選ぶ")

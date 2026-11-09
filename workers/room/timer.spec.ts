@@ -142,23 +142,54 @@ describe("transitionTimer: start", () => {
   );
 });
 
-describe("transitionTimer: pause / resume", () => {
-  it("running を pause すると残り時間を保持した paused になる", () => {
+describe("時間切れ後の1分延長", () => {
+  it("終了後に1分だけ再開し、延長済みを保持する", () => {
     expect(
-      transitionTimer(running(NOW + 42_000, 300_000), { kind: "pause" }, NOW),
-    ).toEqual({
+      transitionTimer(
+        { status: "ended", durationMs: 300_000 },
+        { kind: "extend" },
+        NOW,
+      ),
+    ).toMatchObject({
       type: "updated",
-      timer: paused(42_000, 300_000),
+      timer: {
+        status: "running",
+        endsAt: NOW + 60_000,
+        durationMs: 60_000,
+        extensionUsed: true,
+      },
     });
   });
 
-  it("期限を過ぎた running の pause は ended に確定する", () => {
+  it("計時中および延長済みの終了後は延長を拒否する", () => {
+    expect(
+      transitionTimer(running(NOW + 1_000, 300_000), { kind: "extend" }, NOW),
+    ).toEqual({ type: "invalid" });
+    expect(
+      transitionTimer(
+        {
+          status: "ended",
+          durationMs: 60_000,
+          extensionUsed: true,
+        } as TimerState,
+        { kind: "extend" },
+        NOW,
+      ),
+    ).toEqual({ type: "invalid" });
+  });
+});
+
+describe("transitionTimer: pause / resume", () => {
+  it("running の pause は拒否する", () => {
+    expect(
+      transitionTimer(running(NOW + 42_000, 300_000), { kind: "pause" }, NOW),
+    ).toEqual({ type: "invalid" });
+  });
+
+  it("期限を過ぎた running の pause も拒否する", () => {
     expect(
       transitionTimer(running(NOW - 1, 300_000), { kind: "pause" }, NOW),
-    ).toEqual({
-      type: "updated",
-      timer: { status: "ended", durationMs: 300_000 },
-    });
+    ).toEqual({ type: "invalid" });
   });
 
   it.each<[string, TimerState]>([
@@ -190,13 +221,10 @@ describe("transitionTimer: pause / resume", () => {
 });
 
 describe("transitionTimer: extend", () => {
-  it("running の extend は endsAt と durationMs を 1 分延長する", () => {
+  it("running 中の extend は拒否する", () => {
     expect(
       transitionTimer(running(NOW + 30_000, 300_000), { kind: "extend" }, NOW),
-    ).toEqual({
-      type: "updated",
-      timer: running(NOW + 30_000 + 60_000, 360_000),
-    });
+    ).toEqual({ type: "invalid" });
   });
 
   it("期限切れの running を extend できない", () => {
@@ -205,17 +233,21 @@ describe("transitionTimer: extend", () => {
     ).toEqual({ type: "invalid" });
   });
 
-  it("上限との差が 1 分未満なら差分だけ延長する", () => {
-    const durationMs = TIMER_MAX_DURATION_MS - 30_000;
+  it("規定時間が上限でも終了後には1分を追加する", () => {
     expect(
       transitionTimer(
-        running(NOW + 10_000, durationMs),
+        { status: "ended", durationMs: TIMER_MAX_DURATION_MS },
         { kind: "extend" },
         NOW,
       ),
     ).toEqual({
       type: "updated",
-      timer: running(NOW + 10_000 + 30_000, TIMER_MAX_DURATION_MS),
+      timer: {
+        status: "running",
+        endsAt: NOW + 60_000,
+        durationMs: 60_000,
+        extensionUsed: true,
+      },
     });
   });
 
@@ -292,29 +324,19 @@ describe("transitionTimer: Issue #279 の操作制約", () => {
     ).toEqual({ type: "invalid" });
   });
 
-  it("ended から start すると再設定した時間で再開できる", () => {
+  it("ended から規定時間での再開始はできない", () => {
     expect(
       transitionTimer(
         { status: "ended", durationMs: 60_000 },
         { kind: "start", durationMs: 120_000 },
         NOW,
       ),
-    ).toEqual({
-      type: "updated",
-      timer: running(NOW + 120_000, 120_000),
-    });
+    ).toEqual({ type: "invalid" });
   });
 
-  it("一時停止中・終了後の extend は invalid", () => {
+  it("一時停止中の extend は invalid", () => {
     expect(
       transitionTimer(paused(42_000, 300_000), { kind: "extend" }, NOW),
-    ).toEqual({ type: "invalid" });
-    expect(
-      transitionTimer(
-        { status: "ended", durationMs: 300_000 },
-        { kind: "extend" },
-        NOW,
-      ),
     ).toEqual({ type: "invalid" });
   });
 });
@@ -344,22 +366,22 @@ describe("timerHandlers: alarm の完了待ち", () => {
     expect(broadcast).toHaveBeenCalledOnce();
   });
 
-  it("一時停止時は deleteAlarm の完了後に timer:updated を配信する", async () => {
+  it("時間切れ後の延長は setAlarm の完了後に timer:updated を配信する", async () => {
     let resolveAlarm!: () => void;
     const alarm = new Promise<void>((resolve) => {
       resolveAlarm = resolve;
     });
-    const deleteAlarm = vi.fn(() => alarm);
+    const setAlarm = vi.fn(() => alarm);
     const { ctx, broadcast } = timerHandlerContext(
-      running(Date.now() + 60_000, 60_000),
-      { setAlarm: vi.fn(() => Promise.resolve()), deleteAlarm },
+      { status: "ended", durationMs: 60_000 },
+      { setAlarm, deleteAlarm: vi.fn(() => Promise.resolve()) },
     );
 
-    const operation = timerHandlers["timer:pause"](ctx, {
-      type: "timer:pause",
+    const operation = timerHandlers["timer:extend"](ctx, {
+      type: "timer:extend",
     });
     await Promise.resolve();
-    expect(deleteAlarm).toHaveBeenCalledOnce();
+    expect(setAlarm).toHaveBeenCalledOnce();
     expect(broadcast).not.toHaveBeenCalled();
 
     resolveAlarm();

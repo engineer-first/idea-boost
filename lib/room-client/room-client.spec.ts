@@ -212,8 +212,29 @@ describe("createRoomClient", () => {
 
     latestSocket().simulateMessage("garbage");
     latestSocket().simulateMessage(JSON.stringify({ type: "unknown" }));
+    latestSocket().simulateMessage(
+      JSON.stringify({
+        type: "reaction:received",
+        id: "11111111-1111-4111-8111-111111111111",
+        senderId: "22222222-2222-4222-8222-222222222222",
+        kind: "future-reaction",
+        phaseRevision: 3,
+      }),
+    );
 
     expect(received).toEqual([]);
+    latestSocket().simulateMessage(
+      JSON.stringify({
+        type: "note:deleted",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      }),
+    );
+    expect(received).toEqual([
+      {
+        type: "note:deleted",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      },
+    ]);
     client.close();
   });
 
@@ -264,7 +285,7 @@ describe("createRoomClient", () => {
     vi.advanceTimersByTime(10_000);
 
     expect(FakeWebSocket.instances).toHaveLength(1);
-    expect(statuses).toContain("disbanded");
+    expect(statuses).toContain("ended");
     expect(statuses).not.toContain("closed");
     client.close();
   });
@@ -361,59 +382,6 @@ describe("createRoomClient", () => {
     vi.advanceTimersByTime(60_000);
 
     expect(FakeWebSocket.instances).toHaveLength(1);
-  });
-});
-
-describe("ホストの世代を送信境界で固定する", () => {
-  it("ホスト更新を受信しても共同タイマー操作には世代を付けない", () => {
-    const client = createRoomClient({
-      url: "ws://test",
-      onMessage: () => {},
-      webSocketFactory: factory,
-    });
-    const socket = latestSocket();
-    socket.simulateOpen();
-    socket.simulateMessage(
-      JSON.stringify({
-        type: "host:updated",
-        hostUserId: "11111111-1111-4111-8111-111111111111",
-        hostRevision: 2,
-      }),
-    );
-    socket.simulateMessage(
-      JSON.stringify({
-        type: "host:updated",
-        hostUserId: "22222222-2222-4222-8222-222222222222",
-        hostRevision: 1,
-      }),
-    );
-    client.send({ type: "timer:pause" });
-    expect(JSON.parse(socket.sent.at(-1) ?? "null")).toEqual({
-      type: "timer:pause",
-    });
-    client.close();
-  });
-  it("確認画面が固定した古い世代は新しい世代で上書きしない", () => {
-    const client = createRoomClient({
-      url: "ws://test",
-      onMessage: () => {},
-      webSocketFactory: factory,
-    });
-    const socket = latestSocket();
-    socket.simulateOpen();
-    socket.simulateMessage(
-      JSON.stringify({
-        type: "host:updated",
-        hostUserId: "11111111-1111-4111-8111-111111111111",
-        hostRevision: 2,
-      }),
-    );
-    client.send({ type: "start_phase", expectedHostRevision: 0 });
-    expect(JSON.parse(socket.sent.at(-1) ?? "null")).toEqual({
-      type: "start_phase",
-      expectedHostRevision: 0,
-    });
-    client.close();
   });
 });
 

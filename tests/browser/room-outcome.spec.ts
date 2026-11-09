@@ -33,28 +33,32 @@ test("320px 幅で長文カードの末尾まで読め、横にはみ出さな�
   );
   const outcome = page.getByTestId("room-outcome-view");
   await outcome.waitFor();
-  const idea = outcome
-    .locator("section")
-    .filter({ has: page.getByRole("heading", { name: "採用したアイデア" }) });
-  expect(await idea.locator("p").textContent()).toMatch(/末尾確認$/);
-  expect(
-    await idea.locator("p").evaluate((element) => element.textContent?.length),
-  ).toBe(2000);
+  const idea = outcome.locator('[data-note-id="outcome-idea"]');
+  const ideaParagraph = idea.locator("p");
+  const ideaContent = await ideaParagraph.evaluate((element) => {
+    const title = element.querySelector("span")?.textContent;
+    const text = element.textContent ?? "";
+    return title ? text.slice(title.length + 1) : text;
+  });
+  expect(ideaContent).toMatch(/末尾確認$/);
+  expect(ideaContent.length).toBe(2000);
   expect(
     await outcome.evaluate((element) => element.scrollWidth),
   ).toBeLessThanOrEqual(320);
   await idea.locator("p").evaluate((element) => {
     element.scrollIntoView({ block: "end" });
   });
-  const tail = await idea.locator("p").evaluate((element) => {
-    const text = element.firstChild;
-    if (!text) return null;
-    const range = document.createRange();
-    range.setStart(
-      text,
-      text.textContent?.length ? text.textContent.length - 4 : 0,
+  const tail = await ideaParagraph.evaluate((element) => {
+    const text = Array.from(element.childNodes).find(
+      (node) =>
+        node.nodeType === Node.TEXT_NODE &&
+        node.textContent?.endsWith("末尾確認"),
     );
-    range.setEnd(text, text.textContent?.length ?? 0);
+    if (!text) return null;
+    const end = text.textContent?.length ?? 0;
+    const range = document.createRange();
+    range.setStart(text, end - 4);
+    range.setEnd(text, end);
     return range.getBoundingClientRect().toJSON();
   });
   expect(tail).not.toBeNull();
@@ -69,12 +73,13 @@ test("成果画面の背景とカードはアプリと付箋の配色に揃う",
   const colors = await page
     .getByTestId("room-outcome-view")
     .evaluate((main) => {
-      const card = main.querySelector("section");
-      if (!card) throw new Error("成果カードがありません");
+      const card = main.querySelector('[data-note-id="outcome-idea"]');
+      const paper = card?.querySelector('[data-slot="sticky-note-paper"]');
+      if (!card || !paper) throw new Error("成果カードがありません");
       return {
         appBackground: getComputedStyle(document.body).backgroundColor,
         background: getComputedStyle(main).backgroundColor,
-        cardBackground: getComputedStyle(card).backgroundColor,
+        cardBackground: getComputedStyle(paper).backgroundColor,
         cardForeground: getComputedStyle(card).color,
       };
     });
@@ -193,11 +198,23 @@ test("コピー拒否時の全文をキーボードで選択でき、再試行�
     );
     await retryPage.getByTestId("room-outcome-view").waitFor();
     await retryPage.evaluate(() => {
-      const original = navigator.clipboard.writeText.bind(navigator.clipboard);
-      navigator.clipboard.writeText = async () => {
-        navigator.clipboard.writeText = original;
-        throw new Error("Permission denied");
-      };
+      const descriptor = Object.getOwnPropertyDescriptor(
+        navigator,
+        "clipboard",
+      );
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async () => {
+            if (descriptor) {
+              Object.defineProperty(navigator, "clipboard", descriptor);
+            } else {
+              Reflect.deleteProperty(navigator, "clipboard");
+            }
+            throw new Error("Permission denied");
+          },
+        },
+      });
     });
     await retryPage.getByRole("button", { name: "全文をコピー" }).click();
     const manual = retryPage.getByRole("textbox", {
@@ -206,13 +223,9 @@ test("コピー拒否時の全文をキーボードで選択でき、再試行�
     await manual.waitFor();
     const text = await manual.inputValue();
     expect(text).toContain("出力日: 2026/10/15 11:34");
-    for (const section of await retryPage
-      .getByTestId("room-outcome-view")
-      .locator("section")
-      .all()) {
-      if (await section.getByRole("heading", { name: "次に試すこと" }).count())
-        continue;
-      expect(text).toContain(await section.locator("p").innerText());
+    for (const noteId of ["outcome-issue", "outcome-hmw", "outcome-idea"]) {
+      const note = retryPage.locator(`[data-note-id="${noteId}"]`);
+      expect(text).toContain(await note.locator("p").innerText());
     }
     await retryPage.keyboard.press("Tab");
     expect(
@@ -283,4 +296,75 @@ test("保存失敗からコピーに回復し、成功通知の500ms後に感想
   } finally {
     await context.close();
   }
+});
+
+test("3枚横並びのPNGを保存でき、2000文字の長文でも生成できる", async () => {
+  // 通常の成果：3枚が横並びになっていることを画像サイズで確認する。
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomoutcomeview--complete&viewMode=story`,
+  );
+
+  await page.getByTestId("room-outcome-view").waitFor();
+
+  const downloadPromise = page.waitForEvent("download");
+
+  await page.getByRole("button", { name: "PNGで保存" }).click();
+
+  const download = await downloadPromise;
+
+  expect(download.suggestedFilename()).toMatch(/\.png$/);
+
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+
+  const png = Buffer.concat(chunks);
+
+  // PNGファイルのシグネチャを確認。
+  expect(png.subarray(0, 8)).toEqual(
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+  );
+
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+
+  // 成果カードが縦積みではなく横並びになっていること。
+  expect(width).toBeGreaterThan(height);
+
+  // 画面幅320pxでも、画像は3枚横並びの固定レイアウト。
+  expect(width).toBeGreaterThan(1000);
+
+  // 長文の成果でもPNGを生成できること。
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomoutcomeview--long-content&viewMode=story`,
+  );
+
+  await page.getByTestId("room-outcome-view").waitFor();
+
+  const longDownloadPromise = page.waitForEvent("download");
+
+  await page.getByRole("button", { name: "PNGで保存" }).click();
+
+  const longDownload = await longDownloadPromise;
+
+  expect(longDownload.suggestedFilename()).toMatch(/\.png$/);
+
+  const longStream = await longDownload.createReadStream();
+  const longChunks: Buffer[] = [];
+
+  for await (const chunk of longStream) {
+    longChunks.push(Buffer.from(chunk));
+  }
+
+  const longPng = Buffer.concat(longChunks);
+
+  expect(longPng.subarray(0, 8)).toEqual(
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+  );
+
+  expect(longPng.readUInt32BE(16)).toBeGreaterThan(1000);
+  expect(longPng.readUInt32BE(20)).toBeGreaterThan(1000);
 });

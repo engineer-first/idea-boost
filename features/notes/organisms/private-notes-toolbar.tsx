@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
+import toolMotion from "@/components/ui/tool-motion.module.css";
 import {
   Tooltip,
   TooltipContent,
@@ -427,7 +428,7 @@ export function PrivateNotesToolbar({
           }}
         >
           {isWorkspace ? (
-            <div className="mx-auto mb-6 max-w-5xl text-sm text-muted-foreground">
+            <div className="mx-auto mb-6 max-w-5xl text-base text-muted-foreground">
               <p className="flex items-center justify-center gap-2 text-center">
                 <LockKeyhole aria-hidden="true" className="size-4 shrink-0" />
                 この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
@@ -482,7 +483,7 @@ export function PrivateNotesToolbar({
                 ref={addButtonRef}
                 aria-label="付箋を追加"
                 onClick={handleAdd}
-                className="flex h-[150px] w-[200px] flex-col items-center justify-center gap-3 rounded-md border-2 border-primary/50 border-dashed bg-muted/50 font-medium text-foreground hover:border-primary/75 hover:bg-muted active:bg-muted/80"
+                className="flex h-[150px] w-[200px] flex-col items-center justify-center gap-3 rounded-lg border-2 border-primary/50 border-dashed bg-muted/50 font-medium text-foreground hover:border-primary/75 hover:bg-muted active:bg-muted/80"
                 style={{ width: NOTE_WIDTH, height: NOTE_HEIGHT }}
               >
                 <Plus aria-hidden="true" className="size-6" />
@@ -501,7 +502,7 @@ export function PrivateNotesToolbar({
                     testId={`example-note-${index + 1}`}
                   >
                     <div className="flex h-full flex-col p-2">
-                      <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-sm">
+                      <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-base">
                         {example}
                       </p>
                     </div>
@@ -515,7 +516,7 @@ export function PrivateNotesToolbar({
                   data-testid="private-note-placeholder"
                   data-note-id={note.id}
                   aria-hidden="true"
-                  className="animate-in w-48 shrink-0 rounded-md border-2 border-primary/50 border-dashed bg-primary/5 fade-in duration-150"
+                  className="animate-in w-48 shrink-0 rounded-lg border-2 border-primary/50 border-dashed bg-primary/5 fade-in duration-150"
                   style={{ height: getNoteHeight(note.content, note.fontSize) }}
                 />
               ) : (
@@ -604,6 +605,7 @@ export function PrivateNotesToolbar({
                       }
                       ref={addButtonRef}
                       aria-label="付箋を追加"
+                      className={toolMotion.button}
                       onClick={handleAdd}
                     >
                       <Plus aria-hidden="true" />
@@ -620,6 +622,7 @@ export function PrivateNotesToolbar({
                 size="icon-sm"
                 aria-expanded={isExpanded}
                 aria-label={`マイ付箋を${isExpanded ? "閉じる" : "開く"}`}
+                className={toolMotion.button}
                 onClick={() => setIsExpanded((expanded) => !expanded)}
               >
                 {isExpanded ? (

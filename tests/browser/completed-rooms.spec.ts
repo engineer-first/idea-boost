@@ -264,7 +264,6 @@ it.each([390, 1280])(
         exact: true,
       });
       await entry.waitFor();
-      await page.getByText(/感想は現在参加中のルームからのみ/).waitFor();
       await entry.click();
       const dialog = page.getByRole("dialog", { name: "フィードバック" });
       await dialog.getByText("よかった", { exact: true }).click();
@@ -274,7 +273,7 @@ it.each([390, 1280])(
       await dialog.getByRole("button", { name: "送信", exact: true }).click();
       await dialog.getByRole("alert").waitFor();
       expect(await dialog.getByRole("alert").innerText()).toContain(
-        "退出・解散後は送信できません",
+        "退出後は送信できません",
       );
       expect(
         await dialog

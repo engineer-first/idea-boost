@@ -27,12 +27,12 @@ afterAll(async () => {
 });
 async function open(mode = "success", lobby = false) {
   await page.goto(
-    `${origin}/iframe.html?id=room-${lobby ? "hosttransferflow" : "activehosttransferflow"}--${mode}&viewMode=story`,
+    `${origin}/iframe.html?id=room-${lobby ? "roomconnectionflow" : "activeroomflow"}--${mode}&viewMode=story`,
   );
   await page
     .getByRole("button", { name: "Hana Sato", exact: true })
     .waitFor({ state: lobby ? "visible" : "hidden" });
-  if (!lobby) await page.getByTestId("room-timer").getByText("02:18").waitFor();
+  if (!lobby) await page.getByRole("timer").getByText("02:18").waitFor();
 }
 async function select(lobby = false) {
   if (!lobby)
@@ -42,7 +42,6 @@ async function select(lobby = false) {
   await page
     .getByRole("button", { name: "Hana Sato", exact: true })
     .press("Enter");
-  await page.getByRole("button", { name: "ルームから外す…" }).click();
   await page
     .getByRole("alertdialog", { name: "この参加者をルームから外しますか？" })
     .waitFor();
@@ -84,7 +83,7 @@ test.each([
     await page.getByRole("alertdialog").waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "参加者 1人" }).click();
     expect(await page.getByText("Hana Sato", { exact: true }).count()).toBe(0);
-    expect(await page.getByTestId("room-timer").innerText()).toContain("02:18");
+    expect(await page.getByRole("timer").innerText()).toContain("02:18");
   },
 );
 test("ロビーでも確認・拒否・再試行を通して退出できる", async () => {
@@ -122,7 +121,7 @@ test("処理中は二重操作できずtimeout後に再試行できる", async (
     .click();
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
 });
-test("共有中と非ホストでも操作条件を保つ", async () => {
+test("共有中も他の参加者を外せて、自分自身は除外対象に出さない", async () => {
   await open("phase-1-step-2");
   await select();
   await page
@@ -132,13 +131,14 @@ test("共有中と非ホストでも操作条件を保つ", async () => {
   await open("participant");
   await page.getByRole("button", { name: "参加者 2人" }).click();
   expect(
-    await page.getByRole("button", { name: "ルームから外す…" }).count(),
+    await page.getByRole("button", { name: "Hana Sato", exact: true }).count(),
   ).toBe(0);
-  expect(
-    await page
-      .getByRole("button", { name: "Yuki Tanaka", exact: true })
-      .count(),
-  ).toBe(0);
+  await page.getByRole("button", { name: "Yuki Tanaka", exact: true }).click();
+  await page
+    .getByRole("button", { name: "ルームから外す", exact: true })
+    .click();
+  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+  await page.getByRole("button", { name: "参加者 1人" }).waitFor();
 });
 test("390pxの長い名前でも確定・取消へ到達できる", async () => {
   await page.goto(
@@ -154,4 +154,60 @@ test("390pxの長い名前でも確定・取消へ到達できる", async () => 
   await page.screenshot({
     path: "test-results/board-layout/441-long-name-mobile.png",
   });
+});
+
+test.each([
+  "1-1",
+  "1-2",
+  "1-3",
+  "1-4",
+  "1-5",
+  "2-1",
+  "2-2",
+  "2-3",
+  "2-4",
+  "3-1",
+  "3-2",
+  "3-3",
+  "3-4",
+  "3-5",
+])("Step %s: 参加者の除外確認を取り消すと常設入口へ戻る", async (step) => {
+  const [phase, number] = step.split("-");
+  await open(`phase-${phase}-step-${number}`);
+  await select();
+  await page.keyboard.press("Escape");
+  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+  const trigger = page.getByRole("button", {
+    name: number === "2" ? "発表者と全体の順番を確認" : "参加者 2人",
+    exact: true,
+  });
+  await expect
+    .poll(() => trigger.evaluate((node) => node === document.activeElement))
+    .toBe(true);
+  expect(await page.getByRole("timer").innerText()).toContain("02:18");
+});
+
+test("切断中は除外を確定できず、再接続後に同じ確認を実行できる", async () => {
+  await open();
+  await select();
+  const event = async (detail: string): Promise<void> => {
+    await page.evaluate(
+      (value) =>
+        window.dispatchEvent(
+          new CustomEvent("room-connection-preview", { detail: value }),
+        ),
+      detail,
+    );
+  };
+  await event("disconnect");
+  const confirm = page.getByRole("button", {
+    name: "ルームから外す",
+    exact: true,
+  });
+  await expect.poll(() => confirm.isDisabled()).toBe(true);
+  await event("reconnect");
+  await expect.poll(() => confirm.isEnabled()).toBe(true);
+  await confirm.click();
+  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+  await page.getByRole("button", { name: "参加者 1人" }).waitFor();
 });

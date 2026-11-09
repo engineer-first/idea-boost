@@ -2,6 +2,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { ACCOUNT_LINK_INTENT_COOKIE } from "@/contracts/account-link";
 import {
   ROOM_ENTRY_AUDIENCE,
   ROOM_OAUTH_RESUME_COOKIE,
@@ -61,6 +62,7 @@ export async function startRoomReauthentication(
     },
   );
   const store = await cookies();
+  store.delete(ACCOUNT_LINK_INTENT_COOKIE);
   store.delete(ROOM_RESUME_COOKIE);
   store.set(ROOM_OAUTH_RESUME_COOKIE, token, {
     httpOnly: true,

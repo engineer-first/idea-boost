@@ -49,35 +49,35 @@ export function RoomReauthenticationView({
         }}
       >
         <AlertDialogTitle className="text-xl font-semibold leading-snug text-balance">
-          ルームに進む前に、ログインを更新
+          ログインの期限が切れました
         </AlertDialogTitle>
         <AlertDialogDescription className="text-base leading-relaxed">
-          共同作業の途中でログインが切れるのを防ぐため、Googleでログインし直してください。
+          このルームへ進むには、Googleでログインし直してください。
         </AlertDialogDescription>
-        <p className="text-sm leading-relaxed text-foreground">
+        <p className="text-base leading-relaxed text-foreground">
           {continuation}
         </p>
         {message && (
-          <p role="status" className="text-sm leading-relaxed">
+          <p role="status" className="text-base leading-relaxed">
             {message}
           </p>
         )}
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Button
-            ref={continueButton}
-            className="min-h-11 whitespace-normal"
-            disabled={pending}
-            onClick={onContinue}
-          >
-            {pending ? "準備中…" : "Googleでログインして続ける"}
-          </Button>
-          <Button
-            variant="outline"
-            className="min-h-11"
+            variant="secondary"
+            className="h-12 whitespace-normal text-sm"
             disabled={pending}
             onClick={onBack}
           >
             {backLabel}
+          </Button>
+          <Button
+            ref={continueButton}
+            className="h-12 whitespace-normal px-1 text-sm font-bold leading-5"
+            disabled={pending}
+            onClick={onContinue}
+          >
+            {pending ? "準備中…" : "Googleでログインして続ける"}
           </Button>
         </div>
       </AlertDialogContent>

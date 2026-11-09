@@ -39,3 +39,7 @@ export const PreviousOnly: Story = {
     onOpenPrevious: fn(),
   },
 };
+
+export const IdentityUnavailable: Story = {
+  args: { status: "identity_unavailable" },
+};

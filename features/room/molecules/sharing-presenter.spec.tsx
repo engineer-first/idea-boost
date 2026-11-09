@@ -19,10 +19,7 @@ describe("SharingPresenter", () => {
       });
       render(
         <TooltipProvider>
-          <SharingPresenter
-            sharing={sharing}
-            hostUserId={sharing.order[0].userId}
-          />
+          <SharingPresenter sharing={sharing} />
         </TooltipProvider>,
       );
       const trigger = screen.getByRole("button", {
@@ -48,15 +45,14 @@ it("共有順に含まれない途中参加者も選べ、退出者は選べな�
     name: "途中参加",
     color: "blue" as const,
   };
-  const onSelectHostTarget = vi.fn();
+  const onSelectMember = vi.fn();
   render(
     <TooltipProvider>
       <SharingPresenter
         sharing={sharing}
-        hostUserId={current.userId}
+        onSelectMember={onSelectMember}
         currentUserId={current.userId}
         members={[current, late]}
-        onSelectHostTarget={onSelectHostTarget}
       />
     </TooltipProvider>,
   );
@@ -67,5 +63,24 @@ it("共有順に含まれない途中参加者も選べ、退出者は選べな�
     screen.queryByRole("button", { name: sharing.order[1].name }),
   ).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "途中参加" }));
-  expect(onSelectHostTarget).toHaveBeenCalledExactlyOnceWith(late.userId);
+  expect(onSelectMember).toHaveBeenCalledExactlyOnceWith(late.userId);
+});
+
+it("共有中も在籍者の切断を示し、共有順だけに残る退出者とは区別する", () => {
+  const sharing = buildSharingState();
+  render(
+    <TooltipProvider>
+      <SharingPresenter
+        sharing={sharing}
+        members={sharing.order.slice(0, 2)}
+        connectedUserIds={[sharing.order[0].userId]}
+      />
+    </TooltipProvider>,
+  );
+  expect(screen.getAllByTestId("member-disconnected")).toHaveLength(1);
+  fireEvent.click(
+    screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
+  );
+  expect(screen.getAllByTestId("member-disconnected")).toHaveLength(2);
+  expect(screen.getByText("退出済み")).toBeVisible();
 });

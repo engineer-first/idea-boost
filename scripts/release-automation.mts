@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { notifyRelease } from "./discord-release-notify.mts";
 import {
   assertRecordedDeployments,
   type GitHubApi,
@@ -14,6 +15,7 @@ export async function executeAutomation(
   args: string[],
   env: Record<string, string | undefined>,
   api: GitHubApi,
+  send: typeof fetch = fetch,
 ): Promise<string> {
   const [command, ...rest] = args;
   if (command === "prepare" && rest.length === 1) {
@@ -47,7 +49,9 @@ export async function executeAutomation(
       api,
       rest[2] === "--publish",
     );
-    return `${result.body}\n${result.url ? `[公開履歴](${result.url})` : "プレビューのみ"}`;
+    const notification =
+      rest[2] === "--publish" ? await notifyRelease(result, env, send) : "";
+    return `${notification}\n${result.body}\n${result.url ? `[公開履歴](${result.url})` : "プレビューのみ"}`;
   }
   if (
     command === "retry" &&
@@ -59,7 +63,12 @@ export async function executeAutomation(
       RELEASE_NOTE_JSON: json,
     } = env;
     if (runId && attempt && !json)
-      return executeAutomation(["actions", runId, attempt, ...rest], env, api);
+      return executeAutomation(
+        ["actions", runId, attempt, ...rest],
+        env,
+        api,
+        send,
+      );
     if (json && !runId && !attempt) {
       const note: unknown = JSON.parse(json);
       if (
@@ -76,7 +85,9 @@ export async function executeAutomation(
         );
       }
       const result = await recordRelease(note, api, rest[0] === "--publish");
-      return `${result.body}\n${result.url ? `[公開履歴](${result.url})` : "プレビューのみ"}`;
+      const notification =
+        rest[0] === "--publish" ? await notifyRelease(result, env, send) : "";
+      return `${notification}\n${result.body}\n${result.url ? `[公開履歴](${result.url})` : "プレビューのみ"}`;
     }
     throw new Error(
       "run IDとattempt、または手動receiptのどちらか一方を指定してください。",

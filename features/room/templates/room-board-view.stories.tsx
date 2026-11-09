@@ -3,7 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import type { Decision, PhaseProgress } from "@/contracts/room-protocol";
+import type {
+  Decision,
+  PhaseProgress,
+  TimerState,
+} from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -19,7 +23,11 @@ import {
   type RoomBoardInteractions,
   useRoomBoardInteractions,
 } from "../logic/use-room-board-interactions";
-import { getBoardFitInsets, RoomBoardView } from "./room-board-view";
+import {
+  getBoardFitInsets,
+  RoomBoardView,
+  type RoomBoardViewProps,
+} from "./room-board-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const STEP_1_1 = buildPhaseStep(1);
@@ -127,9 +135,7 @@ const meta = {
       durationMs: 60_000,
     },
     timerServerOffsetMs: 0,
-    isHost: true,
-    hostRevision: 0,
-    onTransferHost: fn(),
+
     decision: null,
     outcomePublished: false,
     connectionStatus: "open",
@@ -137,7 +143,7 @@ const meta = {
     members: STORY_MEMBERS,
     progress: STORY_PROGRESS,
     currentUserId: ME,
-    hostUserId: ME,
+
     isNextPhasePending: false,
     signOutAction: fn(),
     interactions: INTERACTIONS,
@@ -174,6 +180,7 @@ const meta = {
     onLeave: fn(),
     isLeaving: false,
     onNextPhase: fn(),
+    onToggleReady: fn(),
     onTimerStart: fn(),
     onTimerPause: fn(),
     onTimerResume: fn(),
@@ -184,6 +191,12 @@ const meta = {
   decorators: [
     (Story, context) => {
       const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"]) {
+        window.sessionStorage.setItem(
+          `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:${step}`,
+          "seen",
+        );
+      }
       if (context.parameters.firstVisitOnboarding) {
         window.sessionStorage.removeItem(sessionKey);
       } else {
@@ -376,7 +389,7 @@ export const ManyNotes: Story = {
 // 参加者が多い状態（メンバー一覧の +N 省略が発火する）。
 export const ManyMembers: Story = {
   args: {
-    members: buildMembers(10, ME),
+    members: buildMembers(20, ME),
   },
 };
 
@@ -395,13 +408,8 @@ export const CanvasHud: Story = {
   },
 };
 
-// 非ホストの状態（自分は ring のみ。ホストラベルは hostUserId のメンバーに付く）。
 export const NonHost: Story = {
-  args: {
-    isHost: false,
-    // 自分以外をホストにする（fixture の 2 人目）。
-    hostUserId: buildMembers(3, ME).find((m) => m.userId !== ME)?.userId ?? ME,
-  },
+  args: {},
 };
 
 export const DotVoting: Story = {
@@ -542,7 +550,7 @@ export const VotingAt1280x720: Story = {
 export const ReadyToDecide: Story = {
   args: {
     phase: STEP_1_5,
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 120 + index * 280,
@@ -554,7 +562,7 @@ export const ReadyToDecide: Story = {
 export const SelectingCandidate: Story = {
   args: {
     phase: STEP_1_5,
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 120 + index * 280,
@@ -575,7 +583,7 @@ export const SelectingCandidate: Story = {
 export const SelectingAt768px: Story = {
   args: {
     phase: STEP_1_5,
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 80 + index * 210,
@@ -603,7 +611,7 @@ export const SelectingAt768px: Story = {
 export const SelectingIdeaMapCandidate: Story = {
   args: {
     phase: buildPhaseStep(5, 3),
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 20 + index * 30,
@@ -657,6 +665,17 @@ export const OutcomePublished: Story = {
     ...FinalDecisionPending.args,
     outcomePublished: true,
   },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("link", { name: "ホームへ戻る" }));
+    await expect(
+      canvas.getByRole("link", { name: "ホームへ戻る" }),
+    ).toHaveAttribute("href", "/home");
+    await expect(args.onLeave).not.toHaveBeenCalled();
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole("alertdialog"),
+    ).not.toBeInTheDocument();
+  },
 };
 
 // loading相当: WebSocket 接続の確立中（初回接続時。snapshot 未着なので付箋も空）。
@@ -674,10 +693,8 @@ export const Reconnecting: Story = {
   },
 };
 
-// ホストがステップ移行操作を行える状態。
 export const HostCanMovePhase: Story = {
   args: {
-    isHost: true,
     phase: STEP_1_1,
   },
 };
@@ -761,20 +778,10 @@ export const Step1_5_Result: Story = {
   },
 };
 
-// 「次のステップへ」押下後、確認ダイアログが表示されている状態。
-export const NextPhaseConfirmDialog: Story = {
+export const TimeUpProgress: Story = {
   args: {
-    isHost: true,
     phase: STEP_1_1,
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await userEvent.click(
-      await canvas.findByRole("button", {
-        name: "次のステップへ",
-      }),
-    );
+    timer: { status: "ended", durationMs: 300_000 },
   },
 };
 
@@ -926,7 +933,7 @@ const decisionReselectionRender: Story["render"] =
   };
 export const DecisionReselection: Story = {
   render: decisionReselectionRender,
-  args: { ...Decided.args, isHost: true },
+  args: { ...Decided.args },
 };
 export const HmwDecisionReselection: Story = {
   render: decisionReselectionRender,
@@ -941,7 +948,7 @@ export const IdeaDecisionReselection: Story = {
   render: decisionReselectionRender,
   args: {
     ...FinalDecisionPending.args,
-    isHost: true,
+
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       x: 20 + index * 30,
@@ -1261,7 +1268,7 @@ export const IdeaMapWorkspace: Story = {
         content: CANVAS_HUD_CONTENTS[index % CANVAS_HUD_CONTENTS.length],
       })),
     },
-    isHost: true,
+
     ideaMapSizeLevel: 4,
     ideaMapSizeInitialized: true,
   },
@@ -1465,7 +1472,7 @@ export const CanvasInputQuestionVoting: Story = {
   args: {
     ...CanvasInputVoting.args,
     phase: buildPhaseStep(3, 2),
-    isHost: false,
+
     hmwDecidedIssue: GUIDE_ISSUE,
     notes: CANVAS_HUD_NOTES.slice(0, 3).map((note, index) => ({
       ...note,
@@ -1504,7 +1511,7 @@ export const QuestionVotingStickerSelected: Story = {
 
 export const CanvasInputAdoption: Story = {
   ...CanvasInputInteraction,
-  args: { ...CanvasInputInteraction.args, phase: STEP_1_5, isHost: true },
+  args: { ...CanvasInputInteraction.args, phase: STEP_1_5 },
 };
 
 export const MoveHistoryAvailable: Story = {
@@ -1595,4 +1602,130 @@ export const IdeaDecidedMoveInteraction: Story = {
       excluded: index === 2,
     })),
   },
+};
+
+function FloatingTimerPreview({
+  args,
+  complete = false,
+}: {
+  args: RoomBoardViewProps;
+  complete?: boolean;
+}) {
+  const [phase, setPhase] = useState(args.phase);
+  const help = useBoardHelp(phase);
+  const [sharing, setSharing] = useState(() =>
+    buildSharingState({
+      status: complete ? "complete" : "active",
+      currentIndex: complete ? null : 0,
+      durationMs: 180_000,
+      results: complete ? ["done", "done", "done"] : [],
+    }),
+  );
+  const [timer, setTimer] = useState<TimerState>(() =>
+    complete
+      ? { status: "ended", durationMs: 180_000 }
+      : { status: "running", durationMs: 180_000, endsAt: Date.now() + 90_000 },
+  );
+  return (
+    <RoomBoardView
+      {...args}
+      phase={phase}
+      help={help}
+      timer={timer}
+      sharing={phase.kind === "step" && phase.step === 2 ? sharing : null}
+      onNextPhase={() => {
+        args.onNextPhase();
+        if (phase.kind === "step") setPhase(buildPhaseStep(3, phase.phase));
+        setTimer({ status: "idle" });
+      }}
+      interactions={{ ...args.interactions, notes: args.notes }}
+      onTimerStart={(durationMs) => {
+        args.onTimerStart(durationMs);
+        setTimer({
+          status: "running",
+          durationMs,
+          endsAt: Date.now() + durationMs,
+        });
+      }}
+      onTimerPause={() => {
+        args.onTimerPause();
+        if (timer.status !== "running") return;
+        setTimer({
+          status: "paused",
+          remainingMs: Math.max(0, timer.endsAt - Date.now()),
+          durationMs: timer.durationMs,
+        });
+      }}
+      onTimerResume={() => {
+        args.onTimerResume();
+        if (timer.status !== "paused") return;
+        setTimer({
+          status: "running",
+          endsAt: Date.now() + timer.remainingMs,
+          durationMs: timer.durationMs,
+        });
+      }}
+      onSharingAdvance={(outcome) => {
+        args.onSharingAdvance?.(outcome);
+        const nextIndex = (sharing.currentIndex ?? 0) + 1;
+        const complete = nextIndex >= sharing.order.length;
+        if (complete && outcome === "done" && phase.kind === "step")
+          setPhase(buildPhaseStep(3, phase.phase));
+        setSharing({
+          ...sharing,
+          status: complete ? "complete" : "active",
+          currentIndex: complete ? null : nextIndex,
+          results: [...sharing.results, outcome],
+        });
+        setTimer(
+          complete
+            ? { status: "idle" }
+            : {
+                status: "running",
+                endsAt: Date.now() + sharing.durationMs,
+                durationMs: sharing.durationMs,
+              },
+        );
+      }}
+      onSharingStart={(durationMs) => {
+        args.onSharingStart?.(durationMs);
+        setSharing((current) => ({
+          ...current,
+          status: "active",
+          currentIndex: 0,
+          results: [],
+        }));
+        setTimer({
+          status: "running",
+          durationMs,
+          endsAt: Date.now() + durationMs,
+        });
+      }}
+    />
+  );
+}
+
+export const FloatingTimerRunning: Story = {
+  args: { ...Step1_2_Sharing.args },
+  render: (args) => <FloatingTimerPreview args={args} />,
+};
+export const FloatingTimerSharingComplete: Story = {
+  args: {
+    ...Step1_2_Sharing.args,
+    onRestartWriting: fn(),
+    onSharingStart: fn(),
+  },
+  render: (args) => <FloatingTimerPreview args={args} complete />,
+};
+export const FloatingTimerSharingEmpty: Story = {
+  args: {
+    ...FloatingTimerSharingComplete.args,
+    phase: buildPhaseStep(2, 2),
+    notes: [],
+  },
+  render: (args) => <FloatingTimerPreview args={args} complete />,
+};
+
+export const GuestSession: Story = {
+  args: { sessionKind: "guest", signOutAction: fn() },
 };
