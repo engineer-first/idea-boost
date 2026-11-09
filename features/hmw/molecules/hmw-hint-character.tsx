@@ -185,7 +185,6 @@ export function HmwHintCharacter({
               className={styles.characterImage}
               draggable={false}
             />
-            <span className={styles.triggerLabel}>ヒント</span>
           </button>
         </PopoverTrigger>
         <PopoverContent

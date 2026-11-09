@@ -139,6 +139,7 @@ export type RoomBoardCanvasProps = {
   permissions: BoardPermissions;
   camera: CanvasCamera;
   displayZoom?: number;
+  character?: ReactNode;
   gridStyle: CSSProperties;
   isPanning: boolean;
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -243,6 +244,7 @@ export function RoomBoardCanvas({
   permissions,
   camera,
   displayZoom,
+  character,
   gridStyle,
   isPanning,
   isPresenterViewOwner = false,
@@ -869,11 +871,14 @@ export function RoomBoardCanvas({
             style={gridStyle}
           />
         ) : null}
+        <div className="pointer-events-none fixed top-[calc(var(--board-location-bottom,4.25rem)+0.5rem)] left-3 z-[42] sm:top-[var(--board-location-top,0.75rem)] sm:left-[calc(var(--board-location-right,23.25rem)+0.75rem)]">
+          {character}
+        </div>
         <div
           className="pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
           data-testid="board-tools-hud"
-          data-board-fit-edge="bottom"
           hidden={isPersonalNoteEntryPhase}
+          data-board-fit-edge="bottom"
         >
           <div
             className={`flex items-center gap-2 ${usesIdeaMapViewport ? "min-w-[122px]" : ""}`}
@@ -1211,8 +1216,8 @@ export function RoomBoardCanvas({
         <div
           className="pointer-events-auto absolute right-3 bottom-3 z-40 max-[639px]:bottom-[var(--board-operation-bottom,4.5rem)]"
           data-testid="board-operation-matrix"
-          data-board-fit-edge="bottom"
           hidden={isPersonalNoteEntryPhase}
+          data-board-fit-edge="bottom"
         >
           <BoardOperationMatrix permissions={permissions} />
         </div>

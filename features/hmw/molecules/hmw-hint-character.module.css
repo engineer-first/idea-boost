@@ -200,10 +200,6 @@
   pointer-events: auto;
 }
 
-.character[data-expanded="true"] .triggerLabel {
-  visibility: hidden;
-}
-
 .cloudCaption {
   display: none;
 }
@@ -660,9 +656,6 @@
     gap: 4px;
     padding: 8px 10px;
     font-size: 14px;
-  }
-  .character[data-expanded="true"] .triggerLabel {
-    visibility: visible;
   }
   .thoughtTrail {
     bottom: -19px;
