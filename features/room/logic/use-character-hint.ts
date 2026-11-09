@@ -124,11 +124,9 @@ export function useCharacterHint({
   noteCount,
   active = true,
 }: CharacterHintOptions): { message: string | null; replay: () => void } {
-  const [message, setMessage] = useState<string | null>(null);
+  // 再表示でも8秒を数え直すよう、表示ごとに新しいオブジェクトにする。
+  const [hint, setHint] = useState<{ text: string } | null>(null);
   const lastMessage = useRef<string | null>(null);
-  const hideTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
   const stepHints =
     phase.kind === "step" ? STEP_HINTS[phase.phase]?.[phase.step] : undefined;
   const seen = useRef(new Set<string>());
@@ -136,19 +134,23 @@ export function useCharacterHint({
   const shownTips = useRef<number | null>(null);
   const startedAt = useRef(Date.now());
   const show = useCallback((text: string) => {
-    clearTimeout(hideTimeout.current);
     lastMessage.current = text;
-    setMessage(text);
-    hideTimeout.current = setTimeout(() => setMessage(null), 8_000);
+    setHint({ text });
   }, []);
+
+  // 非表示タイマーを表示状態に連動させ、StrictModeの再実行でも登録し直す。
+  useEffect(() => {
+    if (!hint) return;
+    const timeout = setTimeout(() => setHint(null), 8_000);
+    return () => clearTimeout(timeout);
+  }, [hint]);
 
   useEffect(() => {
     seen.current.clear();
     shownTips.current = null;
     startedAt.current = Date.now();
     lastMessage.current = null;
-    clearTimeout(hideTimeout.current);
-    setMessage(null);
+    setHint(null);
     if (active) {
       const opening = stepHints?.[0];
       if (opening) show(opening);
@@ -158,8 +160,7 @@ export function useCharacterHint({
 
   useEffect(() => {
     if (!active || phase.kind === "lobby") {
-      clearTimeout(hideTimeout.current);
-      setMessage(null);
+      setHint(null);
       return;
     }
     const check = () => {
@@ -212,9 +213,8 @@ export function useCharacterHint({
     return () => clearInterval(interval);
   }, [active, phase, timer, serverOffsetMs, noteCount, show, stepHints]);
 
-  useEffect(() => () => clearTimeout(hideTimeout.current), []);
   const replay = useCallback(() => {
     if (active && lastMessage.current) show(lastMessage.current);
   }, [active, show]);
-  return { message, replay };
+  return { message: hint?.text ?? null, replay };
 }
