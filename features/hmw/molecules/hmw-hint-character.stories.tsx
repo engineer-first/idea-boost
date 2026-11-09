@@ -15,12 +15,29 @@ const meta = {
       </div>
     ),
   ],
-  args: { decidedIssue: "睡眠不足で眠たい", onUseQuestion: fn() },
+  args: {
+    decidedIssue: "睡眠不足で眠たい",
+    onUseQuestion: fn(),
+    showNudge: true,
+  },
 } satisfies Meta<typeof HmwHintCharacter>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Default: Story = {};
+export const Default: Story = {
+  name: "呼びかけ前",
+  args: { showNudge: false },
+};
 export const Nudge: Story = { args: { showNudge: true } };
+export const BubbleOpensWords: Story = {
+  ...Nudge,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: /こんな見た目も.*あるかも/,
+      }),
+    );
+  },
+};
 export const Words: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(
@@ -34,6 +51,26 @@ export const Question: Story = {
     await userEvent.click(
       within(context.canvasElement.ownerDocument.body).getByRole("button", {
         name: "先回り",
+      }),
+    );
+  },
+};
+export const ChooseAnotherWord: Story = {
+  play: async (context) => {
+    await Question.play?.(context);
+    await userEvent.click(
+      within(context.canvasElement.ownerDocument.body).getByRole("button", {
+        name: "別のワードを選択する",
+      }),
+    );
+  },
+};
+export const WriteTogether: Story = {
+  play: async (context) => {
+    await Question.play?.(context);
+    await userEvent.click(
+      within(context.canvasElement.ownerDocument.body).getByRole("button", {
+        name: "この問いにする",
       }),
     );
   },

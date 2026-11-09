@@ -50,6 +50,7 @@ const ME = "11111111-1111-4111-8111-111111111111";
 
 describe("2-1のキャラクターによる問いのヒント", () => {
   it("ワード3つから選んだ問いに決定課題を含め、使う操作でマイ付箋へ渡す", async () => {
+    sessionStorage.setItem(`hmw-hint-nudge:AB12CD:${ME}:0:0`, "seen");
     const { props } = setup({
       phase: buildPhaseStep(1, 2),
       hmwDecidedIssue: "睡眠不足で眠たい",
@@ -67,11 +68,11 @@ describe("2-1のキャラクターによる問いのヒント", () => {
     const question =
       "どうしたら、「睡眠不足で眠たい」という状況を前もって防げるか？";
     expect(
-      within(dialog).getByRole("textbox", { name: "問いの文例" }),
-    ).toHaveValue(question);
+      within(dialog).getByRole("region", { name: "問いの文例" }),
+    ).toHaveTextContent(question);
     expect(props.onAddPrivateNote).not.toHaveBeenCalled();
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "この問いを使う" }),
+      within(dialog).getByRole("button", { name: "この問いにする" }),
     );
     expect(props.onAddPrivateNote).toHaveBeenCalledExactlyOnceWith(question);
   });

@@ -13,6 +13,48 @@ afterEach(() => {
 });
 
 describe("問いヒントの呼びかけ", () => {
+  it("待ち時間をリセットしても、続いている日本語変換中は呼びかけない", () => {
+    const { result } = renderHook(() =>
+      useHmwHintNudge({
+        scope: "repeat-during-composition",
+        enabled: true,
+        noteCount: 2,
+      }),
+    );
+    act(() => vi.advanceTimersByTime(45_000));
+    act(() => result.current.setComposing(true));
+    act(() => result.current.restart());
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(result.current.showNudge).toBe(false);
+    act(() => result.current.setComposing(false));
+    act(() => vi.advanceTimersByTime(45_000));
+    expect(result.current.showNudge).toBe(true);
+  });
+
+  it("書き出し後に待ち時間をリセットすると、45秒無入力で再び呼びかける", () => {
+    const { result } = renderHook(() =>
+      useHmwHintNudge({
+        scope: "repeat-after-writing",
+        enabled: true,
+        noteCount: 2,
+      }),
+    );
+    act(() => vi.advanceTimersByTime(45_000));
+    expect(result.current.showNudge).toBe(true);
+    const previousCycle = result.current.cycle;
+    act(() => result.current.restart());
+    expect(result.current.showNudge).toBe(false);
+    expect(result.current.hasBeenShown).toBe(false);
+    expect(result.current.cycle).toBe(previousCycle + 1);
+    expect(
+      sessionStorage.getItem("hmw-hint-nudge:repeat-after-writing"),
+    ).toBeNull();
+    act(() => vi.advanceTimersByTime(44_000));
+    expect(result.current.showNudge).toBe(false);
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(result.current.showNudge).toBe(true);
+  });
+
   it("表示後に切断・準備OKで止めた呼びかけは、作業へ戻っても再表示しない", () => {
     const { result, rerender } = renderHook(
       ({ enabled }) =>
@@ -33,8 +75,10 @@ describe("問いヒントの呼びかけ", () => {
     );
     act(() => vi.advanceTimersByTime(44_000));
     expect(result.current.showNudge).toBe(false);
+    expect(result.current.hasBeenShown).toBe(false);
     act(() => vi.advanceTimersByTime(1_000));
     expect(result.current.showNudge).toBe(true);
+    expect(result.current.hasBeenShown).toBe(true);
     act(() => result.current.dismiss());
     unmount();
     const again = renderHook(() =>
@@ -42,19 +86,37 @@ describe("問いヒントの呼びかけ", () => {
     );
     act(() => vi.advanceTimersByTime(90_000));
     expect(again.result.current.showNudge).toBe(false);
+    expect(again.result.current.hasBeenShown).toBe(true);
   });
 
-  it("少数の付箋では90秒かつ最後の入力から15秒を待って呼びかける", () => {
+  it.each([0, 1])(
+    "本人の付箋が%i枚では90秒かつ最後の入力から15秒を待って呼びかける",
+    (noteCount) => {
+      const { result } = renderHook(() =>
+        useHmwHintNudge({ scope: "few", enabled: true, noteCount }),
+      );
+      for (let i = 0; i < 3; i++) {
+        act(() => vi.advanceTimersByTime(25_000));
+        act(() => result.current.markActivity());
+      }
+      act(() => vi.advanceTimersByTime(14_000));
+      expect(result.current.showNudge).toBe(false);
+      act(() => vi.advanceTimersByTime(1_000));
+      expect(result.current.showNudge).toBe(true);
+    },
+  );
+
+  it("本人の付箋が2枚以上なら90秒・15秒無入力だけでは呼びかけない", () => {
     const { result } = renderHook(() =>
-      useHmwHintNudge({ scope: "few", enabled: true, noteCount: 1 }),
+      useHmwHintNudge({ scope: "many", enabled: true, noteCount: 2 }),
     );
     for (let i = 0; i < 3; i++) {
       act(() => vi.advanceTimersByTime(25_000));
       act(() => result.current.markActivity());
     }
-    act(() => vi.advanceTimersByTime(14_000));
+    act(() => vi.advanceTimersByTime(15_000));
     expect(result.current.showNudge).toBe(false);
-    act(() => vi.advanceTimersByTime(1_000));
+    act(() => vi.advanceTimersByTime(30_000));
     expect(result.current.showNudge).toBe(true);
   });
 

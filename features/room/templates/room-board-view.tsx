@@ -1431,6 +1431,8 @@ export function RoomBoardView({
   } = interactions;
 
   const isHmwWriting = isPhaseStep(phase, 2, 1);
+  const [hmwHintAvailableHeight, setHmwHintAvailableHeight] =
+    useState<number>();
   const hmwHintNudge = useHmwHintNudge({
     scope: `${inviteCode}:${currentUserId}:${phaseRevision}:${completionResetVersion}`,
     enabled:
@@ -1569,6 +1571,25 @@ export function RoomBoardView({
             "--board-private-reference-inset",
             `${Math.max(0, Math.ceil(referenceInset))}px`,
           );
+          const hintCharacter = root.querySelector<HTMLElement>(
+            '[data-testid="hmw-hint-character"]',
+          );
+          const issueBounds = visibleBounds(
+            '[data-testid="board-context-references"]',
+          );
+          if (hmwHintNudge.hasBeenShown && hintCharacter && issueBounds) {
+            // 付箋欄を動かさず、決定課題の下にある空白に合わせて雲だけを収める。
+            setHmwHintAvailableHeight(
+              Math.max(
+                88,
+                Math.floor(
+                  hintCharacter.getBoundingClientRect().bottom -
+                    issueBounds.bottom -
+                    112,
+                ),
+              ),
+            );
+          }
         }
       }
     };
@@ -1597,7 +1618,7 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, phase, isIdeaMapWorkspaceStep]);
+  }, [boardRootRef, phase, isIdeaMapWorkspaceStep, hmwHintNudge.hasBeenShown]);
 
   const handleNoteSelect = (
     noteId: string | null,
@@ -2223,11 +2244,14 @@ export function RoomBoardView({
             data-board-fit-edge="bottom"
           >
             <HmwHintCharacter
-              key={`${phaseRevision}:${hmwDecidedIssue}`}
+              key={`${inviteCode}:${currentUserId}:${phaseRevision}:${completionResetVersion}:${hmwDecidedIssue}:${hmwHintNudge.cycle}`}
               decidedIssue={hmwDecidedIssue}
               showNudge={hmwHintNudge.showNudge}
+              hasBeenShown={hmwHintNudge.hasBeenShown}
               onHintOpen={hmwHintNudge.dismiss}
               onDismissNudge={hmwHintNudge.dismiss}
+              availableHeight={hmwHintAvailableHeight}
+              onFadeOutComplete={hmwHintNudge.restart}
               pending={noteCreationPending}
               disabled={
                 isDisconnected ||
