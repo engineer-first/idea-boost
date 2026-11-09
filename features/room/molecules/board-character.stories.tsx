@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
 import { BoardCharacter } from "./board-character";
 
 const meta = {
@@ -8,13 +7,13 @@ const meta = {
   decorators: [
     (Story) => (
       <div className="relative h-96">
-        <div className="absolute top-1/2 left-3 -translate-y-1/2">
+        <div className="absolute top-3 left-3">
           <Story />
         </div>
       </div>
     ),
   ],
-  args: { message: null, onReplay: fn() },
+  args: { message: null },
 } satisfies Meta<typeof BoardCharacter>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -29,4 +28,22 @@ export const TimeRemaining: Story = {
 };
 export const TimeEnded: Story = {
   args: { message: "時間になったよ、次の工程をみんなで確認しよう。" },
+};
+
+export const Opening: Story = {
+  args: { message: "最近困ったことを、1枚に1つずつ書こう。" },
+};
+export const Tip: Story = {
+  args: { message: "『誰が』『いつ』困るかを入れると伝わりやすいよ。" },
+};
+
+export const BubbleBelowWhenCrowded: Story = {
+  args: { message: "最近困ったことを、1枚に1つずつ書こう。" },
+  decorators: [
+    (Story) => (
+      <div className="[--board-character-bubble-top:100%] [--board-character-bubble-left:0px] [--board-character-bubble-gap:0px]">
+        <Story />
+      </div>
+    ),
+  ],
 };

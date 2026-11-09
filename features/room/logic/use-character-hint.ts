@@ -123,18 +123,20 @@ export function useCharacterHint({
   serverOffsetMs,
   noteCount,
   active = true,
-}: CharacterHintOptions): { message: string | null; replay: () => void } {
-  // 再表示でも8秒を数え直すよう、表示ごとに新しいオブジェクトにする。
+}: CharacterHintOptions): { message: string | null } {
+  // 同じ文言の案内でも8秒を数え直すよう、表示ごとに新しいオブジェクトにする。
   const [hint, setHint] = useState<{ text: string } | null>(null);
-  const lastMessage = useRef<string | null>(null);
   const stepHints =
     phase.kind === "step" ? STEP_HINTS[phase.phase]?.[phase.step] : undefined;
   const seen = useRef(new Set<string>());
   // 出し終えたコツの数。null は工程に入ってからまだ数えていない状態。
   const shownTips = useRef<number | null>(null);
   const startedAt = useRef(Date.now());
+  const previousTimer = useRef<{
+    status: TimerState["status"];
+    elapsed: number | null;
+  } | null>(null);
   const show = useCallback((text: string) => {
-    lastMessage.current = text;
     setHint({ text });
   }, []);
 
@@ -146,10 +148,10 @@ export function useCharacterHint({
   }, [hint]);
 
   useEffect(() => {
+    previousTimer.current = null;
     seen.current.clear();
     shownTips.current = null;
     startedAt.current = Date.now();
-    lastMessage.current = null;
     setHint(null);
     if (active) {
       const opening = stepHints?.[0];
@@ -172,6 +174,23 @@ export function useCharacterHint({
         timer.status === "running" && remaining !== null
           ? timer.durationMs - remaining
           : null;
+      const previous = previousTimer.current;
+      const isNewTimer =
+        timer.status === "running" &&
+        previous !== null &&
+        (previous.status === "idle" ||
+          previous.status === "ended" ||
+          (previous.status === "running" &&
+            previous.elapsed !== null &&
+            elapsed !== null &&
+            previous.elapsed - elapsed >= 2_000));
+      previousTimer.current = { status: timer.status, elapsed };
+      if (isNewTimer) {
+        // 0枚の案内は工程に1回。時間に関する案内とコツだけを数え直す。
+        seen.current.delete("warning");
+        seen.current.delete("ended");
+        shownTips.current = null;
+      }
       const dueTips =
         elapsed === null
           ? 0
@@ -194,7 +213,11 @@ export function useCharacterHint({
         seen.current.add(kind);
         // 同じ時刻のコツは、優先の一言で置き換える。
         shownTips.current = dueTips;
-        show(HINTS[kind]);
+        show(
+          kind === "ended" && phase.kind === "step" && phase.step === 2
+            ? "時間になったよ、次の人にバトンを渡そう。"
+            : HINTS[kind],
+        );
         return;
       }
       if (
@@ -213,8 +236,5 @@ export function useCharacterHint({
     return () => clearInterval(interval);
   }, [active, phase, timer, serverOffsetMs, noteCount, show, stepHints]);
 
-  const replay = useCallback(() => {
-    if (active && lastMessage.current) show(lastMessage.current);
-  }, [active, show]);
-  return { message: hint?.text ?? null, replay };
+  return { message: hint?.text ?? null };
 }

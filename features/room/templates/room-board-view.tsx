@@ -1490,13 +1490,59 @@ export function RoomBoardView({
           `${element?.getBoundingClientRect().height ?? 0}px`,
         );
       }
-      // 先生は左上の現在地カードの真下に置く。
+      // 先生は広い画面では現在地カードの右隣、スマホでは真下に置く。
       const locationCard = root.querySelector<HTMLElement>(
         '[data-testid="board-location-slot"]',
       );
+      const locationBounds = locationCard?.getBoundingClientRect();
+      root.style.setProperty(
+        "--board-location-top",
+        `${locationBounds?.top ?? 12}px`,
+      );
+      root.style.setProperty(
+        "--board-location-right",
+        `${locationBounds?.right ?? 372}px`,
+      );
       root.style.setProperty(
         "--board-location-bottom",
-        `${Math.ceil(locationCard?.getBoundingClientRect().bottom ?? 68)}px`,
+        `${Math.ceil(locationBounds?.bottom ?? 68)}px`,
+      );
+      const characterWidth =
+        root
+          .querySelector<HTMLElement>('[data-testid="board-character"] button')
+          ?.getBoundingClientRect().width ?? 56;
+      const centralGuide = isDisconnected
+        ? null
+        : root.querySelector<HTMLElement>(
+            '[data-testid="step-one-onboarding-trigger"]',
+          );
+      const guideBounds = centralGuide?.getBoundingClientRect();
+      const rem =
+        Number.parseFloat(
+          getComputedStyle(document.documentElement).fontSize,
+        ) || 16;
+      const bubbleLeft =
+        (locationBounds?.right ?? 372) + 12 + characterWidth + 6;
+      const availableBubbleWidth =
+        guideBounds && guideBounds.width > 0
+          ? guideBounds.left - bubbleLeft - 8
+          : 15 * rem;
+      const bubbleBelow = availableBubbleWidth < 10 * rem;
+      root.style.setProperty(
+        "--board-character-bubble-max-width",
+        `${bubbleBelow ? 15 * rem : Math.min(15 * rem, availableBubbleWidth)}px`,
+      );
+      root.style.setProperty(
+        "--board-character-bubble-top",
+        bubbleBelow ? "100%" : "0.25rem",
+      );
+      root.style.setProperty(
+        "--board-character-bubble-left",
+        bubbleBelow ? "0px" : "100%",
+      );
+      root.style.setProperty(
+        "--board-character-bubble-gap",
+        bubbleBelow ? "0px" : "0.375rem",
       );
       if (isPersonalNoteEntryPhase) {
         const frame = root.querySelector<HTMLElement>(
@@ -1581,6 +1627,7 @@ export function RoomBoardView({
         (testId) => `[data-testid="${testId}"]`,
       ),
       '[data-testid="board-location-slot"]',
+      '[data-testid="step-one-onboarding-trigger"]',
       '[data-testid="board-help-panel"]',
       ...referenceSelectors,
     ]) {
@@ -1593,7 +1640,7 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, phase, isIdeaMapWorkspaceStep]);
+  }, [boardRootRef, phase, isIdeaMapWorkspaceStep, isDisconnected]);
 
   const handleNoteSelect = (
     noteId: string | null,
@@ -2116,12 +2163,7 @@ export function RoomBoardView({
           ideaMapPlaneRef={ideaMapPlaneRef}
           privateToolbarRef={privateToolbarRef}
           camera={camera}
-          character={
-            <BoardCharacter
-              message={characterHint.message}
-              onReplay={characterHint.replay}
-            />
-          }
+          character={<BoardCharacter message={characterHint.message} />}
           displayZoom={interactions.displayZoom}
           gridStyle={gridStyle}
           isPanning={isPanning}
