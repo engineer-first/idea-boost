@@ -1668,3 +1668,49 @@ describe("move集合の入口", () => {
     expect(args.onNoteDragMove).toHaveBeenCalledWith("shared-1", 130, 100);
   });
 });
+
+describe("個人作業エリア内の並べ替え", () => {
+  it("同じ行の左右の位置で挿入先を選び、エリア外へ出しても共有しない", () => {
+    const toolbar = document.createElement("div");
+    toolbar.dataset.presentation = "workspace";
+    toolbar.dataset.expanded = "false";
+    toolbar.getBoundingClientRect = () => new DOMRect(20, 400, 1000, 260);
+    for (const [index, id] of [
+      "private-1",
+      "private-2",
+      "private-3",
+    ].entries()) {
+      const card = document.createElement("div");
+      card.dataset.testid = "note-card";
+      card.dataset.noteId = id;
+      card.getBoundingClientRect = () =>
+        new DOMRect(40 + index * 212, 470, 200, 150);
+      toolbar.append(card);
+    }
+    const { result, args } = setup({
+      privateToolbarRef: { current: toolbar },
+      privateDragOnly: true,
+      canPublish: false,
+      privateNotes: ["private-1", "private-2", "private-3"].map((id) =>
+        buildNote({ id, authorId: ME, visibility: "private" }),
+      ),
+    });
+    act(() =>
+      result.current.handlePrivateDragStart(
+        "private-3",
+        pointerEvent(1, 500, 500),
+      ),
+    );
+    act(() => result.current.handlePointerMove(pointerEvent(1, 260, 500)));
+    expect(result.current.renderedPrivateNotes.map((note) => note.id)).toEqual([
+      "private-1",
+      "private-3",
+      "private-2",
+    ]);
+    act(() => result.current.handlePointerMove(pointerEvent(1, 100, 100)));
+    act(() => result.current.handlePointerEnd(pointerEvent(1, 100, 100)));
+    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+    expect(args.onNoteDragMove).not.toHaveBeenCalled();
+    expect(result.current.drag).toBeNull();
+  });
+});

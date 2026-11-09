@@ -25,7 +25,11 @@ const PRIVATE_LIST_AUTO_SCROLL_EDGE_SPEED_PX_PER_FRAME = 8;
 const PRIVATE_LIST_AUTO_SCROLL_MAX_PX_PER_FRAME = 16;
 
 function isPrivatePanelExpanded(toolbar: HTMLDivElement | null): boolean {
-  return toolbar !== null && toolbar.dataset?.expanded !== "false";
+  return (
+    toolbar !== null &&
+    (toolbar.dataset?.presentation === "workspace" ||
+      toolbar.dataset?.expanded !== "false")
+  );
 }
 
 function getPrivateListOutsideEdgeSpeed(distance: number): number {
@@ -92,6 +96,7 @@ export type UseBoardDragArgs = {
   // 共有済み付箋の移動を許可するか。公開（publish）の可否とは別に、
   // フェーズごとの既存付箋の移動権限を指定する。
   canMoveSharedNotes?: boolean;
+  privateDragOnly?: boolean;
   canPublish?: boolean;
   canReturnToPrivate?: boolean;
   onPublishBlocked?: () => void;
@@ -184,6 +189,7 @@ export function useBoardDrag({
   clampCoordinate = clampCanvasCoordinate,
   notePositionFromClient,
   canMoveSharedNotes = true,
+  privateDragOnly = false,
   canPublish = true,
   canReturnToPrivate = canPublish,
   onPublishBlocked,
@@ -335,7 +341,7 @@ export function useBoardDrag({
   );
 
   const privateDropIndexFromPointer = useCallback(
-    (clientY: number, draggingNoteId: string) => {
+    (clientY: number, draggingNoteId: string, clientX?: number) => {
       const toolbar = privateToolbarRef.current;
       const noteElements = toolbar?.querySelectorAll
         ? Array.from(
@@ -345,6 +351,36 @@ export function useBoardDrag({
           ).filter((element) => element.dataset.noteId !== draggingNoteId)
         : [];
       if (noteElements.length > 0) {
+        if (
+          toolbar?.dataset?.presentation === "workspace" &&
+          clientX !== undefined
+        ) {
+          const rows: Array<{
+            top: number;
+            bottom: number;
+            cards: Array<{ index: number; rect: DOMRect }>;
+          }> = [];
+          for (const [index, element] of noteElements.entries()) {
+            const rect = element.getBoundingClientRect();
+            let row = rows[rows.length - 1];
+            if (!row || Math.abs(row.top - rect.top) > 2) {
+              row = { top: rect.top, bottom: rect.bottom, cards: [] };
+              rows.push(row);
+            }
+            row.bottom = Math.max(row.bottom, rect.bottom);
+            row.cards.push({ index, rect });
+          }
+          const row =
+            rows.find(
+              (row, index) =>
+                !rows[index + 1] ||
+                clientY < (row.bottom + rows[index + 1].top) / 2,
+            ) ?? rows[rows.length - 1];
+          return (
+            row.cards.find(({ rect }) => clientX < rect.left + rect.width / 2)
+              ?.index ?? row.cards[row.cards.length - 1].index + 1
+          );
+        }
         // 縦一覧はDOM順で単調。全件geometry readを避け、中点の二分探索で挿入先を求める。
         let low = 0;
         let high = noteElements.length;
@@ -460,6 +496,7 @@ export function useBoardDrag({
     const nextIndex = privateDropIndexFromPointer(
       pointer.clientY,
       current.note.id,
+      pointer.clientX,
     );
     if (current.privateDropIndex !== nextIndex) {
       updateDrag({ ...current, privateDropIndex: nextIndex });
@@ -618,6 +655,7 @@ export function useBoardDrag({
             privateDropIndex: privateDropIndexFromPointer(
               event.clientY,
               current.note.id,
+              event.clientX,
             ),
           });
           trackPrivateListAutoScroll(
@@ -634,6 +672,7 @@ export function useBoardDrag({
             privateDropIndex: privateDropIndexFromPointer(
               event.clientY,
               current.note.id,
+              event.clientX,
             ),
           });
           trackPrivateListAutoScroll(
@@ -648,6 +687,7 @@ export function useBoardDrag({
       }
 
       stopPrivateListAutoScroll();
+      if (privateDragOnly && current.status === "private") return;
       // 固定マップではマップ平面自身が有効範囲を判定する。
       // HUDはドラッグ開始や通常のボード操作を遮るが、ドラッグ中にその上を
       // 通過しただけで座標更新まで止めない。
@@ -715,6 +755,7 @@ export function useBoardDrag({
     [
       boardPositionFromPointer,
       canPublish,
+      privateDragOnly,
       canReturnToPrivate,
       canMoveSharedNotes,
       clampCoordinate,
@@ -821,7 +862,11 @@ export function useBoardDrag({
         }
       } else {
         const privateDropIndex = isReturningDropTarget
-          ? privateDropIndexFromPointer(event.clientY, current.note.id)
+          ? privateDropIndexFromPointer(
+              event.clientY,
+              current.note.id,
+              event.clientX,
+            )
           : current.privateDropIndex;
         if (privateDropIndex !== null) {
           setPrivateOrder((order) =>

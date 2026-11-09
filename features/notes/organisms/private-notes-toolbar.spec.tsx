@@ -1220,3 +1220,71 @@ it("AT-023: private一覧のIME Escapeでは選択を解除しない", () => {
   });
   expect(props.onSelect).not.toHaveBeenCalled();
 });
+
+describe("追加執筆のマイ付箋", () => {
+  function props() {
+    return {
+      presentation: "workspace" as const,
+      workspaceCollapsible: true,
+      workspaceExpanded: false,
+      onWorkspaceExpandedChange: vi.fn(),
+      notes: [buildNote({ id: "draft", visibility: "private" })],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(() => "addition"),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+  }
+  it("縮小中も下書きと追加操作を表示し、追加で全画面へ展開しない", () => {
+    const options = props();
+    render(<PrivateNotesToolbar {...options} />);
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "false",
+    );
+    expect(
+      screen.getByRole("button", { name: "マイ付箋を展開" }),
+    ).toBeVisible();
+    expect(screen.getByTestId("note-card")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+    expect(options.onAdd).toHaveBeenCalledOnce();
+    expect(options.onWorkspaceExpandedChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "false",
+    );
+  });
+  it("空の縮小エリアにも新しい付箋を追加する入口を残す", () => {
+    render(<PrivateNotesToolbar {...props()} notes={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "新しい付箋を追加" }));
+    expect(screen.getByTestId("private-notes-scroll")).toBeVisible();
+  });
+  it("展開で入力要素を作り直さず、選択範囲と変換中の本文を保つ", () => {
+    const options = props();
+    const view = render(
+      <PrivateNotesToolbar {...options} selectedNoteId="draft" />,
+    );
+    const editor = screen.getByRole("textbox");
+    fireEvent.compositionStart(editor);
+    fireEvent.change(editor, { target: { value: "変換中の本文" } });
+    (editor as HTMLTextAreaElement).setSelectionRange(2, 4);
+    view.rerender(
+      <PrivateNotesToolbar
+        {...options}
+        selectedNoteId="draft"
+        workspaceExpanded
+      />,
+    );
+    expect(screen.getByRole("textbox")).toBe(editor);
+    expect(editor).toHaveValue("変換中の本文");
+    expect((editor as HTMLTextAreaElement).selectionStart).toBe(2);
+    expect((editor as HTMLTextAreaElement).selectionEnd).toBe(4);
+  });
+});

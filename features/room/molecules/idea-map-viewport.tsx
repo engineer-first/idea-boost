@@ -116,6 +116,7 @@ export type IdeaMapViewportProps = {
   workspace?: boolean;
   expanded?: boolean;
   zoom?: number;
+  pan?: { x: number; y: number };
 };
 
 /**
@@ -132,11 +133,13 @@ export function IdeaMapViewport({
   workspace = false,
   expanded = false,
   zoom = 1,
+  pan,
 }: IdeaMapViewportProps) {
   const horizontalAxisRef = useRef<HTMLFieldSetElement>(null);
   const horizontalEndpointRef = useRef<HTMLDivElement>(null);
   const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
   const transforms = [
+    pan ? `translate(${pan.x}px, ${pan.y}px)` : null,
     workspace ? "translateY(var(--board-map-shift-y, 0px))" : null,
     zoom === 1 ? null : `scale(${zoom})`,
   ].filter((transform) => transform !== null);

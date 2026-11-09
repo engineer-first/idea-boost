@@ -2236,3 +2236,127 @@ describe("Step 3-2〜3-5（固定2軸マップ）", () => {
     );
   });
 });
+
+describe("追加執筆の共有ボード", () => {
+  it.each([1, 2, 3] as const)(
+    "フェーズ%dの追加執筆では縮小から始まり、共有付箋を読みながら追加できる",
+    (phaseNumber) => {
+      const phase = buildPhaseStep(1, phaseNumber);
+      const { props } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        isAdditionalWriting: true,
+        boardInteractionBlocked: false,
+        privateNotes: [
+          buildNote({ id: "private-draft", visibility: "private" }),
+        ],
+      });
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        "false",
+      );
+      expect(screen.getByTestId("board-scroller")).not.toHaveAttribute("inert");
+      expect(screen.getByRole("button", { name: "付箋を追加" })).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "マイ付箋を展開" }));
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        "true",
+      );
+      expect(screen.getByTestId("board-scroller")).toHaveAttribute("inert");
+      expect(props.onNoteDragStart).not.toHaveBeenCalled();
+    },
+  );
+  it("共有付箋0枚でも縮小を維持して空状態を案内する", () => {
+    const phase = buildPhaseStep(1);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isAdditionalWriting: true,
+      notes: [],
+    });
+    expect(screen.getByText("共有された付箋はまだありません")).toBeVisible();
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "false",
+    );
+  });
+  it("初回の個人作業では縮小操作を表示しない", () => {
+    const phase = buildPhaseStep(1);
+    setup({ phase, permissions: getBoardPermissions(phase), notes: [] });
+    expect(
+      screen.queryByRole("button", { name: "マイ付箋を展開" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("共有された付箋はまだありません"),
+    ).not.toBeInTheDocument();
+  });
+});
+
+it("追加執筆の共有付箋クリックは閲覧用ポップアップを開き、下書きの選択を変更しない", () => {
+  const geometry = vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      if (this.dataset.testid === "private-notes-toolbar")
+        return new DOMRect(20, 376, 1240, 260);
+      if (this.dataset.testid === "note-card")
+        return new DOMRect(100, 100, 200, 150);
+      return new DOMRect(0, 80, 1280, 640);
+    });
+  try {
+    const phase = buildPhaseStep(1);
+    const { props } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isAdditionalWriting: true,
+      notes: [
+        buildNote({ id: "shared-reference", content: "参考にする共有本文" }),
+      ],
+    });
+    const surface = screen
+      .getByTestId("note-card")
+      .querySelector("[data-canvas-note-surface]") as HTMLElement;
+    fireEvent.pointerDown(surface, {
+      pointerId: 1,
+      button: 0,
+      clientX: 120,
+      clientY: 120,
+    });
+    fireEvent.pointerUp(surface, {
+      pointerId: 1,
+      button: 0,
+      clientX: 120,
+      clientY: 120,
+    });
+    expect(
+      screen.getByRole("region", { name: "共有付箋の全文" }),
+    ).toHaveTextContent("参考にする共有本文");
+    expect(props.onSelect).not.toHaveBeenCalled();
+  } finally {
+    geometry.mockRestore();
+  }
+});
+
+it("追加執筆の共有グループは所属と名前を表示し、名前編集を許可しない", () => {
+  const phase = buildPhaseStep(1);
+  setup({
+    phase,
+    isAdditionalWriting: true,
+    permissions: getBoardPermissions(phase),
+    notes: [
+      buildNote({ id: "group-a", x: 100, y: 100 }),
+      buildNote({ id: "group-b", x: 320, y: 100 }),
+    ],
+    groups: [
+      {
+        id: "existing-group",
+        name: "共有したまとまり",
+        noteIds: ["group-a", "group-b"],
+      },
+    ],
+  });
+  expect(screen.getByTestId("note-group-card")).toHaveTextContent(
+    "共有したまとまり",
+  );
+  fireEvent.doubleClick(screen.getByTestId("group-name-display"));
+  expect(screen.queryByTestId("group-name-input")).not.toBeInTheDocument();
+});

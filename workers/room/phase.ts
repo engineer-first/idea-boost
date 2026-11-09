@@ -46,7 +46,10 @@ import {
   getProgressState,
   isManualProgressStep,
 } from "./progress";
-import { recordProgressTransition } from "./progress-history";
+import {
+  isAdditionalWriting,
+  recordProgressTransition,
+} from "./progress-history";
 import { getSharingState, resetSharingForPhase } from "./sharing-state";
 import { getTimerState, resetTimerState } from "./timer";
 import { deleteNoteVotes, hasCompletedVoting } from "./votes";
@@ -835,6 +838,9 @@ export const phaseHandlers: MessageHandlers<
           .map_revision,
       ),
       phase: next,
+      ...(isAdditionalWriting(ctx.sql, next)
+        ? { isAdditionalWriting: true }
+        : {}),
       phaseRevision: getPhaseRevision(ctx.sql),
       rollbackTarget: getRollbackTarget(ctx.sql),
     });
@@ -875,6 +881,7 @@ async function restartPhase(
   const committed = ctx.storage.transactionSync(() => {
     if (ctx.authorizeMutation?.() === false) return false;
     clearRollbackHistory(ctx.sql);
+    if (!revote && isPhaseStep(current, 1, 3)) finalizeGrouping(ctx.storage);
     recordProgressTransition(
       ctx.sql,
       current,
@@ -917,6 +924,9 @@ async function restartPhase(
         .map_revision,
     ),
     phase: next,
+    ...(isAdditionalWriting(ctx.sql, next)
+      ? { isAdditionalWriting: true }
+      : {}),
     phaseRevision: getPhaseRevision(ctx.sql),
     rollbackTarget: getRollbackTarget(ctx.sql),
   });

@@ -777,6 +777,7 @@ export function RoomBoard({
     currentUserId,
     draggingNoteId: notes.draggingNoteId,
     phase: roomState.phase,
+    isAdditionalWriting: roomState.isAdditionalWriting,
     ideaMapSizeLevel: roomState.ideaMap.sizeLevel,
     sharing: roomState.sharing,
     ideaMapSizeInitialized: roomState.ideaMap.initialized,
@@ -957,6 +958,7 @@ export function RoomBoard({
         inviteUrl={inviteUrl}
         phase={roomState.phase}
         phaseRevision={roomState.phaseRevision}
+        isAdditionalWriting={roomState.isAdditionalWriting}
         rollbackTarget={roomState.rollbackTarget}
         rollbackRevision={roomState.rollbackRevision}
         onRollbackPhase={handleRollbackPhase}

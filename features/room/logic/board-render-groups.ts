@@ -17,8 +17,13 @@ export function getBoardRenderGroups(
   notes: ProtocolNote[],
   groups: PersistentGroup[],
   phase: RoomPhase,
+  preserveSharedGroups = false,
 ): RenderGroup[] {
-  if (!isAtOrAfterGroupingStep(phase)) return [];
+  if (
+    !isAtOrAfterGroupingStep(phase) &&
+    !(preserveSharedGroups && isPhaseStep(phase, 1, 1))
+  )
+    return [];
   if (isPhaseStep(phase, 1, 3)) return calculateRenderGroups(notes, groups);
 
   // 分類終了後は RoomDO の所属をそのまま表示する。距離による分割・合体や

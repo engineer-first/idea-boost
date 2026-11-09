@@ -50,6 +50,7 @@ export type UseRoomBoardInteractionsArgs = {
   currentUserId: string;
   draggingNoteId: string | null;
   phase: RoomPhase;
+  isAdditionalWriting?: boolean;
   sharing?: SharingState | null;
   isDecided?: boolean;
   ideaMapSizeLevel?: number;
@@ -94,6 +95,7 @@ export type RoomBoardInteractions = {
     height: number;
     noteDisplayScale?: number;
     unscaledNoteHeight?: number;
+    clipPath?: string;
   } | null;
   isReturnDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
@@ -152,6 +154,7 @@ export function useRoomBoardInteractions({
   currentUserId,
   draggingNoteId,
   phase,
+  isAdditionalWriting = false,
   sharing = null,
   isDecided = false,
   ideaMapSizeLevel = 0,
@@ -226,11 +229,9 @@ export function useRoomBoardInteractions({
     handlePointerEnd: onCanvasPointerEnd,
   } = useCanvasCamera({
     viewportRef: boardScrollerRef,
-    isViewportEnabled: !(
-      phase.kind === "step" &&
-      phase.step === 1 &&
-      phase.phase <= 3
-    ),
+    isViewportEnabled:
+      isAdditionalWriting ||
+      !(phase.kind === "step" && phase.step === 1 && phase.phase <= 3),
     getFitInsets,
     notes,
     selectedNoteIds,
@@ -238,7 +239,10 @@ export function useRoomBoardInteractions({
       phase.kind === "step" &&
       phase.phase === 3 &&
       (phase.step >= 2 || notes.length > 0),
-    navigationDisabled: usesIdeaMapViewport,
+    navigationDisabled:
+      usesIdeaMapViewport ||
+      (isAdditionalWriting && phase.kind === "step" && phase.phase === 3),
+    temporaryView: isAdditionalWriting,
     ideaMapSizeLevel,
     ideaMapSizeInitialized,
     onManualPanStart,
@@ -406,6 +410,7 @@ export function useRoomBoardInteractions({
       ? notePositionFromClient
       : undefined,
     canMoveSharedNotes,
+    privateDragOnly: phase.kind === "step" && phase.step === 1,
     canPublish,
     canReturnToPrivate,
     lockPrivateMapDrag: isPhaseStep(phase, 3, 2) && isPublishAllowedStep(phase),
@@ -506,7 +511,12 @@ export function useRoomBoardInteractions({
               unscaledNoteHeight: unscaledHeight,
             };
           }
-          if (!toolbarBounds || !isPointerOverToolbar) return preview;
+          if (
+            !toolbarBounds ||
+            (!isPointerOverToolbar &&
+              !(phase.kind === "step" && phase.step === 1))
+          )
+            return preview;
 
           const listBounds = privateToolbarRef.current
             ?.querySelector<HTMLElement>("[data-testid='private-notes-scroll']")
@@ -522,8 +532,21 @@ export function useRoomBoardInteractions({
             size: number,
           ) => Math.min(Math.max(position, start), Math.max(start, end - size));
 
+          const clipRight = Math.max(
+            0,
+            preview.width - (bounds.right - bounds.left),
+          );
+          const clipBottom = Math.max(
+            0,
+            preview.height - (bounds.bottom - bounds.top),
+          );
           return {
             ...preview,
+            ...(phase.kind === "step" &&
+            phase.step === 1 &&
+            (clipRight > 0 || clipBottom > 0)
+              ? { clipPath: `inset(0px ${clipRight}px ${clipBottom}px 0px)` }
+              : {}),
             left: clampWithin(
               preview.left,
               bounds.left,

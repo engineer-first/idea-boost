@@ -137,18 +137,24 @@ for (const phase of [1, 2, 3] as const) {
       it(`${step} から参加者が個人作業へ戻れ、下書き・配置・秘密・停止を再接続でも保持する`, async () => {
         const current: RoomPhase = { kind: "step", phase, step };
         const room = await setup(current);
+        expect(
+          room.initial.type === "snapshot" &&
+            (room.initial.isAdditionalWriting ?? false),
+        ).toBe(false);
         await startTimer(room);
         send(room.b, transition("phase:restart-writing", current));
         for (const socket of [room.a, room.b]) {
           expect(await until(socket, "phase:updated")).toMatchObject({
             type: "phase:updated",
             phase: { kind: "step", phase, step: 1 },
+            isAdditionalWriting: true,
           });
         }
         const reconnect = await connectRoomAs(host, room.roomId);
         expect(await reconnect.next()).toMatchObject({
           type: "snapshot",
           phase: { kind: "step", phase, step: 1 },
+          isAdditionalWriting: true,
           timer: { status: "idle" },
           notes: expect.arrayContaining([
             expect.objectContaining({ id: candidateId, x: 40, y: 50 }),
@@ -721,6 +727,9 @@ it.each([
         mapRevision: expect.any(Number),
         phase: middle,
         phaseRevision: 3,
+        ...(type === "phase:restart-writing"
+          ? { isAdditionalWriting: true }
+          : {}),
         rollbackTarget: type === "phase:next" ? current : null,
       });
     }
@@ -814,3 +823,58 @@ it.each(["グループ", "学び合い"])(
     }
   },
 );
+
+it("追加執筆の判定は共有0枚で再入室しても残り、別フェーズの初回には持ち越さない", async () => {
+  const current: RoomPhase = { kind: "step", phase: 1, step: 2 };
+  const room = await setup(current);
+  await runInRoomDO(room.roomId, (_instance, state) =>
+    state.storage.sql.exec("DELETE FROM notes"),
+  );
+  send(room.b, transition("phase:restart-writing", current));
+  expect(await until(room.b, "phase:updated")).toMatchObject({
+    isAdditionalWriting: true,
+  });
+  const rejoined = await connectRoomAs(host, room.roomId);
+  expect(await rejoined.next()).toMatchObject({
+    type: "snapshot",
+    notes: [],
+    isAdditionalWriting: true,
+  });
+  rejoined.close();
+  await runInRoomDO(room.roomId, (instance) =>
+    instance.setPhase({ kind: "step", phase: 2, step: 1 }, host.sub),
+  );
+  const nextPhase = await connectRoomAs(member, room.roomId);
+  const snapshot = await nextPhase.next();
+  expect(
+    snapshot.type === "snapshot" && (snapshot.isAdditionalWriting ?? false),
+  ).toBe(false);
+  nextPhase.close();
+  room.close();
+});
+
+it("1-3の名前未編集のまとまりも追加執筆と再入室で保持し、他者の下書きを含めない", async () => {
+  const current: RoomPhase = { kind: "step", phase: 1, step: 3 };
+  const room = await setup(current);
+  send(room.b, transition("phase:restart-writing", current));
+  expect(await until(room.b, "phase:updated")).toMatchObject({
+    isAdditionalWriting: true,
+  });
+  const rejoined = await connectRoomAs(member, room.roomId);
+  const snapshot = await rejoined.next();
+  expect(snapshot).toMatchObject({
+    type: "snapshot",
+    groups: [
+      expect.objectContaining({
+        name: "グループ",
+        noteIds: expect.arrayContaining([candidateId, excludedId]),
+      }),
+    ],
+  });
+  if (snapshot.type === "snapshot") {
+    expect(snapshot.groups?.[0].noteIds).not.toContain(draftId);
+    expect(snapshot.notes.map((note) => note.id)).not.toContain(draftId);
+  }
+  rejoined.close();
+  room.close();
+});

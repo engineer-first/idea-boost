@@ -350,8 +350,8 @@ describe("2軸評価画面の周辺操作", () => {
     });
 
     expect(
-      screen.queryByRole("button", { name: "もう一度付箋を書く" }),
-    ).toBeNull();
+      screen.getByRole("button", { name: "もう一度付箋を書く" }),
+    ).toBeVisible();
     const mapSizeHud = screen.getByTestId("idea-map-size-controls-hud");
     expect(mapSizeHud).toContainElement(
       screen.getByRole("group", { name: "2軸マップの広さ操作" }),
@@ -4808,5 +4808,27 @@ it.each([1, 2])(
     );
     if (count === 1) expect(warning).toBeInTheDocument();
     else expect(warning).not.toBeInTheDocument();
+  },
+);
+
+it("追加執筆中は停止中タイマーの中央案内で付箋エリアを覆わない", () => {
+  setup({
+    phase: buildPhaseStep(1),
+    isAdditionalWriting: true,
+    timer: { status: "idle" },
+  });
+  expect(screen.queryByTestId("timer-work-hint")).not.toBeInTheDocument();
+});
+
+it.each([1, 3] as const)(
+  "フェーズ%dの整理・評価から追加執筆へ戻る操作を表示する",
+  (phaseNumber) => {
+    const { props } = setup({
+      phase: buildPhaseStep(3, phaseNumber),
+      onRestartWriting: vi.fn(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "もう一度付箋を書く" }));
+    fireEvent.click(screen.getByRole("button", { name: "個人作業へ戻る" }));
+    expect(props.onRestartWriting).toHaveBeenCalledOnce();
   },
 );

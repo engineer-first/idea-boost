@@ -5,6 +5,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -51,6 +52,8 @@ type UseCanvasCameraArgs = {
   onZoomChange?: (zoom: number) => void;
   // 固定2軸マップ表示中はボードの視野を動かさない。
   navigationDisabled?: boolean;
+  // 追加執筆中の閲覧は既存の共有画面のカメラと分け、終了時に元へ戻す。
+  temporaryView?: boolean;
   selectedNoteIds?: readonly string[];
   isViewportEnabled?: boolean;
   // 画面サイズで配置されたマップでは、0〜100の付箋座標をpxとしてフィットしない。
@@ -179,6 +182,7 @@ export function useCanvasCamera({
   viewportRef,
   notes,
   navigationDisabled = false,
+  temporaryView = false,
   selectedNoteIds,
   isViewportEnabled = true,
   fitViewport = false,
@@ -285,6 +289,39 @@ export function useCanvasCamera({
     frameRef.current = null;
     pendingCameraRef.current = null;
   }, []);
+
+  const savedViewRef = useRef<{
+    camera: CanvasCamera;
+    hasFit: boolean;
+    hasDefaulted: boolean;
+    hasFitIdeaMap: boolean;
+  } | null>(null);
+  useLayoutEffect(() => {
+    if (temporaryView) {
+      if (!savedViewRef.current)
+        savedViewRef.current = {
+          camera: { ...cameraRef.current },
+          hasFit: hasFitRef.current,
+          hasDefaulted: hasDefaultedRef.current,
+          hasFitIdeaMap: hasFitIdeaMapRef.current,
+        };
+      return;
+    }
+    const saved = savedViewRef.current;
+    if (!saved) return;
+    savedViewRef.current = null;
+    cancelScheduledCamera();
+    cancelFollowAnimation();
+    hasFitRef.current = saved.hasFit;
+    hasDefaultedRef.current = saved.hasDefaulted;
+    hasFitIdeaMapRef.current = saved.hasFitIdeaMap;
+    setCameraImmediately(saved.camera);
+  }, [
+    temporaryView,
+    cancelScheduledCamera,
+    cancelFollowAnimation,
+    setCameraImmediately,
+  ]);
 
   const followWorldCenter = useCallback(
     (center: CanvasPoint, requestedZoom: number) => {
@@ -637,6 +674,7 @@ export function useCanvasCamera({
 
   useEffect(() => {
     if (
+      temporaryView ||
       navigationDisabled ||
       !isViewportEnabled ||
       !fitViewport ||
@@ -660,6 +698,7 @@ export function useCanvasCamera({
       }
     }
   }, [
+    temporaryView,
     fitViewport,
     ideaMapSizeInitialized,
     navigationDisabled,
@@ -826,7 +865,13 @@ export function useCanvasCamera({
   ]);
 
   useEffect(() => {
-    if (!isViewportEnabled || fitViewport || navigationDisabled) return;
+    if (
+      temporaryView ||
+      !isViewportEnabled ||
+      fitViewport ||
+      navigationDisabled
+    )
+      return;
     const element = viewportRef.current;
     if (!element) return;
     const size = viewportSize(element);
@@ -852,6 +897,7 @@ export function useCanvasCamera({
       hasDefaultedRef.current = true;
     }
   }, [
+    temporaryView,
     baseZoom,
     fitViewport,
     isViewportEnabled,

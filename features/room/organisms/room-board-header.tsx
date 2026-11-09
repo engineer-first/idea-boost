@@ -90,6 +90,7 @@ export type RoomBoardHeaderProps = {
   inviteUrl: string;
   phase: RoomPhase;
   phaseRevision?: number;
+  isAdditionalWriting?: boolean;
   rollbackTarget?: RoomPhase | null;
   onRollbackPhase?: () => void;
   sharing?: SharingState | null;
@@ -149,6 +150,7 @@ export function RoomBoardHeader({
   inviteUrl,
   phase,
   phaseRevision = 0,
+  isAdditionalWriting = false,
   rollbackTarget = null,
   onRollbackPhase,
   sharing = null,
@@ -199,7 +201,10 @@ export function RoomBoardHeader({
   const controlsAreaRef = useRef<HTMLDivElement>(null);
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
-  const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
+  const additionalWritingMap = isAdditionalWriting && isPhaseStep(phase, 3, 1);
+  const usesIdeaMapViewport =
+    isIdeaMapViewportStep(phase) || additionalWritingMap;
+  const mapLayoutBeforeWritingRef = useRef<Record<string, string> | null>(null);
   useEffect(() => {
     const area = controlsAreaRef.current;
     const header = area?.closest<HTMLElement>(
@@ -209,6 +214,13 @@ export function RoomBoardHeader({
       '[data-testid="room-board-view-root"]',
     );
     if (!area || !header) return;
+    if (additionalWritingMap && board && mapLayoutBeforeWritingRef.current) {
+      for (const [property, value] of Object.entries(
+        mapLayoutBeforeWritingRef.current,
+      ))
+        board.style.setProperty(property, value);
+      return;
+    }
     function updateBoardLayoutOffsets(): void {
       const notice =
         connectionStatus === "open"
@@ -345,11 +357,28 @@ export function RoomBoardHeader({
       header.style.removeProperty("--board-location-top");
       header.style.removeProperty("--board-location-height");
       board?.style.removeProperty("--board-connection-notice-bottom");
+      if (usesIdeaMapViewport && !additionalWritingMap && board) {
+        mapLayoutBeforeWritingRef.current = Object.fromEntries(
+          [
+            "--board-map-top",
+            "--board-map-shift-y",
+            "--board-map-tray-top",
+          ].map((property) => [
+            property,
+            board.style.getPropertyValue(property),
+          ]),
+        );
+      }
       board?.style.removeProperty("--board-map-top");
       board?.style.removeProperty("--board-map-shift-y");
       board?.style.removeProperty("--board-map-tray-top");
     };
-  }, [connectionStatus, isIdeaMapWorkspaceStep, usesIdeaMapViewport]);
+  }, [
+    connectionStatus,
+    isIdeaMapWorkspaceStep,
+    usesIdeaMapViewport,
+    additionalWritingMap,
+  ]);
   const activeSharing =
     phase.kind === "step" && phase.step === 2 ? sharing : null;
   const transitioning = activeSharing?.startsAt != null;

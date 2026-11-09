@@ -126,7 +126,10 @@ import {
   isManualProgressStep,
   syncProgressConnectedUsers,
 } from "./progress";
-import { ProgressHistoryStorage } from "./progress-history";
+import {
+  isAdditionalWriting,
+  ProgressHistoryStorage,
+} from "./progress-history";
 import { replyShareStatus } from "./share-operations";
 import { SharedOutcomeStorage } from "./shared-outcome-storage";
 import { captureSharedOutcome, readOutcomeState } from "./shared-outcomes";
@@ -1995,6 +1998,9 @@ export class RoomDO extends DurableObject {
       members: listMembers(this.sql),
       phase,
       phaseRevision: getPhaseRevision(this.sql),
+      ...(isAdditionalWriting(this.sql, phase)
+        ? { isAdditionalWriting: true }
+        : {}),
       pendingPhaseTransition: getPendingPhaseTransition(this.sql),
       rollbackTarget: getRollbackTarget(this.sql),
       rollbackRevision: Number(

@@ -1288,3 +1288,27 @@ it.each([
   );
   expect(onNoteDragStart).toHaveBeenCalledWith("shared-1");
 });
+
+it("追加執筆の長文付箋のドラッグは元の大きさを維持してパネル外の表示だけを切り取る", () => {
+  const { result, toolbar } = setup({
+    phase: buildPhaseStep(1),
+    withPrivateNote: true,
+  });
+  const surface = document.createElement("button");
+  surface.getBoundingClientRect = () => new DOMRect(600, 100, 200, 800);
+  act(() =>
+    result.current.onPrivateNoteDragStart("private-1", {
+      target: surface,
+      currentTarget: surface,
+      pointerId: 1,
+      clientX: 650,
+      clientY: 150,
+    } as unknown as PointerEvent<HTMLButtonElement>),
+  );
+  const preview = result.current.dragPreview;
+  expect(preview?.height).toBe(800);
+  expect(preview?.top).toBeGreaterThanOrEqual(
+    toolbar.getBoundingClientRect().top,
+  );
+  expect(preview?.clipPath).toBe("inset(0px 0px 300px 0px)");
+});
