@@ -160,7 +160,7 @@
   animation: draw-check 400ms ease-out both;
 }
 [data-completion-cue="others"] .avatarCue[data-cue-waiting] {
-  box-shadow: 0 0 0 3px rgb(from var(--ib-color-warning) r g b / 40%);
+  box-shadow: 0 0 0 3px rgb(from var(--ib-color-state-focus) r g b / 40%);
 }
 @keyframes draw-check {
   from {
@@ -191,16 +191,16 @@
 
 @media (width < 1024px) {
   [data-completion-cue="others"] .overflowCue[data-waiting-small] {
-    box-shadow: 0 0 0 3px rgb(from var(--ib-color-warning) r g b / 40%);
+    box-shadow: 0 0 0 3px rgb(from var(--ib-color-state-focus) r g b / 40%);
   }
 }
 @media (1024px <= width < 1280px) {
   [data-completion-cue="others"] .overflowCue[data-waiting-medium] {
-    box-shadow: 0 0 0 3px rgb(from var(--ib-color-warning) r g b / 40%);
+    box-shadow: 0 0 0 3px rgb(from var(--ib-color-state-focus) r g b / 40%);
   }
 }
 @media (width >= 1280px) {
   [data-completion-cue="others"] .overflowCue[data-waiting-large] {
-    box-shadow: 0 0 0 3px rgb(from var(--ib-color-warning) r g b / 40%);
+    box-shadow: 0 0 0 3px rgb(from var(--ib-color-state-focus) r g b / 40%);
   }
 }
