@@ -67,6 +67,8 @@ export function RoomLobbyView({
 }: RoomLobbyViewProps) {
   const isRemovingMember = memberRemoval?.pending ?? false;
   const isDisconnected = connectionStatus !== "open";
+  const isConnectionStopped =
+    connectionStatus === "auth-required" || connectionStatus === "unavailable";
   const lobbyRef = useRef<HTMLDivElement>(null);
   const leaveButtonRef = useRef<HTMLButtonElement>(null);
   const avatarDescriptionId = useId();
@@ -121,14 +123,16 @@ export function RoomLobbyView({
 
         {/* 短い接続待ちは知らせず、10秒続いたときと接続を止めたときだけ出す。 */}
         <div className={styles.connectionSlot}>
-          {connectionDelayed ||
-          connectionStatus === "auth-required" ||
-          connectionStatus === "unavailable" ? (
+          {connectionDelayed || isConnectionStopped ? (
             <RoomConnectionNotice
               returnHref={loginReturnHref}
               status={connectionStatus}
               delayed={connectionDelayed}
-              className={styles.connection}
+              className={
+                isConnectionStopped
+                  ? `${styles.connection} ${styles.connectionError}`
+                  : styles.connection
+              }
               testId="lobby-connection-status"
             />
           ) : null}

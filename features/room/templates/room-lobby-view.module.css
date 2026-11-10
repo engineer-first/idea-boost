@@ -78,6 +78,10 @@
   font-size: 14px;
   line-height: 20px;
 }
+.connectionError {
+  background: var(--ib-color-danger-soft);
+  color: var(--ib-color-danger-text);
+}
 
 .stage {
   position: relative;
