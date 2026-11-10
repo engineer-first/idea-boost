@@ -206,7 +206,7 @@ for (const width of [1280, 320]) {
     const dialog = page.getByRole("dialog", { name: "問いのヒント" });
     await dialog.waitFor();
     await expectCloudClearOfNotes(dialog.getByTestId("hmw-thought-cloud"));
-    await dialog.getByRole("button", { name: "解消" }).click();
+    await dialog.getByRole("button", { name: "楽しみ" }).click();
     await dialog.getByRole("button", { name: "この問いにする" }).click();
     await page.clock.runFor(2_000);
     // 採用と再計時を終えても、キャラクターと吹き出しは表示に戻る。
@@ -241,7 +241,7 @@ test("フェードなしで常に表示し、書き出し後も消えない", as
   );
   const dialog = page.getByRole("dialog", { name: "問いのヒント" });
   await dialog.waitFor();
-  await clickFloatingWord(dialog.getByRole("button", { name: "解消" }));
+  await clickFloatingWord(dialog.getByRole("button", { name: "楽しみ" }));
   await dialog.getByRole("button", { name: "この問いにする" }).click();
   await page.clock.runFor(2_000);
   expect(await character.count()).toBe(1);

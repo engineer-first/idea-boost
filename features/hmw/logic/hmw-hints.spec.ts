@@ -26,8 +26,10 @@ describe("問いのヒント", () => {
 
   it("課題の特殊文字・改行・差し込みに見える文字も原文のまま保持する", () => {
     const issue = "費用$&と$1が高い\n<img src=x> {issue}";
-    const question = buildHmwHintQuestion(issue, HMW_HINT_GROUPS[0][0]);
-    expect(question).toContain(`「${issue}」`);
+    const bracketed = buildHmwHintQuestion(issue, HMW_HINT_GROUPS[0][1]);
+    expect(bracketed).toContain(`「${issue}」`);
+    const plain = buildHmwHintQuestion(issue, HMW_HINT_GROUPS[0][0]);
+    expect(plain).toContain(issue);
   });
 
   it.each([null, "", " \n "])(
@@ -36,4 +38,41 @@ describe("問いのヒント", () => {
       expect(buildHmwHintQuestion(issue, HMW_HINT_GROUPS[0][0])).toBeNull();
     },
   );
+
+  it("置き換えた5つのワードと問いかけを提示する", () => {
+    const all = HMW_HINT_GROUPS.flat();
+    const find = (id: string) => all.find((hint) => hint.id === id);
+    expect(find("enjoy")).toMatchObject({
+      word: "楽しみ",
+      template: "どうやったら{issue}を楽しめるだろう？",
+    });
+    expect(find("motivation")).toMatchObject({
+      word: "やる気",
+      template: "どこでやると一番捗る？",
+    });
+    expect(find("reason")).toMatchObject({
+      word: "理由",
+      template: "なぜそんなに困るの？",
+    });
+    expect(find("standpoint")).toMatchObject({
+      word: "立場",
+      template: "誰に話すと楽？",
+    });
+    expect(find("avoid")).toMatchObject({
+      word: "回避",
+      template: "その困りごとをしなくても済む方法は？",
+    });
+  });
+
+  it("差し込みを含まない問いかけは、決定課題がなくてもそのまま返す", () => {
+    const withoutIssue = HMW_HINT_GROUPS.flat().filter(
+      (hint) => !hint.template.includes("{issue}"),
+    );
+    // インタビュー形式のワードが少なくともあることを確認する。
+    expect(withoutIssue.length).toBeGreaterThan(0);
+    for (const hint of withoutIssue) {
+      expect(buildHmwHintQuestion(null, hint)).toBe(hint.template);
+      expect(buildHmwHintQuestion("朝起きれない", hint)).toBe(hint.template);
+    }
+  });
 });

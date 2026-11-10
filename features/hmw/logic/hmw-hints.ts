@@ -6,13 +6,14 @@ export type HmwHint = {
 };
 
 // 各組は異なる観点の3語。文型は語ごとに用意し、課題の活用・意味を推測しない。
+// 決定課題を差し込む型と、課題を直接含まない聞き取り型（インタビュー形式）がある。
 export const HMW_HINT_GROUPS = [
   [
     {
-      id: "resolve",
-      word: "解消",
+      id: "enjoy",
+      word: "楽しみ",
       perspective: "どう",
-      template: "どうしたら、「{issue}」という困りごとを解消できるか？",
+      template: "どうやったら{issue}を楽しめるだろう？",
     },
     {
       id: "prevent",
@@ -36,25 +37,24 @@ export const HMW_HINT_GROUPS = [
       template: "どうしたら、「{issue}」が起きる回数を減らせるか？",
     },
     {
-      id: "place",
-      word: "場所を変える",
+      id: "motivation",
+      word: "やる気",
       perspective: "どこ",
-      template: "「{issue}」に関係する場所を変えたら、何が変わるだろう？",
+      template: "どこでやると一番捗る？",
     },
     {
-      id: "why",
-      word: "そもそも",
+      id: "reason",
+      word: "理由",
       perspective: "なぜ",
-      template: "そもそも、「{issue}」はなぜ困るのだろう？",
+      template: "なぜそんなに困るの？",
     },
   ],
   [
     {
-      id: "replace",
-      word: "置き換える",
+      id: "avoid",
+      word: "回避",
       perspective: "どう",
-      template:
-        "「{issue}」に関係する行動や仕組みを別のものに置き換えたら、何が変わるだろう？",
+      template: "その困りごとをしなくても済む方法は？",
     },
     {
       id: "time",
@@ -63,10 +63,10 @@ export const HMW_HINT_GROUPS = [
       template: "どうしたら、行動する時間を変えて「{issue}」に対処できるか？",
     },
     {
-      id: "perspective",
-      word: "立場を変える",
+      id: "standpoint",
+      word: "立場",
       perspective: "誰",
-      template: "「{issue}」について、別の人の立場では何が変わるだろう？",
+      template: "誰に話すと楽？",
     },
   ],
   [
@@ -96,6 +96,8 @@ export function buildHmwHintQuestion(
   decidedIssue: string | null,
   hint: HmwHint,
 ): string | null {
+  // 聞き取り型は課題に依存しないので、課題がなくても文型のまま返す。
+  if (!hint.template.includes("{issue}")) return hint.template;
   const issue = decidedIssue?.trim();
   if (!issue) return null;
   // 関数で置換し、課題中の $& や {issue} も通常の本文として保持する。

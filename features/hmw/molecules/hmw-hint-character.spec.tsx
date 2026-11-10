@@ -28,7 +28,7 @@ describe("キャラクターの問いヒント", () => {
     };
     const { rerender } = render(<HmwHintCharacter {...props} />);
     fireEvent.click(screen.getByRole("button", { name: "問いのヒントを開く" }));
-    fireEvent.click(screen.getByRole("button", { name: "解消" }));
+    fireEvent.click(screen.getByRole("button", { name: "楽しみ" }));
     fireEvent.click(screen.getByRole("button", { name: "この問いにする" }));
     rerender(<HmwHintCharacter {...props} pending />);
     act(() => vi.advanceTimersByTime(5_000));
@@ -42,7 +42,7 @@ describe("キャラクターの問いヒント", () => {
     // フェードアウトは廃止済み。書き出し後も2-1の間は表示を続ける。
     expect(screen.getByTestId("hmw-hint-character")).toBeInTheDocument();
     expect(onUseQuestion).toHaveBeenCalledExactlyOnceWith(
-      "どうしたら、「忘れ物が多い」という困りごとを解消できるか？",
+      "どうやったら忘れ物が多いを楽しめるだろう？",
     );
   });
 
@@ -106,9 +106,10 @@ describe("キャラクターの問いヒント", () => {
       />,
     );
     const dialog = await openHints();
-    await userEvent.click(within(dialog).getByRole("button", { name: "解消" }));
-    const question =
-      "どうしたら、「忘れ物が多い」という困りごとを解消できるか？";
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "楽しみ" }),
+    );
+    const question = "どうやったら忘れ物が多いを楽しめるだろう？";
     const expected = getNoteHeight(question, NOTE_DEFAULT_FONT_SIZE);
     expect(
       within(dialog).getByRole("region", { name: "問いの文例" }),
@@ -131,11 +132,15 @@ describe("キャラクターの問いヒント", () => {
     );
     const dialog = screen.getByRole("dialog", { name: "問いのヒント" });
     expect(onHintOpen).toHaveBeenCalledOnce();
-    expect(within(dialog).getByRole("button", { name: "解消" })).toHaveFocus();
+    expect(
+      within(dialog).getByRole("button", { name: "楽しみ" }),
+    ).toHaveFocus();
     const firstWords = within(dialog).getByRole("group", {
       name: "考え方のワード",
     }).textContent;
-    await userEvent.click(within(dialog).getByRole("button", { name: "解消" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "楽しみ" }),
+    );
     expect(
       within(dialog).queryByRole("group", { name: "考え方のワード" }),
     ).not.toBeInTheDocument();
@@ -152,7 +157,9 @@ describe("キャラクターの問いヒント", () => {
     expect(
       within(dialog).getByRole("group", { name: "考え方のワード" }),
     ).toHaveTextContent(firstWords ?? "");
-    expect(within(dialog).getByRole("button", { name: "解消" })).toHaveFocus();
+    expect(
+      within(dialog).getByRole("button", { name: "楽しみ" }),
+    ).toHaveFocus();
     expect(
       within(dialog).queryByRole("region", { name: "問いの文例" }),
     ).not.toBeInTheDocument();
@@ -214,7 +221,9 @@ describe("キャラクターの問いヒント", () => {
         onUseQuestion={onUseQuestion}
       />,
     );
-    await userEvent.click(within(dialog).getByRole("button", { name: "解消" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "楽しみ" }),
+    );
     expect(
       within(dialog).getByRole("region", { name: "問いの文例" }),
     ).toHaveTextContent("買い物を忘れる");
@@ -228,7 +237,9 @@ describe("キャラクターの問いヒント", () => {
     expect(
       within(dialog).queryByRole("region", { name: "問いの文例" }),
     ).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "解消" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "楽しみ" }),
+    );
     expect(
       within(dialog).getByRole("region", { name: "問いの文例" }),
     ).toHaveTextContent("約束を忘れる");
@@ -245,7 +256,9 @@ describe("キャラクターの問いヒント", () => {
       />,
     );
     const dialog = await openHints();
-    await userEvent.click(within(dialog).getByRole("button", { name: "解消" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "楽しみ" }),
+    );
     expect(
       within(dialog).getByRole("button", { name: "この問いにする" }),
     ).toBeDisabled();
@@ -275,7 +288,9 @@ describe("キャラクターの問いヒント", () => {
       />,
     );
     const dialog = await openHints();
-    await userEvent.click(within(dialog).getByRole("button", { name: "解消" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "楽しみ" }),
+    );
     expect(
       within(dialog).getByRole("region", { name: "問いの文例" }),
     ).toHaveTextContent("長".repeat(NOTE_CONTENT_MAX_LENGTH));
