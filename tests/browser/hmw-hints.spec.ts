@@ -92,11 +92,8 @@ for (const { width, height } of [
     );
     const trigger = page.getByRole("button", { name: "問いのヒントを開く" });
     await page.getByTestId("private-notes-workspace").waitFor();
-    expect(await trigger.count()).toBe(0);
-    await page.clock.runFor(44_000);
-    expect(await trigger.count()).toBe(0);
-    await page.clock.runFor(1_000);
-    await trigger.waitFor();
+    // キャラクターと吹き出しは2-1の間は常に表示する。
+    expect(await trigger.count()).toBe(1);
     await page.getByTestId("hmw-hint-nudge").waitFor();
     await page.evaluate(() => document.fonts.ready);
     const character = await trigger.boundingBox();
@@ -185,7 +182,7 @@ for (const { width, height } of [
 }
 
 for (const width of [1280, 320]) {
-  test(`${width}px: 1枚のまま90秒・15秒無入力になると、重ならない場所で呼びかける`, async () => {
+  test(`${width}px: キャラクターと吹き出しを常時表示し、採用後も表示に戻す`, async () => {
     page = await browser.newPage({
       viewport: { width, height: width === 320 ? 568 : 800 },
       reducedMotion: "reduce",
@@ -196,41 +193,29 @@ for (const width of [1280, 320]) {
     );
     await page.getByTestId("private-notes-workspace").waitFor();
     const trigger = page.getByRole("button", { name: "問いのヒントを開く" });
-    expect(await trigger.count()).toBe(0);
-    const nudge = page.getByTestId("hmw-hint-nudge");
-    expect(await nudge.count()).toBe(0);
-    const editor = page.getByRole("textbox", { name: "メモを入力..." });
-    for (let activity = 0; activity < 3; activity++) {
-      await page.clock.runFor(25_000);
-      await editor.dispatchEvent("input");
-    }
-    await page.clock.runFor(14_000);
-    expect(await nudge.count()).toBe(0);
-    await page.clock.runFor(1_000);
-    await nudge.waitFor();
     expect(await trigger.count()).toBe(1);
+    const nudge = page.getByTestId("hmw-hint-nudge");
+    // 呼びかけ条件を待たずに表示し、90秒放置でも変えない。
+    expect(await nudge.count()).toBe(1);
     await expectCloudClearOfNotes(nudge);
+    await page.clock.runFor(90_000);
+    expect(await nudge.count()).toBe(1);
     await page
       .getByRole("button", { name: /こんな見た目も.*あるかも/ })
       .click();
     const dialog = page.getByRole("dialog", { name: "問いのヒント" });
     await dialog.waitFor();
     await expectCloudClearOfNotes(dialog.getByTestId("hmw-thought-cloud"));
-    if (width === 1280) {
-      await dialog.getByRole("button", { name: "解消" }).click();
-      await dialog.getByRole("button", { name: "この問いにする" }).click();
-      await page.clock.runFor(2_000);
-      expect(await trigger.count()).toBe(0);
-      await page.clock.runFor(44_000);
-      expect(await trigger.count()).toBe(0);
-      await page.clock.runFor(1_000);
-      await trigger.waitFor();
-      await nudge.waitFor();
-    }
+    await dialog.getByRole("button", { name: "解消" }).click();
+    await dialog.getByRole("button", { name: "この問いにする" }).click();
+    await page.clock.runFor(2_000);
+    // 採用と再計時を終えても、キャラクターと吹き出しは表示に戻る。
+    expect(await trigger.count()).toBe(1);
+    expect(await nudge.count()).toBe(1);
   });
 }
 
-test("一緒にフェードインし、書き出し後はフェードアウトして消える", async () => {
+test("フェードなしで常に表示し、書き出し後も消えない", async () => {
   page = await browser.newPage({
     viewport: { width: 1280, height: 800 },
     reducedMotion: "no-preference",
@@ -242,26 +227,15 @@ test("一緒にフェードインし、書き出し後はフェードアウト�
   );
   const character = page.getByTestId("hmw-hint-character");
   await character.waitFor();
-  const opacity = await character.evaluate((element) => {
-    const animation = element
+  // キャラクター自身へフェードイン・フェードアウトのanimationを付けない。
+  const hasOwnFade = await character.evaluate((element) =>
+    element
       .getAnimations()
-      .find(
+      .some(
         (item) => (item.effect as KeyframeEffect | null)?.target === element,
-      );
-    if (!animation) throw new Error("出現時のフェードインがありません");
-    const duration = Number(animation.effect?.getTiming().duration);
-    animation.pause();
-    animation.currentTime = 0;
-    const start = Number(getComputedStyle(element).opacity);
-    animation.currentTime = duration / 2;
-    const middle = Number(getComputedStyle(element).opacity);
-    animation.currentTime = duration;
-    return { start, middle, end: Number(getComputedStyle(element).opacity) };
-  });
-  expect(opacity.start).toBe(0);
-  expect(opacity.middle).toBeGreaterThan(0);
-  expect(opacity.middle).toBeLessThan(1);
-  expect(opacity.end).toBe(1);
+      ),
+  );
+  expect(hasOwnFade).toBe(false);
   await clickFloatingWord(
     page.getByRole("button", { name: /こんな見た目も.*あるかも/ }),
   );
@@ -269,29 +243,8 @@ test("一緒にフェードインし、書き出し後はフェードアウト�
   await dialog.waitFor();
   await clickFloatingWord(dialog.getByRole("button", { name: "解消" }));
   await dialog.getByRole("button", { name: "この問いにする" }).click();
-  await page.clock.runFor(1_400);
-  const fadeOut = await character.evaluate((element) => {
-    const animation = element
-      .getAnimations()
-      .find(
-        (item) => (item.effect as KeyframeEffect | null)?.target === element,
-      );
-    if (!animation) throw new Error("書き出し後のフェードアウトがありません");
-    const duration = Number(animation.effect?.getTiming().duration);
-    animation.pause();
-    animation.currentTime = 0;
-    const start = Number(getComputedStyle(element).opacity);
-    animation.currentTime = duration / 2;
-    const middle = Number(getComputedStyle(element).opacity);
-    animation.currentTime = duration;
-    return { start, middle, end: Number(getComputedStyle(element).opacity) };
-  });
-  expect(fadeOut.start).toBe(1);
-  expect(fadeOut.middle).toBeGreaterThan(0);
-  expect(fadeOut.middle).toBeLessThan(1);
-  expect(fadeOut.end).toBe(0);
-  await page.clock.runFor(480);
-  expect(await character.count()).toBe(0);
+  await page.clock.runFor(2_000);
+  expect(await character.count()).toBe(1);
 });
 
 test("動きを減らす設定では雲・ワード・キャラクターの浮遊を止める", async () => {

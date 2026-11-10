@@ -1,12 +1,6 @@
 .character {
   position: relative;
   width: 80px;
-  animation: character-appear 480ms ease-out both;
-}
-
-.character[data-exiting="true"] {
-  animation: character-disappear 480ms ease-in both;
-  pointer-events: none;
 }
 
 .trigger {
@@ -274,8 +268,8 @@
 }
 
 .question {
-  min-height: 0;
-  flex: 1;
+  flex: none;
+  max-height: 100%;
   padding: 4px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -415,24 +409,6 @@
   height: 28px;
   color: var(--primary);
   animation: pencil-write 350ms ease-in-out 3 alternate;
-}
-
-@keyframes character-appear {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes character-disappear {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
 }
 
 @keyframes cloud-arrive {
@@ -682,7 +658,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .character,
-  .character[data-exiting="true"],
   .characterHalo,
   .characterImage,
   .teaser,

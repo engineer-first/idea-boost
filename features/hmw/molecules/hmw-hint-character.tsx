@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import { buildHmwHintQuestion, HMW_HINT_GROUPS } from "../logic/hmw-hints";
 import styles from "./hmw-hint-character.module.css";
@@ -46,7 +47,6 @@ export function HmwHintCharacter({
   disabled = false,
   pending = false,
   showNudge = false,
-  hasBeenShown = false,
   onHintOpen,
   onDismissNudge,
   availableHeight,
@@ -65,14 +65,11 @@ export function HmwHintCharacter({
   const [submitting, setSubmitting] = useState(false);
   const [teaserDismissed, setTeaserDismissed] = useState(false);
   const [writing, setWriting] = useState(false);
-  const [exiting, setExiting] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  const [hasAppeared, setHasAppeared] = useState(showNudge || hasBeenShown);
-  if ((showNudge || hasBeenShown) && !hasAppeared) setHasAppeared(true);
   const question = selection?.issue === decidedIssue ? selection.question : "";
   const tooLong = question.length > NOTE_CONTENT_MAX_LENGTH;
   const hasIssue = Boolean(decidedIssue?.trim());
-  const teaserVisible = showNudge && !open && !writing && !teaserDismissed;
+  // 吹き出しも2-1の間は常に表示し、開いた popover が閉じれば戻る。
+  const teaserVisible = !open && !writing && !teaserDismissed;
 
   useEffect(
     () => () => {
@@ -84,24 +81,10 @@ export function HmwHintCharacter({
     if (!writing || pending) return;
     const timeout = window.setTimeout(() => {
       setWriting(false);
-      setExiting(true);
+      onFadeOutComplete?.();
     }, 1400);
     return () => window.clearTimeout(timeout);
-  }, [writing, pending]);
-  useEffect(() => {
-    if (!exiting) return;
-    const reduceMotion = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    )?.matches;
-    const timeout = window.setTimeout(
-      () => {
-        setDismissed(true);
-        onFadeOutComplete?.();
-      },
-      reduceMotion ? 0 : 480,
-    );
-    return () => window.clearTimeout(timeout);
-  }, [exiting, onFadeOutComplete]);
+  }, [writing, pending, onFadeOutComplete]);
   useEffect(() => {
     if (!open) return;
     const target = question ? questionRef.current : firstWordRef.current;
@@ -114,13 +97,9 @@ export function HmwHintCharacter({
       setSelection(null);
       setSubmitting(false);
       setWriting(false);
-      setExiting(false);
-      setTeaserDismissed(true);
       onHintOpen?.();
     }
   };
-
-  if (!hasAppeared || dismissed) return null;
 
   return (
     <div
@@ -129,7 +108,6 @@ export function HmwHintCharacter({
       data-engaged={open || teaserVisible || writing}
       data-nudge={showNudge}
       data-writing={writing}
-      data-exiting={exiting}
       data-expanded={open}
     >
       {teaserVisible ? (
@@ -253,6 +231,10 @@ export function HmwHintCharacter({
                       // biome-ignore lint/a11y/noNoninteractiveTabindex: 長い文例のスクロールをキーボードでも操作できるようにする。
                       tabIndex={0}
                       className={styles.question}
+                      // 採用後に作られる付箋と同じ高さで見せ、書き出し後の見た目を先に伝える。
+                      style={{
+                        height: getNoteHeight(question, NOTE_DEFAULT_FONT_SIZE),
+                      }}
                     >
                       <p>{question}</p>
                     </section>

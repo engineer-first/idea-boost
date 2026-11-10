@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import { HmwHintCharacter } from "./hmw-hint-character";
 
@@ -12,7 +13,7 @@ async function openHints() {
 }
 
 describe("キャラクターの問いヒント", () => {
-  it("付箋の作成待ちでは残り、反映後の書き出し演出とフェードアウトを終えて消える", () => {
+  it("書き出し演出を終えてもキャラクターは消えず、再計時の合図だけを出す", () => {
     vi.useFakeTimers();
     onTestFinished(() => {
       vi.useRealTimers();
@@ -32,63 +33,86 @@ describe("キャラクターの問いヒント", () => {
     rerender(<HmwHintCharacter {...props} pending />);
     act(() => vi.advanceTimersByTime(5_000));
     expect(screen.getByTestId("hmw-hint-character")).toBeInTheDocument();
+    expect(onFadeOutComplete).not.toHaveBeenCalled();
     rerender(<HmwHintCharacter {...props} pending={false} />);
-    act(() => vi.advanceTimersByTime(1_400));
-    expect(screen.getByTestId("hmw-hint-character")).toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(479));
-    expect(screen.getByTestId("hmw-hint-character")).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1_399));
     expect(onFadeOutComplete).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(1));
-    expect(screen.queryByTestId("hmw-hint-character")).not.toBeInTheDocument();
     expect(onFadeOutComplete).toHaveBeenCalledOnce();
+    // フェードアウトは廃止済み。書き出し後も2-1の間は表示を続ける。
+    expect(screen.getByTestId("hmw-hint-character")).toBeInTheDocument();
     expect(onUseQuestion).toHaveBeenCalledExactlyOnceWith(
       "どうしたら、「忘れ物が多い」という困りごとを解消できるか？",
     );
   });
 
-  it("呼びかけ条件が成立するまでキャラクターも出さず、出現後はキャラクターから手動で開ける", async () => {
-    const onUseQuestion = vi.fn();
+  it("2-1ではキャラクターと呼びかけの吹き出しを常に表示する", async () => {
+    const onDismissNudge = vi.fn();
     const { rerender } = render(
       <HmwHintCharacter
         decidedIssue="忘れ物が多い"
-        onUseQuestion={onUseQuestion}
+        onUseQuestion={vi.fn()}
+        onDismissNudge={onDismissNudge}
       />,
     );
+    // 呼びかけ条件を待たずに、キャラクターと吹き出しを最初から出す。
     expect(
-      screen.queryByRole("button", { name: "こんなのはどうかな？" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "呼びかけを閉じる" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "問いのヒントを開く" }),
-    ).not.toBeInTheDocument();
-    rerender(
-      <HmwHintCharacter
-        decidedIssue="忘れ物が多い"
-        onUseQuestion={onUseQuestion}
-        showNudge
-      />,
-    );
-    expect(
-      screen.getByRole("button", { name: "呼びかけを閉じる" }),
+      screen.getByRole("button", { name: /こんな見た目も.*あるかも/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "問いのヒントを開く" }),
     ).toBeInTheDocument();
+    // 吹き出しから開いた popover が閉じれば、吹き出しは表示に戻る。
+    await userEvent.click(
+      screen.getByRole("button", { name: "問いのヒントを開く" }),
+    );
+    expect(
+      screen.queryByRole("button", { name: /こんな見た目も.*あるかも/ }),
+    ).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(
+      screen.getByRole("button", { name: /こんな見た目も.*あるかも/ }),
+    ).toBeInTheDocument();
     rerender(
       <HmwHintCharacter
         decidedIssue="忘れ物が多い"
-        onUseQuestion={onUseQuestion}
+        onUseQuestion={vi.fn()}
+        onDismissNudge={onDismissNudge}
+        showNudge
       />,
     );
     expect(
-      screen.queryByRole("button", { name: "呼びかけを閉じる" }),
-    ).not.toBeInTheDocument();
-    const dialog = await openHints();
-    expect(
-      within(dialog).getByRole("group", { name: "考え方のワード" }),
+      screen.getByRole("button", { name: /こんな見た目も.*あるかも/ }),
     ).toBeInTheDocument();
+    // 閉じたら次の書き出し周期まで消えたままにする。
+    await userEvent.click(
+      screen.getByRole("button", { name: "呼びかけを閉じる" }),
+    );
+    expect(onDismissNudge).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("button", { name: /こんな見た目も.*あるかも/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "問いのヒントを開く" }),
+    ).toBeInTheDocument();
+  });
+
+  it("問いの文例は生成する付箋と同じ高さで表示する", async () => {
+    render(
+      <HmwHintCharacter
+        showNudge
+        decidedIssue="忘れ物が多い"
+        onUseQuestion={vi.fn()}
+      />,
+    );
+    const dialog = await openHints();
+    await userEvent.click(within(dialog).getByRole("button", { name: "解消" }));
+    const question =
+      "どうしたら、「忘れ物が多い」という困りごとを解消できるか？";
+    const expected = getNoteHeight(question, NOTE_DEFAULT_FONT_SIZE);
+    expect(
+      within(dialog).getByRole("region", { name: "問いの文例" }),
+    ).toHaveStyle({ height: `${expected}px` });
   });
 
   it("呼びかけの吹き出しからも3ワードを開き、例題から同じワード選択へ戻れる", async () => {
