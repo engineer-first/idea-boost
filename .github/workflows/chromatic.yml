@@ -22,10 +22,10 @@ jobs:
           # 後続にgit push/fetchはないため、トークンをworkspaceに残さない。
           persist-credentials: false
 
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v5
         with:
           install: true
-          cache: false
+          cache_max_age_days: 1
 
       - name: Install dependencies
         run: npm ci

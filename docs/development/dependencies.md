@@ -10,7 +10,7 @@
 
 完全固定は更新のたびに設定変更が必要になり、`lts` だけでは将来のLTSメジャー切替で `engines.node` と検証対象から外れる。このため24系の範囲指定を採用する。ローカルに古い24系がある場合は `mise upgrade node` で更新し、`mise exec -- node --version` で最低条件以上を確認する。将来のLTSメジャー移行は依存のengine・peer条件とCIを確認する別の変更として扱う。[miseの版指定](https://mise.jdx.dev/lang/node.html#choosing-a-version)と[NodeのLTS方針](https://nodejs.org/en/about/previous-releases)も参照。
 
-jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する24系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、GitHub Actionsのmise tool cacheは無効にする。ホストが新しいGitHub-hosted runnerで毎回24系を解決し、設定hashが同じでも古いNodeを復元し続けない。追加のダウンロード時間は発生する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)も参照。
+jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する24系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、PR・pushで動く `ci.yml` と `chromatic.yml` は `jdx/mise-action@v5` の `cache_max_age_days: 1` でtool cacheを毎日作り直す。毎回GitHubのリリースからダウンロードすると配布側の一時障害（HTTP 5xx）でジョブが落ちるため、修正版への追従を最大1日遅らせる代わりにダウンロードを減らす。デプロイ・リリース記録・`pull_request_target` / `workflow_run` のworkflowは、低信頼の実行が書いたcacheを取り込まないようcacheを使わない。tblsを使わないジョブは `install_args: node` でNodeだけを入れる。この方針は `.github/scripts/node-runtime-workflow.spec.ts` で検査する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)と[mise-actionのcache設定](https://github.com/jdx/mise-action#cache-configuration)も参照。
 
 Node.jsはビルドと検証のホスト。公開先はworkerdであり、Nodeのバージョン指定でWorkersの互換性を保証したことにはしない。App/APIの `compatibility_date: 2026-06-01` と `nodejs_compat` を維持し、Workerテストとコンパイル済みPreviewでサービスバインディング・D1・RoomDOを検査する。[OpenNextの前提](https://opennext.js.org/cloudflare/get-started)は互換日付2024-09-23以降と `nodejs_compat`。
 

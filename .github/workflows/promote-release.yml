@@ -34,9 +34,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v5
         with:
           install: true
+          install_args: node
           cache: false
       - run: npm ci
       - name: Validate legacy release note
