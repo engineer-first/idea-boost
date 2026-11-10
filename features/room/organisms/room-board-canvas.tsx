@@ -959,6 +959,9 @@ export function RoomBoardCanvas({
             : "relative h-full min-h-80"
         } ${additionalWriting ? styles.additionalWritingCanvas : ""}`}
         data-testid="board-frame"
+        data-private-notes-empty={
+          (additionalWriting && privateNotes.length === 0) || undefined
+        }
         data-map-workspace={usesIdeaMapViewport || undefined}
         style={{
           outline:
