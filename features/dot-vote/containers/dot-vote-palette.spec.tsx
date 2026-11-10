@@ -2,8 +2,18 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DotVotePalette, type DotVotePaletteProps } from "./dot-vote-palette";
 
+function visibleText(element: HTMLElement): string {
+  const clone = element.cloneNode(true) as HTMLElement;
+  for (const hidden of clone.querySelectorAll(".sr-only")) hidden.remove();
+  return clone.textContent ?? "";
+}
+
+function paletteRegion(): HTMLElement {
+  return screen.getByRole("region", { name: "投票パレット" });
+}
+
 describe("DotVotePalette", () => {
-  it("票種と残数を、指定された投票基準とともに表示する", () => {
+  it("票種と残数を表示し、操作手順と投票基準の説明は画面に出さない", () => {
     render(
       <DotVotePalette
         voteRemaining={{ subjective: 1, objective: 2 }}
@@ -24,18 +34,12 @@ describe("DotVotePalette", () => {
       name: "客観シール 残り2票",
     });
 
-    expect(within(palette).getByText("シールを選ぶ")).toBeVisible();
-    expect(within(palette).getByText("付箋へ貼る")).toBeVisible();
     expect(within(subjective).getByText("主観")).toBeVisible();
-    expect(
-      within(subjective).getByText("主観は「激しく共感する、取り組みたい」。"),
-    ).toBeVisible();
     expect(within(subjective).getByText("残り1票")).toBeVisible();
     expect(within(objective).getByText("客観")).toBeVisible();
-    expect(
-      within(objective).getByText("客観は「自分以外の人にも価値がありそう」。"),
-    ).toBeVisible();
     expect(within(objective).getByText("残り2票")).toBeVisible();
+    expect(visibleText(palette)).not.toMatch(/シールを選ぶ|付箋へ貼る|は「/);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
     expect(
       within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
     ).toHaveClass("sr-only");
@@ -75,7 +79,7 @@ describe("DotVotePalette", () => {
   });
 
   it.each(["subjective", "objective"] as const)(
-    "%sを使い切ってもアイコンを残し、説明と選択表示を外して追加操作を防ぐ",
+    "%sを使い切ってもアイコンを残し、選択表示を外して追加操作を防ぐ",
     (kind) => {
       const onStickerSelect = vi.fn();
       const onStickerDragStart = vi.fn();
@@ -100,14 +104,10 @@ describe("DotVotePalette", () => {
       expect
         .soft(within(exhausted).queryByTestId(`dot-vote-sticker-icon-${kind}`))
         .toBeVisible();
-      expect
-        .soft(within(exhausted).queryByText(/は「/))
-        .not.toBeInTheDocument();
       expect(
         screen.getByTestId(`dot-vote-sticker-icon-${otherKind}`),
       ).toBeVisible();
-      expect(screen.getAllByText(/は「/).length).toBe(1);
-      expect(screen.getByRole("status")).not.toHaveTextContent("選択中");
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
       fireEvent.click(exhausted);
       fireEvent.pointerDown(exhausted, { pointerId: 1 });
       expect(onStickerSelect).not.toHaveBeenCalled();
@@ -115,7 +115,7 @@ describe("DotVotePalette", () => {
     },
   );
 
-  it("シールを戻す操作中は取り消しの意味を常時見えるヒントで示す", () => {
+  it("シールを戻す操作中も取り消しの案内は画面に出さず、読み上げでだけ伝える", () => {
     render(
       <DotVotePalette
         voteRemaining={{ subjective: 1, objective: 2 }}
@@ -129,15 +129,15 @@ describe("DotVotePalette", () => {
       />,
     );
 
-    const hint = screen
-      .getByRole("region", { name: "投票パレット" })
-      .querySelector("p:not(.sr-only)");
-    expect(hint).not.toBeNull();
-    expect(hint).toBeVisible();
-    expect(hint).not.toHaveClass("sr-only");
+    const palette = paletteRegion();
+    expect(palette).toHaveAttribute("data-return-drop-target", "true");
+    expect(visibleText(palette)).not.toContain("取り消");
+    expect(palette).toHaveAccessibleDescription(
+      /投票パレットへ戻すと、その1票を取り消せます。/,
+    );
   });
 
-  it("送信中と失敗時の状態を読み上げる", () => {
+  it("投票の失敗を表示して読み上げる", () => {
     render(
       <DotVotePalette
         voteRemaining={{ subjective: 1, objective: 2 }}
@@ -193,7 +193,7 @@ describe("DotVotePalette", () => {
     );
   });
 
-  it("選択中のシールを押下状態と案内文で示す", () => {
+  it("選択中のシールは押下状態で示し、案内文は出さない", () => {
     render(
       <DotVotePalette
         voteRemaining={{ subjective: 1, objective: 2 }}
@@ -209,9 +209,7 @@ describe("DotVotePalette", () => {
     expect(
       screen.getByRole("button", { name: "主観シール 残り1票" }),
     ).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "主観シールを選択中です。付箋をクリックして連続で貼れます。",
-    );
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
 
   it("選択中・ドラッグ中・残票ゼロの状態をライト配色で示す", () => {
@@ -279,8 +277,7 @@ describe("DotVotePalette", () => {
     const { rerender } = render(<DotVotePalette {...props} />);
     expect(screen.queryByText("使い切りました")).not.toBeInTheDocument();
     expect(screen.getAllByText("確認待ち")).toHaveLength(2);
-    expect(screen.getByRole("status")).toHaveTextContent("送信中");
-    expect(screen.getByRole("status")).not.toHaveClass("sr-only");
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
     for (const button of screen.getAllByRole("button")) {
       expect(button).toBeDisabled();
       fireEvent.click(button);
@@ -298,12 +295,7 @@ describe("DotVotePalette", () => {
     );
     expect(screen.getAllByText("使い切りました")).toHaveLength(2);
     expect(screen.queryByText("確認待ち")).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "投票を反映しました。",
-    );
-    expect(
-      screen.queryByText("貼った自分のシールは移動・取り消しできます。"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
 
   it.each([
@@ -333,14 +325,40 @@ describe("DotVotePalette", () => {
       name: "客観シール 残り1票",
     });
     expect(objective).toBeEnabled();
-    expect(within(objective).getByText(/自分以外の人にも価値/)).toBeVisible();
     fireEvent.click(objective);
     expect(props.onStickerSelect).toHaveBeenCalledWith(
       "objective",
       expect.anything(),
     );
-    expect(screen.getByRole("status")).toHaveTextContent(feedback.message);
+  });
+
+  it("投票の失敗は画面に表示し、成功の結果は表示しない", () => {
+    const props: DotVotePaletteProps = {
+      voteRemaining: { subjective: 0, objective: 1 },
+      pendingOperationCount: 0,
+      feedback: { state: "failed", message: "投票を送信できませんでした。" },
+      disabled: false,
+      selectedKind: null,
+      onStickerSelect: vi.fn(),
+      onStickerDragStart: vi.fn(),
+    };
+    const { rerender } = render(<DotVotePalette {...props} />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "投票を送信できませんでした。",
+    );
+    expect(screen.getByRole("status")).toBeVisible();
     expect(screen.getByRole("status")).not.toHaveClass("sr-only");
+
+    rerender(
+      <DotVotePalette
+        {...props}
+        feedback={{ state: "confirmed", message: "投票を1票取り消しました。" }}
+      />,
+    );
+    expect(visibleText(paletteRegion())).not.toContain(
+      "投票を1票取り消しました。",
+    );
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
 
   it("タイマー停止中はクリックとドラッグを通知せず、再開後に選べる", () => {
@@ -372,7 +390,7 @@ describe("DotVotePalette", () => {
   });
 
   it.each([false, true])(
-    "通信切断中は操作制限が%sでも古い成功表示や使い切りより接続待ちを示す",
+    "通信切断中は操作制限が%sでも、古い成功表示や再接続待ちの文言を出さずに操作を止める",
     (interactionBlocked) => {
       render(
         <DotVotePalette
@@ -386,10 +404,7 @@ describe("DotVotePalette", () => {
           onStickerDragStart={vi.fn()}
         />,
       );
-      expect(screen.getByRole("status")).toHaveTextContent("再接続");
-      expect(screen.getByRole("status")).not.toHaveTextContent(
-        "投票を反映しました。",
-      );
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
       expect(screen.queryByText("使い切りました")).not.toBeInTheDocument();
       for (const button of screen.getAllByRole("button"))
         expect(button).toBeDisabled();

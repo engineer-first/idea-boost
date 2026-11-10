@@ -36,6 +36,11 @@ const meta = {
         saveStatus: "failed",
         participantCount: null,
       }),
+      buildSharedOutcome({
+        roomId: "123e4567-e89b-42d3-a456-426614174003",
+        displayId: "R-9231B4",
+        saveStatus: "pending",
+      }),
     ],
     nextCursor: null,
     onOpen: fn(),
@@ -62,6 +67,7 @@ export const SaveFailed: Story = {
   },
 };
 export const Pending: Story = {
+  name: "反映待ち（状態を出さない）",
   args: { detail: buildSharedOutcome({ saveStatus: "pending" }) },
 };
 export const NoSnapshot: Story = {

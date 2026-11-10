@@ -71,6 +71,7 @@ export const Disconnected: Story = {
 };
 
 export const OneVoteReturned: Story = {
+  name: "取り消し成功（結果を出さない）",
   args: {
     voteRemaining: { subjective: 0, objective: 1 },
     feedback: { state: "confirmed", message: "投票を1票取り消しました。" },

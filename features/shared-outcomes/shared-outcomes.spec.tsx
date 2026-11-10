@@ -41,6 +41,27 @@ describe("共有成果閲覧", () => {
         ).not.toBeInTheDocument();
     },
   );
+  it("反映待ちの成果は一覧でも詳細でも反映待ちの状態と説明を出さない", () => {
+    const pending = buildSharedOutcome({ saveStatus: "pending" });
+    const props = {
+      loading: false,
+      error: null,
+      nextCursor: null,
+      onOpen: vi.fn(),
+      onBack: vi.fn(),
+      onRefresh: vi.fn(),
+      onMore: vi.fn(),
+    };
+    const { rerender } = render(
+      <SharedOutcomesView {...props} outcomes={[pending]} detail={null} />,
+    );
+    const row = screen.getByRole("link", { name: /相談ルーム/ });
+    expect(row).not.toHaveTextContent(/反映待ち|再試行|正常保存分/);
+
+    rerender(<SharedOutcomesView {...props} outcomes={[]} detail={pending} />);
+    expect(screen.queryByText(/反映待ち|反映を待って/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
   it("取得ごとに認可し、剥奪時に前の内容を隠す", async () => {
     const fetchMock = vi
       .fn()

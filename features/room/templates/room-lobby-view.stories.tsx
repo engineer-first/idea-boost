@@ -86,12 +86,12 @@ export const Starting: Story = {
 };
 
 export const Connecting: Story = {
-  name: "接続中",
+  name: "接続中（短い待ちは案内を出さない）",
   args: { connectionStatus: "connecting" },
 };
 
 export const Reconnecting: Story = {
-  name: "再接続中",
+  name: "再接続中（短い待ちは案内を出さない）",
   args: { connectionStatus: "closed" },
 };
 

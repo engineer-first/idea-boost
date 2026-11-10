@@ -1,9 +1,8 @@
-import { ArrowRight, Check, Circle, Clock3, StickyNote } from "lucide-react";
+import { Check, Clock3 } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import {
-  DOT_VOTE_CRITERIA,
   DOT_VOTE_GUIDANCE,
   DOT_VOTE_LABELS,
   type DotVoteFeedback,
@@ -66,21 +65,7 @@ export function DotVotePaletteView({
     !interactionBlocked
       ? selectedKind
       : null;
-  const status = disabled
-    ? "再接続を待っています。接続後に残票を確認してください。"
-    : pendingOperationCount > 0
-      ? "投票を送信中です。残票は確認待ちです。"
-      : feedback?.state === "confirmed"
-        ? feedback.message
-        : feedback?.state === "failed"
-          ? feedback.message
-          : isReturnDropTarget
-            ? "ここへ戻すと1票取り消しになります。"
-            : voteRemaining.subjective === 0 && voteRemaining.objective === 0
-              ? "すべてのシールを使い切りました。"
-              : activeSelectedKind === null
-                ? "シールをドラッグするか、クリックしてから付箋へ貼ってください。"
-                : `${DOT_VOTE_LABELS[activeSelectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
+  const failureMessage = feedback?.state === "failed" ? feedback.message : null;
 
   return (
     <section
@@ -88,17 +73,12 @@ export function DotVotePaletteView({
       aria-describedby={`${paletteId}-help`}
       data-vote-palette="true"
       data-return-drop-target={isReturnDropTarget ? "true" : undefined}
-      className={`pointer-events-auto relative flex w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-lg border border-border bg-white p-2 shadow-tool ${
+      className={`pointer-events-auto relative flex w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-lg border border-border p-2 shadow-tool ${
         isReturnDropTarget
-          ? "border-warning bg-warning-soft/95 ring-2 ring-warning/40 ring-offset-2 ring-offset-background"
-          : ""
+          ? "bg-primary/5 ring-2 ring-primary/40 ring-offset-2 ring-offset-background"
+          : "bg-white"
       }`}
     >
-      {isReturnDropTarget ? (
-        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-warning/40 bg-warning-soft px-2 py-1 text-xs font-semibold text-warning shadow-tool">
-          ここへ戻すと1票取り消しになります。
-        </p>
-      ) : null}
       <div id={`${paletteId}-help`} className="sr-only">
         <p className="sr-only">投票対象は現在のフェーズの個々の付箋です。</p>
         <p className="sr-only">{DOT_VOTE_GUIDANCE.withdrawal}</p>
@@ -106,14 +86,6 @@ export function DotVotePaletteView({
           付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
         </p>
       </div>
-      <p className="flex flex-wrap items-center justify-center gap-1.5 text-xs font-medium text-foreground">
-        <Circle aria-hidden="true" className="size-3.5" />
-        <span>シールを選ぶ</span>
-        <ArrowRight aria-hidden="true" className="size-3.5" />
-        <StickyNote aria-hidden="true" className="size-3.5" />
-        <span>付箋へ貼る</span>
-        <span>（ドラッグも可）</span>
-      </p>
       <fieldset className="flex w-full min-w-0 gap-2">
         <legend className="sr-only">使用するシールの種類</legend>
         {DOT_VOTE_KINDS.map((kind) => {
@@ -171,11 +143,6 @@ export function DotVotePaletteView({
                   残り{voteRemaining[kind]}票
                 </span>
               </span>
-              {!isExhausted ? (
-                <span className="whitespace-normal text-left text-xs font-semibold leading-snug">
-                  {DOT_VOTE_CRITERIA[kind]}
-                </span>
-              ) : null}
               <span
                 id={`${paletteId}-${kind}-state`}
                 className="mt-auto flex items-center justify-center gap-1 text-xs font-semibold"
@@ -192,12 +159,17 @@ export function DotVotePaletteView({
           );
         })}
       </fieldset>
+      {/* 失敗だけを表示する。空でも読み上げ領域は残し、失敗を確実に読み上げる。 */}
       <p
-        className="w-full text-xs leading-snug text-foreground"
+        className={
+          failureMessage === null
+            ? "sr-only"
+            : "w-full text-xs leading-snug text-foreground"
+        }
         role="status"
         aria-live="polite"
       >
-        {status}
+        {failureMessage}
       </p>
     </section>
   );

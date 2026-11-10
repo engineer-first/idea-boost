@@ -281,15 +281,17 @@ export function SharedOutcomesView({
                               )}
                               {outcome.status === "confirmed" ? "確定" : "途中"}
                             </span>
-                            <span
-                              className={
-                                outcome.saveStatus === "saved"
-                                  ? "text-muted-foreground"
-                                  : "font-medium text-warning"
-                              }
-                            >
-                              {SAVE_STATUS_LABELS[outcome.saveStatus]}
-                            </span>
+                            {outcome.saveStatus !== "pending" && (
+                              <span
+                                className={
+                                  outcome.saveStatus === "saved"
+                                    ? "text-muted-foreground"
+                                    : "font-medium text-warning"
+                                }
+                              >
+                                {SAVE_STATUS_LABELS[outcome.saveStatus]}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <p className="break-words text-base">
@@ -320,7 +322,7 @@ export function SharedOutcomesView({
                           className="hidden size-5 xl:block"
                           aria-hidden
                         />
-                        {outcome.saveStatus !== "saved" && (
+                        {outcome.saveStatus === "failed" && (
                           <p className="text-base leading-relaxed text-warning xl:col-span-5">
                             {outcome.lastSavedAt
                               ? "前回の正常保存分を表示します。"
@@ -410,14 +412,12 @@ export function SharedOutcomesView({
                 閲覧期限：{formatOutcomeTime(detail.expiresAt)}
               </p>
             </section>
-            {detail.saveStatus !== "saved" && (
+            {detail.saveStatus === "failed" && (
               <p
                 role="status"
                 className="rounded-lg border border-warning/20 bg-warning-soft p-5 text-warning"
               >
-                {detail.saveStatus === "failed"
-                  ? "保存に失敗しました。"
-                  : "成果一覧への反映を待っています。"}
+                保存に失敗しました。
                 {detail.snapshot
                   ? "表示している内容は前回の正常保存分です。"
                   : "正常保存分はまだありません。"}
@@ -535,8 +535,9 @@ function OutcomeMetadata({ outcome }: { outcome: SharedOutcomeSummary }) {
       <div className="min-w-0 space-y-1">
         <dt className="text-muted-foreground">記録</dt>
         <dd>
-          {outcome.status === "confirmed" ? "確定" : "途中"} ·{" "}
-          {SAVE_STATUS_LABELS[outcome.saveStatus]}
+          {outcome.status === "confirmed" ? "確定" : "途中"}
+          {outcome.saveStatus !== "pending" &&
+            ` · ${SAVE_STATUS_LABELS[outcome.saveStatus]}`}
         </dd>
       </div>
       <div className="min-w-0 space-y-1">

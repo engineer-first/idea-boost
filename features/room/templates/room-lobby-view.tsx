@@ -119,14 +119,19 @@ export function RoomLobbyView({
           </span>
         </header>
 
+        {/* 短い接続待ちは知らせず、10秒続いたときと接続を止めたときだけ出す。 */}
         <div className={styles.connectionSlot}>
-          <RoomConnectionNotice
-            returnHref={loginReturnHref}
-            status={connectionStatus}
-            delayed={connectionDelayed}
-            className={styles.connection}
-            testId="lobby-connection-status"
-          />
+          {connectionDelayed ||
+          connectionStatus === "auth-required" ||
+          connectionStatus === "unavailable" ? (
+            <RoomConnectionNotice
+              returnHref={loginReturnHref}
+              status={connectionStatus}
+              delayed={connectionDelayed}
+              className={styles.connection}
+              testId="lobby-connection-status"
+            />
+          ) : null}
         </div>
 
         <section

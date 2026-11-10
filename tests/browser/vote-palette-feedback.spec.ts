@@ -63,27 +63,15 @@ it.each([390, 1280])(
               .isVisible(),
           ).toBe(true);
         }
-        expect(await palette.getByText(/は「/).count()).toBe(
-          2 - state.exhausted,
+        expect(await palette.getByText(/は「/).count()).toBe(0);
+        // 画面に出す状態の文言は失敗だけにする。
+        expect(await palette.getByRole("status").textContent()).toBe(
+          state.story === "rejected" ? "この付箋には投票できません。" : "",
         );
-        expect(
-          await palette
-            .getByText("貼った自分のシールは移動・取り消しできます。")
-            .count(),
-        ).toBe(0);
-        expect(await palette.getByRole("status").isVisible()).toBe(true);
         if (state.story === "all-pending")
           expect(
             await palette.getByText("確認待ち", { exact: true }).count(),
           ).toBe(2);
-        if (state.story === "disconnected")
-          expect(await palette.getByRole("status").textContent()).toContain(
-            "再接続",
-          );
-        if (state.story === "one-vote-returned")
-          expect(await palette.getByRole("status").textContent()).toContain(
-            "取り消しました",
-          );
         await page.screenshot({
           path: `${output}/vote-palette-${state.story}-${width}.png`,
         });
