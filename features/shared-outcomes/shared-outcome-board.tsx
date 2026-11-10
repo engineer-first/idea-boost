@@ -155,7 +155,7 @@ export function SharedOutcomeBoard({
                 height={noteHeight - 16}
               >
                 <div
-                  className="whitespace-pre-wrap break-words text-slate-900"
+                  className="whitespace-pre-wrap break-words text-foreground"
                   style={{ fontSize: note.fontSize }}
                 >
                   {note.content}
@@ -192,7 +192,7 @@ export function SharedOutcomeBoard({
                 {snapshot.decisions.some(
                   (decision) => decision.noteId === note.id,
                 ) && (
-                  <span className="rounded-full border border-emerald-700 bg-emerald-50 px-2 py-1 font-semibold text-emerald-900">
+                  <span className="rounded-full border border-state-decided bg-background px-2 py-1 font-semibold text-state-decided-text">
                     採用済み
                   </span>
                 )}

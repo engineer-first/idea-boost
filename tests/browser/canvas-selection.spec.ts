@@ -325,16 +325,23 @@ test("AT-004/009: 矩形中はwheel・Hを処理せずEscapeは開始前選択�
   expect(
     await page.getByTestId("canvas-marquee").evaluate((element) => {
       const style = getComputedStyle(element);
+      // 選択色 #0B93F5 の 10%。Tailwind の bg-*/10 と同じ oklab の混色で比べる。
+      const probe = document.createElement("div");
+      probe.style.backgroundColor =
+        "color-mix(in oklab, #0B93F5 10%, transparent)";
+      document.body.append(probe);
+      const selectTint = getComputedStyle(probe).backgroundColor;
+      probe.remove();
       return {
         border: style.borderColor,
         width: style.borderWidth,
-        background: style.backgroundColor,
+        backgroundIsSelectTint: style.backgroundColor === selectTint,
       };
     }),
   ).toEqual({
     border: "rgb(11, 147, 245)",
     width: "1px",
-    background: "rgba(11, 147, 245, 0.1)",
+    backgroundIsSelectTint: true,
   });
   await page.keyboard.press("h");
   await page.mouse.wheel(0, 100);

@@ -37,8 +37,50 @@
       "next": "recommended",
       "react": "recommended",
       "test": "recommended"
+    },
+    "rules": {
+      "style": { "noHexColors": "error" },
+      "nursery": { "noTailwindRawColors": "error" }
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "**/*.stories.tsx",
+        "**/*.fixture.ts",
+        "tests/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": { "noHexColors": "off" },
+          "nursery": { "noTailwindRawColors": "off" }
+        }
+      }
+    },
+    {
+      "includes": [
+        "features/landing/molecules/landing.module.css",
+        "features/room/molecules/step-guide-illustration.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": { "noHexColors": "off" },
+          "nursery": { "noTailwindRawColors": "off" }
+        }
+      }
+    },
+    {
+      "includes": [
+        "features/room/organisms/room-board-canvas.tsx",
+        "features/room/organisms/room-board-header.tsx"
+      ],
+      "linter": {
+        "rules": { "nursery": { "noTailwindRawColors": "off" } }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "double",

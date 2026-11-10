@@ -86,7 +86,10 @@ export function StickyNote({
               ? "none"
               : [
                   ...(isSelected
-                    ? ["0 0 0 1px #fff", "0 0 0 3px #0B93F5"]
+                    ? [
+                        "0 0 0 1px var(--ib-color-surface)",
+                        "0 0 0 3px var(--ib-color-state-select)",
+                      ]
                     : []),
                   dataExcluded
                     ? "0 0 0 0 transparent"
@@ -94,11 +97,16 @@ export function StickyNote({
                       ? "0 6px 4px -4px rgba(15,23,42,.35),0 26px 32px -10px rgba(15,23,42,.38)"
                       : getNoteShadow(noteId, { isLifted }),
                 ].join(", "),
-          border: dataExcluded ? "1px dashed rgb(71 85 105 / 0.75)" : undefined,
+          // 色に rgb(from …) を使うため、一括指定ではなく幅・線種・色に分けて書く。
+          borderWidth: dataExcluded ? 1 : undefined,
+          borderStyle: dataExcluded ? "dashed" : undefined,
+          borderColor: dataExcluded
+            ? "rgb(from var(--ib-color-state-excluded) r g b / 75%)"
+            : undefined,
           outline: isDecided
-            ? "4px solid #1E8E3E"
+            ? "4px solid var(--ib-color-state-decided)"
             : isAdoptionFocused
-              ? "3px dashed #C2410C"
+              ? "3px dashed var(--ib-color-state-focus)"
               : "4px solid transparent",
           outlineOffset: 4,
         }}

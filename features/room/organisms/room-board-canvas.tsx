@@ -997,13 +997,13 @@ export function RoomBoardCanvas({
               type="button"
               aria-label="共有キャンバスの背景"
               data-canvas-background="true"
-              className="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700"
+              className="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             />
             {marquee ? (
               <div
                 data-testid="canvas-marquee"
                 aria-hidden="true"
-                className="pointer-events-none absolute z-30 border border-[#0B93F5] bg-[rgba(11,147,245,0.1)]"
+                className="pointer-events-none absolute z-30 border border-state-select bg-state-select/10"
                 style={marquee}
               />
             ) : null}
@@ -1197,7 +1197,7 @@ export function RoomBoardCanvas({
                 }}
               >
                 <p
-                  className={`min-h-0 flex-1 overflow-hidden p-2 text-slate-900 ${dragPreview.noteDisplayScale === undefined ? "text-sm" : ""}`}
+                  className={`min-h-0 flex-1 overflow-hidden p-2 text-foreground ${dragPreview.noteDisplayScale === undefined ? "text-sm" : ""}`}
                   style={
                     dragPreview.noteDisplayScale === undefined
                       ? undefined

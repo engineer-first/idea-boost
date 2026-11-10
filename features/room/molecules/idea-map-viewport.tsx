@@ -301,7 +301,7 @@ export function IdeaMapViewport({
                   マップ面だけをslotの下端まで伸ばし、中央寄せで生じた下側の空きを埋める。 */}
               <section
                 aria-label={labels.title}
-                className={`${workspace ? styles.workspacePlane : ""} absolute top-0 left-0 min-h-0 min-w-0 overflow-visible rounded-lg border border-sky-200 bg-sky-50 [container-type:inline-size] [container-name:map-plane] [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]`}
+                className={`${workspace ? styles.workspacePlane : ""} absolute top-0 left-0 min-h-0 min-w-0 overflow-visible rounded-lg border border-border bg-primary-soft [container-type:inline-size] [container-name:map-plane] [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]`}
                 data-testid="idea-value-feasibility-map-plane"
                 style={{
                   width: workspace ? undefined : "100%",
@@ -319,11 +319,11 @@ export function IdeaMapViewport({
                   <>
                     <div
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-sky-300"
+                      className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-line-strong"
                     />
                     <div
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-sky-300"
+                      className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-line-strong"
                     />
                   </>
                 ) : null}

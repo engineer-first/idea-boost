@@ -1165,7 +1165,7 @@ describe("RoomBoardHeader", () => {
         "starting:max-w-0",
         "starting:opacity-0",
         "motion-reduce:transition-none",
-        "text-emerald-700",
+        "text-state-decided-text",
       );
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),

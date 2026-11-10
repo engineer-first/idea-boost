@@ -90,12 +90,12 @@ export function DotVotePaletteView({
       data-return-drop-target={isReturnDropTarget ? "true" : undefined}
       className={`pointer-events-auto relative flex w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-lg border border-border bg-white p-2 shadow-tool ${
         isReturnDropTarget
-          ? "border-amber-500 bg-amber-50/95 ring-2 ring-amber-300/80 ring-offset-2 ring-offset-white"
+          ? "border-warning bg-warning-soft/95 ring-2 ring-warning/40 ring-offset-2 ring-offset-background"
           : ""
       }`}
     >
       {isReturnDropTarget ? (
-        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 shadow-tool">
+        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-warning/40 bg-warning-soft px-2 py-1 text-xs font-semibold text-warning shadow-tool">
           ここへ戻すと1票取り消しになります。
         </p>
       ) : null}
@@ -106,7 +106,7 @@ export function DotVotePaletteView({
           付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
         </p>
       </div>
-      <p className="flex flex-wrap items-center justify-center gap-1.5 text-xs font-medium text-slate-700">
+      <p className="flex flex-wrap items-center justify-center gap-1.5 text-xs font-medium text-foreground">
         <Circle aria-hidden="true" className="size-3.5" />
         <span>シールを選ぶ</span>
         <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -193,7 +193,7 @@ export function DotVotePaletteView({
         })}
       </fieldset>
       <p
-        className="w-full text-xs leading-snug text-slate-700"
+        className="w-full text-xs leading-snug text-foreground"
         role="status"
         aria-live="polite"
       >

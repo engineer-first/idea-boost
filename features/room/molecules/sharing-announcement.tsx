@@ -7,7 +7,7 @@ export function SharingAnnouncement({ member }: { member: ProtocolMember }) {
     <div
       role="status"
       aria-live="polite"
-      className={`${styles.announcement} pointer-events-none absolute left-1/2 top-[84px] z-[41] flex max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-3 rounded-xl border border-blue-200 bg-background px-4 py-3 text-sm font-semibold shadow-tool max-[900px]:top-[156px] max-[639px]:top-[288px]`}
+      className={`${styles.announcement} pointer-events-none absolute left-1/2 top-[84px] z-[41] flex max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold shadow-tool max-[900px]:top-[156px] max-[639px]:top-[288px]`}
     >
       <MemberAvatar
         name={member.name}
