@@ -243,6 +243,7 @@ export function useRoomBoardInteractions({
       usesIdeaMapViewport ||
       (isAdditionalWriting && phase.kind === "step" && phase.phase === 3),
     temporaryView: isAdditionalWriting,
+    panOnBackground: isAdditionalWriting,
     ideaMapSizeLevel,
     ideaMapSizeInitialized,
     onManualPanStart,

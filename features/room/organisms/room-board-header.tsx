@@ -620,6 +620,7 @@ export function RoomBoardHeader({
               sessionKey={`${inviteCode}:${currentUserId}`}
               isReady={!isDisconnected}
               onReady={handleInitialOnboardingReady}
+              inlineTrigger={canCompleteSharing}
             />
           </div>
           {sharingAnnouncement}
@@ -640,7 +641,7 @@ export function RoomBoardHeader({
           className={`pointer-events-none flex min-w-0 flex-col items-end gap-2 max-[900px]:max-w-[426px] max-[639px]:order-first max-[639px]:w-full ${isCurrentVotingStep || isResultStep(phase) ? "max-[900px]:pb-6" : ""}`}
         >
           <fieldset
-            className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-xl border border-border bg-background p-1.5 shadow-tool max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"
+            className={`board-hud pointer-events-auto relative flex ${canCompleteSharing ? "min-h-14 flex-wrap" : "h-14"} min-w-0 max-w-full shrink-0 items-center justify-end gap-1 rounded-xl border border-border bg-background p-1.5 shadow-tool max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2`}
             aria-label="ルームの操作"
             data-completion-cue={completionCue.stage}
             data-testid="board-control-hud"
@@ -655,10 +656,43 @@ export function RoomBoardHeader({
                     : "あなたは作業中です"}
               </span>
             ) : null}
+            {canCompleteSharing && onSharingStart ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 shrink-0 px-3 text-sm"
+                disabled={
+                  isDisconnected || isRemovingMember || isNextPhasePending
+                }
+                onClick={() => onSharingStart(sharingDuration)}
+              >
+                共有を続ける
+              </Button>
+            ) : null}
+            {canCompleteSharing && onRestartWriting ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 shrink-0 px-3 text-sm"
+                disabled={
+                  isDisconnected || isRemovingMember || isNextPhasePending
+                }
+                onClick={onRestartWriting}
+                title="全員で個人作業へ戻ります。共有済み付箋と下書きは残ります。"
+              >
+                付箋を書き足す
+              </Button>
+            ) : null}
             {isManualProgressStep && (onToggleReady || activeSharing) ? (
               <Button
                 type="button"
-                variant={isCurrentUserReady ? "secondary" : "outline"}
+                variant={
+                  canCompleteSharing
+                    ? "default"
+                    : isCurrentUserReady
+                      ? "secondary"
+                      : "outline"
+                }
                 className={`text-sm h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
                 disabled={
                   isDisconnected ||
@@ -1256,7 +1290,7 @@ export function RoomBoardHeader({
               </PopoverContent>
             </Popover>
           </fieldset>
-          {!outcomePublished && phase.kind === "step" ? (
+          {!outcomePublished && phase.kind === "step" && !canCompleteSharing ? (
             <RoomTimer
               timer={timer}
               serverOffsetMs={timerServerOffsetMs}
@@ -1278,15 +1312,6 @@ export function RoomBoardHeader({
               }
               onResume={onTimerResume}
               onExtend={onTimerExtend}
-              sharingComplete={canCompleteSharing}
-              onReplay={
-                canCompleteSharing
-                  ? () => onSharingStart?.(sharingDuration)
-                  : undefined
-              }
-              onRestartWriting={
-                canCompleteSharing ? onRestartWriting : undefined
-              }
             />
           ) : null}
           {/* 通常の接続案内1行を予約し、同期完了で個人入力を動かさない。 */}

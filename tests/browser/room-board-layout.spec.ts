@@ -1449,7 +1449,7 @@ test.each([1280, 1024, 768])(
   },
 );
 
-test("U03: 3-3のマップ増減へ通常pointerで到達でき、書き足し操作を出さない", async () => {
+test("U03: 3-3のマップ増減と追加執筆へ通常pointerで到達できる", async () => {
   await openStory("room-roomboardlayout--map-controls");
   const map = page.getByRole("group", { name: "2軸マップの広さ操作" });
   await map.waitFor();
@@ -1462,9 +1462,9 @@ test("U03: 3-3のマップ増減へ通常pointerで到達でき、書き足し�
   expect(await map.getByRole("status").innerText()).toContain("2段階目");
   expect(
     await page
-      .getByRole("button", { name: /もう一度付箋を書く|付箋を書き足す/ })
-      .count(),
-  ).toBe(0);
+      .getByRole("button", { name: "もう一度付箋を書く", exact: true })
+      .isVisible(),
+  ).toBe(true);
 });
 
 test("U03: 390pxで旧ガイドを表示せず、現在の操作へ到達できる", async () => {

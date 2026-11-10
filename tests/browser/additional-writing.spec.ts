@@ -62,7 +62,10 @@ for (const story of [
       expect(panel.height).toBeLessThanOrEqual(260);
       expect(panel.height).toBeGreaterThanOrEqual(140);
       if (height === 560) expect(panel.height).toBeLessThanOrEqual(240);
-      expect(panel.y + panel.height).toBeLessThanOrEqual(height - 70);
+      expect(height - panel.y - panel.height).toBeGreaterThanOrEqual(8);
+      expect(height - panel.y - panel.height).toBeLessThanOrEqual(20);
+      const tools = await page.getByTestId("board-tools-hud").boundingBox();
+      expect(tools && tools.y + tools.height <= panel.y - 6).toBe(true);
       expect(board.width).toBeGreaterThan(1000);
       const note = toolbar.locator('[data-testid="note-card"]').last();
       const noteBefore = await note.boundingBox();
@@ -79,6 +82,10 @@ for (const story of [
       );
       expect(await viewTransform()).toBe(before);
       expect((await note.boundingBox())?.width).toBe(noteBefore?.width);
+      const expandedPanel = await toolbar.boundingBox();
+      expect(
+        expandedPanel && height - expandedPanel.y - expandedPanel.height <= 20,
+      ).toBe(true);
       await page
         .getByRole("button", { name: "マイ付箋を縮小", exact: true })
         .click();
@@ -180,11 +187,22 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
     exact: true,
   });
   await nextStep.waitFor({ state: "visible" });
+  expect(
+    await page
+      .getByTestId("board-control-hud")
+      .getByRole("button", {
+        name: "付箋を書き足す",
+        exact: true,
+      })
+      .isVisible(),
+  ).toBe(true);
+  expect(await page.getByTestId("timer-floating").count()).toBe(0);
   expect(await nextStep.innerText()).toContain("次へ進む");
   expect(
     await page.getByRole("button", { name: "できた！", exact: true }).count(),
   ).toBe(0);
   await addWriting.waitFor({ state: "visible" });
+  await page.getByRole("button", { name: "手のひらツール" }).click();
   const initial = await viewTransform();
   await page
     .getByRole("button", { name: "キャンバスを拡大", exact: true })
@@ -200,6 +218,15 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
     )
     .toBe("false");
   expect(await viewTransform()).toBe(before);
+  await page
+    .getByTestId("board-scroller")
+    .locator('[data-note-id="reference-one"]')
+    .getByRole("button", { name: "付箋", exact: true })
+    .click();
+  await page.getByRole("region", { name: "共有付箋の全文" }).waitFor();
+  await page
+    .getByRole("button", { name: "共有付箋の全文を閉じる", exact: true })
+    .click();
   const second = await browser.newPage();
   try {
     await second.goto(
@@ -302,3 +329,45 @@ test("全画面で下の行を編集中に縮小しても、その付箋を入�
     await editor.evaluate((element) => document.activeElement === element),
   ).toBe(true);
 });
+
+for (const story of [
+  "additional-writing",
+  "additional-writing-question",
+  "additional-writing-idea",
+]) {
+  test(`${story}: ツールを切り替えず背景をドラッグして共有ボードを移動できる`, async () => {
+    await open(story);
+    const point = await page
+      .getByTestId("board-scroller")
+      .evaluate((viewport) => {
+        const panel = document
+          .querySelector('[data-testid="private-notes-toolbar"]')
+          ?.getBoundingClientRect();
+        for (let y = 220; y < (panel?.top ?? 450) - 60; y += 40) {
+          for (let x = 600; x < 1150; x += 50) {
+            const element = document.elementFromPoint(x, y);
+            if (
+              element &&
+              viewport.contains(element) &&
+              !element.closest(
+                'button, [data-testid="note-card"], [data-board-native-control]',
+              )
+            )
+              return { x, y };
+          }
+        }
+        throw new Error("背景のドラッグ開始位置が見つかりません");
+      });
+    const before = await viewTransform();
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.down();
+    await page.mouse.move(point.x + 80, point.y + 30, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(viewTransform).not.toBe(before);
+    expect(
+      await page
+        .getByTestId("private-notes-toolbar")
+        .getAttribute("data-expanded"),
+    ).toBe("false");
+  });
+}

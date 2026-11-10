@@ -54,6 +54,8 @@ type UseCanvasCameraArgs = {
   navigationDisabled?: boolean;
   // 追加執筆中の閲覧は既存の共有画面のカメラと分け、終了時に元へ戻す。
   temporaryView?: boolean;
+  // 閲覧中のボードは選択ツールでも背景ドラッグで移動する。
+  panOnBackground?: boolean;
   selectedNoteIds?: readonly string[];
   isViewportEnabled?: boolean;
   // 画面サイズで配置されたマップでは、0〜100の付箋座標をpxとしてフィットしない。
@@ -183,6 +185,7 @@ export function useCanvasCamera({
   notes,
   navigationDisabled = false,
   temporaryView = false,
+  panOnBackground = false,
   selectedNoteIds,
   isViewportEnabled = true,
   fitViewport = false,
@@ -568,9 +571,12 @@ export function useCanvasCamera({
         event.button === 1 ||
         (event.button === 0 &&
           (spacePressedRef.current ||
-            toolRef.current === "hand" ||
+            (toolRef.current === "hand" &&
+              (!panOnBackground || isBackground)) ||
             (isBackground &&
-              (event.pointerType === "touch" || event.pointerType === "pen"))));
+              (panOnBackground ||
+                event.pointerType === "touch" ||
+                event.pointerType === "pen"))));
       if (!shouldPan) return;
       cancelFollowAnimation();
       onManualPanStartRef.current?.();
@@ -587,7 +593,7 @@ export function useCanvasCamera({
       suppressClickRef.current = true;
       setIsPanning(true);
     },
-    [cancelFollowAnimation, navigationDisabled],
+    [cancelFollowAnimation, navigationDisabled, panOnBackground],
   );
 
   const handlePointerMove = useCallback(

@@ -23,6 +23,7 @@ export type StepOneOnboardingSlideProps = {
   sessionKey: string;
   isReady: boolean;
   onReady?: () => void;
+  inlineTrigger?: boolean;
 };
 
 type GuideClosingStyle = CSSProperties & {
@@ -250,6 +251,7 @@ export function StepOneOnboardingSlide({
   sessionKey,
   isReady,
   onReady,
+  inlineTrigger = false,
 }: StepOneOnboardingSlideProps) {
   const [open, setOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
@@ -494,7 +496,7 @@ export function StepOneOnboardingSlide({
           data-testid="step-one-onboarding-trigger"
           type="button"
           variant="outline"
-          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-lg border-border/80 bg-background/95 px-4 text-sm shadow-tool backdrop-blur transition hover:bg-muted max-[639px]:static max-[639px]:mt-2 max-[639px]:translate-x-0"
+          className={`pointer-events-auto z-40 h-9 rounded-lg border-border/80 bg-background/95 px-4 text-sm shadow-tool backdrop-blur transition hover:bg-muted ${inlineTrigger ? "mt-2" : "absolute left-1/2 top-0 -translate-x-1/2 max-[639px]:static max-[639px]:mt-2 max-[639px]:translate-x-0"}`}
           onClick={openGuide}
         >
           進め方

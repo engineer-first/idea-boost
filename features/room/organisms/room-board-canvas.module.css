@@ -41,15 +41,20 @@
   }
 }
 
-/* ボードの寸法・カメラには触れず、前面のパネルだけを下へスライドする。 */
-.additionalWritingPanel {
+.additionalWritingCanvas {
   --writing-panel-height: min(
     260px,
     max(
       140px,
-      calc((100dvh - var(--board-private-expanded-top, 5rem) - 5.25rem) * 0.55)
+      calc((100dvh - var(--board-private-expanded-top, 5rem) - 0.75rem) * 0.5)
     )
   );
+}
+.additionalWritingTools {
+  bottom: calc(var(--writing-panel-height) + 1.5rem);
+}
+/* ボードの寸法・カメラには触れず、前面のパネルだけを下へスライドする。 */
+.additionalWritingPanel {
   transform: translateY(max(0px, calc(100% - var(--writing-panel-height))));
   clip-path: inset(0 0 calc(100% - var(--writing-panel-height)) 0 round 12px);
   transition:
@@ -74,6 +79,15 @@
 }
 .additionalWritingPanel [data-testid="private-notes-list"] {
   padding-bottom: 0;
+}
+.additionalWritingPanel.writingExpanded [data-testid="private-notes-scroll"] {
+  padding-inline-start: max(12px, var(--board-private-reference-inset, 0px));
+}
+.additionalWritingPanel.writingExpanded [data-testid="private-notes-controls"] {
+  padding-inline-start: max(
+    0px,
+    calc(var(--board-private-reference-inset, 0px) - 12px)
+  );
 }
 @media (prefers-reduced-motion: reduce) {
   .additionalWritingPanel,

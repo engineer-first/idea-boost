@@ -1337,12 +1337,13 @@ export function RoomBoardView({
       );
     const suppressedPan = interactions.consumePanClick?.() ?? false;
     const nativeCanvasActivation =
-      event.detail === 0 &&
       targetElement?.closest("button, summary") &&
       targetElement.dataset.canvasNoteSurface !== "true";
     if (
       inCanvas &&
-      ((interactionTool === "hand" && !nativeCanvasActivation) ||
+      ((interactionTool === "hand" &&
+        !isAdditionalWriting &&
+        !nativeCanvasActivation) ||
         (event.detail !== 0 &&
           (suppressCanvasClickRef.current || suppressedPan)))
     ) {

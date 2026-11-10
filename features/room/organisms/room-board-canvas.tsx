@@ -413,7 +413,7 @@ export function RoomBoardCanvas({
     boardInteractionBlocked && !isInitialPersonalEntryPhase;
   // 1-1・2-1・3-1は同じ上端から書き始められるよう、上部の操作欄の直下に固定する。
   const privateNotesContainerClassName = additionalWriting
-    ? `${styles.additionalWritingPanel} ${writingExpanded ? styles.writingExpanded : ""} fixed inset-x-3 bottom-[5.25rem] top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 lg:inset-x-5`
+    ? `${styles.additionalWritingPanel} ${writingExpanded ? styles.writingExpanded : ""} fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 lg:inset-x-5`
     : isPersonalNoteEntryPhase
       ? "fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 sm:top-[var(--board-private-expanded-top,5rem)] lg:inset-x-5 lg:bottom-5 lg:top-[var(--board-private-expanded-top,5rem)]"
       : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[var(--board-timer-row-bottom,4.5rem)] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-start max-[639px]:top-[var(--board-timer-row-bottom,10rem)] max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
@@ -621,7 +621,7 @@ export function RoomBoardCanvas({
         }
         isSelected={selectionIds.includes(note.id)}
         isMultiSelected={isMultiSelected}
-        interactionTool={interactionTool}
+        interactionTool={additionalWriting ? "select" : interactionTool}
         editingDisabled={isResultStep(phase)}
         canDeleteNote={
           !boardInteractionBlocked &&
@@ -712,7 +712,9 @@ export function RoomBoardCanvas({
       moveHistory={moveHistory}
       showNavigationControls
       interactionTool={interactionTool}
-      onToolChange={isIdeaMapWorkspaceStep ? undefined : onToolChange}
+      onToolChange={
+        isIdeaMapWorkspaceStep || additionalWriting ? undefined : onToolChange
+      }
       toolDisabled={toolDisabled}
       zoom={canvasZoom}
       onZoomOut={zoomOut}
@@ -951,11 +953,11 @@ export function RoomBoardCanvas({
   return (
     <div className="min-h-0 flex-1">
       <div
-        className={
+        className={`${
           usesIdeaMapViewport
             ? "relative flex h-full min-h-0 flex-row max-[639px]:flex-col"
             : "relative h-full min-h-80"
-        }
+        } ${additionalWriting ? styles.additionalWritingCanvas : ""}`}
         data-testid="board-frame"
         data-map-workspace={usesIdeaMapViewport || undefined}
         style={{
@@ -980,7 +982,7 @@ export function RoomBoardCanvas({
           />
         ) : null}
         <div
-          className="pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
+          className={`pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 ${additionalWriting ? styles.additionalWritingTools : ""}`}
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
           hidden={isPersonalNoteEntryPhase && !writingCollapsed}
@@ -1048,7 +1050,7 @@ export function RoomBoardCanvas({
                     ? "cursor-none"
                     : isPanning
                       ? "cursor-grabbing"
-                      : interactionTool === "hand"
+                      : interactionTool === "hand" || writingCollapsed
                         ? "cursor-grab"
                         : "cursor-default"
             }`}
@@ -1062,8 +1064,8 @@ export function RoomBoardCanvas({
             role="application"
             aria-label="共有キャンバス"
             aria-description={
-              writingMap
-                ? "背景のドラッグやホイールで共有マップを移動できます。表示の移動と拡大縮小は自分だけに反映されます。"
+              additionalWriting
+                ? "背景のドラッグやホイールで共有ボードを移動し、共有付箋のクリックで全文を確認できます。表示の移動と拡大縮小は自分だけに反映されます。"
                 : usesIdeaMapViewport
                   ? isIdeaMapWorkspaceStep
                     ? "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。"

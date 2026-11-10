@@ -1486,7 +1486,7 @@ it("一巡後はHUDに次の操作を表示する", () => {
   expect(
     screen.queryByRole("button", { name: "できた！" }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole("timer")).toBeInTheDocument();
+  expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "次の人へ" }),
   ).not.toBeInTheDocument();

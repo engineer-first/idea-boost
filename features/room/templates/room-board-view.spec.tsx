@@ -3588,21 +3588,27 @@ describe("反復ワークフロー", () => {
   );
 
   it.each([1, 2, 3] as const)(
-    "フェーズ%dの共有一巡後に、タイマーから付箋を書き足す",
+    "フェーズ%dの共有一巡後に、上部の操作欄から書き足しと再共有を選べる",
     (phase) => {
       const { props } = setup({
         phase: buildPhaseStep(2, phase),
         sharing: buildSharingState({
           status: "complete",
           results: ["done", "done", "done"],
+          durationMs: 60_000,
         }),
         timer: { status: "idle" },
         onRestartWriting: vi.fn(),
+        onSharingStart: vi.fn(),
       });
-      const addMore = screen.getByRole("button", { name: "付箋を書き足す" });
+      const controls = within(screen.getByTestId("board-control-hud"));
+      const addMore = controls.getByRole("button", { name: "付箋を書き足す" });
       expect(addMore).toBeEnabled();
       fireEvent.click(addMore);
       expect(props.onRestartWriting).toHaveBeenCalledOnce();
+      fireEvent.click(controls.getByRole("button", { name: "共有を続ける" }));
+      expect(props.onSharingStart).toHaveBeenCalledExactlyOnceWith(60_000);
+      expect(screen.queryByTestId("timer-floating")).toBeNull();
       expect(screen.queryByRole("alertdialog")).toBeNull();
     },
   );
@@ -4832,3 +4838,30 @@ it.each([1, 3] as const)(
     expect(props.onRestartWriting).toHaveBeenCalledOnce();
   },
 );
+
+it("手のひらを選んでから追加執筆へ戻っても、マイ付箋の開閉と追加を操作できる", () => {
+  const notes = buildNotes(2);
+  const { props, rerender } = setup({
+    notes,
+    interactions: buildInteractions(notes, []),
+  });
+  fireEvent.click(screen.getByRole("button", { name: "手のひらツール" }));
+  rerender(
+    <TestBoardView {...props} phase={buildPhaseStep(1)} isAdditionalWriting />,
+  );
+  const toolbar = screen.getByTestId("private-notes-toolbar");
+  fireEvent.click(
+    within(toolbar).getByRole("button", { name: "マイ付箋を展開" }),
+    { detail: 1 },
+  );
+  expect(toolbar).toHaveAttribute("data-expanded", "true");
+  fireEvent.click(
+    within(toolbar).getByRole("button", { name: "マイ付箋を縮小" }),
+    { detail: 1 },
+  );
+  expect(toolbar).toHaveAttribute("data-expanded", "false");
+  fireEvent.click(within(toolbar).getByRole("button", { name: "付箋を追加" }), {
+    detail: 1,
+  });
+  expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+});

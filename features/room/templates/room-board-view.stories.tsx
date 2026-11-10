@@ -1611,18 +1611,24 @@ export const IdeaDecidedMoveInteraction: Story = {
 function FloatingTimerPreview({
   args,
   complete = false,
+  lastPresenter = false,
 }: {
   args: RoomBoardViewProps;
   complete?: boolean;
+  lastPresenter?: boolean;
 }) {
   const [phase, setPhase] = useState(args.phase);
   const help = useBoardHelp(phase);
   const [sharing, setSharing] = useState(() =>
     buildSharingState({
       status: complete ? "complete" : "active",
-      currentIndex: complete ? null : 0,
+      currentIndex: complete ? null : lastPresenter ? 2 : 0,
       durationMs: 180_000,
-      results: complete ? ["done", "done", "done"] : [],
+      results: complete
+        ? ["done", "done", "done"]
+        : lastPresenter
+          ? ["done", "done"]
+          : [],
     }),
   );
   const [timer, setTimer] = useState<TimerState>(() =>
@@ -1636,6 +1642,9 @@ function FloatingTimerPreview({
       phase={phase}
       help={help}
       timer={timer}
+      currentUserId={
+        lastPresenter ? sharing.order[2].userId : args.currentUserId
+      }
       sharing={phase.kind === "step" && phase.step === 2 ? sharing : null}
       onNextPhase={() => {
         args.onNextPhase();
@@ -1673,8 +1682,6 @@ function FloatingTimerPreview({
         args.onSharingAdvance?.(outcome);
         const nextIndex = (sharing.currentIndex ?? 0) + 1;
         const complete = nextIndex >= sharing.order.length;
-        if (complete && outcome === "done" && phase.kind === "step")
-          setPhase(buildPhaseStep(3, phase.phase));
         setSharing({
           ...sharing,
           status: complete ? "complete" : "active",
@@ -1683,7 +1690,7 @@ function FloatingTimerPreview({
         });
         setTimer(
           complete
-            ? { status: "idle" }
+            ? { status: "ended", durationMs: sharing.durationMs }
             : {
                 status: "running",
                 endsAt: Date.now() + sharing.durationMs,
@@ -1714,6 +1721,7 @@ export const FloatingTimerRunning: Story = {
   render: (args) => <FloatingTimerPreview args={args} />,
 };
 export const FloatingTimerSharingComplete: Story = {
+  name: "共有一巡後の操作",
   args: {
     ...Step1_2_Sharing.args,
     onRestartWriting: fn(),
@@ -1721,6 +1729,15 @@ export const FloatingTimerSharingComplete: Story = {
   },
   render: (args) => <FloatingTimerPreview args={args} complete />,
 };
+export const SharingLastPresenter: Story = {
+  name: "最後の発表から共有一巡へ",
+  args: {
+    ...FloatingTimerSharingComplete.args,
+    currentUserId: buildSharingState().order[2].userId,
+  },
+  render: (args) => <FloatingTimerPreview args={args} lastPresenter />,
+};
+
 export const FloatingTimerSharingEmpty: Story = {
   args: {
     ...FloatingTimerSharingComplete.args,

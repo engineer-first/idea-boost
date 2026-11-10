@@ -239,25 +239,38 @@ test("幅982pxでマイ付箋を開いてもタイマーを右上HUDの下に保
   }
 });
 
-test.each([1280, 390])(
-  "幅%dの共有完了の操作は画面内で押せ、再共有で円へ戻る",
+test.each([1280, 900, 640, 390, 320])(
+  "幅%dの共有完了操作は上部にまとまり、再共有でタイマーを開始する",
   async (width) => {
     const page = await browser.newPage({
       viewport: { width, height: 900 },
       reducedMotion: "reduce",
     });
     try {
-      await story(page, "room-roomboardview--floating-timer-sharing-complete");
-      const timer = await rect(page, "timer-floating");
-      expect(timer.x).toBeGreaterThanOrEqual(0);
-      expect(timer.x + timer.width).toBeLessThanOrEqual(width);
-      expect(timer.height).toBeCloseTo(72);
-      expect(timer.width).toBeCloseTo(Math.min(288, width - 24), 0);
-      for (const name of ["共有を続ける", "付箋を書き足す"]) {
-        const b = page.getByRole("button", { name, exact: true });
+      await page.goto(
+        `${origin}/iframe.html?id=room-roomboardview--floating-timer-sharing-complete&viewMode=story`,
+      );
+      const controls = page.getByTestId("board-control-hud");
+      await controls.waitFor();
+      expect(await page.getByTestId("timer-floating").count()).toBe(0);
+      for (const name of ["共有を続ける", "付箋を書き足す", "次のステップへ"]) {
+        const b = controls.getByRole("button", { name, exact: true });
         expect(await b.isVisible()).toBe(true);
         const r = await b.boundingBox();
-        expect(r?.height).toBeGreaterThanOrEqual(44);
+        expect(r?.height).toBeGreaterThanOrEqual(40);
+        expect(r?.x).toBeGreaterThanOrEqual(0);
+        expect(r ? r.x + r.width : Infinity).toBeLessThanOrEqual(width);
+        expect(
+          await b.evaluate((element) => {
+            const box = element.getBoundingClientRect();
+            return element.contains(
+              document.elementFromPoint(
+                box.x + box.width / 2,
+                box.y + box.height / 2,
+              ),
+            );
+          }),
+        ).toBe(true);
       }
       await page.getByRole("button", { name: "共有を続ける" }).click();
       await page.getByTestId("room-timer").waitFor();
@@ -269,3 +282,35 @@ test.each([1280, 390])(
     }
   },
 );
+
+test("最後の発表者のできた後に上部から次の操作を選べる", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+  });
+  try {
+    await story(page, "room-roomboardview--sharing-last-presenter");
+    await page.getByRole("button", { name: "できた！", exact: true }).click();
+    const controls = page.getByTestId("board-control-hud");
+    await controls
+      .getByRole("button", { name: "付箋を書き足す", exact: true })
+      .waitFor();
+    expect(
+      await controls
+        .getByRole("button", { name: "共有を続ける", exact: true })
+        .isVisible(),
+    ).toBe(true);
+    expect(
+      await controls
+        .getByRole("button", { name: "次のステップへ", exact: true })
+        .isVisible(),
+    ).toBe(true);
+    expect(
+      await page
+        .getByTestId("board-location-trigger")
+        .getAttribute("aria-label"),
+    ).toContain("課題共有");
+    expect(await page.getByTestId("timer-floating").count()).toBe(0);
+  } finally {
+    await page.close();
+  }
+});
