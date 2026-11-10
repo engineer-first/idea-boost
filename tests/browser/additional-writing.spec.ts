@@ -171,6 +171,20 @@ test("最後に編集した未共有付箋を表示し、共有付箋の全文�
 
 test("共有から戻ると同じカメラ位置と倍率を維持し、開閉は別画面へ同期しない", async () => {
   await open("additional-writing-from-sharing");
+  const nextStep = page.getByRole("button", {
+    name: "次のステップへ",
+    exact: true,
+  });
+  const addWriting = page.getByRole("button", {
+    name: "付箋を書き足す",
+    exact: true,
+  });
+  await nextStep.waitFor({ state: "visible" });
+  expect(await nextStep.innerText()).toContain("次へ進む");
+  expect(
+    await page.getByRole("button", { name: "できた！", exact: true }).count(),
+  ).toBe(0);
+  await addWriting.waitFor({ state: "visible" });
   const initial = await viewTransform();
   await page
     .getByRole("button", { name: "キャンバスを拡大", exact: true })

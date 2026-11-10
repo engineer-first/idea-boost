@@ -394,6 +394,12 @@ export function RoomBoardHeader({
     activeSharing.currentIndex !== null &&
     activeSharing.currentIndex === activeSharing.order.length - 1;
   const canCompleteSharing = activeSharing?.status === "complete";
+  const sharingCompletionButtonLabel = canCompleteSharing
+    ? "次へ進む"
+    : "できた！";
+  const sharingCompletionButtonAriaLabel = canCompleteSharing
+    ? "次のステップへ"
+    : "できた！";
   const sharingDuration = activeSharing?.durationMs ?? 180000;
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
@@ -668,13 +674,19 @@ export function RoomBoardHeader({
                 aria-busy={completionCue.stage === "waiting"}
                 aria-pressed={activeSharing ? undefined : isCurrentUserReady}
                 aria-label={
-                  isCurrentUserReady ? "準備OK！を取り消す" : "できた！"
+                  activeSharing
+                    ? sharingCompletionButtonAriaLabel
+                    : isCurrentUserReady
+                      ? "準備OK！を取り消す"
+                      : "できた！"
                 }
                 title={
                   activeSharing
-                    ? canCompleteSharing || isLastPresenter
+                    ? canCompleteSharing
                       ? "次のステップへ進みます"
-                      : "次の人の発表へバトンタッチします"
+                      : isLastPresenter
+                        ? "発表を終えて共有を完了します"
+                        : "次の人の発表へバトンタッチします"
                     : isCurrentUserReady
                       ? "クリックして作業中に戻す"
                       : "次へ進む準備ができたことをみんなに伝えます"
@@ -690,7 +702,13 @@ export function RoomBoardHeader({
                 <span className={styles.completionMark} aria-hidden="true">
                   <Check className="size-3.5" strokeWidth={2.5} />
                 </span>
-                <span>{isCurrentUserReady ? "準備OK！" : "できた！"}</span>
+                <span>
+                  {activeSharing
+                    ? sharingCompletionButtonLabel
+                    : isCurrentUserReady
+                      ? "準備OK！"
+                      : "できた！"}
+                </span>
               </Button>
             ) : showVotingCompletion ? (
               <span

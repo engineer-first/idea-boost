@@ -1480,7 +1480,12 @@ it("一巡後はHUDに次の操作を表示する", () => {
     />,
   );
   expect(screen.getByText("共有完了")).toBeVisible();
-  expect(screen.getByRole("button", { name: "できた！" })).toBeEnabled();
+  const next = screen.getByRole("button", { name: "次のステップへ" });
+  expect(next).toBeEnabled();
+  expect(next).toHaveTextContent("次へ進む");
+  expect(
+    screen.queryByRole("button", { name: "できた！" }),
+  ).not.toBeInTheDocument();
   expect(screen.getByRole("timer")).toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "次の人へ" }),
@@ -1498,7 +1503,10 @@ it("共有完了後は参加者全員が完了から次工程へ進める", () =
   });
 
   expect(screen.queryByTestId("sharing-advance")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "できた！" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "次のステップへ" })).toBeEnabled();
+  expect(
+    screen.queryByRole("button", { name: "できた！" }),
+  ).not.toBeInTheDocument();
 });
 it("発表者以外は完了を押せず、時間切れ後のパスだけ行える", () => {
   render(
@@ -1594,7 +1602,12 @@ it("最後の発表中は発表完了操作だけを表示する", () => {
   });
 
   expect(screen.queryByTestId("sharing-advance")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "できた！" })).toBeInTheDocument();
+  const finishSharing = screen.getByRole("button", { name: "できた！" });
+  expect(finishSharing).toBeInTheDocument();
+  expect(finishSharing).toHaveAttribute(
+    "title",
+    "発表を終えて共有を完了します",
+  );
 
   openRoomMenu();
   expect(

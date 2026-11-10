@@ -6,7 +6,7 @@ import {
   runAuthorizedMutationTransaction,
 } from "./handler-context";
 import { isMember } from "./members";
-import { getPhase, getPhaseRevision, phaseHandlers } from "./phase";
+import { getPhase } from "./phase";
 import { getSharingState, saveSharingState } from "./sharing-state";
 import { getTimerState, saveTimerState } from "./timer";
 
@@ -127,19 +127,8 @@ export const sharingHandlers: MessageHandlers<
   "sharing:advance": async (ctx, message) => {
     const state = controllableState(ctx, message.revision);
     if (state?.status !== "active") return;
-    const phase = getPhase(ctx.sql);
-    const revision = getPhaseRevision(ctx.sql);
     state.results.push(message.outcome);
-    if (
-      (await commitTurn(ctx, state, message.outcome)) &&
-      getSharingState(ctx.sql)?.status === "complete" &&
-      message.outcome === "done"
-    )
-      await phaseHandlers["phase:next"](ctx, {
-        type: "phase:next",
-        expectedPhase: phase,
-        expectedRevision: revision,
-      });
+    await commitTurn(ctx, state, message.outcome);
   },
 };
 

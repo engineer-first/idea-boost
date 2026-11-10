@@ -3580,7 +3580,7 @@ describe("反復ワークフロー", () => {
         }),
         timer: { status: "ended", durationMs: 180_000 },
       });
-      const next = screen.getByRole("button", { name: "できた！" });
+      const next = screen.getByRole("button", { name: "次のステップへ" });
       expect(next).toBeEnabled();
       fireEvent.click(next);
       expect(props.onNextPhase).toHaveBeenCalledOnce();
