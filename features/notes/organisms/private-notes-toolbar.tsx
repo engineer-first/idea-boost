@@ -478,7 +478,7 @@ export function PrivateNotesToolbar({
                 Macは⌘＋Enter、Windows等はCtrl＋Enter）
               </p>
             </div>
-          ) : !isWorkspace ? (
+          ) : (
             <p
               className={cn(
                 "text-xs text-muted-foreground",
@@ -487,7 +487,7 @@ export function PrivateNotesToolbar({
             >
               自分だけに見える付箋エリア
             </p>
-          ) : null}
+          )}
           {!isWorkspace && sharingHint ? (
             <p role="status" className="mb-3 text-xs text-muted-foreground">
               {sharingHint}
@@ -515,19 +515,23 @@ export function PrivateNotesToolbar({
             )}
             data-testid="private-notes-list"
           >
-            {isWorkspace && !workspaceCollapsible ? (
+            {isWorkspace ? (
               <Button
                 type="button"
                 variant="outline"
                 disabled={disabled || !canCreateNote || noteCreationPending}
-                ref={addButtonRef}
-                aria-label="付箋を追加"
+                ref={workspaceCollapsible ? undefined : addButtonRef}
+                aria-label={
+                  workspaceCollapsible ? "新しい付箋を追加" : "付箋を追加"
+                }
                 onClick={handleAdd}
                 className="flex h-[150px] w-[200px] flex-col items-center justify-center gap-3 rounded-lg border-2 border-primary/50 border-dashed bg-muted/50 font-medium text-foreground hover:border-primary/75 hover:bg-muted active:bg-muted/80"
                 style={{ width: NOTE_WIDTH, height: NOTE_HEIGHT }}
               >
                 <Plus aria-hidden="true" className="size-6" />
-                <span>付箋を追加</span>
+                <span>
+                  {workspaceCollapsible ? "新しい付箋を追加" : "付箋を追加"}
+                </span>
               </Button>
             ) : null}
             {isWorkspace && !workspaceCollapsible
@@ -626,10 +630,10 @@ export function PrivateNotesToolbar({
       {!isWorkspace || workspaceCollapsible ? (
         <CardFooter
           className={cn(
-            "relative z-20 flex shrink-0 items-center bg-card",
+            "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
             workspaceCollapsible
-              ? "order-first h-10 border-b border-border p-2 sm:pr-24"
-              : cn("h-14 p-3", isExpanded && "border-t border-border"),
+              ? "order-first border-b border-border sm:pr-24"
+              : isExpanded && "border-t border-border",
           )}
         >
           <div
@@ -639,6 +643,11 @@ export function PrivateNotesToolbar({
             <div className="min-w-0">
               <CardTitle className="whitespace-nowrap text-sm">
                 マイ付箋
+                {workspaceCollapsible ? (
+                  <span className="ml-3 font-normal text-muted-foreground">
+                    自分だけに表示
+                  </span>
+                ) : null}
               </CardTitle>
             </div>
             <div className="flex w-fit shrink-0 items-center gap-2">

@@ -43,15 +43,12 @@
 
 .additionalWritingCanvas {
   --writing-panel-height: min(
-    208px,
+    260px,
     max(
       140px,
       calc((100dvh - var(--board-private-expanded-top, 5rem) - 0.75rem) * 0.5)
     )
   );
-}
-.additionalWritingCanvas[data-private-notes-empty="true"] {
-  --writing-panel-height: 42px;
 }
 .additionalWritingTools {
   bottom: calc(var(--writing-panel-height) + 1.5rem);
@@ -78,18 +75,18 @@
   height: 100%;
 }
 .additionalWritingPanel [data-testid="private-notes-scroll"] {
-  padding: 8px;
+  padding: 12px;
 }
 .additionalWritingPanel [data-testid="private-notes-list"] {
   padding-bottom: 0;
 }
 .additionalWritingPanel.writingExpanded [data-testid="private-notes-scroll"] {
-  padding-inline-start: max(8px, var(--board-private-reference-inset, 0px));
+  padding-inline-start: max(12px, var(--board-private-reference-inset, 0px));
 }
 .additionalWritingPanel.writingExpanded [data-testid="private-notes-controls"] {
   padding-inline-start: max(
     0px,
-    calc(var(--board-private-reference-inset, 0px) - 8px)
+    calc(var(--board-private-reference-inset, 0px) - 12px)
   );
 }
 @media (prefers-reduced-motion: reduce) {

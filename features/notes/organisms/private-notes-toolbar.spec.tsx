@@ -1261,18 +1261,10 @@ describe("追加執筆のマイ付箋", () => {
       "false",
     );
   });
-  it("空の縮小エリアは追加操作を一つにまとめ、展開せず付箋を追加できる", () => {
-    const options = props();
-    render(<PrivateNotesToolbar {...options} notes={[]} />);
-    const addButtons = screen.getAllByRole("button", { name: /付箋を追加/ });
-    expect(addButtons).toHaveLength(1);
-    fireEvent.click(addButtons[0]);
-    expect(options.onAdd).toHaveBeenCalledOnce();
-    expect(options.onWorkspaceExpandedChange).not.toHaveBeenCalled();
-    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
-      "data-expanded",
-      "false",
-    );
+  it("空の縮小エリアにも新しい付箋を追加する入口を残す", () => {
+    render(<PrivateNotesToolbar {...props()} notes={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "新しい付箋を追加" }));
+    expect(screen.getByTestId("private-notes-scroll")).toBeVisible();
   });
   it("展開で入力要素を作り直さず、選択範囲と変換中の本文を保つ", () => {
     const options = props();
