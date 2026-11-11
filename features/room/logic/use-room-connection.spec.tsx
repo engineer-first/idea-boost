@@ -483,7 +483,7 @@ function snapshot() {
     completedVoterIds: [],
   });
 }
-describe("切断時間", () => {
+describe("再接続後の同期", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();

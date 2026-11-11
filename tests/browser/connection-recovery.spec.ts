@@ -206,7 +206,7 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
         }
         return lines;
       });
-      expect(textVisibility.length).toBeGreaterThanOrEqual(1);
+      expect(textVisibility.length, "案内は1行に収まる").toBe(1);
       expect(textVisibility, "案内の各行が表示される").toEqual(
         textVisibility.map((line) => ({ ...line, visible: true })),
       );

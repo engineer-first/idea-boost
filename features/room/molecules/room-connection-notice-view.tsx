@@ -27,7 +27,7 @@ export function RoomConnectionNoticeView({
       className={className}
     >
       {stopped ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="flex flex-col items-start gap-1">
           <p className="font-semibold">
             {status === "auth-required"
               ? "接続が切れました"
@@ -40,7 +40,7 @@ export function RoomConnectionNoticeView({
           </Button>
         </div>
       ) : (
-        <p className="inline-flex items-center gap-1.5">
+        <p className="flex items-center gap-1.5">
           <Spinner />
           {status === "connecting" ? "接続中" : "再接続中"}
         </p>
