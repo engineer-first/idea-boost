@@ -217,7 +217,7 @@ APIは[専用構成](../../workers/wrangler.preview.jsonc)、Appは[専用構成
 
 ## 初版の保持・費用・失敗時
 
-PR終了ではレビュー中のルーム・ユーザー・招待コードを残します。成果と進行記録には既存の30日保持と期限処理を継承します。Preview全体のユーザー・ルーム入口の整理周期と担当、契約・費用・利用上限は#360のチーム限定運用情報で決め、実確認の有無を台帳へ記録します。料金や上限は[Workers](https://developers.cloudflare.com/workers/platform/pricing/)、[D1](https://developers.cloudflare.com/d1/platform/pricing/)、[Zero Trust](https://www.cloudflare.com/zero-trust/plans/)の現行仕様とAccountの契約を照合します。
+PR終了ではレビュー中のルーム・ユーザー・招待コードを残します。成果と進行記録には既存の180日保持と期限処理を継承します。Preview全体のユーザー・ルーム入口の整理周期と担当、契約・費用・利用上限は#360のチーム限定運用情報で決め、実確認の有無を台帳へ記録します。料金や上限は[Workers](https://developers.cloudflare.com/workers/platform/pricing/)、[D1](https://developers.cloudflare.com/d1/platform/pricing/)、[Zero Trust](https://www.cloudflare.com/zero-trust/plans/)の現行仕様とAccountの契約を照合します。
 
 失敗時はPRコメントのログURLとActionsの失敗ステップを確認します。UTC日時・操作・対象・開始／成功／失敗をJSONで記録し、Secretを含み得る生のCLI出力は表示しません。SecretやCookieを含み得る生ログはPRへ転載しません。設定を直し、対象SHAのCIまたはPreview workflowを再実行します。API更新失敗では現在の成功版を確認し、PR版のAPIを手動で上書きしません。Secret・allowlist変更は共通APIと使用中の各Appへ反映し、旧版deploymentの公開継続も確認します。全体D1削除や本番へのfallbackで復旧しません。
 
