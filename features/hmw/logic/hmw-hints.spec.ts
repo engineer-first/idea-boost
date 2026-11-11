@@ -39,7 +39,7 @@ describe("問いのヒント", () => {
     },
   );
 
-  it("置き換えた5つのワードと問いかけを提示する", () => {
+  it("差し替えた5つのワードと問いかけを提示する", () => {
     const all = HMW_HINT_GROUPS.flat();
     const find = (id: string) => all.find((hint) => hint.id === id);
     expect(find("enjoy")).toMatchObject({
@@ -48,19 +48,19 @@ describe("問いのヒント", () => {
     });
     expect(find("motivation")).toMatchObject({
       word: "やる気",
-      template: "どこでやると一番捗る？",
+      template: "{issue}という困りごとに対してモチベーションを上げる方法は？",
     });
     expect(find("reason")).toMatchObject({
       word: "理由",
-      template: "なぜそんなに困るの？",
+      template: "そもそもなぜ{issue}に困っているの？",
     });
     expect(find("standpoint")).toMatchObject({
       word: "立場",
-      template: "誰に話すと楽？",
+      template: "自分以外の気持ちになって考えてみたら考え方は変わるだろうか？",
     });
     expect(find("avoid")).toMatchObject({
       word: "回避",
-      template: "その困りごとをしなくても済む方法は？",
+      template: "{issue}という困りごとをしなくても済む方法は？",
     });
   });
 

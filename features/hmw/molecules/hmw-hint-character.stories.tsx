@@ -33,7 +33,7 @@ export const BubbleOpensWords: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(
       within(canvasElement).getByRole("button", {
-        name: /こんな見た目も.*あるかも/,
+        name: /こんな問い方も.*あるかも/,
       }),
     );
   },

@@ -125,7 +125,7 @@ export function HmwHintCharacter({
             onClick={() => handleOpenChange(true)}
           >
             <span>
-              こんな見た目も
+              こんな問い方も
               <br />
               あるかも...
             </span>

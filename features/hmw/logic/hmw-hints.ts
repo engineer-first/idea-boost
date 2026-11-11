@@ -6,7 +6,7 @@ export type HmwHint = {
 };
 
 // 各組は異なる観点の3語。文型は語ごとに用意し、課題の活用・意味を推測しない。
-// 決定課題を差し込む型と、課題を直接含まない聞き取り型（インタビュー形式）がある。
+// 決定課題を差し込む型を基本とし、課題を直接含まない聞き取り型（インタビュー形式）も残す。
 export const HMW_HINT_GROUPS = [
   [
     {
@@ -40,13 +40,13 @@ export const HMW_HINT_GROUPS = [
       id: "motivation",
       word: "やる気",
       perspective: "どこ",
-      template: "どこでやると一番捗る？",
+      template: "{issue}という困りごとに対してモチベーションを上げる方法は？",
     },
     {
       id: "reason",
       word: "理由",
       perspective: "なぜ",
-      template: "なぜそんなに困るの？",
+      template: "そもそもなぜ{issue}に困っているの？",
     },
   ],
   [
@@ -54,7 +54,7 @@ export const HMW_HINT_GROUPS = [
       id: "avoid",
       word: "回避",
       perspective: "どう",
-      template: "その困りごとをしなくても済む方法は？",
+      template: "{issue}という困りごとをしなくても済む方法は？",
     },
     {
       id: "time",
@@ -66,7 +66,7 @@ export const HMW_HINT_GROUPS = [
       id: "standpoint",
       word: "立場",
       perspective: "誰",
-      template: "誰に話すと楽？",
+      template: "自分以外の気持ちになって考えてみたら考え方は変わるだろうか？",
     },
   ],
   [
