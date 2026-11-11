@@ -8,6 +8,22 @@ import {
 } from "@/contracts/preview";
 import { PreviewView } from "./preview-view";
 
+// ステップ選択から開くルーム用のタブ名。同じ名前で開くと既存のタブを再利用する。
+const ROOM_TAB = "idea-boost-preview-room";
+
+// クリック直後（ポップアップ許可の範囲内）に開く。既存のタブは作成完了まで今のルームを表示し続ける。
+function openRoomTab(): { tab: Window; fresh: boolean } | null {
+  const tab = window.open("", ROOM_TAB);
+  if (!tab) return null;
+  let fresh = false;
+  try {
+    fresh = tab.location.href === "about:blank";
+  } catch {
+    // 読めない場合は既存のタブとして扱い、閉じない。
+  }
+  return { tab, fresh };
+}
+
 const CREATION_ERROR =
   "ルームを準備できませんでした。ログインと接続を確認して、ステップを選び直してください。";
 
@@ -21,6 +37,7 @@ export function PreviewConsole() {
     busy.current = true;
     setPending(true);
     setError(null);
+    const opened = openRoomTab();
     let message = CREATION_ERROR;
     try {
       const res = await fetch("/api/preview/rooms", {
@@ -36,8 +53,15 @@ export function PreviewConsole() {
         if (reason.success) message = reason.data.error;
         throw new Error(message);
       }
-      router.push(`/rooms/${parsed.data.roomId}`);
+      const path = `/rooms/${parsed.data.roomId}`;
+      if (opened) {
+        opened.tab.location.href = path;
+        opened.tab.focus();
+        busy.current = false;
+        setPending(false);
+      } else router.push(path);
     } catch {
+      if (opened?.fresh) opened.tab.close();
       setError(message);
       busy.current = false;
       setPending(false);
