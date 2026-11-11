@@ -61,7 +61,8 @@ export type SharedOutcomeRecord = z.infer<typeof SharedOutcomeRecordSchema>;
 export type SharedOutcomesResponse = z.infer<
   typeof SharedOutcomesResponseSchema
 >;
-export const SHARED_OUTCOME_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+// 実利用の記録を改善前後の比較に使うため、運営向け成果と完了ルームを約6か月保持する。
+export const SHARED_OUTCOME_RETENTION_MS = 180 * 24 * 60 * 60 * 1000;
 
 export const ProgressHistoryEntrySchema = z.object({
   id: z.guid(),
