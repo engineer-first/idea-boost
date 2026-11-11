@@ -10,15 +10,16 @@ export function readOutcomeFilters(
   const result = SharedOutcomeFiltersSchema.safeParse(
     Object.fromEntries(params),
   );
-  return result.success ? result.data : DEFAULT_OUTCOME_FILTERS;
+  // 保存状態は画面で選べないため、古いURLに残っていても条件にしない。
+  return result.success
+    ? { ...result.data, saveStatus: "all" }
+    : DEFAULT_OUTCOME_FILTERS;
 }
 export function outcomeParams(filters: SharedOutcomeFilters): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.q) params.set("q", filters.q);
   if (filters.status !== "all") params.set("status", filters.status);
   if (filters.phase !== "all") params.set("phase", filters.phase);
-  if (filters.saveStatus !== "all")
-    params.set("saveStatus", filters.saveStatus);
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
   return params;

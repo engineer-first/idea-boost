@@ -253,3 +253,18 @@ it("条件の解除で、まだ適用していない日付の入力も消す", a
   fireEvent.click(screen.getByRole("button", { name: "条件をクリア" }));
   await waitFor(() => expect(screen.getByLabelText("開始日")).toHaveValue(""));
 });
+
+it("保存状態の条件が付いたURLで開いても、欄のない条件では絞り込まない", async () => {
+  window.history.replaceState(null, "", "/shared-outcomes?saveStatus=failed");
+  const fetchMock = vi.fn(async () =>
+    Response.json({ outcomes: [first], nextCursor: null }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  render(<SharedOutcomes />);
+  await screen.findByRole("link", { name: /相談ルーム/ });
+  for (const [url] of fetchMock.mock.calls as unknown as [string][])
+    expect(url).not.toContain("saveStatus");
+  expect(
+    screen.queryByRole("button", { name: "条件をクリア" }),
+  ).not.toBeInTheDocument();
+});
