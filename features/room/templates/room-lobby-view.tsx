@@ -221,7 +221,7 @@ export function RoomLobbyView({
           <details className={styles.privacy}>
             <summary>保存とプライバシーについて</summary>
             <p>
-              途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了した成果は30日間、ホームから見返せます。{" "}
+              途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了した成果は180日間、ホームから見返せます。{" "}
               <Link
                 href="/privacy"
                 target="_blank"

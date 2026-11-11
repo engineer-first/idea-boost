@@ -35,7 +35,7 @@ unknownは作成されなかった証明ではないため、送信後の結果�
 | D1最小対応（creator/request/room/deadline/state） | ready/closedは受付退役後、通常roomと有効成果がなくなったら100件ずつ削除。旧方式で任意のv7時刻を送っていた特殊データは、そのIDの時刻帯も退役するまで最小対応を保持 |
 | 未確定unknownの最小対応                           | DOが応答し決着可能になるまで保持。名前は上記の詳細整理で消す                                                                                                      |
 | DO作成marker                                      | 初期化・閉鎖の証拠。今回積極廃棄しない保持例外                                                                                                                    |
-| 通常room名・成果・履歴                            | 従来の通常lifecycle・30日成果保持。作成24hによる削除はない                                                                                                        |
+| 通常room名・成果・履歴                            | 従来の通常lifecycle・180日成果保持。作成24hによる削除はない                                                                                                       |
 | ブラウザ控え                                      | サーバー確認済みexpired/closed/knownでは名前を消す。オフライン保存・backup/logの消去時刻はD1と別                                                                  |
 
 作成中のroomsと成果はhidden。DOの初期化事実から、同identity・pending・既存hiddenへのD1 CASだけで公開する。成果outboxのUPDATEは公開証拠を変更しない。旧ルームの成果索引欠落は明示legacyディレクトリを根拠に補完し、INSERT時にそのlegacy証拠を成果索引へ移す。新規hiddenや単なる不存在は公開根拠にしない。要求詳細がなくてもhiddenを公開せず、正常解散後も成立済み成果の公開証拠は残る。盤面・参加・ホストの権威はDOのまま。

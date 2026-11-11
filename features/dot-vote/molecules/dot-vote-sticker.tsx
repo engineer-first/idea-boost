@@ -25,13 +25,15 @@ const DOT_VOTE_ICON = {
 } satisfies Record<DotVoteKind, typeof Heart>;
 
 const DOT_VOTE_TONE = {
-  subjective: "rounded-full border-rose-700 bg-rose-100 text-rose-700",
-  objective: "rounded-md border-blue-700 bg-blue-100 text-blue-700",
+  subjective:
+    "rounded-full border-vote-subjective bg-vote-subjective-soft text-vote-subjective",
+  objective:
+    "rounded-md border-vote-objective bg-vote-objective-soft text-vote-objective",
 } satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_COUNT_TONE = {
-  subjective: "border-rose-700/35 text-rose-800",
-  objective: "border-blue-700/35 text-blue-800",
+  subjective: "border-vote-subjective/35 text-vote-subjective-text",
+  objective: "border-vote-objective/35 text-vote-objective-text",
 } satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_SHAPE = {

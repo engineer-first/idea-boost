@@ -310,17 +310,17 @@ describe("DotVotePalette", () => {
 
     expect(subjective).toHaveClass(
       "disabled:opacity-100",
-      "bg-rose-50/80",
-      "text-rose-950",
-      "disabled:bg-slate-100",
-      "disabled:text-slate-500",
+      "bg-vote-subjective-soft/40",
+      "text-vote-subjective-text",
+      "disabled:bg-muted",
+      "disabled:text-muted-foreground",
       "active:cursor-grabbing",
     );
-    expect(subjective).not.toHaveClass("ring-rose-700/75");
+    expect(subjective).not.toHaveClass("ring-vote-subjective/75");
     expect(objective).toHaveClass(
       "active:cursor-grabbing",
-      "bg-blue-50/80",
-      "text-blue-950",
+      "bg-vote-objective-soft/40",
+      "text-vote-objective-text",
     );
 
     rerender(
@@ -337,7 +337,7 @@ describe("DotVotePalette", () => {
 
     expect(
       screen.getByRole("button", { name: "客観シール 残り2票" }),
-    ).toHaveClass("ring-blue-700/75", "ring-offset-white");
+    ).toHaveClass("ring-vote-objective/75", "ring-offset-background");
   });
 
   it("送信中の0票を使い切りと断定せず、受理後に表示を切り替える", () => {
