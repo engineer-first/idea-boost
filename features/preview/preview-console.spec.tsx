@@ -17,7 +17,7 @@ it("通信エラーを日本語で案内してステップ選択を再開する"
         new DOMException("The operation was aborted", "TimeoutError"),
       ),
   );
-  render(<PreviewConsole />);
+  render(<PreviewConsole partner={false} />);
   fireEvent.click(screen.getByRole("button", { name: /1-1/ }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "ルームを準備できませんでした",
@@ -49,7 +49,7 @@ it("ステップのルームを別タブで開き、選び直すと同じタブ�
         created("b1000000-0000-4000-8000-000000000031", "3-1"),
       ),
   );
-  render(<PreviewConsole />);
+  render(<PreviewConsole partner={false} />);
   fireEvent.click(screen.getByRole("button", { name: /2-1/ }));
   await waitFor(() =>
     expect(tab.location.href).toBe(
@@ -78,7 +78,7 @@ it("新しく開いた空のタブは、作成に失敗したら閉じる", asyn
     "fetch",
     vi.fn().mockResolvedValue(Response.json({ error: "x" }, { status: 503 })),
   );
-  render(<PreviewConsole />);
+  render(<PreviewConsole partner={false} />);
   fireEvent.click(screen.getByRole("button", { name: /1-1/ }));
   await screen.findByRole("alert");
   expect(tab.close).toHaveBeenCalled();
@@ -94,7 +94,7 @@ it("準備中にルーム用タブが閉じられたら、このタブで作成�
       return created("b1000000-0000-4000-8000-000000000011", "1-1");
     }),
   );
-  render(<PreviewConsole />);
+  render(<PreviewConsole partner={false} />);
   fireEvent.click(screen.getByRole("button", { name: /1-1/ }));
   await waitFor(() =>
     expect(push).toHaveBeenCalledWith(
@@ -113,7 +113,7 @@ it("準備中に別のページへ移動した新しいタブは、失敗して�
       return Response.json({ error: "x" }, { status: 503 });
     }),
   );
-  render(<PreviewConsole />);
+  render(<PreviewConsole partner={false} />);
   fireEvent.click(screen.getByRole("button", { name: /1-1/ }));
   await screen.findByRole("alert");
   expect(tab.close).not.toHaveBeenCalled();
@@ -129,7 +129,7 @@ it("準備中に重ねて作成せず、タブを開けなければこのタブ�
       }),
   );
   vi.stubGlobal("fetch", fetch);
-  render(<PreviewConsole />);
+  render(<PreviewConsole partner={false} />);
   const button = screen.getByRole("button", { name: /3-5/ });
   fireEvent.click(button);
   fireEvent.click(button);
@@ -164,7 +164,7 @@ it("作成を断られた理由をそのまま案内する", async () => {
         ),
       ),
   );
-  render(<PreviewConsole />);
+  render(<PreviewConsole partner={false} />);
   fireEvent.click(screen.getByRole("button", { name: /2-1/ }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "別のルームへの移動を処理しています。",

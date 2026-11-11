@@ -1,10 +1,13 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { SyncUserResponseSchema } from "../contracts/api";
 import {
+  PREVIEW_PARTNER_PATH,
+  PREVIEW_SELF_PATH,
   PREVIEW_SIGN_IN_PATH,
   PREVIEW_SIGNED_OUT_PATH,
   type PreviewAccessClaims,
   PreviewAccessClaimsSchema,
+  previewPartnerEmail,
 } from "../contracts/preview";
 import {
   LoginAssertionSchema,
@@ -30,6 +33,9 @@ const PREVIEW_COOKIE = "__Host-idea_boost_preview_session";
 // 未ログイン表示の目印。本人性を持たず、権限を減らす方向にしか働かない。
 const SIGNED_OUT_COOKIE = "__Host-idea_boost_preview_signed_out";
 const SIGNED_OUT_CLEAR = `${SIGNED_OUT_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`;
+// 相手役の目印。Access本人を変えず、同じ本人から作る別の参加者を選ぶだけに使う。
+// ブラウザを閉じると消えるよう期限を付けない。
+const PARTNER_COOKIE = "__Host-idea_boost_preview_partner";
 const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 function deny(status: number, error: string): Response {
   return Response.json(
@@ -130,8 +136,12 @@ export async function previewGateway(
     if (assertion.kind === "guest") return deny(403, "許可されていません。");
   }
   if (
-    (url.pathname === PREVIEW_SIGNED_OUT_PATH ||
-      url.pathname === PREVIEW_SIGN_IN_PATH) &&
+    [
+      PREVIEW_SIGNED_OUT_PATH,
+      PREVIEW_SIGN_IN_PATH,
+      PREVIEW_PARTNER_PATH,
+      PREVIEW_SELF_PATH,
+    ].includes(url.pathname) &&
     !["same-origin", "none", null].includes(
       request.headers.get("Sec-Fetch-Site"),
     )
@@ -149,11 +159,36 @@ export async function previewGateway(
       `${url.origin}/login?next=${encodeURIComponent(url.searchParams.get("next") ?? "/")}`,
       SIGNED_OUT_CLEAR,
     );
+  if (url.pathname === PREVIEW_PARTNER_PATH)
+    return redirectWithCookie(
+      `${url.origin}/preview`,
+      `${PARTNER_COOKIE}=1; Path=/; Secure; HttpOnly; SameSite=Lax`,
+    );
+  if (url.pathname === PREVIEW_SELF_PATH)
+    return redirectWithCookie(
+      `${url.origin}/preview`,
+      `${PARTNER_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`,
+    );
   const signedOut =
     getCookieValue(request.headers.get("Cookie"), SIGNED_OUT_COOKIE) === "1";
   // 確認用の入口を開いたら、未ログイン表示を解除して本人に戻す。
   if (signedOut && url.pathname !== "/preview")
     return forwardSignedOut(request, url, next);
+  const partner =
+    getCookieValue(request.headers.get("Cookie"), PARTNER_COOKIE) === "1";
+  const localPart = identity.email.split("@")[0];
+  // 相手役も同じAccess本人から作る。本人以外の許可者にはなれない。
+  const person = partner
+    ? {
+        googleSub: `access:${identity.sub}:partner`,
+        email: previewPartnerEmail(identity.email),
+        name: `${localPart}（相手役）`,
+      }
+    : {
+        googleSub: `access:${identity.sub}`,
+        email: identity.email,
+        name: localPart,
+      };
   const previewToken = getCookieValue(
     request.headers.get("Cookie"),
     PREVIEW_COOKIE,
@@ -170,17 +205,12 @@ export async function previewGateway(
   if (ttl <= 0) return deny(401, "ログインの期限が切れました。");
   if (
     session?.kind !== "account" ||
-    session.email !== identity.email ||
+    session.email !== person.email ||
     session.exp > identity.exp
   ) {
     try {
       const assertion = await signToken(
-        {
-          kind: "google",
-          googleSub: `access:${identity.sub}`,
-          email: identity.email,
-          name: identity.email.split("@")[0],
-        },
+        { kind: "google", ...person },
         {
           secret,
           audience: TOKEN_AUDIENCE.loginAssertion,
@@ -204,8 +234,8 @@ export async function previewGateway(
         {
           kind: "account",
           sub: result.userId,
-          email: identity.email,
-          name: identity.email.split("@")[0],
+          email: person.email,
+          name: person.name,
         },
         {
           secret,

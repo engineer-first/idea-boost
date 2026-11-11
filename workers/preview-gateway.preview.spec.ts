@@ -445,3 +445,99 @@ it.each(["セッション", "ログイン主張"])(
     }
   },
 );
+
+const PARTNER = "__Host-idea_boost_preview_partner=1";
+async function syncedAssertion(): Promise<{
+  googleSub: string;
+  email: string;
+}> {
+  const [sync] = config.API_WORKER.fetch.mock.calls.at(-1) as unknown as [
+    Request,
+  ];
+  const { assertion } = (await sync.json()) as { assertion: string };
+  return decodeJwt(assertion) as { googleSub: string; email: string };
+}
+it("相手役への切り替えと解除はAccess認証後・同じサイトからだけ受け付け、/previewへ戻す", async () => {
+  certs();
+  expect(
+    (await previewGateway(request(undefined, "/preview/partner"), config, next))
+      .status,
+  ).toBe(401);
+  const crossSite = request(await jwt(), "/preview/partner");
+  crossSite.headers.set("Sec-Fetch-Site", "cross-site");
+  const denied = await previewGateway(crossSite, config, next);
+  expect(denied.status).toBe(403);
+  expect(denied.headers.getSetCookie()).toEqual([]);
+  const on = await previewGateway(
+    request(await jwt(), "/preview/partner"),
+    config,
+    next,
+  );
+  expect(on.status).toBe(302);
+  expect(on.headers.get("Location")).toBe(
+    "https://pr-123-preview.test/preview",
+  );
+  expect(on.headers.getSetCookie()[0]).toMatch(
+    /^__Host-idea_boost_preview_partner=1;.*Secure.*HttpOnly/,
+  );
+  const off = await previewGateway(
+    request(await jwt(), "/preview/self"),
+    config,
+    next,
+  );
+  expect(off.status).toBe(302);
+  expect(off.headers.getSetCookie()[0]).toMatch(
+    /^__Host-idea_boost_preview_partner=;.*Max-Age=0/,
+  );
+  expect(next).not.toHaveBeenCalled();
+});
+it("相手役のブラウザは、同じAccess本人から作った別の参加者として渡す", async () => {
+  certs();
+  await previewGateway(request(await jwt(), "/preview"), config, next);
+  const self = await syncedAssertion();
+  const res = await previewGateway(
+    withCookie(request(await jwt(), "/preview"), PARTNER),
+    config,
+    next,
+  );
+  expect(res.ok).toBe(true);
+  const partner = await syncedAssertion();
+  expect(self).toMatchObject({
+    googleSub: "access:access-sub",
+    email: "allowed@example.test",
+  });
+  expect(partner.googleSub).not.toBe(self.googleSub);
+  expect(partner.email).not.toBe(self.email);
+  expect(partner.email).toBe("allowed+idea-boost-partner@example.test");
+});
+it("本人のセッションCookieを相手役のブラウザで使い回さない", async () => {
+  certs();
+  const first = await previewGateway(
+    request(await jwt(), "/preview"),
+    config,
+    next,
+  );
+  const sessionCookie = first.headers
+    .getSetCookie()
+    .find((c) => c.startsWith("__Host-idea_boost_preview_session="))
+    ?.split(";")[0];
+  config.API_WORKER.fetch.mockClear();
+  await previewGateway(
+    withCookie(
+      request(await jwt(), "/preview"),
+      `${sessionCookie}; ${PARTNER}`,
+    ),
+    config,
+    next,
+  );
+  expect(config.API_WORKER.fetch).toHaveBeenCalledTimes(1);
+});
+it("許可一覧にない相手役形式のAccess本人は拒否する", async () => {
+  certs();
+  const res = await previewGateway(
+    request(await jwt("allowed+idea-boost-partner@example.test"), "/preview"),
+    config,
+    next,
+  );
+  expect(res.status).toBe(401);
+});

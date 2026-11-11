@@ -5,6 +5,7 @@ import { PreviewConsole } from "./preview-console";
 const meta = {
   title: "Preview/PreviewConsole",
   component: PreviewConsole,
+  args: { partner: false },
   parameters: {
     layout: "fullscreen",
     nextjs: { appDirectory: true },
