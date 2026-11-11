@@ -34,17 +34,19 @@ const DOT_VOTE_KINDS: readonly DotVoteKind[] = ["subjective", "objective"];
 
 const DOT_VOTE_BUTTON_TONE = {
   subjective:
-    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 hover:text-rose-950 focus-visible:border-rose-600 focus-visible:ring-rose-600/50 active:bg-rose-200 disabled:opacity-100",
+    "border-vote-subjective/25 bg-vote-subjective-soft/40 text-vote-subjective-text hover:bg-vote-subjective-soft hover:text-vote-subjective-text focus-visible:border-vote-subjective focus-visible:ring-vote-subjective/50 active:bg-vote-subjective/20 disabled:opacity-100",
   objective:
-    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 hover:text-blue-950 focus-visible:border-blue-600 focus-visible:ring-blue-600/50 active:bg-blue-200 disabled:opacity-100",
+    "border-vote-objective/25 bg-vote-objective-soft/40 text-vote-objective-text hover:bg-vote-objective-soft hover:text-vote-objective-text focus-visible:border-vote-objective focus-visible:ring-vote-objective/50 active:bg-vote-objective/20 disabled:opacity-100",
 } satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_UNAVAILABLE_TONE =
-  "disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500";
+  "disabled:border-line-strong disabled:bg-muted disabled:text-muted-foreground";
 
 const DOT_VOTE_SELECTED_TONE = {
-  subjective: "ring-2 ring-rose-700/75 ring-offset-2 ring-offset-white",
-  objective: "ring-2 ring-blue-700/75 ring-offset-2 ring-offset-white",
+  subjective:
+    "ring-2 ring-vote-subjective/75 ring-offset-2 ring-offset-background",
+  objective:
+    "ring-2 ring-vote-objective/75 ring-offset-2 ring-offset-background",
 } satisfies Record<DotVoteKind, string>;
 
 export function DotVotePaletteView({

@@ -22,6 +22,12 @@
   --ib-color-danger: #d92d4a;
   --ib-color-danger-soft: #fdeef1;
   --ib-color-danger-text: #b42339;
+  --ib-color-vote-subjective: #c70036;
+  --ib-color-vote-subjective-soft: #ffe4e6;
+  --ib-color-vote-subjective-text: #4d0218;
+  --ib-color-vote-objective: #1447e6;
+  --ib-color-vote-objective-soft: #dbeafe;
+  --ib-color-vote-objective-text: #162556;
   --ib-spacing-xs: 4px;
   --ib-spacing-sm: 8px;
   --ib-spacing-md: 12px;
