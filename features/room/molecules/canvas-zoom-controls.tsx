@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Hand,
-  Maximize2,
-  Minus,
-  MousePointer2,
-  Plus,
-  RotateCcw,
-} from "lucide-react";
+import { Hand, Maximize2, Minus, MousePointer2, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import toolMotion from "@/components/ui/tool-motion.module.css";
@@ -26,7 +19,6 @@ export type CanvasZoomControlsProps = {
   reactionControls?: (disabled: boolean) => ReactNode;
   moveHistory?: MoveHistoryControlsProps;
   showNavigationControls?: boolean;
-  showZoomPercentage?: boolean;
   interactionTool?: "select" | "hand";
   onToolChange?: (tool: "select" | "hand") => void;
   toolDisabled?: boolean;
@@ -41,7 +33,6 @@ export function CanvasZoomControls({
   reactionControls,
   moveHistory,
   showNavigationControls = true,
-  showZoomPercentage = true,
   interactionTool = "select",
   onToolChange,
   toolDisabled = false,
@@ -166,17 +157,13 @@ export function CanvasZoomControls({
                 <Button
                   type="button"
                   variant="ghost"
-                  size={showZoomPercentage ? "sm" : "icon-sm"}
-                  className={`${toolMotion.button} ${showZoomPercentage ? "min-w-14 tabular-nums" : ""}`}
+                  size="sm"
+                  className={`${toolMotion.button} min-w-14 tabular-nums`}
                   disabled={toolDisabled}
                   aria-label="ズームを100%に戻す"
                   onClick={onResetZoom}
                 >
-                  {showZoomPercentage ? (
-                    `${Math.round(zoom * 100)}%`
-                  ) : (
-                    <RotateCcw aria-hidden="true" />
-                  )}
+                  {Math.round(zoom * 100)}%
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top">

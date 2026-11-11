@@ -25,10 +25,6 @@ export const Zoomed: Story = {
   args: { zoom: 2.5 },
 };
 
-export const WithoutZoomPercentage: Story = {
-  args: { zoom: 1.33, showZoomPercentage: false },
-};
-
 export const Tools: Story = {
   args: { interactionTool: "select", onToolChange: fn() },
 };

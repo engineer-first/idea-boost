@@ -711,7 +711,6 @@ export function RoomBoardCanvas({
       reactionControls={reactionControls}
       moveHistory={moveHistory}
       showNavigationControls
-      showZoomPercentage={!additionalWriting}
       interactionTool={interactionTool}
       onToolChange={
         isIdeaMapWorkspaceStep || additionalWriting ? undefined : onToolChange
@@ -986,7 +985,9 @@ export function RoomBoardCanvas({
           className={`pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 ${additionalWriting ? styles.additionalWritingTools : ""}`}
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
-          hidden={isPersonalNoteEntryPhase && !writingCollapsed}
+          hidden={
+            additionalWriting || (isPersonalNoteEntryPhase && !writingCollapsed)
+          }
         >
           <div
             className={`flex items-center gap-2 ${usesIdeaMapViewport ? "min-w-[122px]" : ""}`}
@@ -994,7 +995,7 @@ export function RoomBoardCanvas({
               usesIdeaMapViewport ? "idea-map-axis-low-anchor" : undefined
             }
           >
-            {permissions.canEditNote && !additionalWriting ? (
+            {permissions.canEditNote ? (
               <NoteFontSizeControls
                 fontSize={
                   selectedNote?.fontSize ??
