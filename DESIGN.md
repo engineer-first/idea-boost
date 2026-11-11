@@ -201,7 +201,7 @@ LP・成果画面は表現を豊かにしてよく、作業ボードは付箋と
 
 色と角丸は値ではなく名前で書きます。Tailwind では `bg-primary`・`rounded-lg`、CSS では `var(--ib-color-*)` を使い、淡い面は `color-mix(in oklab, …)` で名前から作ります（`oklch` は色相がずれる）。名前と値の一覧は Storybook の `Design/Tokens` で見られます。
 
-`npm run lint` が CSS の hex と Tailwind の既定パレットをエラーにします。Biome が見ない定数の文字列は、`npm run lint:boundaries`（ast-grep）が検出します。値を残すときは `biome-ignore lint/style/noHexColors: <理由>` を書き、ファイル全体なら `biome.json` の `overrides` に入れます。今の `overrides` はテスト・stories（見本の色）、LP の配色、ガイドのイラストです。`room-board-canvas.tsx`・`room-board-header.tsx` は Biome の不具合でパレットの検査だけ外しています（[biome#11342](https://github.com/biomejs/biome/issues/11342)）。
+`npm run lint` が CSS の hex と Tailwind の既定パレットをエラーにします。Biome は `class` / `className` 属性と `cn()` などの引数だけを見るため、定数の文字列に書いた既定パレットはレビューで確認します。値を残すときは `biome-ignore lint/style/noHexColors: <理由>` を書き、ファイル全体なら `biome.json` の `overrides` に入れます。今の `overrides` はテスト・stories（見本の色）、LP の配色、ガイドのイラストです。`room-board-canvas.tsx`・`room-board-header.tsx` は Biome の不具合でパレットの検査だけ外しています（[biome#11342](https://github.com/biomejs/biome/issues/11342)）。
 
 ## Typography
 
