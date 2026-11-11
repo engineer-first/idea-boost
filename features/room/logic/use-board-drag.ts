@@ -346,9 +346,15 @@ export function useBoardDrag({
       const noteElements = toolbar?.querySelectorAll
         ? Array.from(
             toolbar.querySelectorAll<HTMLElement>(
-              "[data-testid='note-card'][data-note-id]",
+              toolbar.dataset?.compact === "true"
+                ? "[data-private-note-id]"
+                : "[data-testid='note-card'][data-note-id]",
             ),
-          ).filter((element) => element.dataset.noteId !== draggingNoteId)
+          ).filter(
+            (element) =>
+              (element.dataset.privateNoteId ?? element.dataset.noteId) !==
+              draggingNoteId,
+          )
         : [];
       if (noteElements.length > 0) {
         if (
@@ -414,13 +420,19 @@ export function useBoardDrag({
           "[data-testid='private-notes-scroll']",
         );
       const rect = scrollContainer?.getBoundingClientRect();
+      const horizontal = privateToolbarRef.current?.dataset?.compact === "true";
       if (
         !scrollContainer ||
         !rect ||
-        clientX < rect.left ||
-        clientX > rect.right ||
-        clientY < rect.top - PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX ||
-        clientY > rect.bottom + PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX
+        (horizontal
+          ? clientY < rect.top ||
+            clientY > rect.bottom ||
+            clientX < rect.left - PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX ||
+            clientX > rect.right + PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX
+          : clientX < rect.left ||
+            clientX > rect.right ||
+            clientY < rect.top - PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX ||
+            clientY > rect.bottom + PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX)
       ) {
         stopPrivateListAutoScroll();
         return;
@@ -455,44 +467,50 @@ export function useBoardDrag({
     }
 
     const rect = scrollContainer.getBoundingClientRect();
+    const horizontal = privateToolbarRef.current?.dataset?.compact === "true";
+    const start = horizontal ? rect.left : rect.top;
+    const end = horizontal ? rect.right : rect.bottom;
+    const position = horizontal ? pointer.clientX : pointer.clientY;
     const edgeSize = Math.min(
       PRIVATE_LIST_AUTO_SCROLL_EDGE_PX,
-      (rect.bottom - rect.top) / 2,
+      (end - start) / 2,
     );
-    const distanceToTop = pointer.clientY - rect.top;
-    const distanceToBottom = rect.bottom - pointer.clientY;
+    const distanceToStart = position - start;
+    const distanceToEnd = end - position;
     const speed =
-      distanceToTop < 0
-        ? -getPrivateListOutsideEdgeSpeed(-distanceToTop)
-        : distanceToTop < edgeSize
+      distanceToStart < 0
+        ? -getPrivateListOutsideEdgeSpeed(-distanceToStart)
+        : distanceToStart < edgeSize
           ? -PRIVATE_LIST_AUTO_SCROLL_EDGE_SPEED_PX_PER_FRAME *
-            (1 - distanceToTop / edgeSize)
-          : distanceToBottom < 0
-            ? getPrivateListOutsideEdgeSpeed(-distanceToBottom)
-            : distanceToBottom < edgeSize
+            (1 - distanceToStart / edgeSize)
+          : distanceToEnd < 0
+            ? getPrivateListOutsideEdgeSpeed(-distanceToEnd)
+            : distanceToEnd < edgeSize
               ? PRIVATE_LIST_AUTO_SCROLL_EDGE_SPEED_PX_PER_FRAME *
-                (1 - distanceToBottom / edgeSize)
+                (1 - distanceToEnd / edgeSize)
               : 0;
     if (speed === 0) {
       stopPrivateListAutoScroll();
       return;
     }
 
-    const previousScrollTop = scrollContainer.scrollTop;
-    const maxScrollTop = Math.max(
+    const previousScroll = horizontal
+      ? scrollContainer.scrollLeft
+      : scrollContainer.scrollTop;
+    const maxScroll = Math.max(
       0,
-      scrollContainer.scrollHeight - scrollContainer.clientHeight,
+      horizontal
+        ? scrollContainer.scrollWidth - scrollContainer.clientWidth
+        : scrollContainer.scrollHeight - scrollContainer.clientHeight,
     );
-    const nextScrollTop = Math.min(
-      maxScrollTop,
-      Math.max(0, previousScrollTop + speed),
-    );
-    if (nextScrollTop === previousScrollTop) {
+    const nextScroll = Math.min(maxScroll, Math.max(0, previousScroll + speed));
+    if (nextScroll === previousScroll) {
       stopPrivateListAutoScroll();
       return;
     }
 
-    scrollContainer.scrollTop = nextScrollTop;
+    if (horizontal) scrollContainer.scrollLeft = nextScroll;
+    else scrollContainer.scrollTop = nextScroll;
     const nextIndex = privateDropIndexFromPointer(
       pointer.clientY,
       current.note.id,

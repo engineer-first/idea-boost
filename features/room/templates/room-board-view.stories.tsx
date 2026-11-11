@@ -1873,6 +1873,49 @@ export const AdditionalWritingEmpty: Story = {
     interactions: { ...INTERACTIONS, privateNotes: [] },
   },
 };
+export const AdditionalWritingCompact: Story = {
+  ...AdditionalWriting,
+  name: "追加執筆 / 小さい付箋を横一列に表示",
+  args: {
+    ...AdditionalWriting.args,
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: ADDITIONAL_WRITING_PRIVATE_NOTES.slice(0, 3).map(
+        (note, index) => ({
+          ...note,
+          content: [
+            "やることリスト\n・デザイン確認\n・実装",
+            "参考になりそうな\nサイトを調べる",
+            "この案はどうかな",
+          ][index],
+          fontSize: 16,
+        }),
+      ),
+    },
+  },
+};
+export const AdditionalWritingLongText: Story = {
+  ...AdditionalWriting,
+  name: "追加執筆 / 長文の小さい付箋を編集",
+  args: {
+    ...AdditionalWriting.args,
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [
+        buildNote({
+          id: "additional-long-draft",
+          fontSize: 16,
+          authorId: ME,
+          visibility: "private",
+          content:
+            "共有した考えから気づいたことを、もう一度自分の言葉で書き出す。\n".repeat(
+              40,
+            ),
+        }),
+      ],
+    },
+  },
+};
 export const AdditionalWritingConnecting: Story = {
   ...AdditionalWriting,
   name: "追加執筆 / 再接続中",
