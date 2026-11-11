@@ -66,6 +66,72 @@ describe("DotVotePalette", () => {
     ).toBeInTheDocument();
   });
 
+  it.each([
+    {
+      label: "通常",
+      props: { voteRemaining: { subjective: 1, objective: 2 } },
+      name: "主観シール 残り1票",
+      hidden: "選んで貼る",
+    },
+    {
+      label: "選択中",
+      props: {
+        voteRemaining: { subjective: 1, objective: 2 },
+        selectedKind: "subjective" as const,
+      },
+      name: "主観シール 残り1票",
+      hidden: "選択中",
+    },
+    {
+      label: "使い切り",
+      props: { voteRemaining: { subjective: 0, objective: 2 } },
+      name: "主観シール 残り0票",
+      hidden: "使い切りました",
+    },
+  ])(
+    "$label のシールは状態を文言で画面に出さず、読み上げで伝える",
+    ({ props, name, hidden }) => {
+      render(
+        <DotVotePalette
+          pendingOperationCount={0}
+          feedback={null}
+          disabled={false}
+          selectedKind={null}
+          onStickerSelect={vi.fn()}
+          onStickerDragStart={vi.fn()}
+          {...props}
+        />,
+      );
+      const button = screen.getByRole("button", { name });
+      expect(visibleText(button)).not.toContain(hidden);
+      expect(button).toHaveAccessibleDescription(hidden);
+    },
+  );
+
+  it.each([
+    { label: "送信中", pendingOperationCount: 2, disabled: false },
+    { label: "接続待ち", pendingOperationCount: 0, disabled: true },
+  ])(
+    "$label は票数の代わりにスピナーを出し、待ちの文言を画面に出さない",
+    ({ pendingOperationCount, disabled }) => {
+      render(
+        <DotVotePalette
+          voteRemaining={{ subjective: 0, objective: 0 }}
+          pendingOperationCount={pendingOperationCount}
+          feedback={null}
+          disabled={disabled}
+          selectedKind={null}
+          onStickerSelect={vi.fn()}
+          onStickerDragStart={vi.fn()}
+        />,
+      );
+      for (const button of screen.getAllByRole("button")) {
+        expect(button.querySelector('[data-slot="spinner"]')).not.toBeNull();
+        expect(visibleText(button)).not.toMatch(/残り\d票|確認待ち|接続待ち/);
+      }
+    },
+  );
+
   it("残数が0の票種は選べない", () => {
     render(
       <DotVotePalette

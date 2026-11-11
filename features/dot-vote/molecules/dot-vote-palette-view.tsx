@@ -1,6 +1,6 @@
-import { Check, Clock3 } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import {
   DOT_VOTE_CRITERIA,
@@ -94,6 +94,9 @@ export function DotVotePaletteView({
           const isWaiting = isEmpty && (pendingOperationCount > 0 || disabled);
           const isExhausted = isEmpty && !isWaiting;
           const isSelected = activeSelectedKind === kind;
+          // 残票が確定しない間は、票数の代わりにスピナーを出す。
+          const showsSpinner = isWaiting || disabled;
+          // 状態は形（輪郭・破線・灰色・スピナー）で示し、文言は読み上げだけに残す。
           const stateLabel = disabled
             ? "接続待ち"
             : isWaiting
@@ -115,7 +118,7 @@ export function DotVotePaletteView({
               }
               size="sm"
               variant="outline"
-              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "min-h-20 border-dashed" : "min-h-24"} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
+              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed min-h-20 ${isExhausted ? "border-dashed" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
                 isSelected ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
@@ -140,25 +143,20 @@ export function DotVotePaletteView({
                 <span className="text-sm font-bold">
                   {DOT_VOTE_LABELS[kind]}
                 </span>
-                <span className="ml-auto text-sm font-bold tabular-nums">
-                  残り{voteRemaining[kind]}票
-                </span>
+                {showsSpinner ? (
+                  <Spinner className="ml-auto" />
+                ) : (
+                  <span className="ml-auto text-sm font-bold tabular-nums">
+                    残り{voteRemaining[kind]}票
+                  </span>
+                )}
               </span>
               {!isExhausted ? (
                 <span className="whitespace-normal text-left text-xs font-semibold leading-snug">
                   {DOT_VOTE_CRITERIA[kind]}
                 </span>
               ) : null}
-              <span
-                id={`${paletteId}-${kind}-state`}
-                className="mt-auto flex items-center justify-center gap-1 text-xs font-semibold"
-              >
-                {isWaiting ? (
-                  <Clock3 aria-hidden="true" className="size-3.5" />
-                ) : null}
-                {isExhausted || isSelected ? (
-                  <Check aria-hidden="true" className="size-3.5" />
-                ) : null}
+              <span id={`${paletteId}-${kind}-state`} className="sr-only">
                 {stateLabel}
               </span>
             </Button>

@@ -319,6 +319,35 @@ describe("待機中のアイコン変更", () => {
     expect(cycle).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+  it("変更中は文言を出さず、自分のアイコンにスピナーを重ねる", () => {
+    renderView({
+      avatarChange: {
+        cycle: vi.fn(),
+        pending: true,
+        disabled: false,
+        error: null,
+      },
+    });
+    const face = screen.getByTestId("lobby-avatar-change");
+    expect(face).toHaveAttribute("aria-busy", "true");
+    expect(face.querySelector('[data-slot="spinner"]')).not.toBeNull();
+    expect(screen.queryByText("アイコンを変更中…")).not.toBeInTheDocument();
+  });
+  it("接続が切れていても、アイコンを変更できない理由の説明文は出さない", () => {
+    renderView({
+      connectionStatus: "closed",
+      avatarChange: {
+        cycle: vi.fn(),
+        pending: false,
+        disabled: true,
+        error: null,
+      },
+    });
+    expect(
+      screen.getByRole("button", { name: "自分のアイコンを変更" }),
+    ).toBeDisabled();
+    expect(screen.queryByText(/再接続すると/)).not.toBeInTheDocument();
+  });
   it("操作できない接続ではボタンを無効にし、候補なしの説明は出さない", () => {
     renderView({
       avatarChange: {

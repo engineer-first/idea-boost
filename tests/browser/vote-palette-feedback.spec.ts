@@ -49,7 +49,14 @@ it.each([390, 1280])(
               (element) => element.scrollWidth <= element.clientWidth,
             ),
           ).toBe(true);
+          // 残票が確定しない間は票数の代わりにスピナーを出す。
           const count = button.getByText(/残り\d票/);
+          if ((await count.count()) === 0) {
+            expect(await button.locator('[data-slot="spinner"]').count()).toBe(
+              1,
+            );
+            continue;
+          }
           expect(
             await count.evaluate((element) =>
               Number.parseFloat(getComputedStyle(element).fontSize),
@@ -138,9 +145,6 @@ it.each([390, 1280])(
       await expect
         .poll(() => objective.getAttribute("aria-pressed"))
         .toBe("true");
-      expect(
-        await palette.getByText("選択中", { exact: true }).isVisible(),
-      ).toBe(true);
       await page.keyboard.press("Escape");
       await expect
         .poll(() => objective.getAttribute("aria-pressed"))

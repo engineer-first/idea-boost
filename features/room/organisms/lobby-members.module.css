@@ -87,7 +87,8 @@ button.peer:hover {
 }
 
 .avatarButton:hover .avatarOverlay,
-.avatarButton:focus-visible .avatarOverlay {
+.avatarButton:focus-visible .avatarOverlay,
+.avatarOverlay[data-pending] {
   opacity: 1;
 }
 .avatarButton:disabled .avatarOverlay,
