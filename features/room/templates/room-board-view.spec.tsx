@@ -2199,7 +2199,7 @@ describe("RoomBoardView", () => {
     ).toBeInTheDocument();
   });
 
-  it("投票パレットは投票対象を読み上げで伝え、投票基準の説明は画面に出さない", () => {
+  it("投票パレットで対象と投票基準のヒントを確認できる", () => {
     setup({
       phase: buildPhaseStep(4),
 
@@ -2216,7 +2216,12 @@ describe("RoomBoardView", () => {
     expect(palette).toHaveAccessibleDescription(
       /投票対象は現在のフェーズの個々の付箋です。/,
     );
-    expect(within(palette).queryByText(/は「/)).not.toBeInTheDocument();
+    expect(
+      within(palette).getByText("主観は「激しく共感する、取り組みたい」。"),
+    ).toBeVisible();
+    expect(
+      within(palette).getByText("客観は「自分以外の人にも価値がありそう」。"),
+    ).toBeVisible();
   });
 
   it("パレットのシールを付箋へドロップすると、付箋内の相対座標で投票を送る", () => {

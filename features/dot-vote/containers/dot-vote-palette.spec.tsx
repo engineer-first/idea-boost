@@ -13,7 +13,7 @@ function paletteRegion(): HTMLElement {
 }
 
 describe("DotVotePalette", () => {
-  it("票種と残数を表示し、操作手順と投票基準の説明は画面に出さない", () => {
+  it("票種と残数を投票基準のヒントとともに表示し、操作手順は画面に出さない", () => {
     render(
       <DotVotePalette
         voteRemaining={{ subjective: 1, objective: 2 }}
@@ -36,9 +36,15 @@ describe("DotVotePalette", () => {
 
     expect(within(subjective).getByText("主観")).toBeVisible();
     expect(within(subjective).getByText("残り1票")).toBeVisible();
+    expect(
+      within(subjective).getByText("主観は「激しく共感する、取り組みたい」。"),
+    ).toBeVisible();
     expect(within(objective).getByText("客観")).toBeVisible();
     expect(within(objective).getByText("残り2票")).toBeVisible();
-    expect(visibleText(palette)).not.toMatch(/シールを選ぶ|付箋へ貼る|は「/);
+    expect(
+      within(objective).getByText("客観は「自分以外の人にも価値がありそう」。"),
+    ).toBeVisible();
+    expect(visibleText(palette)).not.toMatch(/シールを選ぶ|付箋へ貼る/);
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
     expect(
       within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
@@ -79,7 +85,7 @@ describe("DotVotePalette", () => {
   });
 
   it.each(["subjective", "objective"] as const)(
-    "%sを使い切ってもアイコンを残し、選択表示を外して追加操作を防ぐ",
+    "%sを使い切ってもアイコンを残し、基準のヒントと選択表示を外して追加操作を防ぐ",
     (kind) => {
       const onStickerSelect = vi.fn();
       const onStickerDragStart = vi.fn();
@@ -104,9 +110,13 @@ describe("DotVotePalette", () => {
       expect
         .soft(within(exhausted).queryByTestId(`dot-vote-sticker-icon-${kind}`))
         .toBeVisible();
+      expect
+        .soft(within(exhausted).queryByText(/は「/))
+        .not.toBeInTheDocument();
       expect(
         screen.getByTestId(`dot-vote-sticker-icon-${otherKind}`),
       ).toBeVisible();
+      expect(screen.getAllByText(/は「/).length).toBe(1);
       expect(screen.getByRole("status")).toBeEmptyDOMElement();
       fireEvent.click(exhausted);
       fireEvent.pointerDown(exhausted, { pointerId: 1 });

@@ -3,6 +3,7 @@ import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import {
+  DOT_VOTE_CRITERIA,
   DOT_VOTE_GUIDANCE,
   DOT_VOTE_LABELS,
   type DotVoteFeedback,
@@ -143,6 +144,11 @@ export function DotVotePaletteView({
                   残り{voteRemaining[kind]}票
                 </span>
               </span>
+              {!isExhausted ? (
+                <span className="whitespace-normal text-left text-xs font-semibold leading-snug">
+                  {DOT_VOTE_CRITERIA[kind]}
+                </span>
+              ) : null}
               <span
                 id={`${paletteId}-${kind}-state`}
                 className="mt-auto flex items-center justify-center gap-1 text-xs font-semibold"
