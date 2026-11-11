@@ -26,6 +26,12 @@ export const Selected: Story = {
   },
 };
 
+export const SelectedObjective: Story = {
+  args: {
+    selectedKind: "objective",
+  },
+};
+
 export const Exhausted: Story = {
   args: {
     voteRemaining: { subjective: 0, objective: 0 },

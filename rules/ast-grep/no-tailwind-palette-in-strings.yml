@@ -1,0 +1,62 @@
+# 色の規則: 定数の文字列に Tailwind の既定パレット（rose-700 など）を書かない。
+#
+# Biome の noTailwindRawColors は className 属性と cn() / cva() 等の引数しか
+# 見ないため、`const TONE = { a: "bg-rose-100" }` のような定数・テンプレートの
+# 文字列が死角になる（#952）。その死角だけを補うため、class / className 属性の
+# 中の文字列は Biome に任せて対象から外す（ほかの属性は対象に含める）。
+# 色は DESIGN.md の名前（bg-primary 等）で書く。
+# 対象外は biome.json の overrides（テスト・stories・fixture・ガイドのイラスト）と、
+# 見本データを置く MSW handler。
+# 検知の regression テストは scripts/tailwind-palette-string-rule.spec.ts。
+id: no-tailwind-palette-in-strings
+language: typescript
+severity: error
+files:
+  - app/**
+  - components/**
+  - features/**
+  - lib/**
+ignores:
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/*.stories.tsx"
+  - "**/*.fixture.ts"
+  - "**/*.fixture.tsx"
+  - app/mocks/**
+  - features/room/molecules/step-guide-illustration.tsx
+message: 定数の文字列に Tailwind の既定パレットを書かない（DESIGN.md「値を直接書かない」）
+note: |
+  DESIGN.md の colors に役割の名前を追加し、bg-primary のような名前で書く。
+rule:
+  kind: string_fragment
+  regex: "(^|[\\s:!])[a-z][a-z-]*-(slate|gray|zinc|neutral|stone|mauve|olive|mist|taupe|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|[1-9]00|950)(/[0-9]+)?($|[\\s!])"
+---
+id: no-tailwind-palette-in-strings-tsx
+language: tsx
+severity: error
+files:
+  - app/**
+  - components/**
+  - features/**
+  - lib/**
+ignores:
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/*.stories.tsx"
+  - "**/*.fixture.ts"
+  - "**/*.fixture.tsx"
+  - app/mocks/**
+  - features/room/molecules/step-guide-illustration.tsx
+message: 定数の文字列に Tailwind の既定パレットを書かない（DESIGN.md「値を直接書かない」）
+note: |
+  DESIGN.md の colors に役割の名前を追加し、bg-primary のような名前で書く。
+rule:
+  kind: string_fragment
+  regex: "(^|[\\s:!])[a-z][a-z-]*-(slate|gray|zinc|neutral|stone|mauve|olive|mist|taupe|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|[1-9]00|950)(/[0-9]+)?($|[\\s!])"
+  not:
+    inside:
+      kind: jsx_attribute
+      has:
+        kind: property_identifier
+        regex: "^(class|className)$"
+      stopBy: end

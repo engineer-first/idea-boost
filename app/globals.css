@@ -34,6 +34,12 @@
   --color-state-excluded: var(--ib-color-state-excluded);
   --color-danger-soft: var(--ib-color-danger-soft);
   --color-danger-text: var(--ib-color-danger-text);
+  --color-vote-subjective: var(--ib-color-vote-subjective);
+  --color-vote-subjective-soft: var(--ib-color-vote-subjective-soft);
+  --color-vote-subjective-text: var(--ib-color-vote-subjective-text);
+  --color-vote-objective: var(--ib-color-vote-objective);
+  --color-vote-objective-soft: var(--ib-color-vote-objective-soft);
+  --color-vote-objective-text: var(--ib-color-vote-objective-text);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
