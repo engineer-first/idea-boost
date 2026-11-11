@@ -29,7 +29,7 @@ function openRoomTab(): { tab: Window; fresh: boolean } | null {
 const CREATION_ERROR =
   "ルームを準備できませんでした。ログインと接続を確認して、ステップを選び直してください。";
 
-export function PreviewConsole() {
+export function PreviewConsole({ partner }: { partner: boolean }) {
   const router = useRouter();
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
@@ -70,5 +70,12 @@ export function PreviewConsole() {
       setPending(false);
     }
   }
-  return <PreviewView pending={pending} error={error} onCreate={create} />;
+  return (
+    <PreviewView
+      pending={pending}
+      error={error}
+      partner={partner}
+      onCreate={create}
+    />
+  );
 }

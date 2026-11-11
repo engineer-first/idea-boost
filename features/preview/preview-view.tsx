@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import {
+  PREVIEW_PARTNER_PATH,
+  PREVIEW_SELF_PATH,
   PREVIEW_SIGNED_OUT_PATH,
   type PreviewCheckpoint,
   PreviewCheckpointSchema,
@@ -9,9 +11,16 @@ import { VERIFICATION_CHECKPOINTS } from "@/contracts/verification";
 export type PreviewViewProps = {
   pending: boolean;
   error: string | null;
+  // このブラウザが相手役（同じ本人から作った2人目の参加者）か。
+  partner: boolean;
   onCreate: (checkpoint: PreviewCheckpoint) => void;
 };
-export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
+export function PreviewView({
+  pending,
+  error,
+  partner,
+  onCreate,
+}: PreviewViewProps) {
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-muted/20">
       <div className="mx-auto max-w-5xl space-y-8 px-6 py-8">
@@ -27,6 +36,30 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
             最初から作成・参加する
           </a>
         </header>
+        <section aria-label="2人で確認する" className="space-y-3">
+          <h2 className="text-lg font-semibold">2人で確認する</h2>
+          {partner ? (
+            <p className="max-w-2xl text-base">
+              このブラウザは相手役です。本人とは別の参加者として、招待URLからルームに参加できます。{" "}
+              <a
+                href={PREVIEW_SELF_PATH}
+                className="underline underline-offset-4"
+              >
+                本人に戻す
+              </a>
+            </p>
+          ) : (
+            <p className="max-w-2xl text-base text-muted-foreground">
+              シークレットウィンドウでこの画面を開いて相手役にすると、同じGoogleアカウントのまま2人目の参加者として操作できます。ルームの「招待」のURLを相手役のウィンドウで開いてください。{" "}
+              <a
+                href={PREVIEW_PARTNER_PATH}
+                className="text-foreground underline underline-offset-4"
+              >
+                このブラウザを相手役にする
+              </a>
+            </p>
+          )}
+        </section>
         {pending && <p role="status">新しいルームを準備しています…</p>}
         {error && (
           <p role="alert" className="text-destructive">

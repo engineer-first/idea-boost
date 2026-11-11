@@ -5,7 +5,7 @@ const meta = {
   title: "Preview/PreviewView",
   component: PreviewView,
   parameters: { layout: "fullscreen" },
-  args: { pending: false, error: null, onCreate: () => {} },
+  args: { pending: false, error: null, partner: false, onCreate: () => {} },
 } satisfies Meta<typeof PreviewView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -16,3 +16,4 @@ export const Failed: Story = {
     error: "準備に失敗しました。接続を確認して、ステップを選び直してください。",
   },
 };
+export const Partner: Story = { args: { partner: true } };

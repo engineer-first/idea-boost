@@ -41,3 +41,24 @@ export type PreviewAccessClaims = z.infer<typeof PreviewAccessClaimsSchema>;
 export const PREVIEW_SIGNED_OUT_PATH = "/preview/signed-out";
 // 未ログイン表示から本人のセッションへ戻し、`next`付きで/loginへ進める。
 export const PREVIEW_SIGN_IN_PATH = "/preview/sign-in";
+
+// 同じAccess本人のまま、このブラウザだけ2人目の参加者（相手役）として操作する入口。
+// Gatewayが処理し、Nextのルートには渡らない。
+export const PREVIEW_PARTNER_PATH = "/preview/partner";
+// 相手役を解除して本人に戻す。
+export const PREVIEW_SELF_PATH = "/preview/self";
+const PARTNER_TAG = "+idea-boost-partner";
+// 相手役の参加者用アドレス。配信には使わず、本人とは別のユーザーとして登録する識別子。
+export function previewPartnerEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  return `${email.slice(0, at)}${PARTNER_TAG}${email.slice(at)}`;
+}
+export function isPreviewPartnerEmail(email: string): boolean {
+  return email.slice(0, email.lastIndexOf("@")).endsWith(PARTNER_TAG);
+}
+// 許可一覧の照合に使う、相手役の元になった本人のアドレス。
+export function previewPrincipalEmail(email: string): string {
+  if (!isPreviewPartnerEmail(email)) return email;
+  const at = email.lastIndexOf("@");
+  return `${email.slice(0, at - PARTNER_TAG.length)}${email.slice(at)}`;
+}
