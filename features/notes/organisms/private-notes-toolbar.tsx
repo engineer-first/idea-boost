@@ -46,6 +46,7 @@ export type PrivateNotesToolbarProps = {
   sharingHint?: string;
   presentation?: "dock" | "workspace";
   workspaceCollapsible?: boolean;
+  hideWorkspaceHeader?: boolean;
   workspaceExpanded?: boolean;
   onWorkspaceExpandedChange?: (expanded: boolean) => void;
   expandOnWorkspaceExit?: boolean;
@@ -89,6 +90,7 @@ export function PrivateNotesToolbar({
   sharingHint,
   presentation = "dock",
   workspaceCollapsible = false,
+  hideWorkspaceHeader = false,
   workspaceExpanded = false,
   onWorkspaceExpandedChange,
   expandOnWorkspaceExit = false,
@@ -627,7 +629,7 @@ export function PrivateNotesToolbar({
           </div>
         </section>
       </CardContent>
-      {!isWorkspace || workspaceCollapsible ? (
+      {!isWorkspace || !hideWorkspaceHeader ? (
         <CardFooter
           className={cn(
             "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
