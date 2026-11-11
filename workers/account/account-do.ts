@@ -261,8 +261,20 @@ export class AccountDO extends DurableObject<Env> {
       );
       if (stale) {
         try {
-          await preview(stale.creation.room_id).disband(undefined, creator.sub);
-          await deleteRoom(this.env.DB, stale.creation.room_id);
+          // 公開まで終わったルームは利用者が開いている可能性があるため残す。
+          const published = await this.env.DB.prepare(
+            "SELECT 1 FROM rooms WHERE id=? AND creation_visibility<>'hidden'",
+          )
+            .bind(stale.creation.room_id)
+            .first();
+          if (
+            !published &&
+            (await preview(stale.creation.room_id).disband(
+              undefined,
+              creator.sub,
+            ))
+          )
+            await deleteRoom(this.env.DB, stale.creation.room_id);
         } catch {
           // 公開前の部屋は一覧に出ず、作成受付の期限処理でも片付く。
         }
@@ -280,9 +292,7 @@ export class AccountDO extends DurableObject<Env> {
           status: 409,
         };
       try {
-        // 通常の作成・参加と同じく、参加中のルームからは確認なしで退出する。
-        for (const source of await this.sources(creator.sub))
-          await preview(source.roomId).leave(creator.sub);
+        const sources = await this.sources(creator.sub);
         const sample: Sample = {
           id: crypto.randomUUID(),
           checkpoint,
@@ -301,6 +311,9 @@ export class AccountDO extends DurableObject<Env> {
             creationIdentity(sample.creation),
           ),
         );
+        // 新しいルームを用意できてから、通常の作成・参加と同じく参加中のルームを確認なしで退出する。
+        for (const source of sources)
+          await preview(source.roomId).leave(creator.sub);
         const room: PreviewRoom = {
           roomId: sample.creation.room_id,
           inviteCode: sample.creation.invite_code,
