@@ -83,7 +83,7 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
           </div>
         </section>
         <p className="max-w-2xl text-base text-muted-foreground">
-          参加者のマイ付箋は空から始まります。各自で付箋を追加できます。選び直すと別のルームを作り、開いているルームは切り替わりません。
+          参加者のマイ付箋は空から始まります。各自で付箋を追加できます。選び直すと新しいルームを作り、前のルームからは退出します。
         </p>
       </div>
     </main>

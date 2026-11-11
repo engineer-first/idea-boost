@@ -244,92 +244,66 @@ export class AccountDO extends DurableObject<Env> {
       return {
         ok: false,
         status: 503,
-        error: "参加状況を確認できません。同じステップを再試行してください。",
+        error: "参加状況を確認できません。もう一度ステップを選んでください。",
       };
     return this.ctx.blockConcurrencyWhile(async () => {
       type Sample = {
         id: string;
         checkpoint: PreviewCheckpoint;
         creation: CreationRequest;
-        sources: string[];
       };
-      let sample = await this.ctx.storage.get<Sample>("preview-sample-pending");
-      const active = await this.activeOperation();
-      if (active && active !== sample?.id)
-        return {
-          ok: false,
-          error: "移動中の処理を確認・完了してからステップを準備してください。",
-          status: 409,
-        };
       const preview = (roomId: string) =>
         this.stub(roomId) as unknown as DurableObjectStub<PreviewRoomDO>;
+      // 呼び出しはゲートの中で直列化されるため、残っている準備は再起動などで止まったもの。
+      // Previewは検証用なので照合して再開せず、破棄して選ばれたステップで作り直す。
+      const stale = await this.ctx.storage.get<Sample>(
+        "preview-sample-pending",
+      );
+      if (stale) {
+        try {
+          await preview(stale.creation.room_id).disband(undefined, creator.sub);
+          await deleteRoom(this.env.DB, stale.creation.room_id);
+        } catch {
+          // 公開前の部屋は一覧に出ず、作成受付の期限処理でも片付く。
+        }
+        await this.ctx.storage.transaction(async (tx) => {
+          await tx.delete("preview-sample-pending");
+          if ((await tx.get<string>("active")) === stale.id)
+            await tx.delete("active");
+        });
+      }
+      if (await this.activeOperation())
+        return {
+          ok: false,
+          error:
+            "別のルームへの移動を処理しています。少し待ってからステップを選び直してください。",
+          status: 409,
+        };
       try {
-        if (!sample) {
-          const sources = await this.sources(creator.sub);
-          for (const source of sources)
-            if (!(await preview(source.roomId).isPreviewSample(creator.sub)))
-              return {
-                ok: false,
-                error:
-                  "通常ルームに参加中です。ホームから参加中のルームを開き、退出を確認してからステップを準備してください。",
-                status: 409,
-              };
-          const issued = issueCreationId();
-          const creation = await reserveRoomCreation(
+        // 通常の作成・参加と同じく、参加中のルームからは確認なしで退出する。
+        for (const source of await this.sources(creator.sub))
+          await preview(source.roomId).leave(creator.sub);
+        const sample: Sample = {
+          id: crypto.randomUUID(),
+          checkpoint,
+          creation: await reserveRoomCreation(
             this.env.DB,
             creator.sub,
-            issued.requestId,
-          );
-          sample = {
-            id: crypto.randomUUID(),
+            issueCreationId().requestId,
+          ),
+        };
+        await this.ctx.storage.put("preview-sample-pending", sample);
+        await completeRoomCreation(this.env.DB, sample.creation, async () =>
+          preview(sample.creation.room_id).initializePreview(
             checkpoint,
-            creation,
-            sources: sources.map((source) => source.roomId),
-          };
-          const generation =
-            (await this.ctx.storage.get<number>("generation")) ?? 0;
-          await this.ctx.storage.transaction(async (tx) => {
-            await tx.put("preview-sample-pending", sample);
-            await tx.put("active", sample?.id);
-            await tx.put("generation", generation + 1);
-          });
-        } else if (sample.checkpoint !== checkpoint)
-          return {
-            ok: false,
-            error: "準備中の同じステップを再試行してください。",
-            status: 409,
-          };
-        for (const roomId of sample.sources) {
-          if (!(await preview(roomId).archivePreviewSample(creator.sub))) {
-            await preview(sample.creation.room_id).disband(
-              undefined,
-              creator.sub,
-            );
-            await deleteRoom(this.env.DB, sample.creation.room_id);
-            await this.ctx.storage.transaction(async (tx) => {
-              await tx.delete("preview-sample-pending");
-              await tx.delete("active");
-            });
-            return {
-              ok: false,
-              status: 409,
-              error:
-                "参加状況が変わったため、新しいサンプルは作成していません。参加中のルームで退出を確認してください。以前のサンプルは閲覧専用のままです。",
-            };
-          }
-        }
-        const current = sample;
-        await completeRoomCreation(this.env.DB, current.creation, async () =>
-          preview(current.creation.room_id).initializePreview(
-            checkpoint,
-            current.creation.room_id,
+            sample.creation.room_id,
             creator,
-            creationIdentity(current.creation),
+            creationIdentity(sample.creation),
           ),
         );
         const room: PreviewRoom = {
-          roomId: current.creation.room_id,
-          inviteCode: current.creation.invite_code,
+          roomId: sample.creation.room_id,
+          inviteCode: sample.creation.invite_code,
           checkpoint,
         };
         await this.ctx.storage.transaction(async (tx) => {
@@ -341,14 +315,13 @@ export class AccountDO extends DurableObject<Env> {
             },
           ]);
           await tx.delete("preview-sample-pending");
-          await tx.delete("active");
         });
         return { ok: true, room };
       } catch {
         return {
           ok: false,
           error:
-            "準備の結果を確認できません。同じステップを再試行してください。",
+            "ルームを準備できませんでした。もう一度ステップを選んでください。",
           status: 503,
         };
       }

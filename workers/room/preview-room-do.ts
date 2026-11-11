@@ -21,25 +21,6 @@ import { addVoteSticker } from "./votes";
 
 // Preview専用namespaceだけで公開。本番RoomDOとローカル固定ユーザー検証を変えない。
 export class PreviewRoomDO extends RoomDO {
-  async isPreviewSample(userId: string): Promise<boolean> {
-    return (
-      Boolean(await this.ctx.storage.get("preview-initialized")) &&
-      (await this.ctx.storage.get<{ creator: string }>("preview-identity"))
-        ?.creator === userId &&
-      this.listMembers().length === 1
-    );
-  }
-  async archivePreviewSample(userId: string): Promise<boolean> {
-    if (!this.isJoinable()) return true;
-    if (!(await this.isPreviewSample(userId))) return false;
-    this.ctx.storage.transactionSync(() =>
-      this.ctx.storage.sql.exec(
-        "UPDATE room_state SET outcome_published=1 WHERE id=1",
-      ),
-    );
-    await this.ctx.storage.sync();
-    return true;
-  }
   async initializePreview(
     checkpoint: PreviewCheckpoint,
     roomId: string,

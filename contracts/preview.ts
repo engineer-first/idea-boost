@@ -26,6 +26,8 @@ export const PreviewRoomSchema = z.object({
   checkpoint: PreviewCheckpointSchema,
 });
 export type PreviewRoom = z.infer<typeof PreviewRoomSchema>;
+// 作成を断った理由。画面にそのまま案内する。
+export const PreviewRoomErrorSchema = z.object({ error: z.string().min(1) });
 
 export const PreviewAccessClaimsSchema = z.object({
   sub: z.string().min(1),
