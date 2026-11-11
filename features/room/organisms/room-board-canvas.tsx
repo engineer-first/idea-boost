@@ -711,6 +711,7 @@ export function RoomBoardCanvas({
       reactionControls={reactionControls}
       moveHistory={moveHistory}
       showNavigationControls
+      showZoomPercentage={!additionalWriting}
       interactionTool={interactionTool}
       onToolChange={
         isIdeaMapWorkspaceStep || additionalWriting ? undefined : onToolChange
@@ -993,7 +994,7 @@ export function RoomBoardCanvas({
               usesIdeaMapViewport ? "idea-map-axis-low-anchor" : undefined
             }
           >
-            {permissions.canEditNote ? (
+            {permissions.canEditNote && !additionalWriting ? (
               <NoteFontSizeControls
                 fontSize={
                   selectedNote?.fontSize ??
