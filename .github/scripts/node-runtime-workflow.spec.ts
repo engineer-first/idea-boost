@@ -54,3 +54,18 @@ describe("CIのNodeセキュリティ更新と外部ダウンロード", () => {
     }
   }
 });
+
+describe("CIのChromium準備", () => {
+  const ci = parse(readFileSync(new URL("ci.yml", directory), "utf8")) as {
+    jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
+  };
+  const install = ci.jobs.browser.steps.find(
+    (step) => step.name === "Install Chromium",
+  );
+  it("aptから依存を取得できない場合も、ブラウザ本体だけ入れて検査へ進む", () => {
+    // OSの依存はrunnerイメージにそろっていることが多い。aptミラーの障害でCI全体を止めない。
+    expect(install?.run).toMatch(
+      /npx playwright install --with-deps chromium\s*\|\|[\s\S]*npx playwright install chromium/,
+    );
+  });
+});

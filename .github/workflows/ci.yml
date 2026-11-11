@@ -127,7 +127,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        # OSの依存はrunnerイメージにそろっていることが多い。aptミラーの障害時は
+        # ブラウザ本体だけ入れて検査へ進み、依存不足なら検査ステップで失敗させる。
+        run: |
+          npx playwright install --with-deps chromium || {
+            echo "::warning::OSの依存を取得できなかったため、Chromium本体だけを入れます。"
+            npx playwright install chromium
+          }
       - name: Build Storybook
         run: npm run build-storybook > storybook-test.log 2>&1
       - name: Serve built Storybook
