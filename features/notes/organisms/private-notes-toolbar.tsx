@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Check,
-  ChevronDown,
-  ChevronUp,
-  LockKeyhole,
-  Pencil,
-  Plus,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, LockKeyhole, Plus } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -35,7 +28,6 @@ import { cn } from "@/lib/utils";
 import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
 import { StickyNote } from "../molecules/sticky-note";
-import styles from "./private-notes-toolbar.module.css";
 
 export type PrivateNotesToolbarProps = {
   rollbackRevision?: number;
@@ -121,9 +113,6 @@ export function PrivateNotesToolbar({
   onDragStart,
 }: PrivateNotesToolbarProps) {
   const isWorkspace = presentation === "workspace";
-  const isCompactWorkspace =
-    isWorkspace && workspaceCollapsible && !workspaceExpanded;
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const displayedExpanded = workspaceCollapsible
     ? workspaceExpanded
@@ -152,77 +141,6 @@ export function PrivateNotesToolbar({
   const previousNoteTopsRef = useRef(new Map<string, number>());
   const noteAnimationsRef = useRef(new Map<HTMLElement, Animation>());
   const noteOrderKey = JSON.stringify(notes.map((note) => note.id));
-
-  const handleEditingChange = useCallback(
-    (noteId: string, editing: boolean) => {
-      setEditingNoteId((current) =>
-        editing ? noteId : current === noteId ? null : current,
-      );
-    },
-    [],
-  );
-
-  useLayoutEffect(() => {
-    if (!isCompactWorkspace || !editingNoteId) return;
-    const scroll = scrollContainerRef.current;
-    const toolbar = scroll?.closest<HTMLElement>(
-      '[data-testid="private-notes-toolbar"]',
-    );
-    const slot = Array.from(
-      listRef.current?.querySelectorAll<HTMLElement>(
-        "[data-private-note-id]",
-      ) ?? [],
-    ).find((element) => element.dataset.privateNoteId === editingNoteId);
-    if (!scroll || !toolbar || !slot) return;
-    slot.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-    const update = () => {
-      const rect = slot.getBoundingClientRect();
-      const panel = toolbar.getBoundingClientRect();
-      toolbar.style.setProperty(
-        "--private-note-editor-left",
-        `${Math.max(12, Math.min(rect.left, window.innerWidth - NOTE_WIDTH - 12))}px`,
-      );
-      toolbar.style.setProperty(
-        "--private-note-editor-bottom",
-        `${window.innerHeight - panel.top + 12}px`,
-      );
-    };
-    update();
-    window.addEventListener("resize", update);
-    scroll.addEventListener("scroll", update);
-    const observer =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
-    observer?.observe(toolbar);
-    return () => {
-      window.removeEventListener("resize", update);
-      scroll.removeEventListener("scroll", update);
-      observer?.disconnect();
-    };
-  }, [isCompactWorkspace, editingNoteId]);
-
-  useEffect(() => {
-    if (!isCompactWorkspace) return;
-    const scroll = scrollContainerRef.current;
-    if (!scroll) return;
-    const onWheel = (event: WheelEvent) => {
-      if (
-        event.ctrlKey ||
-        event.metaKey ||
-        (event.target instanceof Element &&
-          event.target.closest("[data-editing]"))
-      )
-        return;
-      const delta =
-        Math.abs(event.deltaX) > Math.abs(event.deltaY)
-          ? event.deltaX
-          : event.deltaY;
-      if (!delta) return;
-      event.preventDefault();
-      scroll.scrollLeft += delta;
-    };
-    scroll.addEventListener("wheel", onWheel, { passive: false });
-    return () => scroll.removeEventListener("wheel", onWheel);
-  }, [isCompactWorkspace]);
 
   useLayoutEffect(() => {
     const presentationChanged =
@@ -371,14 +289,7 @@ export function PrivateNotesToolbar({
         "[data-note-id]",
       ) ?? [],
     ).find((element) => element.dataset.noteId === newlyAddedNoteId);
-    const target = isCompactWorkspace
-      ? insertedNote?.closest<HTMLElement>("[data-private-note-id]")
-      : insertedNote;
-    target?.scrollIntoView?.({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "nearest",
-    });
+    insertedNote?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
 
     const animationTimer = window.setTimeout(() => {
       setNewlyAddedNoteId((currentId) =>
@@ -386,7 +297,7 @@ export function PrivateNotesToolbar({
       );
     }, 200);
     return () => window.clearTimeout(animationTimer);
-  }, [newlyAddedNoteId, isCompactWorkspace]);
+  }, [newlyAddedNoteId]);
 
   useEffect(() => {
     if (expandRequest > 0 && !workspaceCollapsible) setIsExpanded(true);
@@ -417,12 +328,9 @@ export function PrivateNotesToolbar({
     const note = Array.from(
       listRef.current?.querySelectorAll<HTMLElement>("[data-note-id]") ?? [],
     ).find((element) => element.dataset.noteId === noteId);
-    const target = isCompactWorkspace
-      ? note?.closest<HTMLElement>("[data-private-note-id]")
-      : note;
     if (!workspaceExpanded || editor)
-      target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-  }, [workspaceCollapsible, workspaceExpanded, notes, isCompactWorkspace]);
+      note?.scrollIntoView?.({ block: "nearest" });
+  }, [workspaceCollapsible, workspaceExpanded, notes]);
 
   useEffect(() => {
     if (addRequest <= 0 || addRequest === lastAddRequestRef.current) return;
@@ -521,13 +429,9 @@ export function PrivateNotesToolbar({
           : isExpanded
             ? "h-[min(48rem,calc(100vh-6rem))] w-[min(15rem,calc(100vw-1.5rem))]"
             : "h-14 w-fit",
-        workspaceCollapsible && styles.workspace,
         className,
       )}
       data-testid="private-notes-toolbar"
-      data-compact={
-        workspaceCollapsible ? String(isCompactWorkspace) : undefined
-      }
       data-presentation={presentation}
       data-expanded={String(displayedExpanded)}
       data-return-drop-target={isReturnDropTarget || undefined}
@@ -546,11 +450,7 @@ export function PrivateNotesToolbar({
           data-testid="private-notes-scroll"
           onClick={(e) => {
             const target = e.target as HTMLElement;
-            if (
-              !target.closest(
-                "[data-testid='note-card'], [data-private-note-id]",
-              )
-            ) {
+            if (!target.closest("[data-testid='note-card']")) {
               onSelect(null);
             }
           }}
@@ -578,7 +478,7 @@ export function PrivateNotesToolbar({
                 Macは⌘＋Enter、Windows等はCtrl＋Enter）
               </p>
             </div>
-          ) : !workspaceCollapsible ? (
+          ) : (
             <p
               className={cn(
                 "text-xs text-muted-foreground",
@@ -587,7 +487,7 @@ export function PrivateNotesToolbar({
             >
               自分だけに見える付箋エリア
             </p>
-          ) : null}
+          )}
           {!isWorkspace && sharingHint ? (
             <p role="status" className="mb-3 text-xs text-muted-foreground">
               {sharingHint}
@@ -625,10 +525,7 @@ export function PrivateNotesToolbar({
                   workspaceCollapsible ? "新しい付箋を追加" : "付箋を追加"
                 }
                 onClick={handleAdd}
-                className={cn(
-                  "flex h-[150px] w-[200px] flex-col items-center justify-center gap-3 rounded-lg border-2 border-primary/50 border-dashed bg-muted/50 font-medium text-foreground hover:border-primary/75 hover:bg-muted active:bg-muted/80",
-                  styles.addCard,
-                )}
+                className="flex h-[150px] w-[200px] flex-col items-center justify-center gap-3 rounded-lg border-2 border-primary/50 border-dashed bg-muted/50 font-medium text-foreground hover:border-primary/75 hover:bg-muted active:bg-muted/80"
                 style={{ width: NOTE_WIDTH, height: NOTE_HEIGHT }}
               >
                 <Plus aria-hidden="true" className="size-6" />
@@ -656,113 +553,77 @@ export function PrivateNotesToolbar({
                   </StickyNote>
                 ))
               : null}
-            {notes.map((note) => (
-              <ViewTransition
-                key={`${note.id}:${rollbackRevision}`}
-                name={`private-note-${note.id}`}
-                default="none"
-                share="private-note-morph"
-                update="private-note-morph"
-              >
-                <div className={styles.noteSlot} data-private-note-id={note.id}>
-                  {dropPlaceholder?.noteId === note.id ? (
-                    <div
-                      data-testid="private-note-placeholder"
-                      data-note-id={note.id}
-                      aria-hidden="true"
-                      className="animate-in w-48 shrink-0 rounded-lg border-2 border-primary/50 border-dashed bg-primary/5 fade-in duration-150"
-                      style={{
-                        height: getNoteHeight(note.content, note.fontSize),
-                      }}
-                    />
-                  ) : (
-                    <NoteCard
-                      note={note}
-                      isOwnDrag={false}
-                      isSelected={selectedNoteId === note.id}
-                      disabled={disabled}
-                      editingDisabled={editingDisabled}
-                      canDeleteNote={canDeleteNote}
-                      canEditNote={canEditNote}
-                      canMoveNote={canMoveNote}
-                      onSelect={onSelect}
-                      onDragStart={onDragStart}
-                      onContentChange={(id, content) => {
-                        lastEditedNoteIdRef.current = id;
-                        onContentChange(id, content);
-                      }}
-                      draftValue={draftValue?.(note.id)}
-                      onDraftChange={(id, content) => {
-                        lastEditedNoteIdRef.current = id;
-                        onDraftChange?.(id, content);
-                      }}
-                      onDraftCompositionStart={onDraftCompositionStart}
-                      onDraftCompositionEnd={onDraftCompositionEnd}
-                      onDelete={(id) => {
-                        pendingDeleteFocusRef.current = {
-                          id,
-                          index: notes.findIndex((note) => note.id === id),
-                          surface: document.activeElement,
-                        };
-                        onDelete(id);
-                      }}
-                      // 一覧では保存座標を使わず、縮小中の編集位置はCSSで決める。
-                      style={isCompactWorkspace ? {} : { left: 0, top: 0 }}
-                      vote={{
-                        displayMode: "hidden",
-                        selectedKind: null,
-                        voteRemaining: { subjective: 0, objective: 0 },
-                        canVote: false,
-                        pendingOperations: [],
-                        onVote: () => {},
-                        onVoteRemove: () => {},
-                      }}
-                      onEditingChange={handleEditingChange}
-                      autoFocusEditor={autoFocusNoteId === note.id}
-                      onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
-                      className={cn(
-                        "relative",
-                        styles.noteCard,
-                        isWorkspace && "w-[200px]",
-                        newlyAddedNoteId === note.id &&
-                          "animate-in fade-in slide-in-from-bottom-2 duration-200",
-                      )}
-                    />
-                  )}
-                  {workspaceCollapsible &&
-                  canEditNote &&
-                  !editingDisabled &&
-                  dropPlaceholder?.noteId !== note.id ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      disabled={disabled}
-                      aria-label={
-                        editingNoteId === note.id
-                          ? "付箋の編集を終了"
-                          : "付箋を編集"
-                      }
-                      className={styles.editAction}
-                      onClick={(event) => {
-                        if (editingNoteId === note.id) {
-                          event.currentTarget.focus();
-                          return;
-                        }
-                        onSelect(note.id);
-                        setAutoFocusNoteId(note.id);
-                      }}
-                    >
-                      {editingNoteId === note.id ? (
-                        <Check aria-hidden="true" />
-                      ) : (
-                        <Pencil aria-hidden="true" />
-                      )}
-                    </Button>
-                  ) : null}
-                </div>
-              </ViewTransition>
-            ))}
+            {notes.map((note) =>
+              dropPlaceholder?.noteId === note.id ? (
+                <div
+                  key={note.id}
+                  data-testid="private-note-placeholder"
+                  data-note-id={note.id}
+                  aria-hidden="true"
+                  className="animate-in w-48 shrink-0 rounded-lg border-2 border-primary/50 border-dashed bg-primary/5 fade-in duration-150"
+                  style={{ height: getNoteHeight(note.content, note.fontSize) }}
+                />
+              ) : (
+                <ViewTransition
+                  key={`${note.id}:${rollbackRevision}`}
+                  name={`private-note-${note.id}`}
+                  default="none"
+                  share="private-note-morph"
+                  update="private-note-morph"
+                >
+                  <NoteCard
+                    note={note}
+                    isOwnDrag={false}
+                    isSelected={selectedNoteId === note.id}
+                    disabled={disabled}
+                    editingDisabled={editingDisabled}
+                    canDeleteNote={canDeleteNote}
+                    canEditNote={canEditNote}
+                    canMoveNote={canMoveNote}
+                    onSelect={onSelect}
+                    onDragStart={onDragStart}
+                    onContentChange={(id, content) => {
+                      lastEditedNoteIdRef.current = id;
+                      onContentChange(id, content);
+                    }}
+                    draftValue={draftValue?.(note.id)}
+                    onDraftChange={(id, content) => {
+                      lastEditedNoteIdRef.current = id;
+                      onDraftChange?.(id, content);
+                    }}
+                    onDraftCompositionStart={onDraftCompositionStart}
+                    onDraftCompositionEnd={onDraftCompositionEnd}
+                    onDelete={(id) => {
+                      pendingDeleteFocusRef.current = {
+                        id,
+                        index: notes.findIndex((note) => note.id === id),
+                        surface: document.activeElement,
+                      };
+                      onDelete(id);
+                    }}
+                    // 付箋の x/y はホワイトボード上の座標なので、一覧内では常に原点に置く。
+                    style={{ left: 0, top: 0 }}
+                    vote={{
+                      displayMode: "hidden",
+                      selectedKind: null,
+                      voteRemaining: { subjective: 0, objective: 0 },
+                      canVote: false,
+                      pendingOperations: [],
+                      onVote: () => {},
+                      onVoteRemove: () => {},
+                    }}
+                    autoFocusEditor={autoFocusNoteId === note.id}
+                    onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
+                    className={cn(
+                      "relative",
+                      isWorkspace && "w-[200px]",
+                      newlyAddedNoteId === note.id &&
+                        "animate-in fade-in slide-in-from-bottom-2 duration-200",
+                    )}
+                  />
+                </ViewTransition>
+              ),
+            )}
           </div>
         </section>
       </CardContent>
@@ -779,23 +640,17 @@ export function PrivateNotesToolbar({
             className="flex w-full items-center justify-between gap-2"
             data-testid="private-notes-controls"
           >
-            <div className="min-w-0" data-testid="private-notes-heading">
+            <div className="min-w-0">
               <CardTitle className="whitespace-nowrap text-sm">
                 マイ付箋
                 {workspaceCollapsible ? (
-                  <span
-                    className="ml-3 font-normal text-muted-foreground"
-                    data-private-notes-description
-                  >
+                  <span className="ml-3 font-normal text-muted-foreground">
                     自分だけに表示
                   </span>
                 ) : null}
               </CardTitle>
             </div>
-            <div
-              className="flex w-fit shrink-0 items-center gap-2"
-              data-testid="private-notes-actions"
-            >
+            <div className="flex w-fit shrink-0 items-center gap-2">
               <TooltipProvider delayDuration={500}>
                 <Tooltip>
                   <TooltipTrigger asChild>

@@ -91,7 +91,6 @@ export type NoteCardProps = {
   style?: React.CSSProperties;
   autoFocusEditor?: boolean;
   onAutoFocusEditorComplete?: () => void;
-  onEditingChange?: (noteId: string, editing: boolean) => void;
 };
 
 type PointerOrigin = {
@@ -253,7 +252,6 @@ export function NoteCard({
   style,
   autoFocusEditor = false,
   onAutoFocusEditorComplete,
-  onEditingChange,
 }: NoteCardProps) {
   const [localContent, setLocalContent] = useState(draftValue ?? note.content);
   const [isEditing, setIsEditing] = useState(false);
@@ -623,10 +621,6 @@ export function NoteCard({
     vote.voteRemaining[vote.selectedKind] > 0
       ? vote.selectedKind
       : null;
-
-  useLayoutEffect(() => {
-    onEditingChange?.(note.id, isEditing);
-  }, [note.id, isEditing, onEditingChange]);
 
   // 状態に応じてフォーカスを移す。サーフェスにフォーカスがないと
   // Backspace削除などのキー操作を受け取れない。

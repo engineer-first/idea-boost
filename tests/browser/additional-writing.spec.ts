@@ -50,7 +50,7 @@ for (const story of [
   "additional-writing-idea",
 ]) {
   for (const height of [720, 560]) {
-    test(`${story}: 1280×${height}でパネルの横幅を保ち、付箋を横一列に縮小表示して開閉できる`, async () => {
+    test(`${story}: 1280×${height}でパネルだけが開閉し、付箋とボードの寸法を維持する`, async () => {
       await open(story, height);
       const toolbar = page.getByTestId("private-notes-toolbar");
       await expect
@@ -59,24 +59,9 @@ for (const story of [
       const panel = await toolbar.boundingBox();
       const board = await page.getByTestId("board-scroller").boundingBox();
       if (!panel || !board) throw new Error("ボードとパネルを計測できません");
-      expect(panel.height).toBeLessThanOrEqual(100);
-      expect(panel.height).toBeGreaterThanOrEqual(90);
-      const heading = await page
-        .getByTestId("private-notes-heading")
-        .boundingBox();
-      const actions = await page
-        .getByTestId("private-notes-actions")
-        .boundingBox();
-      expect(
-        heading &&
-          heading.y >= panel.y &&
-          heading.y + heading.height <= panel.y + panel.height,
-      ).toBe(true);
-      expect(
-        actions &&
-          actions.y >= panel.y &&
-          actions.y + actions.height <= panel.y + panel.height,
-      ).toBe(true);
+      expect(panel.height).toBeLessThanOrEqual(260);
+      expect(panel.height).toBeGreaterThanOrEqual(140);
+      if (height === 560) expect(panel.height).toBeLessThanOrEqual(240);
       expect(height - panel.y - panel.height).toBeGreaterThanOrEqual(8);
       expect(height - panel.y - panel.height).toBeLessThanOrEqual(20);
       const tools = await page.getByTestId("board-tools-hud").boundingBox();
@@ -84,14 +69,7 @@ for (const story of [
       expect(board.width).toBeGreaterThan(1000);
       const note = toolbar.locator('[data-testid="note-card"]').last();
       const noteBefore = await note.boundingBox();
-      expect(noteBefore?.width).toBeCloseTo(88, 0);
-      expect(noteBefore?.height).toBeCloseTo(66, 0);
-      const rowTops = await toolbar
-        .locator("[data-private-note-id]")
-        .evaluateAll((cards) =>
-          cards.map((card) => Math.round(card.getBoundingClientRect().top)),
-        );
-      expect(new Set(rowTops).size).toBe(1);
+      expect(noteBefore?.width).toBe(200);
       const before = await viewTransform();
       await page
         .getByRole("button", { name: "マイ付箋を展開", exact: true })
@@ -103,8 +81,7 @@ for (const story of [
         board,
       );
       expect(await viewTransform()).toBe(before);
-      expect((await note.boundingBox())?.width).toBe(200);
-      expect((await toolbar.boundingBox())?.width).toBe(panel.width);
+      expect((await note.boundingBox())?.width).toBe(noteBefore?.width);
       const expandedPanel = await toolbar.boundingBox();
       expect(
         expandedPanel && height - expandedPanel.y - expandedPanel.height <= 20,
@@ -134,19 +111,6 @@ test("縮小中の追加・IME変換と選択範囲を保ち、パネルのホ�
     .click();
   const editor = toolbar.locator("textarea:not([readonly])");
   await editor.waitFor();
-  await expect
-    .poll(async () =>
-      Math.round(
-        (await editor.locator("..").locator("..").boundingBox())?.width ?? 0,
-      ),
-    )
-    .toBe(200);
-  const panel = await toolbar.boundingBox();
-  const inputCard = await editor.locator("..").locator("..").boundingBox();
-  expect(
-    panel && inputCard && inputCard.y + inputCard.height <= panel.y - 6,
-  ).toBe(true);
-  expect(inputCard?.width).toBe(200);
   expect(await toolbar.getAttribute("data-expanded")).toBe("false");
   expect(
     await editor.evaluate((element) => document.activeElement === element),
@@ -178,91 +142,6 @@ test("縮小中の追加・IME変換と選択範囲を保ち、パネルのホ�
   expect(await toolbar.getAttribute("data-expanded")).toBe("false");
 });
 
-test("横一列の付箋をホイールで送ってもボードを動かさず、右端の付箋を画面内で編集できる", async () => {
-  await open("additional-writing");
-  const toolbar = page.getByTestId("private-notes-toolbar");
-  const scroll = page.getByTestId("private-notes-scroll");
-  await scroll.evaluate((element) => {
-    element.scrollLeft = 0;
-  });
-  const camera = await viewTransform();
-  await scroll.hover();
-  await page.mouse.wheel(0, 500);
-  await expect
-    .poll(() => scroll.evaluate((element) => element.scrollLeft))
-    .toBeGreaterThan(0);
-  expect(await viewTransform()).toBe(camera);
-  const last = toolbar.locator("[data-private-note-id]").last();
-  await last.getByRole("button", { name: "付箋を編集", exact: true }).click();
-  const editor = last.locator("textarea:not([readonly])");
-  await editor.waitFor();
-  await editor.fill("右端からでも読みやすい大きさで入力する");
-  const bounds = await editor.boundingBox();
-  expect(bounds && bounds.x >= 8 && bounds.x + bounds.width <= 1272).toBe(true);
-  await page.screenshot({
-    path: "test-results/board-layout/additional-writing-editing.png",
-  });
-  const finish = last.getByRole("button", {
-    name: "付箋の編集を終了",
-    exact: true,
-  });
-  const finishBounds = await finish.boundingBox();
-  const cardBounds = await last.getByTestId("note-card").boundingBox();
-  expect(
-    finishBounds &&
-      cardBounds &&
-      finishBounds.x >= cardBounds.x &&
-      finishBounds.y >= cardBounds.y &&
-      finishBounds.x + finishBounds.width <= cardBounds.x + cardBounds.width &&
-      finishBounds.y + finishBounds.height <= cardBounds.y + cardBounds.height,
-  ).toBe(true);
-  await finish.click();
-  await expect
-    .poll(() => last.locator("textarea").getAttribute("readonly"))
-    .toBe("");
-  expect(
-    (await last.getByTestId("note-card").boundingBox())?.width,
-  ).toBeCloseTo(88, 0);
-  expect(await toolbar.getAttribute("data-expanded")).toBe("false");
-});
-
-test("長文の小さい付箋を開くと通常の文字サイズで全文をスクロールできる", async () => {
-  await open("additional-writing-long-text", 560);
-  const toolbar = page.getByTestId("private-notes-toolbar");
-  const note = toolbar.getByTestId("note-card").first();
-  expect((await note.boundingBox())?.height).toBeCloseTo(66, 0);
-  await toolbar
-    .getByRole("button", { name: "付箋を編集", exact: true })
-    .first()
-    .click();
-  const editor = note.locator("textarea:not([readonly])");
-  await editor.waitFor();
-  expect(
-    await editor.evaluate((element) => getComputedStyle(element).fontSize),
-  ).toBe("16px");
-  expect(
-    await editor.evaluate(
-      (element) => element.scrollHeight > element.clientHeight,
-    ),
-  ).toBe(true);
-  await editor.evaluate((element) => {
-    element.scrollTop = 0;
-  });
-  const before = await page
-    .getByTestId("private-notes-scroll")
-    .evaluate((element) => element.scrollLeft);
-  await editor.hover();
-  await page.mouse.wheel(0, 400);
-  await expect
-    .poll(() => editor.evaluate((element) => element.scrollTop))
-    .toBeGreaterThan(0);
-  expect(
-    await page
-      .getByTestId("private-notes-scroll")
-      .evaluate((element) => element.scrollLeft),
-  ).toBe(before);
-});
-
 test("最後に編集した未共有付箋を表示し、共有付箋の全文を開いたまま入力できる", async () => {
   await open("additional-writing");
   const scroll = page.getByTestId("private-notes-scroll");
@@ -271,9 +150,7 @@ test("最後に編集した未共有付箋を表示し、共有付箋の全文�
     .poll(async () => {
       const a = await lastEdited.boundingBox();
       const b = await scroll.boundingBox();
-      return Boolean(
-        a && b && a.x >= b.x - 1 && a.x + a.width <= b.x + b.width + 1,
-      );
+      return Boolean(a && b && a.y >= b.y - 1 && a.y < b.y + b.height);
     })
     .toBe(true);
   const shared = page
@@ -439,8 +316,13 @@ test("全画面で下の行を編集中に縮小しても、その付箋を入�
   await expect
     .poll(async () => {
       const a = await editor.boundingBox();
-      const b = await page.getByTestId("private-notes-toolbar").boundingBox();
-      return Boolean(a && b && a.y >= 80 && a.y + a.height <= b.y - 6);
+      const b = await page.getByTestId("private-notes-scroll").boundingBox();
+      return Boolean(
+        a &&
+          b &&
+          a.y >= b.y - 1 &&
+          a.y + Math.min(a.height, 100) <= b.y + b.height + 1,
+      );
     })
     .toBe(true);
   expect(

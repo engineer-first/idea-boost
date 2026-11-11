@@ -470,7 +470,7 @@ describe("PrivateNotesToolbar", () => {
     expect(placeholder).toHaveAttribute("data-note-id", "returning");
     expect(placeholder).toHaveClass("animate-in", "fade-in", "duration-150");
     expect(
-      Array.from(list.querySelectorAll("[data-note-id]")).map((child) =>
+      Array.from(list.children).map((child) =>
         child.getAttribute("data-note-id"),
       ),
     ).toEqual(["before", "returning", "after"]);
@@ -719,12 +719,10 @@ describe("PrivateNotesToolbar", () => {
     ).toEqual(["前の付箋", ""]);
     expect(textboxes[1]).not.toHaveAttribute("readonly");
     expect(textboxes[1]).toHaveFocus();
-    expect(scrollIntoView).toHaveBeenCalledWith(
-      expect.objectContaining({
-        behavior: "smooth",
-        block: "nearest",
-      }),
-    );
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "nearest",
+    });
     expect(screen.getAllByTestId("note-card")[1]).toHaveClass(
       "animate-in",
       "fade-in",
@@ -1268,35 +1266,6 @@ describe("追加執筆のマイ付箋", () => {
     fireEvent.click(screen.getByRole("button", { name: "新しい付箋を追加" }));
     expect(screen.getByTestId("private-notes-scroll")).toBeVisible();
   });
-  it("縮小した付箋の編集ボタンから入力し、全画面にせず本文を保存できる", () => {
-    const options = props();
-    function Example() {
-      const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-      return (
-        <PrivateNotesToolbar
-          {...options}
-          selectedNoteId={selectedNoteId}
-          onSelect={setSelectedNoteId}
-        />
-      );
-    }
-    render(<Example />);
-    fireEvent.click(screen.getByRole("button", { name: "付箋を編集" }));
-    const editor = screen.getByRole("textbox");
-    expect(editor).not.toHaveAttribute("readonly");
-    expect(editor).toHaveFocus();
-    fireEvent.change(editor, {
-      target: { value: "小さい付箋から考えを書き足す" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "付箋の編集を終了" }));
-    expect(options.onContentChange).toHaveBeenCalledWith(
-      "draft",
-      "小さい付箋から考えを書き足す",
-    );
-    expect(editor).toHaveAttribute("readonly");
-    expect(options.onWorkspaceExpandedChange).not.toHaveBeenCalled();
-  });
-
   it("展開で入力要素を作り直さず、選択範囲と変換中の本文を保つ", () => {
     const options = props();
     const view = render(
