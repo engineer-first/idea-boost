@@ -368,12 +368,30 @@ it("新しいルームを用意できなければ、参加中のルームから�
   const first = await (
     await previewWorker.fetch(request({ checkpoint: "1-1" }, cookie), config())
   ).json<{ roomId: string }>();
+  // 作成受付の設定を一時的に読めなくし、新しいルームの予約を失敗させる。
+  const policy = await env.DB.prepare(
+    "SELECT * FROM room_creation_policy WHERE id=1",
+  ).first<Record<string, number>>();
   await env.DB.prepare("DELETE FROM room_creation_policy").run();
-  const failed = await previewWorker.fetch(
-    request({ checkpoint: "2-1" }, cookie),
-    config(),
-  );
-  expect(failed.status).toBe(503);
+  let status: number;
+  try {
+    status = (
+      await previewWorker.fetch(
+        request({ checkpoint: "2-1" }, cookie),
+        config(),
+      )
+    ).status;
+  } finally {
+    if (policy) {
+      const columns = Object.keys(policy);
+      await env.DB.prepare(
+        `INSERT INTO room_creation_policy(${columns.join(",")}) VALUES(${columns.map(() => "?").join(",")})`,
+      )
+        .bind(...Object.values(policy))
+        .run();
+    }
+  }
+  expect(status).toBe(503);
   const old = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
   expect(await old.isMember(owner.sub)).toBe(true);
 });
