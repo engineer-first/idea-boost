@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
   Link,
   RefreshCw,
   ShieldCheck,
@@ -26,7 +27,7 @@ import { SharedOutcomeBoard } from "./shared-outcome-board";
 import {
   formatOutcomeTime,
   PHASE_LABELS,
-  SAVE_STATUS_LABELS,
+  SAVE_FAILED_LABEL,
 } from "./shared-outcomes-content";
 import { SharedOutcomesFilters } from "./shared-outcomes-filters";
 import {
@@ -281,15 +282,10 @@ export function SharedOutcomesView({
                               )}
                               {outcome.status === "confirmed" ? "確定" : "途中"}
                             </span>
-                            {outcome.saveStatus !== "pending" && (
-                              <span
-                                className={
-                                  outcome.saveStatus === "saved"
-                                    ? "text-muted-foreground"
-                                    : "font-medium text-danger-text"
-                                }
-                              >
-                                {SAVE_STATUS_LABELS[outcome.saveStatus]}
+                            {outcome.saveStatus === "failed" && (
+                              <span className="inline-flex items-center gap-1 font-medium text-danger-text">
+                                <CircleAlert className="size-3.5" aria-hidden />
+                                {SAVE_FAILED_LABEL}
                               </span>
                             )}
                           </div>
@@ -525,8 +521,7 @@ function OutcomeMetadata({ outcome }: { outcome: SharedOutcomeSummary }) {
         <dt className="text-muted-foreground">記録</dt>
         <dd>
           {outcome.status === "confirmed" ? "確定" : "途中"}
-          {outcome.saveStatus !== "pending" &&
-            ` · ${SAVE_STATUS_LABELS[outcome.saveStatus]}`}
+          {outcome.saveStatus === "failed" && ` · ${SAVE_FAILED_LABEL}`}
         </dd>
       </div>
       <div className="min-w-0 space-y-1">

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildProgressHistoryRecord } from "@/contracts/progress-history.fixture";
 import { buildSharedOutcome } from "@/contracts/shared-outcomes.fixture";
 import { SharedOutcomes } from "./shared-outcomes";
+import { DEFAULT_OUTCOME_FILTERS } from "./shared-outcomes-query";
 import { SharedOutcomesView } from "./shared-outcomes-view";
 
 const viewProps = {
@@ -64,6 +65,32 @@ describe("共有成果閲覧", () => {
     );
     expect(screen.queryByText(/反映待ち|反映を待って/)).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+  it("保存できている成果は一覧でも詳細でも保存の状態を出さない", () => {
+    const saved = buildSharedOutcome({ saveStatus: "saved" });
+    const { rerender } = render(
+      <SharedOutcomesView {...viewProps} outcomes={[saved]} detail={null} />,
+    );
+    expect(
+      screen.getByRole("link", { name: /相談ルーム/ }),
+    ).not.toHaveTextContent("保存済み");
+    rerender(
+      <SharedOutcomesView {...viewProps} outcomes={[]} detail={saved} />,
+    );
+    expect(screen.queryByText(/保存済み/)).not.toBeInTheDocument();
+  });
+  it("絞り込みに保存状態の欄を出さない", () => {
+    render(
+      <SharedOutcomesView
+        {...viewProps}
+        outcomes={[buildSharedOutcome()]}
+        detail={null}
+        filters={DEFAULT_OUTCOME_FILTERS}
+        onSearch={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("記録")).toBeInTheDocument();
+    expect(screen.queryByLabelText("保存状態")).not.toBeInTheDocument();
   });
   it("保存失敗は一覧と詳細で失敗だけを短く伝え、再試行の仕組みは説明しない", () => {
     const failed = buildSharedOutcome({ saveStatus: "failed" });

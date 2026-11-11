@@ -262,7 +262,7 @@ describe("本人の完了ルーム", () => {
       ),
     );
     expect(screen.getByText(/記録を保存できず/)).toBeInTheDocument();
-    expect(screen.queryByText(/反映を待っています/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/まだ表示できません/)).not.toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledTimes(3);
   });
   it("本人権限を失った場面の再取得では前回本文を残さない", async () => {
@@ -282,7 +282,7 @@ describe("本人の完了ルーム", () => {
     render(<CompletedRoomDetail roomId={roomId} />);
     await screen.findByText("採用の全文");
     fireEvent.click(screen.getByRole("button", { name: "検討の経緯を見る" }));
-    await screen.findByText(/反映を待っています/);
+    await screen.findByText(/まだ表示できません/);
     fireEvent.click(screen.getByRole("button", { name: "場面を再取得" }));
     await screen.findByRole("alert");
     await waitFor(() =>
@@ -326,7 +326,7 @@ it("反映待ちから同じ場面を再取得して正常な0枚を表示する
   render(<CompletedRoomDetail roomId={roomId} />);
   await screen.findByText("採用の全文");
   fireEvent.click(screen.getByRole("button", { name: "検討の経緯を見る" }));
-  await screen.findByText(/反映を待っています/);
+  await screen.findByText(/まだ表示できません/);
   fireEvent.click(screen.getByRole("button", { name: "場面を再取得" }));
   await screen.findByText("その場面の共有付箋は0枚です。");
   expect(fetcher.mock.calls[1][0]).toBe(fetcher.mock.calls[2][0]);

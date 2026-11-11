@@ -10,8 +10,8 @@ const handlers = {
   onRetry: vi.fn(),
 };
 it.each([
-  ["pending", "閲覧への反映を待っています。"],
-  ["failed", "保全した同じ記録を自動で再試行しています。"],
+  ["pending", "この盤面はまだ表示できません。"],
+  ["failed", "保存に失敗しました。"],
   ["missing", "盤面を保存できませんでした。"],
 ] as const)(
   "%s の記録を別時点の盤面で補わず説明する",
@@ -70,4 +70,41 @@ it("正常な空盤面と不明な時刻を表示し、アイデアの記録は�
       { name: "アイデア" },
     ),
   ).toHaveAttribute("aria-selected", "true");
+});
+
+it("保存済み・反映待ちの記録には保存の状態を出さず、失敗だけを「保存失敗」で示す", () => {
+  const saved = buildProgressHistoryRecord({
+    id: "123e4567-e89b-42d3-a456-426614174021",
+    sequence: 1,
+  });
+  const pending = buildProgressHistoryRecord({
+    id: "123e4567-e89b-42d3-a456-426614174022",
+    sequence: 2,
+    saveStatus: "pending",
+  });
+  const failed = buildProgressHistoryRecord({
+    id: "123e4567-e89b-42d3-a456-426614174023",
+    sequence: 3,
+    saveStatus: "failed",
+  });
+  render(
+    <ProgressHistoryView
+      {...handlers}
+      entries={[saved, pending, failed]}
+      selected={saved}
+      record={saved}
+      nextCursor={null}
+      loading={false}
+      error={null}
+      recordLoading={false}
+      recordError={null}
+    />,
+  );
+  const items = screen.getAllByRole("listitem");
+  expect(items[0]).not.toHaveTextContent(/保存済み|反映/);
+  expect(items[1]).not.toHaveTextContent(/保存済み|反映/);
+  expect(items[2]).toHaveTextContent("保存失敗");
+  expect(
+    screen.queryByText(/閲覧への反映|保存済み|反映待ち/),
+  ).not.toBeInTheDocument();
 });
