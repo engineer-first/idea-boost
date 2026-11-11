@@ -56,3 +56,21 @@ it("準備中に重ねて作成せず、成功したルームへ移動する", a
     ),
   );
 });
+it("作成を断られた理由をそのまま案内する", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue(
+        Response.json(
+          { error: "別のルームへの移動を処理しています。" },
+          { status: 409 },
+        ),
+      ),
+  );
+  render(<PreviewConsole />);
+  fireEvent.click(screen.getByRole("button", { name: /2-1/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "別のルームへの移動を処理しています。",
+  );
+});

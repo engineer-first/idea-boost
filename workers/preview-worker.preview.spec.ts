@@ -226,7 +226,7 @@ it("別人のWSへ未共有サンプルを送らず、参加者の新規付箋�
   a.ws.close();
   rejoined.ws.close();
 });
-it("同じ本人のサンプル切替は以前を閲覧専用にして活動中の参加を1つにする", async () => {
+it("同じ本人のサンプル切替は以前のサンプルから退出し、活動中の参加を1つにする", async () => {
   const cookie = await sessionCookieFor(owner);
   const first = await (
     await previewWorker.fetch(request({ checkpoint: "1-1" }, cookie), config())
@@ -236,11 +236,39 @@ it("同じ本人のサンプル切替は以前を閲覧専用にして活動中�
   ).json<{ roomId: string }>();
   const old = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
   const current = env.ROOM_DO.get(env.ROOM_DO.idFromName(second.roomId));
+  expect(await old.isMember(owner.sub)).toBe(false);
   expect(await old.isJoinable()).toBe(false);
   expect(await current.isJoinable()).toBe(true);
-  expect(await old.isMember(owner.sub)).toBe(true);
+  expect(await current.isMember(owner.sub)).toBe(true);
 });
-it("通常ルームに参加中のサンプル作成は勝手に退出・終了させず拒否する", async () => {
+it("2人目が参加したサンプルからでも、自分だけ退出して別のステップを作る", async () => {
+  const ownerCookie = await sessionCookieFor(owner);
+  const first = await (
+    await previewWorker.fetch(
+      request({ checkpoint: "2-1" }, ownerCookie),
+      config(),
+    )
+  ).json<{ roomId: string; inviteCode: string }>();
+  const joined = await previewWorker.fetch(
+    new Request("https://preview.test/api/rooms/join", {
+      method: "POST",
+      headers: { Cookie: await sessionCookieFor(member) },
+      body: JSON.stringify({ code: first.inviteCode }),
+    }),
+    config(),
+  );
+  expect(joined.ok).toBe(true);
+  const next = await previewWorker.fetch(
+    request({ checkpoint: "3-1" }, ownerCookie),
+    config(),
+  );
+  expect(next.status).toBe(201);
+  const old = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
+  expect(await old.isMember(owner.sub)).toBe(false);
+  expect(await old.isMember(member.sub)).toBe(true);
+  expect(await old.isJoinable()).toBe(true);
+});
+it("通常ルームに参加中でも、そのルームから退出してサンプルを作る", async () => {
   const { issueCreationId } = await import("../contracts/room-creation");
   const cookie = await sessionCookieFor(owner);
   const response = await previewWorker.fetch(
@@ -263,10 +291,109 @@ it("通常ルームに参加中のサンプル作成は勝手に退出・終了�
         config(),
       )
     ).status,
-  ).toBe(409);
+  ).toBe(201);
   const source = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
-  expect(await source.isMember(owner.sub)).toBe(true);
-  expect(await source.isJoinable()).toBe(true);
+  expect(await source.isMember(owner.sub)).toBe(false);
+});
+async function leaveStuckSample(roomId: string, checkpoint = "1-1") {
+  const { reserveRoomCreation } = await import("./lib/room-creation");
+  const { ensureUser } = await import("./lib/db");
+  const { issueCreationId } = await import("../contracts/room-creation");
+  await ensureUser(env.DB, { id: owner.sub, email: owner.email });
+  const creation =
+    roomId === "reserve"
+      ? await reserveRoomCreation(
+          env.DB,
+          owner.sub,
+          issueCreationId().requestId,
+        )
+      : { room_id: roomId };
+  const stuck = crypto.randomUUID();
+  await runInDurableObject(
+    env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(owner.sub)),
+    async (_instance, state) => {
+      await state.storage.put({
+        "preview-sample-pending": { id: stuck, checkpoint, creation },
+        active: stuck,
+      });
+    },
+  );
+  return creation.room_id;
+}
+const roomRow = (roomId: string) =>
+  env.DB.prepare("SELECT id FROM rooms WHERE id=?").bind(roomId).first();
+it("途中で止まった準備が残っていても、予約を片付けて別のステップとホームからの作成を続けられる", async () => {
+  const { issueCreationId } = await import("../contracts/room-creation");
+  const cookie = await sessionCookieFor(owner);
+  // 以前の準備がサンプル初期化の前に止まった状態（DOの再起動・公開の切替など）。
+  const reserved = await leaveStuckSample("reserve");
+  expect(await roomRow(reserved)).not.toBeNull();
+  const sample = await previewWorker.fetch(
+    request({ checkpoint: "2-1" }, cookie),
+    config(),
+  );
+  expect(sample.status).toBe(201);
+  expect(await roomRow(reserved)).toBeNull();
+  const home = await previewWorker.fetch(
+    new Request("https://preview.test/api/rooms", {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        expectedPrincipal: owner.sub,
+        requestId: issueCreationId().requestId,
+      }),
+    }),
+    config(),
+  );
+  expect(home.status).toBe(200);
+});
+it("公開まで終わった準備の印が残っていても、そのルームは削除しない", async () => {
+  const cookie = await sessionCookieFor(owner);
+  const published = await (
+    await previewWorker.fetch(request({ checkpoint: "1-1" }, cookie), config())
+  ).json<{ roomId: string }>();
+  await leaveStuckSample(published.roomId);
+  expect(
+    (
+      await previewWorker.fetch(
+        request({ checkpoint: "2-1" }, cookie),
+        config(),
+      )
+    ).status,
+  ).toBe(201);
+  expect(await roomRow(published.roomId)).not.toBeNull();
+});
+it("新しいルームを用意できなければ、参加中のルームから退出しない", async () => {
+  const cookie = await sessionCookieFor(owner);
+  const first = await (
+    await previewWorker.fetch(request({ checkpoint: "1-1" }, cookie), config())
+  ).json<{ roomId: string }>();
+  // 作成受付の設定を一時的に読めなくし、新しいルームの予約を失敗させる。
+  const policy = await env.DB.prepare(
+    "SELECT * FROM room_creation_policy WHERE id=1",
+  ).first<Record<string, number>>();
+  await env.DB.prepare("DELETE FROM room_creation_policy").run();
+  let status: number;
+  try {
+    status = (
+      await previewWorker.fetch(
+        request({ checkpoint: "2-1" }, cookie),
+        config(),
+      )
+    ).status;
+  } finally {
+    if (policy) {
+      const columns = Object.keys(policy);
+      await env.DB.prepare(
+        `INSERT INTO room_creation_policy(${columns.join(",")}) VALUES(${columns.map(() => "?").join(",")})`,
+      )
+        .bind(...Object.values(policy))
+        .run();
+    }
+  }
+  expect(status).toBe(503);
+  const old = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
+  expect(await old.isMember(owner.sub)).toBe(true);
 });
 
 it.each(["セッション", "ログイン主張"])(

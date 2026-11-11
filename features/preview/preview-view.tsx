@@ -18,7 +18,7 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
         <header className="space-y-3">
           <h1 className="text-3xl font-bold">確認するステップを選ぶ</h1>
           <p className="max-w-2xl text-muted-foreground">
-            ステップを選ぶと、サンプル入りルームを作ります。ボードの「招待」からURLを渡すと、メンバーも同じPRの同じルームで操作できます。
+            ステップを選ぶと、サンプル入りルームを作ります。選び直すと新しいルームを作り、前のルームからは退出します。ボードの「招待」からURLを渡すと、メンバーも同じPRの同じルームで操作できます。
           </p>
           <a
             href="/home"
@@ -83,7 +83,7 @@ export function PreviewView({ pending, error, onCreate }: PreviewViewProps) {
           </div>
         </section>
         <p className="max-w-2xl text-base text-muted-foreground">
-          参加者のマイ付箋は空から始まります。各自で付箋を追加できます。選び直すと別のルームを作り、開いているルームは切り替わりません。
+          参加者のマイ付箋は空から始まります。各自で付箋を追加できます。
         </p>
       </div>
     </main>
