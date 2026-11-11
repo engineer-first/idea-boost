@@ -101,7 +101,6 @@ export type RoomBoardHeaderProps = {
   // ハイドレーション対策込みの「操作を止めるべきか」。判定は view の責務。
   isDisconnected: boolean;
   connectionStatus: RoomScreenConnectionStatus;
-  connectionDelayed?: boolean;
   members: Member[];
   currentUserId: string;
   completedVoterIds?: ReadonlyArray<string>;
@@ -159,7 +158,6 @@ export function RoomBoardHeader({
   timerUpdateVersion = 0,
   isDisconnected,
   connectionStatus,
-  connectionDelayed = false,
   members,
   currentUserId,
   completedVoterIds = [],
@@ -1262,7 +1260,6 @@ export function RoomBoardHeader({
               <RoomConnectionNotice
                 returnHref={loginReturnHref}
                 status={connectionStatus}
-                delayed={connectionDelayed}
                 testId="board-connection-status"
                 className="board-hud pointer-events-auto w-max max-w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-muted-foreground max-[639px]:w-full"
               />

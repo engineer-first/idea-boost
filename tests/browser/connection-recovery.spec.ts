@@ -26,7 +26,7 @@ afterAll(async () => {
 
 for (const width of [390, 1440]) {
   for (const terminal of [
-    { story: "auth-required", label: "再読み込みして続ける", href: null },
+    { story: "auth-required", label: "再読み込み", href: null },
     { story: "unavailable", label: "ホームへ戻る", href: "/home" },
   ]) {
     test(`停止後も文章をコピーでき、${terminal.label}へ到達できる (${width}px)`, async () => {
@@ -176,11 +176,11 @@ test("390pxで復旧通知を閉じると通常の付箋操作に戻れる", asy
 });
 
 for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
-  for (const variant of ["delayed", "reconnecting"] as const) {
+  for (const variant of ["layout", "view"] as const) {
     test(`接続待ちの案内は進行操作を覆わず、メニューへ到達できる (${width}px / ${variant})`, async () => {
       await page.setViewportSize({ width, height: 844 });
       await page.goto(
-        `${origin}/iframe.html?id=${variant === "delayed" ? "room-roomboardlayout--delayed-connection" : "room-roomboardview--reconnecting"}&viewMode=story&args=connectionDelayed:true`,
+        `${origin}/iframe.html?id=${variant === "layout" ? "room-roomboardlayout--reconnecting" : "room-roomboardview--reconnecting"}&viewMode=story`,
       );
       const notice = page.getByTestId("board-connection-status");
       await notice.waitFor();
@@ -206,13 +206,11 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
         }
         return lines;
       });
-      expect(textVisibility.length).toBeGreaterThanOrEqual(3);
+      expect(textVisibility.length).toBeGreaterThanOrEqual(1);
       expect(textVisibility, "案内の各行が表示される").toEqual(
         textVisibility.map((line) => ({ ...line, visible: true })),
       );
-      expect(await notice.innerText()).toContain(
-        "この画面を開いたままお待ちください",
-      );
+      expect(await notice.innerText()).toContain("再接続中");
       const noticeBox = await notice.boundingBox();
       const controlsBox = await page
         .getByTestId("board-control-hud")

@@ -2783,7 +2783,7 @@ describe("RoomBoardView", () => {
       setup({ connectionStatus: "connecting" });
 
       expect(screen.getByTestId("board-connection-status")).toHaveTextContent(
-        "接続しています",
+        "接続中",
       );
     });
 

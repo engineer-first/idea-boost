@@ -31,7 +31,6 @@ export type RoomLobbyViewProps = {
   inviteUrl: string;
   // 接続状態は Container 側で生成し、ここでは表示するだけ。
   connectionStatus: RoomScreenConnectionStatus;
-  connectionDelayed?: boolean;
   // 開始ボタンが処理中のとき true（多重押下防止）。Container が setTimeout などで
   // 制御する想定。
   isStarting: boolean;
@@ -54,7 +53,6 @@ export function RoomLobbyView({
   inviteCode,
   inviteUrl,
   connectionStatus,
-  connectionDelayed = false,
   isStarting,
   onStart,
   onLeave,
@@ -121,21 +119,17 @@ export function RoomLobbyView({
           </span>
         </header>
 
-        {/* 短い接続待ちは知らせず、10秒続いたときと接続を止めたときだけ出す。 */}
         <div className={styles.connectionSlot}>
-          {connectionDelayed || isConnectionStopped ? (
-            <RoomConnectionNotice
-              returnHref={loginReturnHref}
-              status={connectionStatus}
-              delayed={connectionDelayed}
-              className={
-                isConnectionStopped
-                  ? `${styles.connection} ${styles.connectionError}`
-                  : styles.connection
-              }
-              testId="lobby-connection-status"
-            />
-          ) : null}
+          <RoomConnectionNotice
+            returnHref={loginReturnHref}
+            status={connectionStatus}
+            className={
+              isConnectionStopped
+                ? `${styles.connection} ${styles.connectionError}`
+                : styles.connection
+            }
+            testId="lobby-connection-status"
+          />
         </div>
 
         <section

@@ -1339,7 +1339,7 @@ describe("RoomBoardHeader", () => {
   describe("接続状態の表示（loading / error / success）", () => {
     it("接続確立中は接続中の表示を出す", () => {
       setup({ connectionStatus: "connecting" });
-      expect(screen.getByRole("status")).toHaveTextContent("接続しています");
+      expect(screen.getByRole("status")).toHaveTextContent("接続中");
     });
 
     it("切断中は再接続中の表示を出す", () => {

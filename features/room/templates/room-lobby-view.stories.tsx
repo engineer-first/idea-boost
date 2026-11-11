@@ -86,12 +86,12 @@ export const Starting: Story = {
 };
 
 export const Connecting: Story = {
-  name: "接続中（短い待ちは案内を出さない）",
+  name: "接続中",
   args: { connectionStatus: "connecting" },
 };
 
 export const Reconnecting: Story = {
-  name: "再接続中（短い待ちは案内を出さない）",
+  name: "再接続中",
   args: { connectionStatus: "closed" },
 };
 
@@ -162,10 +162,6 @@ export const AllInteractionStates: Story = {
   },
 };
 
-export const DelayedConnection: Story = {
-  args: { connectionStatus: "closed", connectionDelayed: true },
-};
-
 export const Connected: Story = { args: { connectionStatus: "open" } };
 
 export const AuthRequired: Story = {
@@ -174,14 +170,6 @@ export const AuthRequired: Story = {
 
 export const Unavailable: Story = {
   args: { connectionStatus: "unavailable" },
-};
-
-export const DelayedConnecting: Story = {
-  args: { connectionStatus: "connecting", connectionDelayed: true },
-};
-
-export const DelayedReconnecting: Story = {
-  args: { connectionStatus: "reconnecting", connectionDelayed: true },
 };
 
 export const UnnamedRoom: Story = {

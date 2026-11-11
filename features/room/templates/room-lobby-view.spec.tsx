@@ -75,34 +75,14 @@ describe("RoomLobbyView", () => {
     expect(screen.getByTestId("start-phase-button")).toBeDisabled();
   });
 
-  it.each(["connecting", "reconnecting", "closed"] as const)(
-    "connectionDelayed が false の %s では接続の案内を出さない",
-    (connectionStatus) => {
-      renderView({ connectionStatus });
-      expect(
-        screen.queryByTestId("lobby-connection-status"),
-      ).not.toBeInTheDocument();
-    },
-  );
-
   it.each([
-    ["connecting", "接続に時間がかかっています"],
-    ["closed", "接続が戻っていません"],
-  ] as const)(
-    "connectionDelayed が true の %s では接続の案内を出す",
-    (connectionStatus, message) => {
-      renderView({ connectionStatus, connectionDelayed: true });
-      expect(screen.getByTestId("lobby-connection-status")).toHaveTextContent(
-        message,
-      );
-    },
-  );
-
-  it.each([
-    ["auth-required", "接続を止めました"],
+    ["connecting", "接続中"],
+    ["reconnecting", "再接続中"],
+    ["closed", "再接続中"],
+    ["auth-required", "接続が切れました"],
     ["unavailable", "このルームは利用できません"],
   ] as const)(
-    "connectionDelayed が false でも %s では接続の案内を出す",
+    "%s になるとすぐに接続の状態を出す",
     (connectionStatus, message) => {
       renderView({ connectionStatus });
       expect(screen.getByTestId("lobby-connection-status")).toHaveTextContent(
@@ -110,6 +90,13 @@ describe("RoomLobbyView", () => {
       );
     },
   );
+
+  it("open では接続の状態を出さない", () => {
+    renderView({ connectionStatus: "open" });
+    expect(
+      screen.queryByTestId("lobby-connection-status"),
+    ).not.toBeInTheDocument();
+  });
 
   it("メンバー数を見出しに出す", () => {
     renderView({ members: buildMembers(4, ME) });
