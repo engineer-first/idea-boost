@@ -11,17 +11,19 @@ import { PreviewView } from "./preview-view";
 // ステップ選択から開くルーム用のタブ名。同じ名前で開くと既存のタブを再利用する。
 const ROOM_TAB = "idea-boost-preview-room";
 
+// 同じoriginの空のタブか。別のページへ移った場合は読めないか、空でなくなる。
+function isBlank(tab: Window): boolean {
+  try {
+    return !tab.closed && tab.location.href === "about:blank";
+  } catch {
+    return false;
+  }
+}
+
 // クリック直後（ポップアップ許可の範囲内）に開く。既存のタブは作成完了まで今のルームを表示し続ける。
 function openRoomTab(): { tab: Window; fresh: boolean } | null {
   const tab = window.open("", ROOM_TAB);
-  if (!tab) return null;
-  let fresh = false;
-  try {
-    fresh = tab.location.href === "about:blank";
-  } catch {
-    // 読めない場合は既存のタブとして扱い、閉じない。
-  }
-  return { tab, fresh };
+  return tab ? { tab, fresh: isBlank(tab) } : null;
 }
 
 const CREATION_ERROR =
@@ -54,14 +56,15 @@ export function PreviewConsole() {
         throw new Error(message);
       }
       const path = `/rooms/${parsed.data.roomId}`;
-      if (opened) {
+      if (opened && !opened.tab.closed) {
         opened.tab.location.href = path;
         opened.tab.focus();
         busy.current = false;
         setPending(false);
       } else router.push(path);
     } catch {
-      if (opened?.fresh) opened.tab.close();
+      // このクリックで開いた空のタブだけ閉じる。準備中に使われ始めたタブは残す。
+      if (opened?.fresh && isBlank(opened.tab)) opened.tab.close();
       setError(message);
       busy.current = false;
       setPending(false);
