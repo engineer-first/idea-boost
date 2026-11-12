@@ -60,7 +60,7 @@ PRのPreviewは、レビュー担当者がローカル起動せず、そのPRの
 
 ローカルの`owner`と`member`の代わりに、自分の2つのGoogleアカウントを使います。
 
-1. 使う2つのアドレスを、Cloudflare AccessのAllow policyと`PREVIEW_ALLOWED_EMAILS`の両方へ追加します。設定場所は「今使うGitHub設定」を参照してください。
+1. 使う2つのアドレスを、Cloudflare AccessのAllow policyと`PREVIEW_ALLOWED_EMAILS`の両方へ追加します。画面付きの手順は[Previewにメンバーを追加する](https://engineer-first.github.io/idea-boost/preview-members/)を参照してください。メールアドレス一覧の正本はチームのDiscordに置き、公開ページやリポジトリには書きません。
 2. 通常のウィンドウで1つ目のアカウント、シークレットウィンドウで2つ目のアカウントにログインして、同じPRのPreviewを開きます。Accessのログインはブラウザごとなので、2つのウィンドウは別の参加者になります。
 3. 一方でルームを作り、ルームの「招待」のURLをもう一方のウィンドウで開きます。
 4. どちらかのウィンドウで`/preview`のステップを選ぶと、2人が入ったまま同じルームがそのステップに切り替わります。2-1から3-1へ進めるときも、選び直すだけで済みます。
