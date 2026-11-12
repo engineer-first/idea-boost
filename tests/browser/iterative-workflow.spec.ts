@@ -319,6 +319,7 @@ test("最終採用済みは全員へ成果を示しループ操作を消す", as
     0,
   );
   const complete = page.getByRole("button", { name: "テキストを保存" });
+  await complete.scrollIntoViewIfNeeded();
   await expectReadable(complete);
   expect(
     await page
