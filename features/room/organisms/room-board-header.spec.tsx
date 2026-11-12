@@ -700,7 +700,7 @@ describe("RoomBoardHeader", () => {
 
     if (label === "3-2") {
       expect(screen.queryByRole("dialog")).toBeNull();
-      expect(screen.queryByRole("button", { name: "進め方" })).toBeNull();
+      expect(screen.getByRole("button", { name: "進め方" })).toBeVisible();
     } else {
       expect(screen.getByRole("dialog")).toBeVisible();
     }

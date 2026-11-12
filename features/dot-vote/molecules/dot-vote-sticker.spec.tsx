@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DotVoteSticker } from "./dot-vote-sticker";
 
 describe("DotVoteSticker", () => {
-  it("自分の客観シールは票数を示し、1票取り消せる", () => {
+  it("自分の「需要ありそう」シールは票数を示し、1票取り消せる", () => {
     const onRemove = vi.fn();
     render(
       <DotVoteSticker
@@ -15,7 +15,7 @@ describe("DotVoteSticker", () => {
     );
 
     const sticker = screen.getByRole("button", {
-      name: "客観シール 2票を1票取り消す",
+      name: "「需要ありそう」シール 2票を1票取り消す",
     });
     const image = within(sticker).getByTestId(
       "dot-vote-sticker-image-objective",
@@ -34,10 +34,9 @@ describe("DotVoteSticker", () => {
   it("プレビューは操作対象にせず、票を貼る位置として示す", () => {
     render(<DotVoteSticker kind="subjective" count={1} state="preview" />);
 
-    expect(screen.getByLabelText("主観シールを貼る位置")).toHaveAttribute(
-      "data-state",
-      "preview",
-    );
+    expect(
+      screen.getByLabelText("「イチオシ！」シールを貼る位置"),
+    ).toHaveAttribute("data-state", "preview");
   });
 
   it.each([1, 12])(
@@ -46,7 +45,7 @@ describe("DotVoteSticker", () => {
       render(<DotVoteSticker kind="subjective" count={count} state="result" />);
 
       const result = screen.getByRole("img", {
-        name: `主観シール ${count}票`,
+        name: `「イチオシ！」シール ${count}票`,
       });
       expect(
         within(result).queryAllByTestId("dot-vote-sticker-image-subjective"),
@@ -62,7 +61,7 @@ describe("DotVoteSticker", () => {
     render(<DotVoteSticker kind="subjective" count={0} state="result" />);
 
     expect(
-      screen.queryByRole("img", { name: "主観シール 0票" }),
+      screen.queryByRole("img", { name: "「イチオシ！」シール 0票" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByTestId("dot-vote-result-count-subjective"),
@@ -72,7 +71,9 @@ describe("DotVoteSticker", () => {
   it("結果シールは22pxを維持し、票数との間を15px空ける", () => {
     render(<DotVoteSticker kind="objective" count={2} state="result" />);
 
-    const result = screen.getByRole("img", { name: "客観シール 2票" });
+    const result = screen.getByRole("img", {
+      name: "「需要ありそう」シール 2票",
+    });
     for (const sticker of within(result).getAllByTestId(
       "dot-vote-sticker-image-objective",
     )) {
@@ -102,7 +103,9 @@ describe("DotVoteSticker", () => {
     );
 
     fireEvent.pointerDown(
-      screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
+      screen.getByRole("button", {
+        name: "「需要ありそう」シール 1票を1票取り消す",
+      }),
       { pointerId: 7, clientX: 20, clientY: 30 },
     );
 
@@ -124,7 +127,7 @@ describe("DotVoteSticker", () => {
     );
 
     const sticker = screen.getByRole("button", {
-      name: "客観シール 1票を1票取り消す",
+      name: "「需要ありそう」シール 1票を1票取り消す",
     });
     fireEvent.pointerDown(sticker, {
       pointerId: 8,

@@ -328,7 +328,9 @@ it.each([375, 1280])(
         true,
       );
       expect(
-        await list.getByText("主観 2票 / 客観 3票 / 合計 5票").isVisible(),
+        await list
+          .getByText("イチオシ！ 2票 / 需要ありそう 3票 / 合計 5票")
+          .isVisible(),
       ).toBe(true);
       expect(await list.getByText(/配置 \(/).count()).toBe(0);
       expect(

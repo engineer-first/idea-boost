@@ -570,8 +570,8 @@ test.each([
 );
 
 test.each([
-  { label: "主観", kind: "subjective", remaining: 1 },
-  { label: "客観", kind: "objective", remaining: 3 },
+  { label: "「イチオシ！」", kind: "subjective", remaining: 1 },
+  { label: "「需要ありそう」", kind: "objective", remaining: 3 },
 ])(
   "3-4の固定マップで$label票を貼り付け・取り消しできる",
   async ({ label, kind, remaining }) => {

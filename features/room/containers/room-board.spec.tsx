@@ -585,7 +585,9 @@ describe("問いの投票中の付箋移動", () => {
         .at(-1);
     }
     drag(
-      within(palette).getByRole("button", { name: "客観シール 残り3票" }),
+      within(palette).getByRole("button", {
+        name: "「需要ありそう」シール 残り3票",
+      }),
       150,
       175,
     );
@@ -615,7 +617,7 @@ describe("問いの投票中の付箋移動", () => {
     dropTarget = cards[1];
     drag(
       within(cards[0]).getByRole("button", {
-        name: "客観シール 1票を1票取り消す",
+        name: "「需要ありそう」シール 1票を1票取り消す",
       }),
       450,
       175,
@@ -645,7 +647,7 @@ describe("問いの投票中の付箋移動", () => {
     dropTarget = palette;
     drag(
       within(cards[1]).getByRole("button", {
-        name: "客観シール 1票を1票取り消す",
+        name: "「需要ありそう」シール 1票を1票取り消す",
       }),
       320,
       700,
@@ -677,7 +679,7 @@ describe("問いの投票中の付箋移動", () => {
       { phase: buildPhaseStep(3, 2), moveProtocolVersion: 1 },
     );
     const palette = screen.getByRole("button", {
-      name: "客観シール 残り3票",
+      name: "「需要ありそう」シール 残り3票",
     });
     const surface = screen.getByRole("button", { name: "付箋" });
     const viewport = screen.getByTestId("board-scroller");
@@ -963,7 +965,10 @@ function dropPaletteSticker(kind: "subjective" | "objective"): void {
     configurable: true,
     value: () => note,
   });
-  const label = kind === "subjective" ? /主観シール 残り/ : /客観シール 残り/;
+  const label =
+    kind === "subjective"
+      ? /「イチオシ！」シール 残り/
+      : /「需要ありそう」シール 残り/;
   fireEvent.pointerDown(screen.getByRole("button", { name: label }), {
     pointerId: 8,
     clientX: 320,
@@ -2843,7 +2848,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     expect(screen.getByRole("button", { name: "付箋を追加" })).toBeEnabled();
   });
 
-  it("主観シールを付箋へドロップすると、操作IDつき座標投票が送信される", () => {
+  it("「イチオシ！」シールを付箋へドロップすると、操作IDつき座標投票が送信される", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
@@ -2863,7 +2868,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
   });
 
-  it("客観シールを付箋へドロップすると、操作IDつき座標投票が送信される", () => {
+  it("「需要ありそう」シールを付箋へドロップすると、操作IDつき座標投票が送信される", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
@@ -2883,7 +2888,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
   });
 
-  it("客観ドットはサーバー応答前でも残数までしか送信しない", () => {
+  it("「需要ありそう」シールはサーバー応答前でも残数までしか送信しない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
@@ -2898,11 +2903,11 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       ),
     ).toHaveLength(3);
     expect(
-      screen.getByRole("button", { name: "客観シール 残り0票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り0票" }),
     ).toBeDisabled();
   });
 
-  it("客観シール更新のサーバー反映で、保留中の自分の主観シールを外さない", () => {
+  it("「需要ありそう」シール更新のサーバー反映で、保留中の自分の「イチオシ！」シールを外さない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
@@ -2922,13 +2927,12 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       }),
     );
 
-    expect(screen.getByRole("img", { name: "主観シール 1票" })).toHaveAttribute(
-      "data-state",
-      "pending",
-    );
+    expect(
+      screen.getByRole("img", { name: "「イチオシ！」シール 1票" }),
+    ).toHaveAttribute("data-state", "pending");
   });
 
-  it("自分の客観シールを1票取り消すと note:vote-remove が送信される", () => {
+  it("自分の「需要ありそう」シールを1票取り消すと note:vote-remove が送信される", () => {
     const { socket } = connectWithSnapshot(
       [
         protocolNote({
@@ -2944,7 +2948,9 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "客観シール 2票を1票取り消す" }),
+      screen.getByRole("button", {
+        name: "「需要ありそう」シール 2票を1票取り消す",
+      }),
     );
 
     expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual(
@@ -2974,7 +2980,9 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
+      screen.getByRole("button", {
+        name: "「需要ありそう」シール 1票を1票取り消す",
+      }),
     );
 
     expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual(
@@ -3002,7 +3010,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       { phase: buildPhaseStep(4) },
     );
     const sticker = screen.getByRole("button", {
-      name: "客観シール 1票を1票取り消す",
+      name: "「需要ありそう」シール 1票を1票取り消す",
     });
     const palette = screen.getByRole("region", { name: "投票パレット" });
     const root = screen.getByTestId("room-board-view-root");
@@ -3037,7 +3045,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       }),
     );
     expect(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
     ).toBeEnabled();
 
     act(() =>
@@ -3055,10 +3063,12 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
 
     expect(
-      screen.queryByRole("button", { name: "客観シール 1票を1票取り消す" }),
+      screen.queryByRole("button", {
+        name: "「需要ありそう」シール 1票を1票取り消す",
+      }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
     ).toBeEnabled();
   });
 
@@ -3103,7 +3113,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "客観シール 1票を1票取り消す",
+        name: "「需要ありそう」シール 1票を1票取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
@@ -3140,7 +3150,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const operationId = JSON.parse(socket.sent.at(-1) ?? "{}").operationId;
 
     expect(
-      screen.getByRole("img", { name: "主観シール 1票" }),
+      screen.getByRole("img", { name: "「イチオシ！」シール 1票" }),
     ).toBeInTheDocument();
 
     act(() =>
@@ -3153,10 +3163,10 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
 
     expect(
-      screen.queryByRole("img", { name: "主観シール 1票" }),
+      screen.queryByRole("img", { name: "「イチオシ！」シール 1票" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "主観シール 残り1票" }),
+      screen.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
     ).toBeEnabled();
     expect(
       screen

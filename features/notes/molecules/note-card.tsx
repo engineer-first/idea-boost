@@ -23,6 +23,7 @@ import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import {
   type DotVoteRemaining,
   DotVoteSticker,
+  dotVoteStickerName,
   type VoteDisplayMode,
 } from "@/features/dot-vote";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
@@ -1232,7 +1233,7 @@ export function NoteCard({
               ? note.excluded
                 ? "候補外の付箋"
                 : "付箋"
-              : `付箋（${selectedStampKind === "subjective" ? "主観" : "客観"}シールを貼る）`
+              : `付箋（${dotVoteStickerName(selectedStampKind)}を貼る）`
           }
           aria-pressed={isSelected}
           aria-disabled={disabled || undefined}

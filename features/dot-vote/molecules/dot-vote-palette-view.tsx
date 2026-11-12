@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import {
-  DOT_VOTE_CRITERIA,
   DOT_VOTE_GUIDANCE,
   DOT_VOTE_LABELS,
   type DotVoteFeedback,
@@ -120,7 +119,7 @@ export function DotVotePaletteView({
               }
               size="sm"
               variant="outline"
-              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed min-h-20 ${isExhausted ? "border-dashed" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
+              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "border-dashed" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
                 isSelected ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
@@ -153,11 +152,6 @@ export function DotVotePaletteView({
                   </span>
                 )}
               </span>
-              {!isExhausted ? (
-                <span className="whitespace-normal text-left text-xs font-semibold leading-snug">
-                  {DOT_VOTE_CRITERIA[kind]}
-                </span>
-              ) : null}
               <span id={`${paletteId}-${kind}-state`} className="sr-only">
                 {stateLabel}
               </span>

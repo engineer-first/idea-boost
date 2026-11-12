@@ -136,7 +136,7 @@ it.each([390, 1280])(
       );
       const palette = page.getByRole("region", { name: "投票パレット" });
       const objective = palette.getByRole("button", {
-        name: "客観シール 残り1票",
+        name: "「需要ありそう」シール 残り1票",
       });
       await objective.waitFor();
       await expect.poll(() => objective.isEnabled()).toBe(true);

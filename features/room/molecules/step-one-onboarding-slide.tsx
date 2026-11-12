@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  getStepGuideReferenceSlides,
   getStepGuideSlides,
   type StepGuideSlide,
 } from "../logic/step-guide-copy";
@@ -267,7 +268,8 @@ export function StepOneOnboardingSlide({
   const pendingSlideIndexRef = useRef(0);
   const activeVisitRef = useRef<string | null>(null);
   const wasOpenRef = useRef(false);
-  const slides = getStepGuideSlides(phaseKey);
+  // 「進め方」から開ける案内。自動で開くかどうかは getStepGuideSlides で決める。
+  const slides = getStepGuideReferenceSlides(phaseKey);
   const slide = slides[slideIndex] ?? slides[0];
   const previewSlide = slideTransition
     ? slides[pendingSlideIndexRef.current]

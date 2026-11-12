@@ -91,7 +91,7 @@ test("OSが暗色設定でも20色のボードをライト表示し通常付箋�
 
 test("OSが暗色設定でも投票パレットの色を切り替えない", async () => {
   await openStory("dotvote-dotvotepalette--ready");
-  const subjective = page.getByRole("button", { name: /主観シール/ });
+  const subjective = page.getByRole("button", { name: /「イチオシ！」シール/ });
   await subjective.waitFor();
   const darkStyles = await subjective.evaluate((element) => ({
     background: getComputedStyle(element).backgroundColor,

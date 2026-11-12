@@ -3,7 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useRef } from "react";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { DotVoteKind } from "@/contracts/room-protocol";
-import { DOT_VOTE_LABELS } from "../logic/dot-vote";
+import { dotVoteStickerName } from "../logic/dot-vote";
 
 export type DotVoteStickerState =
   | "preview"
@@ -44,7 +44,7 @@ const DOT_VOTE_SHAPE = {
 type DotVoteStickerImageSize = "default" | "result";
 
 function stickerLabel(kind: DotVoteKind, count: number): string {
-  return `${DOT_VOTE_LABELS[kind]}シール ${count}票`;
+  return `${dotVoteStickerName(kind)} ${count}票`;
 }
 
 function displayCount(count: number): string {
@@ -214,9 +214,7 @@ export function DotVoteSticker({
     <span
       role="img"
       data-state={state}
-      aria-label={
-        isPreview ? `${DOT_VOTE_LABELS[kind]}シールを貼る位置` : label
-      }
+      aria-label={isPreview ? `${dotVoteStickerName(kind)}を貼る位置` : label}
       className={`inline-flex ${DOT_VOTE_SHAPE[kind]} ${
         isPreview ? "pointer-events-none opacity-50" : ""
       } ${state === "pending" ? "animate-pulse" : ""}`}

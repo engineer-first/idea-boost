@@ -13,7 +13,7 @@ function paletteRegion(): HTMLElement {
 }
 
 describe("DotVotePalette", () => {
-  it("票種と残数を投票基準のヒントとともに表示し、操作手順は画面に出さない", () => {
+  it("票種と残数を表示し、投票基準と操作手順はパレットに出さない", () => {
     render(
       <DotVotePalette
         voteRemaining={{ subjective: 1, objective: 2 }}
@@ -28,22 +28,19 @@ describe("DotVotePalette", () => {
 
     const palette = screen.getByRole("region", { name: "投票パレット" });
     const subjective = screen.getByRole("button", {
-      name: "主観シール 残り1票",
+      name: "「イチオシ！」シール 残り1票",
     });
     const objective = screen.getByRole("button", {
-      name: "客観シール 残り2票",
+      name: "「需要ありそう」シール 残り2票",
     });
 
-    expect(within(subjective).getByText("主観")).toBeVisible();
+    expect(within(subjective).getByText("イチオシ！")).toBeVisible();
     expect(within(subjective).getByText("残り1票")).toBeVisible();
-    expect(
-      within(subjective).getByText("主観は「激しく共感する、取り組みたい」。"),
-    ).toBeVisible();
-    expect(within(objective).getByText("客観")).toBeVisible();
+    expect(within(objective).getByText("需要ありそう")).toBeVisible();
     expect(within(objective).getByText("残り2票")).toBeVisible();
-    expect(
-      within(objective).getByText("客観は「自分以外の人にも価値がありそう」。"),
-    ).toBeVisible();
+    expect(visibleText(palette)).not.toMatch(
+      /激しく共感する|自分以外の人にも価値がありそう/,
+    );
     expect(visibleText(palette)).not.toMatch(/シールを選ぶ|付箋へ貼る/);
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
     expect(
@@ -70,7 +67,7 @@ describe("DotVotePalette", () => {
     {
       label: "通常",
       props: { voteRemaining: { subjective: 1, objective: 2 } },
-      name: "主観シール 残り1票",
+      name: "「イチオシ！」シール 残り1票",
       hidden: "選んで貼る",
     },
     {
@@ -79,13 +76,13 @@ describe("DotVotePalette", () => {
         voteRemaining: { subjective: 1, objective: 2 },
         selectedKind: "subjective" as const,
       },
-      name: "主観シール 残り1票",
+      name: "「イチオシ！」シール 残り1票",
       hidden: "選択中",
     },
     {
       label: "使い切り",
       props: { voteRemaining: { subjective: 0, objective: 2 } },
-      name: "主観シール 残り0票",
+      name: "「イチオシ！」シール 残り0票",
       hidden: "使い切りました",
     },
   ])(
@@ -146,12 +143,12 @@ describe("DotVotePalette", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "主観シール 残り0票" }),
+      screen.getByRole("button", { name: "「イチオシ！」シール 残り0票" }),
     ).toBeDisabled();
   });
 
   it.each(["subjective", "objective"] as const)(
-    "%sを使い切ってもアイコンを残し、基準のヒントと選択表示を外して追加操作を防ぐ",
+    "%sを使い切ってもアイコンを残し、選択表示を外して追加操作を防ぐ",
     (kind) => {
       const onStickerSelect = vi.fn();
       const onStickerDragStart = vi.fn();
@@ -176,13 +173,9 @@ describe("DotVotePalette", () => {
       expect
         .soft(within(exhausted).queryByTestId(`dot-vote-sticker-icon-${kind}`))
         .toBeVisible();
-      expect
-        .soft(within(exhausted).queryByText(/は「/))
-        .not.toBeInTheDocument();
       expect(
         screen.getByTestId(`dot-vote-sticker-icon-${otherKind}`),
       ).toBeVisible();
-      expect(screen.getAllByText(/は「/).length).toBe(1);
       expect(screen.getByRole("status")).toBeEmptyDOMElement();
       fireEvent.click(exhausted);
       fireEvent.pointerDown(exhausted, { pointerId: 1 });
@@ -231,7 +224,7 @@ describe("DotVotePalette", () => {
     );
   });
 
-  it("主観・客観シールはクリック選択とドラッグ開始の両方を通知する", () => {
+  it("2種類のシールはクリック選択とドラッグ開始の両方を通知する", () => {
     const onStickerDragStart = vi.fn();
     const onStickerSelect = vi.fn();
 
@@ -248,7 +241,7 @@ describe("DotVotePalette", () => {
     );
 
     const sticker = screen.getByRole("button", {
-      name: "客観シール 残り2票",
+      name: "「需要ありそう」シール 残り2票",
     });
     fireEvent.pointerDown(sticker, {
       pointerId: 1,
@@ -283,7 +276,7 @@ describe("DotVotePalette", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "主観シール 残り1票" }),
+      screen.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
@@ -302,10 +295,10 @@ describe("DotVotePalette", () => {
     );
 
     const subjective = screen.getByRole("button", {
-      name: "主観シール 残り0票",
+      name: "「イチオシ！」シール 残り0票",
     });
     const objective = screen.getByRole("button", {
-      name: "客観シール 残り2票",
+      name: "「需要ありそう」シール 残り2票",
     });
 
     expect(subjective).toHaveClass(
@@ -336,7 +329,7 @@ describe("DotVotePalette", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "客観シール 残り2票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り2票" }),
     ).toHaveClass("ring-vote-objective/75", "ring-offset-background");
   });
 
@@ -398,7 +391,7 @@ describe("DotVotePalette", () => {
     );
     expect(screen.getAllByText("使い切りました")).toHaveLength(1);
     const objective = screen.getByRole("button", {
-      name: "客観シール 残り1票",
+      name: "「需要ありそう」シール 残り1票",
     });
     expect(objective).toBeEnabled();
     fireEvent.click(objective);
@@ -449,7 +442,9 @@ describe("DotVotePalette", () => {
       onStickerDragStart: vi.fn(),
     };
     const { rerender } = render(<DotVotePalette {...props} />);
-    const button = screen.getByRole("button", { name: "主観シール 残り1票" });
+    const button = screen.getByRole("button", {
+      name: "「イチオシ！」シール 残り1票",
+    });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(button);
@@ -500,7 +495,7 @@ describe("DotVotePalette", () => {
     };
     const { rerender } = render(<DotVotePalette {...props} />);
     const subjective = screen.getByRole("button", {
-      name: "主観シール 残り0票",
+      name: "「イチオシ！」シール 残り0票",
     });
     expect(within(subjective).getByText("使い切りました")).toBeVisible();
     expect(screen.queryByText("接続待ち")).not.toBeInTheDocument();
@@ -513,7 +508,7 @@ describe("DotVotePalette", () => {
     expect(props.onStickerSelect).not.toHaveBeenCalled();
     expect(props.onStickerDragStart).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
     ).toBeEnabled();
   });
 });
