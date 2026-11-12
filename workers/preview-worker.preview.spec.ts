@@ -151,7 +151,7 @@ it.each(VERIFICATION_CHECKPOINTS.filter((c) => c.id !== "lobby"))(
       request({ checkpoint: id }, cookie),
       config(),
     );
-    expect(((await another.json()) as { roomId: string }).roomId).not.toBe(
+    expect(((await another.json()) as { roomId: string }).roomId).toBe(
       room.roomId,
     );
   },
@@ -226,55 +226,108 @@ it("別人のWSへ未共有サンプルを送らず、参加者の新規付箋�
   a.ws.close();
   rejoined.ws.close();
 });
-it("同じ本人のサンプル切替は以前のサンプルから退出し、活動中の参加を1つにする", async () => {
-  const cookie = await sessionCookieFor(owner);
-  const first = await (
-    await previewWorker.fetch(request({ checkpoint: "1-1" }, cookie), config())
-  ).json<{ roomId: string }>();
-  const second = await (
-    await previewWorker.fetch(request({ checkpoint: "2-1" }, cookie), config())
-  ).json<{ roomId: string }>();
-  const old = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
-  const current = env.ROOM_DO.get(env.ROOM_DO.idFromName(second.roomId));
-  expect(await old.isMember(owner.sub)).toBe(false);
-  expect(await old.isJoinable()).toBe(false);
-  expect(await current.isJoinable()).toBe(true);
-  expect(await current.isMember(owner.sub)).toBe(true);
-});
-it("2人目が参加したサンプルからでも、自分だけ退出して別のステップを作る", async () => {
-  const ownerCookie = await sessionCookieFor(owner);
-  const first = await (
-    await previewWorker.fetch(
-      request({ checkpoint: "2-1" }, ownerCookie),
-      config(),
-    )
-  ).json<{ roomId: string; inviteCode: string }>();
-  const joined = await previewWorker.fetch(
+async function joinRoom(user: typeof owner, code: string) {
+  const res = await previewWorker.fetch(
     new Request("https://preview.test/api/rooms/join", {
       method: "POST",
-      headers: { Cookie: await sessionCookieFor(member) },
-      body: JSON.stringify({ code: first.inviteCode }),
+      headers: { Cookie: await sessionCookieFor(user) },
+      body: JSON.stringify({ code }),
     }),
     config(),
   );
-  expect(joined.ok).toBe(true);
-  const next = await previewWorker.fetch(
-    request({ checkpoint: "3-1" }, ownerCookie),
+  expect(res.ok).toBe(true);
+}
+async function choose(user: typeof owner, checkpoint: string) {
+  const res = await previewWorker.fetch(
+    request({ checkpoint }, await sessionCookieFor(user)),
     config(),
   );
-  expect(next.status).toBe(201);
-  const old = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
-  expect(await old.isMember(owner.sub)).toBe(false);
-  expect(await old.isMember(member.sub)).toBe(true);
-  expect(await old.isJoinable()).toBe(true);
+  expect(res.status).toBe(201);
+  return res.json<{ roomId: string; inviteCode: string }>();
+}
+async function roomState(roomId: string) {
+  return runInDurableObject(
+    env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)),
+    async (instance, state) => ({
+      phase: getPhase(state.storage.sql),
+      members: instance.listMembers().map((m) => m.userId),
+      authors: [
+        ...new Set(
+          [owner.sub, member.sub].flatMap((viewer) =>
+            listNotes(state.storage.sql, viewer)
+              .filter((n) => n.authorId === viewer)
+              .map((n) => n.authorId),
+          ),
+        ),
+      ],
+      contents: listNotes(state.storage.sql, owner.sub).map((n) => n.content),
+    }),
+  );
+}
+it("参加中のルームでステップを選ぶと、同じルームを選んだステップに作り直し、全員にサンプルを配る", async () => {
+  const first = await choose(owner, "2-1");
+  await joinRoom(member, first.inviteCode);
+  await startTimerForTest(first.roomId);
+  const writer = await socketFor(owner, first.roomId);
+  await writer.next();
+  writer.ws.send(
+    JSON.stringify({ type: "note:create", content: "自分で書いた2-1の付箋" }),
+  );
+  let inserted = await writer.next();
+  while (inserted.type !== "note:inserted") inserted = await writer.next();
+  writer.ws.close();
+  expect((await roomState(first.roomId)).contents).toContain(
+    "自分で書いた2-1の付箋",
+  );
+  const next = await choose(owner, "3-1");
+  expect(next.roomId).toBe(first.roomId);
+  const state = await roomState(first.roomId);
+  expect(state.phase).toEqual({ kind: "step", phase: 3, step: 1 });
+  expect(state.members.sort()).toEqual([owner.sub, member.sub].sort());
+  expect(state.authors.sort()).toEqual([owner.sub, member.sub].sort());
+  expect(state.contents).not.toContain("自分で書いた2-1の付箋");
 });
-it("通常ルームに参加中でも、そのルームから退出してサンプルを作る", async () => {
+it("切り替えると参加中の接続を再接続できる形で閉じ、再接続すると新しいステップを受け取る", async () => {
+  const first = await choose(owner, "2-1");
+  await joinRoom(member, first.inviteCode);
+  await startTimerForTest(first.roomId);
+  const watcher = await socketFor(member, first.roomId);
+  await watcher.next();
+  const closed = new Promise<number>((resolve) =>
+    watcher.ws.addEventListener("close", (event) => resolve(event.code)),
+  );
+  await choose(owner, "3-1");
+  const { WS_CLOSE_PREVIEW_RESET } = await import("../contracts/preview");
+  expect(await closed).toBe(WS_CLOSE_PREVIEW_RESET);
+  const again = await socketFor(member, first.roomId);
+  const snapshot = await again.next();
+  expect(snapshot.type).toBe("snapshot");
+  if (snapshot.type === "snapshot") {
+    expect(snapshot.phase).toEqual({ kind: "step", phase: 3, step: 1 });
+    expect(snapshot.notes.some((n) => n.authorId === member.sub)).toBe(true);
+  }
+  again.ws.close();
+});
+it("参加者なら作った人でなくても、ルームのステップを切り替えられる", async () => {
+  const first = await choose(owner, "1-1");
+  await joinRoom(member, first.inviteCode);
+  const next = await choose(member, "2-1");
+  expect(next.roomId).toBe(first.roomId);
+  expect((await roomState(first.roomId)).phase).toEqual({
+    kind: "step",
+    phase: 2,
+    step: 1,
+  });
+});
+it("ホームからゼロで作ったルームも、途中のステップへ飛べる", async () => {
   const { issueCreationId } = await import("../contracts/room-creation");
-  const cookie = await sessionCookieFor(owner);
   const response = await previewWorker.fetch(
     new Request("https://preview.test/api/rooms", {
       method: "POST",
-      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      headers: {
+        Cookie: await sessionCookieFor(owner),
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         expectedPrincipal: owner.sub,
         requestId: issueCreationId().requestId,
@@ -282,18 +335,71 @@ it("通常ルームに参加中でも、そのルームから退出してサン�
     }),
     config(),
   );
-  const active = await response.json<{ roomId: string }>();
-  expect(response.status).toBe(200);
-  expect(
-    (
-      await previewWorker.fetch(
-        request({ checkpoint: "1-1" }, cookie),
-        config(),
-      )
-    ).status,
-  ).toBe(201);
-  const source = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
-  expect(await source.isMember(owner.sub)).toBe(false);
+  const created = await response.json<{ roomId: string; inviteCode: string }>();
+  await joinRoom(member, created.inviteCode);
+  const next = await choose(owner, "2-1");
+  expect(next.roomId).toBe(created.roomId);
+  const state = await roomState(created.roomId);
+  expect(state.phase).toEqual({ kind: "step", phase: 2, step: 1 });
+  expect(state.members.sort()).toEqual([owner.sub, member.sub].sort());
+});
+it("作り直して他の参加者に配った未共有の付箋は、本人以外に届かない", async () => {
+  const first = await choose(owner, "1-1");
+  await joinRoom(member, first.inviteCode);
+  await choose(owner, "2-1");
+  await startTimerForTest(first.roomId);
+  const ownerSocket = await socketFor(owner, first.roomId);
+  const ownerView = await ownerSocket.next();
+  const memberSocket = await socketFor(member, first.roomId);
+  const memberView = await memberSocket.next();
+  if (ownerView.type !== "snapshot" || memberView.type !== "snapshot")
+    throw new Error("snapshotを受け取れませんでした。");
+  const memberPrivate = memberView.notes.filter(
+    (n) => n.authorId === member.sub && n.visibility === "private",
+  );
+  expect(memberPrivate.length).toBeGreaterThan(0);
+  const ownerSees = new Set(ownerView.notes.map((n) => n.id));
+  expect(memberPrivate.filter((n) => ownerSees.has(n.id))).toEqual([]);
+  ownerSocket.ws.close();
+  memberSocket.ws.close();
+});
+it("参加していない人や、終了したルームは作り直さない", async () => {
+  const first = await choose(owner, "2-1");
+  const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
+  type Resettable = {
+    resetToCheckpoint(
+      checkpoint: "3-1",
+      roomId: string,
+      actor: { sub: string; name: string },
+    ): Promise<string>;
+    disband(byUserId?: string, creatorId?: string): Promise<boolean>;
+  };
+  const outsider = await runInDurableObject(stub, (instance) =>
+    (instance as unknown as Resettable).resetToCheckpoint("3-1", first.roomId, {
+      sub: member.sub,
+      name: member.name,
+    }),
+  );
+  expect(outsider).toBe("not-member");
+  expect((await roomState(first.roomId)).phase).toEqual({
+    kind: "step",
+    phase: 2,
+    step: 1,
+  });
+  const closed = await runInDurableObject(stub, async (instance) => {
+    const room = instance as unknown as Resettable;
+    await room.disband(undefined, owner.sub);
+    return room.resetToCheckpoint("3-1", first.roomId, {
+      sub: owner.sub,
+      name: owner.name,
+    });
+  });
+  expect(closed).not.toBe("ok");
+  expect((await roomState(first.roomId)).phase).toEqual({
+    kind: "step",
+    phase: 2,
+    step: 1,
+  });
 });
 async function leaveStuckSample(roomId: string, checkpoint = "1-1") {
   const { reserveRoomCreation } = await import("./lib/room-creation");
@@ -363,39 +469,6 @@ it("公開まで終わった準備の印が残っていても、そのルーム�
   ).toBe(201);
   expect(await roomRow(published.roomId)).not.toBeNull();
 });
-it("新しいルームを用意できなければ、参加中のルームから退出しない", async () => {
-  const cookie = await sessionCookieFor(owner);
-  const first = await (
-    await previewWorker.fetch(request({ checkpoint: "1-1" }, cookie), config())
-  ).json<{ roomId: string }>();
-  // 作成受付の設定を一時的に読めなくし、新しいルームの予約を失敗させる。
-  const policy = await env.DB.prepare(
-    "SELECT * FROM room_creation_policy WHERE id=1",
-  ).first<Record<string, number>>();
-  await env.DB.prepare("DELETE FROM room_creation_policy").run();
-  let status: number;
-  try {
-    status = (
-      await previewWorker.fetch(
-        request({ checkpoint: "2-1" }, cookie),
-        config(),
-      )
-    ).status;
-  } finally {
-    if (policy) {
-      const columns = Object.keys(policy);
-      await env.DB.prepare(
-        `INSERT INTO room_creation_policy(${columns.join(",")}) VALUES(${columns.map(() => "?").join(",")})`,
-      )
-        .bind(...Object.values(policy))
-        .run();
-    }
-  }
-  expect(status).toBe(503);
-  const old = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
-  expect(await old.isMember(owner.sub)).toBe(true);
-});
-
 it.each(["セッション", "ログイン主張"])(
   "署名済みゲストの%sは403で拒否しユーザーを作らない",
   async (kind) => {

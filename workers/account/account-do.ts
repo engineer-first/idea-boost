@@ -293,6 +293,25 @@ export class AccountDO extends DurableObject<Env> {
         };
       try {
         const sources = await this.sources(creator.sub);
+        // 参加中のルームがあれば、同じルームを選んだステップに作り直して全員に反映する。
+        const [current] = sources;
+        if (
+          sources.length === 1 &&
+          current &&
+          (await preview(current.roomId).resetToCheckpoint(
+            checkpoint,
+            current.roomId,
+            creator,
+          )) === "ok"
+        )
+          return {
+            ok: true,
+            room: {
+              roomId: current.roomId,
+              inviteCode: current.inviteCode,
+              checkpoint,
+            },
+          };
         const sample: Sample = {
           id: crypto.randomUUID(),
           checkpoint,

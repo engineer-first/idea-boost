@@ -29,6 +29,10 @@ export type PreviewRoom = z.infer<typeof PreviewRoomSchema>;
 // 作成を断った理由。画面にそのまま案内する。
 export const PreviewRoomErrorSchema = z.object({ error: z.string().min(1) });
 
+// ステップを選び直してルームを作り直したときの切断。クライアントは通常の再接続で新しい状態を受け取る。
+export const WS_CLOSE_PREVIEW_RESET = 4010;
+export const WS_CLOSE_PREVIEW_RESET_REASON = "preview step reset";
+
 export const PreviewAccessClaimsSchema = z.object({
   sub: z.string().min(1),
   email: z.email(),
