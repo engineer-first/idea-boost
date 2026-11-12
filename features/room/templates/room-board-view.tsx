@@ -1530,43 +1530,18 @@ export function RoomBoardView({
         "--board-location-bottom",
         `${Math.ceil(locationBounds?.bottom ?? 68)}px`,
       );
-      const characterWidth =
-        root
-          .querySelector<HTMLElement>('[data-testid="board-character"] button')
-          ?.getBoundingClientRect().width ?? 56;
-      const centralGuide = isDisconnected
-        ? null
-        : root.querySelector<HTMLElement>(
-            '[data-testid="step-one-onboarding-trigger"]',
-          );
-      const guideBounds = centralGuide?.getBoundingClientRect();
+      // 「進め方」は現在地カードの中にあるため、吹き出しは先生の右隣に出す。
       const rem =
         Number.parseFloat(
           getComputedStyle(document.documentElement).fontSize,
         ) || 16;
-      const bubbleLeft =
-        (locationBounds?.right ?? 372) + 12 + characterWidth + 6;
-      const availableBubbleWidth =
-        guideBounds && guideBounds.width > 0
-          ? guideBounds.left - bubbleLeft - 8
-          : 15 * rem;
-      const bubbleBelow = availableBubbleWidth < 10 * rem;
       root.style.setProperty(
         "--board-character-bubble-max-width",
-        `${bubbleBelow ? 15 * rem : Math.min(15 * rem, availableBubbleWidth)}px`,
+        `${15 * rem}px`,
       );
-      root.style.setProperty(
-        "--board-character-bubble-top",
-        bubbleBelow ? "100%" : "0.25rem",
-      );
-      root.style.setProperty(
-        "--board-character-bubble-left",
-        bubbleBelow ? "0px" : "100%",
-      );
-      root.style.setProperty(
-        "--board-character-bubble-gap",
-        bubbleBelow ? "0px" : "0.375rem",
-      );
+      root.style.setProperty("--board-character-bubble-top", "0.25rem");
+      root.style.setProperty("--board-character-bubble-left", "100%");
+      root.style.setProperty("--board-character-bubble-gap", "0.375rem");
       if (isPersonalNoteEntryPhase) {
         const frame = root.querySelector<HTMLElement>(
           '[data-testid="board-frame"]',
@@ -1682,13 +1657,7 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [
-    boardRootRef,
-    phase,
-    isIdeaMapWorkspaceStep,
-    hmwHintNudge.hasBeenShown,
-    isDisconnected,
-  ]);
+  }, [boardRootRef, phase, isIdeaMapWorkspaceStep, hmwHintNudge.hasBeenShown]);
 
   const handleNoteSelect = (
     noteId: string | null,

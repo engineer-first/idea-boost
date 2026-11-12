@@ -133,7 +133,8 @@ export function DotVotePaletteView({
                 onStickerDragStart?.(kind, event);
               }}
             >
-              <span className="flex items-center gap-1.5">
+              {/* 狭い幅では名前と残票が収まらないため、残票を次の行へ送る。 */}
+              <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
                 <span
                   className={
                     isEmpty || disabled ? "opacity-50 grayscale" : undefined

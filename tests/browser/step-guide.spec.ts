@@ -160,7 +160,7 @@ test("通常の動きで次へ押下後も内容を白く消さず、図と説�
     await dialog.getByRole("button", { name: "1枚目に戻る" }).click();
     await page
       .getByRole("dialog", {
-        name: "自分の困りごとを共有し、みんなの困りごとを知ろう。",
+        name: "自分の付箋を共有し、みんなの考えを知ろう。",
       })
       .waitFor();
     expect(await dialog.boundingBox()).toEqual(before);

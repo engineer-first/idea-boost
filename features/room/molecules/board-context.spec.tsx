@@ -483,3 +483,35 @@ it("採用時の本文・文字サイズと集計票を表示し、参照から�
   expect(body).not.toBeVisible();
   expect(body).toHaveAttribute("tabindex", "-1");
 });
+
+it("「進め方」は現在地カードの中、現在地ボタンの外に並べ、カードの高さを増やさない", () => {
+  render(
+    <BoardContext
+      phase={buildPhaseStep(3, 2)}
+      hmwDecidedIssue="決定した課題"
+      decidedHmw={null}
+      guideControl={<button type="button">進め方</button>}
+    />,
+  );
+  const card = screen.getByTestId("board-location-card");
+  const guide = screen.getByRole("button", { name: "進め方" });
+  expect(card).toContainElement(guide);
+  expect(screen.getByTestId("board-location-trigger")).not.toContainElement(
+    guide,
+  );
+});
+
+it("全体の流れを開いている間は「進め方」を出さず、Tabで手順へ進める", () => {
+  render(
+    <BoardContext
+      phase={buildPhaseStep(3, 2)}
+      hmwDecidedIssue="決定した課題"
+      decidedHmw={null}
+      guideControl={<button type="button">進め方</button>}
+    />,
+  );
+  fireEvent.click(screen.getByTestId("board-location-trigger"));
+  expect(
+    screen.queryByRole("button", { name: "進め方" }),
+  ).not.toBeInTheDocument();
+});

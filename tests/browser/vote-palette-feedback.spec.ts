@@ -70,9 +70,8 @@ it.each([390, 1280])(
               .isVisible(),
           ).toBe(true);
         }
-        expect(await palette.getByText(/は「/).count()).toBe(
-          2 - state.exhausted,
-        );
+        // 投票基準の一文はパレットに出さず、ステップガイドで示す。
+        expect(await palette.getByText(/は「/).count()).toBe(0);
         // 画面に出す状態の文言は失敗だけにする。
         expect(await palette.getByRole("status").textContent()).toBe(
           state.story === "rejected" ? "この付箋には投票できません。" : "",

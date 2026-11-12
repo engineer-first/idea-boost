@@ -110,9 +110,23 @@ export const SolutionExample = manualStory("3-1", 1);
 export const EvaluationPurpose = manualStory("3-3");
 export const EvaluationOperation = manualStory("3-3", 1);
 export const UnsupportedStep: Story = {
-  args: { phaseKey: "2-2" },
+  args: { phaseKey: "lobby" },
   play: async () => {
     await expect(screen.queryByRole("button", { name: "進め方" })).toBeNull();
     await expect(screen.queryByRole("dialog")).toBeNull();
+  },
+};
+
+// 共有・投票・決定はフェーズ1の案内を使い回し、自動では開かず「進め方」から開ける。
+export const ReferenceOnlyStep: Story = {
+  args: { phaseKey: "2-3" },
+  play: async () => {
+    await expect(screen.queryByRole("dialog")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "進め方" }));
+    await expect(
+      await screen.findByRole("dialog", {
+        name: "取り組みたい付箋に投票しよう。",
+      }),
+    ).toBeVisible();
   },
 };
