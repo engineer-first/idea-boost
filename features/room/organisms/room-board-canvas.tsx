@@ -1,6 +1,5 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 // ボード面。カメラで移動・拡大縮小する世界レイヤーに共有付箋・グループ枠・
 // ドラッグ中のゴーストを描き、下端にマイ付箋ドックを重ねる。
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
@@ -18,7 +17,6 @@ import {
   ViewTransition,
 } from "react";
 import { createPortal } from "react-dom";
-import { Button } from "@/components/ui/button";
 import {
   DRAG_THRESHOLD_PX,
   getNoteHeight,
@@ -321,6 +319,36 @@ export function RoomBoardCanvas({
     setPreviewNoteId(null);
   }, [writingKey]);
   const writingCollapsed = additionalWriting && !writingExpanded;
+  useEffect(() => {
+    if (!additionalWriting || !writingExpanded) return;
+    const toolbar = privateToolbarRef?.current;
+    const boardFrame = toolbar?.closest<HTMLElement>(
+      "[data-testid='board-frame']",
+    );
+    if (!toolbar || !boardFrame) return;
+
+    const closeOnBoardPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Node) ||
+        !boardFrame.contains(target) ||
+        toolbar.contains(target)
+      )
+        return;
+      setWritingExpanded(false);
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    document.addEventListener("pointerdown", closeOnBoardPointerDown, true);
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        closeOnBoardPointerDown,
+        true,
+      );
+    };
+  }, [additionalWriting, privateToolbarRef, writingExpanded]);
   const writingMap =
     additionalWriting && phase.kind === "step" && phase.phase === 3;
   const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
@@ -1392,7 +1420,6 @@ export function RoomBoardCanvas({
           >
             <div
               className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
-              id={additionalWriting ? "private-notes-workspace" : undefined}
               data-testid={
                 isPersonalNoteEntryPhase
                   ? "private-notes-workspace"
@@ -1440,7 +1467,6 @@ export function RoomBoardCanvas({
                 }
                 presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
                 workspaceCollapsible={additionalWriting}
-                hideWorkspaceHeader={additionalWriting}
                 workspaceExpanded={writingExpanded}
                 onWorkspaceExpandedChange={setWritingExpanded}
                 expandOnWorkspaceExit={
@@ -1478,60 +1504,6 @@ export function RoomBoardCanvas({
                 onDelete={onPrivateNoteDelete}
                 onDragStart={onPrivateNoteDragStart}
               />
-              {additionalWriting ? (
-                <fieldset
-                  className={styles.additionalWritingActions}
-                  aria-label="マイ付箋の操作"
-                  data-testid="additional-writing-actions"
-                >
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    disabled={
-                      isDisconnected ||
-                      privateNotesInteractionBlocked ||
-                      !permissions.canCreateNote ||
-                      !noteCreationSupported ||
-                      noteCreationPending
-                    }
-                    aria-label="付箋を追加"
-                    title="付箋を追加"
-                    data-testid="additional-writing-add-note"
-                    onClick={() => {
-                      if (privateNoteAddRef?.current)
-                        privateNoteAddRef.current();
-                      else onAddPrivateNote();
-                    }}
-                  >
-                    <Plus aria-hidden="true" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-expanded={writingExpanded}
-                    aria-controls="private-notes-workspace"
-                    aria-label={
-                      writingExpanded ? "マイ付箋を縮小" : "マイ付箋を展開"
-                    }
-                    title={
-                      writingExpanded
-                        ? "マイ付箋エリアを小さくする"
-                        : "マイ付箋エリアを広げる"
-                    }
-                    data-testid="additional-writing-toggle"
-                    className={styles.additionalWritingToggle}
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() => setWritingExpanded((expanded) => !expanded)}
-                  >
-                    {writingExpanded ? (
-                      <ChevronDown aria-hidden="true" />
-                    ) : (
-                      <ChevronUp aria-hidden="true" />
-                    )}
-                  </Button>
-                </fieldset>
-              ) : null}
             </div>
           </ViewTransition>
         ) : null}

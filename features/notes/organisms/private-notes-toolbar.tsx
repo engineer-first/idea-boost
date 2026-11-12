@@ -46,7 +46,6 @@ export type PrivateNotesToolbarProps = {
   sharingHint?: string;
   presentation?: "dock" | "workspace";
   workspaceCollapsible?: boolean;
-  hideWorkspaceHeader?: boolean;
   workspaceExpanded?: boolean;
   onWorkspaceExpandedChange?: (expanded: boolean) => void;
   expandOnWorkspaceExit?: boolean;
@@ -90,7 +89,6 @@ export function PrivateNotesToolbar({
   sharingHint,
   presentation = "dock",
   workspaceCollapsible = false,
-  hideWorkspaceHeader = false,
   workspaceExpanded = false,
   onWorkspaceExpandedChange,
   expandOnWorkspaceExit = false,
@@ -124,13 +122,18 @@ export function PrivateNotesToolbar({
   const previousPresentationRef = useRef(presentation);
   const pendingWorkspaceExitExpandRef = useRef(false);
   const [autoFocusNoteId, setAutoFocusNoteId] = useState<string | null>(null);
-  const [newlyAddedNoteId, setNewlyAddedNoteId] = useState<string | null>(null);
+  const [newlyAddedNote, setNewlyAddedNote] = useState<{
+    id: string;
+    slideIn: boolean;
+  } | null>(null);
   const pendingCreationFocusRef = useRef<{
     operationId: string;
     generation: number;
+    inputGeneration: number;
     context: string | undefined;
   } | null>(null);
   const interactionGenerationRef = useRef(0);
+  const inputGenerationRef = useRef(0);
   const lastAddRequestRef = useRef(0);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const pendingDeleteFocusRef = useRef<{
@@ -188,6 +191,7 @@ export function PrivateNotesToolbar({
     pendingCreationFocusRef.current = {
       operationId,
       generation: interactionGenerationRef.current,
+      inputGeneration: inputGenerationRef.current,
       context: noteCreationFocusContext,
     };
     setIsExpanded(true);
@@ -220,6 +224,12 @@ export function PrivateNotesToolbar({
         // 作成待ちで＋を無効化した結果のblurは、本人が別の操作へ移った合図にしない。
         return;
       }
+      if (
+        event?.type === "input" ||
+        event?.type === "compositionstart" ||
+        event?.type === "compositionend"
+      )
+        inputGenerationRef.current += 1;
       interactionGenerationRef.current += 1;
     };
     const invalidateForKey = (event: KeyboardEvent) => {
@@ -255,18 +265,43 @@ export function PrivateNotesToolbar({
     if (!insertedNote) return;
     pendingCreationFocusRef.current = null;
     if (
-      pending.generation !== interactionGenerationRef.current ||
       pending.context !== noteCreationFocusContext ||
       disabled ||
       !canCreateNote ||
       editingDisabled ||
       document.querySelector(
         '[role="dialog"], [role="alertdialog"], [role="menu"], dialog[open], details[open]',
-      )
+      ) ||
+      pending.inputGeneration !== inputGenerationRef.current
     )
       return;
+    const scrollContainer = scrollContainerRef.current;
+    const insertedNoteElement = Array.from(
+      scrollContainer?.querySelectorAll<HTMLElement>("[data-note-id]") ?? [],
+    ).find((element) => element.dataset.noteId === insertedNote.id);
+    const firstNoteElement =
+      listRef.current?.querySelector<HTMLElement>("[data-note-id]");
+    let slideIn = true;
+    if (
+      scrollContainer &&
+      scrollContainer.clientHeight > 0 &&
+      insertedNoteElement
+    ) {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const noteRect = insertedNoteElement.getBoundingClientRect();
+      const visibleTop = containerRect.top + scrollContainer.clientTop;
+      const visibleBottom = visibleTop + scrollContainer.clientHeight;
+      const firstRowTop =
+        firstNoteElement?.getBoundingClientRect().top ?? noteRect.top;
+      const isFirstRow = Math.abs(noteRect.top - firstRowTop) < 1;
+      slideIn =
+        isFirstRow &&
+        noteRect.top >= visibleTop &&
+        noteRect.bottom <= visibleBottom;
+    }
+    setNewlyAddedNote({ id: insertedNote.id, slideIn });
+    if (pending.generation !== interactionGenerationRef.current) return;
     setAutoFocusNoteId(insertedNote.id);
-    setNewlyAddedNoteId(insertedNote.id);
     onSelect(insertedNote.id);
   }, [
     notes,
@@ -283,23 +318,57 @@ export function PrivateNotesToolbar({
       pendingCreationFocusRef.current = null;
   }, [disabled, canCreateNote, editingDisabled]);
 
-  useEffect(() => {
-    if (!newlyAddedNoteId) return;
+  useLayoutEffect(() => {
+    if (!newlyAddedNote) return;
 
+    const scrollContainer = scrollContainerRef.current;
     const insertedNote = Array.from(
-      scrollContainerRef.current?.querySelectorAll<HTMLElement>(
-        "[data-note-id]",
-      ) ?? [],
-    ).find((element) => element.dataset.noteId === newlyAddedNoteId);
-    insertedNote?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+      scrollContainer?.querySelectorAll<HTMLElement>("[data-note-id]") ?? [],
+    ).find((element) => element.dataset.noteId === newlyAddedNote.id);
+    if (scrollContainer && insertedNote) {
+      const prefersReducedMotion =
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
+        false;
+      const behavior = prefersReducedMotion ? "auto" : "smooth";
+      if (scrollContainer.clientHeight === 0) {
+        // jsdomなどレイアウトを持たない環境では、従来通り要素の可視化APIを使う。
+        insertedNote.scrollIntoView?.({ behavior, block: "nearest" });
+      } else {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const noteRect = insertedNote.getBoundingClientRect();
+        const visibleTop = containerRect.top + scrollContainer.clientTop;
+        const visibleBottom = visibleTop + scrollContainer.clientHeight;
+        const delta =
+          noteRect.top < visibleTop
+            ? noteRect.top - visibleTop
+            : noteRect.bottom > visibleBottom
+              ? noteRect.bottom - visibleBottom
+              : 0;
+        const currentScrollTop = scrollContainer.scrollTop;
+        const maxScrollTop = Math.max(
+          0,
+          scrollContainer.scrollHeight - scrollContainer.clientHeight,
+        );
+        const targetScrollTop = Math.min(
+          maxScrollTop,
+          Math.max(0, currentScrollTop + delta),
+        );
+        if (targetScrollTop !== currentScrollTop) {
+          // 新しい付箋が見切れる分だけ動かす。表示済みの同じ行まで再スクロールしない。
+          scrollContainer.scrollTo({ top: targetScrollTop, behavior });
+        } else if (delta !== 0) {
+          insertedNote.scrollIntoView?.({ behavior, block: "nearest" });
+        }
+      }
+    }
 
     const animationTimer = window.setTimeout(() => {
-      setNewlyAddedNoteId((currentId) =>
-        currentId === newlyAddedNoteId ? null : currentId,
+      setNewlyAddedNote((currentNote) =>
+        currentNote?.id === newlyAddedNote.id ? null : currentNote,
       );
     }, 200);
     return () => window.clearTimeout(animationTimer);
-  }, [newlyAddedNoteId]);
+  }, [newlyAddedNote]);
 
   useEffect(() => {
     if (expandRequest > 0 && !workspaceCollapsible) setIsExpanded(true);
@@ -452,6 +521,15 @@ export function PrivateNotesToolbar({
           data-testid="private-notes-scroll"
           onClick={(e) => {
             const target = e.target as HTMLElement;
+            if (
+              workspaceCollapsible &&
+              !workspaceExpanded &&
+              !target.closest(
+                "[data-testid='note-card'],[data-testid='private-note-placeholder'],button,input,textarea,[role='button']",
+              )
+            ) {
+              onWorkspaceExpandedChange?.(true);
+            }
             if (!target.closest("[data-testid='note-card']")) {
               onSelect(null);
             }
@@ -619,7 +697,8 @@ export function PrivateNotesToolbar({
                     className={cn(
                       "relative",
                       isWorkspace && "w-[200px]",
-                      newlyAddedNoteId === note.id &&
+                      newlyAddedNote?.id === note.id &&
+                        newlyAddedNote.slideIn &&
                         "animate-in fade-in slide-in-from-bottom-2 duration-200",
                     )}
                   />
@@ -629,72 +708,54 @@ export function PrivateNotesToolbar({
           </div>
         </section>
       </CardContent>
-      {!isWorkspace || !hideWorkspaceHeader ? (
-        <CardFooter
-          className={cn(
-            "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
-            workspaceCollapsible
-              ? "order-first border-b border-border sm:pr-24"
-              : isExpanded && "border-t border-border",
-          )}
+      <CardFooter
+        data-testid="private-notes-footer"
+        className={cn(
+          "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
+          workspaceCollapsible
+            ? "border-t border-border"
+            : isExpanded && "border-t border-border",
+        )}
+      >
+        <div
+          className="flex w-full items-center justify-between gap-2"
+          data-testid="private-notes-controls"
         >
-          <div
-            className="flex w-full items-center justify-between gap-2"
-            data-testid="private-notes-controls"
-          >
-            <div className="min-w-0">
-              <CardTitle className="whitespace-nowrap text-sm">
-                マイ付箋
-                {workspaceCollapsible ? (
-                  <span className="ml-3 font-normal text-muted-foreground">
-                    自分だけに表示
-                  </span>
-                ) : null}
-              </CardTitle>
-            </div>
-            <div className="flex w-fit shrink-0 items-center gap-2">
-              <TooltipProvider delayDuration={500}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      disabled={
-                        disabled || !canCreateNote || noteCreationPending
-                      }
-                      ref={addButtonRef}
-                      aria-label="付箋を追加"
-                      className={toolMotion.button}
-                      onClick={handleAdd}
-                    >
-                      <Plus aria-hidden="true" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    付箋を追加（Macは⌘＋Enter、Windows等はCtrl＋Enter）
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+          <div className="min-w-0">
+            <CardTitle className="whitespace-nowrap text-sm">
+              マイ付箋
+            </CardTitle>
+          </div>
+          <div className="flex w-fit shrink-0 items-center gap-2">
+            <TooltipProvider delayDuration={500}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    disabled={disabled || !canCreateNote || noteCreationPending}
+                    ref={addButtonRef}
+                    aria-label="付箋を追加"
+                    className={toolMotion.button}
+                    onClick={handleAdd}
+                  >
+                    <Plus aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  付箋を追加（Macは⌘＋Enter、Windows等はCtrl＋Enter）
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {workspaceCollapsible ? null : (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 aria-expanded={displayedExpanded}
-                aria-label={
-                  workspaceCollapsible
-                    ? `マイ付箋を${workspaceExpanded ? "縮小" : "展開"}`
-                    : `マイ付箋を${isExpanded ? "閉じる" : "開く"}`
-                }
+                aria-label={`マイ付箋を${isExpanded ? "閉じる" : "開く"}`}
                 className={toolMotion.button}
-                onPointerDown={(event) => {
-                  // 入力先・選択範囲・IMEを維持したままパネルの高さだけを変える。
-                  if (workspaceCollapsible) event.preventDefault();
-                }}
-                onClick={() =>
-                  workspaceCollapsible
-                    ? onWorkspaceExpandedChange?.(!workspaceExpanded)
-                    : setIsExpanded((expanded) => !expanded)
-                }
+                onClick={() => setIsExpanded((expanded) => !expanded)}
               >
                 {displayedExpanded ? (
                   <ChevronDown aria-hidden="true" />
@@ -702,10 +763,10 @@ export function PrivateNotesToolbar({
                   <ChevronUp aria-hidden="true" />
                 )}
               </Button>
-            </div>
+            )}
           </div>
-        </CardFooter>
-      ) : null}
+        </div>
+      </CardFooter>
     </Card>
   );
 }

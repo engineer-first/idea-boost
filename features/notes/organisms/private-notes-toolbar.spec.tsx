@@ -546,6 +546,46 @@ describe("PrivateNotesToolbar", () => {
     expect(toolbar).toHaveAttribute("data-expanded", "true");
   });
 
+  it("追加執筆ではエリアの余白で開き、付箋・追加ボタン・フッターではサイズを変えない", () => {
+    const onWorkspaceExpandedChange = vi.fn();
+    const onAdd = vi.fn(() => "create-1");
+    render(
+      <PrivateNotesToolbar
+        notes={[buildNote({ id: "draft-1", visibility: "private" })]}
+        disabled={false}
+        selectedNoteId={null}
+        canCreateNote
+        canDeleteNote
+        canMoveNote
+        canEditNote
+        presentation="workspace"
+        workspaceCollapsible
+        workspaceExpanded={false}
+        onWorkspaceExpandedChange={onWorkspaceExpandedChange}
+        onSelect={vi.fn()}
+        onAdd={onAdd}
+        onContentChange={vi.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("private-notes-scroll"));
+    expect(onWorkspaceExpandedChange).toHaveBeenCalledWith(true);
+
+    onWorkspaceExpandedChange.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "付箋" }));
+    fireEvent.click(screen.getByRole("button", { name: "新しい付箋を追加" }));
+    fireEvent.click(screen.getByTestId("private-notes-controls"));
+    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+
+    expect(onWorkspaceExpandedChange).not.toHaveBeenCalled();
+    expect(onAdd).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByRole("button", { name: "マイ付箋を展開" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("個人付箋を表示し、追加と削除を操作できる", () => {
     const props = setup(false, "note-1");
     expect(screen.getByDisplayValue("非公開の考え")).toBeInTheDocument();
@@ -730,6 +770,172 @@ describe("PrivateNotesToolbar", () => {
     );
   });
 
+  it("2行目に追加した5・6枚目はスクロールに任せてその場に表示する", () => {
+    const initialNotes = Array.from({ length: 4 }, (_, index) =>
+      buildNote({
+        id: `note-${index + 1}`,
+        visibility: "private",
+        content: `付箋 ${index + 1}`,
+      }),
+    );
+    const fifthNote = buildNote({
+      id: "note-5",
+      visibility: "private",
+      content: "付箋 5",
+    });
+    const sixthNote = buildNote({
+      id: "note-6",
+      visibility: "private",
+      content: "付箋 6",
+    });
+    let scrollTop = 0;
+    const onAdd = vi
+      .fn()
+      .mockReturnValueOnce("create-5")
+      .mockReturnValueOnce("create-6");
+    const props = {
+      notes: initialNotes,
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd,
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+      presentation: "workspace" as const,
+    };
+    const view = render(<PrivateNotesToolbar {...props} />);
+    const scrollContainer = screen.getByTestId("private-notes-scroll");
+    Object.defineProperties(scrollContainer, {
+      clientHeight: { configurable: true, value: 200 },
+      clientTop: { configurable: true, value: 0 },
+      scrollHeight: { configurable: true, value: 600 },
+      scrollTop: {
+        configurable: true,
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = value;
+        },
+      },
+      scrollTo: {
+        configurable: true,
+        value: vi.fn(({ top }: ScrollToOptions) => {
+          if (typeof top === "number") scrollTop = top;
+        }),
+      },
+    });
+    const scrollTo = scrollContainer.scrollTo as unknown as ReturnType<
+      typeof vi.fn
+    >;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this === scrollContainer) return new DOMRect(0, 0, 500, 200);
+        if (["note-5", "note-6"].includes(this.dataset.noteId ?? "")) {
+          return new DOMRect(0, 250 - scrollTop, 200, 100);
+        }
+        return new DOMRect(0, 0, 200, 100);
+      },
+    );
+
+    fireEvent.click(
+      within(screen.getByTestId("private-notes-controls")).getByRole("button", {
+        name: "付箋を追加",
+      }),
+    );
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        notes={[...initialNotes, fifthNote]}
+        selectedNoteId="note-5"
+        noteCreationReceipt={{ operationId: "create-5", noteId: "note-5" }}
+      />,
+    );
+
+    const fifthCard = screen.getAllByTestId("note-card")[4];
+    expect(scrollTo).toHaveBeenCalledOnce();
+    expect(scrollTo).toHaveBeenCalledWith({ top: 150, behavior: "smooth" });
+    expect(fifthCard).not.toHaveClass("animate-in");
+    expect(fifthCard).not.toHaveClass("slide-in-from-bottom-2");
+
+    fireEvent.click(
+      within(screen.getByTestId("private-notes-controls")).getByRole("button", {
+        name: "付箋を追加",
+      }),
+    );
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        notes={[...initialNotes, fifthNote, sixthNote]}
+        selectedNoteId="note-6"
+        noteCreationReceipt={{ operationId: "create-6", noteId: "note-6" }}
+      />,
+    );
+
+    expect(scrollTo).toHaveBeenCalledOnce();
+    expect(fifthCard).not.toHaveClass("animate-in");
+    const sixthCard = screen.getAllByTestId("note-card")[5];
+    expect(sixthCard).not.toHaveClass("animate-in");
+    expect(sixthCard).not.toHaveClass("slide-in-from-bottom-2");
+  });
+
+  it("入力が続いていなければフォーカス変更後も新しい付箋を表示する", () => {
+    const oldNote = buildNote({
+      id: "old-note",
+      visibility: "private",
+      content: "前の付箋",
+    });
+    const newNote = buildNote({
+      id: "new-note",
+      visibility: "private",
+      content: "",
+    });
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    const props = {
+      notes: [oldNote],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(() => "create-1"),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(<PrivateNotesToolbar {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+    fireEvent.focusIn(screen.getByRole("button", { name: "付箋" }));
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        notes={[oldNote, newNote]}
+        noteCreationReceipt={{ operationId: "create-1", noteId: "new-note" }}
+      />,
+    );
+
+    expect(props.onSelect).not.toHaveBeenCalledWith("new-note");
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "nearest",
+    });
+    expect(screen.getAllByTestId("note-card")[1]).toHaveClass(
+      "animate-in",
+      "fade-in",
+      "slide-in-from-bottom-2",
+    );
+  });
+
   it("追加応答を待つ間に既存下書きへ入力を戻した場合はフォーカスと選択を奪わない", () => {
     const oldNote = buildNote({
       id: "old-note",
@@ -787,7 +993,7 @@ describe("PrivateNotesToolbar", () => {
       key: "Enter",
     });
     const editor = screen.getByRole("textbox");
-    fireEvent.change(editor, { target: { value: "既存draftへ入力を続ける" } });
+    fireEvent.input(editor, { target: { value: "既存draftへ入力を続ける" } });
     expect(editor).toHaveFocus();
 
     view.rerender(<Harness notes={[oldNote, newNote]} />);
@@ -1250,8 +1456,8 @@ describe("追加執筆のマイ付箋", () => {
       "false",
     );
     expect(
-      screen.getByRole("button", { name: "マイ付箋を展開" }),
-    ).toBeVisible();
+      screen.queryByRole("button", { name: "マイ付箋を展開" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("note-card")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
     expect(options.onAdd).toHaveBeenCalledOnce();

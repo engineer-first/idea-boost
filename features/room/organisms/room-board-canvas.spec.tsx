@@ -1359,7 +1359,11 @@ describe("RoomBoardCanvas", () => {
       onAddPrivateNote,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+    fireEvent.click(
+      within(screen.getByTestId("private-notes-footer")).getByRole("button", {
+        name: "付箋を追加",
+      }),
+    );
 
     expect(onAddPrivateNote).toHaveBeenCalledTimes(1);
   });
@@ -1372,7 +1376,11 @@ describe("RoomBoardCanvas", () => {
       isDisconnected: true,
     });
 
-    expect(screen.getByRole("button", { name: "付箋を追加" })).toBeDisabled();
+    for (const button of within(
+      screen.getByTestId("private-notes-toolbar"),
+    ).getAllByRole("button", { name: "付箋を追加" })) {
+      expect(button).toBeDisabled();
+    }
   });
 
   it("発想支援が利用できないステップではサイドバーを表示しない", () => {
@@ -1883,9 +1891,9 @@ describe("RoomBoardCanvas", () => {
       const workspace = screen.getByTestId("private-notes-workspace");
       const note = within(workspace).getByTestId("note-card");
       const editor = within(note).getByPlaceholderText("メモを入力...");
-      const addButton = within(workspace).getByRole("button", {
-        name: "付箋を追加",
-      });
+      const addButton = within(
+        within(workspace).getByTestId("private-notes-list"),
+      ).getByRole("button", { name: "付箋を追加" });
 
       expect(
         screen.getByTestId("board-scroller").parentElement,
@@ -2257,13 +2265,51 @@ describe("追加執筆の共有ボード", () => {
       );
       expect(screen.getByTestId("board-scroller")).not.toHaveAttribute("inert");
       expect(screen.getByRole("button", { name: "付箋を追加" })).toBeEnabled();
-      fireEvent.click(screen.getByRole("button", { name: "マイ付箋を展開" }));
+      fireEvent.click(screen.getByTestId("private-notes-scroll"));
       expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
         "data-expanded",
         "true",
       );
       expect(screen.getByTestId("board-scroller")).toHaveAttribute("inert");
       expect(props.onNoteDragStart).not.toHaveBeenCalled();
+
+      fireEvent.pointerDown(screen.getByTestId("board-scroller"), {
+        button: 0,
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      });
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        "false",
+      );
+
+      fireEvent.click(screen.getByTestId("private-notes-scroll"));
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        "true",
+      );
+      const toolbar = screen.getByTestId("private-notes-toolbar");
+      const privateNote = within(toolbar).getByRole("button", {
+        name: "付箋",
+      });
+      const footer = screen.getByTestId("private-notes-footer");
+      const addButton = within(footer).getByRole("button", {
+        name: "付箋を追加",
+      });
+      fireEvent.pointerDown(privateNote, { button: 0, pointerId: 2 });
+      expect(toolbar).toHaveAttribute("data-expanded", "true");
+      fireEvent.click(privateNote);
+      fireEvent.pointerDown(addButton, { button: 0, pointerId: 3 });
+      expect(toolbar).toHaveAttribute("data-expanded", "true");
+      fireEvent.click(addButton);
+      fireEvent.pointerDown(footer, { button: 0, pointerId: 4 });
+      expect(toolbar).toHaveAttribute("data-expanded", "true");
+      fireEvent.click(footer);
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        "true",
+      );
     },
   );
   it("共有付箋0枚でも縮小を維持して空状態を案内する", () => {

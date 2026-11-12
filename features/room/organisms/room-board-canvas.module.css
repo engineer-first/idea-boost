@@ -73,41 +73,24 @@
 }
 .additionalWritingPanel.writingExpanded [data-testid="private-notes-toolbar"] {
   height: 100%;
+  pointer-events: none;
+}
+.additionalWritingPanel.writingExpanded
+  [data-testid="private-notes-toolbar"]
+  button,
+.additionalWritingPanel.writingExpanded
+  [data-testid="private-notes-toolbar"]
+  [data-testid="note-card"],
+.additionalWritingPanel.writingExpanded
+  [data-testid="private-notes-toolbar"]
+  [data-testid="private-note-placeholder"],
+.additionalWritingPanel.writingExpanded
+  [data-testid="private-notes-toolbar"]
+  [data-testid="private-notes-footer"] {
+  pointer-events: auto;
 }
 .additionalWritingPanel [data-testid="private-notes-scroll"] {
   padding: 12px;
-  padding-top: 48px;
-}
-.additionalWritingActions {
-  position: absolute;
-  top: 12px;
-  right: max(12px, calc((100vw - 80rem) / 2));
-  z-index: 41;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-inline-size: 0;
-  pointer-events: auto;
-}
-.additionalWritingActions button {
-  border-radius: 9999px;
-  box-shadow: var(--elevation-tool);
-}
-.additionalWritingToggle {
-  background: var(--background);
-}
-@media (min-width: 40rem) {
-  .additionalWritingActions {
-    right: max(16px, calc((100vw - 80rem) / 2));
-  }
-}
-@media (min-width: 64rem) {
-  .additionalWritingActions {
-    right: max(20px, calc((100vw - 80rem) / 2));
-  }
 }
 .additionalWritingPanel [data-testid="private-notes-list"] {
   padding-bottom: 0;
