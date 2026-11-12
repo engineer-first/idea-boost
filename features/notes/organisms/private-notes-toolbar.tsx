@@ -50,13 +50,13 @@ export type PrivateNotesToolbarProps = {
   defaultExpanded?: boolean;
   expandRequest?: number;
   addRequest?: number;
-  addActionRef?: React.RefObject<(() => void) | null>;
+  addActionRef?: React.RefObject<((content?: string) => void) | null>;
   noteCreationPending?: boolean;
   noteCreationReceipt?: { operationId: string; noteId: string };
   noteCreationFocusContext?: string;
   dropPlaceholder?: { noteId: string };
   onSelect: (noteId: string | null) => void;
-  onAdd: () => string | null;
+  onAdd: (content?: string) => string | null;
   onContentChange: (noteId: string, content: string) => void;
   draftValue?: (noteId: string) => string | undefined;
   onDraftChange?: (noteId: string, content: string) => void;
@@ -158,42 +158,52 @@ export function PrivateNotesToolbar({
     workspaceExitTransitionPending,
   ]);
 
-  const handleAdd = useCallback(() => {
-    if (disabled || !canCreateNote || noteCreationPending) return;
-    const editor = document.activeElement;
-    if (
-      editor instanceof HTMLTextAreaElement &&
-      !editor.readOnly &&
-      scrollContainerRef.current?.contains(editor)
-    ) {
-      const noteId =
-        editor.closest<HTMLElement>("[data-note-id]")?.dataset.noteId;
-      if (noteId) onContentChange(noteId, editor.value);
-    }
-    const operationId = onAdd();
-    if (!operationId) return;
-    pendingCreationFocusRef.current = {
-      operationId,
-      generation: interactionGenerationRef.current,
-      context: noteCreationFocusContext,
-    };
-    setIsExpanded(true);
-  }, [
-    disabled,
-    canCreateNote,
-    noteCreationPending,
-    noteCreationFocusContext,
-    onAdd,
-    onContentChange,
-  ]);
+  const handleAddWithContent = useCallback(
+    (content?: string) => {
+      if (disabled || !canCreateNote || noteCreationPending) return;
+      const editor = document.activeElement;
+      if (
+        editor instanceof HTMLTextAreaElement &&
+        !editor.readOnly &&
+        scrollContainerRef.current?.contains(editor)
+      ) {
+        const noteId =
+          editor.closest<HTMLElement>("[data-note-id]")?.dataset.noteId;
+        if (noteId) onContentChange(noteId, editor.value);
+      }
+      const operationId = content === undefined ? onAdd() : onAdd(content);
+      if (!operationId) return;
+      pendingCreationFocusRef.current = {
+        operationId,
+        generation: interactionGenerationRef.current,
+        context: noteCreationFocusContext,
+      };
+      setIsExpanded(true);
+    },
+    [
+      disabled,
+      canCreateNote,
+      noteCreationPending,
+      noteCreationFocusContext,
+      onAdd,
+      onContentChange,
+    ],
+  );
+
+  // onClickのイベントを本文へ渡さない。外部のヒントだけ本文を指定する。
+  const handleAdd = useCallback(
+    () => handleAddWithContent(),
+    [handleAddWithContent],
+  );
 
   useLayoutEffect(() => {
     if (!addActionRef) return;
-    addActionRef.current = handleAdd;
+    addActionRef.current = handleAddWithContent;
     return () => {
-      if (addActionRef.current === handleAdd) addActionRef.current = null;
+      if (addActionRef.current === handleAddWithContent)
+        addActionRef.current = null;
     };
-  }, [addActionRef, handleAdd]);
+  }, [addActionRef, handleAddWithContent]);
 
   useEffect(() => {
     const invalidateFocus = (event?: Event) => {

@@ -181,7 +181,7 @@ export type RoomBoardCanvasProps = {
   onAdoptNote: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
-  onAddPrivateNote: () => string | null;
+  onAddPrivateNote: (content?: string) => string | null;
   noteCreationPending?: boolean;
   noteCreationReceipt?: { operationId: string; noteId: string };
   noteCreationSupported?: boolean;
@@ -199,7 +199,7 @@ export type RoomBoardCanvasProps = {
   onManualPanStart?: () => void;
   expandPrivateNotesRequest?: number;
   addPrivateNoteRequest?: number;
-  privateNoteAddRef?: RefObject<(() => void) | null>;
+  privateNoteAddRef?: RefObject<((content?: string) => void) | null>;
 };
 
 export function RoomBoardCanvas({
@@ -1230,6 +1230,13 @@ export function RoomBoardCanvas({
           >
             <div
               className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
+              style={
+                isPhaseStep(phase, 2, 1)
+                  ? {
+                      bottom: "7rem",
+                    }
+                  : undefined
+              }
               data-testid={
                 isPersonalNoteEntryPhase
                   ? "private-notes-workspace"

@@ -163,6 +163,31 @@ describe("useRoomNotes", () => {
       expect(sendCreation).toHaveBeenCalledTimes(2);
     });
 
+    it("問いの文例を含む追加にも操作IDを付け、確定応答をfocus対象にする", () => {
+      const { result, sendCreation } = setupCreation();
+      const content = "どうしたら、忘れ物を減らせるか？";
+      act(() => result.current.requestAddNote(content));
+      expect(sendCreation).toHaveBeenCalledWith({
+        type: "note:create",
+        operationId: CREATE_OPERATION_ID,
+        content,
+      });
+      act(() =>
+        result.current.applyMessage({
+          type: "note:inserted",
+          operationId: CREATE_OPERATION_ID,
+          note: buildNote({ id: NOTE_ID, content }),
+        }),
+      );
+      expect(result.current.noteCreationReceipt).toEqual({
+        operationId: CREATE_OPERATION_ID,
+        noteId: NOTE_ID,
+      });
+      expect(
+        result.current.notes.find((note) => note.id === NOTE_ID)?.content,
+      ).toBe(content);
+    });
+
     it("別操作の拒否は作成失敗と扱わず、相関した拒否だけ待機を解除する", () => {
       const { result } = setupCreation();
       act(() => result.current.requestAddNote());

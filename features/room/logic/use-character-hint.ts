@@ -10,6 +10,7 @@ type CharacterHintOptions = {
   serverOffsetMs: number;
   noteCount: number;
   active?: boolean;
+  tipsEnabled?: boolean;
 };
 
 const HINTS = {
@@ -123,11 +124,14 @@ export function useCharacterHint({
   serverOffsetMs,
   noteCount,
   active = true,
+  tipsEnabled = true,
 }: CharacterHintOptions): { message: string | null } {
   // 同じ文言の案内でも8秒を数え直すよう、表示ごとに新しいオブジェクトにする。
   const [hint, setHint] = useState<{ text: string } | null>(null);
   const stepHints =
-    phase.kind === "step" ? STEP_HINTS[phase.phase]?.[phase.step] : undefined;
+    tipsEnabled && phase.kind === "step"
+      ? STEP_HINTS[phase.phase]?.[phase.step]
+      : undefined;
   const seen = useRef(new Set<string>());
   // 出し終えたコツの数。null は工程に入ってからまだ数えていない状態。
   const shownTips = useRef<number | null>(null);
@@ -203,7 +207,8 @@ export function useCharacterHint({
           ? "ended"
           : remaining !== null && remaining <= 30_000
             ? "warning"
-            : timer.status === "running" &&
+            : tipsEnabled &&
+                timer.status === "running" &&
                 isPersonalWritingStep(phase) &&
                 noteCount === 0 &&
                 Date.now() - startedAt.current >= 30_000
@@ -234,7 +239,16 @@ export function useCharacterHint({
     check();
     const interval = setInterval(check, 1_000);
     return () => clearInterval(interval);
-  }, [active, phase, timer, serverOffsetMs, noteCount, show, stepHints]);
+  }, [
+    active,
+    phase,
+    timer,
+    serverOffsetMs,
+    noteCount,
+    show,
+    stepHints,
+    tipsEnabled,
+  ]);
 
   return { message: hint?.text ?? null };
 }

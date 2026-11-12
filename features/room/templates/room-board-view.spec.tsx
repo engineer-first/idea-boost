@@ -48,6 +48,81 @@ beforeEach(() => {
 
 const ME = "11111111-1111-4111-8111-111111111111";
 
+describe("2-1のキャラクターによる問いのヒント", () => {
+  it("先生の通常案内を重ねず、問いの呼びかけと残り時間通知を表示する", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    setup({
+      phase: buildPhaseStep(1, 2),
+      hmwDecidedIssue: "睡眠不足で眠たい",
+      timer: { status: "running", endsAt: 180_000, durationMs: 180_000 },
+      progress: {
+        phaseRevision: 0,
+        progressRevision: 1,
+        connectedUserIds: [ME],
+        readyUserIds: [],
+        notReadyUserIds: [ME],
+        canAdvance: false,
+        allReady: false,
+      },
+    });
+    expect(screen.queryByTestId("board-character")).not.toBeInTheDocument();
+    for (let second = 1; second <= 150; second++) {
+      act(() => vi.advanceTimersByTime(1_000));
+      if ([30, 45, 90].includes(second)) {
+        expect(screen.queryByTestId("board-character")).not.toBeInTheDocument();
+      }
+      if ([45, 90].includes(second)) {
+        expect(screen.getByTestId("hmw-hint-nudge")).toBeVisible();
+      }
+    }
+    expect(screen.getByTestId("board-character-bubble")).toHaveTextContent(
+      "残り30秒",
+    );
+  });
+
+  it("ワード3つから選んだ問いに決定課題を含め、使う操作でマイ付箋へ渡す", async () => {
+    sessionStorage.setItem(`hmw-hint-nudge:AB12CD:${ME}:0:0`, "seen");
+    const { props } = setup({
+      phase: buildPhaseStep(1, 2),
+      hmwDecidedIssue: "睡眠不足で眠たい",
+    });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "問いのヒントを開く" }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "問いのヒント" });
+    const words = within(dialog).getByRole("group", { name: "考え方のワード" });
+    expect(within(words).getAllByRole("button")).toHaveLength(3);
+    await userEvent.click(
+      within(words).getByRole("button", { name: "先回り" }),
+    );
+    const question =
+      "どうしたら、「睡眠不足で眠たい」という状況を前もって防げるか？";
+    expect(
+      within(dialog).getByRole("region", { name: "問いの文例" }),
+    ).toHaveTextContent(question);
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "この問いにする" }),
+    );
+    expect(props.onAddPrivateNote).toHaveBeenCalledExactlyOnceWith(question);
+  });
+
+  it.each([buildPhaseStep(2, 2), buildPhaseStep(1, 3)])(
+    "2-1以外の工程ではキャラクターの問いヒントを表示しない（%j）",
+    (phase) => {
+      setup({ phase, hmwDecidedIssue: "睡眠不足で眠たい" });
+      expect(
+        screen.queryByRole("button", { name: "問いのヒントを開く" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+});
+
 function buildInteractions(
   notes: Note[],
   privateNotes: Note[],

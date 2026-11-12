@@ -19,6 +19,32 @@ const long: TimerState = {
 };
 
 describe("キャラクターの一言", () => {
+  it.each([0, 1])(
+    "通常ヒントを無効にすると付箋%i枚の開始・書き出し・コツを出さず、残り時間は知らせる",
+    (noteCount) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      const { result } = renderHook(() =>
+        useCharacterHint({
+          phase: { kind: "step", phase: 2, step: 1 },
+          timer: running,
+          serverOffsetMs: 0,
+          noteCount,
+          tipsEnabled: false,
+        }),
+      );
+      expect(result.current.message).toBeNull();
+      act(() => vi.advanceTimersByTime(30_000));
+      expect(result.current.message).toBeNull();
+      act(() => vi.advanceTimersByTime(60_000));
+      expect(result.current.message).toBeNull();
+      act(() => vi.advanceTimersByTime(60_000));
+      expect(result.current.message).toContain("残り30秒");
+      act(() => vi.advanceTimersByTime(30_000));
+      expect(result.current.message).toContain("時間になったよ");
+    },
+  );
+
   it.each(
     Object.entries(ROOM_PHASE_STEP_LABELS).flatMap(([phase, steps]) =>
       Object.keys(steps).map(

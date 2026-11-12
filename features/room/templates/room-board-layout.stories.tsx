@@ -180,6 +180,37 @@ export const Phase1Step3WithNotReadyMember: Story = {
 export const Phase1Step4: Story = step(1, 4);
 export const Phase1Step5: Story = step(1, 5);
 export const Phase2Step1: Story = step(2, 1);
+export const Phase2Step1FewNotes: Story = {
+  ...Phase2Step1,
+  name: "問いの下書き1枚・呼びかけ待ち",
+  args: {
+    ...Phase2Step1.args,
+    progress: {
+      ...allReadyProgress(Phase2Step1.args?.members ?? []),
+      readyUserIds: [],
+      notReadyUserIds: [boardMeta.args.currentUserId],
+      canAdvance: false,
+      allReady: false,
+    },
+    interactions: {
+      ...boardMeta.args.interactions,
+      ...Phase2Step1.args?.interactions,
+      privateNotes: PRIVATE_NOTES.slice(0, 1),
+    },
+  },
+};
+export const Phase2Step1WaitingForHint: Story = {
+  ...Phase2Step1FewNotes,
+  name: "問いヒントの呼びかけ待ち",
+  args: {
+    ...Phase2Step1FewNotes.args,
+    interactions: {
+      ...boardMeta.args.interactions,
+      ...Phase2Step1.args?.interactions,
+      privateNotes: PRIVATE_NOTES,
+    },
+  },
+};
 export const Phase2Step1ToStep2: Story = handoffStory(2);
 export const Phase2Step1WithGuide: Story = {
   ...Phase2Step1,
