@@ -39,8 +39,8 @@ describe("CIのNodeセキュリティ更新と外部ダウンロード", () => {
         });
 
         if (cacheableWorkflows.has(name)) {
-          it(`${label}は毎日cacheを作り直して24系の修正版へ追従する`, () => {
-            // mise installは導入済みの24系を優先する。cacheを1日で捨てて、
+          it(`${label}は毎日cacheを作り直して26系の修正版へ追従する`, () => {
+            // mise installは導入済みの26系を優先する。cacheを1日で捨てて、
             // 修正版の公開から1日以内に新しい版を解決する。
             expect(step.with?.cache).not.toBe(false);
             expect(step.with?.cache_max_age_days).toBe(1);
