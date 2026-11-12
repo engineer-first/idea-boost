@@ -4,7 +4,7 @@ import { LoginAssertionSchema, TOKEN_AUDIENCE } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
 import { type ApiWorkerEnv, createApiWorker } from "./api-worker";
 import { ensureUser, findUserDisplayNameById } from "./lib/db";
-import { isPreviewParticipantAllowed } from "./lib/preview-policy";
+import { isPreviewEmailAllowed } from "./lib/preview-policy";
 import { getSessionFromRequest } from "./lib/session";
 import { requireSessionSecret } from "./lib/session-secret";
 import { PreviewRoomDO } from "./room/preview-room-do";
@@ -103,10 +103,7 @@ export default {
         return Response.json({ error: "認証が必要です。" }, { status: 401 });
       if (
         assertion.kind !== "google" ||
-        !isPreviewParticipantAllowed(
-          assertion.email,
-          env.PREVIEW_ALLOWED_EMAILS,
-        )
+        !isPreviewEmailAllowed(assertion.email, env.PREVIEW_ALLOWED_EMAILS)
       )
         return Response.json(
           { error: "許可されていません。" },
@@ -118,7 +115,7 @@ export default {
         return Response.json({ error: "認証が必要です。" }, { status: 401 });
       if (
         session.kind !== "account" ||
-        !isPreviewParticipantAllowed(session.email, env.PREVIEW_ALLOWED_EMAILS)
+        !isPreviewEmailAllowed(session.email, env.PREVIEW_ALLOWED_EMAILS)
       )
         return Response.json(
           { error: "許可されていません。" },
