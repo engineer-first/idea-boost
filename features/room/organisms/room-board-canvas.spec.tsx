@@ -2264,7 +2264,14 @@ describe("追加執筆の共有ボード", () => {
         "false",
       );
       expect(screen.getByTestId("board-scroller")).not.toHaveAttribute("inert");
-      expect(screen.getByRole("button", { name: "付箋を追加" })).toBeEnabled();
+      const toolbar = screen.getByTestId("private-notes-toolbar");
+      const addButton = within(toolbar).getByRole("button", {
+        name: "新しい付箋を追加",
+      });
+      expect(addButton).toBeEnabled();
+      expect(
+        screen.queryByTestId("private-notes-footer"),
+      ).not.toBeInTheDocument();
       fireEvent.click(screen.getByTestId("private-notes-scroll"));
       expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
         "data-expanded",
@@ -2289,13 +2296,8 @@ describe("追加執筆の共有ボード", () => {
         "data-expanded",
         "true",
       );
-      const toolbar = screen.getByTestId("private-notes-toolbar");
       const privateNote = within(toolbar).getByRole("button", {
         name: "付箋",
-      });
-      const footer = screen.getByTestId("private-notes-footer");
-      const addButton = within(footer).getByRole("button", {
-        name: "付箋を追加",
       });
       fireEvent.pointerDown(privateNote, { button: 0, pointerId: 2 });
       expect(toolbar).toHaveAttribute("data-expanded", "true");
@@ -2303,9 +2305,9 @@ describe("追加執筆の共有ボード", () => {
       fireEvent.pointerDown(addButton, { button: 0, pointerId: 3 });
       expect(toolbar).toHaveAttribute("data-expanded", "true");
       fireEvent.click(addButton);
-      fireEvent.pointerDown(footer, { button: 0, pointerId: 4 });
-      expect(toolbar).toHaveAttribute("data-expanded", "true");
-      fireEvent.click(footer);
+      expect(
+        screen.queryByTestId("private-notes-footer"),
+      ).not.toBeInTheDocument();
       expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
         "data-expanded",
         "true",

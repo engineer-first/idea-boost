@@ -42,8 +42,9 @@
 }
 
 .additionalWritingCanvas {
+  /* 150px の付箋に上下32pxずつ余白を取る閉じた状態の高さ。 */
   --writing-panel-height: min(
-    260px,
+    214px,
     max(
       140px,
       calc((100dvh - var(--board-private-expanded-top, 5rem) - 0.75rem) * 0.5)
@@ -83,10 +84,7 @@
   [data-testid="note-card"],
 .additionalWritingPanel.writingExpanded
   [data-testid="private-notes-toolbar"]
-  [data-testid="private-note-placeholder"],
-.additionalWritingPanel.writingExpanded
-  [data-testid="private-notes-toolbar"]
-  [data-testid="private-notes-footer"] {
+  [data-testid="private-note-placeholder"] {
   pointer-events: auto;
 }
 .additionalWritingPanel [data-testid="private-notes-scroll"] {
@@ -97,12 +95,6 @@
 }
 .additionalWritingPanel.writingExpanded [data-testid="private-notes-scroll"] {
   padding-inline-start: max(12px, var(--board-private-reference-inset, 0px));
-}
-.additionalWritingPanel.writingExpanded [data-testid="private-notes-controls"] {
-  padding-inline-start: max(
-    0px,
-    calc(var(--board-private-reference-inset, 0px) - 12px)
-  );
 }
 @media (prefers-reduced-motion: reduce) {
   .additionalWritingPanel,

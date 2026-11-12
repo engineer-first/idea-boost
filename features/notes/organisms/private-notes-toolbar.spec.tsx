@@ -546,7 +546,7 @@ describe("PrivateNotesToolbar", () => {
     expect(toolbar).toHaveAttribute("data-expanded", "true");
   });
 
-  it("追加執筆ではエリアの余白で開き、付箋・追加ボタン・フッターではサイズを変えない", () => {
+  it("追加執筆ではエリアの余白だけで開き、付箋と追加タイルではサイズを変えずフッターを表示しない", () => {
     const onWorkspaceExpandedChange = vi.fn();
     const onAdd = vi.fn(() => "create-1");
     render(
@@ -576,11 +576,15 @@ describe("PrivateNotesToolbar", () => {
     onWorkspaceExpandedChange.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "付箋" }));
     fireEvent.click(screen.getByRole("button", { name: "新しい付箋を追加" }));
-    fireEvent.click(screen.getByTestId("private-notes-controls"));
-    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
 
     expect(onWorkspaceExpandedChange).not.toHaveBeenCalled();
-    expect(onAdd).toHaveBeenCalledTimes(2);
+    expect(onAdd).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByTestId("private-notes-footer"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("private-notes-controls"),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "マイ付箋を展開" }),
     ).not.toBeInTheDocument();
@@ -1459,7 +1463,13 @@ describe("追加執筆のマイ付箋", () => {
       screen.queryByRole("button", { name: "マイ付箋を展開" }),
     ).not.toBeInTheDocument();
     expect(screen.getByTestId("note-card")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+    expect(
+      screen.queryByTestId("private-notes-footer"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("private-notes-controls"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "新しい付箋を追加" }));
     expect(options.onAdd).toHaveBeenCalledOnce();
     expect(options.onWorkspaceExpandedChange).not.toHaveBeenCalled();
     expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(

@@ -600,7 +600,7 @@ export function PrivateNotesToolbar({
                 type="button"
                 variant="outline"
                 disabled={disabled || !canCreateNote || noteCreationPending}
-                ref={workspaceCollapsible ? undefined : addButtonRef}
+                ref={workspaceCollapsible ? addButtonRef : undefined}
                 aria-label={
                   workspaceCollapsible ? "新しい付箋を追加" : "付箋を追加"
                 }
@@ -708,46 +708,46 @@ export function PrivateNotesToolbar({
           </div>
         </section>
       </CardContent>
-      <CardFooter
-        data-testid="private-notes-footer"
-        className={cn(
-          "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
-          workspaceCollapsible
-            ? "border-t border-border"
-            : isExpanded && "border-t border-border",
-        )}
-      >
-        <div
-          className="flex w-full items-center justify-between gap-2"
-          data-testid="private-notes-controls"
+      {workspaceCollapsible ? null : (
+        <CardFooter
+          data-testid="private-notes-footer"
+          className={cn(
+            "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
+            isExpanded && "border-t border-border",
+          )}
         >
-          <div className="min-w-0">
-            <CardTitle className="whitespace-nowrap text-sm">
-              マイ付箋
-            </CardTitle>
-          </div>
-          <div className="flex w-fit shrink-0 items-center gap-2">
-            <TooltipProvider delayDuration={500}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    disabled={disabled || !canCreateNote || noteCreationPending}
-                    ref={addButtonRef}
-                    aria-label="付箋を追加"
-                    className={toolMotion.button}
-                    onClick={handleAdd}
-                  >
-                    <Plus aria-hidden="true" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  付箋を追加（Macは⌘＋Enter、Windows等はCtrl＋Enter）
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            {workspaceCollapsible ? null : (
+          <div
+            className="flex w-full items-center justify-between gap-2"
+            data-testid="private-notes-controls"
+          >
+            <div className="min-w-0">
+              <CardTitle className="whitespace-nowrap text-sm">
+                マイ付箋
+              </CardTitle>
+            </div>
+            <div className="flex w-fit shrink-0 items-center gap-2">
+              <TooltipProvider delayDuration={500}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      disabled={
+                        disabled || !canCreateNote || noteCreationPending
+                      }
+                      ref={addButtonRef}
+                      aria-label="付箋を追加"
+                      className={toolMotion.button}
+                      onClick={handleAdd}
+                    >
+                      <Plus aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    付箋を追加（Macは⌘＋Enter、Windows等はCtrl＋Enter）
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <Button
                 type="button"
                 variant="ghost"
@@ -763,10 +763,10 @@ export function PrivateNotesToolbar({
                   <ChevronUp aria-hidden="true" />
                 )}
               </Button>
-            )}
+            </div>
           </div>
-        </div>
-      </CardFooter>
+        </CardFooter>
+      )}
     </Card>
   );
 }
