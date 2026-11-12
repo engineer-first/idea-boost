@@ -1,0 +1,109 @@
+.page {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--background);
+  padding: 2rem 2rem 3rem;
+  color: var(--foreground);
+}
+.content {
+  width: 100%;
+  max-width: 64rem;
+  margin-inline: auto;
+}
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.03em;
+}
+.decisions {
+  margin-top: 1.5rem;
+}
+.adopted {
+  min-height: 9rem;
+}
+.noteContent {
+  min-width: 0;
+  padding: 1rem 1.25rem;
+}
+.adopted .noteContent {
+  padding: 1.5rem 1.75rem;
+}
+.noteContent h2 {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.noteContent p {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.adopted p {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.65;
+  max-width: 40ch;
+}
+.contextNote .noteContent {
+  padding-block: 0.25rem;
+}
+.contextNote h2 {
+  color: var(--ib-color-muted);
+}
+.contextNote p {
+  margin-top: 0.3rem;
+}
+.export {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--ib-color-line);
+}
+.export h2 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.decisionContext {
+  margin-top: 0.75rem;
+}
+.decisionContext summary {
+  width: fit-content;
+  cursor: pointer;
+  padding-block: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--ib-color-muted);
+}
+.contextNotes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  padding-block: 1rem;
+}
+@media (max-width: 767px) {
+  .page {
+    padding: 1.5rem 1rem 2rem;
+  }
+  .title {
+    font-size: 1.5rem;
+  }
+  .decisions {
+    margin-top: 1.5rem;
+  }
+  .adopted .noteContent {
+    padding: 1.25rem;
+  }
+  .contextNote .noteContent {
+    padding: 0;
+  }
+  .contextNotes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .decisionContext {
+    margin-top: 0.5rem;
+  }
+}

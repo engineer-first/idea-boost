@@ -1,0 +1,633 @@
+.root {
+  margin-top: 2rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.entryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: center;
+}
+.primaryEntry {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 1.5rem;
+  border-radius: var(--ib-rounded-xl);
+  background: var(--ib-color-primary-soft);
+}
+.primaryCopy {
+  position: relative;
+  z-index: 1;
+  padding-right: 3.75rem;
+}
+.primaryCopy h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.primaryPath {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 29rem;
+  margin-top: 1rem;
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+}
+.primaryPath li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.primaryPath svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  color: var(--ib-color-ink);
+}
+.primaryButton {
+  min-height: 3rem;
+  margin-top: 1rem;
+  padding-inline: 1.25rem;
+  gap: 0.65rem;
+  font-weight: 700;
+}
+.character {
+  position: absolute;
+  width: 6rem;
+  height: 6rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  object-fit: contain;
+  transform: rotate(7deg);
+}
+.otherLabel {
+  margin-bottom: 0.25rem;
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+}
+.loadingShape {
+  display: grid;
+  gap: 1rem;
+  padding: 2rem;
+  border: 1px solid var(--ib-color-line);
+  border-radius: var(--ib-rounded-xl);
+}
+.loadingShape span {
+  display: block;
+  height: 1rem;
+  width: 80%;
+  border-radius: var(--ib-rounded-md);
+  background: var(--ib-color-surface-muted);
+}
+.loadingShape span:first-child {
+  width: 50%;
+  height: 1.5rem;
+}
+.loadingShape span:last-child {
+  width: 65%;
+}
+.route {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) 1rem;
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+  padding: 1rem 0.5rem;
+  border-bottom: 1px solid var(--ib-color-line);
+  border-radius: var(--ib-rounded-md);
+  text-align: left;
+  cursor: pointer;
+}
+.route:last-child {
+  border-bottom: 0;
+}
+.routeCopy {
+  display: grid;
+  gap: 0.2rem;
+}
+.route strong {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.routeCopy span {
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.route > svg:last-child {
+  width: 1rem;
+  color: var(--ib-color-muted);
+}
+.routeIcon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.route:hover {
+  background: var(--ib-color-surface-muted);
+}
+.route:focus-visible {
+  outline: 3px solid var(--ib-color-primary);
+  outline-offset: 4px;
+}
+.route:active {
+  background: var(--ib-color-surface-muted);
+  transform: scale(0.99);
+}
+.workspace {
+  padding-top: 0.5rem;
+  scroll-margin-top: 1rem;
+}
+.workspaceBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.backButton,
+.refreshButton {
+  min-height: 2.75rem;
+  gap: 0.5rem;
+  padding-inline: 0.5rem;
+  font-size: 0.875rem;
+}
+.backButton {
+  margin-left: -0.5rem;
+}
+.refreshButton {
+  color: var(--ib-color-muted);
+}
+.workspaceTitle {
+  margin-top: 1rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.4;
+  scroll-margin-top: 6rem;
+  outline: none;
+}
+.sharedDetails,
+.sourceDetails {
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+.sharedDetails {
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+}
+.sourceDetails {
+  margin-top: 1rem;
+}
+:where(.sharedDetails, .sourceDetails, .methodReason, .promptDetails) summary {
+  width: fit-content;
+  padding-block: 0.5rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+}
+:where(.sharedDetails, .sourceDetails, .methodReason, .recommendation) p {
+  max-width: 68ch;
+  margin-top: 0.4rem;
+}
+.sourceList {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.sourceList p {
+  white-space: pre-wrap;
+}
+.method {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  padding-block: 0.75rem;
+  border-bottom: 1px solid var(--ib-color-line);
+}
+.methodLabel {
+  color: var(--ib-color-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.method h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.methodReason {
+  width: 100%;
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+.methodReason summary {
+  padding-block: 0.25rem;
+}
+.recommendation details summary {
+  width: fit-content;
+  padding-block: 0.5rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+}
+.stepPane {
+  width: 100%;
+  max-width: 54rem;
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--ib-color-line);
+  border-radius: var(--ib-rounded-xl);
+  background: var(--ib-color-surface);
+}
+.stepProgress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.stepProgressText {
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stepMeter {
+  width: min(8rem, 35%);
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ib-color-surface-muted);
+}
+.stepMeterFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ib-color-primary);
+  transition: width 0.2s ease-out;
+}
+.stepTitle {
+  margin-top: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.5;
+  outline: none;
+  scroll-margin-top: 6rem;
+}
+.stepContent {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+.stepAction {
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--ib-color-accent);
+}
+.stepAction > span,
+.synthesis > span {
+  color: var(--ib-color-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.stepAction > p {
+  margin-top: 0.25rem;
+}
+.stepFocus {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.stepFocusItem {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--ib-color-line);
+  border-radius: var(--ib-rounded-lg);
+}
+.stepFocusItem:first-child {
+  border-top: 3px solid var(--ib-color-accent);
+}
+.stepFocusLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.stepFocusLabel svg {
+  width: 1rem;
+  height: 1rem;
+}
+.synthesis {
+  padding-top: 1rem;
+  border-top: 1px solid var(--ib-color-line);
+}
+.synthesis p {
+  margin-top: 0.4rem;
+}
+.stepActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ib-color-line);
+}
+.stepActions button {
+  min-height: 3rem;
+  padding-inline: 1.25rem;
+  gap: 0.65rem;
+}
+.conditionForm {
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+  padding: 1.25rem;
+  border: 1px solid var(--ib-color-line);
+  border-radius: var(--ib-rounded-xl);
+}
+.conditionForm h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.conditionField,
+.artifactCustom {
+  display: grid;
+  gap: 0.5rem;
+}
+.conditionField label,
+.artifactCustom label {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.conditionInput {
+  width: 100%;
+  min-height: 3rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--ib-color-line);
+  border-radius: var(--ib-rounded-md);
+  background: var(--ib-color-surface);
+  color: var(--ib-color-ink);
+  font-size: 1rem;
+}
+.conditionInput:focus-visible {
+  outline: 2px solid var(--ib-color-primary);
+  outline-offset: 2px;
+}
+.conditionHint {
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+}
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.emptyResearch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  max-width: 48rem;
+}
+.emptyResearch p,
+.independentArtifact {
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+}
+.competitionSection {
+  display: grid;
+  justify-items: start;
+  gap: 1rem;
+}
+.competitionLabel {
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+}
+.competitionTargets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.competitionTargets li {
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  background: var(--ib-color-surface-muted);
+  color: var(--ib-color-ink);
+  font-size: 0.875rem;
+}
+.artifactSection {
+  display: grid;
+  justify-items: start;
+  gap: 1.25rem;
+  max-width: 48rem;
+}
+.recommendation {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  width: 100%;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--ib-color-line);
+}
+.recommendation > span {
+  color: var(--ib-color-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.recommendation > strong {
+  font-size: 1rem;
+}
+.recommendation details {
+  grid-column: 2;
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+.independentArtifact {
+  margin: 0;
+}
+.artifactChoices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+}
+.artifactChoices legend {
+  grid-column: 1 / -1;
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.artifactChoice {
+  display: flex;
+  align-items: start;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.875rem;
+  border: 1px solid var(--ib-color-line);
+  border-radius: var(--ib-rounded-lg);
+  line-height: 1.55;
+  cursor: pointer;
+}
+.artifactChoice:has(input:checked) {
+  border-color: var(--ib-color-primary);
+  background: var(--ib-color-primary-soft);
+}
+.artifactChoice input {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.25rem;
+  accent-color: var(--ib-color-primary);
+}
+.artifactChoice:focus-within {
+  outline: 2px solid var(--ib-color-primary);
+  outline-offset: 2px;
+}
+.promptSection {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  max-width: 48rem;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--ib-color-line);
+}
+.promptTitle {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.promptDetails {
+  width: 100%;
+  color: var(--ib-color-muted);
+  font-size: 0.875rem;
+}
+.promptText {
+  display: block;
+  width: 100%;
+  min-height: 12rem;
+  margin-top: 0.5rem;
+  padding: 1rem;
+  resize: vertical;
+  border: 1px solid var(--ib-color-line);
+  border-radius: var(--ib-rounded-lg);
+  background: var(--ib-color-surface);
+  color: var(--ib-color-ink);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stepPane {
+    animation: reveal 0.18s ease-out;
+  }
+  .stepMeterFill {
+    transition: width 0.2s ease-out;
+  }
+  .route {
+    transition:
+      background-color 0.15s,
+      transform 0.15s;
+  }
+  .root button:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+}
+@keyframes reveal {
+  from {
+    opacity: 0.3;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 767px) {
+  .root {
+    margin-top: 1.5rem;
+  }
+  .entryGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  .primaryEntry {
+    padding: 1.25rem;
+  }
+  .primaryCopy {
+    padding-right: 3rem;
+  }
+  .primaryCopy h2 {
+    font-size: 1.125rem;
+  }
+  .primaryPath {
+    gap: 0.4rem;
+    margin-top: 0.875rem;
+    font-size: 0.8125rem;
+  }
+  .primaryPath li {
+    gap: 0.3rem;
+  }
+  .character {
+    width: 3.5rem;
+    height: 3.5rem;
+    right: 0.25rem;
+    bottom: 0.25rem;
+  }
+  .otherEntries {
+    padding-inline: 0.25rem;
+  }
+  .route {
+    padding-block: 0.875rem;
+  }
+  .workspaceTitle {
+    font-size: 1.25rem;
+  }
+  .stepPane {
+    padding: 1.125rem;
+  }
+  .stepFocus {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .artifactChoices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .promptSection {
+    margin-top: 1.25rem;
+  }
+}
+@media (max-width: 359px) {
+  .root {
+    margin-top: 1rem;
+  }
+  .primaryEntry {
+    padding: 1rem;
+  }
+  .primaryCopy {
+    padding-right: 2.75rem;
+  }
+  .primaryPath {
+    gap: 0.25rem;
+    font-size: 0.75rem;
+  }
+  .primaryPath svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+  .primaryButton {
+    margin-top: 0.875rem;
+  }
+  .character {
+    width: 3rem;
+    height: 3rem;
+  }
+}

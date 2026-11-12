@@ -1,26 +1,89 @@
 import { HttpResponse, http } from "msw";
+import type { ReflectionShared } from "@/contracts/outcome-reflection";
 import { ReflectionRequestSchema } from "@/contracts/outcome-reflection";
 import {
-  reflectionAnalysisFixture,
+  reflectionPlanFixture,
   reflectionResponseFixture,
+  reflectionSharedFixture,
 } from "@/contracts/outcome-reflection.fixture";
-export const outcomeReflectionHandlers = [
-  http.post("/api/completed-rooms/:id/reflection", async ({ request }) => {
-    const parsed = ReflectionRequestSchema.safeParse(await request.json());
-    if (!parsed.success)
-      return HttpResponse.json({ error: "入力が不正です。" }, { status: 400 });
-    const artifact = parsed.data.artifact;
-    const analysis = reflectionAnalysisFixture();
-    return HttpResponse.json(
-      reflectionResponseFixture({
-        prompt: artifact
-          ? {
-              artifact,
-              content: `「${artifact}」を作成してください。\n\n目的：一緒に勉強したいのに相手を探せない学生がいるかを確かめること。\n\nチームが決めた課題：一緒に勉強する仲間が見つからない。\n問い：どうすれば気軽に学び合う仲間と出会えるだろう？\n採用案：空きコマに学び合う仲間と出会える勉強マッチ。需要はまだ確認できていません。\n\n試す相手：${analysis.experiment.who}\n手順：\n${analysis.experiment.steps.map((step, index) => `${index + 1}. ${step}`).join("\n")}\n観察すること：${analysis.experiment.observe}\n\n次の判断：${analysis.experiment.ifSupported}\n${analysis.experiment.ifNotSupported}\n\n最近の実体験を聞く中立的な質問を使い、アプリへの賛否を誘導しないでください。選択した制作物に合う形式にし、未決定の条件は仮の案として分けてください。`,
-              generatedAt: Date.now(),
-            }
-          : null,
-      }),
-    );
-  }),
-];
+
+export function createOutcomeReflectionHandlers() {
+  const rooms = new Map<string, ReflectionShared>();
+  const latest = (id: string) =>
+    rooms.get(id) ??
+    reflectionSharedFixture({
+      revision: 0,
+      result: null,
+      context: { audience: "", situation: "" },
+      generatedAt: null,
+    });
+  return [
+    http.get("/api/completed-rooms/:id/reflection", ({ params }) =>
+      HttpResponse.json(
+        reflectionResponseFixture({ shared: latest(String(params.id)) }),
+      ),
+    ),
+    http.post(
+      "/api/completed-rooms/:id/reflection",
+      async ({ params, request }) => {
+        const parsed = ReflectionRequestSchema.safeParse(await request.json());
+        if (!parsed.success)
+          return HttpResponse.json(
+            { error: "入力が不正です。" },
+            { status: 400 },
+          );
+        const input = parsed.data;
+        let shared = latest(String(params.id));
+        if (input.revision !== shared.revision)
+          return HttpResponse.json(
+            {
+              error:
+                "共通の調査手順が更新されています。最新版を取得してください。",
+            },
+            { status: 409 },
+          );
+        if (input.action === "research") {
+          const context = input.context ?? shared.context;
+          shared = reflectionSharedFixture({
+            revision: shared.revision + 1,
+            context,
+            result: !context.audience
+              ? {
+                  kind: "questions",
+                  questions: [
+                    {
+                      field: "audience",
+                      question: "誰の困りごとを調べたいですか？",
+                    },
+                  ],
+                }
+              : reflectionPlanFixture(),
+          });
+          rooms.set(String(params.id), shared);
+        }
+        return HttpResponse.json(
+          reflectionResponseFixture({
+            shared,
+            ...(input.action === "competition"
+              ? {
+                  competitionPrompt: `採用案と補足条件から競合と現在の対処法を調べてください。出典URLと確認日を示してください。\n${JSON.stringify(shared.context)}`,
+                }
+              : {}),
+            ...(input.action === "artifact"
+              ? {
+                  selectedArtifact: input.artifact,
+                  prompt: {
+                    revision: shared.revision,
+                    artifact: input.artifact,
+                    content: `「${input.artifact}」を作成してください。調査で最近の実体験を聞けるよう、具体的な内容と構成を示してください。`,
+                    generatedAt: Date.now(),
+                  },
+                }
+              : {}),
+          }),
+        );
+      },
+    ),
+  ];
+}
+export const outcomeReflectionHandlers = createOutcomeReflectionHandlers();

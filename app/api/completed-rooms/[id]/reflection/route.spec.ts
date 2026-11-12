@@ -7,7 +7,10 @@ vi.mock("@/lib/api-client", () => ({ apiFetch: mocks.api }));
 import { GET, POST } from "./route";
 
 const context = { params: Promise.resolve({ id: "room" }) };
-function request(body: unknown = {}, origin = "https://app.test") {
+function request(
+  body: unknown = { action: "research", revision: 0 },
+  origin = "https://app.test",
+) {
   return new Request("https://app.test/api/completed-rooms/room/reflection", {
     method: "POST",
     headers: { Origin: origin },
@@ -41,14 +44,21 @@ it("異なるoriginやuserIdの混入をWorkerへ渡さない", async () => {
 });
 it("本人の生成要求だけを長めの待機時間でWorkerへ転送する", async () => {
   mocks.user.mockResolvedValue({ sub: "user" });
-  const response = await POST(request({ artifact: "教材" }), context);
+  const response = await POST(
+    request({ action: "artifact", revision: 1, artifact: "教材" }),
+    context,
+  );
   expect(response.status).toBe(200);
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   expect(mocks.api).toHaveBeenCalledWith(
     "/api/completed-rooms/room/reflection",
     expect.objectContaining({
       method: "POST",
-      body: JSON.stringify({ artifact: "教材" }),
+      body: JSON.stringify({
+        action: "artifact",
+        revision: 1,
+        artifact: "教材",
+      }),
     }),
     90000,
   );

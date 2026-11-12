@@ -108,7 +108,7 @@ test("テキスト保存と全文コピーには同じ3項目が入り、操作�
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   const saved = Buffer.concat(chunks).toString("utf8");
-  await page.getByRole("button", { name: "全文をコピー" }).click();
+  await page.getByRole("button", { name: "成果をコピー" }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   for (const part of [
     "1. 決定した課題",
@@ -156,7 +156,7 @@ test("再コピー中は前の成功を消して二重操作を防ぎ、完了�
   await page.goto(
     `${origin}/iframe.html?id=room-roomoutcomeview--complete&viewMode=story`,
   );
-  await page.getByRole("button", { name: "全文をコピー" }).click();
+  await page.getByRole("button", { name: "成果をコピー" }).click();
   await page.getByRole("status").waitFor();
   await page.evaluate(() => {
     Object.defineProperty(navigator, "clipboard", {
@@ -171,7 +171,7 @@ test("再コピー中は前の成功を消して二重操作を防ぎ、完了�
       },
     });
   });
-  await page.getByRole("button", { name: "全文をコピー" }).click();
+  await page.getByRole("button", { name: "成果をコピー" }).click();
   expect(
     await page.getByRole("button", { name: "コピー中…" }).isDisabled(),
   ).toBe(true);
@@ -182,7 +182,7 @@ test("再コピー中は前の成功を消して二重操作を防ぎ、完了�
   await page.evaluate(() => window.dispatchEvent(new Event("finish-copy")));
   await page.getByRole("status").waitFor();
   expect(
-    await page.getByRole("button", { name: "全文をコピー" }).isEnabled(),
+    await page.getByRole("button", { name: "成果をコピー" }).isEnabled(),
   ).toBe(true);
 });
 
@@ -216,7 +216,7 @@ test("コピー拒否時の全文をキーボードで選択でき、再試行�
         },
       });
     });
-    await retryPage.getByRole("button", { name: "全文をコピー" }).click();
+    await retryPage.getByRole("button", { name: "成果をコピー" }).click();
     const manual = retryPage.getByRole("textbox", {
       name: "手動でコピーする成果全文",
     });
@@ -238,7 +238,7 @@ test("コピー拒否時の全文をキーボードで選択でき、再試行�
       ),
     ).toBe(text.length);
     await retryPage.clock.setFixedTime(new Date("2026-10-15T02:35:00Z"));
-    await retryPage.getByRole("button", { name: "全文をコピー" }).click();
+    await retryPage.getByRole("button", { name: "成果をコピー" }).click();
     await retryPage.getByRole("status").waitFor();
     expect(await manual.count()).toBe(0);
     const copied = await retryPage.evaluate(() =>
@@ -276,7 +276,7 @@ test("保存失敗からコピーに回復し、成功通知の500ms後に感想
         .count(),
     ).toBe(0);
     await localPage.clock.pauseAt(new Date("2026-01-01T01:00:00Z"));
-    await localPage.getByRole("button", { name: "全文をコピー" }).click();
+    await localPage.getByRole("button", { name: "成果をコピー" }).click();
     await localPage.getByText(/コピーしました/).waitFor();
     await localPage.clock.runFor(499);
     expect(

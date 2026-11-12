@@ -1,58 +1,61 @@
 import type {
-  ReflectionAnalysis,
+  ReflectionPlan,
   ReflectionResponse,
+  ReflectionShared,
 } from "./outcome-reflection";
-export function reflectionAnalysisFixture(
-  overrides: Partial<ReflectionAnalysis> = {},
-): ReflectionAnalysis {
+
+export function reflectionPlanFixture(
+  overrides: Partial<ReflectionPlan> = {},
+): ReflectionPlan {
   return {
-    change: {
-      headline: "空きコマに、一緒に学ぶ相手を探せるようにする案だね",
-      interpretation:
-        "一緒に勉強する仲間が見つからない、という課題から考えた案だね。同じ空きコマの募集を見つけて参加できれば、学び合う相手を探しやすくなると考えられるよ。",
-      evidenceIds: ["decision-1", "decision-2", "decision-3"],
-    },
-    assumption: {
-      headline: "一人で過ごす理由が、相手が見つからないからか確かめたいね",
-      interpretation:
-        "この案が役立つには、一緒に勉強したいのに相手を探せない人がいることが大切だね。一人で休みたい場合との違いは、記録からはまだ分からないよ。ここを先に確かめると、誰を助ける案かはっきりしそうだね。",
-      evidenceIds: ["decision-1", "problem-context"],
-    },
-    experiment: {
-      headline: "最近の空きコマを、どう過ごしたか聞いてみよう",
-      who: "空きコマを一人で過ごしている、使ってほしい学生に聞いてみよう。",
-      steps: [
-        "最近の空きコマをどう過ごしたか、具体的な一日を思い出してもらおう。",
-        "誰かと勉強したかった場面と、そのとき相手を探すためにしたことを聞いてみよう。",
-        "探すのを諦めた場面があれば、何が難しかったか聞いてみよう。",
-      ],
-      observe:
-        "実際に相手を探して見つからなかった経験があるか見てみよう。「このアプリを使いたい？」という感想だけで判断しないようにしよう。",
-      ifSupported:
-        "相手を探して困った経験が見つかったら、募集の紙や画面を使って、相手を探せるか試してみよう。",
-      ifNotSupported:
-        "一人で過ごしたい理由が中心なら、助けたい人や場面を見直してみよう。少人数の反応だけで全員に当てはめないでね。",
-      evidenceIds: ["decision-1", "decision-3"],
-    },
+    kind: "plan",
+    method: "最近の空きコマの実体験を聞く",
+    reason:
+      "一緒に勉強したいのに相手を探せず困る学生がいるか、実際の経験から確かめるためだよ。",
+    steps: [
+      {
+        title: "最近、勉強相手を探した学生に声をかける",
+        action:
+          "空きコマに誰かと勉強したかった学生に、話を聞いてよいか確認しよう。",
+        task: "最近、一緒に勉強する相手を探したことはありますか？",
+        observe: "実際に相手を探した経験があるか。",
+      },
+      {
+        title: "そのときの出来事を聞く",
+        action: "最後に相手を探した一日を、順番に思い出してもらおう。",
+        task: "どんな場面で、どうやって相手を探しましたか？",
+        observe: "探すためにした行動と、難しかったこと。",
+      },
+      {
+        title: "今の対処法と不満を聞く",
+        action: "うまく見つからなかったとき、代わりに何をしたか聞いてみよう。",
+        task: "その後どうしましたか？ 今の方法で困ることはありますか？",
+        observe: "既存の対処法で満たされていないこと。",
+      },
+    ],
+    synthesis:
+      "実際の行動と困りごとを並べて整理しよう。相手探しに困る経験が見つかれば募集のモックで試し、別の理由が中心なら対象や場面を見直そう。少人数の意見を全員に当てはめないでね。",
     recommendation: {
-      name: "聞くことのリスト",
-      reason:
-        "まずは実際の空きコマの過ごし方を聞けるように、質問を用意してみよう。画面を作る前に、誰がどんな場面で困っているかを確かめられるよ。",
-      checks: "一緒に勉強する相手を探して、見つからずに困った経験があるか",
+      name: "質問リスト",
+      reason: "アイデアへの賛否を誘導せず、最近の実体験を聞く準備に使えるよ。",
     },
-    alternatives: ["聞いたことを残すシート", "説明するスライド"],
+    alternatives: ["記録シート", "モックアップ", "説明するスライド"],
+    ...overrides,
+  };
+}
+export function reflectionSharedFixture(
+  overrides: Partial<ReflectionShared> = {},
+): ReflectionShared {
+  return {
+    revision: 1,
+    context: { audience: "学生", situation: "空きコマに勉強相手を探す" },
+    result: reflectionPlanFixture(),
     sources: [
       {
         id: "decision-1",
         label: "確定した課題",
         content: "空きコマに一緒に勉強する仲間が見つからない",
         scene: null,
-      },
-      {
-        id: "problem-context",
-        label: "課題の共有付箋",
-        content: "声をかけるきっかけがない",
-        scene: "problem-grouping",
       },
       {
         id: "decision-2",
@@ -66,15 +69,9 @@ export function reflectionAnalysisFixture(
         content: "空きコマに学び合う仲間と出会える勉強マッチ",
         scene: null,
       },
-      {
-        id: "other",
-        label: "保存された共有付箋",
-        content: "勉強仲間を募集する掲示板",
-        scene: "idea-mapping",
-      },
     ],
-    generatedAt: 1794100000000,
     truncated: false,
+    generatedAt: 1794100000000,
     ...overrides,
   };
 }
@@ -83,8 +80,10 @@ export function reflectionResponseFixture(
 ): ReflectionResponse {
   return {
     expiresAt: Date.now() + 3600000,
-    analysis: reflectionAnalysisFixture(),
+    shared: reflectionSharedFixture(),
+    selectedArtifact: null,
     prompt: null,
+    competitionPrompt: null,
     ...overrides,
   };
 }

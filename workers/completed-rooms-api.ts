@@ -9,7 +9,9 @@ import type { ApiWorkerEnv } from "./api-worker";
 import { isCreationPublished } from "./lib/room-creation";
 import {
   REFLECTION_BUSY_ERROR,
+  REFLECTION_CONFLICT_ERROR,
   REFLECTION_LIMIT_ERROR,
+  REFLECTION_RESEARCH_LIMIT_ERROR,
 } from "./room/outcome-reflection";
 export function completedJson(body: unknown, status = 200): Response {
   return Response.json(body, {
@@ -44,34 +46,38 @@ export async function handleCompletedRooms(
         if (text.length > 2048)
           return completedJson({ error: "入力が長すぎます。" }, 400);
         input = JSON.parse(text);
-      } else {
-        input = url.searchParams.has("artifact")
-          ? { artifact: url.searchParams.get("artifact") }
-          : {};
       }
     } catch {
       return completedJson({ error: "入力が不正です。" }, 400);
     }
-    const parsed = ReflectionRequestSchema.safeParse(input);
-    if (!parsed.success)
+    const parsed =
+      request.method === "POST"
+        ? ReflectionRequestSchema.safeParse(input)
+        : null;
+    if (parsed && !parsed.success)
       return completedJson({ error: "入力が不正です。" }, 400);
     try {
       const result = await env.ROOM_DO.get(
         env.ROOM_DO.idFromName(reflection[1]),
-      ).getOutcomeReflection(
-        userId,
-        parsed.data.artifact,
-        request.method === "POST",
-      );
+      ).getOutcomeReflection(userId, parsed?.success ? parsed.data : null);
       return result ? completedJson(result) : notFound();
     } catch (cause) {
       if (
         cause instanceof Error &&
-        [REFLECTION_BUSY_ERROR, REFLECTION_LIMIT_ERROR].includes(cause.message)
+        [
+          REFLECTION_BUSY_ERROR,
+          REFLECTION_LIMIT_ERROR,
+          REFLECTION_RESEARCH_LIMIT_ERROR,
+          REFLECTION_CONFLICT_ERROR,
+        ].includes(cause.message)
       )
         return completedJson(
           { error: cause.message },
-          cause.message === REFLECTION_LIMIT_ERROR ? 429 : 409,
+          [REFLECTION_LIMIT_ERROR, REFLECTION_RESEARCH_LIMIT_ERROR].includes(
+            cause.message,
+          )
+            ? 429
+            : 409,
         );
       return completedJson(
         { error: "AIの生成に失敗しました。時間をおいて再試行してください。" },

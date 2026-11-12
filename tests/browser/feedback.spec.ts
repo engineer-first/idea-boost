@@ -296,7 +296,7 @@ test("コピー失敗はエラーを表示して案内せず、操作フォー�
       value: { writeText: () => Promise.reject(new Error("denied")) },
     });
   });
-  await page.getByRole("button", { name: "全文をコピー" }).click();
+  await page.getByRole("button", { name: "成果をコピー" }).click();
   await page.getByRole("alert").waitFor();
   await page.waitForTimeout(600);
   expect(
@@ -306,7 +306,7 @@ test("コピー失敗はエラーを表示して案内せず、操作フォー�
   ).toBe(0);
   expect(
     await page
-      .getByRole("button", { name: "全文をコピー" })
+      .getByRole("button", { name: "成果をコピー" })
       .evaluate((e) => e === document.activeElement),
   ).toBe(true);
 });

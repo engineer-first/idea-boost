@@ -1,4 +1,7 @@
-import type { ReflectionResponse } from "../../contracts/outcome-reflection";
+import type {
+  ReflectionRequest,
+  ReflectionResponse,
+} from "../../contracts/outcome-reflection";
 import {
   type CreationIdentity,
   type CreationInspection,
@@ -1131,10 +1134,9 @@ export class RoomDO extends DurableObject {
 
   async getOutcomeReflection(
     userId: string,
-    artifact: string | undefined,
-    generate: boolean,
+    request: ReflectionRequest | null,
   ): Promise<ReflectionResponse | null> {
-    return this.reflection.readOrGenerate(userId, artifact, generate);
+    return this.reflection.readOrGenerate(userId, request);
   }
 
   async getCompletedBoard(

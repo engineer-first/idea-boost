@@ -1792,7 +1792,7 @@ describe("RoomBoardView", () => {
       screen.getByRole("heading", { name: "チームで決めた成果" }),
     ).toBeVisible();
     expect(screen.getByText("決定課題")).toBeVisible();
-    expect(screen.getByText(/2\.\s*決定した問い/)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "決定した問い" })).toBeVisible();
     expect(screen.getByText(/採用する案/)).toBeVisible();
     expect(
       screen.queryByRole("dialog", { name: /投票結果/ }),
@@ -1800,7 +1800,7 @@ describe("RoomBoardView", () => {
     expect(
       screen.queryByRole("button", { name: "ボードへ戻る" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "全文をコピー" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "成果をコピー" })).toBeVisible();
   });
 
   it("成果が欠けた状態や切断時は保存を許さず再接続を案内する", () => {
@@ -1842,7 +1842,7 @@ describe("RoomBoardView", () => {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
     });
     const { props: initial, rerender } = setup(props);
-    await userEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+    await userEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
     expect(
       await screen.findByRole("textbox", { name: "手動でコピーする成果全文" }),
     ).toBeVisible();

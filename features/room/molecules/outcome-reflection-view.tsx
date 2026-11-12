@@ -1,367 +1,252 @@
 "use client";
-import { ArrowRight } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Clipboard,
+  Eye,
+  FileText,
+  MessageCircle,
+  RefreshCw,
+  Search,
+  Users,
+} from "lucide-react";
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   REFLECTION_ARTIFACT_MAX,
-  type ReflectionChapterKind,
+  REFLECTION_CONTEXT_MAX,
+  type ReflectionContext,
   type ReflectionResponse,
 } from "@/contracts/outcome-reflection";
+import styles from "./outcome-reflection.module.css";
 
+export type ReflectionSection = "research" | "competition" | "artifact";
 export type OutcomeReflectionViewProps = {
-  recordsHref?: string;
-  chapter?: ReflectionChapterKind;
-  onChapter?: (kind: ReflectionChapterKind) => void;
-  open: boolean;
+  section: ReflectionSection | null;
   data: ReflectionResponse | null;
-  busy: "analysis" | "prompt" | null;
-  error: string | null;
+  context: ReflectionContext;
   artifact: string;
+  step: number;
+  editing: boolean;
+  confirming: boolean;
+  busy: ReflectionSection | "load" | null;
+  error: string | null;
   copy: "idle" | "success" | "failed";
-  onStart: () => void;
+  onOpen: (section: ReflectionSection) => void;
+  onClose: () => void;
+  onRefresh: () => void;
+  onStep: (step: number) => void;
+  onContext: (field: keyof ReflectionContext, value: string) => void;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onResearch: () => void;
+  onConfirm: () => void;
+  onConfirming: (open: boolean) => void;
   onArtifact: (artifact: string) => void;
   onGenerate: () => void;
+  onCompetition: () => void;
   onCopy: () => void;
 };
-const CHAPTERS = [
-  { kind: "change", title: "この案で、何が変わりそう？" },
-  { kind: "assumption", title: "最初に確かめたいこと" },
-  { kind: "experiment", title: "まず試してみること" },
-] as const;
-
-function ReflectionMessage({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex items-start gap-4 sm:gap-6">
-      <Image
-        src="/landing/mood-a.webp"
-        alt=""
-        width={80}
-        height={80}
-        className="h-12 w-12 shrink-0 object-contain sm:h-20 sm:w-20"
-      />
-      <div className="relative min-w-0 flex-1 space-y-3 rounded-2xl bg-[var(--ib-color-primary-soft)] p-4 before:absolute before:top-6 before:-left-3 before:border-y-[10px] before:border-r-[14px] before:border-y-transparent before:border-r-[var(--ib-color-primary-soft)] before:content-[''] sm:p-6">
-        {children}
-      </div>
-    </div>
-  );
+const SECTION_TITLES = {
+  research: "ニーズ調査の準備",
+  competition: "競合・代替手段",
+  artifact: "調査の準備物",
+} as const;
+function getArtifactLabel(value: string) {
+  return value.split(/[（(]/u, 1)[0].trim();
 }
 
-export function OutcomeReflectionView({
-  recordsHref,
-  chapter: activeChapter = "change",
-  onChapter,
-  open,
-  data,
-  busy,
-  error,
-  artifact,
-  copy,
-  onStart,
-  onArtifact,
-  onGenerate,
-  onCopy,
-}: OutcomeReflectionViewProps) {
-  const analysis = data?.analysis;
-  const recommendation = analysis?.recommendation;
+export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
+  const {
+    section,
+    data,
+    context,
+    artifact,
+    step,
+    editing,
+    confirming,
+    busy,
+    error,
+    copy,
+  } = props;
+  const shared = data?.shared;
+  const result = shared?.result;
+  const plan = result?.kind === "plan" ? result : null;
+  const questions = result?.kind === "questions" ? result.questions : [];
+  const fields = editing
+    ? [
+        { field: "audience" as const, question: "誰の困りごとを調べたい？" },
+        { field: "situation" as const, question: "どんな場面の困りごと？" },
+      ]
+    : questions;
+  const index = plan ? Math.min(step, plan.steps.length - 1) : 0;
+  const current = plan?.steps[index];
   const candidates = [
     ...new Set(
-      [recommendation?.name, ...(analysis?.alternatives ?? [])].filter(
-        (name): name is string => Boolean(name),
-      ),
+      [
+        plan?.recommendation?.name,
+        ...(plan?.alternatives ?? []),
+        "モックアップ",
+        "説明するスライド",
+      ].filter((value): value is string => Boolean(value)),
     ),
   ];
+  const selectedSuggestedArtifact =
+    candidates.find((candidate) => candidate === artifact) ??
+    candidates.find((candidate) => getArtifactLabel(candidate) === artifact);
+  const suggestedArtifactSelected = selectedSuggestedArtifact !== undefined;
+  const prompt =
+    section === "competition" ? data?.competitionPrompt : data?.prompt?.content;
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const entryRef = useRef<HTMLButtonElement>(null);
+  const stepRef = useRef<HTMLHeadingElement>(null);
+  const conditionRef = useRef<HTMLInputElement>(null);
+  const previousEditing = useRef(editing);
+  const previousSection = useRef(section);
+  const previousStep = useRef(index);
+  useEffect(() => {
+    if (previousSection.current === section) return;
+    previousSection.current = section;
+    if (section) {
+      titleRef.current?.focus({ preventScroll: true });
+      workspaceRef.current?.scrollIntoView?.({ block: "start" });
+    } else entryRef.current?.focus();
+  }, [section]);
+  useEffect(() => {
+    if (previousStep.current !== index && section === "research") {
+      stepRef.current?.focus({ preventScroll: true });
+      stepRef.current?.scrollIntoView?.({ block: "start" });
+    }
+    previousStep.current = index;
+  }, [index, section]);
+  useEffect(() => {
+    if (previousEditing.current === editing) return;
+    previousEditing.current = editing;
+    if (editing) conditionRef.current?.focus();
+    else stepRef.current?.focus();
+  }, [editing]);
   return (
-    <section
-      aria-label="AIと振り返る"
-      className="mx-auto mt-12 min-w-0 max-w-4xl border-t border-border pt-8 [overflow-wrap:anywhere]"
-    >
-      <ReflectionMessage>
-        <h2 className="text-xl font-bold sm:text-2xl">
-          このアイデア、まずどう試してみよう？
-        </h2>
-        <p className="text-base leading-7">
-          チームの記録から、目指す変化と、最初に確かめたいことを整理するよ。小さく試す方法も一緒に考えてみよう。
-        </p>
-      </ReflectionMessage>
-      <details className="mt-4 text-base leading-7 text-muted-foreground">
-        <summary className="cursor-pointer py-2 underline underline-offset-4">
-          AIが使う記録について
-        </summary>
-        <p>
-          確定した課題・問い・採用案と、課題のグループ化・問いの決定・アイデアの整理で保存された共有付箋を使います。個人付箋や保存されていない会話は含みません。チームで決めた内容と、利用者に確かめられた内容を分けて考えます。AIの提案には誤りが含まれることがあります。
-        </p>
-      </details>
-      {!open && (
-        <Button className="mt-5 min-h-12" onClick={onStart}>
-          AIと振り返る
-        </Button>
-      )}
-      {open && (
-        <div className="mt-8 space-y-8">
-          {busy === "analysis" && (
-            <p role="status" className="rounded-xl bg-primary/5 p-5">
-              チームの記録を読んでいるよ…
+    <section aria-label="採用案を次に進める" className={styles.root}>
+      {!section ? (
+        <div className={styles.entryGrid}>
+          <div className={styles.primaryEntry}>
+            <div className={styles.primaryCopy}>
+              <h2>利用者の困りごとを確かめる</h2>
+              <ol
+                className={styles.primaryPath}
+                aria-label="調査で確かめること"
+              >
+                <li>
+                  <Users aria-hidden="true" />
+                  誰に
+                </li>
+                <li>
+                  <MessageCircle aria-hidden="true" />
+                  何を確かめる
+                </li>
+                <li>
+                  <Eye aria-hidden="true" />
+                  どう見る
+                </li>
+              </ol>
+              <Button
+                ref={entryRef}
+                className={styles.primaryButton}
+                onClick={() => props.onOpen("research")}
+              >
+                調査を準備する <ArrowRight aria-hidden="true" />
+              </Button>
+            </div>
+            <Image
+              src="/landing/mood-a.webp"
+              alt=""
+              width={160}
+              height={160}
+              className={styles.character}
+            />
+          </div>
+          <div className={styles.otherEntries}>
+            <p className={styles.otherLabel}>ほかの準備</p>
+            <button
+              type="button"
+              aria-label="競合・代替手段を調べる"
+              className={styles.route}
+              onClick={() => props.onOpen("competition")}
+            >
+              <Search aria-hidden="true" className={styles.routeIcon} />
+              <span className={styles.routeCopy}>
+                <strong>競合・代替手段</strong>
+                <span>検索AI用の依頼文</span>
+              </span>
+              <ArrowRight aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              aria-label="調査の準備物を選ぶ"
+              className={styles.route}
+              onClick={() => props.onOpen("artifact")}
+            >
+              <FileText aria-hidden="true" className={styles.routeIcon} />
+              <span className={styles.routeCopy}>
+                <strong>調査の準備物</strong>
+                <span>モックや質問リスト</span>
+              </span>
+              <ArrowRight aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div ref={workspaceRef} className={styles.workspace}>
+          <div className={styles.workspaceBar}>
+            <Button
+              variant="ghost"
+              aria-label="次のアクションに戻る"
+              onClick={props.onClose}
+              className={styles.backButton}
+            >
+              <ArrowLeft aria-hidden="true" /> 次のアクション
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={props.onRefresh}
+              disabled={busy !== null}
+              className={styles.refreshButton}
+            >
+              <RefreshCw aria-hidden="true" /> 最新版を取得
+            </Button>
+          </div>
+          <h2 ref={titleRef} tabIndex={-1} className={styles.workspaceTitle}>
+            {SECTION_TITLES[section]}
+          </h2>
+          {busy && (
+            <p role="status" className="text-base">
+              {busy === "load"
+                ? "保存された内容を読み込んでいます…"
+                : busy === "research"
+                  ? "調査の進め方を用意しています…"
+                  : busy === "artifact"
+                    ? "制作依頼文を作っています…"
+                    : "検索用の依頼文を作っています…"}
             </p>
           )}
-          {analysis && (
-            <div>
-              {CHAPTERS.map(({ kind, title }, index) => {
-                const chapter = analysis[kind];
-                return (
-                  <details
-                    key={kind}
-                    id={`reflection-${kind}`}
-                    open={activeChapter === kind}
-                    className="border-b border-border py-6"
-                  >
-                    <summary className="cursor-pointer text-xl font-bold sm:text-2xl">
-                      <span className="mr-3 text-base text-primary">
-                        {index + 1}
-                      </span>
-                      {title}
-                    </summary>
-                    <div className="space-y-5 py-6">
-                      <ReflectionMessage>
-                        <p className="text-sm font-semibold text-primary">
-                          AIからの提案
-                        </p>
-                        <h4 className="text-xl font-bold leading-snug sm:text-2xl">
-                          {chapter.headline}
-                        </h4>
-                        {kind === "experiment" ? (
-                          <dl className="space-y-5 text-base leading-7">
-                            <div>
-                              <dt className="font-semibold">試す相手</dt>
-                              <dd className="mt-1">
-                                {analysis.experiment.who}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt className="font-semibold">やってみること</dt>
-                              <dd className="mt-2">
-                                <ol className="list-decimal space-y-2 pl-5">
-                                  {analysis.experiment.steps.map((step) => (
-                                    <li key={step}>{step}</li>
-                                  ))}
-                                </ol>
-                              </dd>
-                            </div>
-                            <div>
-                              <dt className="font-semibold">
-                                見ておきたいこと
-                              </dt>
-                              <dd className="mt-1">
-                                {analysis.experiment.observe}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt className="font-semibold">
-                                考えた通りだったら
-                              </dt>
-                              <dd className="mt-1">
-                                {analysis.experiment.ifSupported}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt className="font-semibold">
-                                違った・まだ分からなかったら
-                              </dt>
-                              <dd className="mt-1">
-                                {analysis.experiment.ifNotSupported}
-                              </dd>
-                            </div>
-                          </dl>
-                        ) : (
-                          <p className="whitespace-pre-wrap text-base leading-7 sm:text-lg sm:leading-8">
-                            {analysis[kind].interpretation}
-                          </p>
-                        )}
-                      </ReflectionMessage>
-                      <details className="text-base leading-7">
-                        <summary className="cursor-pointer py-2 font-semibold text-primary underline underline-offset-4">
-                          根拠の記録を見る
-                        </summary>
-                        <div className="space-y-4 py-3">
-                          {recordsHref && (
-                            <a
-                              href={recordsHref}
-                              className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-4"
-                            >
-                              保存された検討過程を開く
-                            </a>
-                          )}
-                          {chapter.evidenceIds.length === 0 && (
-                            <p className="text-muted-foreground">
-                              この見立ての根拠になる記録が不足しています。
-                            </p>
-                          )}
-                          {chapter.evidenceIds.map((id) => {
-                            const source = analysis.sources.find(
-                              (item) => item.id === id,
-                            );
-                            return (
-                              source && (
-                                <blockquote
-                                  key={id}
-                                  className="border-l-2 border-border pl-4"
-                                >
-                                  <p className="font-semibold">
-                                    {source.label} · 記録にある内容
-                                  </p>
-                                  <p className="mt-1 whitespace-pre-wrap">
-                                    {source.content}
-                                  </p>
-                                </blockquote>
-                              )
-                            );
-                          })}
-                        </div>
-                      </details>
-                      <div className="flex flex-wrap items-center gap-5 pt-3">
-                        <Button asChild className="min-h-12">
-                          <a
-                            href={
-                              index < 2
-                                ? `#reflection-${CHAPTERS[index + 1].kind}`
-                                : "#reflection-artifacts"
-                            }
-                            onClick={() => {
-                              if (index < 2)
-                                onChapter?.(CHAPTERS[index + 1].kind);
-                            }}
-                          >
-                            {index < 2
-                              ? `${CHAPTERS[index + 1].title}へ`
-                              : "試すための準備へ"}
-                            <ArrowRight aria-hidden="true" className="ml-2" />
-                          </a>
-                        </Button>
-                        {recordsHref && (
-                          <a
-                            href={recordsHref}
-                            className="inline-flex min-h-11 items-center text-base underline underline-offset-4"
-                          >
-                            成果へ戻る
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </details>
-                );
-              })}
-              {analysis.truncated && (
-                <p className="py-4 text-base text-muted-foreground">
-                  記録が多いため、一部の共有付箋を省いて振り返っています。
-                </p>
-              )}
+          {busy === "load" && !data && (
+            <div className={styles.loadingShape} aria-hidden="true">
+              <span />
+              <span />
+              <span />
             </div>
-          )}
-          {busy !== "analysis" && (
-            <section
-              id="reflection-artifacts"
-              className="space-y-5 border-t border-border pt-8"
-              aria-label="次に作るもの"
-            >
-              <ReflectionMessage>
-                <h3 className="text-balance text-2xl font-bold">
-                  次は、何を作ってみる？
-                </h3>
-                {recommendation ? (
-                  <div className="space-y-3 text-base leading-7">
-                    <p className="font-bold text-primary">
-                      試す準備に「{recommendation.name}」を作ってみよう。
-                    </p>
-                    <p>{recommendation.reason}</p>
-                    <p>
-                      <span className="font-semibold">確かめられること：</span>
-                      {recommendation.checks}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-base leading-7">
-                    {analysis
-                      ? "準備物がなくても、上の方法で試せるよ。何か用意したければ、下の欄に書いてみてね。"
-                      : "試すために用意したいものを、下の欄に書いてみてね。"}
-                  </p>
-                )}
-              </ReflectionMessage>
-              {candidates.length > 0 && (
-                <fieldset className="space-y-3">
-                  <legend className="mb-2 text-base font-semibold">
-                    作ってみたいものを選んでね
-                  </legend>
-                  {candidates.map((candidate) => (
-                    <label
-                      key={candidate}
-                      className="flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border border-border bg-background p-3 text-base"
-                    >
-                      <input
-                        type="radio"
-                        name="reflection-artifact"
-                        value={candidate}
-                        checked={artifact === candidate}
-                        onChange={() => onArtifact(candidate)}
-                        className="mt-1.5"
-                      />
-                      {candidate}を作りたい
-                    </label>
-                  ))}
-                </fieldset>
-              )}
-              <div className="space-y-2">
-                <label
-                  htmlFor="reflection-artifact"
-                  className="block text-base font-semibold"
-                >
-                  ほかに作りたいものはある？
-                </label>
-                <input
-                  id="reflection-artifact"
-                  value={artifact}
-                  maxLength={REFLECTION_ARTIFACT_MAX}
-                  onChange={(event) => onArtifact(event.target.value)}
-                  placeholder="例：イベント当日の進行台本"
-                  className="min-h-12 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-base"
-                />
-              </div>
-              <Button
-                onClick={onGenerate}
-                disabled={!artifact.trim() || busy !== null}
-                className="min-h-12"
-              >
-                {busy === "prompt"
-                  ? "AIへの依頼文を作っているよ…"
-                  : "AIへの依頼文を作る"}
-              </Button>
-            </section>
-          )}
-          {data?.prompt && (
-            <section className="space-y-4" aria-label="制作プロンプト">
-              <ReflectionMessage>
-                <h3 className="text-xl font-bold sm:text-2xl">
-                  この文章をAIに貼り付けてね
-                </h3>
-                <p className="text-base leading-7">
-                  選んだものを作って、この案を試すための依頼文だよ。コピーして、使いたいAIに渡してね。
-                </p>
-              </ReflectionMessage>
-              <textarea
-                aria-label="制作プロンプト全文"
-                readOnly
-                value={data.prompt.content}
-                className="min-h-80 w-full resize-y rounded-xl border border-border bg-background p-5 text-base leading-7"
-              />
-              <Button className="min-h-12" onClick={onCopy}>
-                全文をコピー
-              </Button>
-              {copy === "success" && <p role="status">コピーしました。</p>}
-              {copy === "failed" && (
-                <p role="alert">
-                  コピーできませんでした。上の全文を選択して手動でコピーしてください。
-                </p>
-              )}
-            </section>
           )}
           {error && (
             <div
@@ -369,19 +254,359 @@ export function OutcomeReflectionView({
               className="space-y-3 rounded-xl border border-destructive p-4 text-base leading-7"
             >
               <p>{error}</p>
-              {!analysis && (
-                <Button
-                  variant="outline"
-                  onClick={onStart}
-                  disabled={busy !== null}
-                >
-                  振り返りを再試行
-                </Button>
-              )}
             </div>
+          )}
+          {data && section === "research" && (
+            <section aria-label="ユーザーニーズの調査" className="space-y-4">
+              {fields.length > 0 && (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    props.onResearch();
+                  }}
+                  className={styles.conditionForm}
+                >
+                  <h3>{editing ? "チームの調査条件" : "調査の前に確認"}</h3>
+                  {fields.map((question, questionIndex) => (
+                    <div key={question.field} className={styles.conditionField}>
+                      <label htmlFor={`research-${question.field}`}>
+                        {question.question}
+                      </label>
+                      <input
+                        id={`research-${question.field}`}
+                        ref={questionIndex === 0 ? conditionRef : undefined}
+                        value={context[question.field]}
+                        maxLength={REFLECTION_CONTEXT_MAX}
+                        onChange={(event) =>
+                          props.onContext(question.field, event.target.value)
+                        }
+                        disabled={busy !== null}
+                        className={styles.conditionInput}
+                      />
+                    </div>
+                  ))}
+                  <p className={styles.conditionHint}>
+                    まだ分からない項目は「分からない」で進められます。
+                  </p>
+                  <div className={styles.formActions}>
+                    <Button
+                      type="submit"
+                      disabled={
+                        busy !== null ||
+                        fields.some(
+                          (question) => !context[question.field].trim(),
+                        )
+                      }
+                    >
+                      補足して手順を作る
+                    </Button>
+                    {editing && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={props.onCancelEdit}
+                        disabled={busy !== null}
+                      >
+                        変更をやめる
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              )}
+              {!result && !editing && (
+                <div className={styles.emptyResearch}>
+                  <p>採用案に合う調査方法と手順を準備します。</p>
+                  <Button onClick={props.onResearch} disabled={busy !== null}>
+                    調査の手順を作る
+                  </Button>
+                </div>
+              )}
+              {plan && current && !editing && (
+                <>
+                  <div className={styles.method}>
+                    <span className={styles.methodLabel}>今回の調査方法</span>
+                    <h3>{plan.method}</h3>
+                    <details className={styles.methodReason}>
+                      <summary>この方法にした理由</summary>
+                      <p>{plan.reason}</p>
+                    </details>
+                  </div>
+                  <article
+                    key={index}
+                    aria-label="調査の手順"
+                    className={styles.stepPane}
+                  >
+                    <div className={styles.stepProgress}>
+                      <p role="status" className={styles.stepProgressText}>
+                        手順 {index + 1} / {plan.steps.length}
+                      </p>
+                      <div
+                        role="progressbar"
+                        aria-label="調査の進み具合"
+                        aria-valuemin={0}
+                        aria-valuemax={plan.steps.length}
+                        aria-valuenow={index + 1}
+                        className={styles.stepMeter}
+                      >
+                        <span
+                          className={styles.stepMeterFill}
+                          style={{
+                            width: `${((index + 1) / plan.steps.length) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <h4
+                      ref={stepRef}
+                      tabIndex={-1}
+                      className={styles.stepTitle}
+                    >
+                      {current.title}
+                    </h4>
+                    <div className={styles.stepContent}>
+                      <div className={styles.stepAction}>
+                        <span>やること</span>
+                        <p>{current.action}</p>
+                      </div>
+                      <div className={styles.stepFocus}>
+                        <div className={styles.stepFocusItem}>
+                          <p className={styles.stepFocusLabel}>
+                            <MessageCircle aria-hidden="true" /> 聞く・試す
+                          </p>
+                          <p>{current.task}</p>
+                        </div>
+                        <div className={styles.stepFocusItem}>
+                          <p className={styles.stepFocusLabel}>
+                            <Eye aria-hidden="true" /> 見る
+                          </p>
+                          <p>{current.observe}</p>
+                        </div>
+                      </div>
+                      {index === plan.steps.length - 1 && (
+                        <div className={styles.synthesis}>
+                          <span>次の判断</span>
+                          <p>{plan.synthesis}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className={styles.stepActions}>
+                      <Button
+                        variant="outline"
+                        onClick={() => props.onStep(index - 1)}
+                        disabled={index === 0}
+                      >
+                        前へ
+                      </Button>
+                      {index < plan.steps.length - 1 ? (
+                        <Button onClick={() => props.onStep(index + 1)}>
+                          次へ <ArrowRight aria-hidden="true" />
+                        </Button>
+                      ) : (
+                        <Button onClick={() => props.onOpen("artifact")}>
+                          準備物を選ぶ
+                        </Button>
+                      )}
+                    </div>
+                  </article>
+                  <Button
+                    variant="ghost"
+                    onClick={props.onEdit}
+                    disabled={busy !== null}
+                  >
+                    調査条件を編集
+                  </Button>
+                </>
+              )}
+            </section>
+          )}
+          {data && section === "competition" && (
+            <section
+              aria-label="競合調査の準備"
+              className={styles.competitionSection}
+            >
+              <p className={styles.competitionLabel}>検索AIに渡す</p>
+              <ul className={styles.competitionTargets}>
+                <li>似た製品</li>
+                <li>今の対処法</li>
+                <li>利用者の不満</li>
+                <li>違い</li>
+              </ul>
+              <Button
+                onClick={props.onCompetition}
+                variant={data.competitionPrompt ? "outline" : "default"}
+                disabled={busy !== null}
+              >
+                競合調査の依頼文を作る
+              </Button>
+            </section>
+          )}
+          {data && section === "artifact" && (
+            <section
+              aria-label="制作物の選択"
+              className={styles.artifactSection}
+            >
+              {plan?.recommendation ? (
+                <div className={styles.recommendation}>
+                  <span>おすすめ</span>
+                  <strong title={plan.recommendation.name}>
+                    {getArtifactLabel(plan.recommendation.name)}
+                    {getArtifactLabel(plan.recommendation.name) !==
+                      plan.recommendation.name && (
+                      <span className="sr-only">
+                        {plan.recommendation.name.slice(
+                          getArtifactLabel(plan.recommendation.name).length,
+                        )}
+                      </span>
+                    )}
+                  </strong>
+                  <details>
+                    <summary>理由を見る</summary>
+                    <p>{plan.recommendation.reason}</p>
+                  </details>
+                </div>
+              ) : (
+                <p className={styles.independentArtifact}>
+                  調査の手順がなくても準備できます。
+                </p>
+              )}
+              <fieldset className={styles.artifactChoices}>
+                <legend>調査に使うもの</legend>
+                {candidates.map((candidate) => (
+                  <label key={candidate} className={styles.artifactChoice}>
+                    <input
+                      type="radio"
+                      name="reflection-artifact"
+                      value={candidate}
+                      aria-label={candidate}
+                      checked={selectedSuggestedArtifact === candidate}
+                      onChange={() => props.onArtifact(candidate)}
+                      disabled={busy !== null}
+                    />
+                    {getArtifactLabel(candidate)}
+                  </label>
+                ))}
+              </fieldset>
+              <div className={styles.artifactCustom}>
+                <label htmlFor="reflection-artifact">別の準備物</label>
+                <input
+                  id="reflection-artifact"
+                  value={suggestedArtifactSelected ? "" : artifact}
+                  maxLength={REFLECTION_ARTIFACT_MAX}
+                  disabled={busy !== null}
+                  onChange={(event) => props.onArtifact(event.target.value)}
+                  placeholder="例：調査の記録シート"
+                  className={styles.conditionInput}
+                />
+              </div>
+              <Button
+                onClick={props.onGenerate}
+                variant={data.prompt ? "outline" : "default"}
+                disabled={!artifact.trim() || busy !== null}
+              >
+                制作依頼文を作る
+              </Button>
+            </section>
+          )}
+          {prompt && section !== "research" && (
+            <section
+              aria-label={
+                section === "competition"
+                  ? "競合調査プロンプト"
+                  : "制作プロンプト"
+              }
+              className={styles.promptSection}
+            >
+              <h3 className={styles.promptTitle}>
+                {section === "competition"
+                  ? "検索AIに渡す依頼文"
+                  : "制作依頼文"}
+              </h3>
+              <Button onClick={props.onCopy} className="min-h-12 gap-2 px-5">
+                {copy === "success" ? (
+                  <Check aria-hidden="true" />
+                ) : (
+                  <Clipboard aria-hidden="true" />
+                )}{" "}
+                依頼文をコピー
+              </Button>
+              {copy === "success" && <p role="status">コピーしました。</p>}
+              {copy === "failed" && (
+                <p role="alert">
+                  コピーできませんでした。全文を開いて選択し、コピーしてください。
+                </p>
+              )}
+              <details className={styles.promptDetails}>
+                <summary>依頼文の全文を確認</summary>
+                <textarea
+                  aria-label={
+                    section === "competition"
+                      ? "競合調査プロンプト全文"
+                      : "制作プロンプト全文"
+                  }
+                  readOnly
+                  value={prompt}
+                  className={styles.promptText}
+                />
+              </details>
+            </section>
+          )}
+          {data && (
+            <details className={styles.sharedDetails}>
+              <summary>共有条件・使った記録</summary>
+              <p>
+                調査条件と手順はチーム共通です。他の人の更新は「最新版を取得」するまで表示に反映されません。
+              </p>
+              {shared?.context.audience && (
+                <p>対象：{shared.context.audience}</p>
+              )}
+              {shared?.context.situation && (
+                <p>場面：{shared.context.situation}</p>
+              )}
+              {!!shared?.sources.length && (
+                <ul className={styles.sourceList}>
+                  {shared.sources.map((source) => (
+                    <li key={source.id}>
+                      <strong>{source.label}</strong>
+                      <p>{source.content}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {shared?.truncated && <p>記録が多いため、一部を省いています。</p>}
+              <p>手順を読むだけでは、調査済みにはなりません。</p>
+            </details>
           )}
         </div>
       )}
+      {!section && (
+        <details className={styles.sourceDetails}>
+          <summary>この提案について</summary>
+          <p>
+            確定した課題・問い・採用案と、保存済みの共有付箋を使います。個人付箋は含みません。調査の実施結果ではありません。
+          </p>
+        </details>
+      )}
+      <AlertDialog open={confirming} onOpenChange={props.onConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              チーム共通の調査手順を作り直しますか？
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy !== null}>戻る</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                props.onConfirm();
+              }}
+              disabled={busy !== null}
+            >
+              共通の手順を更新する
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

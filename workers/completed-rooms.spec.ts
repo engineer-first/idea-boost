@@ -86,7 +86,9 @@ describe("本人向けの完了ルーム再訪", () => {
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({
         expiresAt: expect.any(Number),
-        analysis: null,
+        shared: expect.objectContaining({ revision: 0, result: null }),
+        selectedArtifact: null,
+        competitionPrompt: null,
         prompt: null,
       });
       await runInRoomDO(room.roomId, (_instance, state) => {
@@ -102,7 +104,7 @@ describe("本人向けの完了ルーム再訪", () => {
             `completed-rooms/${room.roomId}/reflection`,
             host,
             "POST",
-            { artifact: "新しい制作物" },
+            { action: "artifact", revision: 0, artifact: "新しい制作物" },
           )
         ).status,
       ).toBe(429);

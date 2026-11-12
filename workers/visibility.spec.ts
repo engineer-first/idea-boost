@@ -45,13 +45,13 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
-    name: "AI振り返りの共有記録へ個人付箋を含めない",
+    name: "ニーズ調査・競合調査・制作依頼の共有記録へ個人付箋を含めない",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "private" }),
     expected: false,
   },
   {
-    name: "AI振り返りは共有スナップショットの付箋を参照できる",
+    name: "ニーズ調査は共有スナップショットの付箋を参照できる",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "shared" }),
     expected: true,
