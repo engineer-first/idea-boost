@@ -343,6 +343,64 @@ it("ホームからゼロで作ったルームも、途中のステップへ飛�
   expect(state.phase).toEqual({ kind: "step", phase: 2, step: 1 });
   expect(state.members.sort()).toEqual([owner.sub, member.sub].sort());
 });
+it("作り直して他の参加者に配った未共有の付箋は、本人以外に届かない", async () => {
+  const first = await choose(owner, "1-1");
+  await joinRoom(member, first.inviteCode);
+  await choose(owner, "2-1");
+  await startTimerForTest(first.roomId);
+  const ownerSocket = await socketFor(owner, first.roomId);
+  const ownerView = await ownerSocket.next();
+  const memberSocket = await socketFor(member, first.roomId);
+  const memberView = await memberSocket.next();
+  if (ownerView.type !== "snapshot" || memberView.type !== "snapshot")
+    throw new Error("snapshotを受け取れませんでした。");
+  const memberPrivate = memberView.notes.filter(
+    (n) => n.authorId === member.sub && n.visibility === "private",
+  );
+  expect(memberPrivate.length).toBeGreaterThan(0);
+  const ownerSees = new Set(ownerView.notes.map((n) => n.id));
+  expect(memberPrivate.filter((n) => ownerSees.has(n.id))).toEqual([]);
+  ownerSocket.ws.close();
+  memberSocket.ws.close();
+});
+it("参加していない人や、終了したルームは作り直さない", async () => {
+  const first = await choose(owner, "2-1");
+  const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
+  type Resettable = {
+    resetToCheckpoint(
+      checkpoint: "3-1",
+      roomId: string,
+      actor: { sub: string; name: string },
+    ): Promise<string>;
+    disband(byUserId?: string, creatorId?: string): Promise<boolean>;
+  };
+  const outsider = await runInDurableObject(stub, (instance) =>
+    (instance as unknown as Resettable).resetToCheckpoint("3-1", first.roomId, {
+      sub: member.sub,
+      name: member.name,
+    }),
+  );
+  expect(outsider).toBe("not-member");
+  expect((await roomState(first.roomId)).phase).toEqual({
+    kind: "step",
+    phase: 2,
+    step: 1,
+  });
+  const closed = await runInDurableObject(stub, async (instance) => {
+    const room = instance as unknown as Resettable;
+    await room.disband(undefined, owner.sub);
+    return room.resetToCheckpoint("3-1", first.roomId, {
+      sub: owner.sub,
+      name: owner.name,
+    });
+  });
+  expect(closed).not.toBe("ok");
+  expect((await roomState(first.roomId)).phase).toEqual({
+    kind: "step",
+    phase: 2,
+    step: 1,
+  });
+});
 async function leaveStuckSample(roomId: string, checkpoint = "1-1") {
   const { reserveRoomCreation } = await import("./lib/room-creation");
   const { ensureUser } = await import("./lib/db");
