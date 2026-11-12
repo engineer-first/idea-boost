@@ -139,7 +139,7 @@ export function previewComment(report: PreviewReport): string {
       ? [
           `[このPRの最新公開版を開く](${report.url}/preview)`,
           "",
-          "許可されたGoogleアカウントでログインし、確認したいステップを選ぶと、サンプル入りの新しいルームが開きます。",
+          "許可されたGoogleアカウントでログインし、確認したいステップを選ぶと、サンプル入りルームが開きます。参加中のルームがあれば、そのルームが参加者全員そろって選んだステップに切り替わります。",
         ]
       : []),
     "Previewは、PRの新しいコードがCIと公開後の接続確認に成功すると更新されます。PRをマージまたは閉じると、環境と保存データは削除されます。",
@@ -154,7 +154,7 @@ export function previewComment(report: PreviewReport): string {
     ...(report.logUrl ? [`[公開・終了処理のログ](${report.logUrl})`] : []),
     "",
     "ログイン：許可一覧のGoogleアカウント（Cloudflare Access）。参加者全員が同じ操作を行えます。ボードの招待URLから同じPRのルームへ参加できます。",
-    "確認範囲：PR版App・API・RoomDO・D1 migration・通信契約。全14ステップの新しいサンプル入りルームで操作できます。参加者のマイ付箋は空から始まります。",
+    "確認範囲：PR版App・API・RoomDO・D1 migration・通信契約。全14ステップのサンプル入りルームで操作できます。サンプルの付箋はステップを選んだ時点の参加者に配り、後から参加した人のマイ付箋は空から始まります。",
     ...(report.state === "ready" && report.url
       ? [`[現在のPR版APIを確認](${report.url}/api/health)`]
       : []),
