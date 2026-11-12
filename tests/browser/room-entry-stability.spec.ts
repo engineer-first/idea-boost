@@ -67,13 +67,8 @@ for (const width of [390, 1440]) {
 }
 
 for (const width of [390, 1440]) {
-  test.each([
-    "auth-required",
-    "unavailable",
-    "delayed-connecting",
-    "delayed-reconnecting",
-  ])(
-    `ロビーの長い接続案内が参加者と招待欄に重ならない (${width}px, %s)`,
+  test.each(["auth-required", "unavailable", "connecting", "reconnecting"])(
+    `ロビーの接続案内が参加者と招待欄に重ならない (${width}px, %s)`,
     async (state) => {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
       try {

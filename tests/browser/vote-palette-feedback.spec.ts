@@ -49,7 +49,14 @@ it.each([390, 1280])(
               (element) => element.scrollWidth <= element.clientWidth,
             ),
           ).toBe(true);
+          // 残票が確定しない間は票数の代わりにスピナーを出す。
           const count = button.getByText(/残り\d票/);
+          if ((await count.count()) === 0) {
+            expect(await button.locator('[data-slot="spinner"]').count()).toBe(
+              1,
+            );
+            continue;
+          }
           expect(
             await count.evaluate((element) =>
               Number.parseFloat(getComputedStyle(element).fontSize),
@@ -66,24 +73,14 @@ it.each([390, 1280])(
         expect(await palette.getByText(/は「/).count()).toBe(
           2 - state.exhausted,
         );
-        expect(
-          await palette
-            .getByText("貼った自分のシールは移動・取り消しできます。")
-            .count(),
-        ).toBe(0);
-        expect(await palette.getByRole("status").isVisible()).toBe(true);
+        // 画面に出す状態の文言は失敗だけにする。
+        expect(await palette.getByRole("status").textContent()).toBe(
+          state.story === "rejected" ? "この付箋には投票できません。" : "",
+        );
         if (state.story === "all-pending")
           expect(
             await palette.getByText("確認待ち", { exact: true }).count(),
           ).toBe(2);
-        if (state.story === "disconnected")
-          expect(await palette.getByRole("status").textContent()).toContain(
-            "再接続",
-          );
-        if (state.story === "one-vote-returned")
-          expect(await palette.getByRole("status").textContent()).toContain(
-            "取り消しました",
-          );
         await page.screenshot({
           path: `${output}/vote-palette-${state.story}-${width}.png`,
         });
@@ -148,9 +145,6 @@ it.each([390, 1280])(
       await expect
         .poll(() => objective.getAttribute("aria-pressed"))
         .toBe("true");
-      expect(
-        await palette.getByText("選択中", { exact: true }).isVisible(),
-      ).toBe(true);
       await page.keyboard.press("Escape");
       await expect
         .poll(() => objective.getAttribute("aria-pressed"))

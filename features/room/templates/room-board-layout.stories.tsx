@@ -493,19 +493,13 @@ export const UndoNotificationIdea: Story = {
   args: { ...step(3, 5).args },
 };
 
-export const DelayedConnection: Story = {
-  ...Reconnecting,
-  name: "接続不調が10秒継続",
-  args: { ...Reconnecting.args, connectionDelayed: true },
-};
-
 export const AuthRequired: Story = {
-  ...DelayedConnection,
-  args: { ...DelayedConnection.args, connectionStatus: "auth-required" },
+  ...Reconnecting,
+  args: { ...Reconnecting.args, connectionStatus: "auth-required" },
 };
 export const Unavailable: Story = {
-  ...DelayedConnection,
-  args: { ...DelayedConnection.args, connectionStatus: "unavailable" },
+  ...Reconnecting,
+  args: { ...Reconnecting.args, connectionStatus: "unavailable" },
 };
 export const AuthRequiredLocationExpanded: Story = {
   ...AuthRequired,
@@ -562,6 +556,5 @@ export const ReconnectingDock: Story = {
   args: {
     ...step(3, 2).args,
     connectionStatus: "reconnecting",
-    connectionDelayed: true,
   },
 };

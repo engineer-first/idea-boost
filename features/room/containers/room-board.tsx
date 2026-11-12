@@ -144,7 +144,6 @@ export function RoomBoard({
   // ハンドラの再生成で再接続されることはない。
   const {
     connectionStatus,
-    connectionDelayed,
     send: sendRaw,
     resynchronize,
   } = useRoomConnection({
@@ -991,7 +990,6 @@ export function RoomBoard({
         outcomePublished={roomState.outcomePublished}
         adoptionFocusNoteId={roomState.adoptionFocusNoteId}
         connectionStatus={connectionStatus}
-        connectionDelayed={connectionDelayed}
         draggingNoteId={notes.frontNoteId}
         members={roomState.members}
         currentUserId={currentUserId}

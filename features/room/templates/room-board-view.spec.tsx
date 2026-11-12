@@ -2274,7 +2274,7 @@ describe("RoomBoardView", () => {
     ).toBeInTheDocument();
   });
 
-  it("投票パレットで対象・基準・操作を確認できる", () => {
+  it("投票パレットで対象と投票基準のヒントを確認できる", () => {
     setup({
       phase: buildPhaseStep(4),
 
@@ -2764,7 +2764,6 @@ describe("RoomBoardView", () => {
     });
 
     expect(palette).toHaveAttribute("data-return-drop-target", "true");
-    expect(palette).toHaveTextContent("戻すと1票取り消し");
 
     fireEvent.pointerUp(root, {
       pointerId: 13,
@@ -2859,7 +2858,7 @@ describe("RoomBoardView", () => {
       setup({ connectionStatus: "connecting" });
 
       expect(screen.getByTestId("board-connection-status")).toHaveTextContent(
-        "接続しています",
+        "接続中",
       );
     });
 

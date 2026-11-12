@@ -71,12 +71,19 @@
 }
 .connection {
   max-width: 100%;
-  border-radius: var(--ib-rounded-lg);
-  background: var(--ib-color-warning-soft);
-  color: var(--ib-color-warning);
-  padding: 4px 12px;
+  border: 1px solid var(--ib-color-line);
+  border-radius: var(--ib-rounded-full);
+  background: var(--ib-color-surface);
+  color: var(--ib-color-muted);
+  padding: 3px 12px;
   font-size: 14px;
   line-height: 20px;
+}
+.connectionError {
+  border-color: transparent;
+  border-radius: var(--ib-rounded-lg);
+  background: var(--ib-color-danger-soft);
+  color: var(--ib-color-danger-text);
 }
 
 .stage {

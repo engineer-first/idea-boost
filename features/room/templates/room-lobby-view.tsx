@@ -31,7 +31,6 @@ export type RoomLobbyViewProps = {
   inviteUrl: string;
   // 接続状態は Container 側で生成し、ここでは表示するだけ。
   connectionStatus: RoomScreenConnectionStatus;
-  connectionDelayed?: boolean;
   // 開始ボタンが処理中のとき true（多重押下防止）。Container が setTimeout などで
   // 制御する想定。
   isStarting: boolean;
@@ -54,7 +53,6 @@ export function RoomLobbyView({
   inviteCode,
   inviteUrl,
   connectionStatus,
-  connectionDelayed = false,
   isStarting,
   onStart,
   onLeave,
@@ -67,6 +65,8 @@ export function RoomLobbyView({
 }: RoomLobbyViewProps) {
   const isRemovingMember = memberRemoval?.pending ?? false;
   const isDisconnected = connectionStatus !== "open";
+  const isConnectionStopped =
+    connectionStatus === "auth-required" || connectionStatus === "unavailable";
   const lobbyRef = useRef<HTMLDivElement>(null);
   const leaveButtonRef = useRef<HTMLButtonElement>(null);
   const avatarDescriptionId = useId();
@@ -123,8 +123,11 @@ export function RoomLobbyView({
           <RoomConnectionNotice
             returnHref={loginReturnHref}
             status={connectionStatus}
-            delayed={connectionDelayed}
-            className={styles.connection}
+            className={
+              isConnectionStopped
+                ? `${styles.connection} ${styles.connectionError}`
+                : styles.connection
+            }
             testId="lobby-connection-status"
           />
         </div>
@@ -142,11 +145,6 @@ export function RoomLobbyView({
                   : "参加メンバー"}
               </h2>
               <div id={avatarDescriptionId} className={styles.avatarMessage}>
-                {avatarChange?.pending ? (
-                  <p role="status">アイコンを変更中…</p>
-                ) : isDisconnected ? (
-                  <p>再接続すると、自分のアイコンを変更できます。</p>
-                ) : null}
                 {avatarChange?.error ? (
                   <p role="alert" className="text-destructive">
                     {avatarChange.error}

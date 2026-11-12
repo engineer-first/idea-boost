@@ -11,9 +11,8 @@ export const SCENE_LABELS: Record<CompletedSceneKind, string> = {
 };
 export const SCENE_STATUS: Record<CompletedScene["status"], string> = {
   saved: "保存済み",
-  pending: "当時の記録の反映を待っています。時間をおいて再取得してください。",
-  failed:
-    "記録の反映に失敗したため、自動再試行中です。時間をおいて再取得してください。",
+  pending: "この場面はまだ表示できません。時間をおいて再取得してください。",
+  failed: "この場面の保存に失敗しました。",
   missing: "記録を保存できず、この場面を見返せません。",
   "before-recording": "記録機能の導入前のため、この場面の記録はありません。",
 };

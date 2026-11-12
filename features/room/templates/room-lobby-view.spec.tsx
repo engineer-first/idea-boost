@@ -75,13 +75,27 @@ describe("RoomLobbyView", () => {
     expect(screen.getByTestId("start-phase-button")).toBeDisabled();
   });
 
-  it("接続が切れているときは再接続中の表示が出る", () => {
-    renderView({ connectionStatus: "closed" });
+  it.each([
+    ["connecting", "接続中"],
+    ["reconnecting", "再接続中"],
+    ["closed", "再接続中"],
+    ["auth-required", "接続が切れました"],
+    ["unavailable", "このルームは利用できません"],
+  ] as const)(
+    "%s になるとすぐに接続の状態を出す",
+    (connectionStatus, message) => {
+      renderView({ connectionStatus });
+      expect(screen.getByTestId("lobby-connection-status")).toHaveTextContent(
+        message,
+      );
+    },
+  );
+
+  it("open では接続の状態を出さない", () => {
+    renderView({ connectionStatus: "open" });
     expect(
-      screen
-        .getAllByRole("status")
-        .find((status) => status.textContent?.includes("再接続")),
-    ).toHaveTextContent("再接続");
+      screen.queryByTestId("lobby-connection-status"),
+    ).not.toBeInTheDocument();
   });
 
   it("メンバー数を見出しに出す", () => {
@@ -304,6 +318,35 @@ describe("待機中のアイコン変更", () => {
       .click(screen.getByRole("button", { name: "自分のアイコンを変更" }));
     expect(cycle).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  it("変更中は文言を出さず、自分のアイコンにスピナーを重ねる", () => {
+    renderView({
+      avatarChange: {
+        cycle: vi.fn(),
+        pending: true,
+        disabled: false,
+        error: null,
+      },
+    });
+    const face = screen.getByTestId("lobby-avatar-change");
+    expect(face).toHaveAttribute("aria-busy", "true");
+    expect(face.querySelector('[data-slot="spinner"]')).not.toBeNull();
+    expect(screen.queryByText("アイコンを変更中…")).not.toBeInTheDocument();
+  });
+  it("接続が切れていても、アイコンを変更できない理由の説明文は出さない", () => {
+    renderView({
+      connectionStatus: "closed",
+      avatarChange: {
+        cycle: vi.fn(),
+        pending: false,
+        disabled: true,
+        error: null,
+      },
+    });
+    expect(
+      screen.getByRole("button", { name: "自分のアイコンを変更" }),
+    ).toBeDisabled();
+    expect(screen.queryByText(/再接続すると/)).not.toBeInTheDocument();
   });
   it("操作できない接続ではボタンを無効にし、候補なしの説明は出さない", () => {
     renderView({

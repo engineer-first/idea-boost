@@ -16,7 +16,7 @@ export const Filtered: Story = {
     filters: {
       ...DEFAULT_OUTCOME_FILTERS,
       q: "新サービス",
-      saveStatus: "failed",
+      status: "confirmed",
     },
   },
 };

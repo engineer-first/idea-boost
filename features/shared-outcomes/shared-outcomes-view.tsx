@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
   Link,
   RefreshCw,
   ShieldCheck,
@@ -26,7 +27,7 @@ import { SharedOutcomeBoard } from "./shared-outcome-board";
 import {
   formatOutcomeTime,
   PHASE_LABELS,
-  SAVE_STATUS_LABELS,
+  SAVE_FAILED_LABEL,
 } from "./shared-outcomes-content";
 import { SharedOutcomesFilters } from "./shared-outcomes-filters";
 import {
@@ -281,15 +282,12 @@ export function SharedOutcomesView({
                               )}
                               {outcome.status === "confirmed" ? "確定" : "途中"}
                             </span>
-                            <span
-                              className={
-                                outcome.saveStatus === "saved"
-                                  ? "text-muted-foreground"
-                                  : "font-medium text-warning"
-                              }
-                            >
-                              {SAVE_STATUS_LABELS[outcome.saveStatus]}
-                            </span>
+                            {outcome.saveStatus === "failed" && (
+                              <span className="inline-flex items-center gap-1 font-medium text-danger-text">
+                                <CircleAlert className="size-3.5" aria-hidden />
+                                {SAVE_FAILED_LABEL}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <p className="break-words text-base">
@@ -320,14 +318,6 @@ export function SharedOutcomesView({
                           className="hidden size-5 xl:block"
                           aria-hidden
                         />
-                        {outcome.saveStatus !== "saved" && (
-                          <p className="text-base leading-relaxed text-warning xl:col-span-5">
-                            {outcome.lastSavedAt
-                              ? "前回の正常保存分を表示します。"
-                              : "正常保存分はまだありません。"}
-                            サーバーが自動で再試行します。
-                          </p>
-                        )}
                       </a>
                     </li>
                   ))}
@@ -410,18 +400,13 @@ export function SharedOutcomesView({
                 閲覧期限：{formatOutcomeTime(detail.expiresAt)}
               </p>
             </section>
-            {detail.saveStatus !== "saved" && (
+            {detail.saveStatus === "failed" && (
               <p
                 role="status"
-                className="rounded-lg border border-warning/20 bg-warning-soft p-5 text-warning"
+                className="rounded-lg border border-danger/20 bg-danger-soft p-5 text-danger-text"
               >
-                {detail.saveStatus === "failed"
-                  ? "保存に失敗しました。"
-                  : "成果一覧への反映を待っています。"}
-                {detail.snapshot
-                  ? "表示している内容は前回の正常保存分です。"
-                  : "正常保存分はまだありません。"}
-                サーバーが自動で再試行します。
+                保存に失敗しました。
+                {detail.snapshot && "表示している内容は前回の正常保存分です。"}
               </p>
             )}
             {!detail.snapshot ? (
@@ -535,8 +520,8 @@ function OutcomeMetadata({ outcome }: { outcome: SharedOutcomeSummary }) {
       <div className="min-w-0 space-y-1">
         <dt className="text-muted-foreground">記録</dt>
         <dd>
-          {outcome.status === "confirmed" ? "確定" : "途中"} ·{" "}
-          {SAVE_STATUS_LABELS[outcome.saveStatus]}
+          {outcome.status === "confirmed" ? "確定" : "途中"}
+          {outcome.saveStatus === "failed" && ` · ${SAVE_FAILED_LABEL}`}
         </dd>
       </div>
       <div className="min-w-0 space-y-1">
