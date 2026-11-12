@@ -31,7 +31,7 @@ Docker や外部サービスのアカウントは不要です（wrangler がロ�
 git clone git@github.com:engineer-first/idea-boost.git
 cd idea-boost
 
-# mise で検証済み Node.js 24 LTS をインストール（初回のみ）
+# mise で検証済み Node.js 26 LTS をインストール（初回のみ）
 mise install
 
 # 依存関係のインストール

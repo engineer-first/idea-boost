@@ -4,13 +4,15 @@
 
 ## Node.jsとnpm
 
-開発・CIは `mise.toml` の `node = "24"` で、検証対象のLTSである24系の更新に追従する。2026-10-23の検証版はNode.js 24.22.1 / npm 11.19.1。`packageManager` にnpmの版を記録し、`npm ci` でlockfile v3を再現する。別のパッケージマネージャのlockfileを追加しない。`packageManager` はnpmの版を自動的に切り替える設定ではないため、`node --version` と `npm --version` も確認する。
+開発・CIは `mise.toml` の `node = "26"` で、検証対象のLTSである26系の更新に追従する。2026-11-13の検証版はNode.js 26.13.1 / npm 11.20.0。`packageManager` にnpmの版を記録し、`npm ci` でlockfile v3を再現する。別のパッケージマネージャのlockfileを追加しない。`packageManager` はnpmの版を自動的に切り替える設定ではないため、`node --version` と `npm --version` も確認する。
 
-`engines.node: ^24.22.1` を最低条件とし、`.npmrc` の `engine-strict=true` で修正前のNodeによる依存インストールを拒否する。24.22.1は[2026-10-21のセキュリティ修正版](https://nodejs.org/en/blog/release/v24.22.1/)で、Node内蔵Undiciも7.30.1へ更新される。npm依存のUndiciへのoverrideでは、Node内蔵版は修正できない。
+`engines.node: ^26.13.1` を最低条件とし、`.npmrc` の `engine-strict=true` で修正前のNodeによる依存インストールを拒否する。26.13.1は26系LTSの[2026-11-10のセキュリティ修正版](https://nodejs.org/en/blog/release/v26.13.1/)。npm依存のUndiciへのoverrideでは、Node内蔵版は修正できない。
 
-完全固定は更新のたびに設定変更が必要になり、`lts` だけでは将来のLTSメジャー切替で `engines.node` と検証対象から外れる。このため24系の範囲指定を採用する。ローカルに古い24系がある場合は `mise upgrade node` で更新し、`mise exec -- node --version` で最低条件以上を確認する。将来のLTSメジャー移行は依存のengine・peer条件とCIを確認する別の変更として扱う。[miseの版指定](https://mise.jdx.dev/lang/node.html#choosing-a-version)と[NodeのLTS方針](https://nodejs.org/en/about/previous-releases)も参照。
+npm 11.20は依存パッケージのinstall scriptを既定で実行せず、`allowScripts` に未登録のパッケージを `npm ci` の最後に警告する。2026-11-13の時点で対象はesbuild・workerd・@ast-grep/cli・fsevents。いずれも実行ファイルをoptional dependencyから解決し、scriptなしでlint・型検査・unit/Worker/Preview/検証用テスト・Cloudflare build・smokeが成功したため、`allowScripts` へ登録しない。依存更新でscriptが必要な部品が増えた場合は、`npm install-scripts ls` で内容を確認し、必要なものだけを版指定で許可する。
 
-jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する24系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、PR・pushで動く `ci.yml` と `chromatic.yml` は `jdx/mise-action@v5` の `cache_max_age_days: 1` でtool cacheを毎日作り直す。毎回GitHubのリリースからダウンロードすると配布側の一時障害（HTTP 5xx）でジョブが落ちるため、修正版への追従を最大1日遅らせる代わりにダウンロードを減らす。デプロイ・リリース記録・`pull_request_target` / `workflow_run` のworkflowは、低信頼の実行が書いたcacheを取り込まないようcacheを使わない。tblsを使わないジョブは `install_args: node` でNodeだけを入れる。この方針は `.github/scripts/node-runtime-workflow.spec.ts` で検査する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)と[mise-actionのcache設定](https://github.com/jdx/mise-action#cache-configuration)も参照。
+完全固定は更新のたびに設定変更が必要になり、`lts` だけでは将来のLTSメジャー切替で `engines.node` と検証対象から外れる。このため26系の範囲指定を採用する。ローカルに古い26系がある場合は `mise upgrade node` で更新し、`mise exec -- node --version` で最低条件以上を確認する。将来のLTSメジャー移行は依存のengine・peer条件とCIを確認する別の変更として扱う。[miseの版指定](https://mise.jdx.dev/lang/node.html#choosing-a-version)と[NodeのLTS方針](https://nodejs.org/en/about/previous-releases)も参照。
+
+jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する26系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、PR・pushで動く `ci.yml` と `chromatic.yml` は `jdx/mise-action@v5` の `cache_max_age_days: 1` でtool cacheを毎日作り直す。毎回GitHubのリリースからダウンロードすると配布側の一時障害（HTTP 5xx）でジョブが落ちるため、修正版への追従を最大1日遅らせる代わりにダウンロードを減らす。デプロイ・リリース記録・`pull_request_target` / `workflow_run` のworkflowは、低信頼の実行が書いたcacheを取り込まないようcacheを使わない。tblsを使わないジョブは `install_args: node` でNodeだけを入れる。この方針は `.github/scripts/node-runtime-workflow.spec.ts` で検査する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)と[mise-actionのcache設定](https://github.com/jdx/mise-action#cache-configuration)も参照。
 
 Node.jsはビルドと検証のホスト。公開先はworkerdであり、Nodeのバージョン指定でWorkersの互換性を保証したことにはしない。App/APIの `compatibility_date: 2026-06-01` と `nodejs_compat` を維持し、Workerテストとコンパイル済みPreviewでサービスバインディング・D1・RoomDOを検査する。[OpenNextの前提](https://opennext.js.org/cloudflare/get-started)は互換日付2024-09-23以降と `nodejs_compat`。
 
@@ -26,7 +28,7 @@ Node.jsはビルドと検証のホスト。公開先はworkerdであり、Node�
 
 Miniflareのルールは親名に限定する。版別の2ルールを同時に追加した再解決ではnpm 11.19.1が4側のoverrideを落としたため、4/5双方の実際の解決結果を確認する。現時点の直接Miniflareは最新安定版4.20260730.0であり、5 betaを直接採用しない。Wrangler/pluginが内部固定するbetaはその上流構成として検査する。
 
-OpenNext 1.20.12のpeer条件はNext `>=15.5.28 <16 || >=16.4.1`、Wrangler `^4.148.0`。採用版Next 16.4.2/Wrangler 4.151.1は条件内。Cloudflare Vitest plugin 1.4.4はVitest `^4.1.0 || ^5.0.0`を要求するため、5.0.5を使う。TypeScriptは5.9.3を採用し、Node型も実行基準の24系を使う。Storybook内部の `vite-tsconfig-paths → tsconfck 3.1.6` はTypeScript `^5.0.0` のoptional peerを持ち、6.0.3では `npm ci` と `npm ls --depth=0` が成功しても `npm ls --all` がinvalidで失敗する。MSW 3の `>=5.9.x` も満たす5.9.3へ揃え、peer条件の書換え・検査の省略で通さない。`vite-tsconfig-paths` の最新安定版6.1.1にもtsconfckが残るため、この推移依存だけを別メジャーへ強制更新しない。tsconfckを除去する7系はalphaのため、対応する安定Storybookへ移行して全階層のpeer・型・buildを確認できたらTypeScript 6以降を再評価する。[StorybookのVite 8分岐](https://github.com/storybookjs/storybook/blob/v10.6.2/code/lib/vite-plugin-storybook-nextjs/src/index.ts#L60-L82)では旧pluginを使わないが、今回は未使用という理由だけで不整合を残さない。
+OpenNext 1.20.12のpeer条件はNext `>=15.5.28 <16 || >=16.4.1`、Wrangler `^4.148.0`。採用版Next 16.4.2/Wrangler 4.151.1は条件内。Cloudflare Vitest plugin 1.4.4はVitest `^4.1.0 || ^5.0.0`を要求するため、5.0.5を使う。TypeScriptは5.9.3を採用し、Node型も実行基準の26系を使う。Storybook内部の `vite-tsconfig-paths → tsconfck 3.1.6` はTypeScript `^5.0.0` のoptional peerを持ち、6.0.3では `npm ci` と `npm ls --depth=0` が成功しても `npm ls --all` がinvalidで失敗する。MSW 3の `>=5.9.x` も満たす5.9.3へ揃え、peer条件の書換え・検査の省略で通さない。`vite-tsconfig-paths` の最新安定版6.1.1にもtsconfckが残るため、この推移依存だけを別メジャーへ強制更新しない。tsconfckを除去する7系はalphaのため、対応する安定Storybookへ移行して全階層のpeer・型・buildを確認できたらTypeScript 6以降を再評価する。[StorybookのVite 8分岐](https://github.com/storybookjs/storybook/blob/v10.6.2/code/lib/vite-plugin-storybook-nextjs/src/index.ts#L60-L82)では旧pluginを使わないが、今回は未使用という理由だけで不整合を残さない。
 
 ## auditの残件と到達性
 
