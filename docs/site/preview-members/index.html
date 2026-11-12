@@ -1,0 +1,330 @@
+<!doctype html>
+<!-- 読者: Idea Boostの開発メンバー。説明なしで使ってよい語: GitHub、PR、CI、Preview、Cloudflare、Google、Discord、Secret、Settings、Actions、Re-run、URL、CLI。 -->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="PR Previewにログインできるメンバーを追加・削除する手順。Cloudflare AccessとGitHubのSecretに同じ全員分の一覧を設定し、Previewを公開し直す。">
+<title>Previewにメンバーを追加する — Idea Boost</title>
+<style>
+  :root {
+    --paper: #f6f7f9;
+    --card: #ffffff;
+    --ink: #1b2430;
+    --muted: #5b6474;
+    --line: #dde1e8;
+    --accent: #0f766e;
+    --accent-soft: #e3f4f1;
+    --mark: #d92d20;
+    --warn: #b54708;
+    --warn-soft: #fef3e2;
+    --code-bg: #1d232e;
+    --code-ink: #dce3ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14181f;
+      --card: #1c222c;
+      --ink: #e8ebf0;
+      --muted: #98a2b3;
+      --line: #2a313d;
+      --accent: #4fc5b8;
+      --accent-soft: #17302d;
+      --mark: #f97066;
+      --warn: #f5a742;
+      --warn-soft: #362a17;
+      --code-bg: #10141b;
+      --code-ink: #cdd6e4;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14181f;
+    --card: #1c222c;
+    --ink: #e8ebf0;
+    --muted: #98a2b3;
+    --line: #2a313d;
+    --accent: #4fc5b8;
+    --accent-soft: #17302d;
+    --mark: #f97066;
+    --warn: #f5a742;
+    --warn-soft: #362a17;
+    --code-bg: #10141b;
+    --code-ink: #cdd6e4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", system-ui, sans-serif;
+    line-height: 1.85;
+    font-size: 15.5px;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 56px 16px 96px; }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+  h1 { font-size: clamp(26px, 4.5vw, 34px); line-height: 1.4; margin: 0 0 14px; text-wrap: balance; }
+  .lede { color: var(--muted); font-size: 16px; max-width: 40em; margin: 0 0 8px; }
+  section { margin-top: 64px; }
+  h2 { font-size: 21px; line-height: 1.5; margin: 0 0 16px; text-wrap: balance; display: flex; align-items: center; gap: 12px; }
+  h3 { font-size: 16px; margin: 28px 0 8px; }
+  p { margin: 0 0 14px; max-width: 42em; }
+  a { color: var(--accent); }
+  :is(a, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.9em;
+    background: color-mix(in srgb, var(--line) 50%, transparent);
+    border-radius: 4px;
+    padding: 1px 6px;
+    overflow-wrap: anywhere;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border-radius: 10px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.7;
+    margin: 0 0 16px;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  ol.steps, ul.plain { margin: 0 0 16px; padding-left: 1.4em; max-width: 42em; }
+  ol.steps li, ul.plain li { margin-bottom: 6px; }
+  ol.steps li::marker { color: var(--accent); font-weight: 700; }
+  ul.plain li::marker { color: var(--accent); }
+
+  .num {
+    flex: none;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--card);
+    font-size: 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+
+  .box {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 0 0 16px;
+  }
+  .box > :last-child { margin-bottom: 0; }
+  .box.source { border-left: 5px solid var(--accent); }
+  .box.warn { background: var(--warn-soft); border-color: transparent; border-left: 5px solid var(--warn); }
+  .box.warn strong { color: var(--warn); }
+  .box h3 { margin-top: 0; }
+
+  .flow {
+    list-style: none;
+    margin: 24px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .flow li {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 14px 12px;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .flow a { text-decoration: none; color: inherit; display: block; }
+  .flow .k { color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: 0.06em; display: block; }
+  .flow .t { font-weight: 700; font-size: 15px; display: block; margin: 2px 0 4px; }
+  .flow .d { color: var(--muted); }
+
+  figure { margin: 18px 0 24px; }
+  figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+  }
+  figcaption { color: var(--muted); font-size: 13.5px; margin-top: 8px; }
+  figcaption b { color: var(--mark); }
+
+  .table-wrap { overflow-x: auto; margin: 0 0 16px; }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14px; background: var(--card); border-radius: 10px; overflow: hidden; }
+  th, td { border-bottom: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  th { font-size: 12.5px; color: var(--muted); font-weight: 600; background: color-mix(in srgb, var(--line) 35%, var(--card)); }
+  tr:last-child td { border-bottom: none; }
+
+  details { margin: 0 0 16px; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  footer { margin-top: 80px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">PR Preview / 運用手順</p>
+  <h1>Previewにメンバーを追加する</h1>
+  <p class="lede">PR Previewにログインできるのは、許可したGoogleアカウントだけです。新しいメンバーや、2人分の確認に使う2つ目のアカウントを足すときは、この手順で追加します。開発メンバーなら誰でも作業できます。</p>
+
+  <ol class="flow" aria-label="作業の流れ">
+    <li><a href="#source"><span class="k">STEP 0</span><span class="t">Discordの一覧を更新</span><span class="d">全員分の一覧はここが正本</span></a></li>
+    <li><a href="#cloudflare"><span class="k">STEP 1</span><span class="t">Cloudflareに追加</span><span class="d">Googleログインの入口</span></a></li>
+    <li><a href="#github"><span class="k">STEP 2</span><span class="t">GitHubに全員分を設定</span><span class="d">アプリの許可一覧</span></a></li>
+    <li><a href="#redeploy"><span class="k">STEP 3</span><span class="t">Previewを公開し直す</span><span class="d">CIを再実行する</span></a></li>
+    <li><a href="#check"><span class="k">STEP 4</span><span class="t">本人がログイン</span><span class="d">ステップ選択画面まで開く</span></a></li>
+  </ol>
+
+  <section>
+    <div class="box warn">
+      <h3>一番多い失敗：既存のメンバーを消してしまう</h3>
+      <p>許可一覧は<strong>「追加」ではなく「全員分で上書き」</strong>する設定です。新しい人だけを入力して保存すると、それまでのメンバーがログインできなくなります。Cloudflareでは既存の札を残したまま足し、GitHubには毎回全員分を入れます。</p>
+    </div>
+  </section>
+
+  <section id="source">
+    <h2><span class="num">0</span>Discordの一覧を更新する</h2>
+    <div class="box source">
+      <p><strong>メールアドレス一覧の正本はチームのDiscordにあります。</strong>このページは誰でも見られる公開ページなので、アドレスは載せません。</p>
+    </div>
+    <ol class="steps">
+      <li>Discordのメンバー一覧に、追加する人の名前とGoogleアカウントのメールを書き足します。</li>
+      <li>以降の手順では、この一覧から<strong>全員分</strong>をコピーして使います。GitHubのSecretは保存した値をあとから表示できないため、Discordの一覧が唯一の控えになります。</li>
+    </ol>
+    <p>学校などのアドレスも、Googleアカウントとしてログインできるものなら使えます。PreviewはGoogleでのログインだけを許可しています。</p>
+  </section>
+
+  <section>
+    <h2>作業に必要な権限</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>場所</th><th>必要なもの</th><th>持っていないとき</th></tr></thead>
+        <tbody>
+          <tr><td>Cloudflare</td><td>Idea BoostのPreviewを置いているCloudflareアカウントのメンバーで、Accessを編集できること</td><td>アカウントのメンバーに作業を頼むか、メンバーとして招待してもらう</td></tr>
+          <tr><td>GitHub</td><td><code>engineer-first/idea-boost</code>のAdmin権限（Secretの編集に必要）</td><td>開発メンバーは全員Adminです。足りなければ管理者に頼む</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="cloudflare">
+    <h2><span class="num">1</span>Cloudflareの許可一覧に追加する</h2>
+    <p>Googleでログインした人をPreviewに通すかどうかを、Cloudflare Accessが決めています。</p>
+    <ol class="steps">
+      <li>Cloudflareで対象のアカウントを選び、<strong>Zero Trust → Access controls → Applications → Idea Boost PR Preview → Policies</strong>を開きます。</li>
+      <li>赤丸の<strong>Preview reviewers Google</strong>をクリックし、開いたパネルの<strong>Edit</strong>を押します。下の<code>Preview CI health</code>はCI用なので触りません。</li>
+    </ol>
+    <figure>
+      <img src="./01-open-policy.png" width="1280" height="724" loading="lazy" alt="Cloudflare Zero TrustのIdea Boost PR PreviewアプリのPoliciesタブ。利用者用ポリシーPreview reviewers Googleが赤丸で囲まれている。">
+      <figcaption><b>赤丸</b>の利用者用ポリシーを開きます。2行目のService Authのポリシーは編集しません。</figcaption>
+    </figure>
+    <ol class="steps" start="3">
+      <li><strong>Include → Emails</strong>の入力欄の末尾に、追加する人のメールを入力して<strong>Enter</strong>を押します。メールの札が増えたことを確認します。</li>
+      <li><strong>既存の札は消しません。</strong><strong>Require → Login Methods = Google</strong>と<strong>Action = Allow</strong>もそのままにします。</li>
+    </ol>
+    <figure>
+      <img src="./02-add-email.png" width="1280" height="724" loading="lazy" alt="ポリシー編集画面。Include欄に既存の許可者（伏せ字）と追加したメールの札があり、Login MethodsのGoogleとActionのAllowが赤丸で囲まれている。">
+      <figcaption>追加したメールの札、Googleのログイン条件、Allowの3か所を<b>赤丸</b>で確認します。画像の<code>tsuika@shitai.com</code>は説明用の例で、既存の許可者は伏せています。</figcaption>
+    </figure>
+    <ol class="steps" start="5">
+      <li>一番下までスクロールして<strong>Save policy</strong>を押します。</li>
+      <li>ポリシーを開き直し、既存の人と追加した人の札が全部残っていることを確認します。</li>
+    </ol>
+    <figure>
+      <img src="./03-save-policy.png" width="1280" height="724" loading="lazy" alt="ポリシー編集画面の最下部。Save policyボタンが赤丸で囲まれている。">
+      <figcaption>最下部の<b>Save policy</b>で保存します。</figcaption>
+    </figure>
+  </section>
+
+  <section id="github">
+    <h2><span class="num">2</span>GitHubのSecretに全員分を設定する</h2>
+    <p>Cloudflareを通った後、アプリ自身ももう一度、許可一覧と照らし合わせます。その一覧がGitHubのSecret <code>PREVIEW_ALLOWED_EMAILS</code>です。</p>
+    <ol class="steps">
+      <li><a href="https://github.com/engineer-first/idea-boost/settings/secrets/actions/PREVIEW_ALLOWED_EMAILS">PREVIEW_ALLOWED_EMAILSの編集画面</a>を開きます。辿る場合は<strong>Settings → Secrets and variables → Actions → Repository secrets → PREVIEW_ALLOWED_EMAILSの鉛筆</strong>です。</li>
+      <li><strong>Value</strong>に、Discordの一覧の<strong>全員分</strong>を1行・カンマ区切り・空白なしで入力します。Cloudflareの札と同じ顔ぶれにします。</li>
+      <li><strong>Update secret</strong>を押します。</li>
+    </ol>
+    <figure>
+      <img src="./04-github-secret.png" width="1422" height="794" loading="lazy" alt="GitHubのUpdate secret画面。PREVIEW_ALLOWED_EMAILSのValue欄とUpdate secretボタンが赤丸で囲まれている。">
+      <figcaption><b>Value</b>に全員分を入れて<b>Update secret</b>。画像の<code>member1@example.com</code>などは説明用の例です。</figcaption>
+    </figure>
+    <pre><code>形式の例: a@gmail.com,b@gmail.com,c@example.ac.jp</code></pre>
+    <details>
+      <summary>CLIで設定する場合</summary>
+      <p>全員分を1行で書いたファイルを、リポジトリの外（例: ホームディレクトリ）に置いて実行します。作業後はファイルを消します。</p>
+      <pre><code>gh secret set PREVIEW_ALLOWED_EMAILS -R engineer-first/idea-boost &lt; ~/allowed-emails.txt</code></pre>
+    </details>
+  </section>
+
+  <section id="redeploy">
+    <h2><span class="num">3</span>Previewを公開し直す</h2>
+    <p>Secretは、Previewを公開するときにアプリへ渡されます。<strong>Secretを変えただけでは、すでに公開中のPreviewには反映されません。</strong>使いたいPRごとに公開し直します。</p>
+    <ol class="steps">
+      <li>使いたいPRを開き、<strong>Checks</strong>タブ（またはActions）から、そのPRの最新commitの<strong>CI</strong>を開きます。</li>
+      <li>右上の<strong>Re-run jobs → Re-run all jobs</strong>を押します。新しいcommitをpushしても同じく公開し直されます。</li>
+      <li>PRの「PR Preview」コメントが<strong>状態：疎通確認済み</strong>になるまで待ちます（目安は十数分）。</li>
+    </ol>
+    <details>
+      <summary>CLIで再実行する場合</summary>
+      <pre><code>gh run list -R engineer-first/idea-boost --branch &lt;PRのブランチ名&gt; --workflow CI --limit 1
+gh run rerun &lt;表示されたrun ID&gt; -R engineer-first/idea-boost</code></pre>
+    </details>
+  </section>
+
+  <section id="check">
+    <h2><span class="num">4</span>本人にログインしてもらう</h2>
+    <ol class="steps">
+      <li>PRコメントの「このPRの最新公開版を開く」のURLを、追加した人に渡します。</li>
+      <li>本人が追加したGoogleアカウントでログインし、「確認するステップを選ぶ」画面が開けば完了です。</li>
+      <li>既存のメンバーも、引き続きログインできることを1人以上で確かめます。</li>
+    </ol>
+    <h3>ログインできないとき</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>どこで止まるか</th><th>見直す場所</th></tr></thead>
+        <tbody>
+          <tr><td>Googleでログインした直後、Cloudflareの画面で断られる</td><td>STEP 1。Cloudflareの札にそのメールがあるか、綴りが合っているか</td></tr>
+          <tr><td>Cloudflareは通ったが、アプリの画面で断られる</td><td>STEP 2とSTEP 3。Secretに全員分が入っているか、そのPRを公開し直したか</td></tr>
+          <tr><td>前はログインできた人が急に入れない</td><td>Cloudflareの札かSecretを、新しい人だけで上書きしていないか。Discordの一覧から全員分を入れ直す</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>メンバーを外すとき</h2>
+    <p>手順は同じです。Discordの一覧から消し、Cloudflareの札を外し、GitHubのSecretに残る全員分を入れ直して、使っているPRのPreviewを公開し直します。</p>
+  </section>
+
+  <section>
+    <h2>2人分の操作を1台で確認するとき</h2>
+    <p>自分の2つ目のGoogleアカウントを、この手順で追加します。通常のウィンドウで1つ目、シークレットウィンドウで2つ目のアカウントにログインすると、別の参加者として同じルームに入れます。どちらかの画面でステップを選ぶと、2人が入ったまま同じルームがそのステップに切り替わります。</p>
+  </section>
+
+  <footer>Idea Boost / Previewにメンバーを追加する（2026-11-12確認）。Previewの仕組みと設定の一覧は<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/operations/preview.md">PR Previewの運用</a>へ。用語は<a href="../pr-preview/index.html">PR Previewの用語辞典</a>を参照してください。</footer>
+</div>
+<script data-preview-links>
+(() => {
+  // PRプレビューの文書はdevelopに未反映なので、同じコミットを参照する。
+  if (!['rawcdn.githack.com', 'raw.githack.com'].includes(location.hostname)) return;
+  const preview = location.pathname.match(/^\/engineer-first\/idea-boost\/([a-f0-9]{40})\/docs\/site\//);
+  if (!preview) return;
+  const source = /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//;
+  for (const link of document.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href && source.test(href)) link.setAttribute('href', href.replace(source, `$1${preview[1]}/`));
+  }
+})();
+</script>
+</body>
+</html>
