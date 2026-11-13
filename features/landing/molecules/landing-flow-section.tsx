@@ -1,4 +1,4 @@
-import { ArrowDown, Heart } from "lucide-react";
+import { ArrowDown, Star } from "lucide-react";
 import Image from "next/image";
 import { landingCopy as copy } from "../logic/landing-copy";
 import { landingOutcomes } from "../logic/landing-outcomes";
@@ -90,7 +90,7 @@ export function LandingFlowSection() {
             </div>
             <div className={styles.selectedIdea}>
               <span className={styles.selectionLabel}>
-                <Heart fill="currentColor" aria-hidden="true" />
+                <Star fill="currentColor" aria-hidden="true" />
                 {copy.flow.selected}
               </span>
               <p>

@@ -166,9 +166,10 @@
   width: 3cqw;
   height: 3cqw;
   border-radius: 50%;
-  background: var(--lp-vote-soft);
-  color: var(--lp-vote);
-  border: 2px solid currentColor;
+  /* イチオシ！は赤い丸に白い星。需要ありそうは下の上書きで薄い青の角丸四角にする。 */
+  background: var(--lp-vote);
+  color: var(--lp-paper);
+  border: 2px solid var(--lp-vote);
   animation: voteArrive 8s infinite;
 }
 .vote svg {
@@ -496,9 +497,9 @@
   place-items: center;
   width: 8cqw;
   height: 8cqw;
-  color: var(--lp-vote);
-  background: var(--lp-vote-soft);
-  border: 2px solid currentColor;
+  color: var(--lp-paper);
+  background: var(--lp-vote);
+  border: 2px solid var(--lp-vote);
   border-radius: 50%;
 }
 .staticVote svg {
@@ -586,6 +587,7 @@
 .outerObjectiveTwo {
   color: var(--lp-objective);
   background: var(--lp-soft);
+  border-color: currentColor;
   border-radius: 5px;
 }
 .centerObjective {
@@ -1160,8 +1162,8 @@
   width: 25px;
   height: 25px;
   border: 2px solid var(--lp-vote);
-  color: var(--lp-vote);
-  background: var(--lp-vote-soft);
+  color: var(--lp-paper);
+  background: var(--lp-vote);
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -1389,8 +1391,8 @@
   width: 30px;
   height: 30px;
   border: 2px solid var(--lp-vote);
-  color: var(--lp-vote);
-  background: var(--lp-vote-soft);
+  color: var(--lp-paper);
+  background: var(--lp-vote);
   border-radius: 50%;
   padding: 4px;
 }

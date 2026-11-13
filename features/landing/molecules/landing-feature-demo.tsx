@@ -1,4 +1,4 @@
-import { Check, Copy, Heart, LockKeyhole, Scale, Users } from "lucide-react";
+import { Check, Copy, LockKeyhole, Star, Users } from "lucide-react";
 import type { CSSProperties } from "react";
 import { landingMembers } from "../logic/landing-board-copy";
 import { landingCopy } from "../logic/landing-copy";
@@ -92,18 +92,18 @@ export function LandingFeatureDemo({ index }: { index: number }) {
           <div className={styles.voteRevealBoard}>
             <div className={styles.voteRevealNote}>
               <span className={styles.ownSeal}>
-                <Heart fill="currentColor" />
+                <Star fill="currentColor" />
               </span>
               <span className={`${styles.otherSeal} ${styles.blueSeal}`}>
-                <Scale />
+                <Users />
               </span>
             </div>
             <div className={styles.voteRevealNote}>
               <span className={styles.otherSeal}>
-                <Heart fill="currentColor" />
+                <Star fill="currentColor" />
               </span>
               <span className={`${styles.otherSeal} ${styles.blueSeal}`}>
-                <Scale />
+                <Users />
               </span>
             </div>
           </div>
