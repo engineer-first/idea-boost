@@ -16,6 +16,12 @@ export const DOT_VOTE_LABELS = {
   objective: "需要ありそう",
 } as const satisfies Record<DotVoteKind, string>;
 
+// シールの種類を示す短いタグ。投票パレットのタグと、付箋の上のシールのツールチップで使う。
+export const DOT_VOTE_KIND_TAGS = {
+  subjective: "主観",
+  objective: "客観",
+} as const satisfies Record<DotVoteKind, string>;
+
 // 投票基準の一文。名前と並べて示す場所（ステップガイド）で使う。
 export const DOT_VOTE_CRITERIA = {
   subjective: "激しく共感する、取り組みたい",
@@ -42,4 +48,9 @@ export function dotVoteRemainingLabel(
   remaining: number,
 ): string {
   return `${dotVoteStickerName(kind)} 残り${remaining}票`;
+}
+
+// 付箋の上のシールに合わせたときの1行の説明。基準の一文はステップガイドで示すため含めない。
+export function dotVoteStickerTooltip(kind: DotVoteKind): string {
+  return `${DOT_VOTE_LABELS[kind]}（${DOT_VOTE_KIND_TAGS[kind]}）`;
 }

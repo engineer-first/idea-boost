@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DotVoteSticker } from "./dot-vote-sticker";
 
@@ -30,6 +30,39 @@ describe("DotVoteSticker", () => {
 
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    { kind: "subjective", label: "イチオシ！", tooltip: "イチオシ！（主観）" },
+    {
+      kind: "objective",
+      label: "需要ありそう",
+      tooltip: "需要ありそう（客観）",
+    },
+  ] as const)(
+    "付箋に貼った「$label」シールにフォーカスすると「$tooltip」をツールチップで示し、基準の一文は出さない",
+    async ({ kind, label, tooltip }) => {
+      render(
+        <DotVoteSticker
+          kind={kind}
+          count={1}
+          state="confirmed"
+          onRemove={vi.fn()}
+        />,
+      );
+
+      const sticker = screen.getByRole("button", {
+        name: `「${label}」シール 1票を1票取り消す`,
+      });
+      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+      act(() => sticker.focus());
+
+      const shown = await screen.findByRole("tooltip");
+      expect(shown).toHaveTextContent(tooltip);
+      expect(shown.textContent).not.toMatch(
+        /激しく共感する|自分以外の人にも価値がありそう/,
+      );
+    },
+  );
 
   it("プレビューは操作対象にせず、票を貼る位置として示す", () => {
     render(<DotVoteSticker kind="subjective" count={1} state="preview" />);
