@@ -967,6 +967,36 @@ describe("NoteCard", () => {
       expect(onVoteRemove).toHaveBeenCalledWith("note-1", "objective");
     });
 
+    it("座標のない自分の票は、イチオシ！を需要ありそうより左に置く", () => {
+      setup({
+        note: buildNote({
+          dotVotes: {
+            subjective: { count: 1, votedByMe: true, ownCount: 1 },
+            objective: { count: 2, votedByMe: true, ownCount: 2 },
+          },
+        }),
+        vote: {
+          displayMode: "voting",
+          selectedKind: null,
+          voteRemaining: { subjective: 0, objective: 1 },
+          canVote: true,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove: vi.fn(),
+        },
+      });
+
+      const left = (id: string) =>
+        Number.parseFloat(
+          (
+            screen
+              .getByTestId("note-card")
+              .querySelector(`[data-vote-sticker-id="${id}"]`) as HTMLElement
+          ).style.left,
+        );
+      expect(left("legacy-subjective")).toBeLessThan(left("legacy-objective"));
+    });
+
     it("個別シールのクリックはシールIDだけを削除コールバックへ渡す", () => {
       const onStickerRemove = vi.fn();
       const onVoteRemove = vi.fn();

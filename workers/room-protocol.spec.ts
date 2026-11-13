@@ -2153,6 +2153,32 @@ describe("note:vote（課題ドット投票）", () => {
     member.close();
   });
 
+  it("座標を持たない note:vote で貼ったイチオシ！は、需要ありそう3票のどれよりも左に置く", async () => {
+    const { owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+
+    await arrangeStep(owner, 4);
+    send(member, { type: "note:vote", noteId, kind: "subjective" });
+    await expectType(member, "note:updated");
+    let latest: Extract<ServerMessage, { type: "note:updated" }> | null = null;
+    for (let count = 0; count < 3; count++) {
+      send(member, { type: "note:vote", noteId, kind: "objective" });
+      latest = await expectType(member, "note:updated");
+    }
+
+    const stickers = latest?.note.dotVoteStickers ?? [];
+    const subjective = stickers.filter((s) => s.kind === "subjective");
+    const objective = stickers.filter((s) => s.kind === "objective");
+    expect(subjective).toHaveLength(1);
+    expect(objective).toHaveLength(3);
+    for (const sticker of objective) {
+      expect(subjective[0]?.x).toBeLessThan(sticker.x);
+    }
+
+    owner.close();
+    member.close();
+  });
+
   it("シールを付箋上へドロップすると、投票中は本人だけに座標を示し、結果では従来集計へ反映する", async () => {
     const { roomId, owner, member } = await setupStartedRoom();
     const noteId = await createNote({ owner, member });

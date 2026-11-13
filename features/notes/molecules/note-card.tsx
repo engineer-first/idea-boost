@@ -1163,7 +1163,8 @@ export function NoteCard({
                 .map((kind) => ({
                   id: `legacy-${kind}`,
                   kind,
-                  x: kind === "subjective" ? 0.82 : 0.72,
+                  // 結果の集計と同じく、イチオシ！を需要ありそうより左に置く。
+                  x: kind === "subjective" ? 0.62 : 0.72,
                   y: 0.16,
                   count: note.dotVotes[kind].ownCount,
                 }))
