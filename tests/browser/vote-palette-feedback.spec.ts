@@ -49,19 +49,24 @@ it.each([390, 1280])(
               (element) => element.scrollWidth <= element.clientWidth,
             ),
           ).toBe(true);
-          // 残票が確定しない間は票数の代わりにスピナーを出す。
-          const count = button.getByText(/残り\d票/);
-          if ((await count.count()) === 0) {
+          // 残票は文字でなく点で示す。確定しない間は点の代わりにスピナーを出す。
+          expect(await button.getByText(/残り\d票/).count()).toBe(0);
+          const pips = button.locator(
+            '[data-testid^="dot-vote-remaining-pip-"]',
+          );
+          if ((await pips.count()) === 0) {
             expect(await button.locator('[data-slot="spinner"]').count()).toBe(
               1,
             );
             continue;
           }
-          expect(
-            await count.evaluate((element) =>
-              Number.parseFloat(getComputedStyle(element).fontSize),
-            ),
-          ).toBeGreaterThanOrEqual(14);
+          // 点は小さくしすぎず、見分けられる大きさで出す。
+          for (const pip of await pips.all()) {
+            expect(await pip.isVisible()).toBe(true);
+            const pipBox = await pip.boundingBox();
+            expect(pipBox?.width ?? 0).toBeGreaterThanOrEqual(12);
+            expect(pipBox?.height ?? 0).toBeGreaterThanOrEqual(12);
+          }
         }
         for (const kind of ["subjective", "objective"]) {
           expect(
