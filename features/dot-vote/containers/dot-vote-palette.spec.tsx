@@ -35,9 +35,9 @@ describe("DotVotePalette", () => {
     });
 
     expect(within(subjective).getByText("イチオシ！")).toBeVisible();
-    expect(within(subjective).getByText("残り1票")).toBeVisible();
+    expect(within(subjective).getByText("主観")).toBeVisible();
     expect(within(objective).getByText("需要ありそう")).toBeVisible();
-    expect(within(objective).getByText("残り2票")).toBeVisible();
+    expect(within(objective).getByText("客観")).toBeVisible();
     expect(visibleText(palette)).not.toMatch(
       /激しく共感する|自分以外の人にも価値がありそう/,
     );
@@ -53,8 +53,8 @@ describe("DotVotePalette", () => {
     const objectiveImage = within(objective).getByTestId(
       "dot-vote-sticker-image-objective",
     );
-    expect(subjectiveImage).toHaveClass("size-7", "rounded-full", "border-2");
-    expect(objectiveImage).toHaveClass("size-7", "rounded-md", "border-2");
+    expect(subjectiveImage).toHaveClass("size-13", "rounded-full", "border-2");
+    expect(objectiveImage).toHaveClass("size-13", "rounded-md", "border-2");
     expect(
       within(subjectiveImage).getByTestId("dot-vote-sticker-icon-subjective"),
     ).toBeInTheDocument();
@@ -106,6 +106,44 @@ describe("DotVotePalette", () => {
   );
 
   it.each([
+    { subjective: 1, objective: 2 },
+    { subjective: 0, objective: 0 },
+  ])(
+    "残票（イチオシ！ $subjective 票、需要ありそう $objective 票）を上限と同数の点で示し、使った票は中抜きにして「残り◯票」の文字は出さない",
+    (remaining) => {
+      render(
+        <DotVotePalette
+          voteRemaining={remaining}
+          pendingOperationCount={0}
+          feedback={null}
+          disabled={false}
+          selectedKind={null}
+          onStickerSelect={vi.fn()}
+          onStickerDragStart={vi.fn()}
+        />,
+      );
+
+      for (const [kind, label, limit] of [
+        ["subjective", "イチオシ！", 1],
+        ["objective", "需要ありそう", 3],
+      ] as const) {
+        const button = screen.getByRole("button", {
+          name: `「${label}」シール 残り${remaining[kind]}票`,
+        });
+        const pips = within(button).getAllByTestId(
+          `dot-vote-remaining-pip-${kind}`,
+        );
+        expect(pips.map((pip) => pip.dataset.state)).toEqual(
+          Array.from({ length: limit }, (_, index) =>
+            index < remaining[kind] ? "remaining" : "used",
+          ),
+        );
+        expect(visibleText(button)).not.toMatch(/残り\d票/);
+      }
+    },
+  );
+
+  it.each([
     { label: "送信中", pendingOperationCount: 2, disabled: false },
     { label: "接続待ち", pendingOperationCount: 0, disabled: true },
   ])(
@@ -124,6 +162,9 @@ describe("DotVotePalette", () => {
       );
       for (const button of screen.getAllByRole("button")) {
         expect(button.querySelector('[data-slot="spinner"]')).not.toBeNull();
+        expect(
+          button.querySelector('[data-testid^="dot-vote-remaining-pip-"]'),
+        ).toBeNull();
         expect(visibleText(button)).not.toMatch(/残り\d票|確認待ち|接続待ち/);
       }
     },
@@ -303,18 +344,23 @@ describe("DotVotePalette", () => {
 
     expect(subjective).toHaveClass(
       "disabled:opacity-100",
-      "bg-vote-subjective-soft/40",
-      "text-vote-subjective-text",
+      "border-dashed",
       "disabled:bg-muted",
       "disabled:text-muted-foreground",
       "active:cursor-grabbing",
     );
-    expect(subjective).not.toHaveClass("ring-vote-subjective/75");
+    expect(subjective).not.toHaveClass("border-vote-subjective");
+    expect(
+      within(subjective).queryByTestId("dot-vote-selected-check-subjective"),
+    ).not.toBeInTheDocument();
     expect(objective).toHaveClass(
       "active:cursor-grabbing",
-      "bg-vote-objective-soft/40",
-      "text-vote-objective-text",
+      "border-border",
+      "bg-white",
     );
+    expect(
+      within(objective).queryByTestId("dot-vote-selected-check-objective"),
+    ).not.toBeInTheDocument();
 
     rerender(
       <DotVotePalette
@@ -328,9 +374,16 @@ describe("DotVotePalette", () => {
       />,
     );
 
+    const selected = screen.getByRole("button", {
+      name: "「需要ありそう」シール 残り2票",
+    });
+    expect(selected).toHaveClass(
+      "border-vote-objective",
+      "bg-vote-objective-soft",
+    );
     expect(
-      screen.getByRole("button", { name: "「需要ありそう」シール 残り2票" }),
-    ).toHaveClass("ring-vote-objective/75", "ring-offset-background");
+      within(selected).getByTestId("dot-vote-selected-check-objective"),
+    ).toBeInTheDocument();
   });
 
   it("送信中の0票を使い切りと断定せず、受理後に表示を切り替える", () => {

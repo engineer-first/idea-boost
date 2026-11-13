@@ -1,9 +1,11 @@
+import { Check } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { DotVoteKind } from "@/contracts/room-protocol";
+import { DOT_VOTE_LIMITS, type DotVoteKind } from "@/contracts/room-protocol";
 import {
   DOT_VOTE_GUIDANCE,
+  DOT_VOTE_KIND_TAGS,
   DOT_VOTE_LABELS,
   type DotVoteFeedback,
   type DotVoteRemaining,
@@ -33,20 +35,77 @@ const DOT_VOTE_KINDS: readonly DotVoteKind[] = ["subjective", "objective"];
 
 const DOT_VOTE_BUTTON_TONE = {
   subjective:
-    "border-vote-subjective/25 bg-vote-subjective-soft/40 text-vote-subjective-text hover:bg-vote-subjective-soft hover:text-vote-subjective-text focus-visible:border-vote-subjective focus-visible:ring-vote-subjective/50 active:bg-vote-subjective/20 disabled:opacity-100",
+    "border-border bg-white text-foreground hover:bg-vote-subjective-soft/40 hover:text-foreground focus-visible:border-vote-subjective focus-visible:ring-vote-subjective/50 active:bg-vote-subjective-soft disabled:opacity-100",
   objective:
-    "border-vote-objective/25 bg-vote-objective-soft/40 text-vote-objective-text hover:bg-vote-objective-soft hover:text-vote-objective-text focus-visible:border-vote-objective focus-visible:ring-vote-objective/50 active:bg-vote-objective/20 disabled:opacity-100",
+    "border-border bg-white text-foreground hover:bg-vote-objective-soft/40 hover:text-foreground focus-visible:border-vote-objective focus-visible:ring-vote-objective/50 active:bg-vote-objective-soft disabled:opacity-100",
 } satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_UNAVAILABLE_TONE =
   "disabled:border-line-strong disabled:bg-muted disabled:text-muted-foreground";
 
+// 選択中は種類の色の枠と薄い面で示し、右上にチェックを出す。
 const DOT_VOTE_SELECTED_TONE = {
   subjective:
-    "ring-2 ring-vote-subjective/75 ring-offset-2 ring-offset-background",
+    "border-vote-subjective bg-vote-subjective-soft text-vote-subjective-text hover:bg-vote-subjective-soft hover:text-vote-subjective-text",
   objective:
-    "ring-2 ring-vote-objective/75 ring-offset-2 ring-offset-background",
+    "border-vote-objective bg-vote-objective-soft text-vote-objective-text hover:bg-vote-objective-soft hover:text-vote-objective-text",
 } satisfies Record<DotVoteKind, string>;
+
+const DOT_VOTE_TAG_TONE = {
+  subjective: "bg-vote-subjective",
+  objective: "bg-vote-objective",
+} satisfies Record<DotVoteKind, string>;
+
+// 残票の点はシールと同じ形にする。残っている票は塗り、使った票は中抜きの枠。
+const DOT_VOTE_PIP_TONE = {
+  subjective: {
+    shape: "rounded-full",
+    line: "border-vote-subjective",
+    fill: "bg-vote-subjective",
+  },
+  objective: {
+    shape: "rounded-[3px]",
+    line: "border-vote-objective",
+    fill: "bg-vote-objective",
+  },
+} satisfies Record<DotVoteKind, { shape: string; line: string; fill: string }>;
+
+function DotVoteRemainingPips({
+  kind,
+  remaining,
+  muted,
+}: {
+  kind: DotVoteKind;
+  remaining: number;
+  muted: boolean;
+}) {
+  const tone = DOT_VOTE_PIP_TONE[kind];
+  return (
+    <span aria-hidden="true" className="flex h-4 items-center gap-1.5">
+      {Array.from({ length: DOT_VOTE_LIMITS[kind] }, (_, index) => index).map(
+        (index) => {
+          const isRemaining = index < remaining;
+          return (
+            <span
+              key={`${kind}-pip-${index}`}
+              data-testid={`dot-vote-remaining-pip-${kind}`}
+              data-state={isRemaining ? "remaining" : "used"}
+              className={`size-3 border-2 ${tone.shape} ${
+                muted ? "border-muted-foreground" : tone.line
+              } ${
+                isRemaining
+                  ? muted
+                    ? "bg-muted-foreground"
+                    : tone.fill
+                  : "bg-transparent"
+              }`}
+            />
+          );
+        },
+      )}
+    </span>
+  );
+}
 
 export function DotVotePaletteView({
   voteRemaining,
@@ -88,7 +147,7 @@ export function DotVotePaletteView({
           付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
         </p>
       </div>
-      <fieldset className="flex w-full min-w-0 gap-2">
+      <fieldset className="grid w-full min-w-0 grid-cols-2 gap-2">
         <legend className="sr-only">使用するシールの種類</legend>
         {DOT_VOTE_KINDS.map((kind) => {
           const isEmpty = voteRemaining[kind] <= 0;
@@ -119,7 +178,7 @@ export function DotVotePaletteView({
               }
               size="sm"
               variant="outline"
-              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "border-dashed" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
+              className={`relative h-auto min-w-0 touch-none cursor-grab select-none flex-col items-center gap-1.5 whitespace-normal rounded-xl border-2 px-2 pt-3.5 pb-3 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "border-dashed" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
                 isSelected ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
@@ -133,26 +192,45 @@ export function DotVotePaletteView({
                 onStickerDragStart?.(kind, event);
               }}
             >
-              {/* 狭い幅では名前と残票が収まらないため、残票を次の行へ送る。 */}
-              <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                <span
-                  className={
-                    isEmpty || disabled ? "opacity-50 grayscale" : undefined
-                  }
-                >
-                  <DotVoteStickerImage kind={kind} />
-                </span>
-                <span className="text-sm font-bold">
-                  {DOT_VOTE_LABELS[kind]}
-                </span>
-                {showsSpinner ? (
-                  <Spinner className="ml-auto" />
-                ) : (
-                  <span className="ml-auto text-sm font-bold tabular-nums">
-                    残り{voteRemaining[kind]}票
-                  </span>
-                )}
+              <span
+                className={`absolute top-1.5 left-1.5 rounded-md px-1.5 py-1 text-xs leading-none font-bold text-white ${
+                  isEmpty || disabled
+                    ? "bg-muted-foreground"
+                    : DOT_VOTE_TAG_TONE[kind]
+                }`}
+              >
+                {DOT_VOTE_KIND_TAGS[kind]}
               </span>
+              {isSelected ? (
+                <span
+                  aria-hidden="true"
+                  data-testid={`dot-vote-selected-check-${kind}`}
+                  className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-foreground text-background"
+                >
+                  <Check className="size-3" strokeWidth={3} />
+                </span>
+              ) : null}
+              <span
+                className={
+                  isEmpty || disabled ? "opacity-45 grayscale" : undefined
+                }
+              >
+                <DotVoteStickerImage kind={kind} size="palette" />
+              </span>
+              <span className="text-center text-sm leading-snug font-bold">
+                {DOT_VOTE_LABELS[kind]}
+              </span>
+              {showsSpinner ? (
+                <span aria-hidden="true" className="flex h-4 items-center">
+                  <Spinner />
+                </span>
+              ) : (
+                <DotVoteRemainingPips
+                  kind={kind}
+                  remaining={voteRemaining[kind]}
+                  muted={isEmpty}
+                />
+              )}
               <span id={`${paletteId}-${kind}-state`} className="sr-only">
                 {stateLabel}
               </span>
