@@ -82,7 +82,7 @@ const DECISION_SLIDES: readonly StepGuideSlide[] = [
   {
     title: "「採用する付箋を選ぶ」から1枚選ぼう。",
     description:
-      "ボタンを押してから付箋を選ぶと、チームの決定になります。決定後に次のフェーズへ進みましょう。",
+      "ボタンを押してから付箋を選ぶと、チームの決定になります。決定したら、右上のボタンで次へ進みましょう。",
     illustration: "decision",
     videoSrc: "/onboarding/step-1-5.webm",
     illustrationAlt:

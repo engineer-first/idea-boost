@@ -50,6 +50,6 @@ Issueでは、次の名前の組み合わせを比べた。
 ## References
 
 - [Issue #966](https://github.com/engineer-first/idea-boost/issues/966)：名前の候補の比較と、オーナーのコメント「結論 イチオシ！ 需要ありそう」（2026-11-12確認）。
-- 2026-11-12のClaude Codeセッションで、オーナーが仕分けシートで決めた範囲：表記の統一、数え方は「票」のまま、基準の一文をパレットから外してステップガイドへ置く、内部名は変えない、ADRをこのPRで書く。どのステップでも「進め方」から案内を開けるようにすることも、同じセッションでオーナーが指示した。
+- [PR #985](https://github.com/engineer-first/idea-boost/pull/985)：表記の統一、数え方は「票」のまま、基準の一文をパレットから外してステップガイドへ置くこと、内部名は変えないこと、どのステップでも「進め方」から案内を開けることを、オーナーがこのPRの作業で決めた（2026-11-12）。
 - [NN/g: Dot Voting](https://www.nngroup.com/articles/dot-voting/)：色ごとに基準を持たせる投票で、投票前に色の意味をはっきりさせることを勧めている（Issue #966の調査で確認）。
 - 実装の確認：`features/dot-vote/logic/dot-vote.ts`、`contracts/room-protocol.ts` の `DotVoteKindSchema`（2026-11-12確認）。

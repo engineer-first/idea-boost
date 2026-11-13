@@ -493,12 +493,12 @@ it("「進め方」は現在地カードの中、現在地ボタンの外に並�
       guideControl={<button type="button">進め方</button>}
     />,
   );
-  const card = screen.getByTestId("board-location-card");
+  const card = screen.getByRole("group", { name: "現在地" });
   const guide = screen.getByRole("button", { name: "進め方" });
   expect(card).toContainElement(guide);
-  expect(screen.getByTestId("board-location-trigger")).not.toContainElement(
-    guide,
-  );
+  expect(
+    screen.getByRole("button", { name: /^現在地：/ }),
+  ).not.toContainElement(guide);
 });
 
 it("全体の流れを開いている間は「進め方」を出さず、Tabで手順へ進める", () => {
@@ -510,7 +510,7 @@ it("全体の流れを開いている間は「進め方」を出さず、Tabで�
       guideControl={<button type="button">進め方</button>}
     />,
   );
-  fireEvent.click(screen.getByTestId("board-location-trigger"));
+  fireEvent.click(screen.getByRole("button", { name: /^現在地：/ }));
   expect(
     screen.queryByRole("button", { name: "進め方" }),
   ).not.toBeInTheDocument();

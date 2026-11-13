@@ -47,6 +47,28 @@ describe("StepOneOnboardingSlide", () => {
       expect(await screen.findByRole("dialog", { name: title })).toBeVisible();
     },
   );
+  it.each(["1-5", "2-4", "3-5"])(
+    "%sの決定の案内は、最後の3-5でも当てはまる言い方で次へ進むよう促す",
+    async (phaseKey) => {
+      render(
+        <StepOneOnboardingSlide
+          phaseKey={phaseKey}
+          sessionKey={`decision-next-${phaseKey}`}
+          isReady
+        />,
+      );
+      if (!screen.queryByRole("dialog"))
+        fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+      fireEvent.click(await screen.findByRole("button", { name: "次へ" }));
+      const dialog = await screen.findByRole("dialog", {
+        name: "「採用する付箋を選ぶ」から1枚選ぼう。",
+      });
+      expect(dialog).not.toHaveTextContent("次のフェーズ");
+      expect(dialog).toHaveTextContent(
+        "決定したら、右上のボタンで次へ進みましょう。",
+      );
+    },
+  );
   it("投票の案内は2種類のシールの名前と基準を並べて示す", async () => {
     render(
       <StepOneOnboardingSlide
