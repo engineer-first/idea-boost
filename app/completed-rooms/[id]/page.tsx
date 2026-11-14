@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ACCOUNT_LINK_RESULT_PARAM } from "@/contracts/account-link";
 import { isUuid } from "@/contracts/ids";
@@ -13,6 +14,7 @@ import {
 import { getCurrentUser } from "@/lib/session/current-user";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "以前のルーム | Idea Boost" };
 export default async function CompletedRoomPage({
   params,
   searchParams,

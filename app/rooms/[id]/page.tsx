@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import {
   RoomInfoResponseSchema,
@@ -26,6 +27,7 @@ import { getRequestBaseUrl } from "@/lib/session/request-base-url";
 import { hasRoomEntryTime } from "@/lib/session/room-entry";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "ルーム | Idea Boost" };
 
 type RoomPageProps = {
   params: Promise<{ id: string }>;

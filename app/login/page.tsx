@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import {
   LoginChoice,
@@ -5,15 +6,30 @@ import {
   signInWithDevPassword,
   signInWithGoogle,
 } from "@/features/auth";
+import { inviteMetadata } from "@/features/room-lifecycle";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { isAuthConfigured, isDevAuthEnabled } from "@/lib/session/env";
 
 export const dynamic = "force-dynamic";
 
+type LoginSearchParams = { error?: string; next?: string; guest_next?: string };
+
+// 未ログインで招待URLを開くと /login?next=/invite/<コード> へ転送されるため、
+// LINE 等のプレビューは転送先のこの画面を読む。招待からの転送では招待の説明を出す。
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<LoginSearchParams>;
+}): Promise<Metadata> {
+  const { next } = await searchParams;
+  if (sanitizeNextPath(next).startsWith("/invite/")) return inviteMetadata;
+  return { title: "ログイン | Idea Boost" };
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string; guest_next?: string }>;
+  searchParams: Promise<LoginSearchParams>;
 }) {
   const { error, next, guest_next } = await searchParams;
   if (await getCurrentUser()) {

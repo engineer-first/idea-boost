@@ -1,14 +1,20 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import {
   isValidInviteCode,
   normalizeInviteCode,
 } from "@/contracts/invite-code";
 import { getLoginPath } from "@/features/auth";
-import { InviteCodeDialog, InviteStatusView } from "@/features/room-lifecycle";
+import {
+  InviteCodeDialog,
+  InviteStatusView,
+  inviteMetadata,
+} from "@/features/room-lifecycle";
 import { lookupRoomByInviteCode } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = inviteMetadata;
 
 type InvitePageProps = {
   params: Promise<{ inviteCode: string }>;
