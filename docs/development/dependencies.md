@@ -16,6 +16,21 @@ jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5�
 
 Node.jsはビルドと検証のホスト。公開先はworkerdであり、Nodeのバージョン指定でWorkersの互換性を保証したことにはしない。App/APIの `compatibility_date: 2026-06-01` と `nodejs_compat` を維持し、Workerテストとコンパイル済みPreviewでサービスバインディング・D1・RoomDOを検査する。[OpenNextの前提](https://opennext.js.org/cloudflare/get-started)は互換日付2024-09-23以降と `nodejs_compat`。
 
+## Renovateによる更新PR
+
+`renovate.json` を正本とし、方針は `.github/scripts/renovate-config.spec.ts` で検査する。Mend Renovate の GitHub App がこのリポジトリだけを対象に、日本時間9時前に更新PRを作る。npmの版は公開から3日たってから取り込み（`security:minimumReleaseAgeNpm`）、直後の取り下げや乗っ取られた版を避ける。
+
+| 更新                  | 扱い                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1.0以上のパッチ       | 1つのPRにまとめる。developの必須チェック（`ci.yml` の lint・test・browser・build・smoke）が最新headで成功した後に取り込む |
+| マイナー・0.xのパッチ | 部品ごとのPR。人が取り込む。代表E2Eを整えた後に自動化の範囲を広げる（#395）                                               |
+| メジャー              | Dependency Dashboard（Renovateが作るIssue）で承認した時だけPRを作る。TypeScript 6/7は #738 の条件を満たすまで承認しない   |
+| 脆弱性の修正          | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま         |
+
+依存更新PRには `dependencies` ラベルが付く。CIが失敗したPRは取り込まれずopenのまま残るため、open PRの一覧で気づける。Renovateのマージはdevelopへのマージ通知（Discord）から外す。developへの取り込みと本番公開は別で、本番公開は既存のリリース手順で人が行う。
+
+導入直後はパッチも自動マージしない。数件を手でマージし、必須チェックの失敗・未完了で止まることを確かめてから `automerge` とリポジトリの auto-merge を有効にする。
+
 ## 限定override
 
 アプリ全体への強制置換はせず、次の親パッケージ配下だけへ適用する。削除を判断するときは、そのルールだけを別worktreeで外して再解決し、`npm explain`、`npm ls --all`、全件auditと関連テストを確認する。
