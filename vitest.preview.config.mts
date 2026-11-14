@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./workers/wrangler.preview.jsonc" },
+      remoteBindings: false,
       miniflare: {
         bindings: {
           TEST_MIGRATIONS: migrations,

@@ -43,6 +43,7 @@ const ALL_TABLES = [
   "note_vote_stickers",
   "note_votes",
   "notes",
+  "outcome_reflections",
   "pending_phase_transition",
   "phase_progress_ready",
   "phase_rollback_checkpoints",

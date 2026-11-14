@@ -186,7 +186,7 @@ it.each([390, 1280])(
       });
       await entry.waitFor();
       await page
-        .getByRole("button", { name: "全文をコピー", exact: true })
+        .getByRole("button", { name: "成果をコピー", exact: true })
         .click();
       await page
         .getByText("コピーしました。メモに貼り付けて保存してください。", {
@@ -209,7 +209,7 @@ it.each([390, 1280])(
         true,
       );
       await page
-        .getByRole("button", { name: "全文をコピー", exact: true })
+        .getByRole("button", { name: "成果をコピー", exact: true })
         .click();
       await page.clock.runFor(500);
       expect(await prompt.count()).toBe(0);

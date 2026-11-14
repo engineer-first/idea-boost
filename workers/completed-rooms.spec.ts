@@ -73,6 +73,45 @@ async function complete(
   return { ...room, socket };
 }
 describe("本人向けの完了ルーム再訪", () => {
+  it("AI振り返りの未生成状態は閲覧者だけ取得でき、開くだけでは分析しない", async () => {
+    const room = await complete();
+    try {
+      expect(
+        (await request(`completed-rooms/${room.roomId}/reflection`, outsider))
+          .status,
+      ).toBe(404);
+      const response = await request(
+        `completed-rooms/${room.roomId}/reflection`,
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        expiresAt: expect.any(Number),
+        shared: expect.objectContaining({ revision: 0, result: null }),
+        selectedArtifact: null,
+        competitionPrompt: null,
+        prompt: null,
+      });
+      await runInRoomDO(room.roomId, (_instance, state) => {
+        for (let i = 0; i < 20; i++)
+          state.storage.sql.exec(
+            "INSERT INTO outcome_reflections(cache_key,value_json) VALUES(?, '{}')",
+            `v1:previous:prompt:${i}`,
+          );
+      });
+      expect(
+        (
+          await request(
+            `completed-rooms/${room.roomId}/reflection`,
+            host,
+            "POST",
+            { action: "artifact", revision: 0, artifact: "新しい制作物" },
+          )
+        ).status,
+      ).toBe(429);
+    } finally {
+      room.socket.close();
+    }
+  });
   it("未認証は401、非閲覧者・不存在は同じ404、本人だけ3件と固定5場面を取得する", async () => {
     const room = await complete();
     expect(
@@ -149,6 +188,9 @@ describe("本人向けの完了ルーム再訪", () => {
     ).toEqual(before);
     await runInRoomDO(room.roomId, async (instance, state) => {
       state.storage.sql.exec(
+        "INSERT INTO outcome_reflections(cache_key,value_json) VALUES('analysis','{}')",
+      );
+      state.storage.sql.exec(
         "UPDATE completed_room SET expires_at=?",
         Date.now(),
       );
@@ -157,6 +199,9 @@ describe("本人向けの完了ルーム再訪", () => {
         Date.now(),
       );
       await instance.alarm();
+      expect(
+        state.storage.sql.exec("SELECT * FROM outcome_reflections").toArray(),
+      ).toHaveLength(0);
       expect(
         state.storage.sql.exec("SELECT * FROM members").toArray(),
       ).toHaveLength(0);

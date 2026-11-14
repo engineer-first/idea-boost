@@ -10,16 +10,17 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
 import { StickyNote } from "@/features/notes";
 import { createOutcomePng } from "../logic/outcome-png";
 import { formatOutcomeText, type RoomOutcome } from "../logic/outcome-text";
+import styles from "./room-outcome.module.css";
 
 export type RoomOutcomeViewProps = {
   outcome: RoomOutcome | null;
   connected?: boolean;
   authorized?: boolean;
   children?: ReactNode;
+  reflection?: ReactNode;
   additionalNavigation?: ReactNode;
   recordInfo?: ReactNode;
   footer?: ReactNode;
@@ -32,9 +33,8 @@ export type RoomOutcomeViewProps = {
 };
 
 const CARDS = [
-  { number: "1", label: "決定した課題", key: "issue" },
-  { number: "2", label: "決定した問い", key: "hmw" },
-  { number: "3", label: "採用したアイデア", key: "idea" },
+  { label: "決定した課題", key: "issue" },
+  { label: "決定した問い", key: "hmw" },
 ] as const;
 
 export function RoomOutcomeView({
@@ -42,6 +42,7 @@ export function RoomOutcomeView({
   connected = false,
   authorized,
   children,
+  reflection,
   additionalNavigation,
   recordInfo,
   onBackToBoard,
@@ -263,29 +264,9 @@ export function RoomOutcomeView({
   }
 
   return (
-    <main
-      className="h-full min-h-0 overflow-y-auto bg-background px-4 py-8 text-foreground sm:px-8 sm:py-12"
-      data-testid="room-outcome-view"
-    >
-      <div className="mx-auto w-full max-w-3xl">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          チームで決めた成果
-        </h1>
-        <p className="mt-3 text-balance text-base leading-6 text-muted-foreground">
-          決めた内容を持ち帰り、次の制作に使いましょう。
-        </p>
-        <hr className="mt-6 border-border" />
-
-        <ol
-          aria-label="成果の流れ"
-          className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm font-medium text-muted-foreground"
-        >
-          <li>01 課題</li>
-          <li aria-hidden="true">→</li>
-          <li>02 問い</li>
-          <li aria-hidden="true">→</li>
-          <li>03 アイデア</li>
-        </ol>
+    <main className={styles.page} data-testid="room-outcome-view">
+      <div className={styles.content}>
+        <h1 className={styles.title}>チームで決めた成果</h1>
         {!available || !outcome ? (
           <p
             role="alert"
@@ -299,46 +280,73 @@ export function RoomOutcomeView({
           </p>
         ) : null}
 
-        <div className="mt-6 flex flex-row flex-wrap justify-center gap-4">
-          {CARDS.map(({ number, label, key }) => {
-            const content = outcome?.[key] ?? "確認できません";
-            const noteText = `${number}. ${label}\n${content}`;
-
-            return (
-              <StickyNote
-                key={key}
-                noteId={`outcome-${key}`}
-                color="yellow"
-                height={getNoteHeight(noteText, NOTE_DEFAULT_FONT_SIZE)}
-                decisionPresentation="reference"
-                className="relative w-[200px]"
-              >
-                <div className="flex h-full flex-col p-2">
-                  <h2 className="text-base leading-6 font-bold">
-                    {number}. {label}
-                  </h2>
-
-                  <p className="min-h-0 min-w-0 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere] text-base leading-6 select-text">
-                    {!available ? (
-                      <>
-                        <span className="text-xs font-medium">未確認</span>
-                        {"\n"}
-                      </>
-                    ) : null}
-                    {content}
-                  </p>
-                </div>
-              </StickyNote>
-            );
-          })}
+        <div className={styles.decisions}>
+          <StickyNote
+            noteId="outcome-idea"
+            color="yellow"
+            decisionPresentation="reference"
+            className={styles.adopted}
+            style={{ width: "100%", height: "auto" }}
+          >
+            <div className={styles.noteContent}>
+              <h2>採用したアイデア</h2>
+              <p>
+                {!available && (
+                  <>
+                    <span>未確認</span>
+                    {"\n"}
+                  </>
+                )}
+                {outcome?.idea ?? "確認できません"}
+              </p>
+            </div>
+          </StickyNote>
+          <details open={!reflection} className={styles.decisionContext}>
+            <summary>課題・問いを見返す</summary>
+            <div className={styles.contextNotes}>
+              {CARDS.map(({ label, key }) => (
+                <StickyNote
+                  key={key}
+                  noteId={`outcome-${key}`}
+                  color={null}
+                  decisionPresentation="reference"
+                  className={styles.contextNote}
+                  style={{ width: "100%", height: "auto" }}
+                >
+                  <div className={styles.noteContent}>
+                    <h2>{label}</h2>
+                    <p>
+                      {!available && (
+                        <>
+                          <span>未確認</span>
+                          {"\n"}
+                        </>
+                      )}
+                      {outcome?.[key] ?? "確認できません"}
+                    </p>
+                  </div>
+                </StickyNote>
+              ))}
+            </div>
+          </details>
         </div>
+        {reflection ?? (
+          <section className="mt-8 rounded-lg border border-border bg-card p-4 sm:p-6">
+            <h2 className="text-lg font-bold">次に試すこと</h2>
+            <p className="mt-2 text-base leading-7">
+              誰の、どんな場面を確かめたい？
+              簡単な画面を描き、その人に見せて確かめてみよう。
+            </p>
+          </section>
+        )}
         {canExport ? (
-          <section className="mt-8 border-t border-border pt-4">
+          <section className={styles.export}>
             <h2 className="text-lg font-bold">成果を保存する</h2>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button
                 className="min-h-11"
+                variant="outline"
                 type="button"
                 onClick={() => void savePng()}
                 disabled={copyPending || pngPending}
@@ -367,7 +375,7 @@ export function RoomOutcomeView({
                 onClick={() => void copyText()}
                 disabled={copyPending || pngPending}
               >
-                {copyPending ? "コピー中…" : "全文をコピー"}
+                {copyPending ? "コピー中…" : "成果をコピー"}
               </Button>
             </div>
           </section>
@@ -403,13 +411,6 @@ export function RoomOutcomeView({
         ) : null}
         {feedbackPrompt}
         {children}
-        <section className="mt-8 rounded-lg border border-border bg-card p-4 sm:p-6">
-          <h2 className="text-lg font-bold">次に試すこと</h2>
-          <p className="mt-2 text-base leading-7">
-            誰の、どんな場面を確かめたい？
-            簡単な画面を描き、その人に見せて確かめてみよう。
-          </p>
-        </section>
         {recordInfo}
 
         <nav

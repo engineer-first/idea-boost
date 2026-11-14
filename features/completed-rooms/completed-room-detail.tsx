@@ -14,6 +14,7 @@ import {
   type CompletedSceneKind,
 } from "@/contracts/completed-rooms";
 import { submitFeedback, useFeedback } from "@/features/feedback";
+import { OutcomeReflection } from "@/features/room";
 import { CompletedRoomDetailView } from "./completed-room-detail-view";
 import {
   COMPLETED_ROOMS_IDENTITY_ERROR,
@@ -121,6 +122,9 @@ export function CompletedRoomDetail({
   }, [roomId, selected, expanded, room, retry]);
   return (
     <CompletedRoomDetailView
+      reflection={
+        room ? <OutcomeReflection key={roomId} roomId={roomId} /> : undefined
+      }
       feedback={feedback}
       room={room}
       accountLink={accountLink}

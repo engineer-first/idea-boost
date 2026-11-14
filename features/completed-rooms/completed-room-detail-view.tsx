@@ -32,6 +32,7 @@ function formatCompactCompletedDate(value: number): string {
   }).format(value);
 }
 export type CompletedRoomDetailViewProps = {
+  reflection?: ReactNode;
   accountLink?: ReactNode;
   feedback?: FeedbackControls;
   room: CompletedRoom | null;
@@ -48,6 +49,7 @@ export type CompletedRoomDetailViewProps = {
   onSceneRetry: () => void;
 };
 export function CompletedRoomDetailView({
+  reflection,
   feedback,
   room,
   accountLink,
@@ -98,6 +100,7 @@ export function CompletedRoomDetailView({
   return (
     <>
       <RoomOutcomeView
+        reflection={reflection}
         authorized
         outcome={outcome}
         additionalNavigation={

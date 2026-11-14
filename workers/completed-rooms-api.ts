@@ -4,8 +4,15 @@ import {
   CompletedSceneKindSchema,
 } from "../contracts/completed-rooms";
 import { isUuid } from "../contracts/ids";
+import { ReflectionRequestSchema } from "../contracts/outcome-reflection";
 import type { ApiWorkerEnv } from "./api-worker";
 import { isCreationPublished } from "./lib/room-creation";
+import {
+  REFLECTION_BUSY_ERROR,
+  REFLECTION_CONFLICT_ERROR,
+  REFLECTION_LIMIT_ERROR,
+  REFLECTION_RESEARCH_LIMIT_ERROR,
+} from "./room/outcome-reflection";
 export function completedJson(body: unknown, status = 200): Response {
   return Response.json(body, {
     status,
@@ -21,6 +28,63 @@ export async function handleCompletedRooms(
   userId: string,
 ): Promise<Response> {
   const url = new URL(request.url);
+  const reflection = url.pathname.match(
+    /^\/api\/completed-rooms\/([^/]+)\/reflection$/,
+  );
+  if (reflection) {
+    if (!["GET", "POST"].includes(request.method))
+      return completedJson({ error: "利用できない操作です。" }, 405);
+    if (
+      !isUuid(reflection[1]) ||
+      !(await isCreationPublished(env.DB, reflection[1]))
+    )
+      return notFound();
+    let input: unknown;
+    try {
+      if (request.method === "POST") {
+        const text = await request.text();
+        if (text.length > 2048)
+          return completedJson({ error: "入力が長すぎます。" }, 400);
+        input = JSON.parse(text);
+      }
+    } catch {
+      return completedJson({ error: "入力が不正です。" }, 400);
+    }
+    const parsed =
+      request.method === "POST"
+        ? ReflectionRequestSchema.safeParse(input)
+        : null;
+    if (parsed && !parsed.success)
+      return completedJson({ error: "入力が不正です。" }, 400);
+    try {
+      const result = await env.ROOM_DO.get(
+        env.ROOM_DO.idFromName(reflection[1]),
+      ).getOutcomeReflection(userId, parsed?.success ? parsed.data : null);
+      return result ? completedJson(result) : notFound();
+    } catch (cause) {
+      if (
+        cause instanceof Error &&
+        [
+          REFLECTION_BUSY_ERROR,
+          REFLECTION_LIMIT_ERROR,
+          REFLECTION_RESEARCH_LIMIT_ERROR,
+          REFLECTION_CONFLICT_ERROR,
+        ].includes(cause.message)
+      )
+        return completedJson(
+          { error: cause.message },
+          [REFLECTION_LIMIT_ERROR, REFLECTION_RESEARCH_LIMIT_ERROR].includes(
+            cause.message,
+          )
+            ? 429
+            : 409,
+        );
+      return completedJson(
+        { error: "AIの生成に失敗しました。時間をおいて再試行してください。" },
+        503,
+      );
+    }
+  }
   if (request.method !== "GET")
     return completedJson({ error: "利用できない操作です。" }, 405);
   if (url.pathname === "/api/completed-rooms") {

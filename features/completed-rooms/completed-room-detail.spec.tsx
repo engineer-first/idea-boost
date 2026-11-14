@@ -44,7 +44,7 @@ it.each([401, 404])(
     );
     expect(alert).not.toHaveTextContent(/ログイン|Google|アカウント/);
     expect(
-      screen.queryByRole("button", { name: "全文をコピー" }),
+      screen.queryByRole("button", { name: "成果をコピー" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "テキストを保存" }),

@@ -34,6 +34,7 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 export async function apiFetch(
   path: string,
   init?: RequestInit,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<Response> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
@@ -43,7 +44,7 @@ export async function apiFetch(
     headers.set("Cookie", `${SESSION_COOKIE_NAME}=${sessionToken}`);
   }
 
-  const timeout = AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
+  const timeout = AbortSignal.timeout(timeoutMs);
   const signal = init?.signal
     ? AbortSignal.any([init.signal, timeout])
     : timeout;
