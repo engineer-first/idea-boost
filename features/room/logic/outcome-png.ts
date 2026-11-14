@@ -19,6 +19,16 @@ const TITLE_LINE_HEIGHT = 32;
 const TITLE_TO_NOTES_GAP = 20;
 
 const NOTE_LINE_HEIGHT = Math.ceil(NOTE_DEFAULT_FONT_SIZE * 1.5);
+
+// 共有された画像からアプリへたどれるよう、下端に小さく名前とURLを入れる。
+// 本文の邪魔をしないよう、DESIGN.md の最小サイズ（12px）と補足色（muted）にする。
+const BRAND_TEXT = "Idea Boost ideaboost.dev";
+const BRAND_FONT_SIZE = 12;
+const BRAND_LINE_HEIGHT = 16;
+// 付箋の影（下方向に最大14px程度）と重ならない間隔。
+const NOTES_TO_BRAND_GAP = 20;
+const BRAND_BOTTOM_PADDING = 16;
+const BRAND_FALLBACK_COLOR = "#516079";
 const NOTE_VERTICAL_RESERVE = 56;
 
 const MAX_CANVAS_DIMENSION = 16_384;
@@ -287,7 +297,8 @@ export async function createOutcomePng(outcome: RoomOutcome): Promise<Blob> {
 
   const notesTop = PADDING + TITLE_LINE_HEIGHT + TITLE_TO_NOTES_GAP;
   const notesHeight = Math.max(...renderedNotes.map((note) => note.height));
-  const canvasHeight = notesTop + notesHeight + PADDING;
+  const brandTop = notesTop + notesHeight + NOTES_TO_BRAND_GAP;
+  const canvasHeight = brandTop + BRAND_LINE_HEIGHT + BRAND_BOTTOM_PADDING;
 
   const pixelWidth = Math.ceil(canvasWidth * OUTPUT_SCALE);
   const pixelHeight = Math.ceil(canvasHeight * OUTPUT_SCALE);
@@ -323,6 +334,10 @@ export async function createOutcomePng(outcome: RoomOutcome): Promise<Blob> {
         ? "#F8F7F2"
         : bodyStyle.backgroundColor;
     const foregroundColor = bodyStyle.color || "#0F172A";
+    const brandColor =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--ib-color-muted")
+        .trim() || BRAND_FALLBACK_COLOR;
 
     // 不透明な背景。
     context.fillStyle = backgroundColor;
@@ -340,6 +355,17 @@ export async function createOutcomePng(outcome: RoomOutcome): Promise<Blob> {
       const x = PADDING + index * (NOTE_WIDTH + NOTE_GAP);
       drawNote(context, note, fontFamily, x, notesTop);
     });
+
+    // 下端右寄せにアプリ名とURL。
+    context.fillStyle = brandColor;
+    context.font = `400 ${BRAND_FONT_SIZE}px ${fontFamily}`;
+    context.textAlign = "right";
+    context.textBaseline = "top";
+    context.fillText(
+      BRAND_TEXT,
+      canvasWidth - PADDING,
+      brandTop + (BRAND_LINE_HEIGHT - BRAND_FONT_SIZE) / 2,
+    );
 
     const blob = await canvasToBlob(canvas);
 
