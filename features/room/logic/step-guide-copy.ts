@@ -1,3 +1,8 @@
+import {
+  DOT_VOTE_CRITERIA,
+  DOT_VOTE_GUIDANCE,
+  DOT_VOTE_LABELS,
+} from "@/features/dot-vote";
 import { STEP_ONE_ONBOARDING_SLIDES } from "./step-one-onboarding-copy";
 
 export type StepGuideDiagramKind =
@@ -29,26 +34,66 @@ export type StepGuideSlide = {
   videoSrc?: string;
 };
 
+// 共有・投票・決定は3フェーズで同じ操作のため、案内を使い回す。
+// 最初に出会うフェーズ1だけ自動で開き、他のフェーズでは「進め方」から開ける。
+const SHARE_SLIDES: readonly StepGuideSlide[] = [
+  {
+    title: "自分の付箋を共有し、みんなの考えを知ろう。",
+    description:
+      "一人ひとりの考えを伝え合い、チームで考える材料を集めましょう。",
+    illustration: "share-purpose",
+    illustrationAlt: "一人ひとりの付箋をチームで伝え合う",
+  },
+  {
+    title: "自分の番が来たら発表して、次の人へ交代しよう。",
+    description:
+      "発表する順番は画面上部で確認できます。自分の番が来たら、マイ付箋をボードへドラッグして内容を説明しましょう。発表が終わったら「次の人へ」を押して交代します。",
+    illustration: "share",
+    videoSrc: "/onboarding/step-1-2.webm",
+    illustrationAlt:
+      "前の人の発表を待ち、自分の番に付箋を共有して発表し、次の人へ交代する流れ",
+  },
+];
+
+const VOTE_SLIDES: readonly StepGuideSlide[] = [
+  {
+    title: "取り組みたい付箋に投票しよう。",
+    description: "2種類のシールを、それぞれの基準に合う付箋へ貼ります。",
+    illustration: "vote-purpose",
+    illustrationAlt: `${DOT_VOTE_LABELS.subjective}は「${DOT_VOTE_CRITERIA.subjective}」、${DOT_VOTE_LABELS.objective}は「${DOT_VOTE_CRITERIA.objective}」という基準`,
+  },
+  {
+    title: `${DOT_VOTE_GUIDANCE.allowance}を、付箋に貼ろう。`,
+    description:
+      "シールを付箋へドラッグします。自分のシールは押すかパレットへ戻すと取り消せます。投票中は他の人の票は見えません。",
+    illustration: "vote",
+    videoSrc: "/onboarding/step-1-4.webm",
+    illustrationAlt: `${DOT_VOTE_GUIDANCE.allowance}のパレットから付箋にシールを貼り、取り消すと残票が戻る`,
+  },
+];
+
+const DECISION_SLIDES: readonly StepGuideSlide[] = [
+  {
+    title: "話し合って、チームで1つに決めよう。",
+    description: "票を参考に考えましょう。最多票を必ず選ぶ必要はありません。",
+    illustration: "decision-purpose",
+    illustrationAlt: "付箋上の票を参考に、チームで1つを話し合う",
+  },
+  {
+    title: "「採用する付箋を選ぶ」から1枚選ぼう。",
+    description:
+      "ボタンを押してから付箋を選ぶと、チームの決定になります。決定したら、右上のボタンで次へ進みましょう。",
+    illustration: "decision",
+    videoSrc: "/onboarding/step-1-5.webm",
+    illustrationAlt:
+      "票を比べ、採用する付箋を選ぶボタンを押してから1枚の付箋を選ぶ流れ",
+  },
+];
+
+// ステップに入ったとき自動で開く案内。
 const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
   "1-1": STEP_ONE_ONBOARDING_SLIDES,
-  "1-2": [
-    {
-      title: "自分の困りごとを共有し、みんなの困りごとを知ろう。",
-      description:
-        "一人ひとりの困りごとを伝え合い、チームで考える材料を集めましょう。",
-      illustration: "share-purpose",
-      illustrationAlt: "一人ひとりの困りごとをチームで伝え合う",
-    },
-    {
-      title: "自分の番が来たら発表して、次の人へ交代しよう。",
-      description:
-        "発表する順番は画面上部で確認できます。自分の番が来たら、マイ付箋をボードへドラッグして内容を説明しましょう。発表が終わったら「次の人へ」を押して交代します。",
-      illustration: "share",
-      videoSrc: "/onboarding/step-1-2.webm",
-      illustrationAlt:
-        "前の人の発表を待ち、自分の番に付箋を共有して発表し、次の人へ交代する流れ",
-    },
-  ],
+  "1-2": SHARE_SLIDES,
   "1-3": [
     {
       title: "似ている困りごとを集めよう。",
@@ -65,41 +110,8 @@ const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
       illustrationAlt: "離れた付箋を近づけ、似た困りごとをまとめる流れ",
     },
   ],
-  "1-4": [
-    {
-      title: "取り組みたい課題に投票しよう。",
-      description:
-        "主観は「激しく共感する、取り組みたい」。客観は「自分以外の人にも価値がありそう」。",
-      illustration: "vote-purpose",
-      illustrationAlt: "主観と客観の2つの基準で困りごとを考える",
-    },
-    {
-      title: "主観1票・客観3票を、付箋に貼ろう。",
-      description:
-        "シールを付箋へドラッグします。自分のシールは押すかパレットへ戻すと取り消せます。投票中は他の人の票は見えません。",
-      illustration: "vote",
-      videoSrc: "/onboarding/step-1-4.webm",
-      illustrationAlt:
-        "主観1票・客観3票のパレットから付箋にシールを貼り、取り消すと残票が戻る",
-    },
-  ],
-  "1-5": [
-    {
-      title: "話し合って、取り組む課題を1つ決めよう。",
-      description: "票を参考に考えましょう。最多票を必ず選ぶ必要はありません。",
-      illustration: "decision-purpose",
-      illustrationAlt: "付箋上の主観票・客観票を参考に、チームで課題を話し合う",
-    },
-    {
-      title: "「採用する付箋を選ぶ」から1枚選ぼう。",
-      description:
-        "ボタンを押してから付箋を選ぶと、チームの決定になります。決定後に次のフェーズへ進みましょう。",
-      illustration: "decision",
-      videoSrc: "/onboarding/step-1-5.webm",
-      illustrationAlt:
-        "票を比べ、採用する付箋を選ぶボタンを押してから1枚の付箋を選ぶ流れ",
-    },
-  ],
+  "1-4": VOTE_SLIDES,
+  "1-5": DECISION_SLIDES,
   "2-1": [
     {
       title: "困りごとを、改善方法を考える問いに変えよう。",
@@ -151,10 +163,28 @@ const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
   ],
 };
 
+// 自動では開かないが、「進め方」から開ける案内。同じ種類のステップの案内を使い回す。
+const REFERENCE_STEP_GUIDES: Readonly<
+  Record<string, readonly StepGuideSlide[]>
+> = {
+  "2-2": SHARE_SLIDES,
+  "2-3": VOTE_SLIDES,
+  "2-4": DECISION_SLIDES,
+  "3-2": SHARE_SLIDES,
+  "3-4": VOTE_SLIDES,
+  "3-5": DECISION_SLIDES,
+};
+
 export function getStepGuideSlides(
   phaseKey: string,
 ): readonly StepGuideSlide[] {
   return STEP_GUIDES[phaseKey] ?? [];
+}
+
+export function getStepGuideReferenceSlides(
+  phaseKey: string,
+): readonly StepGuideSlide[] {
+  return STEP_GUIDES[phaseKey] ?? REFERENCE_STEP_GUIDES[phaseKey] ?? [];
 }
 
 export const SCAMPER_QUESTION_EXAMPLES = [
@@ -184,18 +214,18 @@ export const STEP_GUIDE_DIAGRAM_COPY = {
   share: "② ボードへ出して説明",
   afterExplanation: "③ 説明が終わったら",
   nextSpeaker: "次の人へ",
-  subjective: "● 主観",
-  objective: "◆ 客観",
-  subjectiveCriterion: "激しく共感する、取り組みたい",
-  objectiveCriterion: "自分以外の人にも価値がありそう",
+  subjective: `● ${DOT_VOTE_LABELS.subjective}`,
+  objective: `◆ ${DOT_VOTE_LABELS.objective}`,
+  subjectiveCriterion: DOT_VOTE_CRITERIA.subjective,
+  objectiveCriterion: DOT_VOTE_CRITERIA.objective,
   palette: "パレット（シールの置き場）",
-  subjectiveRemaining: "● 主観 残り1票 → 0票",
-  objectiveRemaining: "◆ 客観 残り3票 → 2票",
+  subjectiveRemaining: `● ${DOT_VOTE_LABELS.subjective} 残り1票 → 0票`,
+  objectiveRemaining: `◆ ${DOT_VOTE_LABELS.objective} 残り3票 → 2票`,
   attach: "貼る →",
   returnSticker: "← 戻す",
   cancelVote: "自分のシールを押す／戻す → 取り消した分の残票が戻る",
-  firstVotes: "主観 2票 ・ 客観 1票",
-  secondVotes: "主観 1票 ・ 客観 2票",
+  firstVotes: `${DOT_VOTE_LABELS.subjective} 2票 ・ ${DOT_VOTE_LABELS.objective} 1票`,
+  secondVotes: `${DOT_VOTE_LABELS.subjective} 1票 ・ ${DOT_VOTE_LABELS.objective} 2票`,
   startDecision: "① 採用する付箋を選ぶ",
   selectNote: "② 付箋を選ぶ",
   discuss: "票を参考に、話し合って1つ決める",

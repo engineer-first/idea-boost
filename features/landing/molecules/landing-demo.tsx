@@ -1,4 +1,4 @@
-import { Heart, MousePointer2, Scale } from "lucide-react";
+import { MousePointer2, Star, Users } from "lucide-react";
 import type { CSSProperties } from "react";
 import { landingBoardCopy, landingMembers } from "../logic/landing-board-copy";
 import { landingCopy as copy } from "../logic/landing-copy";
@@ -48,25 +48,25 @@ export function LandingDemo() {
             {copy.demo.note}
           </div>
           <span className={`${styles.vote} ${styles.centerSubjective}`}>
-            <Heart fill="currentColor" />
+            <Star />
           </span>
           <span className={`${styles.vote} ${styles.centerObjective}`}>
-            <Scale />
+            <Users />
           </span>
           <span className={`${styles.vote} ${styles.outerObjectiveOne}`}>
-            <Scale />
+            <Users />
           </span>
           <span className={`${styles.vote} ${styles.outerObjectiveTwo}`}>
-            <Scale />
+            <Users />
           </span>
           <div className={styles.voteTray}>
             <span>
-              <Heart size={18} />
+              <Star size={18} />
               {landingBoardCopy.subjective}
               <span className={styles.subjectiveCount} />
             </span>
             <span>
-              <Scale size={18} />
+              <Users size={18} />
               {landingBoardCopy.objective}
               <span className={styles.objectiveCount} />
             </span>

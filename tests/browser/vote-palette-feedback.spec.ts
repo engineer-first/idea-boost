@@ -4,15 +4,16 @@ import { expect, it } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout";
+// 使い切ったタイルは、その種類の票を全部取り消すために押せる。
 const states = [
   { story: "available", exhausted: 0, disabled: 0 },
-  { story: "subjective-exhausted", exhausted: 1, disabled: 1 },
-  { story: "objective-exhausted", exhausted: 1, disabled: 1 },
+  { story: "subjective-exhausted", exhausted: 1, disabled: 0 },
+  { story: "objective-exhausted", exhausted: 1, disabled: 0 },
   { story: "all-pending", exhausted: 0, disabled: 2 },
-  { story: "exhausted", exhausted: 2, disabled: 2 },
-  { story: "rejected", exhausted: 1, disabled: 1 },
+  { story: "exhausted", exhausted: 2, disabled: 0 },
+  { story: "rejected", exhausted: 1, disabled: 0 },
   { story: "disconnected", exhausted: 0, disabled: 2 },
-  { story: "one-vote-returned", exhausted: 1, disabled: 1 },
+  { story: "one-vote-returned", exhausted: 1, disabled: 0 },
 ] as const;
 
 it.each([390, 1280])(
@@ -49,19 +50,24 @@ it.each([390, 1280])(
               (element) => element.scrollWidth <= element.clientWidth,
             ),
           ).toBe(true);
-          // 残票が確定しない間は票数の代わりにスピナーを出す。
-          const count = button.getByText(/残り\d票/);
-          if ((await count.count()) === 0) {
+          // 残票は文字でなく点で示す。確定しない間は点の代わりにスピナーを出す。
+          expect(await button.getByText(/残り\d票/).count()).toBe(0);
+          const pips = button.locator(
+            '[data-testid^="dot-vote-remaining-pip-"]',
+          );
+          if ((await pips.count()) === 0) {
             expect(await button.locator('[data-slot="spinner"]').count()).toBe(
               1,
             );
             continue;
           }
-          expect(
-            await count.evaluate((element) =>
-              Number.parseFloat(getComputedStyle(element).fontSize),
-            ),
-          ).toBeGreaterThanOrEqual(14);
+          // 点は小さくしすぎず、見分けられる大きさで出す。
+          for (const pip of await pips.all()) {
+            expect(await pip.isVisible()).toBe(true);
+            const pipBox = await pip.boundingBox();
+            expect(pipBox?.width ?? 0).toBeGreaterThanOrEqual(12);
+            expect(pipBox?.height ?? 0).toBeGreaterThanOrEqual(12);
+          }
         }
         for (const kind of ["subjective", "objective"]) {
           expect(
@@ -70,9 +76,8 @@ it.each([390, 1280])(
               .isVisible(),
           ).toBe(true);
         }
-        expect(await palette.getByText(/は「/).count()).toBe(
-          2 - state.exhausted,
-        );
+        // 投票基準の一文はパレットに出さず、ステップガイドで示す。
+        expect(await palette.getByText(/は「/).count()).toBe(0);
         // 画面に出す状態の文言は失敗だけにする。
         expect(await palette.getByRole("status").textContent()).toBe(
           state.story === "rejected" ? "この付箋には投票できません。" : "",
@@ -136,7 +141,7 @@ it.each([390, 1280])(
       );
       const palette = page.getByRole("region", { name: "投票パレット" });
       const objective = palette.getByRole("button", {
-        name: "客観シール 残り1票",
+        name: "「需要ありそう」シール 残り1票",
       });
       await objective.waitFor();
       await expect.poll(() => objective.isEnabled()).toBe(true);

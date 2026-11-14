@@ -41,5 +41,5 @@ Googleの本人は、入室前に残り5時間以上の有効な認証を準備�
 - [元操作の引継ぎ PR #582](https://github.com/engineer-first/idea-boost/pull/582)
 - [入室前判定](../../lib/session/room-entry.ts)
 - [照合した実装・規約](../../lib/session/room-entry.ts)（確認日：2026-11-03）。
-- 2026-10-10 Codexセッション 01a1249d（vault）。オーナーは確定仕様のIssueを指定して実装を依頼した。
+- 2026-10-10：オーナーは確定仕様 #558 を指定して実装を依頼した。
 - [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0010-room-entry-authentication.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

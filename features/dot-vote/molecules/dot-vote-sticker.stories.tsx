@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import { DotVoteSticker } from "./dot-vote-sticker";
 
 const meta = {
@@ -18,6 +18,28 @@ type Story = StoryObj<typeof meta>;
 
 export const Mine: Story = {};
 
+export const MineSubjective: Story = {
+  args: {
+    kind: "subjective",
+    count: 1,
+  },
+};
+
+// シールにフォーカスしたときの1行のツールチップ。
+export const WithTooltip: Story = {
+  args: {
+    kind: "subjective",
+    count: 1,
+  },
+  parameters: {
+    layout: "centered",
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.tab();
+    await within(canvasElement.ownerDocument.body).findByRole("tooltip");
+  },
+};
+
 export const Preview: Story = {
   args: {
     kind: "subjective",
@@ -30,6 +52,15 @@ export const Preview: Story = {
 export const Result: Story = {
   args: {
     count: 12,
+    state: "result",
+    onRemove: undefined,
+  },
+};
+
+export const ResultSubjective: Story = {
+  args: {
+    kind: "subjective",
+    count: 3,
     state: "result",
     onRemove: undefined,
   },

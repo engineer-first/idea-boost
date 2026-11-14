@@ -475,11 +475,43 @@ it("採用時の本文・文字サイズと集計票を表示し、参照から�
   const body = screen.getByRole("region", { name: "決定した課題の本文" });
   expect(body).toHaveTextContent(reference.content);
   expect(body).toHaveStyle({ fontSize: "20px" });
-  expect(screen.getByRole("img", { name: /主観.*7票/ })).toBeVisible();
-  expect(screen.getByRole("img", { name: /客観.*3票/ })).toBeVisible();
+  expect(screen.getByRole("img", { name: /イチオシ！.*7票/ })).toBeVisible();
+  expect(screen.getByRole("img", { name: /需要ありそう.*3票/ })).toBeVisible();
   expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   expect(screen.getAllByRole("button")).toHaveLength(2);
   fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
   expect(body).not.toBeVisible();
   expect(body).toHaveAttribute("tabindex", "-1");
+});
+
+it("「進め方」は現在地カードの中、現在地ボタンの外に並べ、カードの高さを増やさない", () => {
+  render(
+    <BoardContext
+      phase={buildPhaseStep(3, 2)}
+      hmwDecidedIssue="決定した課題"
+      decidedHmw={null}
+      guideControl={<button type="button">進め方</button>}
+    />,
+  );
+  const card = screen.getByRole("group", { name: "現在地" });
+  const guide = screen.getByRole("button", { name: "進め方" });
+  expect(card).toContainElement(guide);
+  expect(
+    screen.getByRole("button", { name: /^現在地：/ }),
+  ).not.toContainElement(guide);
+});
+
+it("全体の流れを開いている間は「進め方」を出さず、Tabで手順へ進める", () => {
+  render(
+    <BoardContext
+      phase={buildPhaseStep(3, 2)}
+      hmwDecidedIssue="決定した課題"
+      decidedHmw={null}
+      guideControl={<button type="button">進め方</button>}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /^現在地：/ }));
+  expect(
+    screen.queryByRole("button", { name: "進め方" }),
+  ).not.toBeInTheDocument();
 });

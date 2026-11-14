@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  getStepGuideReferenceSlides,
   getStepGuideSlides,
   type StepGuideSlide,
 } from "../logic/step-guide-copy";
@@ -267,7 +268,8 @@ export function StepOneOnboardingSlide({
   const pendingSlideIndexRef = useRef(0);
   const activeVisitRef = useRef<string | null>(null);
   const wasOpenRef = useRef(false);
-  const slides = getStepGuideSlides(phaseKey);
+  // 「進め方」から開ける案内。自動で開くかどうかは getStepGuideSlides で決める。
+  const slides = getStepGuideReferenceSlides(phaseKey);
   const slide = slides[slideIndex] ?? slides[0];
   const previewSlide = slideTransition
     ? slides[pendingSlideIndexRef.current]
@@ -494,7 +496,7 @@ export function StepOneOnboardingSlide({
           data-testid="step-one-onboarding-trigger"
           type="button"
           variant="outline"
-          className="pointer-events-auto absolute left-1/2 top-0 z-40 h-9 -translate-x-1/2 rounded-lg border-border/80 bg-background/95 px-4 text-sm shadow-tool backdrop-blur transition hover:bg-muted max-[639px]:static max-[639px]:mt-2 max-[639px]:translate-x-0"
+          className="pointer-events-auto h-auto shrink-0 rounded-none rounded-r-xl border-0 border-l border-border bg-transparent px-3 text-sm shadow-none transition hover:bg-muted"
           onClick={openGuide}
         >
           進め方

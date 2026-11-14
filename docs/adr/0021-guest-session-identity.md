@@ -47,5 +47,5 @@ date: "2026-10-28"
 - [ゲストの準備](../../features/auth/logic/guest-identity-actions.ts)
 - [PRD](../prd.md)
 - [照合した実装・規約](../../contracts/session.ts)（確認日：2026-11-03）。
-- 2026-10-27 Claudeセッション 65fc6dc9-2297-40b6-aae5-d699de51e823（ゲスト開始の希望）、2026-10-31 9becd4fc-035e-4096-a8c1-a327fd7f1aa9（Googleとゲストを同等に選ぶ本人の訂正）。保持方式そのものの採用承認とは区別する。
+- 2026-10-27にオーナーがゲストで始められることを望み、2026-10-31にGoogleとゲストを同等に選べる形へ訂正した（上記の方針変更）。保持方式そのものの採用承認とは区別する。
 - [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0021-guest-session-identity.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

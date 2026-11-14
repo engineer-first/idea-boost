@@ -42,5 +42,5 @@ date: "2026-10-18"
 - [受信を250ms遅らせる実ブラウザ検証](../../tests/browser/canvas-move-queue.spec.ts)
 - [キャンバス操作仕様](../product/canvas-interactions/details.md)
 - [照合した実装・規約](../../features/notes/logic/use-note-move.ts)（確認日：2026-11-03）。
-- 2026-10-16〜18 Codexセッション 01a1427f（短いドラッグの不具合報告と改善・push依頼）。ローカルキューの方式を個別に承認した発言は未確認。
+- 2026-10-16〜18：オーナーは短いドラッグの不具合を報告し、改善とpushを依頼した。ローカルキューの方式を個別に承認した記録は確認できていない。
 - [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0019-queue-local-note-moves.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

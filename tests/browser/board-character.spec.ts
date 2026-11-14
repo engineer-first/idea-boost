@@ -48,44 +48,28 @@ async function checkPlacement(page: Page): Promise<void> {
       ).toBe(true);
     }
   } else {
+    // スマホでは現在地カードの真下に置く。
+    const above = (location?.y ?? 0) + (location?.height ?? 0);
     expect(box?.x).toBeLessThanOrEqual(16);
-    expect(box?.y).toBeGreaterThanOrEqual(
-      (location?.y ?? 0) + (location?.height ?? 0),
-    );
-    expect(box?.y).toBeLessThanOrEqual(
-      (location?.y ?? 0) + (location?.height ?? 0) + 24,
-    );
+    expect(box?.y).toBeGreaterThanOrEqual(above);
+    expect(box?.y).toBeLessThanOrEqual(above + 24);
   }
   const bubble = page.getByTestId("board-character-bubble");
   if (await bubble.isVisible()) {
     const bubbleBox = await bubble.boundingBox();
     expect(bubbleBox?.y).toBeGreaterThanOrEqual(0);
-    if ((page.viewportSize()?.width ?? 0) >= 640) {
-      const central = await page
-        .getByTestId("step-one-onboarding-trigger")
-        .boundingBox();
-      expect(central).not.toBeNull();
+    expect(bubbleBox?.x).toBeGreaterThanOrEqual(
+      (box?.x ?? 0) + (box?.width ?? 0),
+    );
+    // 「進め方」は現在地カードの中にあり、吹き出しと重ならない。
+    const guide = page.getByTestId("step-one-onboarding-trigger");
+    if (await guide.isVisible()) {
+      const guideBox = await guide.boundingBox();
       expect(
-        (bubbleBox?.x ?? 0) + (bubbleBox?.width ?? 0) <=
-          (central?.x ?? 0) - 8 ||
-          (bubbleBox?.y ?? 0) >= (central?.y ?? 0) + (central?.height ?? 0),
+        (bubbleBox?.x ?? 0) >= (guideBox?.x ?? 0) + (guideBox?.width ?? 0) ||
+          (bubbleBox?.y ?? 0) >= (guideBox?.y ?? 0) + (guideBox?.height ?? 0) ||
+          (bubbleBox?.y ?? 0) + (bubbleBox?.height ?? 0) <= (guideBox?.y ?? 0),
       ).toBe(true);
-      const availableWidth =
-        (central?.x ?? 0) - ((box?.x ?? 0) + (box?.width ?? 0) + 6) - 8;
-      if (availableWidth < 160) {
-        expect(bubbleBox?.x).toBe(box?.x);
-        expect(bubbleBox?.y).toBeGreaterThanOrEqual(
-          (box?.y ?? 0) + (box?.height ?? 0),
-        );
-      } else {
-        expect(bubbleBox?.x).toBeGreaterThanOrEqual(
-          (box?.x ?? 0) + (box?.width ?? 0),
-        );
-      }
-    } else {
-      expect(bubbleBox?.x).toBeGreaterThanOrEqual(
-        (box?.x ?? 0) + (box?.width ?? 0),
-      );
     }
     expect((bubbleBox?.x ?? 0) + (bubbleBox?.width ?? 0)).toBeLessThanOrEqual(
       page.viewportSize()?.width ?? 0,

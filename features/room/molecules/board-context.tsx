@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import { useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import {
   Popover,
   PopoverContent,
@@ -24,6 +24,8 @@ export type BoardContextProps = {
   decidedHmw: string | null;
   issueReference?: Carryover | null;
   hmwReference?: Carryover | null;
+  // 現在地カードの中、現在地ボタンの右に並べる操作（「進め方」）。
+  guideControl?: ReactNode;
 };
 
 export function BoardContext({
@@ -34,6 +36,7 @@ export function BoardContext({
   decidedHmw,
   issueReference,
   hmwReference,
+  guideControl,
 }: BoardContextProps) {
   const phaseKey = phase.kind === "step" ? String(phase.phase) : "lobby";
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
@@ -78,7 +81,11 @@ export function BoardContext({
       data-hmw-writing={isPhaseStep(phase, 2, 1) || undefined}
       className="pointer-events-none min-w-0 shrink-0"
     >
-      <BoardLocation phase={phase} outcomePublished={outcomePublished} />
+      <BoardLocation
+        phase={phase}
+        outcomePublished={outcomePublished}
+        action={guideControl}
+      />
       {disclosures.length > 0 ? (
         <div
           className={`${styles.references} board-hud pointer-events-auto pt-2 ${usesIdeaMapViewport ? "grid w-full grid-cols-2 items-stretch gap-2 max-[639px]:grid-cols-1" : "w-[200px] space-y-2"}`}

@@ -43,5 +43,5 @@ RoomDOで同じ接続の共有操作を受信順に処理する。前の要求�
 - [実装 PR #726](https://github.com/engineer-first/idea-boost/pull/726)
 - [接続単位の順序保証](../../workers/room/room-do.ts)
 - [照合した実装・規約](../../workers/room/room-do.ts)（確認日：2026-11-03）。
-- 2026-10-16〜18 Codexセッション 01a1427f（付箋移動の改善依頼）。順序保証の方式はAIの実装提案。
+- 2026-10-16〜18：オーナーは付箋移動の改善を依頼した。順序保証の方式はAIの実装提案。
 - [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0018-websocket-message-order.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

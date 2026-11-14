@@ -42,5 +42,5 @@ date: "2026-10-16"
 - [実装 PR #726](https://github.com/engineer-first/idea-boost/pull/726)
 - [移動確定の実装](../../workers/room/move-operations.ts)
 - [照合した実装・規約](../../workers/room/move-operations.ts)（確認日：2026-11-03）。
-- 2026-10-16〜18 Codexセッション 01a1427f（付箋移動の改善依頼と不具合の再報告）。本人の要望は操作体験の改善であり、本方式の個別承認ではない。
+- 2026-10-16〜18：オーナーは付箋移動の改善を依頼し、不具合を再報告した。本人の要望は操作体験の改善であり、本方式の個別承認ではない。
 - [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0017-move-current-groups.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

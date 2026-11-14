@@ -5,6 +5,13 @@ import {
 } from "@/contracts/board";
 import type { SharedOutcomeSnapshot } from "@/contracts/shared-outcomes";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
+
+// 投票シールの画面の名前。正本は docs/glossary.md。shared-outcomes は
+// dot-vote に依存しないため、LP と同じく名前だけをここに持つ。
+const DOT_VOTE_LABELS = {
+  subjective: "イチオシ！",
+  objective: "需要ありそう",
+} as const;
 export type SharedOutcomeBoardProps = {
   label: string;
   phase: number;
@@ -164,9 +171,9 @@ export function SharedOutcomeBoard({
                   ) && <p className="mt-2 text-xs font-semibold">採用済み</p>}
                   {note.votes && (
                     <p className="mt-1 text-xs">
-                      主観 {note.votes.subjective}票 / 客観{" "}
-                      {note.votes.objective}票 / 合計{" "}
-                      {note.votes.subjective + note.votes.objective}票
+                      {DOT_VOTE_LABELS.subjective} {note.votes.subjective}票 /{" "}
+                      {DOT_VOTE_LABELS.objective} {note.votes.objective}票 /
+                      合計 {note.votes.subjective + note.votes.objective}票
                     </p>
                   )}
                   {note.excluded && (
@@ -207,8 +214,9 @@ export function SharedOutcomeBoard({
               </div>
               {note.votes && (
                 <p className="mt-3 text-base text-muted-foreground">
-                  主観 {note.votes.subjective}票 / 客観 {note.votes.objective}票
-                  / 合計 {note.votes.subjective + note.votes.objective}票
+                  {DOT_VOTE_LABELS.subjective} {note.votes.subjective}票 /{" "}
+                  {DOT_VOTE_LABELS.objective} {note.votes.objective}票 / 合計{" "}
+                  {note.votes.subjective + note.votes.objective}票
                 </p>
               )}
             </li>

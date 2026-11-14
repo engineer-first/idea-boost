@@ -574,14 +574,18 @@ export function RoomBoardHeader({
               decidedHmw={decidedHmw}
               issueReference={issueReference}
               hmwReference={hmwReference}
-            />
-            <StepOneOnboardingSlide
-              phaseKey={
-                phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
+              guideControl={
+                <StepOneOnboardingSlide
+                  phaseKey={
+                    phase.kind === "step"
+                      ? `${phase.phase}-${phase.step}`
+                      : "lobby"
+                  }
+                  sessionKey={`${inviteCode}:${currentUserId}`}
+                  isReady={!isDisconnected}
+                  onReady={handleInitialOnboardingReady}
+                />
               }
-              sessionKey={`${inviteCode}:${currentUserId}`}
-              isReady={!isDisconnected}
-              onReady={handleInitialOnboardingReady}
             />
           </div>
           {sharingAnnouncement}

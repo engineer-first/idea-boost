@@ -1,9 +1,15 @@
-import { Heart, Scale } from "lucide-react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { Star, Users } from "lucide-react";
+import type { ReactElement, PointerEvent as ReactPointerEvent } from "react";
 import { useRef } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { DotVoteKind } from "@/contracts/room-protocol";
-import { DOT_VOTE_LABELS } from "../logic/dot-vote";
+import { dotVoteStickerName, dotVoteStickerTooltip } from "../logic/dot-vote";
 
 export type DotVoteStickerState =
   | "preview"
@@ -19,10 +25,11 @@ type DotVoteStickerProps = {
   onDragStart?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 };
 
+// 2種類とも薄い面に種類の色の枠と線のアイコンで描き、形（丸と角丸四角）と色で見分ける。
 const DOT_VOTE_ICON = {
-  subjective: Heart,
-  objective: Scale,
-} satisfies Record<DotVoteKind, typeof Heart>;
+  subjective: Star,
+  objective: Users,
+} satisfies Record<DotVoteKind, typeof Star>;
 
 const DOT_VOTE_TONE = {
   subjective:
@@ -41,10 +48,22 @@ const DOT_VOTE_SHAPE = {
   objective: "rounded-md",
 } satisfies Record<DotVoteKind, string>;
 
-type DotVoteStickerImageSize = "default" | "result";
+type DotVoteStickerImageSize = "default" | "result" | "palette";
+
+const DOT_VOTE_IMAGE_SIZE = {
+  default: "size-7",
+  result: "size-[22px]",
+  palette: "size-13",
+} satisfies Record<DotVoteStickerImageSize, string>;
+
+const DOT_VOTE_ICON_SIZE = {
+  default: "size-4",
+  result: "size-3.5",
+  palette: "size-8",
+} satisfies Record<DotVoteStickerImageSize, string>;
 
 function stickerLabel(kind: DotVoteKind, count: number): string {
-  return `${DOT_VOTE_LABELS[kind]}シール ${count}票`;
+  return `${dotVoteStickerName(kind)} ${count}票`;
 }
 
 function displayCount(count: number): string {
@@ -64,16 +83,34 @@ export function DotVoteStickerImage({
       aria-hidden="true"
       data-testid={`dot-vote-sticker-image-${kind}`}
       className={`flex shrink-0 items-center justify-center border-2 ${
-        size === "result" ? "size-[22px]" : "size-7"
+        DOT_VOTE_IMAGE_SIZE[size]
       } ${DOT_VOTE_TONE[kind]}`}
     >
       <Icon
         data-testid={`dot-vote-sticker-icon-${kind}`}
-        className={size === "result" ? "size-3.5" : "size-4"}
-        fill={kind === "subjective" ? "currentColor" : "none"}
+        className={DOT_VOTE_ICON_SIZE[size]}
         strokeWidth={2.5}
+        strokeLinejoin="round"
       />
     </span>
+  );
+}
+
+// 付箋の上のシールはアイコンだけなので、合わせたときに名前と種類を1行で示す。
+function WithStickerTooltip({
+  kind,
+  children,
+}: {
+  kind: DotVoteKind;
+  children: ReactElement;
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent>{dotVoteStickerTooltip(kind)}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -160,68 +197,75 @@ export function DotVoteSticker({
 
   if (onRemove) {
     return (
-      <button
-        type="button"
-        data-state={state}
-        aria-label={`${label}を1票取り消す`}
-        className={`inline-flex transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${DOT_VOTE_SHAPE[kind]} ${
-          onDragStart ? "touch-none cursor-grab active:cursor-grabbing" : ""
-        } ${state === "pending" ? "animate-pulse" : ""}`}
-        onPointerDown={(event) => {
-          pointerOriginRef.current = {
-            pointerId: event.pointerId,
-            clientX: event.clientX,
-            clientY: event.clientY,
-          };
-          didDragRef.current = false;
-          onDragStart?.(event);
-        }}
-        onPointerMove={(event) => {
-          const origin = pointerOriginRef.current;
-          if (
-            onDragStart &&
-            origin?.pointerId === event.pointerId &&
-            Math.hypot(
-              event.clientX - origin.clientX,
-              event.clientY - origin.clientY,
-            ) >= DRAG_THRESHOLD_PX
-          ) {
-            didDragRef.current = true;
-          }
-        }}
-        onPointerCancel={() => {
-          pointerOriginRef.current = null;
-          didDragRef.current = false;
-        }}
-        onClick={(event) => {
-          if (didDragRef.current) {
-            event.preventDefault();
-            event.stopPropagation();
+      <WithStickerTooltip kind={kind}>
+        <button
+          type="button"
+          data-state={state}
+          aria-label={`${label}を1票取り消す`}
+          className={`inline-flex transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${DOT_VOTE_SHAPE[kind]} ${
+            onDragStart ? "touch-none cursor-grab active:cursor-grabbing" : ""
+          } ${state === "pending" ? "animate-pulse" : ""}`}
+          onPointerDown={(event) => {
+            pointerOriginRef.current = {
+              pointerId: event.pointerId,
+              clientX: event.clientX,
+              clientY: event.clientY,
+            };
+            didDragRef.current = false;
+            onDragStart?.(event);
+          }}
+          onPointerMove={(event) => {
+            const origin = pointerOriginRef.current;
+            if (
+              onDragStart &&
+              origin?.pointerId === event.pointerId &&
+              Math.hypot(
+                event.clientX - origin.clientX,
+                event.clientY - origin.clientY,
+              ) >= DRAG_THRESHOLD_PX
+            ) {
+              didDragRef.current = true;
+            }
+          }}
+          onPointerCancel={() => {
             pointerOriginRef.current = null;
             didDragRef.current = false;
-            return;
-          }
-          pointerOriginRef.current = null;
-          onRemove();
-        }}
-      >
-        {content}
-      </button>
+          }}
+          onClick={(event) => {
+            if (didDragRef.current) {
+              event.preventDefault();
+              event.stopPropagation();
+              pointerOriginRef.current = null;
+              didDragRef.current = false;
+              return;
+            }
+            pointerOriginRef.current = null;
+            onRemove();
+          }}
+        >
+          {content}
+        </button>
+      </WithStickerTooltip>
     );
   }
 
-  return (
+  const sticker = (
     <span
       role="img"
       data-state={state}
-      aria-label={
-        isPreview ? `${DOT_VOTE_LABELS[kind]}シールを貼る位置` : label
-      }
+      aria-label={isPreview ? `${dotVoteStickerName(kind)}を貼る位置` : label}
       className={`inline-flex ${DOT_VOTE_SHAPE[kind]} ${
         isPreview ? "pointer-events-none opacity-50" : ""
       } ${state === "pending" ? "animate-pulse" : ""}`}
     >
       {content}
     </span>
+  );
+
+  // ドラッグ中のプレビューは操作対象ではないため、説明を出さない。
+  return isPreview ? (
+    sticker
+  ) : (
+    <WithStickerTooltip kind={kind}>{sticker}</WithStickerTooltip>
   );
 }

@@ -37,6 +37,31 @@
   border-radius: inherit;
   white-space: nowrap;
 }
+.row {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-radius: inherit;
+}
+.row > .trigger {
+  flex: 1;
+  min-width: 0;
+}
+.action {
+  display: flex;
+  flex-shrink: 0;
+}
+.action:empty {
+  display: none;
+}
+.action[data-hidden="true"] {
+  visibility: hidden;
+}
+/* 右に「進め方」が並ぶときは、現在地ボタンの右角を丸めない。 */
+.row:has(> .action > *) > .trigger {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
 .currentAction {
   display: flex;
   align-items: center;

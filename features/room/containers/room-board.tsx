@@ -1056,6 +1056,7 @@ export function RoomBoard({
         onNoteVote={notes.voteNote}
         onNoteVoteRemove={notes.removeNoteVote}
         onNoteVoteStickerRemove={notes.removeVoteSticker}
+        onVoteWithdrawAll={notes.withdrawAllVotesOfKind}
         onNoteVoteStickerMove={notes.moveVoteSticker}
         onNoteDecide={handleNoteDecide}
         onDecisionClear={handleDecisionClear}

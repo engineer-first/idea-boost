@@ -1939,7 +1939,7 @@ describe("RoomBoardCanvas", () => {
       expect(note).toHaveAttribute("data-vote-drop-target", "true");
       expect(
         within(note).getByRole("button", {
-          name: "付箋（主観シールを貼る）",
+          name: "付箋（「イチオシ！」シールを貼る）",
         }),
       ).toBeInTheDocument();
     }

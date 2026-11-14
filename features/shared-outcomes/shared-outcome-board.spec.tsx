@@ -14,7 +14,7 @@ describe("成果の2軸盤面", () => {
     const list = within(screen.getByRole("list"));
     expect(list.getByText("採用済み")).toBeInTheDocument();
     expect(
-      list.getByText("主観 2票 / 客観 3票 / 合計 5票"),
+      list.getByText("イチオシ！ 2票 / 需要ありそう 3票 / 合計 5票"),
     ).toBeInTheDocument();
     snapshot.notes[0].votes = null;
     snapshot.decisions = [];
@@ -94,7 +94,9 @@ it.each([1, 2, 3])(
     expect(list.getByText(note.content)).toBeVisible();
     expect(list.getByText("採用済み")).toBeVisible();
     expect(list.getByText("グループ：つながりのきっかけ")).toBeVisible();
-    expect(list.getByText("主観 2票 / 客観 3票 / 合計 5票")).toBeVisible();
+    expect(
+      list.getByText("イチオシ！ 2票 / 需要ありそう 3票 / 合計 5票"),
+    ).toBeVisible();
     expect(
       list.queryByText(/配置 \(|実現のしやすさ .*\/ 価値/),
     ).not.toBeInTheDocument();

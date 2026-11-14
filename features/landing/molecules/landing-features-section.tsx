@@ -24,6 +24,11 @@ export function LandingFeaturesSection() {
               <p className="mt-3 text-base leading-8 sm:text-lg text-[var(--lp-body)]">
                 {item.description}
               </p>
+              {"note" in item ? (
+                <p className="mt-2 text-xs leading-6 text-[var(--lp-body)]">
+                  {item.note}
+                </p>
+              ) : null}
             </article>
           );
         })}

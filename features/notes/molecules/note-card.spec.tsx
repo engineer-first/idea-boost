@@ -702,10 +702,16 @@ describe("NoteCard", () => {
       });
 
       expect(
-        screen.getByRole("button", { name: "客観シール 2票を1票取り消す" }),
+        screen.getByRole("button", {
+          name: "「需要ありそう」シール 2票を1票取り消す",
+        }),
       ).toBeInTheDocument();
-      expect(screen.queryByLabelText("主観シール 3票")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("客観シール 5票")).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText("「イチオシ！」シール 3票"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText("「需要ありそう」シール 5票"),
+      ).not.toBeInTheDocument();
     });
 
     it("投票中の自分のシールを、付箋上の保存済み相対座標へ重ねて表示する", () => {
@@ -736,7 +742,7 @@ describe("NoteCard", () => {
       });
 
       const sticker = screen.getByRole("button", {
-        name: "客観シール 1票を1票取り消す",
+        name: "「需要ありそう」シール 1票を1票取り消す",
       });
       expect(sticker.parentElement).toHaveStyle({ left: "25%", top: "75%" });
     });
@@ -804,7 +810,7 @@ describe("NoteCard", () => {
       fireEvent.pointerEnter(getNoteSurface());
 
       expect(
-        screen.queryByRole("img", { name: "主観シールを貼る位置" }),
+        screen.queryByRole("img", { name: "「イチオシ！」シールを貼る位置" }),
       ).not.toBeInTheDocument();
     });
 
@@ -844,7 +850,7 @@ describe("NoteCard", () => {
       expect(onVote).not.toHaveBeenCalled();
     });
 
-    it("結果では左下の専用余白に主観→客観の順で全票を表示する", () => {
+    it("結果では左下の専用余白にイチオシ！→需要ありそうの順で全票を表示する", () => {
       setup({
         note: buildNote({
           dotVotes: {
@@ -864,16 +870,16 @@ describe("NoteCard", () => {
       });
 
       expect(
-        screen.getByRole("img", { name: "主観シール 3票" }),
+        screen.getByRole("img", { name: "「イチオシ！」シール 3票" }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("img", { name: "客観シール 5票" }),
+        screen.getByRole("img", { name: "「需要ありそう」シール 5票" }),
       ).toBeInTheDocument();
       const results = screen.getByTestId("note-vote-results");
       const groups = screen.getAllByRole("img", { name: /シール \d+票/ });
       expect(results).toHaveClass("h-10", "shrink-0", "pl-2");
-      expect(groups[0]).toHaveAccessibleName("主観シール 3票");
-      expect(groups[1]).toHaveAccessibleName("客観シール 5票");
+      expect(groups[0]).toHaveAccessibleName("「イチオシ！」シール 3票");
+      expect(groups[1]).toHaveAccessibleName("「需要ありそう」シール 5票");
       expect(
         screen.getAllByTestId("dot-vote-sticker-image-subjective"),
       ).toHaveLength(3);
@@ -953,10 +959,42 @@ describe("NoteCard", () => {
       });
 
       fireEvent.click(
-        screen.getByRole("button", { name: "客観シール 2票を1票取り消す" }),
+        screen.getByRole("button", {
+          name: "「需要ありそう」シール 2票を1票取り消す",
+        }),
       );
 
       expect(onVoteRemove).toHaveBeenCalledWith("note-1", "objective");
+    });
+
+    it("座標のない自分の票は、イチオシ！を需要ありそうより左に置く", () => {
+      setup({
+        note: buildNote({
+          dotVotes: {
+            subjective: { count: 1, votedByMe: true, ownCount: 1 },
+            objective: { count: 2, votedByMe: true, ownCount: 2 },
+          },
+        }),
+        vote: {
+          displayMode: "voting",
+          selectedKind: null,
+          voteRemaining: { subjective: 0, objective: 1 },
+          canVote: true,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove: vi.fn(),
+        },
+      });
+
+      const left = (id: string) =>
+        Number.parseFloat(
+          (
+            screen
+              .getByTestId("note-card")
+              .querySelector(`[data-vote-sticker-id="${id}"]`) as HTMLElement
+          ).style.left,
+        );
+      expect(left("legacy-subjective")).toBeLessThan(left("legacy-objective"));
     });
 
     it("個別シールのクリックはシールIDだけを削除コールバックへ渡す", () => {
@@ -986,7 +1024,9 @@ describe("NoteCard", () => {
       });
 
       fireEvent.click(
-        screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
+        screen.getByRole("button", {
+          name: "「需要ありそう」シール 1票を1票取り消す",
+        }),
       );
 
       expect(onStickerRemove).toHaveBeenCalledWith(stickerId);

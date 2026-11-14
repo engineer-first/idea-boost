@@ -36,7 +36,7 @@ MUSTは必須、SHOULDは原則。SHOULDを外す場合は理由を説明でき�
 
 新規作成・変更時は、一次資料とコードを照合し、通常のPRでレビューする。採用の承認と実装の確認後に状態を更新する。既存方式を変えるときは新ADRを作り、元ADRに変更範囲と後継を示す。独立した判断であれば関連として残し、元の採用範囲を消さない。
 
-過去セッションは日付・エージェント・セッションID・本人が承認した範囲をReferencesに残す。個人のローカルパスや会話全文は配布せず、判断の事実だけを記す。AIが本人名義で投稿したIssue/PRもあるため、投稿者名やマージだけで本人の元発言とみなさない。私有記録に依存する場合も、第三者が照合できるIssue/PRとコードを併記する。
+ADRはチームで共有する記録なので、Referencesにはチームの誰もが開けるIssue・PR・コード・公開資料だけを置く。個人のPCにしかないAIエージェントとの会話・セッションID・ローカルパスは、チームが参照できないため書かない。Issue・PRに残っていない本人の決定は、日付と決めた内容だけを書き、必要ならIssue・PRに記録してから参照する。AIが本人名義で投稿したIssue/PRもあるため、投稿者名やマージだけで本人の元発言とみなさない。
 
 外した実装詳細は、既存の仕様・運用文書を先に探し、そこから辿れるPRの詳細と対応づける。既存文書にも元PRにもない必要な詳細は用途に合う文書へ移してから削る。今回の書き直しでは、元ADRの固定コミットへのリンクもReferencesに残し、情報が辿れなくなることを避けた。
 
@@ -44,37 +44,38 @@ MUSTは必須、SHOULDは原則。SHOULDを外す場合は理由を説明でき�
 
 2026-11-03の照合で、従来の「採用」表記を根拠から再評価した。Proposedは現在の実装を否定する状態ではなく、記録された技術判断をオーナーの採用済み方針として扱えるかを示す。特に0001〜0005・0012〜0013・0024は以前の採用表記だけを根拠にAcceptedを引き継いでいない。
 
-| ADR                                              | 判断                                                                        | 状態                   |
-| ------------------------------------------------ | --------------------------------------------------------------------------- | ---------------------- |
-| [0001](0001-cloudflare-room-authority.md)        | Cloudflare構成でRoomDOを共有状態の権威にする                                | Proposed               |
-| [0002](0002-feature-boundaries.md)               | 機能単位で分割し公開境界を持つ                                              | Proposed               |
-| [0003](0003-feature-bands.md)                    | feature内部を依存方向の5帯にする                                            | Proposed               |
-| [0004](0004-custom-board.md)                     | 付箋ボードを自前で実装する                                                  | Proposed               |
-| [0005](0005-shared-skills.md)                    | 共有スキルの正本を .agents/skills に統一する                                | Proposed               |
-| [0006](0006-move-transactions.md)                | 共有付箋の移動をRoomDOのtransactionとして確定する                           | Proposed               |
-| [0007](0007-room-creation-retries.md)            | ルーム作成要求を削除後も保持する                                            | Superseded by ADR 0008 |
-| [0008](0008-room-creation-expiry.md)             | 作成受付と回復情報の寿命を分ける                                            | Proposed               |
-| [0009](0009-websocket-session-expiry.md)         | WebSocketにも署名検証済みセッション期限を適用する                           | Proposed               |
-| [0010](0010-room-entry-authentication.md)        | 入室前だけ認証を準備し、元操作を一度引き継ぐ                                | Accepted               |
-| [0011](0011-pr-preview-identity.md)              | PR PreviewをAccess本人ログインと共通APIで動かす                             | Superseded by ADR 0012 |
-| [0012](0012-pr-preview-full-stack.md)            | PR Previewの画面・API・保存先をPRごとに分ける                               | Proposed               |
-| [0013](0013-pr-preview-migration-reset.md)       | PR Previewはmigration変更時に保存先を作り直す                               | Proposed               |
-| [0014](0014-account-display-name.md)             | 認証名から独立した共通の表示名                                              | Accepted               |
-| [0015](0015-account-room-participation.md)       | アカウント単位でルーム参加の切り替えを管理する                              | Proposed               |
-| [0016](0016-account-participation-index.md)      | 参加候補を索引化し、WS操作から全ルーム照合を外す                            | Proposed               |
-| [0017](0017-move-current-groups.md)              | 付箋移動はドロップ時の分類から確定する                                      | Proposed               |
-| [0018](0018-websocket-message-order.md)          | 同じ接続のWS操作を受信順に処理する                                          | Proposed               |
-| [0019](0019-queue-local-note-moves.md)           | 保存待ちの共有付箋移動をローカルで受け付ける                                | Proposed               |
-| [0020](0020-sprint-review-day-policy.md)         | Sprintのreview日を含む割当期間をversionで区別する                           | Proposed               |
-| [0021](0021-guest-session-identity.md)           | ゲスト本人を署名付きCookieで保持する                                        | Proposed               |
-| [0022](0022-guest-session-refresh.md)            | ゲストは入室前に同じ本人のCookieを更新する                                  | Proposed               |
-| [0023](0023-guest-google-link-same-identity.md)  | ゲストの本人IDへGoogleを後付けで連携する                                    | Proposed               |
-| [0024](0024-pbi-shared-manual-order.md)          | PBIの優先順をProjectの共通手動順で管理する                                  | Proposed               |
-| [0025](0025-room-without-host.md)                | ルームにホストを置かず、退出を本人だけの操作にする                          | Accepted               |
-| [0026](0026-account-session-refresh-on-entry.md) | Googleの本人も入室時にCookieを自動で更新する                                | Accepted               |
-| [0027](0027-color-tokens-and-lint.md)            | 色と角丸はDESIGN.mdの名前で書き、色の直書きはBiome公式の2ルールだけで止める | Accepted               |
+| ADR                                              | 判断                                                                               | 状態                   |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------- |
+| [0001](0001-cloudflare-room-authority.md)        | Cloudflare構成でRoomDOを共有状態の権威にする                                       | Proposed               |
+| [0002](0002-feature-boundaries.md)               | 機能単位で分割し公開境界を持つ                                                     | Proposed               |
+| [0003](0003-feature-bands.md)                    | feature内部を依存方向の5帯にする                                                   | Proposed               |
+| [0004](0004-custom-board.md)                     | 付箋ボードを自前で実装する                                                         | Proposed               |
+| [0005](0005-shared-skills.md)                    | 共有スキルの正本を .agents/skills に統一する                                       | Proposed               |
+| [0006](0006-move-transactions.md)                | 共有付箋の移動をRoomDOのtransactionとして確定する                                  | Proposed               |
+| [0007](0007-room-creation-retries.md)            | ルーム作成要求を削除後も保持する                                                   | Superseded by ADR 0008 |
+| [0008](0008-room-creation-expiry.md)             | 作成受付と回復情報の寿命を分ける                                                   | Proposed               |
+| [0009](0009-websocket-session-expiry.md)         | WebSocketにも署名検証済みセッション期限を適用する                                  | Proposed               |
+| [0010](0010-room-entry-authentication.md)        | 入室前だけ認証を準備し、元操作を一度引き継ぐ                                       | Accepted               |
+| [0011](0011-pr-preview-identity.md)              | PR PreviewをAccess本人ログインと共通APIで動かす                                    | Superseded by ADR 0012 |
+| [0012](0012-pr-preview-full-stack.md)            | PR Previewの画面・API・保存先をPRごとに分ける                                      | Proposed               |
+| [0013](0013-pr-preview-migration-reset.md)       | PR Previewはmigration変更時に保存先を作り直す                                      | Proposed               |
+| [0014](0014-account-display-name.md)             | 認証名から独立した共通の表示名                                                     | Accepted               |
+| [0015](0015-account-room-participation.md)       | アカウント単位でルーム参加の切り替えを管理する                                     | Proposed               |
+| [0016](0016-account-participation-index.md)      | 参加候補を索引化し、WS操作から全ルーム照合を外す                                   | Proposed               |
+| [0017](0017-move-current-groups.md)              | 付箋移動はドロップ時の分類から確定する                                             | Proposed               |
+| [0018](0018-websocket-message-order.md)          | 同じ接続のWS操作を受信順に処理する                                                 | Proposed               |
+| [0019](0019-queue-local-note-moves.md)           | 保存待ちの共有付箋移動をローカルで受け付ける                                       | Proposed               |
+| [0020](0020-sprint-review-day-policy.md)         | Sprintのreview日を含む割当期間をversionで区別する                                  | Proposed               |
+| [0021](0021-guest-session-identity.md)           | ゲスト本人を署名付きCookieで保持する                                               | Proposed               |
+| [0022](0022-guest-session-refresh.md)            | ゲストは入室前に同じ本人のCookieを更新する                                         | Proposed               |
+| [0023](0023-guest-google-link-same-identity.md)  | ゲストの本人IDへGoogleを後付けで連携する                                           | Proposed               |
+| [0024](0024-pbi-shared-manual-order.md)          | PBIの優先順をProjectの共通手動順で管理する                                         | Proposed               |
+| [0025](0025-room-without-host.md)                | ルームにホストを置かず、退出を本人だけの操作にする                                 | Accepted               |
+| [0026](0026-account-session-refresh-on-entry.md) | Googleの本人も入室時にCookieを自動で更新する                                       | Accepted               |
+| [0027](0027-color-tokens-and-lint.md)            | 色と角丸はDESIGN.mdの名前で書き、色の直書きはBiome公式の2ルールだけで止める        | Accepted               |
+| [0028](0028-vote-sticker-display-names.md)       | 投票シールの画面の名前を「イチオシ！」「需要ありそう」にし、内部の種別名は変えない | Accepted               |
 
-根拠未確認：0001〜0009、0011〜0013、0015〜0024。0007と0011は後継に置き換えた旧提案として残す。0010と0014は本人の要求・承認と実装を照合できた。0025・0026は2026-11-03にオーナーが明示的に採用した最新方針としてAcceptedとし、実装に先行する決定であることをReferencesに明記する。実装への追従確認は別に行う。0027は2026-11-08までにオーナーが選んだ方針と、2026-11-11時点の実装との一致を確認してAcceptedとした。
+根拠未確認：0001〜0009、0011〜0013、0015〜0024。0007と0011は後継に置き換えた旧提案として残す。0010と0014は本人の要求・承認と実装を照合できた。0025・0026は2026-11-03にオーナーが明示的に採用した最新方針としてAcceptedとし、実装に先行する決定であることをReferencesに明記する。実装への追従確認は別に行う。0027は2026-11-08までにオーナーが選んだ方針と、2026-11-11時点の実装との一致を確認してAcceptedとした。0028は2026-11-12にオーナーがIssue #966で名前を決め、同日にPR #985で内部名を変えない方針を選んだことと、実装の一致を確認してAcceptedとした。
 
 ## 検証
 

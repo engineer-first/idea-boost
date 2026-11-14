@@ -1,8 +1,8 @@
 import {
   ArrowRight,
   EyeOff,
-  Heart,
   LockKeyhole,
+  Star,
   Timer,
   Users,
 } from "lucide-react";
@@ -104,7 +104,7 @@ export function LandingBoardMock({ variant }: LandingBoardMockProps) {
           <div className={`${styles.mockNote} ${styles.voteNoteOne}`}>
             {landingBoardCopy.vote[2]}
             <span className={styles.staticVote}>
-              <Heart fill="currentColor" />
+              <Star />
             </span>
           </div>
           <div className={`${styles.mockNote} ${styles.voteNoteTwo}`}>

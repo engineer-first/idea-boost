@@ -8,5 +8,7 @@ export type {
 export {
   DOT_VOTE_CRITERIA,
   DOT_VOTE_GUIDANCE,
+  DOT_VOTE_LABELS,
+  dotVoteStickerName,
 } from "./logic/dot-vote";
 export { DotVoteSticker } from "./molecules/dot-vote-sticker";

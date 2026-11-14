@@ -25,6 +25,66 @@ describe("StepOneOnboardingSlide", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     },
   );
+  it.each([
+    ["2-2", "自分の付箋を共有し、みんなの考えを知ろう。"],
+    ["3-2", "自分の付箋を共有し、みんなの考えを知ろう。"],
+    ["2-3", "取り組みたい付箋に投票しよう。"],
+    ["3-4", "取り組みたい付箋に投票しよう。"],
+    ["2-4", "話し合って、チームで1つに決めよう。"],
+    ["3-5", "話し合って、チームで1つに決めよう。"],
+  ])(
+    "%sでは案内を自動表示せず、「進め方」から同じ種類のステップの案内を開ける",
+    async (phaseKey, title) => {
+      render(
+        <StepOneOnboardingSlide
+          phaseKey={phaseKey}
+          sessionKey={`reference-${phaseKey}`}
+          isReady
+        />,
+      );
+      expect(screen.queryByRole("dialog")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+      expect(await screen.findByRole("dialog", { name: title })).toBeVisible();
+    },
+  );
+  it.each(["1-5", "2-4", "3-5"])(
+    "%sの決定の案内は、最後の3-5でも当てはまる言い方で次へ進むよう促す",
+    async (phaseKey) => {
+      render(
+        <StepOneOnboardingSlide
+          phaseKey={phaseKey}
+          sessionKey={`decision-next-${phaseKey}`}
+          isReady
+        />,
+      );
+      if (!screen.queryByRole("dialog"))
+        fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+      fireEvent.click(await screen.findByRole("button", { name: "次へ" }));
+      const dialog = await screen.findByRole("dialog", {
+        name: "「採用する付箋を選ぶ」から1枚選ぼう。",
+      });
+      expect(dialog).not.toHaveTextContent("次のフェーズ");
+      expect(dialog).toHaveTextContent(
+        "決定したら、右上のボタンで次へ進みましょう。",
+      );
+    },
+  );
+  it("投票の案内は2種類のシールの名前と基準を並べて示す", async () => {
+    render(
+      <StepOneOnboardingSlide
+        phaseKey="1-4"
+        sessionKey="vote-criteria"
+        isReady
+      />,
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "取り組みたい付箋に投票しよう。",
+    });
+    expect(dialog).toHaveTextContent("イチオシ！");
+    expect(dialog).toHaveTextContent("激しく共感する、取り組みたい");
+    expect(dialog).toHaveTextContent("需要ありそう");
+    expect(dialog).toHaveTextContent("自分以外の人にも価値がありそう");
+  });
   it.each(["1-2", "1-3", "1-4", "1-5", "3-3"])(
     "%sの操作スライドは実操作動画を音なしで繰り返し再生する",
     async (phaseKey) => {
@@ -92,10 +152,10 @@ describe("StepOneOnboardingSlide", () => {
     fireEvent.click(screen.getByRole("button", { name: "次へ" }));
     rerender(<StepOneOnboardingSlide {...props} phaseKey="1-4" />);
     await screen.findByRole("dialog", {
-      name: "取り組みたい課題に投票しよう。",
+      name: "取り組みたい付箋に投票しよう。",
     });
     expect(
-      screen.getByRole("dialog", { name: "取り組みたい課題に投票しよう。" }),
+      screen.getByRole("dialog", { name: "取り組みたい付箋に投票しよう。" }),
     ).toBeVisible();
   });
   it.each(["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])(
@@ -139,7 +199,7 @@ describe("StepOneOnboardingSlide", () => {
       }
       if (phaseKey === "1-4") {
         expect(screen.getByRole("dialog")).toHaveTextContent(
-          "主観1票・客観3票",
+          "イチオシ！1票・需要ありそう3票",
         );
         expect(screen.getByRole("dialog")).toHaveTextContent(
           "投票中は他の人の票は見えません。",
@@ -179,20 +239,17 @@ describe("StepOneOnboardingSlide", () => {
     },
   );
 
-  it.each(["lobby", "2-2", "2-3", "2-4", "3-2", "3-4", "3-5"])(
-    "%sでは進め方の入口も案内も表示しない",
-    (phaseKey) => {
-      render(
-        <StepOneOnboardingSlide
-          phaseKey={phaseKey}
-          sessionKey="unsupported"
-          isReady
-        />,
-      );
-      expect(screen.queryByRole("button", { name: "進め方" })).toBeNull();
-      expect(screen.queryByRole("dialog")).toBeNull();
-    },
-  );
+  it.each(["lobby"])("%sでは進め方の入口も案内も表示しない", (phaseKey) => {
+    render(
+      <StepOneOnboardingSlide
+        phaseKey={phaseKey}
+        sessionKey="unsupported"
+        isReady
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "進め方" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 
   it("開いたまま対象工程へ変わっても閉じ、新しい工程の先頭から開ける", async () => {
     const props = { sessionKey: "phase-change", isReady: true };
@@ -201,10 +258,10 @@ describe("StepOneOnboardingSlide", () => {
     );
     rerender(<StepOneOnboardingSlide {...props} phaseKey="1-4" />);
     await screen.findByRole("dialog", {
-      name: "取り組みたい課題に投票しよう。",
+      name: "取り組みたい付箋に投票しよう。",
     });
     expect(
-      screen.getByRole("dialog", { name: "取り組みたい課題に投票しよう。" }),
+      screen.getByRole("dialog", { name: "取り組みたい付箋に投票しよう。" }),
     ).toBeVisible();
   });
 

@@ -1,5 +1,9 @@
 import type { RoomPhase } from "@/contracts/phase";
-import { DOT_VOTE_CRITERIA, DOT_VOTE_GUIDANCE } from "@/features/dot-vote";
+import {
+  DOT_VOTE_CRITERIA,
+  DOT_VOTE_GUIDANCE,
+  DOT_VOTE_LABELS,
+} from "@/features/dot-vote";
 
 export type FacilitationGuideContent = {
   durationMinutes: number;
@@ -31,8 +35,8 @@ const DEFAULT_DETAILS = {
 
 const DOT_VOTE_GUIDE_STEPS = [
   DOT_VOTE_GUIDANCE.target,
-  DOT_VOTE_CRITERIA.subjective,
-  DOT_VOTE_CRITERIA.objective,
+  `${DOT_VOTE_LABELS.subjective}は「${DOT_VOTE_CRITERIA.subjective}」。`,
+  `${DOT_VOTE_LABELS.objective}は「${DOT_VOTE_CRITERIA.objective}」。`,
   DOT_VOTE_GUIDANCE.operation,
   DOT_VOTE_GUIDANCE.withdrawal,
 ] as const;
@@ -116,11 +120,15 @@ const FACILITATION_GUIDES: Record<
       durationMinutes: 3,
       action: "付箋を選んで投票する",
       firstAction: "画面下のシールを選び、投票したい付箋を押す。",
-      visualExample: { caption: "使える票", items: ["主観 1票", "客観 3票"] },
-      intro: "付箋に主観1票・客観3票を貼ろう。シールを押すと取り消せます。",
+      visualExample: {
+        caption: "使える票",
+        items: ["イチオシ！ 1票", "需要ありそう 3票"],
+      },
+      intro:
+        "付箋にイチオシ！1票・需要ありそう3票を貼ろう。シールを押すと取り消せます。",
       message: DOT_VOTE_GUIDANCE.summary,
       hostMessage:
-        "主観1票・客観3票を使い切ったら「できた！」を押します。全員の投票が終わり、全員が準備OKになるか時間になったら、画面上の「次のステップへ」で結果を見られます。",
+        "イチオシ！1票・需要ありそう3票を使い切ったら「できた！」を押します。全員の投票が終わり、全員が準備OKになるか時間になったら、画面上の「次のステップへ」で結果を見られます。",
       purpose: "自分が取り組みたい案と、ほかの人にも役立つ案を選びます。",
       completion:
         "自分が強く共感し取り組みたい付箋への1票と、自分以外にも価値がありそうな付箋への3票を使い切ると完了です。票を取り消すと未完了に戻ります。",
@@ -206,8 +214,12 @@ const FACILITATION_GUIDES: Record<
       durationMinutes: 4,
       action: "付箋を選んで投票する",
       firstAction: "画面下のシールを選び、投票したい付箋を押す。",
-      visualExample: { caption: "使える票", items: ["主観 1票", "客観 3票"] },
-      intro: "付箋に主観1票・客観3票を貼ろう。シールを押すと取り消せます。",
+      visualExample: {
+        caption: "使える票",
+        items: ["イチオシ！ 1票", "需要ありそう 3票"],
+      },
+      intro:
+        "付箋にイチオシ！1票・需要ありそう3票を貼ろう。シールを押すと取り消せます。",
       message: DOT_VOTE_GUIDANCE.summary,
       hostMessage:
         "全員が投票を使い切り、全員が準備OKになるか時間になったら、画面上の「次のステップへ」で結果を見られます。時間切れ後は1回だけ1分延長できます。",
@@ -314,8 +326,12 @@ const FACILITATION_GUIDES: Record<
       durationMinutes: 3,
       action: "付箋を選んで投票する",
       firstAction: "画面下のシールを選び、投票したい付箋を押す。",
-      visualExample: { caption: "使える票", items: ["主観 1票", "客観 3票"] },
-      intro: "付箋に主観1票・客観3票を貼ろう。シールを押すと取り消せます。",
+      visualExample: {
+        caption: "使える票",
+        items: ["イチオシ！ 1票", "需要ありそう 3票"],
+      },
+      intro:
+        "付箋にイチオシ！1票・需要ありそう3票を貼ろう。シールを押すと取り消せます。",
       message: DOT_VOTE_GUIDANCE.summary,
       hostMessage:
         "全員が投票を使い切り、全員が準備OKになるか時間になったら、画面上の「次のステップへ」で結果を見られます。時間切れ後は1回だけ1分延長できます。",

@@ -23,6 +23,7 @@ import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import {
   type DotVoteRemaining,
   DotVoteSticker,
+  dotVoteStickerName,
   type VoteDisplayMode,
 } from "@/features/dot-vote";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
@@ -1162,7 +1163,8 @@ export function NoteCard({
                 .map((kind) => ({
                   id: `legacy-${kind}`,
                   kind,
-                  x: kind === "subjective" ? 0.82 : 0.72,
+                  // 結果の集計と同じく、イチオシ！を需要ありそうより左に置く。
+                  x: kind === "subjective" ? 0.62 : 0.72,
                   y: 0.16,
                   count: note.dotVotes[kind].ownCount,
                 }))
@@ -1232,7 +1234,7 @@ export function NoteCard({
               ? note.excluded
                 ? "候補外の付箋"
                 : "付箋"
-              : `付箋（${selectedStampKind === "subjective" ? "主観" : "客観"}シールを貼る）`
+              : `付箋（${dotVoteStickerName(selectedStampKind)}を貼る）`
           }
           aria-pressed={isSelected}
           aria-disabled={disabled || undefined}

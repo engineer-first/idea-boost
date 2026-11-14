@@ -748,7 +748,7 @@ test("長文と結果行を分け、候補操作と決定済み印にも重ね�
   ] as const) {
     await openStory(storyId);
     const votes = await page
-      .getByRole("img", { name: `客観シール ${objectiveCount}票` })
+      .getByRole("img", { name: `「需要ありそう」シール ${objectiveCount}票` })
       .boundingBox();
     const control = await page
       .getByRole(controlName === "候補から外す" ? "button" : "status", {
@@ -1709,9 +1709,9 @@ test.each([1280, 768, 390, 320])(
     expect((paragraph?.y ?? 0) + (paragraph?.height ?? 0)).toBeLessThanOrEqual(
       (bodyBounds?.y ?? 0) + (bodyBounds?.height ?? 0),
     );
-    expect(await note.getByRole("img", { name: /主観.*8票/ }).isVisible()).toBe(
-      true,
-    );
+    expect(
+      await note.getByRole("img", { name: /イチオシ！.*8票/ }).isVisible(),
+    ).toBe(true);
     expect(
       await note.getByRole("status", { name: "採用済み" }).isVisible(),
     ).toBe(true);
