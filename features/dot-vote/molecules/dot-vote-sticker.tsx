@@ -25,7 +25,7 @@ type DotVoteStickerProps = {
   onDragStart?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 };
 
-// イチオシ！は赤い丸に白い塗りの星、需要ありそうは薄い青の角丸四角に線の人々。
+// 2種類とも薄い面に種類の色の枠と線のアイコンで描き、形（丸と角丸四角）と色で見分ける。
 const DOT_VOTE_ICON = {
   subjective: Star,
   objective: Users,
@@ -33,7 +33,7 @@ const DOT_VOTE_ICON = {
 
 const DOT_VOTE_TONE = {
   subjective:
-    "rounded-full border-vote-subjective bg-vote-subjective text-white",
+    "rounded-full border-vote-subjective bg-vote-subjective-soft text-vote-subjective",
   objective:
     "rounded-md border-vote-objective bg-vote-objective-soft text-vote-objective",
 } satisfies Record<DotVoteKind, string>;
@@ -89,8 +89,7 @@ export function DotVoteStickerImage({
       <Icon
         data-testid={`dot-vote-sticker-icon-${kind}`}
         className={DOT_VOTE_ICON_SIZE[size]}
-        fill={kind === "subjective" ? "currentColor" : "none"}
-        strokeWidth={kind === "subjective" ? 1.5 : 2.5}
+        strokeWidth={2.5}
         strokeLinejoin="round"
       />
     </span>

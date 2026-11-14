@@ -90,7 +90,7 @@ export function LandingFlowSection() {
             </div>
             <div className={styles.selectedIdea}>
               <span className={styles.selectionLabel}>
-                <Star fill="currentColor" aria-hidden="true" />
+                <Star aria-hidden="true" />
                 {copy.flow.selected}
               </span>
               <p>

@@ -92,7 +92,7 @@ export function LandingFeatureDemo({ index }: { index: number }) {
           <div className={styles.voteRevealBoard}>
             <div className={styles.voteRevealNote}>
               <span className={styles.ownSeal}>
-                <Star fill="currentColor" />
+                <Star />
               </span>
               <span className={`${styles.otherSeal} ${styles.blueSeal}`}>
                 <Users />
@@ -100,7 +100,7 @@ export function LandingFeatureDemo({ index }: { index: number }) {
             </div>
             <div className={styles.voteRevealNote}>
               <span className={styles.otherSeal}>
-                <Star fill="currentColor" />
+                <Star />
               </span>
               <span className={`${styles.otherSeal} ${styles.blueSeal}`}>
                 <Users />

@@ -48,7 +48,7 @@ export function LandingDemo() {
             {copy.demo.note}
           </div>
           <span className={`${styles.vote} ${styles.centerSubjective}`}>
-            <Star fill="currentColor" />
+            <Star />
           </span>
           <span className={`${styles.vote} ${styles.centerObjective}`}>
             <Users />
@@ -61,7 +61,7 @@ export function LandingDemo() {
           </span>
           <div className={styles.voteTray}>
             <span>
-              <Star size={18} fill="currentColor" />
+              <Star size={18} />
               {landingBoardCopy.subjective}
               <span className={styles.subjectiveCount} />
             </span>

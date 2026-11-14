@@ -104,7 +104,7 @@ export function LandingBoardMock({ variant }: LandingBoardMockProps) {
           <div className={`${styles.mockNote} ${styles.voteNoteOne}`}>
             {landingBoardCopy.vote[2]}
             <span className={styles.staticVote}>
-              <Star fill="currentColor" />
+              <Star />
             </span>
           </div>
           <div className={`${styles.mockNote} ${styles.voteNoteTwo}`}>
