@@ -19,7 +19,7 @@ export function PrivacyView() {
         <section className="space-y-2">
           <h2 className="font-semibold">権限を持つ運営者が閲覧します</h2>
           <p className="leading-relaxed">
-            サービス改善のため、Googleでログインし、成果閲覧権限を付与された運営者が、保存期間内の全ルームの共有成果を閲覧します。
+            サービス改善のため、権限を持つ運営者が保存期間内の全ルームの共有成果を閲覧し、外部のツール（AIを含む）で分析することがあります。
           </p>
           <p className="leading-relaxed">
             共有本文は自動で匿名化されません。氏名・連絡先などの個人情報や機密情報を書かないでください。

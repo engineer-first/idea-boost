@@ -44,4 +44,25 @@
 
 経過時間は休憩・会話・切断中を含む。迷いや不具合とは断定せず、開始時刻不明・終了未記録は推測しない。導入前の履歴は復元できない。
 
+## AIエージェントへデータを渡す
+
+運営者は `npm run d1:export` で D1 を読み取り専用で JSON ファイルへ書き出し、Claude Code・Codex 等へ分析させられる。書き込み・削除はしない。本番は [認証と権限付与](access.md#前提を確認する) と同じ Wrangler 認証で `--remote` を付ける。
+
+```sh
+npm run d1:export -- all --remote       # 成果・意見・全テーブル
+npm run d1:export -- outcomes --remote  # 成果と進行記録の盤面
+npm run d1:export -- feedback --local   # 意見（ローカル D1）
+```
+
+| サブコマンド | ファイル        | 内容                                                                                                         |
+| ------------ | --------------- | ------------------------------------------------------------------------------------------------------------ |
+| `outcomes`   | `outcomes.json` | `outcomes`（D1 の成果投影と盤面）と `progressHistory`（進行記録の盤面）。盤面は `SharedOutcomeSnapshot` の形 |
+| `feedback`   | `feedback.json` | `feedback`（`FeedbackRecord` の形）                                                                          |
+| `tables`     | `tables.json`   | D1 の全テーブルの行をそのまま。利用者のメール・名前を含む                                                    |
+| `all`        | 上の 3 つ       |                                                                                                              |
+
+出力先は git 無視の `.d1-export/<local|remote>-<UTC時刻>/`。標準出力は件数と保存先だけで、本文やメールは出さない。成果・進行記録・意見は `roomId` で突き合わせられる。期限切れ・盤面の保存失敗（`snapshot: null`）も D1 の状態のまま含め、壊れた盤面 JSON は `invalidSnapshotJson` に原文を残す。期限は各行の `expiresAt` とファイルの `exportedAt` を比べて判断する。
+
+D1 には RoomDO だけが持つ値（ルーム名・表示用ID・保存状態・進行記録の開始/終了時刻等）がないため、画面の一覧と同じ項目にはならない。ルーム名は `tables.json` の `room_creation_requests` から引ける。出力には個人情報が含まれるため、分析後は不要なファイルを削除し、共有しない。
+
 記録する内容・除外する個人情報・完了参加者の再訪・保持期限の要求は[進行仕様](../product/sprint-flow.md#共通の振る舞い)、保全と投影の構成は[構成概要](../architecture/overview.md)。検証の準備とやり直しは[ローカル検証](../development/local-verification.md)を参照する。Storybookとモックは見た目の確認用で、永続化・認可・再試行・期限の保証には使わない。
