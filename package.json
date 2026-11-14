@@ -59,6 +59,7 @@
     "access:revoke": "node --no-warnings scripts/access.mts revoke",
     "access:list": "node --no-warnings scripts/access.mts list",
     "feedback:delete": "node --no-warnings scripts/feedback.mts delete",
+    "d1:export": "node --no-warnings scripts/d1-export.mts",
     "pretest:preview": "npm run gen:room-do-migrations",
     "test:preview": "vitest run --config vitest.preview.config.mts",
     "build:preview": "opennextjs-cloudflare build --config wrangler.preview.jsonc",
