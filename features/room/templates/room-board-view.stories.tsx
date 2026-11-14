@@ -170,6 +170,7 @@ const meta = {
     onNoteVote: fn(),
     onNoteVoteRemove: fn(),
     onNoteVoteStickerRemove: fn(),
+    onVoteWithdrawAll: fn(),
     onNoteVoteStickerMove: fn(),
     pendingVoteOperations: [],
     voteFeedback: null,

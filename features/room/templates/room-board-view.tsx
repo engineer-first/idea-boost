@@ -247,6 +247,7 @@ export type RoomBoardViewProps = {
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
   onNoteVoteRemove: (noteId: string, kind: DotVoteKind) => void;
   onNoteVoteStickerRemove: (stickerId: string) => void;
+  onVoteWithdrawAll: (kind: DotVoteKind) => void;
   onNoteVoteStickerMove: (
     stickerId: string,
     noteId: string,
@@ -391,6 +392,7 @@ export function RoomBoardView({
   onNoteVote,
   onNoteVoteRemove,
   onNoteVoteStickerRemove,
+  onVoteWithdrawAll,
   onNoteVoteStickerMove,
   pendingVoteOperations,
   voteFeedback,
@@ -2335,6 +2337,7 @@ export function RoomBoardView({
               isReturnDropTarget={isVoteStickerReturnDropTarget}
               onStickerSelect={handlePaletteStickerSelect}
               onStickerDragStart={handlePaletteStickerDragStart}
+              onWithdrawAll={onVoteWithdrawAll}
             />
           </div>
         ) : null}

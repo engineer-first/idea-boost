@@ -2907,6 +2907,37 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     ).toBeDisabled();
   });
 
+  it("使い切った「需要ありそう」のタイルを押すと、自分の票の全取り消しを送り、残票を戻す", () => {
+    const { socket } = connectWithSnapshot(
+      [
+        protocolNote({
+          dotVotes: {
+            subjective: { votedByMe: true, ownCount: 1 },
+            objective: { votedByMe: true, ownCount: 3 },
+          },
+        }),
+      ],
+      { phase: buildPhaseStep(4) },
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り0票" }),
+    );
+
+    const resets = socket.sent
+      .map((message) => JSON.parse(message))
+      .filter((message) => message.type === "note:vote-reset");
+    expect(resets).toEqual([
+      expect.objectContaining({ noteId: NOTE_ID, kind: "objective" }),
+    ]);
+    expect(
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "「イチオシ！」シール 残り0票" }),
+    ).toBeInTheDocument();
+  });
+
   it("「需要ありそう」シール更新のサーバー反映で、保留中の自分の「イチオシ！」シールを外さない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),

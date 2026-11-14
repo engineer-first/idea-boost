@@ -226,6 +226,7 @@ function setup(
     onNoteVote: vi.fn(),
     onNoteVoteRemove: vi.fn(),
     onNoteVoteStickerRemove: vi.fn(),
+    onVoteWithdrawAll: vi.fn(),
     onNoteVoteStickerMove: vi.fn(),
     pendingVoteOperations: [],
     voteFeedback: null,

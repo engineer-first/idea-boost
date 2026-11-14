@@ -1,4 +1,3 @@
-import { Check } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -29,21 +28,25 @@ type DotVotePaletteViewProps = {
     kind: DotVoteKind,
     event: React.PointerEvent<HTMLButtonElement>,
   ) => void;
+  // 使い切った種類のタイルを押すと、その種類の自分の票をすべて取り消す。
+  onWithdrawAll: (kind: DotVoteKind) => void;
 };
 
 const DOT_VOTE_KINDS: readonly DotVoteKind[] = ["subjective", "objective"];
 
+// 枠は種類の色で常に示し、押せる面であることと種類の違いを伝える。
 const DOT_VOTE_BUTTON_TONE = {
   subjective:
-    "border-border bg-white text-foreground hover:bg-vote-subjective-soft/40 hover:text-foreground focus-visible:border-vote-subjective focus-visible:ring-vote-subjective/50 active:bg-vote-subjective-soft disabled:opacity-100",
+    "border-vote-subjective bg-white text-foreground hover:bg-vote-subjective-soft/40 hover:text-foreground focus-visible:border-vote-subjective focus-visible:ring-vote-subjective/50 active:bg-vote-subjective-soft disabled:opacity-100",
   objective:
-    "border-border bg-white text-foreground hover:bg-vote-objective-soft/40 hover:text-foreground focus-visible:border-vote-objective focus-visible:ring-vote-objective/50 active:bg-vote-objective-soft disabled:opacity-100",
+    "border-vote-objective bg-white text-foreground hover:bg-vote-objective-soft/40 hover:text-foreground focus-visible:border-vote-objective focus-visible:ring-vote-objective/50 active:bg-vote-objective-soft disabled:opacity-100",
 } satisfies Record<DotVoteKind, string>;
 
+// 接続待ち・確認待ち・使い切りは灰色にする。使い切りは全取り消しのために押せる。
 const DOT_VOTE_UNAVAILABLE_TONE =
-  "disabled:border-line-strong disabled:bg-muted disabled:text-muted-foreground";
+  "border-line-strong bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground focus-visible:border-line-strong focus-visible:ring-ring/50 active:bg-muted";
 
-// 選択中は種類の色の枠と薄い面で示し、右上にチェックを出す。
+// 選択中は種類の色の薄い面で示す。
 const DOT_VOTE_SELECTED_TONE = {
   subjective:
     "border-vote-subjective bg-vote-subjective-soft text-vote-subjective-text hover:bg-vote-subjective-soft hover:text-vote-subjective-text",
@@ -117,6 +120,7 @@ export function DotVotePaletteView({
   isReturnDropTarget,
   onStickerSelect,
   onStickerDragStart,
+  onWithdrawAll,
 }: DotVotePaletteViewProps) {
   const paletteId = useId();
   const activeSelectedKind =
@@ -154,6 +158,10 @@ export function DotVotePaletteView({
           const isWaiting = isEmpty && (pendingOperationCount > 0 || disabled);
           const isExhausted = isEmpty && !isWaiting;
           const isSelected = activeSelectedKind === kind;
+          const canWithdrawAll =
+            isExhausted && !disabled && !interactionBlocked;
+          const canPlace =
+            !disabled && !interactionBlocked && voteRemaining[kind] > 0;
           // 残票が確定しない間は、票数の代わりにスピナーを出す。
           const showsSpinner = isWaiting || disabled;
           // 状態は形（輪郭・破線・灰色・スピナー）で示し、文言は読み上げだけに残す。
@@ -172,24 +180,28 @@ export function DotVotePaletteView({
               type="button"
               aria-label={dotVoteRemainingLabel(kind, voteRemaining[kind])}
               aria-pressed={isSelected}
-              aria-describedby={`${paletteId}-${kind}-state`}
-              disabled={
-                disabled || interactionBlocked || voteRemaining[kind] <= 0
+              aria-describedby={
+                canWithdrawAll
+                  ? `${paletteId}-${kind}-state ${paletteId}-${kind}-withdraw`
+                  : `${paletteId}-${kind}-state`
               }
+              disabled={!canPlace && !canWithdrawAll}
               size="sm"
               variant="outline"
-              className={`relative h-auto min-w-0 touch-none cursor-grab select-none flex-col items-center gap-1.5 whitespace-normal rounded-xl border-2 px-2 pt-3.5 pb-3 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "border-dashed" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
+              className={`relative h-auto min-w-0 touch-none cursor-grab select-none flex-col items-center gap-1.5 whitespace-normal rounded-xl border-2 px-2 pt-3.5 pb-3 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "cursor-pointer border-dashed active:cursor-pointer" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
                 isSelected ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
-                if (disabled || interactionBlocked || voteRemaining[kind] <= 0)
+                if (canWithdrawAll) {
+                  onWithdrawAll(kind);
                   return;
+                }
+                if (!canPlace) return;
                 onStickerSelect(kind, event);
               }}
               onPointerDown={(event) => {
-                if (disabled || interactionBlocked || voteRemaining[kind] <= 0)
-                  return;
-                onStickerDragStart?.(kind, event);
+                if (!canPlace) return;
+                onStickerDragStart(kind, event);
               }}
             >
               <span
@@ -201,15 +213,6 @@ export function DotVotePaletteView({
               >
                 {DOT_VOTE_KIND_TAGS[kind]}
               </span>
-              {isSelected ? (
-                <span
-                  aria-hidden="true"
-                  data-testid={`dot-vote-selected-check-${kind}`}
-                  className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-foreground text-background"
-                >
-                  <Check className="size-3" strokeWidth={3} />
-                </span>
-              ) : null}
               <span
                 className={
                   isEmpty || disabled ? "opacity-45 grayscale" : undefined
@@ -234,6 +237,11 @@ export function DotVotePaletteView({
               <span id={`${paletteId}-${kind}-state`} className="sr-only">
                 {stateLabel}
               </span>
+              {canWithdrawAll ? (
+                <span id={`${paletteId}-${kind}-withdraw`} className="sr-only">
+                  押すと、この種類の自分の票をすべて取り消します。
+                </span>
+              ) : null}
             </Button>
           );
         })}

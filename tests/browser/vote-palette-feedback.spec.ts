@@ -4,15 +4,16 @@ import { expect, it } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout";
+// 使い切ったタイルは、その種類の票を全部取り消すために押せる。
 const states = [
   { story: "available", exhausted: 0, disabled: 0 },
-  { story: "subjective-exhausted", exhausted: 1, disabled: 1 },
-  { story: "objective-exhausted", exhausted: 1, disabled: 1 },
+  { story: "subjective-exhausted", exhausted: 1, disabled: 0 },
+  { story: "objective-exhausted", exhausted: 1, disabled: 0 },
   { story: "all-pending", exhausted: 0, disabled: 2 },
-  { story: "exhausted", exhausted: 2, disabled: 2 },
-  { story: "rejected", exhausted: 1, disabled: 1 },
+  { story: "exhausted", exhausted: 2, disabled: 0 },
+  { story: "rejected", exhausted: 1, disabled: 0 },
   { story: "disconnected", exhausted: 0, disabled: 2 },
-  { story: "one-vote-returned", exhausted: 1, disabled: 1 },
+  { story: "one-vote-returned", exhausted: 1, disabled: 0 },
 ] as const;
 
 it.each([390, 1280])(
