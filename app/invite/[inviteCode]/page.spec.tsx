@@ -24,6 +24,7 @@ vi.mock("@/features/auth", () => ({
 vi.mock("@/features/room-lifecycle", () => ({
   InviteCodeDialog: mocks.InviteCodeDialog,
   InviteStatusView: mocks.InviteStatusView,
+  inviteMetadata: {},
 }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 

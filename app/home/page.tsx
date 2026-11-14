@@ -1,5 +1,6 @@
 // ホーム（/home）の Server Component。
 // 認証・searchParams・Server Action 配線のみ。UI は同ディレクトリの home-view。
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import {
   Card,
@@ -15,6 +16,7 @@ import { isAuthConfigured } from "@/lib/session/env";
 import { HomeView } from "./home-view";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "ホーム | Idea Boost" };
 
 type HomePageProps = {
   searchParams: Promise<{ error?: string; account_link?: string | string[] }>;

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { VerificationWorkspaceSchema } from "@/contracts/verification";
 import {
@@ -6,6 +7,7 @@ import {
 } from "@/features/verification";
 import { getCurrentUser } from "@/lib/session/current-user";
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "検証 | Idea Boost" };
 export default async function VerificationBoardPage() {
   if (!isVerificationEnabled()) notFound();
   if (!(await getCurrentUser()))
