@@ -91,14 +91,17 @@ test.each([1280, 390])(
       await expect.poll(() => next.isEnabled()).toBe(true);
       const checked = page.getByRole("button", { name: "準備OK！を取り消す" });
       expect(await checked.getAttribute("aria-pressed")).toBe("true");
-      expect(
-        await checked.evaluate(
-          (node) => getComputedStyle(node).backgroundColor,
-        ),
-      ).not.toBe(uncheckedBackground);
-      expect(
-        await next.evaluate((node) => getComputedStyle(node).backgroundColor),
-      ).not.toBe(pending.background);
+      // ボタンは背景色をtransitionで切り替えるため、切り替え後の色になるまで待つ
+      await expect
+        .poll(() =>
+          checked.evaluate((node) => getComputedStyle(node).backgroundColor),
+        )
+        .not.toBe(uncheckedBackground);
+      await expect
+        .poll(() =>
+          next.evaluate((node) => getComputedStyle(node).backgroundColor),
+        )
+        .not.toBe(pending.background);
       const hud = await page.getByTestId("board-control-hud").boundingBox();
       expect(hud).not.toBeNull();
       if (!hud) throw new Error("HUDが表示されません");
