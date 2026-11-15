@@ -30,7 +30,7 @@ Node.jsはビルドと検証のホスト。公開先はworkerdであり、Node�
 
 依存更新PRには `dependencies` ラベルが付く。CIが失敗したPRは取り込まれずopenのまま残るため、open PRの一覧で気づける。Renovateのマージはdevelopへのマージ通知（Discord）から外す。developへの取り込みと本番公開は別で、本番公開は既存のリリース手順で人が行う。
 
-導入直後はパッチも自動マージしない。数件を手でマージし、必須チェックの失敗・未完了で止まることを確かめてから `automerge` とリポジトリの auto-merge を有効にする。
+1.0以上のパッチは、GitHubのauto-mergeで必須チェックの成功を待って取り込む。導入時の最初のまとめPR #1000 では、`overrides` の誤判定・OpenNextの設定変更・optional peerの不足で必須チェックが失敗し、取り込まれずに止まった。自動マージが失敗のまま取り込んだ場合は、`automerge` を `false` に戻して原因を調べる。
 
 ## 限定override
 

@@ -10,12 +10,12 @@
   },
   "packageRules": [
     {
-      "description": "1.0以上のパッチを1つのPRにまとめる。必須チェックで止まることを確かめるまで自動マージしない (#395)",
+      "description": "1.0以上のパッチを1つのPRにまとめ、developの必須チェックが成功した後にGitHubのauto-mergeで取り込む (#395)",
       "matchDepTypes": ["dependencies", "devDependencies"],
       "matchUpdateTypes": ["patch"],
       "matchCurrentVersion": "!/^0/",
       "groupName": "patch updates",
-      "automerge": false
+      "automerge": true
     },
     {
       "description": "overridesは脆弱性対応で固定した版。lockfileの別の版と比べてパッチと誤判定されるため、Dashboardで承認した時だけ更新する（docs/development/dependencies.md の限定override）",
