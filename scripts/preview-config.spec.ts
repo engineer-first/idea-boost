@@ -187,3 +187,20 @@ it("アカウント単位のDOを省略したり本番へ差し替えたPreview�
     assertPreviewConfig({ ...app, migrations: [app.migrations[0]] }, "app"),
   ).toThrow();
 });
+
+it("静的ファイルはNext.jsと同じく正確なパスだけで返し、middlewareを迂回させない", () => {
+  const app = previewAppConfig({
+    number: 12,
+    databaseId: "11111111-1111-4111-8111-111111111111",
+    sha: "a".repeat(40),
+  });
+  expect(app.assets.html_handling).toBe("none");
+  expect(app.assets.not_found_handling).toBe("none");
+  for (const html_handling of ["auto-trailing-slash", "drop-trailing-slash"])
+    expect(() =>
+      assertPreviewConfig(
+        { ...app, assets: { ...app.assets, html_handling } },
+        "app",
+      ),
+    ).toThrow();
+});
