@@ -18,6 +18,7 @@ type RenovateConfig = {
   major?: { dependencyDashboardApproval?: boolean; automerge?: boolean };
   packageRules?: PackageRule[];
   vulnerabilityAlerts?: { enabled?: boolean };
+  platformAutomerge?: boolean;
 };
 
 const config: RenovateConfig = JSON.parse(
@@ -53,6 +54,12 @@ describe("Renovateの更新方針 (#395)", () => {
     );
     expect(patch?.groupName).toBeTruthy();
     expect(patch?.matchCurrentVersion).toBe("!/^0/");
+  });
+
+  it("1.0以上のパッチは必須チェックの成功後に自動マージする", () => {
+    const patch = rules.find((rule) => rule.groupName);
+    expect(patch?.automerge).toBe(true);
+    expect(config.platformAutomerge).not.toBe(false);
   });
 
   it("overridesの固定版はまとめPRに混ぜず、Dashboardで承認した時だけ更新する", () => {
