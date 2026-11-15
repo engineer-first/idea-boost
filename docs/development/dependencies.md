@@ -20,12 +20,13 @@ Node.jsはビルドと検証のホスト。公開先はworkerdであり、Node�
 
 `renovate.json` を正本とし、方針は `.github/scripts/renovate-config.spec.ts` で検査する。Mend Renovate の GitHub App がこのリポジトリだけを対象に、日本時間9時前に更新PRを作る。npmの版は公開から3日たってから取り込み（`security:minimumReleaseAgeNpm`）、直後の取り下げや乗っ取られた版を避ける。
 
-| 更新                  | 扱い                                                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| 1.0以上のパッチ       | 1つのPRにまとめる。developの必須チェック（`ci.yml` の lint・test・browser・build・smoke）が最新headで成功した後に取り込む |
-| マイナー・0.xのパッチ | 部品ごとのPR。人が取り込む。代表E2Eを整えた後に自動化の範囲を広げる（#395）                                               |
-| メジャー              | Dependency Dashboard（Renovateが作るIssue）で承認した時だけPRを作る。TypeScript 6/7は #738 の条件を満たすまで承認しない   |
-| 脆弱性の修正          | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま         |
+| 更新                  | 扱い                                                                                                                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0以上のパッチ       | 1つのPRにまとめる。developの必須チェック（`ci.yml` の lint・test・browser・build・smoke）が最新headで成功した後に取り込む                                                     |
+| マイナー・0.xのパッチ | 部品ごとのPR。人が取り込む。代表E2Eを整えた後に自動化の範囲を広げる（#395）                                                                                                   |
+| メジャー              | Dependency Dashboard（Renovateが作るIssue）で承認した時だけPRを作る。TypeScript 6/7は #738 の条件を満たすまで承認しない                                                       |
+| `overrides` の固定版  | Dashboard で承認した時だけPRを作る。lockfile にある別の版と比べるため、メジャーをまたぐ更新もパッチと誤判定されることがある。削除・更新は下の「限定override」の条件で判断する |
+| 脆弱性の修正          | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま                                                             |
 
 依存更新PRには `dependencies` ラベルが付く。CIが失敗したPRは取り込まれずopenのまま残るため、open PRの一覧で気づける。Renovateのマージはdevelopへのマージ通知（Discord）から外す。developへの取り込みと本番公開は別で、本番公開は既存のリリース手順で人が行う。
 

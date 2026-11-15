@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 type PackageRule = {
   matchUpdateTypes?: string[];
+  matchDepTypes?: string[];
+  dependencyDashboardApproval?: boolean;
   matchCurrentVersion?: string;
   groupName?: string;
   automerge?: boolean;
@@ -51,6 +53,16 @@ describe("Renovateの更新方針 (#395)", () => {
     );
     expect(patch?.groupName).toBeTruthy();
     expect(patch?.matchCurrentVersion).toBe("!/^0/");
+  });
+
+  it("overridesの固定版はまとめPRに混ぜず、Dashboardで承認した時だけ更新する", () => {
+    const patch = rules.find((rule) => rule.groupName);
+    expect(patch?.matchDepTypes).toEqual(["dependencies", "devDependencies"]);
+    const overrides = rules.find((rule) =>
+      rule.matchDepTypes?.includes("overrides"),
+    );
+    expect(overrides?.dependencyDashboardApproval).toBe(true);
+    expect(overrides?.automerge).not.toBe(true);
   });
 
   it("パッチ以外は自動マージの対象にしない", () => {
