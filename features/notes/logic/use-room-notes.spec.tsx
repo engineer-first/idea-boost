@@ -1331,6 +1331,96 @@ describe("useRoomNotes", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("withdrawAllVotesOfKind は指定した種類の自分の票を全付箋から外し、票のある付箋ごとに取り消しを送る", () => {
+    const { result } = setup();
+    const first = buildNote({
+      id: NOTE_ID,
+      dotVotes: {
+        subjective: { votedByMe: true, ownCount: 2 },
+        objective: { votedByMe: true, ownCount: 1 },
+      },
+      dotVoteStickers: [
+        { id: STICKER_ID, kind: "subjective", x: 0.2, y: 0.3 },
+        {
+          id: "f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1",
+          kind: "subjective",
+          x: 0.4,
+          y: 0.5,
+        },
+        {
+          id: "f2f2f2f2-f2f2-4f2f-8f2f-f2f2f2f2f2f2",
+          kind: "objective",
+          x: 0.6,
+          y: 0.7,
+        },
+      ],
+    });
+    const second = buildNote({
+      id: TARGET_NOTE_ID,
+      dotVotes: {
+        subjective: { votedByMe: true, ownCount: 1 },
+        objective: { votedByMe: false, ownCount: 0 },
+      },
+      dotVoteStickers: [
+        {
+          id: "f3f3f3f3-f3f3-4f3f-8f3f-f3f3f3f3f3f3",
+          kind: "subjective",
+          x: 0.5,
+          y: 0.5,
+        },
+      ],
+    });
+    const objectiveOnly = buildNote({
+      id: DRAG_ID,
+      dotVotes: {
+        subjective: { votedByMe: false, ownCount: 0 },
+        objective: { votedByMe: true, ownCount: 1 },
+      },
+      dotVoteStickers: [
+        {
+          id: "f4f4f4f4-f4f4-4f4f-8f4f-f4f4f4f4f4f4",
+          kind: "objective",
+          x: 0.5,
+          y: 0.5,
+        },
+      ],
+    });
+    act(() =>
+      result.current.applyMessage(
+        snapshotMessage([first, second, objectiveOnly]),
+      ),
+    );
+
+    act(() => result.current.withdrawAllVotesOfKind("subjective"));
+
+    const notesById = new Map(
+      result.current.notes.map((note) => [note.id, note]),
+    );
+    for (const id of [NOTE_ID, TARGET_NOTE_ID]) {
+      const note = notesById.get(id);
+      expect(note?.dotVotes.subjective).toMatchObject({
+        votedByMe: false,
+        ownCount: 0,
+      });
+      expect(
+        note?.dotVoteStickers.filter(
+          (sticker) => sticker.kind === "subjective",
+        ),
+      ).toEqual([]);
+    }
+    expect(notesById.get(NOTE_ID)?.dotVotes.objective.ownCount).toBe(1);
+    expect(notesById.get(NOTE_ID)?.dotVoteStickers).toHaveLength(1);
+    expect(notesById.get(DRAG_ID)?.dotVoteStickers).toHaveLength(1);
+
+    const resets = send.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message.type === "note:vote-reset");
+    expect(resets).toEqual([
+      expect.objectContaining({ noteId: NOTE_ID, kind: "subjective" }),
+      expect.objectContaining({ noteId: TARGET_NOTE_ID, kind: "subjective" }),
+    ]);
+  });
+
   it("addNote / publishNote / unpublishNote はプロトコルメッセージを送る", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));

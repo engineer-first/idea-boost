@@ -53,11 +53,11 @@ AIが示した候補と代償（以下は比較資料の記載）から、オー
 
 - [DESIGN.mdを作る #841](https://github.com/engineer-first/idea-boost/issues/841)（2026-10-26のコメント）：直書きをlintへ移す候補の列挙。
 - [PR #902](https://github.com/engineer-first/idea-boost/pull/902)（2026-11-03マージ）：DESIGN.mdのYAMLから `app/design-tokens.css` を生成する仕組み。
-- [#877](https://github.com/engineer-first/idea-boost/issues/877)（2026-11-08の方針コメント）：下記セッションの選択を、AIがオーナーのアカウントで要約・投稿したもの。
+- [#877](https://github.com/engineer-first/idea-boost/issues/877)（2026-11-08の方針コメント）：下記のオーナーの選択を、AIがオーナーのアカウントで要約・投稿したもの。
 - [実装 PR #948](https://github.com/engineer-first/idea-boost/pull/948)（2026-11-10マージ）：直書き204件の置き換え、errorでの導入、二重の角括弧を含む2ファイルの除外、混色の `oklab` 化。
 - [#952](https://github.com/engineer-first/idea-boost/issues/952)、[PR #960](https://github.com/engineer-first/idea-boost/pull/960)（2026-11-11時点で未マージ）：定数の文字列の死角と、ast-grepルールの試作と取り下げ。
 - Biome 2.5.15：2ルールの対象と既定の強さ（info）を `biome explain` で、二重の角括弧の解析失敗を最小のtsxで、2026-11-11に確認した。PR #948とDESIGN.mdが追跡先に挙げる[biome#11342](https://github.com/biomejs/biome/issues/11342)は、クラス検出全般の残作業で二重の角括弧に触れておらず、2026-10-29に閉じている。
-- 2026-11-03 Claudeセッション ceb47314-c71e-4caa-8ee0-f52be3d753a0：オーナーが値の正本をDESIGN.mdのYAMLにして生成する案を選んだ。
-- 2026-11-05〜11-08 Claudeセッション a23ffb5d-a071-44a4-9608-008713aeac08：直書きの件数と「決定」の3つの値の実測元。オーナーは「なるべく緩くした方がいいのかな」「例外的なところを一覧で見れたりするのも嬉しいのかも」と述べたうえで、道具・例外・CIへの入れ方の3問に回答した。実装でも直書きをできるだけ減らすよう求め、役割のなかった9色の置き換え先も選んだ。件数が0になったためのerror化、`overrides` の対象をDESIGN.mdに書くこと、2ファイルの除外、`oklab` 化はAIの判断で、オーナーの個別の承認は記録にない。
-- 2026-11-11 Claudeセッション fdb4a24f-2d6f-498b-9658-315f130b408a：オーナーがast-grepルールを外してレビューに戻す案を選んだ。
+- 2026-11-03：オーナーが値の正本をDESIGN.mdのYAMLにして生成する案を選んだ。
+- 2026-11-05〜11-08：直書きの件数と「決定」の3つの値を実測した。オーナーは「なるべく緩くした方がいいのかな」「例外的なところを一覧で見れたりするのも嬉しいのかも」と述べたうえで、道具・例外・CIへの入れ方の3問に回答した。実装でも直書きをできるだけ減らすよう求め、役割のなかった9色の置き換え先も選んだ。件数が0になったためのerror化、`overrides` の対象をDESIGN.mdに書くこと、2ファイルの除外、`oklab` 化はAIの判断で、オーナーの個別の承認は記録にない。
+- 2026-11-11：オーナーがast-grepルールを外してレビューに戻す案を選んだ。
 - 状態の根拠：正本・道具・例外・CIでの強さの4点をオーナーが上記で選んだ。2026-11-11にdevelop `3d0dc318` の `biome.json`（2ルールがerror、`overrides` 3組）、DESIGN.md、`app/globals.css`、`package.json` と照合し、方針と一致することを確かめた。Issueコメントの投稿者名とPRのマージは採用の根拠にしていない。`date` は3問への回答日。

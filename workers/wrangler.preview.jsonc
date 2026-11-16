@@ -4,6 +4,7 @@
   "main": "preview-worker.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
+  "ai": { "binding": "AI" },
   "workers_dev": false,
   "preview_urls": false,
   "vars": { "PREVIEW_ENABLED": "true" },

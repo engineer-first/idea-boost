@@ -53,6 +53,7 @@ import { useRoomDisplayName } from "../logic/use-room-display-name";
 import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
 import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
+import { OutcomeReflection } from "./outcome-reflection";
 import {
   RoomSharingReactionControls,
   RoomSharingReactionDisplay,
@@ -921,6 +922,11 @@ export function RoomBoard({
       messageRef={sharingReactionMessageRef}
     >
       <RoomBoardView
+        outcomeReflection={
+          roomState.outcomePublished ? (
+            <OutcomeReflection key={roomId} roomId={roomId} />
+          ) : undefined
+        }
         isPrivateNotesHandoffPending={isPrivateNotesHandoffPending}
         sharingReactionDisplay={<RoomSharingReactionDisplay />}
         reactionControls={renderSharingReactionControls}
@@ -1058,6 +1064,7 @@ export function RoomBoard({
         onNoteVote={notes.voteNote}
         onNoteVoteRemove={notes.removeNoteVote}
         onNoteVoteStickerRemove={notes.removeVoteSticker}
+        onVoteWithdrawAll={notes.withdrawAllVotesOfKind}
         onNoteVoteStickerMove={notes.moveVoteSticker}
         onNoteDecide={handleNoteDecide}
         onDecisionClear={handleDecisionClear}

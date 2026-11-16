@@ -243,7 +243,7 @@ describe("本人の完了ルーム", () => {
     vi.stubGlobal("fetch", fetcher);
     render(<CompletedRoomDetail roomId={roomId} />);
     await screen.findByText("採用の全文");
-    expect(screen.getByRole("button", { name: "全文をコピー" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "成果をコピー" })).toBeEnabled();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "検討の経緯を見る" }));
     expect(screen.getByRole("combobox", { name: "見返す場面" })).toHaveValue(
@@ -441,7 +441,7 @@ describe("read-only成果から感想へ", () => {
     ).toBe(firstId);
     expect(screen.queryByText(/受付ID：/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "入力欄を閉じる" }));
-    fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+    fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
     await waitFor(() => expect(copy).toHaveBeenCalledOnce());
     expect(copy).toHaveBeenCalledWith(expect.stringContaining("採用の全文"));
     expect(

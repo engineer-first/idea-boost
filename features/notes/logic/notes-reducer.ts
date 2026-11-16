@@ -448,6 +448,44 @@ export function resetNoteVoteLocally(
   };
 }
 
+// パレットの使い切った種類を押したときのローカル反映。投票中の付箋には
+// 受信者本人のシールしか届かないため、その種類のシールを外せば自分の票だけが消える。
+// 送り先を決められるよう、票を外した付箋の ID を返す。
+export function withdrawOwnVotesOfKindLocally(
+  notes: Note[],
+  kind: DotVoteKind,
+): { notes: Note[]; noteIds: string[] } {
+  const noteIds = notes
+    .filter((note) => note.dotVotes[kind].ownCount > 0)
+    .map((note) => note.id);
+  if (noteIds.length === 0) return { notes, noteIds };
+
+  return {
+    noteIds,
+    notes: notes.map((note) => {
+      if (!noteIds.includes(note.id)) return note;
+      const summary = note.dotVotes[kind];
+      return {
+        ...note,
+        dotVotes: {
+          ...note.dotVotes,
+          [kind]: {
+            ...withUpdatedCount(
+              summary,
+              Math.max(0, (summary.count ?? 0) - summary.ownCount),
+            ),
+            votedByMe: false,
+            ownCount: 0,
+          },
+        },
+        dotVoteStickers: note.dotVoteStickers.filter(
+          (sticker) => sticker.kind !== kind,
+        ),
+      };
+    }),
+  };
+}
+
 // シールを1枚だけ外すためのローカル反映。note:vote-reset の全消去とは用途を
 // 分け、客観票の一部を別の付箋へ付け替えられるようにする。
 export function removeOneNoteVoteLocally(

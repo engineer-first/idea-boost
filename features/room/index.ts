@@ -2,9 +2,10 @@
 // ロビー画面（RoomLobby）とボード画面（RoomBoard）の 2 つのコンテナを
 // ページ（app/rooms/[id]/**）へ公開する。view・reducer・通知などの内部実装は
 // feature 内に閉じる。
+
+export { OutcomeReflection } from "./containers/outcome-reflection";
 export { RoomBoard } from "./containers/room-board";
 export { RoomLobby } from "./containers/room-lobby";
-
 export { RoomOutcomeView } from "./molecules/room-outcome-view";
 
 export { RoomEntryPreview } from "./templates/room-entry-preview";

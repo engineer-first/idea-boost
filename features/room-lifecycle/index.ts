@@ -9,6 +9,7 @@ export { ReturnRoomSection } from "./containers/return-room-section";
 export { RoomAdmissionGate } from "./containers/room-admission-gate";
 export { RoomOperationResume } from "./containers/room-operation-resume";
 export { RoomReauthentication } from "./containers/room-reauthentication";
+export { inviteMetadata } from "./logic/invite-metadata";
 export { readParticipationRecovery } from "./logic/participation-recovery";
 export { GuestIdentityUnavailable } from "./molecules/guest-identity-unavailable";
 export { CreateRoomSectionView } from "./templates/create-room-section-view";

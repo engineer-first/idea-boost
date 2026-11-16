@@ -723,7 +723,9 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       expect(new URL(page.url()).pathname).toBe(second.pathname);
       // 前のルームは確認なしで退出済み。保存URLで権限を復活させない。
       await page.goto(first.origin + first.pathname);
-      await page.getByRole("heading", { name: "404", exact: true }).waitFor();
+      await page
+        .getByRole("heading", { name: "ページが見つかりません", exact: true })
+        .waitFor();
       expect(
         await page.getByRole("main").getByTestId("room-lobby-view").count(),
       ).toBe(0);

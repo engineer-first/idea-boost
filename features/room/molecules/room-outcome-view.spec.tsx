@@ -36,9 +36,9 @@ it("再コピーを待つ間は前の成功を消し、コピーと保存の二�
       connected
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+  fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
   await screen.findByText(/コピーしました/);
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+  fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
   expect(screen.queryByText(/コピーしました/)).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: /コピー中/ })).toBeDisabled();
   expect(screen.getByRole("button", { name: "テキストを保存" })).toBeDisabled();
@@ -59,7 +59,7 @@ it.each(["connected", "authorized"] as const)(
     const view = render(
       <RoomOutcomeView {...props} {...{ [availability]: true }} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+    fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
     await screen.findByText(/コピーしました/);
     view.rerender(
       <RoomOutcomeView {...props} {...{ [availability]: false }} />,
@@ -87,11 +87,11 @@ it("失効したコピーの応答を待たず再試行でき、旧応答は新�
     onExportSuccess: success,
   };
   const view = render(<RoomOutcomeView {...props} connected />);
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+  fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
   view.rerender(<RoomOutcomeView {...props} connected={false} />);
   view.rerender(<RoomOutcomeView {...props} connected />);
-  expect(screen.getByRole("button", { name: "全文をコピー" })).toBeEnabled();
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+  expect(screen.getByRole("button", { name: "成果をコピー" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
   await act(async () => completes[0]());
   expect(screen.getByRole("button", { name: /コピー中/ })).toBeDisabled();
   expect(success).not.toHaveBeenCalled();
@@ -121,11 +121,11 @@ it("成果の持ち帰り前から感想を開け、コピー結果を先に確�
   );
   fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
   expect(open).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+  fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
   await screen.findByText(/コピーしました/);
   expect(schedulePrompt).toHaveBeenCalledOnce();
   writeText.mockRejectedValueOnce(new Error("denied"));
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+  fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
   expect(cancelPrompt).toHaveBeenCalledOnce();
   await waitFor(() => expect(cancelPrompt).toHaveBeenCalledTimes(2));
   expect(schedulePrompt).toHaveBeenCalledOnce();
@@ -149,7 +149,7 @@ it("コピー応答を待つ間に切断したら案内を予約しない", asyn
     onExportSuccess: schedulePrompt,
   };
   const view = render(<RoomOutcomeView {...props} connected />);
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+  fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
   view.rerender(<RoomOutcomeView {...props} connected={false} />);
   complete();
   await waitFor(() =>
@@ -204,7 +204,7 @@ it("コピー後の保存失敗では前の成功表示を残さない", async (
         onBackToBoard={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+    fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
     await screen.findByText(/コピーしました/);
     fireEvent.click(screen.getByRole("button", { name: "テキストを保存" }));
     expect(screen.queryByText(/コピーしました/)).not.toBeInTheDocument();

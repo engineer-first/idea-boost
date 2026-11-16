@@ -40,5 +40,5 @@ Googleプロフィール名のままで参加したい人と、仲間に見せ�
 - [ルーム内表示名の反映](../../workers/room/members.ts)
 - [開発規約](../development/conventions.md)
 - [照合した実装・規約](../../workers/room/members.ts)（確認日：2026-11-03）。
-- 2026-10-11〜12 Codexセッション 01a129f8（vault、表示名の初期値・入力促進不要・反映範囲への本人回答）と 01a129f8 の翌日継続記録（単一ルーム利用を前提とする範囲への承認）。
+- 2026-10-11〜12：オーナーは表示名の初期値、入力を促さないこと、反映範囲を回答し、翌日に単一ルーム利用を前提とする範囲を承認した。
 - [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0014-account-display-name.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

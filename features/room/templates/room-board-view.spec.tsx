@@ -232,6 +232,7 @@ function setup(
     onNoteVote: vi.fn(),
     onNoteVoteRemove: vi.fn(),
     onNoteVoteStickerRemove: vi.fn(),
+    onVoteWithdrawAll: vi.fn(),
     onNoteVoteStickerMove: vi.fn(),
     pendingVoteOperations: [],
     voteFeedback: null,
@@ -497,7 +498,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
         notes: [buildNote({ excluded })],
       });
       const palette = screen.getByRole("button", {
-        name: "客観シール 残り3票",
+        name: "「需要ありそう」シール 残り3票",
       });
       const surface = within(screen.getByTestId("note-card")).getByRole(
         "button",
@@ -520,7 +521,9 @@ describe("問いの投票シールと付箋移動の排他", () => {
       phase: buildPhaseStep(3, 2),
       notes: [note],
     });
-    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const palette = screen.getByRole("button", {
+      name: "「需要ありそう」シール 残り3票",
+    });
     const card = screen.getByTestId("note-card");
     card.getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
     const surface = getNoteSurface(card);
@@ -548,7 +551,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: "客観シール 残り2票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り2票" }),
     ).toHaveAttribute("aria-pressed", "true");
     // コントロールがフォーカスを失った後に、実ブラウザで発生するbody宛てのキーを再現する。
     palette.blur();
@@ -566,7 +569,9 @@ describe("問いの投票シールと付箋移動の排他", () => {
 
       notes: [buildNote()],
     });
-    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const palette = screen.getByRole("button", {
+      name: "「需要ありそう」シール 残り3票",
+    });
     const card = screen.getByTestId("note-card");
     const surface = getNoteSurface(card);
     const viewport = screen.getByTestId("board-scroller");
@@ -702,7 +707,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
       });
       const surface = getNoteSurface(screen.getByTestId("note-card"));
       const palette = screen.getByRole("button", {
-        name: "客観シール 残り2票",
+        name: "「需要ありそう」シール 残り2票",
       });
       const owner =
         source === "付箋押下"
@@ -710,7 +715,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
           : source === "パレット"
             ? palette
             : screen.getByRole("button", {
-                name: "客観シール 1票を1票取り消す",
+                name: "「需要ありそう」シール 1票を1票取り消す",
               });
       if (source === "付箋押下") fireEvent.click(palette);
       fireEvent.pointerDown(owner, {
@@ -760,7 +765,9 @@ describe("問いの投票シールと付箋移動の排他", () => {
     "ルーム外のボタン",
   ])("シール選択中でも%s宛てのEscapeを奪わない", (kind) => {
     setup({ phase: buildPhaseStep(3, 2), notes: [buildNote()] });
-    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const palette = screen.getByRole("button", {
+      name: "「需要ありそう」シール 残り3票",
+    });
     fireEvent.click(palette);
     const root = screen.getByTestId("room-board-view-root");
     const target = document.createElement(
@@ -803,8 +810,8 @@ describe("問いの投票シールと付箋移動の排他", () => {
       const owner = screen.getByRole("button", {
         name:
           source === "パレット"
-            ? "客観シール 残り2票"
-            : "客観シール 1票を1票取り消す",
+            ? "「需要ありそう」シール 残り2票"
+            : "「需要ありそう」シール 1票を1票取り消す",
       });
       const surface = getNoteSurface(screen.getByTestId("note-card"));
       fireEvent.pointerDown(owner, {
@@ -857,11 +864,13 @@ describe("問いの投票シールと付箋移動の排他", () => {
         ],
       });
       const palette = screen.getByRole("button", {
-        name: "客観シール 残り2票",
+        name: "「需要ありそう」シール 残り2票",
       });
       const owner =
         source === "配置済み"
-          ? screen.getByRole("button", { name: "客観シール 1票を1票取り消す" })
+          ? screen.getByRole("button", {
+              name: "「需要ありそう」シール 1票を1票取り消す",
+            })
           : palette;
       if (source === "選択") fireEvent.click(palette);
       else
@@ -1888,7 +1897,7 @@ describe("RoomBoardView", () => {
       screen.getByRole("heading", { name: "チームで決めた成果" }),
     ).toBeVisible();
     expect(screen.getByText("決定課題")).toBeVisible();
-    expect(screen.getByText(/2\.\s*決定した問い/)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "決定した問い" })).toBeVisible();
     expect(screen.getByText(/採用する案/)).toBeVisible();
     expect(
       screen.queryByRole("dialog", { name: /投票結果/ }),
@@ -1896,7 +1905,7 @@ describe("RoomBoardView", () => {
     expect(
       screen.queryByRole("button", { name: "ボードへ戻る" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "全文をコピー" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "成果をコピー" })).toBeVisible();
   });
 
   it("成果が欠けた状態や切断時は保存を許さず再接続を案内する", () => {
@@ -1938,7 +1947,7 @@ describe("RoomBoardView", () => {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
     });
     const { props: initial, rerender } = setup(props);
-    await userEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+    await userEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
     expect(
       await screen.findByRole("textbox", { name: "手動でコピーする成果全文" }),
     ).toBeVisible();
@@ -2149,7 +2158,7 @@ describe("RoomBoardView", () => {
     });
 
     const paletteSticker = screen.getByRole("button", {
-      name: "客観シール 残り3票",
+      name: "「需要ありそう」シール 残り3票",
     });
 
     const releasePointerCapture = vi.fn();
@@ -2198,7 +2207,7 @@ describe("RoomBoardView", () => {
     expect(onNoteVote).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", {
-        name: "客観シール 残り3票",
+        name: "「需要ありそう」シール 残り3票",
       }),
     ).toBeDisabled();
   });
@@ -2230,7 +2239,7 @@ describe("RoomBoardView", () => {
     });
 
     const paletteSticker = screen.getByRole("button", {
-      name: "客観シール 残り3票",
+      name: "「需要ありそう」シール 残り3票",
     });
 
     fireEvent.click(paletteSticker, {
@@ -2258,7 +2267,7 @@ describe("RoomBoardView", () => {
     expect(onNoteVote).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", {
-        name: "客観シール 残り3票",
+        name: "「需要ありそう」シール 残り3票",
       }),
     ).toBeDisabled();
   });
@@ -2280,14 +2289,14 @@ describe("RoomBoardView", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "主観シール 残り0票" }),
+      screen.getByRole("button", { name: "「イチオシ！」シール 残り0票" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "客観シール 残り1票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り1票" }),
     ).toBeInTheDocument();
   });
 
-  it("投票パレットで対象と投票基準のヒントを確認できる", () => {
+  it("投票パレットで投票対象を確認でき、投票基準はパレットに出さない", () => {
     setup({
       phase: buildPhaseStep(4),
 
@@ -2305,11 +2314,11 @@ describe("RoomBoardView", () => {
       /投票対象は現在のフェーズの個々の付箋です。/,
     );
     expect(
-      within(palette).getByText("主観は「激しく共感する、取り組みたい」。"),
-    ).toBeVisible();
+      within(palette).queryByText(/激しく共感する、取り組みたい/),
+    ).toBeNull();
     expect(
-      within(palette).getByText("客観は「自分以外の人にも価値がありそう」。"),
-    ).toBeVisible();
+      within(palette).queryByText(/自分以外の人にも価値がありそう/),
+    ).toBeNull();
   });
 
   it("パレットのシールを付箋へドロップすると、付箋内の相対座標で投票を送る", () => {
@@ -2338,7 +2347,7 @@ describe("RoomBoardView", () => {
     });
 
     fireEvent.pointerDown(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
       { pointerId: 9, clientX: 320, clientY: 24 },
     );
     fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
@@ -2382,7 +2391,7 @@ describe("RoomBoardView", () => {
     });
 
     fireEvent.pointerDown(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
       { pointerId: 9, clientX: 320, clientY: 24 },
     );
     fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
@@ -2403,10 +2412,10 @@ describe("RoomBoardView", () => {
       expect.objectContaining({ id: "excluded-note-vote" }),
     );
     expect(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
     ).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: "主観シール 残り1票" }),
+      screen.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
     ).toBeEnabled();
     notify.mockRestore();
   });
@@ -2432,7 +2441,7 @@ describe("RoomBoardView", () => {
     });
 
     const paletteSticker = screen.getByRole("button", {
-      name: "客観シール 残り3票",
+      name: "「需要ありそう」シール 残り3票",
     });
     fireEvent.click(paletteSticker, { clientX: 320, clientY: 24 });
 
@@ -2501,7 +2510,7 @@ describe("RoomBoardView", () => {
       });
 
       fireEvent.click(
-        screen.getByRole("button", { name: "客観シール 残り3票" }),
+        screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
         { clientX: 320, clientY: 24 },
       );
       fireEvent.click(screen.getByRole("button", { name: "候補外の付箋" }), {
@@ -2515,13 +2524,13 @@ describe("RoomBoardView", () => {
         expect.objectContaining({ id: "excluded-note-vote" }),
       );
       expect(
-        screen.getByRole("button", { name: "客観シール 残り3票" }),
+        screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
       ).toBeEnabled();
       expect(
-        screen.getByRole("button", { name: "主観シール 残り1票" }),
+        screen.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
       ).toBeEnabled();
       expect(
-        screen.getByRole("button", { name: "客観シール 残り3票" }),
+        screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
       ).toHaveAttribute("aria-pressed", "true");
       notify.mockRestore();
     },
@@ -2530,7 +2539,7 @@ describe("RoomBoardView", () => {
   it("選択中のシールは同じボタンの再クリックまたはEscapeで解除する", () => {
     setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
     const paletteSticker = screen.getByRole("button", {
-      name: "主観シール 残り1票",
+      name: "「イチオシ！」シール 残り1票",
     });
 
     fireEvent.click(paletteSticker, { clientX: 280, clientY: 24 });
@@ -2553,7 +2562,7 @@ describe("RoomBoardView", () => {
     });
 
     fireEvent.pointerDown(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
       { pointerId: 9, clientX: 320, clientY: 24 },
     );
     fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
@@ -2623,7 +2632,7 @@ describe("RoomBoardView", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "客観シール 1票を1票取り消す",
+        name: "「需要ありそう」シール 1票を1票取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
@@ -2703,7 +2712,7 @@ describe("RoomBoardView", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "客観シール 1票を1票取り消す",
+        name: "「需要ありそう」シール 1票を1票取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
@@ -2721,10 +2730,12 @@ describe("RoomBoardView", () => {
 
     expect(onNoteVoteStickerMove).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("button", { name: "客観シール 残り2票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り2票" }),
     ).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
+      screen.getByRole("button", {
+        name: "「需要ありそう」シール 1票を1票取り消す",
+      }),
     ).toBeInTheDocument();
     expect(notify).toHaveBeenCalledWith(
       expect.stringContaining("候補外の付箋には投票できません"),
@@ -2755,7 +2766,7 @@ describe("RoomBoardView", () => {
     });
 
     const sticker = screen.getByRole("button", {
-      name: "客観シール 1票を1票取り消す",
+      name: "「需要ありそう」シール 1票を1票取り消す",
     });
     const palette = screen.getByRole("region", { name: "投票パレット" });
     const root = screen.getByTestId("room-board-view-root");
@@ -2812,7 +2823,7 @@ describe("RoomBoardView", () => {
     });
 
     const sticker = screen.getByRole("button", {
-      name: "客観シール 1票を1票取り消す",
+      name: "「需要ありそう」シール 1票を1票取り消す",
     });
     const root = screen.getByTestId("room-board-view-root");
     Object.defineProperty(document, "elementFromPoint", {
@@ -2861,7 +2872,9 @@ describe("RoomBoardView", () => {
       onNoteVote,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "主観シール 残り1票" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
+    );
 
     expect(onNoteVote).not.toHaveBeenCalled();
   });
@@ -3459,7 +3472,7 @@ describe("RoomBoardView", () => {
         screen.queryByRole("region", { name: "投票パレット" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("img", { name: "主観シール 0票" }),
+        screen.queryByRole("img", { name: "「イチオシ！」シール 0票" }),
       ).not.toBeInTheDocument();
     });
   });
@@ -3981,10 +3994,10 @@ describe("付箋上の投票結果", () => {
         screen.queryByRole("button", { name: "投票結果を表示" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.getByRole("img", { name: "主観シール 2票" }),
+        screen.getByRole("img", { name: "「イチオシ！」シール 2票" }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("img", { name: "客観シール 3票" }),
+        screen.getByRole("img", { name: "「需要ありそう」シール 3票" }),
       ).toBeInTheDocument();
       fireEvent.click(
         screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
@@ -4158,7 +4171,7 @@ describe("投票pointer所有と取消", () => {
     });
     const { props } = setup({ phase: buildPhaseStep(4), notes: [note] });
     const sticker = screen.getByRole("button", {
-      name: "客観シール 1票を1票取り消す",
+      name: "「需要ありそう」シール 1票を1票取り消す",
     });
     fireEvent.pointerDown(sticker, {
       pointerId: 41,
@@ -4187,7 +4200,9 @@ describe("投票pointer所有と取消", () => {
     const elementFromPoint = vi
       .spyOn(document, "elementFromPoint")
       .mockReturnValue(note);
-    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const palette = screen.getByRole("button", {
+      name: "「需要ありそう」シール 残り3票",
+    });
     fireEvent.pointerDown(palette, {
       pointerId: 41,
       button: 0,
@@ -4285,8 +4300,8 @@ describe("AT-004: 所有gestureの取消経路", () => {
       const owner = screen.getByRole("button", {
         name:
           source === "palette"
-            ? "客観シール 残り2票"
-            : "客観シール 1票を1票取り消す",
+            ? "「需要ありそう」シール 残り2票"
+            : "「需要ありそう」シール 1票を1票取り消す",
       });
       const root = screen.getByTestId("room-board-view-root");
       const hand = screen.getByRole("button", { name: "手のひらツール" });
@@ -4319,7 +4334,7 @@ describe("AT-004: 所有gestureの取消経路", () => {
       fireEvent.click(owner, { detail: 1 });
       fireEvent.click(owner, { detail: 1 });
       expect(
-        screen.getByRole("button", { name: "客観シール 残り2票" }),
+        screen.getByRole("button", { name: "「需要ありそう」シール 残り2票" }),
       ).toHaveAttribute("aria-pressed", "false");
       fireEvent.click(getNoteSurface(card), { detail: 1 });
       expect(props.onNoteVote).not.toHaveBeenCalled();
@@ -4327,10 +4342,12 @@ describe("AT-004: 所有gestureの取消経路", () => {
       expect(props.onNoteVoteStickerRemove).not.toHaveBeenCalled();
       expect(props.onNoteVoteRemove).not.toHaveBeenCalled();
       expect(
-        screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
+        screen.getByRole("button", {
+          name: "「需要ありそう」シール 1票を1票取り消す",
+        }),
       ).toBeInTheDocument();
       const palette = screen.getByRole("button", {
-        name: "客観シール 残り2票",
+        name: "「需要ありそう」シール 残り2票",
       });
       fireEvent.pointerDown(palette, { pointerId: 53, button: 0, buttons: 1 });
       fireEvent.pointerUp(palette, { pointerId: 53 });
@@ -4509,7 +4526,7 @@ describe("AT-002: 第一note所有中の第二palette入力", () => {
       const cards = screen.getAllByTestId("note-card");
       const surface = getNoteSurface(cards[0]);
       const palette = screen.getByRole("button", {
-        name: "客観シール 残り3票",
+        name: "「需要ありそう」シール 残り3票",
       });
       const capture = vi.fn();
       palette.setPointerCapture = capture;
@@ -4583,7 +4600,9 @@ describe("AT-002: 第一note所有中の第二palette入力", () => {
   it("第一press中はnative palette armingも配送せず、通常HUDのヒント操作は受理する", () => {
     setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
     const surface = getNoteSurface(screen.getByTestId("note-card"));
-    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const palette = screen.getByRole("button", {
+      name: "「需要ありそう」シール 残り3票",
+    });
     fireEvent.pointerDown(surface, { pointerId: 101, button: 0, buttons: 1 });
     fireEvent.click(palette, { detail: 0 });
     expect(palette).toHaveAttribute("aria-pressed", "false");
@@ -4615,7 +4634,7 @@ it("AT-023: hand toolでも本人シールnative keyboard clickは1回取消す"
     detail: 0,
   });
   const sticker = screen.getByRole("button", {
-    name: "客観シール 1票を1票取り消す",
+    name: "「需要ありそう」シール 1票を1票取り消す",
   });
   fireEvent.click(sticker, { detail: 0 });
   expect(props.onNoteVoteStickerRemove).toHaveBeenCalledTimes(1);
@@ -4627,7 +4646,9 @@ it("AT-023: hand toolでも本人シールnative keyboard clickは1回取消す"
 it("AT-002: 棄却palette内spanのimplicit touch captureも失効する", () => {
   setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
   const surface = getNoteSurface(screen.getByTestId("note-card"));
-  const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+  const palette = screen.getByRole("button", {
+    name: "「需要ありそう」シール 残り3票",
+  });
   const child = palette.querySelector("span");
   if (!child) throw new Error("palette内spanが必要");
   child.hasPointerCapture = vi.fn(() => true);
@@ -4664,7 +4685,7 @@ describe("CI-IN002: active gesture中のnote custom semantic key", () => {
       };
       const { props } = setup({ phase: buildPhaseStep(4), notes });
       fireEvent.click(
-        screen.getByRole("button", { name: "客観シール 残り2票" }),
+        screen.getByRole("button", { name: "「需要ありそう」シール 残り2票" }),
         { detail: 0 },
       );
       const cards = screen.getAllByTestId("note-card");
@@ -4674,7 +4695,7 @@ describe("CI-IN002: active gesture中のnote custom semantic key", () => {
         value: () => cards[2],
       });
       const owner = screen.getByRole("button", {
-        name: "客観シール 1票を1票取り消す",
+        name: "「需要ありそう」シール 1票を1票取り消す",
       });
       fireEvent.pointerDown(owner, {
         pointerId: 301,
@@ -4726,7 +4747,7 @@ it.each([
   (input) => {
     const { props } = setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
     fireEvent.click(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
       {
         detail: 0,
       },
@@ -4752,9 +4773,12 @@ it("CI-IN002 owner終了後の古いmodified Space clickは取消し新keydown�
   const { props } = setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
   const card = screen.getByTestId("note-card");
   card.getBoundingClientRect = () => new DOMRect(0, 0, 200, 150);
-  fireEvent.click(screen.getByRole("button", { name: "客観シール 残り3票" }), {
-    detail: 0,
-  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
+    {
+      detail: 0,
+    },
+  );
   const surface = within(card).getByRole("button", { name: /付箋/ });
   props.interactions.isNoteDragging = true;
   expect(

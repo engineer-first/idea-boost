@@ -39,5 +39,5 @@ date: "2026-10-06"
 - [PR551](https://github.com/engineer-first/idea-boost/pull/551)
 - [ルーム作成の受付と回復](../operations/room-creation.md)
 - [照合した実装・規約](../../workers/lib/room-creation.ts)（確認日：2026-11-03）。
-- セッション調査：2026-11-03にvaultのClaude/Codexとローカルの元セッションを検索したが、この判断の本人の採用発言は未確認。GitHub記録の投稿者名だけで本人の承認とは判定していない。
+- 採用の根拠：2026-11-03時点で、オーナーがこの判断を採用した記録は確認できていない。GitHub記録の投稿者名だけで本人の承認とは判定していない。
 - [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0008-room-creation-expiry.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。

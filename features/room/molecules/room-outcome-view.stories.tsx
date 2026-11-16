@@ -68,7 +68,7 @@ async function attemptCopy(
   });
   try {
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: "全文をコピー" }),
+      within(canvasElement).getByRole("button", { name: "成果をコピー" }),
     );
   } finally {
     if (descriptor) Object.defineProperty(navigator, "clipboard", descriptor);

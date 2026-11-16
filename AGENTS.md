@@ -25,6 +25,7 @@
 | Next.js の実装                                     | `node_modules/next/dist/docs/` の関連ガイド                                      |
 | UI・クライアント状態・stories・モック              | [UI](docs/development/conventions.md#ui)                                         |
 | 画面の見た目（色・文字・余白・角丸・影・状態表現） | [DESIGN.md](DESIGN.md)                                                           |
+| 画面の文言・文書で使う呼び方                       | [用語集](docs/glossary.md)                                                       |
 | API・Server Action・Route Handler・データアクセス  | [API](docs/development/conventions.md#api)                                       |
 | 共有状態・WS・可視性・認可（クライアント側を含む） | [共有状態と認可](docs/development/conventions.md#共有状態と認可)                 |
 | D1 / RoomDO のスキーマ・migration                  | [Migration](docs/development/conventions.md#migration)                           |

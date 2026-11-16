@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { ACCOUNT_LINK_RESULT_PARAM } from "@/contracts/account-link";
 import {
   AccountLinkSection,
@@ -10,6 +11,7 @@ import {
 } from "@/features/completed-rooms";
 import { getCurrentUser } from "@/lib/session/current-user";
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "以前のルーム | Idea Boost" };
 export default async function CompletedRoomsPage({
   searchParams,
 }: {

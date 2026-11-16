@@ -174,6 +174,7 @@ const meta = {
     onNoteVote: fn(),
     onNoteVoteRemove: fn(),
     onNoteVoteStickerRemove: fn(),
+    onVoteWithdrawAll: fn(),
     onNoteVoteStickerMove: fn(),
     pendingVoteOperations: [],
     voteFeedback: null,
@@ -996,7 +997,7 @@ export const ExcludedVoteAttempt: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "主観シール 残り1票" }),
+      canvas.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
     );
     await userEvent.click(
       canvas.getByRole("button", { name: /^候補外の付箋$/ }),
@@ -1008,10 +1009,10 @@ export const ExcludedVoteAttempt: Story = {
     );
     await waitFor(() => expect(notice).toBeVisible());
     await expect(
-      canvas.getByRole("button", { name: "主観シール 残り1票" }),
+      canvas.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: "客観シール 残り3票" }),
+      canvas.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
     ).toBeVisible();
   },
 };
@@ -1505,7 +1506,9 @@ export const QuestionVotingStickerSelected: Story = {
   ...CanvasInputQuestionVoting,
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: "客観シール 残り2票" }),
+      within(canvasElement).getByRole("button", {
+        name: "「需要ありそう」シール 残り2票",
+      }),
     );
     await expect(
       within(canvasElement).getByRole("img", { name: "付箋の移動：不可" }),

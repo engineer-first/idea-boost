@@ -13,11 +13,14 @@ import { getSessionSecret, isAuthConfigured } from "@/lib/session/env";
 import { verifyToken } from "@/lib/session/token";
 
 export async function getCurrentUser(): Promise<VerifiedSession | null> {
+  // 認証設定より先に Cookie を読む。本番ビルドは SESSION_SECRET なしで走るため、
+  // 先に return すると共通レイアウトを通る画面が静的と判定され、
+  // 実行時の Cookie 読み取りで DYNAMIC_SERVER_USAGE の 500 になる（#993）。
+  const cookieStore = await cookies();
   if (!isAuthConfigured()) {
     return null;
   }
 
-  const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) {
     return null;

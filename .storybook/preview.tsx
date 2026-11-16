@@ -25,6 +25,15 @@ const preview: Preview = {
     },
   },
   async beforeEach({ parameters }) {
+    if (parameters.outcomeReflection) {
+      const { worker, startMockWorker } = await import("../app/mocks/browser");
+      const { createOutcomeReflectionHandlers } = await import(
+        "../app/mocks/outcome-reflection"
+      );
+      await startMockWorker({ onUnhandledFrame: "bypass", quiet: true });
+      worker.use(...createOutcomeReflectionHandlers());
+      return () => worker.resetHandlers();
+    }
     if (!parameters.activeRoomConnection) return;
     const { worker, startMockWorker } = await import("../app/mocks/browser");
     const { activeRoomConnectionHandlers } = await import(

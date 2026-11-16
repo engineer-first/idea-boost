@@ -24,6 +24,7 @@
       "PREVIEW_PR_NUMBER": "PR_NUMBER_REQUIRED",
       "PREVIEW_API_COMMIT": "PR_COMMIT_REQUIRED"
     },
+    "ai": { "binding": "AI" },
     "durable_objects": {
       "bindings": [
         { "name": "ROOM_DO", "class_name": "PreviewRoomDO" },

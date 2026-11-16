@@ -1,7 +1,14 @@
 "use client";
 
 import { ArrowRight, Check } from "lucide-react";
-import { Fragment, useEffect, useId, useRef, useState } from "react";
+import {
+  Fragment,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PHASE_STEP_COUNTS,
@@ -40,11 +47,14 @@ type LocationState = "compact" | "expanded";
 export type BoardLocationProps = {
   phase: RoomPhase;
   outcomePublished?: boolean;
+  // 畳んだ現在地ボタンの右に並べる操作（「進め方」）。カードの高さは増やさない。
+  action?: ReactNode;
 };
 
 export function BoardLocation({
   phase,
   outcomePublished = false,
+  action,
 }: BoardLocationProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
@@ -135,80 +145,93 @@ export function BoardLocation({
             close();
         }}
       >
-        <button
-          ref={trigger}
-          type="button"
-          aria-label={`現在地：${phase.kind === "step" ? `${PHASE_MARKERS[phase.phase]} ${title}・${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}` : title}。全体の流れを${state === "compact" ? "開く" : "閉じる"}`}
-          aria-expanded={state !== "compact"}
-          aria-controls={`${id}-detail`}
-          data-testid="board-location-trigger"
-          className={styles.trigger}
-          onClick={() => {
-            if (state !== "compact") {
-              close();
-              return;
-            }
-            setViewedPhase(phase.kind === "step" ? phase.phase : 1);
-            setRequest({ phaseKey, state: "expanded" });
-          }}
-        >
-          <span className={styles.currentAction}>
-            {phase.kind === "step" ? (
-              <>
-                <span className={styles.currentPhase}>
-                  {PHASE_MARKERS[phase.phase]}
-                  {PHASE_NAMES[phase.phase]}
-                </span>
-                <span aria-hidden="true" className="text-muted-foreground">
-                  ｜
-                </span>
-                <span
-                  className={styles.currentStep}
-                  data-testid="board-location-step"
-                >
-                  {stepLabel}
-                </span>
-              </>
-            ) : (
-              <span className={styles.currentPhase}>{title}</span>
-            )}
-            {phase.kind === "step" && !outcomePublished && (
-              <span className={styles.next}>
-                次：{NEXT_LABELS[phase.phase][phase.step - 1]}
-              </span>
-            )}
-          </span>
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 12 12"
-            className={styles.disclosure}
-            data-expanded={state !== "compact"}
+        <div className={styles.row}>
+          <button
+            ref={trigger}
+            type="button"
+            aria-label={`現在地：${phase.kind === "step" ? `${PHASE_MARKERS[phase.phase]} ${title}・${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}` : title}。全体の流れを${state === "compact" ? "開く" : "閉じる"}`}
+            aria-expanded={state !== "compact"}
+            aria-controls={`${id}-detail`}
+            data-testid="board-location-trigger"
+            className={styles.trigger}
+            onClick={() => {
+              if (state !== "compact") {
+                close();
+                return;
+              }
+              setViewedPhase(phase.kind === "step" ? phase.phase : 1);
+              setRequest({ phaseKey, state: "expanded" });
+            }}
           >
-            <path d="M2 4h8L6 8z" fill="currentColor" />
-          </svg>
-          {phase.kind === "step" ? (
-            <span
-              role="progressbar"
-              aria-label="全工程の現在地"
-              aria-valuemin={0}
-              aria-valuemax={FLOW_STEPS.length}
-              aria-valuenow={currentPosition}
-              aria-valuetext={`全${FLOW_STEPS.length}工程の${currentPosition}番目。${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}`}
-              className={styles.progressRail}
-              data-testid="board-progress-rail"
+            <span className={styles.currentAction}>
+              {phase.kind === "step" ? (
+                <>
+                  <span className={styles.currentPhase}>
+                    {PHASE_MARKERS[phase.phase]}
+                    {PHASE_NAMES[phase.phase]}
+                  </span>
+                  <span aria-hidden="true" className="text-muted-foreground">
+                    ｜
+                  </span>
+                  <span
+                    className={styles.currentStep}
+                    data-testid="board-location-step"
+                  >
+                    {stepLabel}
+                  </span>
+                </>
+              ) : (
+                <span className={styles.currentPhase}>{title}</span>
+              )}
+              {phase.kind === "step" && !outcomePublished && (
+                <span className={styles.next}>
+                  次：{NEXT_LABELS[phase.phase][phase.step - 1]}
+                </span>
+              )}
+            </span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 12 12"
+              className={styles.disclosure}
+              data-expanded={state !== "compact"}
             >
-              {FLOW_STEPS.map((item, index) => (
-                <span
-                  key={`${item.phase}-${item.step}`}
-                  aria-hidden="true"
-                  data-phase-start={item.phase !== 1 && item.step === 1}
-                  data-reached={index < currentPosition}
-                  data-current={index + 1 === currentPosition}
-                />
-              ))}
+              <path d="M2 4h8L6 8z" fill="currentColor" />
+            </svg>
+            {phase.kind === "step" ? (
+              <span
+                role="progressbar"
+                aria-label="全工程の現在地"
+                aria-valuemin={0}
+                aria-valuemax={FLOW_STEPS.length}
+                aria-valuenow={currentPosition}
+                aria-valuetext={`全${FLOW_STEPS.length}工程の${currentPosition}番目。${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}`}
+                className={styles.progressRail}
+                data-testid="board-progress-rail"
+              >
+                {FLOW_STEPS.map((item, index) => (
+                  <span
+                    key={`${item.phase}-${item.step}`}
+                    aria-hidden="true"
+                    data-phase-start={item.phase !== 1 && item.step === 1}
+                    data-reached={index < currentPosition}
+                    data-current={index + 1 === currentPosition}
+                  />
+                ))}
+              </span>
+            ) : null}
+          </button>
+          {/* 全体の流れを開いている間は幅だけ残して隠し、Tabで手順へ進める。 */}
+          {action ? (
+            <span
+              className={styles.action}
+              aria-hidden={state !== "compact" || undefined}
+              inert={state !== "compact"}
+              data-hidden={state !== "compact"}
+            >
+              {action}
             </span>
           ) : null}
-        </button>
+        </div>
         {state !== "compact" ? (
           <section
             id={`${id}-detail`}

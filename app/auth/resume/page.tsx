@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { RoomOperationResume } from "@/features/room-lifecycle";
+export const metadata: Metadata = { title: "ルームへ戻る | Idea Boost" };
+
 export default async function ResumePage({
   searchParams,
 }: {

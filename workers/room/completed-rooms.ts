@@ -348,6 +348,7 @@ export class CompletedRoomStorage {
           "phase_rollback_checkpoints",
           "progress_history_outbox",
           "progress_history",
+          "outcome_reflections",
         ])
           this.sql.exec(`DELETE FROM ${table}`);
         this.sql.exec(
