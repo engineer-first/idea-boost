@@ -28,9 +28,10 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v5
         with:
           install: true
+          install_args: node
           cache: false
       - run: npm ci
       - name: Verify latest develop and its successful CI before migration

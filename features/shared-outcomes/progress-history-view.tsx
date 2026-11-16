@@ -1,4 +1,5 @@
 "use client";
+import { CircleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -103,9 +104,20 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
               <h3 className="font-semibold">
                 {entry.sequence}. {getRoomPhaseLabel(entry.phase)}
               </h3>
-              <span className="rounded-full border px-2 py-1 text-base">
-                {HISTORY_STATUS_LABELS[entry.saveStatus]}
-              </span>
+              {HISTORY_STATUS_LABELS[entry.saveStatus] && (
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-base ${
+                    entry.saveStatus === "failed"
+                      ? "border-danger/20 bg-danger-soft text-danger-text"
+                      : ""
+                  }`}
+                >
+                  {entry.saveStatus === "failed" && (
+                    <CircleAlert className="size-4" aria-hidden />
+                  )}
+                  {HISTORY_STATUS_LABELS[entry.saveStatus]}
+                </span>
+              )}
             </div>
             <p className="mt-2 text-base text-muted-foreground">
               {entry.action ? HISTORY_ACTION_LABELS[entry.action] : "進行中"} →{" "}
@@ -186,14 +198,9 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
             記録時刻：
             {selected.exitedAt === null
               ? "終了未記録"
-              : formatHistoryTime(selected.exitedAt)}{" "}
-            · {HISTORY_STATUS_LABELS[selected.saveStatus]}
-          </p>
-          <p className="text-base text-muted-foreground">
-            閲覧への反映：
-            {selected.reflectedAt === null
-              ? "未反映"
-              : formatHistoryTime(selected.reflectedAt)}
+              : formatHistoryTime(selected.exitedAt)}
+            {HISTORY_STATUS_LABELS[selected.saveStatus] &&
+              ` · ${HISTORY_STATUS_LABELS[selected.saveStatus]}`}
           </p>
           {recordLoading ? (
             <p role="status">盤面を読み込んでいます…</p>

@@ -106,7 +106,7 @@ async function supervise(options: ServerOptions): Promise<void> {
   process.exitCode = code;
   completed = true;
   // 親はこのexitを受けて、残ったグループを確認・清掃する。
-  if (process.connected) process.disconnect();
+  if (process.connected) process.disconnect?.();
 }
 
 async function launch(options: ServerOptions): Promise<void> {
@@ -164,5 +164,5 @@ async function main(): Promise<void> {
 main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
-  if (process.connected) process.disconnect();
+  if (process.connected) process.disconnect?.();
 });

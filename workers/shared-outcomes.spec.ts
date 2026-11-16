@@ -461,7 +461,7 @@ it("受理した共有タイマー操作だけ最終利用を更新し、保存�
     instance.getSharedOutcome(),
   );
   expect(after?.lastUsedAt).toBeGreaterThan(old);
-  expect(after?.expiresAt).toBe((after?.lastUsedAt ?? 0) + 30 * 86400000);
+  expect(after?.expiresAt).toBe((after?.lastUsedAt ?? 0) + 180 * 86400000);
   expect(after?.snapshot).toEqual(before?.snapshot);
   expect(after?.lastSavedAt).toBe(before?.lastSavedAt);
   host.ws.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));

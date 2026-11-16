@@ -150,15 +150,15 @@ it("前の検索の遅い応答で新しい条件の結果を上書きしない"
 it("絞り込み後も選択欄のフォーカスを保ち、キーボードで続けて操作できる", async () => {
   setup();
   await screen.findByRole("link", { name: /相談ルーム/ });
-  const select = screen.getByLabelText("保存状態");
+  const select = screen.getByLabelText("記録");
   select.focus();
-  fireEvent.change(select, { target: { value: "failed" } });
+  fireEvent.change(select, { target: { value: "confirmed" } });
   await waitFor(() =>
-    expect(new URL(window.location.href).searchParams.get("saveStatus")).toBe(
-      "failed",
+    expect(new URL(window.location.href).searchParams.get("status")).toBe(
+      "confirmed",
     ),
   );
-  expect(screen.getByLabelText("保存状態")).toHaveFocus();
+  expect(screen.getByLabelText("記録")).toHaveFocus();
 });
 
 it("追加取得時の認可拒否でも成果を隠し、権限エラーを表示する", async () => {
@@ -243,8 +243,8 @@ it("逆転した期間は送信せず、修正すれば検索できる", async (
 it("条件の解除で、まだ適用していない日付の入力も消す", async () => {
   setup();
   await screen.findByRole("link", { name: /相談ルーム/ });
-  fireEvent.change(screen.getByLabelText("保存状態"), {
-    target: { value: "failed" },
+  fireEvent.change(screen.getByLabelText("記録"), {
+    target: { value: "confirmed" },
   });
   await screen.findByRole("button", { name: "条件をクリア" });
   fireEvent.change(screen.getByLabelText("開始日"), {
@@ -252,4 +252,19 @@ it("条件の解除で、まだ適用していない日付の入力も消す", a
   });
   fireEvent.click(screen.getByRole("button", { name: "条件をクリア" }));
   await waitFor(() => expect(screen.getByLabelText("開始日")).toHaveValue(""));
+});
+
+it("保存状態の条件が付いたURLで開いても、欄のない条件では絞り込まない", async () => {
+  window.history.replaceState(null, "", "/shared-outcomes?saveStatus=failed");
+  const fetchMock = vi.fn(async () =>
+    Response.json({ outcomes: [first], nextCursor: null }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  render(<SharedOutcomes />);
+  await screen.findByRole("link", { name: /相談ルーム/ });
+  for (const [url] of fetchMock.mock.calls as unknown as [string][])
+    expect(url).not.toContain("saveStatus");
+  expect(
+    screen.queryByRole("button", { name: "条件をクリア" }),
+  ).not.toBeInTheDocument();
 });

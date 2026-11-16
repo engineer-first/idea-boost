@@ -89,3 +89,6 @@ __pycache__/
 # 手動本番公開の成功receipt（記録再送用、秘密を含めない）
 /.release-history/
 .preview-bundle/
+
+# 運用 CLI（npm run d1:export）の出力。利用者のメール・名前や本文を含むためコミットしない。
+/.d1-export/

@@ -67,3 +67,5 @@ export const Failure: Story = {
     message: "ルームを開けませんでした。もう一度お試しください。",
   },
 };
+
+export const TooLong: Story = { args: { intentName: "あ".repeat(16) } };

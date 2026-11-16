@@ -45,6 +45,7 @@ import {
   FeedbackPanel,
   FeedbackPrompt,
 } from "@/features/feedback";
+import { HmwHintCharacter, useHmwHintNudge } from "@/features/hmw";
 import type { Note } from "@/features/notes";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
@@ -59,11 +60,13 @@ import {
   type CanvasTool,
   useCanvasSelection,
 } from "../logic/use-canvas-selection";
+import { useCharacterHint } from "../logic/use-character-hint";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RemotePresenterView } from "../logic/use-presenter-view";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
+import { BoardCharacter } from "../molecules/board-character";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
@@ -74,6 +77,7 @@ import { RoomNameDialog } from "../molecules/room-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
+import canvasStyles from "../organisms/room-board-canvas.module.css";
 import { RoomBoardHeader } from "../organisms/room-board-header";
 
 // 透過wrapper全体ではなく実際にpointerを受ける表示領域だけを計測する。
@@ -193,7 +197,6 @@ export type RoomBoardViewProps = {
   // WebSocket 接続の表示用状態。値の生成は room-board（コンテナ）の責務で、
   // ここでは受け取った状態を表示するだけ（このコンポーネントはデータ層に依存しない）。
   connectionStatus: RoomScreenConnectionStatus;
-  connectionDelayed?: boolean;
   draggingNoteId: string | null;
   members: Member[];
   loginReturnHref?: string;
@@ -223,7 +226,7 @@ export type RoomBoardViewProps = {
   decidedHmw: string | null;
   issueReference?: Carryover | null;
   hmwReference?: Carryover | null;
-  onAddPrivateNote: () => string | null;
+  onAddPrivateNote: (content?: string) => string | null;
   noteCreationPending?: boolean;
   noteCreationReceipt?: { operationId: string; noteId: string };
   noteCreationSupported?: boolean;
@@ -331,7 +334,6 @@ export function RoomBoardView({
   outcomePublished,
   adoptionFocusNoteId = null,
   connectionStatus,
-  connectionDelayed = false,
   draggingNoteId,
   members,
   loginReturnHref,
@@ -522,7 +524,7 @@ export function RoomBoardView({
   const [isAdoptRequested, setIsAdoptMode] = useState(false);
   const isAdoptMode = isAdoptRequested;
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
-  const privateNoteAddRef = useRef<(() => void) | null>(null);
+  const privateNoteAddRef = useRef<((content?: string) => void) | null>(null);
   const composingRef = useRef(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
@@ -878,6 +880,15 @@ export function RoomBoardView({
 
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
+  const characterHint = useCharacterHint({
+    phase,
+    timer,
+    serverOffsetMs: timerServerOffsetMs,
+    noteCount: interactions.privateNotes.length,
+    active: !isDisconnected,
+    // 2-1の通常の発想支援は問いヒントに任せ、残り時間の通知は維持する。
+    tipsEnabled: !isPhaseStep(phase, 2, 1),
+  });
   const voteRemaining = {
     subjective: Math.max(
       0,
@@ -1438,6 +1449,28 @@ export function RoomBoardView({
     onPrivateNoteDragStart: handlePrivateDragStart,
   } = interactions;
 
+  const isHmwWriting = isPhaseStep(phase, 2, 1);
+  const [hmwHintAvailableHeight, setHmwHintAvailableHeight] =
+    useState<number>();
+  const hmwHintNudge = useHmwHintNudge({
+    scope: `${inviteCode}:${currentUserId}:${phaseRevision}:${completionResetVersion}`,
+    enabled:
+      isHmwWriting &&
+      !isDisconnected &&
+      timer.status === "running" &&
+      !isNextPhasePending &&
+      !isLeaving &&
+      !isRemovingMember &&
+      !progress.readyUserIds.includes(currentUserId) &&
+      !outcomePublished &&
+      Boolean(hmwDecidedIssue?.trim()),
+    noteCount: toolbarNotes.filter(
+      (note) =>
+        note.authorId === currentUserId &&
+        (draftValue?.(note.id) ?? note.content).trim(),
+    ).length,
+  });
+
   const hasMoveHistory = moveHistory !== undefined;
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
@@ -1490,6 +1523,60 @@ export function RoomBoardView({
           `${element?.getBoundingClientRect().height ?? 0}px`,
         );
       }
+      // 先生は広い画面では現在地カードの右隣、スマホでは真下に置く。
+      const locationCard = root.querySelector<HTMLElement>(
+        '[data-testid="board-location-slot"]',
+      );
+      const locationBounds = locationCard?.getBoundingClientRect();
+      root.style.setProperty(
+        "--board-location-top",
+        `${locationBounds?.top ?? 12}px`,
+      );
+      root.style.setProperty(
+        "--board-location-right",
+        `${locationBounds?.right ?? 372}px`,
+      );
+      root.style.setProperty(
+        "--board-location-bottom",
+        `${Math.ceil(locationBounds?.bottom ?? 68)}px`,
+      );
+      const characterWidth =
+        root
+          .querySelector<HTMLElement>('[data-testid="board-character"] button')
+          ?.getBoundingClientRect().width ?? 56;
+      const centralGuide = isDisconnected
+        ? null
+        : root.querySelector<HTMLElement>(
+            '[data-testid="step-one-onboarding-trigger"]',
+          );
+      const guideBounds = centralGuide?.getBoundingClientRect();
+      const rem =
+        Number.parseFloat(
+          getComputedStyle(document.documentElement).fontSize,
+        ) || 16;
+      const bubbleLeft =
+        (locationBounds?.right ?? 372) + 12 + characterWidth + 6;
+      const availableBubbleWidth =
+        guideBounds && guideBounds.width > 0
+          ? guideBounds.left - bubbleLeft - 8
+          : 15 * rem;
+      const bubbleBelow = availableBubbleWidth < 10 * rem;
+      root.style.setProperty(
+        "--board-character-bubble-max-width",
+        `${bubbleBelow ? 15 * rem : Math.min(15 * rem, availableBubbleWidth)}px`,
+      );
+      root.style.setProperty(
+        "--board-character-bubble-top",
+        bubbleBelow ? "100%" : "0.25rem",
+      );
+      root.style.setProperty(
+        "--board-character-bubble-left",
+        bubbleBelow ? "0px" : "100%",
+      );
+      root.style.setProperty(
+        "--board-character-bubble-gap",
+        bubbleBelow ? "0px" : "0.375rem",
+      );
       if (isPersonalNoteEntryPhase) {
         const frame = root.querySelector<HTMLElement>(
           '[data-testid="board-frame"]',
@@ -1557,6 +1644,25 @@ export function RoomBoardView({
             "--board-private-reference-inset",
             `${Math.max(0, Math.ceil(referenceInset))}px`,
           );
+          const hintCharacter = root.querySelector<HTMLElement>(
+            '[data-testid="hmw-hint-character"]',
+          );
+          const issueBounds = visibleBounds(
+            '[data-testid="board-context-references"]',
+          );
+          if (hmwHintNudge.hasBeenShown && hintCharacter && issueBounds) {
+            // 付箋欄を動かさず、決定課題の下にある空白に合わせて雲だけを収める。
+            setHmwHintAvailableHeight(
+              Math.max(
+                88,
+                Math.floor(
+                  hintCharacter.getBoundingClientRect().bottom -
+                    issueBounds.bottom -
+                    112,
+                ),
+              ),
+            );
+          }
         }
       }
     };
@@ -1573,6 +1679,7 @@ export function RoomBoardView({
         (testId) => `[data-testid="${testId}"]`,
       ),
       '[data-testid="board-location-slot"]',
+      '[data-testid="step-one-onboarding-trigger"]',
       '[data-testid="board-help-panel"]',
       ...referenceSelectors,
     ]) {
@@ -1585,7 +1692,13 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, phase, isIdeaMapWorkspaceStep]);
+  }, [
+    boardRootRef,
+    phase,
+    isIdeaMapWorkspaceStep,
+    hmwHintNudge.hasBeenShown,
+    isDisconnected,
+  ]);
 
   const handleNoteSelect = (
     noteId: string | null,
@@ -1664,7 +1777,7 @@ export function RoomBoardView({
                 : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)), max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))",
           } as CSSProperties
         }
-        className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
+        className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${isAdditionalWriting && phase.kind === "step" && phase.step === 1 ? canvasStyles.additionalWritingCanvas : ""} ${
           isNoteDragging
             ? "cursor-grabbing"
             : isAdoptMode
@@ -1785,11 +1898,14 @@ export function RoomBoardView({
             cancelRootPress();
         }}
         onClickCapture={handleRootClickCapture}
+        onInputCapture={() => hmwHintNudge.markActivity()}
         onCompositionStartCapture={() => {
           composingRef.current = true;
+          hmwHintNudge.setComposing(true);
         }}
         onCompositionEndCapture={() => {
           composingRef.current = false;
+          hmwHintNudge.setComposing(false);
         }}
         onKeyDownCapture={(event) => {
           const target = event.target;
@@ -1960,7 +2076,6 @@ export function RoomBoardView({
           isRemovingMember={isRemovingMember}
           isDisconnected={isDisconnected}
           connectionStatus={connectionStatus}
-          connectionDelayed={connectionDelayed}
           members={members}
           currentUserId={currentUserId}
           completedVoterIds={completedVoterIds}
@@ -2111,6 +2226,7 @@ export function RoomBoardView({
           ideaMapPlaneRef={ideaMapPlaneRef}
           privateToolbarRef={privateToolbarRef}
           camera={camera}
+          character={<BoardCharacter message={characterHint.message} />}
           displayZoom={interactions.displayZoom}
           gridStyle={gridStyle}
           isPanning={isPanning}
@@ -2186,7 +2302,12 @@ export function RoomBoardView({
           onAdoptNote={handleAdoptNote}
           onGroupCreate={onGroupCreate}
           onGroupUpdateName={onGroupUpdateName}
-          onAddPrivateNote={onAddPrivateNote}
+          onAddPrivateNote={(content) => {
+            hmwHintNudge.markActivity();
+            return content === undefined
+              ? onAddPrivateNote()
+              : onAddPrivateNote(content);
+          }}
           onPrivateNoteContentChange={onPrivateNoteContentChange}
           onPrivateNoteDelete={onPrivateNoteDelete}
           onPrivateNoteDragStart={handlePrivateDragStart}
@@ -2200,6 +2321,49 @@ export function RoomBoardView({
           onPresenterViewChange={onPresenterViewChange}
           onManualPanStart={onManualPanStart}
         />
+        {isHmwWriting ? (
+          <div
+            className="pointer-events-auto absolute bottom-3 left-3 z-40"
+            data-testid="hmw-hint-hud"
+            data-board-fit-edge="bottom"
+          >
+            <HmwHintCharacter
+              key={`${inviteCode}:${currentUserId}:${phaseRevision}:${completionResetVersion}:${hmwDecidedIssue}:${hmwHintNudge.cycle}`}
+              decidedIssue={hmwDecidedIssue}
+              showNudge={hmwHintNudge.showNudge}
+              hasBeenShown={hmwHintNudge.hasBeenShown}
+              onHintOpen={hmwHintNudge.dismiss}
+              onDismissNudge={hmwHintNudge.dismiss}
+              availableHeight={hmwHintAvailableHeight}
+              onFadeOutComplete={hmwHintNudge.restart}
+              pending={noteCreationPending}
+              disabled={
+                isDisconnected ||
+                boardInteractionBlocked ||
+                !permissions.canCreateNote ||
+                !noteCreationSupported ||
+                isNextPhasePending ||
+                isLeaving ||
+                isRemovingMember
+              }
+              onUseQuestion={(content) => {
+                if (
+                  isDisconnected ||
+                  boardInteractionBlocked ||
+                  !permissions.canCreateNote ||
+                  !noteCreationSupported ||
+                  noteCreationPending ||
+                  isNextPhasePending ||
+                  isLeaving ||
+                  isRemovingMember
+                )
+                  return;
+                privateNoteAddRef.current?.(content);
+                setExpandPrivateNotesRequest((request) => request + 1);
+              }}
+            />
+          </div>
+        ) : null}
         {isVotingStep(phase) ? (
           <div
             className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center min-[640px]:max-[1023px]:bottom-[5.25rem] max-[639px]:justify-center max-[639px]:bottom-[var(--board-mobile-controls-bottom)]"
@@ -2285,7 +2449,6 @@ export function RoomBoardView({
           onOpenChange={setLeaveDialogOpen}
           onConfirm={onLeave}
           isLeaving={isLeaving}
-          lastMember={members.length === 1}
           onClosed={() => {
             boardRootRef.current
               ?.querySelector<HTMLButtonElement>(

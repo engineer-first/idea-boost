@@ -16,6 +16,13 @@ const geistMono = Geist_Mono({
 const preview: Preview = {
   parameters: {
     nextjs: { appDirectory: true },
+    options: {
+      // 画面を作るときの起点になるトークンと設計資料を先頭に置き、機能は名前順に並べる。
+      storySort: {
+        method: "alphabetical",
+        order: ["Design", "Schema", "Dependencies", "*"],
+      },
+    },
   },
   async beforeEach({ parameters }) {
     if (!parameters.activeRoomConnection) return;

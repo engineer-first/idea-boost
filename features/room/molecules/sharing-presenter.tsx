@@ -61,7 +61,7 @@ export function SharingPresenter({
           aria-label="発表者と全体の順番を確認"
           data-member-menu-origin
           aria-describedby={descriptionId}
-          className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-lg border-blue-200 bg-blue-50 px-2 text-left hover:bg-blue-100 max-[900px]:min-w-[220px] max-[900px]:flex-1"
+          className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-lg border-border bg-primary-soft px-2 text-left hover:bg-muted max-[900px]:min-w-[220px] max-[900px]:flex-1"
         >
           <span
             className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
@@ -79,7 +79,7 @@ export function SharingPresenter({
                   {index > 0 ? (
                     <ArrowRight
                       aria-hidden="true"
-                      className="size-3 shrink-0 text-blue-400"
+                      className="size-3 shrink-0 text-primary/60"
                     />
                   ) : null}
                   <span
@@ -103,7 +103,7 @@ export function SharingPresenter({
                     />
                     {result === "passed" ? (
                       <span
-                        className="absolute -bottom-1 -right-1 inline-flex size-3.5 items-center justify-center rounded-full border border-background bg-slate-600 text-white"
+                        className="absolute -bottom-1 -right-1 inline-flex size-3.5 items-center justify-center rounded-full border border-background bg-muted-foreground text-background"
                         role="img"
                         aria-label="パス"
                       >
@@ -113,10 +113,10 @@ export function SharingPresenter({
                   </span>
                   {isCurrent ? (
                     <span className="min-w-0 max-w-28 text-left leading-tight">
-                      <span className="block text-xs font-bold text-blue-700">
+                      <span className="block text-xs font-bold text-primary-strong">
                         {currentStatusLabel}
                       </span>
-                      <span className="block truncate text-xs font-semibold text-blue-950">
+                      <span className="block truncate text-xs font-semibold text-foreground">
                         {member.name}
                       </span>
                     </span>

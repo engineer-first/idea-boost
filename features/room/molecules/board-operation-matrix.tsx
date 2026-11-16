@@ -52,7 +52,7 @@ export function BoardOperationMatrix({
                         data-testid={`board-operation-status-${operation.key}`}
                         data-status={enabled ? "allowed" : "blocked"}
                         className={`absolute -right-1 -bottom-1 size-3.5 stroke-[3] ${
-                          enabled ? "text-green-600" : "text-red-600"
+                          enabled ? "text-state-decided" : "text-destructive"
                         }`}
                       />
                     </span>

@@ -5,7 +5,10 @@ export {
 } from "./logic/hmw-content";
 export { HMW_EXAMPLES } from "./logic/hmw-note-examples";
 export { isHmwWritingStep } from "./logic/hmw-step";
+export { useHmwHintNudge } from "./logic/use-hmw-hint-nudge";
 export type { HmwDecidedIssueBannerProps } from "./molecules/hmw-decided-issue-banner";
 export { HmwDecidedIssueBanner } from "./molecules/hmw-decided-issue-banner";
+export type { HmwHintCharacterProps } from "./molecules/hmw-hint-character";
+export { HmwHintCharacter } from "./molecules/hmw-hint-character";
 export type { HmwTemplatePanelProps } from "./molecules/hmw-template-panel";
 export { HmwTemplatePanel } from "./molecules/hmw-template-panel";

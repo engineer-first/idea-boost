@@ -19,6 +19,14 @@ function setup(
 }
 
 describe("InviteCodeDialogView", () => {
+  it("招待コードをダイアログの説明として関連付ける", () => {
+    setup();
+
+    expect(screen.getByRole("alertdialog")).toHaveAccessibleDescription(
+      "ABC234",
+    );
+  });
+
   it("招待コードとホスト名付きタイトルを表示する", () => {
     setup();
 

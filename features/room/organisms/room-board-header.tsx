@@ -24,7 +24,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -103,7 +102,6 @@ export type RoomBoardHeaderProps = {
   // ハイドレーション対策込みの「操作を止めるべきか」。判定は view の責務。
   isDisconnected: boolean;
   connectionStatus: RoomScreenConnectionStatus;
-  connectionDelayed?: boolean;
   members: Member[];
   currentUserId: string;
   completedVoterIds?: ReadonlyArray<string>;
@@ -162,7 +160,6 @@ export function RoomBoardHeader({
   timerUpdateVersion = 0,
   isDisconnected,
   connectionStatus,
-  connectionDelayed = false,
   members,
   currentUserId,
   completedVoterIds = [],
@@ -751,7 +748,7 @@ export function RoomBoardHeader({
               >
                 <span
                   aria-hidden="true"
-                  className="inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none"
+                  className="inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-state-decided-text opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none"
                   data-testid="vote-completion-label"
                 >
                   <Check className="size-3.5 shrink-0" />
@@ -1026,14 +1023,11 @@ export function RoomBoardHeader({
                       完了して成果を表示
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
+                  <AlertDialogContent aria-describedby={undefined}>
                     <AlertDialogHeader>
                       <AlertDialogTitle>
                         スプリントを完了しますか？
                       </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        全員に成果を表示します。完了後は作業ボードに戻って編集できません。
-                      </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>キャンセル</AlertDialogCancel>
@@ -1056,7 +1050,17 @@ export function RoomBoardHeader({
             ) : phase.kind === "step" && !activeSharing ? (
               <NextPhaseConfirmDialog
                 key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
-                phase={phase}
+                waiting={
+                  isDisconnected
+                    ? { kind: "connection" }
+                    : !canProceedByTimeOrReady
+                      ? {
+                          kind: "members",
+                          remaining: progress.notReadyUserIds.length,
+                          total: progress.connectedUserIds.length,
+                        }
+                      : undefined
+                }
                 disabled={
                   isDisconnected ||
                   isNextPhasePending ||
@@ -1328,7 +1332,6 @@ export function RoomBoardHeader({
               <RoomConnectionNotice
                 returnHref={loginReturnHref}
                 status={connectionStatus}
-                delayed={connectionDelayed}
                 testId="board-connection-status"
                 className="board-hud pointer-events-auto w-max max-w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-muted-foreground max-[639px]:w-full"
               />

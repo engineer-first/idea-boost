@@ -94,7 +94,7 @@ describe("本人向けの完了ルーム再訪", () => {
     };
     expect(result.decisions).toHaveLength(3);
     expect(result.scenes).toHaveLength(5);
-    expect(result.expiresAt - result.completedAt).toBe(30 * 86400000);
+    expect(result.expiresAt - result.completedAt).toBe(180 * 86400000);
     expect(JSON.stringify(result)).not.toMatch(
       /votes|authorId|subjective|objective|Host|Guest/,
     );
@@ -794,7 +794,7 @@ it("A15: 初回完了由来の期限1ms前・等値・1ms後で、本文と索�
       await request(`completed-rooms/${room.roomId}`)
     ).json()) as { completedAt: number; expiresAt: number };
     expect(first.completedAt).toBe(completedTime);
-    expect(first.expiresAt).toBe(completedTime + 30 * 86400000);
+    expect(first.expiresAt).toBe(completedTime + 180 * 86400000);
 
     async function retainedData() {
       const local = await runInRoomDO(room.roomId, (_instance, state) => ({

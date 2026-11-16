@@ -220,7 +220,7 @@ it("完了直後は本人の保持期間と混同せず成果の保存期限を�
       connected
     />,
   );
-  expect(screen.getByText(/保存期限は完了から30日間です。/)).toBeVisible();
+  expect(screen.getByText(/保存期限は完了から180日間です。/)).toBeVisible();
   expect(screen.queryByText(/完了後30日間見返せます/)).not.toBeInTheDocument();
 });
 

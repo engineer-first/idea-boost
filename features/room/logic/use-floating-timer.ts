@@ -13,7 +13,7 @@ import {
 } from "./timer-position";
 
 const OBSTACLES =
-  '[data-testid="step-one-onboarding-trigger"], [data-testid="board-control-hud"], [data-testid="board-context-hud"], [data-testid="board-location-card"], [data-testid="private-notes-toolbar"], [data-testid="canvas-zoom-hud"], [data-testid="board-tools-hud"], [data-testid="board-operation-matrix"], [data-testid="idea-map-size-controls-hud"]';
+  '[data-testid="step-one-onboarding-trigger"], [data-testid="board-control-hud"], [data-testid="board-context-hud"], [data-testid="board-location-card"], [data-testid="private-notes-toolbar"], [data-testid="canvas-zoom-hud"], [data-testid="board-tools-hud"], [data-testid="board-operation-matrix"], [data-testid="idea-map-size-controls-hud"], [data-testid="board-connection-status"]';
 
 export function useFloatingTimer(
   ref: RefObject<HTMLElement | null>,

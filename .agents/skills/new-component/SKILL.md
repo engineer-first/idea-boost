@@ -1,41 +1,24 @@
 ---
 name: new-component
-description: UI コンポーネントを、配置規約とテスト方針に従って stories と必要な検証を含めて新規作成する
+description: UI 部品を新しく作るときに、配置・stories・検証・見た目（DESIGN.md）の規約に沿って作る。features/・app/・components/ に新しい .tsx 部品を追加するときに使う。
 argument-hint: <component-name> [配置先ディレクトリ]
-disable-model-invocation: true
 ---
 
 # 新規 UI コンポーネント作成
 
-`$ARGUMENTS` で指定された名前の UI コンポーネントを、リポジトリ規約（AGENTS.md）に従って作成する。
+`$ARGUMENTS`（指定がなければ依頼内容）の UI 部品を作る。規約の本文はここに書き写さず、次を読んでから作る。
 
-## 配置先の決定
+- 配置・命名は[コード配置と命名](../../../docs/development/conventions.md#コード配置と命名)、container / view・stories・fixture・モックは[UI](../../../docs/development/conventions.md#ui)
+- 検証の選び方は[テスト方針](../../../docs/development/testing.md)
+- 色・文字・余白・角丸・影・状態表現は [DESIGN.md](../../../DESIGN.md)
 
-- ドメイン UI は `features/<feature>/` に置く。既存 feature のフラット / 5 箱構成に合わせ、5 箱の新規部品は `molecules/` を起点に、必要な依存に応じて上の帯へ置く。
-- `app/` は予約ファイルとそのルート専用の組み立て view、`components/ui/` はドメインを知らない shadcn 汎用部品に限る。
-- 配置・責務はルートの `AGENTS.md` と、そこから案内される UI 規約に従う。検証は [テスト方針](../../../docs/development/testing.md) を読む。既存実装から判断できる配置はそのまま進める。
-
-## 作成するファイルと条件
-
-ファイル名は kebab-case で統一する（例: `idea-card`）。
-
-| ファイル                | 役割                                                                        |
-| ----------------------- | --------------------------------------------------------------------------- |
-| `idea-card.fixture.ts`  | 必要なテストデータ。既存 builder も再利用し、コンポーネント内に持ち込まない |
-| `idea-card.spec.tsx`    | この部品の振る舞いを検証する場合に作成。親の DOM テスト等でも保証できる     |
-| `idea-card.tsx`         | 実装                                                                        |
-| `idea-card.stories.tsx` | Storybook stories（全 UI コンポーネントで必須）                             |
+既存実装から判断できる配置はそのまま進める。
 
 ## 手順
 
-1. 検知したい不具合と検証先をテスト方針から選ぶ。既存 spec の拡張も検討する
-2. 必要な fixture を用意する。contracts 型の builder は `contracts/*.fixture.ts`、feature 固有の fixture は実装と同居させる
-3. 外部 API に依存する場合は MSW handler を、WebSocket に依存する場合はフェイク（webSocketFactory 注入）を用意し、fixture を共有する
-4. 振る舞いを追加する場合は `AGENTS.md` の red 先行を守る。実装と stories を作成し、選んだ検証を実行する。データに依存する UI は適用される loading / empty / success / error をテスト方針に従ってカバーする
-
-## チェックリスト
-
-- Props の型を明示的に定義して export している（公開境界の明示型）
-- スキーマ名（型・zod）は PascalCase
-- コンポーネント内に生のテストデータをハードコードしていない
-- `npm run lint` と `npm run typecheck` が通る
+1. 配置先を決める。ドメイン UI は `features/<feature>/`（5 箱なら `molecules/` を起点）、汎用部品は `components/ui/`、1 ルート専用の組み立てだけ `app/`。
+2. 検知したい不具合と検証先をテスト方針から選ぶ。親の DOM テストや既存 spec で検知できるなら、専用 spec は作らず既存を拡張する。
+3. 振る舞いを追加するなら、AGENTS.md のとおり失敗するテストを先に確認する。
+4. fixture（`<name>.fixture.ts`）、実装（`<name>.tsx`）、stories（`<name>.stories.tsx`）を同居させて作る。外部 API は MSW、WS は `webSocketFactory` のフェイクで、fixture を共有する。
+5. 見た目は DESIGN.md のトークン名と既存の正本部品（付箋・ボタン・ダイアログ等）に合わせる。値を直接書かない。
+6. 変更範囲の検証（`npm run lint`・`npm run typecheck`・選んだテスト）を実行し、[ui-review](../ui-review/SKILL.md) の観点で見直す。

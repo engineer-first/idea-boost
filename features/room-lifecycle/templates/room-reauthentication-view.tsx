@@ -62,22 +62,22 @@ export function RoomReauthenticationView({
             {message}
           </p>
         )}
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Button
-            ref={continueButton}
-            className="min-h-11 whitespace-normal"
-            disabled={pending}
-            onClick={onContinue}
-          >
-            {pending ? "準備中…" : "Googleでログインして続ける"}
-          </Button>
-          <Button
-            variant="outline"
-            className="min-h-11"
+            variant="secondary"
+            className="h-12 whitespace-normal text-sm"
             disabled={pending}
             onClick={onBack}
           >
             {backLabel}
+          </Button>
+          <Button
+            ref={continueButton}
+            className="h-12 whitespace-normal px-1 text-sm font-bold leading-5"
+            disabled={pending}
+            onClick={onContinue}
+          >
+            {pending ? "準備中…" : "Googleでログインして続ける"}
           </Button>
         </div>
       </AlertDialogContent>

@@ -11,7 +11,7 @@
   touch-action: none;
   user-select: none;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--ib-rounded-full);
   background: var(--background);
   box-shadow: var(--elevation-tool);
   cursor: grab;
@@ -94,7 +94,7 @@
   width: 20px;
   height: 20px;
   transform: translate(-50%, -50%);
-  color: #171717;
+  color: var(--ib-color-ink);
 }
 .actions {
   display: flex;

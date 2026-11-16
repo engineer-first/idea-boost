@@ -4,7 +4,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildProgressHistoryRecord } from "@/contracts/progress-history.fixture";
 import { buildSharedOutcome } from "@/contracts/shared-outcomes.fixture";
 import { SharedOutcomes } from "./shared-outcomes";
+import { DEFAULT_OUTCOME_FILTERS } from "./shared-outcomes-query";
 import { SharedOutcomesView } from "./shared-outcomes-view";
+
+const viewProps = {
+  loading: false,
+  error: null,
+  nextCursor: null,
+  onOpen: vi.fn(),
+  onBack: vi.fn(),
+  onRefresh: vi.fn(),
+  onMore: vi.fn(),
+};
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -41,6 +52,79 @@ describe("共有成果閲覧", () => {
         ).not.toBeInTheDocument();
     },
   );
+  it("反映待ちの成果は一覧でも詳細でも反映待ちの状態と説明を出さない", () => {
+    const pending = buildSharedOutcome({ saveStatus: "pending" });
+    const { rerender } = render(
+      <SharedOutcomesView {...viewProps} outcomes={[pending]} detail={null} />,
+    );
+    const row = screen.getByRole("link", { name: /相談ルーム/ });
+    expect(row).not.toHaveTextContent(/反映待ち|再試行|正常保存分/);
+
+    rerender(
+      <SharedOutcomesView {...viewProps} outcomes={[]} detail={pending} />,
+    );
+    expect(screen.queryByText(/反映待ち|反映を待って/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+  it("保存できている成果は一覧でも詳細でも保存の状態を出さない", () => {
+    const saved = buildSharedOutcome({ saveStatus: "saved" });
+    const { rerender } = render(
+      <SharedOutcomesView {...viewProps} outcomes={[saved]} detail={null} />,
+    );
+    expect(
+      screen.getByRole("link", { name: /相談ルーム/ }),
+    ).not.toHaveTextContent("保存済み");
+    rerender(
+      <SharedOutcomesView {...viewProps} outcomes={[]} detail={saved} />,
+    );
+    expect(screen.queryByText(/保存済み/)).not.toBeInTheDocument();
+  });
+  it("絞り込みに保存状態の欄を出さない", () => {
+    render(
+      <SharedOutcomesView
+        {...viewProps}
+        outcomes={[buildSharedOutcome()]}
+        detail={null}
+        filters={DEFAULT_OUTCOME_FILTERS}
+        onSearch={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("記録")).toBeInTheDocument();
+    expect(screen.queryByLabelText("保存状態")).not.toBeInTheDocument();
+  });
+  it("保存失敗は一覧と詳細で失敗だけを短く伝え、再試行の仕組みは説明しない", () => {
+    const failed = buildSharedOutcome({ saveStatus: "failed" });
+    const { rerender } = render(
+      <SharedOutcomesView {...viewProps} outcomes={[failed]} detail={null} />,
+    );
+    const row = screen.getByRole("link", { name: /相談ルーム/ });
+    expect(row).toHaveTextContent("保存失敗");
+    expect(row).not.toHaveTextContent(/再試行|正常保存分/);
+
+    rerender(
+      <SharedOutcomesView {...viewProps} outcomes={[]} detail={failed} />,
+    );
+    const notice = screen.getByRole("status");
+    expect(notice).toHaveTextContent(
+      "保存に失敗しました。表示している内容は前回の正常保存分です。",
+    );
+    expect(notice).not.toHaveTextContent("再試行");
+
+    rerender(
+      <SharedOutcomesView
+        {...viewProps}
+        outcomes={[]}
+        detail={buildSharedOutcome({
+          saveStatus: "failed",
+          snapshot: null,
+          lastSavedAt: null,
+        })}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /^保存に失敗しました。$/,
+    );
+  });
   it("取得ごとに認可し、剥奪時に前の内容を隠す", async () => {
     const fetchMock = vi
       .fn()

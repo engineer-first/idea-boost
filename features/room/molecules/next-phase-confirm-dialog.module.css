@@ -1,8 +1,46 @@
+.label {
+  display: grid;
+  justify-items: center;
+}
+
+.label > * {
+  grid-area: 1 / 1;
+}
+
+.reserve {
+  visibility: hidden;
+}
+
+/* 押せない間も形は残し、完了した人数ぶん面を左から満たして「あと少し」を示す。 */
 .pending:disabled {
-  border-color: color-mix(in oklab, var(--foreground) 16%, var(--background));
-  background: var(--muted);
-  color: var(--muted-foreground);
-  opacity: 1;
+  background: linear-gradient(
+      to right,
+      var(--ib-color-primary-soft) calc(var(--ready-ratio, 0) * 100%),
+      transparent 0
+    )
+    var(--background);
+}
+
+/* 通信待ちは人数で決まらないので、淡い帯をゆっくり往復させる。 */
+.reconnecting:disabled {
+  background:
+    linear-gradient(
+      to right,
+      transparent,
+      var(--ib-color-primary-soft),
+      transparent
+    )
+    0 0 / 40% 100% no-repeat var(--background);
+  animation: next-reconnecting 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes next-reconnecting {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
 }
 
 .ready {
@@ -26,6 +64,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .reconnecting:disabled {
+    animation: none;
+  }
+
   .ready {
     animation: none;
   }

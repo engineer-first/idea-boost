@@ -41,6 +41,14 @@
   }
 }
 
+@media (max-width: 639px) and (max-height: 640px) {
+  /* 短い画面の2-1では参照全体をスクロールし、入力と先生の場所を空ける。 */
+  [data-hmw-writing="true"] .disclosureInner {
+    max-height: 96px;
+    overflow-y: auto;
+  }
+}
+
 @media (max-width: 639px) {
   /* 全幅のヒントは参照付箋の上に開く。閉じると参照へ戻れる。 */
   [data-testid="board-context-column"]:has(

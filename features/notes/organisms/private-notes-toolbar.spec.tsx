@@ -36,6 +36,67 @@ function setup(disabled = false, selectedNoteId: string | null = null) {
 }
 
 describe("PrivateNotesToolbar", () => {
+  it.each([false, true])(
+    "ヒントから文例入りの付箋を追加して新規本文へfocusする（追加執筆: %s）",
+    (workspaceCollapsible) => {
+      const question = "どうしたら、忘れ物を減らせるか？";
+      const oldNote = buildNote({
+        id: "hint-old",
+        visibility: "private",
+        content: "自分の下書き",
+      });
+      const created = buildNote({
+        id: "hint-created",
+        visibility: "private",
+        content: question,
+      });
+      const addActionRef: { current: ((content?: string) => void) | null } = {
+        current: null,
+      };
+      const props = {
+        notes: [oldNote],
+        disabled: false,
+        selectedNoteId: null,
+        canCreateNote: true,
+        canDeleteNote: true,
+        canMoveNote: true,
+        canEditNote: true,
+        onSelect: vi.fn(),
+        onAdd: vi.fn(() => "hint-create"),
+        onContentChange: vi.fn(),
+        onDelete: vi.fn(),
+        onDragStart: vi.fn(),
+        addActionRef,
+        workspaceCollapsible,
+      };
+      const view = render(
+        <PrivateNotesToolbar {...props} presentation="workspace" />,
+      );
+      act(() => addActionRef.current?.(question));
+      expect(props.onAdd).toHaveBeenCalledExactlyOnceWith(question);
+      view.rerender(
+        <PrivateNotesToolbar
+          {...props}
+          presentation="workspace"
+          notes={[oldNote, created]}
+          selectedNoteId={created.id}
+          noteCreationReceipt={{
+            operationId: "hint-create",
+            noteId: created.id,
+          }}
+        />,
+      );
+      expect(screen.getByDisplayValue(question)).toHaveFocus();
+      expect(screen.getByDisplayValue("自分の下書き")).toHaveValue(
+        "自分の下書き",
+      );
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        String(!workspaceCollapsible),
+      );
+    },
+  );
+
   it("workspaceからdockへ切り替わるとマイ付箋を展開する", () => {
     const props = {
       notes: [buildNote({ visibility: "private", content: "非公開の考え" })],

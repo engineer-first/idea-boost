@@ -32,6 +32,40 @@ async function open(story: string, height = 720): Promise<void> {
   await page.getByTestId("board-scroller").waitFor();
   await page.evaluate(() => document.fonts.ready);
 }
+async function waitForPanelTransition(): Promise<void> {
+  await page
+    .getByTestId("private-notes-workspace")
+    .evaluate(async (element) => {
+      await new Promise(requestAnimationFrame);
+      await Promise.allSettled(
+        element
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished),
+      );
+    });
+}
+async function expandPrivatePanel(): Promise<void> {
+  await page
+    .getByTestId("private-notes-scroll")
+    .click({ position: { x: 8, y: 8 } });
+  await expect
+    .poll(() =>
+      page.getByTestId("private-notes-toolbar").getAttribute("data-expanded"),
+    )
+    .toBe("true");
+  await waitForPanelTransition();
+}
+async function collapsePrivatePanel(): Promise<void> {
+  const frame = await page.getByTestId("board-frame").boundingBox();
+  if (!frame) throw new Error("ボードのクリック位置を取得できません");
+  await page.mouse.click(frame.x + 2, frame.y + frame.height / 2);
+  await expect
+    .poll(() =>
+      page.getByTestId("private-notes-toolbar").getAttribute("data-expanded"),
+    )
+    .toBe("false");
+  await waitForPanelTransition();
+}
 async function viewTransform(): Promise<string> {
   return page
     .getByTestId("board-scroller")
@@ -64,16 +98,14 @@ for (const story of [
       if (height === 560) expect(panel.height).toBeLessThanOrEqual(240);
       expect(height - panel.y - panel.height).toBeGreaterThanOrEqual(8);
       expect(height - panel.y - panel.height).toBeLessThanOrEqual(20);
-      const tools = await page.getByTestId("board-tools-hud").boundingBox();
-      expect(tools && tools.y + tools.height <= panel.y - 6).toBe(true);
+      expect(await page.getByTestId("board-tools-hud").isVisible()).toBe(false);
+      expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
       expect(board.width).toBeGreaterThan(1000);
       const note = toolbar.locator('[data-testid="note-card"]').last();
       const noteBefore = await note.boundingBox();
       expect(noteBefore?.width).toBe(200);
       const before = await viewTransform();
-      await page
-        .getByRole("button", { name: "マイ付箋を展開", exact: true })
-        .click();
+      await expandPrivatePanel();
       await expect
         .poll(async () => (await toolbar.boundingBox())?.height ?? 0)
         .toBeGreaterThan(panel.height + 20);
@@ -86,9 +118,7 @@ for (const story of [
       expect(
         expandedPanel && height - expandedPanel.y - expandedPanel.height <= 20,
       ).toBe(true);
-      await page
-        .getByRole("button", { name: "マイ付箋を縮小", exact: true })
-        .click();
+      await collapsePrivatePanel();
       await expect
         .poll(async () =>
           Math.round((await toolbar.boundingBox())?.height ?? 0),
@@ -120,12 +150,8 @@ test("縮小中の追加・IME変換と選択範囲を保ち、パネルのホ�
     (element as HTMLTextAreaElement).setSelectionRange(2, 5),
   );
   await editor.dispatchEvent("compositionstart", { data: "変換" });
-  await page
-    .getByRole("button", { name: "マイ付箋を展開", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "マイ付箋を縮小", exact: true })
-    .click();
+  await expandPrivatePanel();
+  await collapsePrivatePanel();
   expect(await editor.inputValue()).toBe("日本語の変換を保つ");
   expect(
     await editor.evaluate((element) => [
@@ -174,6 +200,40 @@ test("最後に編集した未共有付箋を表示し、共有付箋の全文�
   expect(bounds && panel && bounds.y + bounds.height <= panel.y).toBe(true);
   await editor.press("Escape");
   await expect.poll(() => preview.count()).toBe(0);
+});
+
+test("問いのヒントで選んだ本文を追加執筆へ渡し、縮小状態と元の下書きを保つ", async () => {
+  await open("additional-writing-question");
+  const character = await page.getByTestId("hmw-hint-character").boundingBox();
+  const panel = await page.getByTestId("private-notes-toolbar").boundingBox();
+  expect(character && panel && character.y + character.height < panel.y).toBe(
+    true,
+  );
+  await page.getByTestId("room-timer").click();
+  await expect
+    .poll(() => page.getByTestId("room-timer").getAttribute("data-status"))
+    .toBe("running");
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  const draft = toolbar.locator('[data-note-id="additional-draft-9"] textarea');
+  const original = await draft.inputValue();
+  await page.getByRole("button", { name: "問いのヒントを開く" }).click();
+  const dialog = page.getByRole("dialog", { name: "問いのヒント" });
+  const word = dialog.getByRole("button", { name: "先回り", exact: true });
+  const bounds = await word.boundingBox();
+  if (!bounds) throw new Error("ヒントのワードをクリックできません");
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  await word.click();
+  const question = await dialog
+    .getByRole("region", { name: "問いの文例" })
+    .innerText();
+  await dialog.getByRole("button", { name: "この問いにする" }).click();
+  const editor = toolbar.locator("textarea:not([readonly])");
+  await expect.poll(() => editor.inputValue()).toBe(question);
+  expect(await toolbar.getAttribute("data-expanded")).toBe("false");
+  expect(await draft.inputValue()).toBe(original);
 });
 
 test("共有から戻ると同じカメラ位置と倍率を維持し、開閉は別画面へ同期しない", async () => {
@@ -232,12 +292,8 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
     await second.goto(
       `${origin}/iframe.html?id=room-roomboardview--additional-writing&viewMode=story`,
     );
-    await second
-      .getByRole("button", { name: "マイ付箋を展開", exact: true })
-      .waitFor();
-    await page
-      .getByRole("button", { name: "マイ付箋を展開", exact: true })
-      .click();
+    await second.getByTestId("private-notes-toolbar").waitFor();
+    await expandPrivatePanel();
     expect(
       await second
         .getByTestId("private-notes-toolbar")
@@ -298,9 +354,7 @@ test("3-3から追加執筆へ戻っても2軸マップの配置と表示倍率�
 
 test("全画面で下の行を編集中に縮小しても、その付箋を入力できる位置へ追従する", async () => {
   await open("additional-writing");
-  await page
-    .getByRole("button", { name: "マイ付箋を展開", exact: true })
-    .click();
+  await expandPrivatePanel();
   const note = page
     .getByTestId("private-notes-toolbar")
     .locator("[data-testid='note-card']")
@@ -310,9 +364,7 @@ test("全画面で下の行を編集中に縮小しても、その付箋を入�
   await surface.press("Enter");
   const editor = note.locator("textarea:not([readonly])");
   await editor.fill("下の行の入力を継続する");
-  await page
-    .getByRole("button", { name: "マイ付箋を縮小", exact: true })
-    .click();
+  await collapsePrivatePanel();
   await expect
     .poll(async () => {
       const a = await editor.boundingBox();

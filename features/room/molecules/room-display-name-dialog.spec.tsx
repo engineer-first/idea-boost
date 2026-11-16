@@ -37,3 +37,46 @@ it("保存中は入力・保存・取消を止める", () => {
   expect(screen.getByRole("button", { name: "保存中…" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
 });
+
+it("15文字では案内せず16文字でエラーを出して保存を止め、短くすると解除する", () => {
+  const c = {
+    ...controls,
+    open: true,
+    draft: "あ".repeat(15),
+    onConfirm: vi.fn(),
+  };
+  const { rerender } = render(<RoomDisplayNameDialog controls={c} />);
+  expect(screen.queryByText(/15文字以内/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "保存する" })).toBeEnabled();
+  rerender(
+    <RoomDisplayNameDialog controls={{ ...c, draft: "あ".repeat(16) }} />,
+  );
+  expect(screen.getByRole("textbox")).toHaveValue("あ".repeat(16));
+  expect(screen.getByRole("alert")).toHaveTextContent("15文字以内");
+  expect(screen.getByRole("button", { name: "保存する" })).toBeDisabled();
+  const form = screen.getByRole("textbox").closest("form");
+  if (!form) throw new Error("入力フォームがありません");
+  fireEvent.submit(form);
+  expect(c.onConfirm).not.toHaveBeenCalled();
+  rerender(<RoomDisplayNameDialog controls={c} />);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "保存する" })).toBeEnabled();
+});
+it("文字数超過では保存済みの確認を出さず、保存の失敗では出す", () => {
+  const c = { ...controls, open: true, onRetry: vi.fn() };
+  const { rerender } = render(
+    <RoomDisplayNameDialog controls={{ ...c, draft: "あ".repeat(16) }} />,
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent("15文字以内");
+  expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(
+    expect.not.arrayContaining([expect.stringContaining("確認")]),
+  );
+  rerender(
+    <RoomDisplayNameDialog
+      controls={{ ...c, draft: "はな", error: "保存できませんでした。" }}
+    />,
+  );
+  expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(
+    expect.arrayContaining([expect.stringContaining("確認")]),
+  );
+});

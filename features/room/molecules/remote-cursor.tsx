@@ -37,13 +37,13 @@ export function RemoteCursor({
     >
       <MousePointer2
         className={cn(
-          "absolute top-0 left-0 size-5 -translate-x-0.5 -translate-y-0.5 drop-shadow-sm text-slate-900",
+          "absolute top-0 left-0 size-5 -translate-x-0.5 -translate-y-0.5 drop-shadow-sm text-foreground",
           isIdle && !cursor.draggingNoteId && "opacity-40",
         )}
         style={{ fill: color }}
       />
       <div
-        className="absolute top-5 left-3 flex w-max max-w-44 items-center gap-1 rounded-lg border border-slate-950/15 px-2 py-1 text-xs font-medium shadow-tool"
+        className="absolute top-5 left-3 flex w-max max-w-44 items-center gap-1 rounded-lg border border-foreground/15 px-2 py-1 text-xs font-medium shadow-tool"
         style={{
           backgroundColor: color,
           color: NOTE_COLOR_STYLES[cursor.color].foregroundColor,

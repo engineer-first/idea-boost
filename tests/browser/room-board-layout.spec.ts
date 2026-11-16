@@ -335,10 +335,12 @@ for (const [phase, reference] of [
       const referenceNote = page
         .getByTestId(`board-reference-${reference}-content`)
         .locator("xpath=..");
-      const addNote = page.getByRole("button", {
-        name: "付箋を追加",
-        exact: true,
-      });
+      const addNote = page
+        .getByTestId("private-notes-list")
+        .getByRole("button", {
+          name: "付箋を追加",
+          exact: true,
+        });
       expect(await referenceNote.isVisible()).toBe(true);
       expect(await addNote.isVisible()).toBe(true);
 
@@ -1024,7 +1026,7 @@ test.each([1280, 1024, 768])(
       .getByTestId("private-notes-toolbar")
       .boundingBox();
 
-    const addNote = page.getByRole("button", {
+    const addNote = page.getByTestId("private-notes-list").getByRole("button", {
       name: "付箋を追加",
       exact: true,
     });
@@ -1475,7 +1477,10 @@ test("U03: 390pxで旧ガイドを表示せず、現在の操作へ到達でき�
   const controls = await page.getByTestId("board-control-hud").boundingBox();
   expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(390);
   expect(
-    await page.getByRole("button", { name: "付箋を追加" }).isVisible(),
+    await page
+      .getByTestId("private-notes-list")
+      .getByRole("button", { name: "付箋を追加" })
+      .isVisible(),
   ).toBe(true);
 });
 

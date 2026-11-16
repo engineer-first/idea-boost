@@ -32,7 +32,7 @@ export function GuestIdentityRemovalDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>本人情報を消しますか？</AlertDialogTitle>
           <AlertDialogDescription>
-            消すと、同じ本人としてこのブラウザからルームや成果に戻れなくなります。ルームから抜けるだけなら「ルームを退出」を使ってください。
+            消すと、このブラウザからルームや成果に戻れなくなります。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

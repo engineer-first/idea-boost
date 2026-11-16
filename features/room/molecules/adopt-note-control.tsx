@@ -43,14 +43,14 @@ export function AdoptNoteControl({
     return (
       <section
         aria-label={`採用する${targetLabel}の確定状態`}
-        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-xl border border-emerald-600/40 bg-background px-4 py-3 shadow-tool"
+        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-xl border border-state-decided/40 bg-background px-4 py-3 shadow-tool"
       >
         <CheckCircle2
           aria-hidden="true"
-          className="size-5 shrink-0 text-emerald-700"
+          className="size-5 shrink-0 text-state-decided-text"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-emerald-700">
+          <p className="text-xs font-semibold text-state-decided-text">
             {targetLabel}を1件確定済み
           </p>
           <p className="truncate text-sm font-medium" title={decisionContent}>

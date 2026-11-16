@@ -52,7 +52,7 @@ test.each([1280, 390])(
 );
 
 test.each([1280, 390])(
-  "幅%dで進行待ちのボタンに面と枠があり、完了をチェックすると状態が切り替わる",
+  "幅%dで進行待ちのボタンは白地の破線枠で示し、完了をチェックすると状態が切り替わる",
   async (width) => {
     const page = await browser.newPage({
       viewport: { width, height: 800 },
@@ -62,7 +62,9 @@ test.each([1280, 390])(
       await page.goto(
         `${origin}/iframe.html?id=room-roomboardheader--progress-controls&viewMode=story`,
       );
-      const next = page.getByRole("button", { name: "次のステップへ" });
+      const next = page.getByRole("button", {
+        name: /^(次のステップへ|あと\d+人で次へ)$/,
+      });
       await next.waitFor();
       expect(await next.isDisabled()).toBe(true);
       const pending = await next.evaluate((node) => {
@@ -70,11 +72,13 @@ test.each([1280, 390])(
         return {
           background: style.backgroundColor,
           border: style.borderTopColor,
+          borderStyle: style.borderTopStyle,
           opacity: style.opacity,
         };
       });
       expect(pending.opacity).toBe("1");
-      expect(pending.background).not.toBe("rgba(0, 0, 0, 0)");
+      expect(pending.background).toBe("rgb(255, 255, 255)");
+      expect(pending.borderStyle).toBe("dashed");
       expect(pending.border).not.toBe("rgba(0, 0, 0, 0)");
       const complete = page.getByRole("button", {
         name: "できた！",
@@ -87,14 +91,17 @@ test.each([1280, 390])(
       await expect.poll(() => next.isEnabled()).toBe(true);
       const checked = page.getByRole("button", { name: "準備OK！を取り消す" });
       expect(await checked.getAttribute("aria-pressed")).toBe("true");
-      expect(
-        await checked.evaluate(
-          (node) => getComputedStyle(node).backgroundColor,
-        ),
-      ).not.toBe(uncheckedBackground);
-      expect(
-        await next.evaluate((node) => getComputedStyle(node).backgroundColor),
-      ).not.toBe(pending.background);
+      // ボタンは背景色をtransitionで切り替えるため、切り替え後の色になるまで待つ
+      await expect
+        .poll(() =>
+          checked.evaluate((node) => getComputedStyle(node).backgroundColor),
+        )
+        .not.toBe(uncheckedBackground);
+      await expect
+        .poll(() =>
+          next.evaluate((node) => getComputedStyle(node).backgroundColor),
+        )
+        .not.toBe(pending.background);
       const hud = await page.getByTestId("board-control-hud").boundingBox();
       expect(hud).not.toBeNull();
       if (!hud) throw new Error("HUDが表示されません");

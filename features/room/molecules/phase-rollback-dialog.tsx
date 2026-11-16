@@ -90,7 +90,7 @@ export function PhaseRollbackDialog({
             <p className="font-semibold">{getPhaseLabel(target)} へ戻る</p>
           </div>
         )}
-        <AlertDialogFooter className="mx-0 mb-0 mt-2 rounded-none border-0 bg-transparent p-0">
+        <AlertDialogFooter>
           <AlertDialogCancel className="min-h-11" ref={cancelRef}>
             キャンセル
           </AlertDialogCancel>
@@ -105,7 +105,7 @@ export function PhaseRollbackDialog({
             </AlertDialogAction>
           ) : (
             <Button
-              className="min-h-11"
+              className="h-12 w-full font-bold"
               type="button"
               disabled={disabled}
               onClick={() => {

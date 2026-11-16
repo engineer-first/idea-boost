@@ -33,7 +33,6 @@ export type UseRoomConnectionOptions = {
 
 export type UseRoomConnectionResult = {
   connectionStatus: RoomScreenConnectionStatus;
-  connectionDelayed: boolean;
   send: (message: ClientMessage) => boolean;
   resynchronize: () => void;
 };
@@ -49,7 +48,6 @@ export function useRoomConnection({
   // createRoomClient が生成直後に "connecting" を通知するので初期値と一致する。
   const [connectionStatus, setConnectionStatus] =
     useState<RoomScreenConnectionStatus>("connecting");
-  const [connectionDelayed, setConnectionDelayed] = useState(false);
   const [synchronizationRequest, setSynchronizationRequest] = useState(0);
   const synchronizedRef = useRef(false);
   const clientRef = useRef<RoomClient | null>(null);
@@ -62,7 +60,6 @@ export function useRoomConnection({
   useEffect(() => {
     synchronizedRef.current = false;
     setConnectionStatus("connecting");
-    setConnectionDelayed(false);
     let active = true;
     let hasSynchronized = false;
     // snapshotで同期を確定するたびに照会世代を進める。socket openだけでは
@@ -70,17 +67,6 @@ export function useRoomConnection({
     let generation = synchronizationRequest;
     let terminal = false;
     let client: RoomClient | undefined;
-    let delayedTimer: ReturnType<typeof setTimeout> | null = null;
-    function stopDelay(): void {
-      if (delayedTimer !== null) clearTimeout(delayedTimer);
-      delayedTimer = null;
-      setConnectionDelayed(false);
-    }
-    function startDelay(): void {
-      if (delayedTimer !== null) return;
-      delayedTimer = setTimeout(() => setConnectionDelayed(true), 10_000);
-    }
-    startDelay();
     let completionRequest: {
       controller: AbortController;
       timeout: ReturnType<typeof setTimeout>;
@@ -118,7 +104,6 @@ export function useRoomConnection({
         terminal = true;
         generation += 1;
         synchronizedRef.current = false;
-        stopDelay();
         cancelCompletionRequest();
         client?.close();
         setConnectionStatus(status);
@@ -156,7 +141,6 @@ export function useRoomConnection({
           isLeavingRef?.current
         )
           return;
-        stopDelay();
         terminal = true;
         generation += 1;
         synchronizedRef.current = false;
@@ -182,7 +166,6 @@ export function useRoomConnection({
         if (message.type === "snapshot") {
           hasSynchronized = true;
           synchronizedRef.current = true;
-          stopDelay();
           setConnectionStatus("open");
           if (
             currentUserId &&
@@ -198,7 +181,6 @@ export function useRoomConnection({
           generation += 1;
           cancelCompletionRequest();
           synchronizedRef.current = false;
-          stopDelay();
           setConnectionStatus("auth-required");
           return;
         }
@@ -211,14 +193,12 @@ export function useRoomConnection({
         if (status === "closed") void recoverCompletedRoom();
         if (status === "ended") {
           synchronizedRef.current = false;
-          stopDelay();
           clearLastRoom(roomId);
           // 自分の操作による通知は useLeaveRoom 成功時に出す（二重 toast 防止）。
           router.replace("/home");
           return;
         }
         synchronizedRef.current = false;
-        startDelay();
         setConnectionStatus(
           status === "open" || status === "connecting"
             ? hasSynchronized
@@ -240,7 +220,6 @@ export function useRoomConnection({
       generation += 1;
       window.removeEventListener("offline", handleOffline);
       cancelCompletionRequest();
-      if (delayedTimer !== null) clearTimeout(delayedTimer);
       synchronizedRef.current = false;
       clientRef.current = null;
       client.close();
@@ -270,5 +249,5 @@ export function useRoomConnection({
     );
   }, []);
 
-  return { connectionStatus, connectionDelayed, send, resynchronize };
+  return { connectionStatus, send, resynchronize };
 }

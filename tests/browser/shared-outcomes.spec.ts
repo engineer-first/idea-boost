@@ -37,7 +37,6 @@ test("PC・モバイルで長いルーム名と検索・絞り込みが画面内
         search,
         page.getByLabel("記録", { exact: true }),
         page.getByLabel("到達フェーズ"),
-        page.getByLabel("保存状態"),
         page.getByLabel("開始日"),
         page.getByLabel("終了日"),
       ]) {
@@ -155,7 +154,7 @@ describe.skipIf(!app)("専用dev:verifyの共有成果", () => {
       await browser.close();
     }
   });
-  test("実Workerの検索・保存状態の絞り込みと深いリンクを操作できる", async () => {
+  test("実Workerの検索・日付の絞り込みと深いリンクを操作できる", async () => {
     const browser = await chromium.launch();
     try {
       const page = await browser.newPage({
@@ -183,7 +182,6 @@ describe.skipIf(!app)("専用dev:verifyの共有成果", () => {
       await page.getByLabel("終了日").fill(date);
       await page.getByRole("searchbox").fill("新サービス");
       await page.getByRole("button", { name: "検索", exact: true }).click();
-      await page.getByLabel("保存状態").selectOption("failed");
       await page.getByRole("link", { name: /新サービスの企画/ }).waitFor();
       const links = page.locator("a[data-room-id]");
       expect(await links.count()).toBe(1);
@@ -196,7 +194,6 @@ describe.skipIf(!app)("専用dev:verifyの共有成果", () => {
       await page.getByRole("button", { name: "成果一覧へ戻る" }).click();
       await page.getByRole("searchbox").waitFor();
       expect(await page.getByRole("searchbox").inputValue()).toBe("新サービス");
-      expect(await page.getByLabel("保存状態").inputValue()).toBe("failed");
       expect(await page.getByLabel("開始日").inputValue()).toBe(date);
       expect(await page.getByLabel("終了日").inputValue()).toBe(date);
       expect(new URL(page.url()).searchParams.get("from")).toBe(date);

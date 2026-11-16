@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,6 +28,10 @@ export function CreateRoomSectionView({
   intentName,
   message,
 }: CreateRoomSectionViewProps) {
+  const [input, setInput] = useState({ intentName, value: intentName ?? "" });
+  const draft =
+    input.intentName === intentName ? input.value : (intentName ?? "");
+  const tooLong = draft.trim().length > ROOM_CREATION_NAME_MAX;
   return (
     <Card className={styles.create} data-testid="home-create-room">
       <CardHeader className={styles.createHeader}>
@@ -43,14 +48,21 @@ export function CreateRoomSectionView({
             const name = String(
               new FormData(event.currentTarget).get("name") ?? "",
             );
-            onSubmit?.(name);
+            if (!tooLong) onSubmit?.(name);
           }}
         >
           <RoomEntryField
             id="room-name"
             label="ルーム名（任意）"
             name="name"
-            maxLength={ROOM_CREATION_NAME_MAX}
+            onChange={(event) =>
+              setInput({ intentName, value: event.target.value })
+            }
+            error={
+              tooLong
+                ? `ルーム名は${ROOM_CREATION_NAME_MAX}文字以内で入力してください。`
+                : undefined
+            }
             disabled={pending}
             defaultValue={intentName}
             key={intentName ?? "new"}
@@ -60,7 +72,7 @@ export function CreateRoomSectionView({
             type="submit"
             size="lg"
             className={styles.primaryAction}
-            disabled={pending}
+            disabled={pending || tooLong}
             data-icon="inline-start"
           >
             <Plus data-icon="inline-start" aria-hidden />

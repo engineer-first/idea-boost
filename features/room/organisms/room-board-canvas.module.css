@@ -54,6 +54,12 @@
 .additionalWritingTools {
   bottom: calc(var(--writing-panel-height) + 1.5rem);
 }
+.additionalWritingCanvas:has(
+    [data-testid="private-notes-toolbar"][data-expanded="false"]
+  )
+  [data-testid="hmw-hint-hud"] {
+  bottom: calc(var(--writing-panel-height) + 1.5rem);
+}
 /* ボードの寸法・カメラには触れず、前面のパネルだけを下へスライドする。 */
 .additionalWritingPanel {
   transform: translateY(max(0px, calc(100% - var(--writing-panel-height))));

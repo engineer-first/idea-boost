@@ -2,52 +2,61 @@ import { render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { RoomConnectionNotice } from "./room-connection-notice";
 
-it.each([["unavailable", "ホームへ戻る", "/home"]] as const)(
-  "%sでは再接続案内から回収後の入口へ切り替える",
-  (status, name, href) => {
-    render(<RoomConnectionNotice status={status} delayed />);
-    expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
-    expect(screen.queryByText(/自動で再接続/)).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/コピー/);
+function spinnerIn(element: HTMLElement): Element | null {
+  return element.querySelector('[data-slot="spinner"]');
+}
+
+it("初回接続はスピナーと「接続中」だけを示し、再接続とは言わない", () => {
+  render(<RoomConnectionNotice status="connecting" />);
+  const status = screen.getByRole("status");
+  expect(status).toHaveTextContent(/^接続中$/);
+  expect(spinnerIn(status)).not.toBeNull();
+});
+
+it.each(["reconnecting", "closed"] as const)(
+  "%s ではスピナーと「再接続中」だけを示し、待ち方の説明を出さない",
+  (status) => {
+    render(<RoomConnectionNotice status={status} />);
+    const notice = screen.getByRole("status");
+    expect(notice).toHaveTextContent(/^再接続中$/);
+    expect(spinnerIn(notice)).not.toBeNull();
   },
 );
+
+it("利用できないルームでは短い見出しとホームへ戻る操作だけを出す", () => {
+  render(<RoomConnectionNotice status="unavailable" />);
+  const notice = screen.getByRole("status");
+  expect(screen.getByRole("link", { name: "ホームへ戻る" })).toHaveAttribute(
+    "href",
+    "/home",
+  );
+  expect(notice).toHaveTextContent(/^このルームは利用できませんホームへ戻る$/);
+  expect(spinnerIn(notice)).toBeNull();
+});
 
 it("本人確認の期限切れではログインへ送らず元ルームをフルナビゲーションで再読み込みする", () => {
   const returnHref = "/rooms/11111111-1111-4111-8111-111111111111";
   render(
     <RoomConnectionNotice status="auth-required" returnHref={returnHref} />,
   );
-  expect(
-    screen.getByRole("link", { name: "再読み込みして続ける" }),
-  ).toHaveAttribute("href", returnHref);
-  expect(screen.getByRole("status")).toHaveTextContent("接続を止めました");
-  expect(screen.getByRole("status")).toHaveTextContent(
-    "本人確認の期限が切れたため、操作と更新を止めています。",
+  expect(screen.getByRole("link", { name: "再読み込み" })).toHaveAttribute(
+    "href",
+    returnHref,
   );
   expect(screen.getByRole("status")).toHaveTextContent(
-    /確認・コピーしてから再読み込み/,
+    /^接続が切れました再読み込み$/,
   );
-  expect(
-    screen.queryByRole("link", { name: "ログインする" }),
-  ).not.toBeInTheDocument();
   expect(
     screen
       .queryAllByRole("link")
       .some((link) => link.getAttribute("href")?.startsWith("/login")),
   ).toBe(false);
 });
+
 it("戻り先がない本人確認の期限切れでは現在のページを再読み込みするリンクを出す", () => {
   render(<RoomConnectionNotice status="auth-required" />);
-  const link = screen.getByRole("link", { name: "再読み込みして続ける" });
+  const link = screen.getByRole("link", { name: "再読み込み" });
   expect(
     new URL(link.getAttribute("href") ?? "", window.location.href).href,
   ).toBe(window.location.href);
-});
-
-it("初回接続と時間のかかる初回接続は再接続と表示しない", () => {
-  const { rerender } = render(<RoomConnectionNotice status="connecting" />);
-  expect(screen.queryByText(/再接続/)).not.toBeInTheDocument();
-  expect(screen.getByRole("status")).toHaveTextContent("接続しています");
-  rerender(<RoomConnectionNotice status="connecting" delayed />);
-  expect(screen.queryByText(/再接続|接続が戻って/)).not.toBeInTheDocument();
 });

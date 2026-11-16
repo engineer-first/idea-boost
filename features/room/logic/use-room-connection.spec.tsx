@@ -483,12 +483,12 @@ function snapshot() {
     completedVoterIds: [],
   });
 }
-describe("切断時間", () => {
+describe("再接続後の同期", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
-  it("再試行とsocket openで時間をリセットせず、snapshotまで10秒の案内を維持する", async () => {
+  it("再接続でsocketが開いても、snapshotを受けるまでopenにしない", async () => {
     vi.useFakeTimers();
     vi.stubGlobal(
       "fetch",
@@ -509,9 +509,6 @@ describe("切断時間", () => {
     await act(async () => vi.advanceTimersByTimeAsync(9000));
     act(() => lastSocket().simulateOpen());
     expect(result.current.connectionStatus).not.toBe("open");
-    expect(result.current.connectionDelayed).toBe(false);
-    await act(async () => vi.advanceTimersByTimeAsync(1000));
-    expect(result.current.connectionDelayed).toBe(true);
     act(() =>
       lastSocket().simulateServerMessage({
         type: "phase:updated",
@@ -519,10 +516,9 @@ describe("切断時間", () => {
         phase: buildPhaseStep(2),
       }),
     );
-    expect(result.current.connectionDelayed).toBe(true);
+    expect(result.current.connectionStatus).not.toBe("open");
     act(() => lastSocket().simulateServerMessage(snapshot()));
     expect(result.current.connectionStatus).toBe("open");
-    expect(result.current.connectionDelayed).toBe(false);
     unmount();
     expect(vi.getTimerCount()).toBe(0);
   });

@@ -6,6 +6,8 @@
 
 本番アプリ: **<https://ideaboost.dev>**
 
+最新 `develop` のStorybook: **<https://develop--6a4bbd16fb0c79d61671a5d4.chromatic.com>**（Chromaticがdevelopへのpushごとに上書き公開する固定URL）
+
 ## ドキュメント
 
 本番で公開した追加・変更・修正は [リリース履歴](https://github.com/engineer-first/idea-boost/releases) で確認できます。記録の書式・公開・訂正は [本番リリース履歴の運用](docs/operations/release.md) を参照してください。
@@ -31,7 +33,7 @@ Docker や外部サービスのアカウントは不要です（wrangler がロ�
 git clone git@github.com:engineer-first/idea-boost.git
 cd idea-boost
 
-# mise で検証済み Node.js 24 LTS をインストール（初回のみ）
+# mise で検証済み Node.js 26 LTS をインストール（初回のみ）
 mise install
 
 # 依存関係のインストール

@@ -150,7 +150,7 @@ export function VerificationView({
               </Button>
             </div>
             <p className="text-base text-muted-foreground">
-              障害を解除するとサーバーの再試行が再開します。期限切れは実際の30日判定を通り、一覧から消えます。
+              障害を解除するとサーバーの再試行が再開します。期限切れは実際の180日判定を通り、一覧から消えます。
             </p>
             <Button asChild>
               <a href="/shared-outcomes" target="_blank" rel="noreferrer">

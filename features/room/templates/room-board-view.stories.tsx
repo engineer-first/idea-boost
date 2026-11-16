@@ -1798,7 +1798,7 @@ function AdditionalWritingExperience(args: RoomBoardViewProps) {
           endsAt: Date.now() + durationMs,
         })
       }
-      onAddPrivateNote={() => {
+      onAddPrivateNote={(content = "") => {
         const operationId = crypto.randomUUID();
         const noteId = crypto.randomUUID();
         setPrivateNotes((current) => [
@@ -1807,7 +1807,7 @@ function AdditionalWritingExperience(args: RoomBoardViewProps) {
             id: noteId,
             authorId: ME,
             visibility: "private",
-            content: "",
+            content,
           }),
         ]);
         setReceipt({ operationId, noteId });

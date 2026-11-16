@@ -89,7 +89,7 @@ export function RoomLobby({
     roomId,
   });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
-  const { connectionStatus, connectionDelayed, send } = useRoomConnection({
+  const { connectionStatus, send } = useRoomConnection({
     roomId,
     currentUserId,
     onMessage: handleServerMessage,
@@ -240,7 +240,6 @@ export function RoomLobby({
       inviteCode={inviteCode}
       inviteUrl={inviteUrl}
       connectionStatus={connectionStatus}
-      connectionDelayed={connectionDelayed}
       isStarting={isStarting}
       onStart={handleStart}
       onLeave={leave}

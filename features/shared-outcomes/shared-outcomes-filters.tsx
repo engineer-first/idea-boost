@@ -71,7 +71,7 @@ export function SharedOutcomesFilters({
             検索
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <label
               htmlFor={`${id}-status`}
@@ -110,26 +110,6 @@ export function SharedOutcomesFilters({
               <option value="1">課題</option>
               <option value="2">問い</option>
               <option value="3">アイデア</option>
-            </select>
-          </div>
-          <div className="col-span-2 space-y-2 sm:col-span-1">
-            <label
-              htmlFor={`${id}-saveStatus`}
-              className="block text-base font-medium"
-            >
-              保存状態
-            </label>
-            <select
-              id={`${id}-saveStatus`}
-              name="saveStatus"
-              value={filters.saveStatus}
-              className={selectClass}
-              onChange={(event) => event.currentTarget.form?.requestSubmit()}
-            >
-              <option value="all">すべて</option>
-              <option value="saved">保存済み</option>
-              <option value="pending">反映待ち</option>
-              <option value="failed">保存失敗</option>
             </select>
           </div>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Pencil, Repeat } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   MemberAvatar,
@@ -116,8 +117,16 @@ export function LobbyMembers({
                       data-testid="lobby-avatar-change"
                     >
                       {avatar}
-                      <span className={styles.avatarOverlay} aria-hidden="true">
-                        <Repeat size={28} />
+                      <span
+                        className={styles.avatarOverlay}
+                        data-pending={avatarChange.pending || undefined}
+                        aria-hidden="true"
+                      >
+                        {avatarChange.pending ? (
+                          <Spinner className="size-7" />
+                        ) : (
+                          <Repeat size={28} />
+                        )}
                       </span>
                     </button>
                   ) : (

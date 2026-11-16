@@ -189,7 +189,9 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
   expect(layers.panelTop).toBeGreaterThanOrEqual(layers.headerBottom + 12);
   expect(layers.panelTop).toBeLessThanOrEqual(layers.headerBottom + 50);
 
-  const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+  const add = page
+    .getByTestId("private-notes-controls")
+    .getByRole("button", { name: "付箋を追加", exact: true });
   expect(await add.isEnabled()).toBe(true);
   const previousIds = await privateNoteIds();
   await add.click();
@@ -311,6 +313,7 @@ test.each([390, 1280])(
       .toBe(true);
 
     await page
+      .getByTestId("private-notes-controls")
       .getByRole("button", { name: "付箋を追加", exact: true })
       .click({ trial: true });
     await guide.click();
@@ -437,7 +440,9 @@ for (const width of [390, 1440]) {
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardcanvas--private-guidance-empty&viewMode=story`,
     );
-    const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+    const add = page
+      .getByTestId("private-notes-list")
+      .getByRole("button", { name: "付箋を追加", exact: true });
     await add.waitFor();
     await page.evaluate(() => document.fonts.ready);
     // 新規本文への自動スクロールと、一覧内の配置移動を区別する。
@@ -499,7 +504,9 @@ for (const { platform, key, width } of [
       "保存確認を待たない文章\n通常Enterは改行",
     );
     await oldEditor.press(key);
-    const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+    const add = page
+      .getByTestId("private-notes-controls")
+      .getByRole("button", { name: "付箋を追加", exact: true });
     await expect.poll(() => add.isDisabled()).toBe(true);
     // 同じ待ち時間のキー連打と＋操作は作成予約にしない。
     await page.keyboard.press(key);
@@ -571,9 +578,9 @@ test("マイ付箋表面のCtrl+Enterは一枚だけ追加し、入力画面を�
     .toBe(initialCount + 1);
   expect(await toolbar.getAttribute("data-presentation")).toBe("workspace");
   expect(await toolbar.getAttribute("data-expanded")).toBe("true");
-  expect(
-    await page.getByRole("button", { name: "マイ付箋を閉じる" }).count(),
-  ).toBe(0);
+  expect(await toolbar.getByTestId("private-notes-scroll").isVisible()).toBe(
+    true,
+  );
 });
 
 test("Shift・Alt・キーリピート・別OSの修飾キーは追加せず、追加ボタンのCtrl+Enterで一枚追加する", async () => {
@@ -601,10 +608,13 @@ test("Shift・Alt・キーリピート・別OSの修飾キーは追加せず、�
   expect(await cards.count()).toBe(initialCount);
   expect(
     await page
+      .getByTestId("private-notes-controls")
       .getByRole("button", { name: "付箋を追加", exact: true })
       .isDisabled(),
   ).toBe(false);
-  const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+  const add = page
+    .getByTestId("private-notes-controls")
+    .getByRole("button", { name: "付箋を追加", exact: true });
   await add.focus();
   await page.keyboard.press("Control+Enter");
   await expect
@@ -621,7 +631,10 @@ for (const width of [390, 1440]) {
   test(`追加応答を待つ間の既存下書きの入力・選択・スクロールを維持する (${width}px)`, async () => {
     await openDelayedAddition(width);
     const oldNote = page.locator('[data-note-id="single-note"]');
-    await page.getByRole("button", { name: "付箋を追加", exact: true }).click();
+    await page
+      .getByTestId("private-notes-controls")
+      .getByRole("button", { name: "付箋を追加", exact: true })
+      .click();
     await oldNote
       .getByRole("button", { name: "付箋", exact: true })
       .press("Enter");
@@ -656,7 +669,10 @@ for (const width of [390, 1440]) {
 
   test(`既存の入力に戻らなければ新しい付箋ですぐ入力できる (${width}px)`, async () => {
     await openDelayedAddition(width);
-    await page.getByRole("button", { name: "付箋を追加", exact: true }).click();
+    await page
+      .getByTestId("private-notes-controls")
+      .getByRole("button", { name: "付箋を追加", exact: true })
+      .click();
     const editor = page.locator(
       '[data-note-id="delayed-new-note"] textarea:not([readonly])',
     );

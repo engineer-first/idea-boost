@@ -40,6 +40,10 @@ npm run feedback:delete -- aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa --remote
 
 `--remote` は本番の意見を削除するため、対象の受付IDを確認して実行する。
 
+## AIエージェントへ渡す
+
+`npm run d1:export -- feedback --remote` で意見を JSON ファイルへ書き出せる。成果との突き合わせ・出力先・注意点は[共有成果のAIエージェントへの受け渡し](shared-outcomes.md#aiエージェントへデータを渡す)を参照する。
+
 ## ローカルの確認経路
 
 - `npm run test:workers -- workers/feedback.spec.ts workers/access.spec.ts workers/visibility.spec.ts`

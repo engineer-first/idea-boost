@@ -122,7 +122,7 @@ export type UseRoomNotesResult = {
   // 新規付箋は個人ツールバーへだけ挿入される。ID生成と永続化はRoomDOに一本化する。
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
   addNote: (content?: string) => void;
-  requestAddNote: () => string | null;
+  requestAddNote: (content?: string) => string | null;
   noteCreationPending: boolean;
   noteCreationSupported: boolean;
   noteCreationReceipt: { operationId: string; noteId: string } | null;
@@ -753,38 +753,47 @@ export function useRoomNotes({
     [send],
   );
 
-  const requestAddNote = useCallback((): string | null => {
-    const context = noteCreationContextRef.current;
-    if (
-      !context.connected ||
-      !context.canCreateNote ||
-      !noteCreationSupportedRef.current ||
-      noteCreationRef.current !== null
-    )
-      return null;
-    const operationId = createNoteOperationId();
-    noteCreationRef.current = { operationId, status: "pending" };
-    setNoteCreationPending(true);
-    setNoteCreationReceipt(null);
-    setNoteCreationFailure(null);
-    if (send({ type: "note:create", operationId }) === false) {
-      finishNoteCreation();
-      setNoteCreationFailure({
-        operationId,
-        message: "接続を確認できなかったため、付箋を追加できませんでした。",
-      });
-      return null;
-    }
-    noteCreationTimerRef.current = setTimeout(() => {
-      const creation = noteCreationRef.current;
-      if (!creation || creation.operationId !== operationId) return;
-      creation.status = "unknown";
+  const requestAddNote = useCallback(
+    (content?: string): string | null => {
+      const context = noteCreationContextRef.current;
+      if (
+        !context.connected ||
+        !context.canCreateNote ||
+        !noteCreationSupportedRef.current ||
+        noteCreationRef.current !== null
+      )
+        return null;
+      const operationId = createNoteOperationId();
+      noteCreationRef.current = { operationId, status: "pending" };
+      setNoteCreationPending(true);
       setNoteCreationReceipt(null);
-      // 操作は再送せず、接続を更新してsnapshotだけを確認する。
-      unknownCreationCallbackRef.current?.();
-    }, NOTE_CREATION_RESPONSE_TIMEOUT_MS);
-    return operationId;
-  }, [createNoteOperationId, finishNoteCreation, send]);
+      setNoteCreationFailure(null);
+      if (
+        send({
+          type: "note:create",
+          operationId,
+          ...(content === undefined ? {} : { content }),
+        }) === false
+      ) {
+        finishNoteCreation();
+        setNoteCreationFailure({
+          operationId,
+          message: "接続を確認できなかったため、付箋を追加できませんでした。",
+        });
+        return null;
+      }
+      noteCreationTimerRef.current = setTimeout(() => {
+        const creation = noteCreationRef.current;
+        if (!creation || creation.operationId !== operationId) return;
+        creation.status = "unknown";
+        setNoteCreationReceipt(null);
+        // 操作は再送せず、接続を更新してsnapshotだけを確認する。
+        unknownCreationCallbackRef.current?.();
+      }, NOTE_CREATION_RESPONSE_TIMEOUT_MS);
+      return operationId;
+    },
+    [createNoteOperationId, finishNoteCreation, send],
+  );
 
   const publishNote = useCallback(
     (noteId: string, x: number, y: number) => {

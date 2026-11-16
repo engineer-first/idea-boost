@@ -1,15 +1,16 @@
 import type { ProgressHistoryEntry } from "@/contracts/shared-outcomes";
-export const HISTORY_STATUS_LABELS = {
-  saved: "保存済み",
-  pending: "反映待ち",
-  failed: "反映失敗・自動再試行中",
+// 保存済み・反映待ちは普段どおりなので名前を出さない。
+export const HISTORY_STATUS_LABELS: Partial<
+  Record<ProgressHistoryEntry["saveStatus"], string>
+> = {
+  failed: "保存失敗",
   missing: "盤面なし・復元不可",
   open: "終了未記録",
-} as const;
+};
 export const HISTORY_STATUS_EXPLANATIONS = {
   saved: "正常に保存された盤面です。",
-  pending: "閲覧への反映を待っています。",
-  failed: "保全した同じ記録を自動で再試行しています。",
+  pending: "この盤面はまだ表示できません。時間をおいて再取得してください。",
+  failed: "保存に失敗しました。",
   missing:
     "盤面を保存できませんでした。後の盤面で補うことはありません。移行時刻は記録されています。",
   open: "この区間の終了は記録されていません。",

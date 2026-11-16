@@ -1,6 +1,6 @@
-import { ArrowRight, Check, Circle, Clock3, StickyNote } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import {
   DOT_VOTE_CRITERIA,
@@ -34,17 +34,19 @@ const DOT_VOTE_KINDS: readonly DotVoteKind[] = ["subjective", "objective"];
 
 const DOT_VOTE_BUTTON_TONE = {
   subjective:
-    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 hover:text-rose-950 focus-visible:border-rose-600 focus-visible:ring-rose-600/50 active:bg-rose-200 disabled:opacity-100",
+    "border-vote-subjective/25 bg-vote-subjective-soft/40 text-vote-subjective-text hover:bg-vote-subjective-soft hover:text-vote-subjective-text focus-visible:border-vote-subjective focus-visible:ring-vote-subjective/50 active:bg-vote-subjective/20 disabled:opacity-100",
   objective:
-    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 hover:text-blue-950 focus-visible:border-blue-600 focus-visible:ring-blue-600/50 active:bg-blue-200 disabled:opacity-100",
+    "border-vote-objective/25 bg-vote-objective-soft/40 text-vote-objective-text hover:bg-vote-objective-soft hover:text-vote-objective-text focus-visible:border-vote-objective focus-visible:ring-vote-objective/50 active:bg-vote-objective/20 disabled:opacity-100",
 } satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_UNAVAILABLE_TONE =
-  "disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500";
+  "disabled:border-line-strong disabled:bg-muted disabled:text-muted-foreground";
 
 const DOT_VOTE_SELECTED_TONE = {
-  subjective: "ring-2 ring-rose-700/75 ring-offset-2 ring-offset-white",
-  objective: "ring-2 ring-blue-700/75 ring-offset-2 ring-offset-white",
+  subjective:
+    "ring-2 ring-vote-subjective/75 ring-offset-2 ring-offset-background",
+  objective:
+    "ring-2 ring-vote-objective/75 ring-offset-2 ring-offset-background",
 } satisfies Record<DotVoteKind, string>;
 
 export function DotVotePaletteView({
@@ -66,21 +68,7 @@ export function DotVotePaletteView({
     !interactionBlocked
       ? selectedKind
       : null;
-  const status = disabled
-    ? "再接続を待っています。接続後に残票を確認してください。"
-    : pendingOperationCount > 0
-      ? "投票を送信中です。残票は確認待ちです。"
-      : feedback?.state === "confirmed"
-        ? feedback.message
-        : feedback?.state === "failed"
-          ? feedback.message
-          : isReturnDropTarget
-            ? "ここへ戻すと1票取り消しになります。"
-            : voteRemaining.subjective === 0 && voteRemaining.objective === 0
-              ? "すべてのシールを使い切りました。"
-              : activeSelectedKind === null
-                ? "シールをドラッグするか、クリックしてから付箋へ貼ってください。"
-                : `${DOT_VOTE_LABELS[activeSelectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
+  const failureMessage = feedback?.state === "failed" ? feedback.message : null;
 
   return (
     <section
@@ -88,17 +76,12 @@ export function DotVotePaletteView({
       aria-describedby={`${paletteId}-help`}
       data-vote-palette="true"
       data-return-drop-target={isReturnDropTarget ? "true" : undefined}
-      className={`pointer-events-auto relative flex w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-lg border border-border bg-white p-2 shadow-tool ${
+      className={`pointer-events-auto relative flex w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-lg border border-border p-2 shadow-tool ${
         isReturnDropTarget
-          ? "border-amber-500 bg-amber-50/95 ring-2 ring-amber-300/80 ring-offset-2 ring-offset-white"
-          : ""
+          ? "bg-primary/5 ring-2 ring-primary/40 ring-offset-2 ring-offset-background"
+          : "bg-white"
       }`}
     >
-      {isReturnDropTarget ? (
-        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 shadow-tool">
-          ここへ戻すと1票取り消しになります。
-        </p>
-      ) : null}
       <div id={`${paletteId}-help`} className="sr-only">
         <p className="sr-only">投票対象は現在のフェーズの個々の付箋です。</p>
         <p className="sr-only">{DOT_VOTE_GUIDANCE.withdrawal}</p>
@@ -106,14 +89,6 @@ export function DotVotePaletteView({
           付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
         </p>
       </div>
-      <p className="flex flex-wrap items-center justify-center gap-1.5 text-xs font-medium text-slate-700">
-        <Circle aria-hidden="true" className="size-3.5" />
-        <span>シールを選ぶ</span>
-        <ArrowRight aria-hidden="true" className="size-3.5" />
-        <StickyNote aria-hidden="true" className="size-3.5" />
-        <span>付箋へ貼る</span>
-        <span>（ドラッグも可）</span>
-      </p>
       <fieldset className="flex w-full min-w-0 gap-2">
         <legend className="sr-only">使用するシールの種類</legend>
         {DOT_VOTE_KINDS.map((kind) => {
@@ -121,6 +96,9 @@ export function DotVotePaletteView({
           const isWaiting = isEmpty && (pendingOperationCount > 0 || disabled);
           const isExhausted = isEmpty && !isWaiting;
           const isSelected = activeSelectedKind === kind;
+          // 残票が確定しない間は、票数の代わりにスピナーを出す。
+          const showsSpinner = isWaiting || disabled;
+          // 状態は形（輪郭・破線・灰色・スピナー）で示し、文言は読み上げだけに残す。
           const stateLabel = disabled
             ? "接続待ち"
             : isWaiting
@@ -142,7 +120,7 @@ export function DotVotePaletteView({
               }
               size="sm"
               variant="outline"
-              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "min-h-20 border-dashed" : "min-h-24"} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
+              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed min-h-20 ${isExhausted ? "border-dashed" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
                 isSelected ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
@@ -167,37 +145,37 @@ export function DotVotePaletteView({
                 <span className="text-sm font-bold">
                   {DOT_VOTE_LABELS[kind]}
                 </span>
-                <span className="ml-auto text-sm font-bold tabular-nums">
-                  残り{voteRemaining[kind]}票
-                </span>
+                {showsSpinner ? (
+                  <Spinner className="ml-auto" />
+                ) : (
+                  <span className="ml-auto text-sm font-bold tabular-nums">
+                    残り{voteRemaining[kind]}票
+                  </span>
+                )}
               </span>
               {!isExhausted ? (
                 <span className="whitespace-normal text-left text-xs font-semibold leading-snug">
                   {DOT_VOTE_CRITERIA[kind]}
                 </span>
               ) : null}
-              <span
-                id={`${paletteId}-${kind}-state`}
-                className="mt-auto flex items-center justify-center gap-1 text-xs font-semibold"
-              >
-                {isWaiting ? (
-                  <Clock3 aria-hidden="true" className="size-3.5" />
-                ) : null}
-                {isExhausted || isSelected ? (
-                  <Check aria-hidden="true" className="size-3.5" />
-                ) : null}
+              <span id={`${paletteId}-${kind}-state`} className="sr-only">
                 {stateLabel}
               </span>
             </Button>
           );
         })}
       </fieldset>
+      {/* 失敗だけを表示する。空でも読み上げ領域は残し、失敗を確実に読み上げる。 */}
       <p
-        className="w-full text-xs leading-snug text-slate-700"
+        className={
+          failureMessage === null
+            ? "sr-only"
+            : "w-full text-xs leading-snug text-foreground"
+        }
         role="status"
         aria-live="polite"
       >
-        {status}
+        {failureMessage}
       </p>
     </section>
   );

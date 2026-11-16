@@ -435,7 +435,7 @@ export function RoomOutcomeView({
         {!authorized ? (
           <p className="text-xs leading-5 text-muted-foreground">
             完了したルームは、ホームの「過去の成果を見る」から見返せます。
-            保存期限は完了から30日間です。
+            保存期限は完了から180日間です。
           </p>
         ) : null}
 

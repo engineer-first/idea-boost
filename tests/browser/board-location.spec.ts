@@ -351,7 +351,6 @@ test.each([
   [1280, 720, "auth-required"],
   [390, 844, "auth-required"],
   [320, 568, "reconnecting"],
-  [320, 568, "delayed-connection"],
   [320, 568, "auth-required"],
   [320, 568, "unavailable"],
   [320, 568, "auth-required-with-move-history"],

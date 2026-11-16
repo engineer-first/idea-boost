@@ -35,9 +35,9 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  border: 3px solid #1e8e3e;
-  background: #fff;
-  color: #188038;
+  border: 3px solid var(--ib-color-state-decided);
+  background: var(--ib-color-surface);
+  color: var(--ib-color-state-decided-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -54,7 +54,7 @@
   content: "";
   position: absolute;
   inset: 3px;
-  border: 1.5px solid #188038;
+  border: 1.5px solid var(--ib-color-state-decided-text);
   border-radius: 50%;
 }
 .sticky-note[data-decided] .sticky-note-stamp {

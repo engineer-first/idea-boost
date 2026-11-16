@@ -148,6 +148,7 @@ export type RoomBoardCanvasProps = {
   permissions: BoardPermissions;
   camera: CanvasCamera;
   displayZoom?: number;
+  character?: ReactNode;
   gridStyle: CSSProperties;
   isPanning: boolean;
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -189,7 +190,7 @@ export type RoomBoardCanvasProps = {
   onAdoptNote: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
-  onAddPrivateNote: () => string | null;
+  onAddPrivateNote: (content?: string) => string | null;
   noteCreationPending?: boolean;
   noteCreationReceipt?: { operationId: string; noteId: string };
   noteCreationSupported?: boolean;
@@ -207,7 +208,7 @@ export type RoomBoardCanvasProps = {
   onManualPanStart?: () => void;
   expandPrivateNotesRequest?: number;
   addPrivateNoteRequest?: number;
-  privateNoteAddRef?: RefObject<(() => void) | null>;
+  privateNoteAddRef?: RefObject<((content?: string) => void) | null>;
 };
 
 export function RoomBoardCanvas({
@@ -253,6 +254,7 @@ export function RoomBoardCanvas({
   permissions,
   camera,
   displayZoom,
+  character,
   gridStyle,
   isPanning,
   isPresenterViewOwner = false,
@@ -1011,6 +1013,9 @@ export function RoomBoardCanvas({
             style={gridStyle}
           />
         ) : null}
+        <div className="pointer-events-none fixed top-[calc(var(--board-location-bottom,4.25rem)+0.5rem)] left-3 z-[42] sm:top-[var(--board-location-top,0.75rem)] sm:left-[calc(var(--board-location-right,23.25rem)+0.75rem)]">
+          {character}
+        </div>
         <div
           className={`pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 ${additionalWriting ? styles.additionalWritingTools : ""}`}
           data-testid="board-tools-hud"
@@ -1154,13 +1159,13 @@ export function RoomBoardCanvas({
               type="button"
               aria-label="共有キャンバスの背景"
               data-canvas-background="true"
-              className="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700"
+              className="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             />
             {marquee ? (
               <div
                 data-testid="canvas-marquee"
                 aria-hidden="true"
-                className="pointer-events-none absolute z-30 border border-[#0B93F5] bg-[rgba(11,147,245,0.1)]"
+                className="pointer-events-none absolute z-30 border border-state-select bg-state-select/10"
                 style={marquee}
               />
             ) : null}
@@ -1360,7 +1365,7 @@ export function RoomBoardCanvas({
                 }}
               >
                 <p
-                  className={`min-h-0 flex-1 overflow-hidden p-2 text-slate-900 ${dragPreview.noteDisplayScale === undefined ? "text-sm" : ""}`}
+                  className={`min-h-0 flex-1 overflow-hidden p-2 text-foreground ${dragPreview.noteDisplayScale === undefined ? "text-sm" : ""}`}
                   style={
                     dragPreview.noteDisplayScale === undefined
                       ? undefined
@@ -1379,8 +1384,8 @@ export function RoomBoardCanvas({
         <div
           className="pointer-events-auto absolute right-3 bottom-3 z-40 max-[639px]:bottom-[var(--board-operation-bottom,4.5rem)]"
           data-testid="board-operation-matrix"
-          data-board-fit-edge="bottom"
           hidden={isPersonalNoteEntryPhase}
+          data-board-fit-edge="bottom"
         >
           <BoardOperationMatrix permissions={permissions} />
         </div>
@@ -1420,6 +1425,13 @@ export function RoomBoardCanvas({
           >
             <div
               className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
+              style={
+                isPhaseStep(phase, 2, 1) && !additionalWriting
+                  ? {
+                      bottom: "7rem",
+                    }
+                  : undefined
+              }
               data-testid={
                 isPersonalNoteEntryPhase
                   ? "private-notes-workspace"

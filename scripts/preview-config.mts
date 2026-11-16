@@ -34,6 +34,8 @@ const appSchema = z.object({
     directory: z.literal(".open-next/assets"),
     binding: z.literal("ASSETS"),
     run_worker_first: z.literal(true),
+    html_handling: z.literal("none"),
+    not_found_handling: z.literal("none"),
   }),
   previews: z.object({
     vars: z.object({

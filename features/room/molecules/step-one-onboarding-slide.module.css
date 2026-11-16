@@ -39,7 +39,7 @@
 .illustration {
   min-height: 0;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: var(--ib-rounded-xl);
   background: var(--muted);
   overscroll-behavior: contain;
 }

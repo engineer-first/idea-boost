@@ -23,10 +23,6 @@ export const Leave: Story = {
   },
 };
 
-export const LastMember: Story = {
-  args: { lastMember: true },
-};
-
 // 退出処理中（多重押下防止で操作が無効化される）。
 export const Leaving: Story = {
   args: {

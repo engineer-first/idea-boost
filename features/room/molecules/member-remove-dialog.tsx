@@ -5,7 +5,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -32,6 +31,7 @@ export function MemberRemoveDialog({
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent
+        aria-describedby={undefined}
         className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
@@ -69,9 +69,6 @@ export function MemberRemoveDialog({
               </div>
             </div>
           ) : null}
-          <AlertDialogDescription className="leading-relaxed">
-            この参加者の画面はホームに戻ります。付箋や投票は残り、招待リンク・コードから再参加できます。
-          </AlertDialogDescription>
         </AlertDialogHeader>
         {!target ? (
           <p role="status" className="text-base text-muted-foreground">
