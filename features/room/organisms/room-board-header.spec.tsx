@@ -1514,7 +1514,7 @@ it("一巡後はHUDに次の操作を表示する", () => {
   expect(screen.getByText("共有完了")).toBeVisible();
   const next = screen.getByRole("button", { name: "次のステップへ" });
   expect(next).toBeEnabled();
-  expect(next).toHaveTextContent("次へ進む");
+  expect(next).toHaveTextContent("次のステップへ");
   expect(
     screen.queryByRole("button", { name: "できた！" }),
   ).not.toBeInTheDocument();

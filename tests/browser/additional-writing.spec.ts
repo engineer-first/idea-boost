@@ -257,7 +257,7 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
       .isVisible(),
   ).toBe(true);
   expect(await page.getByTestId("timer-floating").count()).toBe(0);
-  expect(await nextStep.innerText()).toContain("次へ進む");
+  expect(await nextStep.innerText()).toContain("次のステップへ");
   expect(
     await page.getByRole("button", { name: "できた！", exact: true }).count(),
   ).toBe(0);
