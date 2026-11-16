@@ -53,7 +53,9 @@ for (const width of [390, 1280]) {
   test(`${width}px: 空のマイ付箋からTab/Enterで一枚作成し、本文を入力する`, async () => {
     await openStory("empty", width);
     expect(await page.getByTestId("note-card").count()).toBe(0);
-    const add = page.getByRole("button", { name: "付箋を追加" });
+    const add = page
+      .getByTestId("private-notes-controls")
+      .getByRole("button", { name: "付箋を追加" });
     const privacyMessage = page.getByText(
       "この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。",
       { exact: true },
@@ -64,7 +66,9 @@ for (const width of [390, 1280]) {
         (element) => element.scrollWidth <= element.clientWidth,
       ),
     ).toBe(true);
-    await expectInsideViewport('[aria-label="付箋を追加"]');
+    await expectInsideViewport(
+      '[data-testid="private-notes-controls"] [aria-label="付箋を追加"]',
+    );
     await add.focus();
     await page.keyboard.press("Enter");
     await expect.poll(() => page.getByTestId("note-card").count()).toBe(1);
@@ -98,7 +102,10 @@ for (const width of [390, 1280]) {
     const firstNote = toolbar.locator('[data-note-id="guidance-first"]');
     expect(await toolbar.getByTestId("note-card").count()).toBe(2);
     expect(
-      await page.getByRole("button", { name: "付箋を追加" }).isDisabled(),
+      await page
+        .getByTestId("private-notes-controls")
+        .getByRole("button", { name: "付箋を追加" })
+        .isDisabled(),
     ).toBe(true);
     expect(
       await page
@@ -173,7 +180,10 @@ for (const width of [390, 1280]) {
         .isVisible(),
     ).toBe(true);
     expect(
-      await page.getByRole("button", { name: "付箋を追加" }).isDisabled(),
+      await page
+        .getByTestId("private-notes-controls")
+        .getByRole("button", { name: "付箋を追加" })
+        .isDisabled(),
     ).toBe(true);
     expect(
       await toolbar

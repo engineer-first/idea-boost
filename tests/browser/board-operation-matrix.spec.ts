@@ -33,6 +33,7 @@ for (const viewport of [
       expect(await page.getByTestId("board-header-row").isVisible()).toBe(true);
       expect(
         await page
+          .getByTestId("private-notes-controls")
           .getByRole("button", { name: "付箋を追加", exact: true })
           .isVisible(),
       ).toBe(true);
@@ -74,6 +75,7 @@ for (const viewport of [
     expect(await matrix.boundingBox()).toEqual(before);
     expect(
       await page
+        .getByTestId("private-notes-controls")
         .getByRole("button", { name: "付箋を追加", exact: true })
         .isDisabled(),
     ).toBe(true);
