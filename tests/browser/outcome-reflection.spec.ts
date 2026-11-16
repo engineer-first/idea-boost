@@ -122,8 +122,59 @@ test("動きを減らす設定でも手順を切り替えられ、内容を動�
   ).toBe("none");
   expect(
     await article
+      .getByRole("progressbar")
+      .locator("span")
+      .evaluate((element) => getComputedStyle(element).transitionDuration),
+  ).toBe("0s");
+  expect(
+    await article
       .getByRole("heading")
       .evaluate((element) => element === document.activeElement),
   ).toBe(true);
   await page.emulateMedia({ reducedMotion: "no-preference" });
+});
+
+test("キーボード操作で遷移した見出しにfocus-visibleの枠を表示する", async () => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(
+    `${origin}/iframe.html?id=room-outcomereflectioncontainer--outcome-page&viewMode=story`,
+  );
+  const entry = page.getByRole("button", {
+    name: "調査を準備する",
+    exact: true,
+  });
+  await entry.waitFor();
+  await entry.focus();
+  await page.keyboard.press("Enter");
+  const title = page.getByRole("heading", { name: "ニーズ調査の準備" });
+  expect(
+    await title.evaluate((element) => ({
+      focused: element === document.activeElement,
+      visible: element.matches(":focus-visible"),
+      outlineStyle: getComputedStyle(element).outlineStyle,
+      outlineWidth: getComputedStyle(element).outlineWidth,
+    })),
+  ).toMatchObject({
+    focused: true,
+    visible: true,
+    outlineStyle: "solid",
+  });
+  await createStudy();
+  const next = page.getByRole("button", { name: "次へ", exact: true });
+  await next.focus();
+  await page.keyboard.press("Enter");
+  const stepTitle = page
+    .getByRole("article", { name: "調査の手順" })
+    .getByRole("heading");
+  expect(
+    await stepTitle.evaluate((element) => ({
+      focused: element === document.activeElement,
+      visible: element.matches(":focus-visible"),
+      outlineStyle: getComputedStyle(element).outlineStyle,
+    })),
+  ).toMatchObject({
+    focused: true,
+    visible: true,
+    outlineStyle: "solid",
+  });
 });

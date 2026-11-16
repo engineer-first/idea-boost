@@ -310,3 +310,41 @@ it("閲覧権限を失った応答では保存済みの手順も隠す", async (
     screen.queryByText(reflectionPlanFixture().method),
   ).not.toBeInTheDocument();
 });
+it("別の準備物へ候補と同じ語を含む独自名を入力しても入力値を消さず送信できる", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(Response.json(reflectionResponseFixture()))
+    .mockResolvedValueOnce(
+      Response.json(
+        reflectionResponseFixture({
+          selectedArtifact: "モックアップの操作説明",
+          prompt: {
+            revision: 1,
+            artifact: "モックアップの操作説明",
+            content: "操作説明を作成してください。",
+            generatedAt: Date.now(),
+          },
+        }),
+      ),
+    );
+  vi.stubGlobal("fetch", fetch);
+  render(<OutcomeReflection roomId="room" />);
+  fireEvent.click(screen.getByRole("button", { name: "調査の準備物を選ぶ" }));
+  const customInput = await screen.findByRole("textbox", {
+    name: "別の準備物",
+  });
+  fireEvent.change(customInput, { target: { value: "モックアップ" } });
+  expect(customInput).toHaveValue("モックアップ");
+  expect(screen.getByRole("radio", { name: "モックアップ" })).not.toBeChecked();
+  fireEvent.change(customInput, {
+    target: { value: "モックアップの操作説明" },
+  });
+  expect(customInput).toHaveValue("モックアップの操作説明");
+  fireEvent.click(screen.getByRole("button", { name: "制作依頼文を作る" }));
+  await screen.findByRole("button", { name: "依頼文をコピー" });
+  expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
+    action: "artifact",
+    revision: 1,
+    artifact: "モックアップの操作説明",
+  });
+});

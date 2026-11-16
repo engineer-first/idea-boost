@@ -212,7 +212,11 @@ describe("ユーザーニーズ調査の準備", () => {
       ).rejects.toThrow("回答済み");
       expect(board).not.toHaveBeenCalled();
       expect(
-        state.storage.sql.exec("SELECT * FROM outcome_reflections").toArray(),
+        state.storage.sql
+          .exec(
+            "SELECT cache_key FROM outcome_reflections WHERE cache_key NOT LIKE 'v5:attempts:%'",
+          )
+          .toArray(),
       ).toEqual([]);
       expect(JSON.parse(generate.mock.calls[0][1]).sources).toHaveLength(3);
     });
@@ -297,7 +301,11 @@ describe("ユーザーニーズ調査の準備", () => {
       );
       expect(await storage.readOrGenerate(user.sub, research())).toBeNull();
       expect(
-        state.storage.sql.exec("SELECT * FROM outcome_reflections").toArray(),
+        state.storage.sql
+          .exec(
+            "SELECT cache_key FROM outcome_reflections WHERE cache_key NOT LIKE 'v5:attempts:%'",
+          )
+          .toArray(),
       ).toEqual([]);
     });
   });
@@ -467,7 +475,11 @@ describe("ユーザーニーズ調査の準備", () => {
         "一致しません",
       );
       expect(
-        state.storage.sql.exec("SELECT * FROM outcome_reflections").toArray(),
+        state.storage.sql
+          .exec(
+            "SELECT cache_key FROM outcome_reflections WHERE cache_key NOT LIKE 'v5:attempts:%'",
+          )
+          .toArray(),
       ).toEqual([]);
     });
   });
@@ -625,6 +637,91 @@ describe("ユーザーニーズ調査の準備", () => {
       const outsideData = content.replace(match[0], "");
       expect(outsideData).not.toContain(injection);
       expect(outsideData).not.toContain("質問リスト");
+    });
+  });
+  it("待機中に別の制作物が選択されても、返却する制作物名と依頼文を一致させる", async () => {
+    const room = await createRoomAs(user);
+    await runInRoomDO(room.roomId, async (_instance, state) => {
+      const generate = generator();
+      const warmup = new OutcomeReflectionStorage(state, completed(), generate);
+      await warmup.readOrGenerate(user.sub, prompt("スライド"));
+      await warmup.readOrGenerate(user.sub, prompt("質問リスト"));
+
+      let releaseFirstResponse!: () => void;
+      const firstResponseReady = new Promise<void>((resolve) => {
+        releaseFirstResponse = resolve;
+      });
+      let firstResponseWaiting!: () => void;
+      const waitingStarted = new Promise<void>((resolve) => {
+        firstResponseWaiting = resolve;
+      });
+      let calls = 0;
+      const slowStore = {
+        get: async () => {
+          calls++;
+          if (calls === 4) {
+            firstResponseWaiting();
+            await firstResponseReady;
+          }
+          return completedRoomFixture({ expiresAt: Date.now() + 60000 });
+        },
+        board: async () => null,
+      };
+      const racing = new OutcomeReflectionStorage(state, slowStore, generate);
+      const firstPromise = racing.readOrGenerate(user.sub, prompt("スライド"));
+      await waitingStarted;
+      await racing.readOrGenerate(user.sub, prompt("質問リスト"));
+      releaseFirstResponse();
+      const first = await firstPromise;
+      expect(first?.prompt?.artifact).toBe("スライド");
+      expect(first?.selectedArtifact).toBe("スライド");
+    });
+  });
+  it("失敗したAI生成も試行回数に含め、上限到達後は推論を呼ばず保存済み結果だけ再利用する", async () => {
+    const room = await createRoomAs(user);
+    await runInRoomDO(room.roomId, async (_instance, state) => {
+      const failingResearch = vi.fn(async () => {
+        throw new Error("ai unavailable");
+      });
+      const storage = new OutcomeReflectionStorage(
+        state,
+        completed(),
+        failingResearch,
+      );
+      for (let index = 0; index < 20; index++)
+        await expect(
+          storage.readOrGenerate(user.sub, {
+            action: "research",
+            revision: 0,
+            context: { audience: `対象${index}`, situation: "" },
+          }),
+        ).rejects.toThrow("ai unavailable");
+      await expect(
+        storage.readOrGenerate(user.sub, {
+          action: "research",
+          revision: 0,
+          context: { audience: "上限後", situation: "" },
+        }),
+      ).rejects.toThrow("調査手順生成数の上限");
+      expect(failingResearch).toHaveBeenCalledTimes(20);
+
+      const mismatchedPrompt = vi.fn(async () => ({
+        artifact: "別物",
+        content: "内容",
+      }));
+      const promptStorage = new OutcomeReflectionStorage(
+        state,
+        completed(),
+        mismatchedPrompt,
+      );
+      for (let index = 0; index < 20; index++)
+        await expect(
+          promptStorage.readOrGenerate(user.sub, prompt(`制作物${index}`)),
+        ).rejects.toThrow("一致しません");
+      await expect(
+        promptStorage.readOrGenerate(user.sub, prompt("上限後の制作物")),
+      ).rejects.toThrow(REFLECTION_LIMIT_ERROR);
+      expect(mismatchedPrompt).toHaveBeenCalledTimes(20);
     });
   });
 });

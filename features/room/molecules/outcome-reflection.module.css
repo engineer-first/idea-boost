@@ -168,6 +168,11 @@
   scroll-margin-top: 6rem;
   outline: none;
 }
+.workspaceTitle:focus-visible {
+  outline: 2px solid var(--ib-color-primary);
+  outline-offset: 4px;
+  border-radius: var(--ib-rounded-md);
+}
 .sharedDetails,
 .sourceDetails {
   color: var(--ib-color-muted);
@@ -267,7 +272,6 @@
   height: 100%;
   border-radius: inherit;
   background: var(--ib-color-primary);
-  transition: width 0.2s ease-out;
 }
 .stepTitle {
   margin-top: 0.75rem;
@@ -276,6 +280,11 @@
   line-height: 1.5;
   outline: none;
   scroll-margin-top: 6rem;
+}
+.stepTitle:focus-visible {
+  outline: 2px solid var(--ib-color-primary);
+  outline-offset: 4px;
+  border-radius: var(--ib-rounded-md);
 }
 .stepContent {
   display: grid;

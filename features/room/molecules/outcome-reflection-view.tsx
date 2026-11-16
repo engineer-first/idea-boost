@@ -12,7 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -102,10 +102,13 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
       ].filter((value): value is string => Boolean(value)),
     ),
   ];
-  const selectedSuggestedArtifact =
-    candidates.find((candidate) => candidate === artifact) ??
-    candidates.find((candidate) => getArtifactLabel(candidate) === artifact);
-  const suggestedArtifactSelected = selectedSuggestedArtifact !== undefined;
+  const [customEditing, setCustomEditing] = useState(false);
+  const selectedSuggestedArtifact = customEditing
+    ? undefined
+    : (candidates.find((candidate) => candidate === artifact) ??
+      candidates.find((candidate) => getArtifactLabel(candidate) === artifact));
+  const showCustomArtifact =
+    customEditing || selectedSuggestedArtifact === undefined;
   const prompt =
     section === "competition" ? data?.competitionPrompt : data?.prompt?.content;
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -479,7 +482,10 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
                       value={candidate}
                       aria-label={candidate}
                       checked={selectedSuggestedArtifact === candidate}
-                      onChange={() => props.onArtifact(candidate)}
+                      onChange={() => {
+                        setCustomEditing(false);
+                        props.onArtifact(candidate);
+                      }}
                       disabled={busy !== null}
                     />
                     {getArtifactLabel(candidate)}
@@ -490,10 +496,13 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
                 <label htmlFor="reflection-artifact">別の準備物</label>
                 <input
                   id="reflection-artifact"
-                  value={suggestedArtifactSelected ? "" : artifact}
+                  value={showCustomArtifact ? artifact : ""}
                   maxLength={REFLECTION_ARTIFACT_MAX}
                   disabled={busy !== null}
-                  onChange={(event) => props.onArtifact(event.target.value)}
+                  onChange={(event) => {
+                    setCustomEditing(event.target.value !== "");
+                    props.onArtifact(event.target.value);
+                  }}
                   placeholder="例：調査の記録シート"
                   className={styles.conditionInput}
                 />
