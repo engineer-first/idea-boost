@@ -70,7 +70,7 @@ describe("RoomTimer", () => {
       vi.useRealTimers();
     }
   });
-  it("時間切れの延長には波紋を出さず、付箋の入力フォーカスを保つ", () => {
+  it("時間切れでも付箋の入力フォーカスを保つ", () => {
     vi.useFakeTimers();
     vi.setSystemTime(ROOM_TIMER_FIXTURE_NOW);
     try {
@@ -84,66 +84,14 @@ describe("RoomTimer", () => {
       const { rerender } = render(view());
       const input = screen.getByRole("textbox");
       input.focus();
-      const floating = screen.getByTestId("timer-floating");
-      expect(floating).toHaveAttribute("data-timer-attention", "none");
       act(() => vi.advanceTimersByTime(600));
-      expect(floating).toHaveAttribute("data-timer-attention", "none");
       expect(input).toHaveFocus();
       expect(p.onNext).not.toHaveBeenCalled();
-      fireEvent.pointerDown(screen.getByRole("button", { name: "＋1分" }));
-      expect(floating).toHaveAttribute("data-timer-attention", "none");
       rerender(view(buildEndedTimer()));
-      expect(floating).toHaveAttribute("data-timer-attention", "none");
+      expect(input).toHaveFocus();
     } finally {
       vi.useRealTimers();
     }
-  });
-  it("共有の一巡で選択肢に注意を促し、操作を始めると合図を消す", () => {
-    const p = props();
-    const { rerender } = render(<RoomTimer {...p} timer={buildEndedTimer()} />);
-    rerender(
-      <RoomTimer
-        {...p}
-        timer={{ status: "idle" }}
-        sharingComplete
-        onRestartWriting={vi.fn()}
-      />,
-    );
-    const floating = screen.getByTestId("timer-floating");
-    expect(floating).toHaveAttribute("data-timer-attention", "pulse");
-    fireEvent.pointerDown(
-      screen.getByRole("button", { name: "付箋を書き直す" }),
-    );
-    expect(floating).toHaveAttribute("data-timer-attention", "none");
-  });
-  it("終了状態の復元でも延長ボタンに合図を出さない", () => {
-    const p = props();
-    render(<RoomTimer {...p} timer={buildEndedTimer()} />);
-    const floating = screen.getByTestId("timer-floating");
-    expect(floating).toHaveAttribute("data-timer-attention", "none");
-    act(() => screen.getByRole("button", { name: "＋1分" }).focus());
-    expect(floating).toHaveAttribute("data-timer-attention", "none");
-  });
-  it("一時停止から再開したタイマーが終了しても延長に波紋を出さない", () => {
-    const p = props();
-    const { rerender } = render(<RoomTimer {...p} />);
-    const floating = screen.getByTestId("timer-floating");
-    rerender(<RoomTimer {...p} timer={buildPausedTimer()} />);
-    expect(floating).toHaveAttribute("data-timer-attention", "none");
-    rerender(<RoomTimer {...p} />);
-    rerender(<RoomTimer {...p} timer={buildEndedTimer()} />);
-    expect(floating).toHaveAttribute("data-timer-attention", "none");
-  });
-  it("切断中は合図を消し、再接続では波紋を繰り返さない", () => {
-    const p = props();
-    const { rerender } = render(<RoomTimer {...p} />);
-    const floating = screen.getByTestId("timer-floating");
-    rerender(<RoomTimer {...p} timer={buildEndedTimer()} />);
-    expect(floating).toHaveAttribute("data-timer-attention", "none");
-    rerender(<RoomTimer {...p} timer={buildEndedTimer()} disabled />);
-    expect(floating).toHaveAttribute("data-timer-attention", "none");
-    rerender(<RoomTimer {...p} timer={buildEndedTimer()} />);
-    expect(floating).toHaveAttribute("data-timer-attention", "none");
   });
   it("切断・送信中は延長を実行しない", () => {
     const p = props();
