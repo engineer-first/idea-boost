@@ -506,7 +506,9 @@ test.each([
           const rail = element.querySelector('[role="progressbar"]');
           const railRect = rail?.getBoundingClientRect();
           return {
-            height: element.parentElement?.getBoundingClientRect().height,
+            height: element
+              .closest('[data-testid="board-location-card"]')
+              ?.getBoundingClientRect().height,
             railCount: rail?.children.length,
             railTop: railRect?.top,
             rects: children.map((r) => ({

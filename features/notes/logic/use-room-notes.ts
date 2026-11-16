@@ -34,6 +34,7 @@ import {
   resetNoteVoteLocally,
   restoreVoteStickerLocally,
   voteNoteLocally,
+  withdrawOwnVotesOfKindLocally,
 } from "./notes-reducer";
 import { type MoveFeedback, useNoteMove } from "./use-note-move";
 import { useNoteShare } from "./use-note-share";
@@ -161,6 +162,8 @@ export type UseRoomNotesResult = {
     y: number,
   ) => void;
   resetNoteVote: (noteId: string, kind: DotVoteKind) => void;
+  // 指定した種類の自分の票を、すべての付箋から取り消す。
+  withdrawAllVotesOfKind: (kind: DotVoteKind) => void;
   pendingVoteOperations: PendingVoteOperation[];
   voteFeedback: VoteFeedback | null;
 };
@@ -1208,6 +1211,25 @@ export function useRoomNotes({
     [send, createVoteOperationId],
   );
 
+  const withdrawAllVotesOfKind = useCallback(
+    (kind: DotVoteKind) => {
+      const result = withdrawOwnVotesOfKindLocally(notesRef.current, kind);
+      if (result.noteIds.length === 0) return;
+      notesRef.current = result.notes;
+      setNotes(result.notes);
+      setVoteFeedback(null);
+      for (const noteId of result.noteIds) {
+        send({
+          type: "note:vote-reset",
+          noteId,
+          kind,
+          operationId: createVoteOperationId(),
+        });
+      }
+    },
+    [send, createVoteOperationId],
+  );
+
   return {
     notes: transactionShare.renderNotes(transactionMove.notes),
     clearPeerMoves: transactionMove.clearPeerMoves,
@@ -1249,6 +1271,7 @@ export function useRoomNotes({
     removeVoteSticker,
     moveVoteSticker,
     resetNoteVote,
+    withdrawAllVotesOfKind,
     pendingVoteOperations,
     voteFeedback,
   };

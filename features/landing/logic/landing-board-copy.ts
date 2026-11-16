@@ -10,8 +10,8 @@ export const landingBoardCopy = {
   next: "次のステップへ",
   room: "睡眠のアイデア",
   timer: "03:00",
-  subjective: "主観",
-  objective: "客観",
+  subjective: "イチオシ！",
+  objective: "需要ありそう",
   issueLabel: "まずは、身近な困りごとから",
   hero: [
     { text: "寝る準備を始める時刻に知らせる", member: 0 },

@@ -166,6 +166,7 @@
   width: 3cqw;
   height: 3cqw;
   border-radius: 50%;
+  /* イチオシ！は薄い赤の丸に線の星。需要ありそうは下の上書きで薄い青の角丸四角にする。 */
   background: var(--lp-vote-soft);
   color: var(--lp-vote);
   border: 2px solid currentColor;
@@ -586,6 +587,7 @@
 .outerObjectiveTwo {
   color: var(--lp-objective);
   background: var(--lp-soft);
+  border-color: currentColor;
   border-radius: 5px;
 }
 .centerObjective {

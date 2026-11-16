@@ -7,11 +7,31 @@ import {
   Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import type { DotVoteKind } from "@/contracts/room-protocol";
+import { DotVoteStickerImage } from "@/features/dot-vote";
 import {
   STEP_GUIDE_DIAGRAM_COPY as copy,
   SCAMPER_QUESTION_EXAMPLES,
   type StepGuideDiagramKind,
 } from "../logic/step-guide-copy";
+
+// 記号の文字でなく、ボードと同じシールの絵を添えて種類を示す。
+function StickerLabel({
+  kind,
+  children,
+  className = "",
+}: {
+  kind: DotVoteKind;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <p className={`flex items-center gap-2 ${className}`}>
+      <DotVoteStickerImage kind={kind} size="result" />
+      <span>{children}</span>
+    </p>
+  );
+}
 
 type StepGuideIllustrationProps = { kind: StepGuideDiagramKind; alt: string };
 
@@ -145,11 +165,15 @@ export function StepGuideIllustration({
       content = (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border bg-background p-4">
-            <p className="mb-3 font-semibold">{copy.subjective}</p>
+            <StickerLabel kind="subjective" className="mb-3 font-semibold">
+              {copy.subjective}
+            </StickerLabel>
             <Note>{copy.subjectiveCriterion}</Note>
           </div>
           <div className="rounded-xl border bg-background p-4">
-            <p className="mb-3 font-semibold">{copy.objective}</p>
+            <StickerLabel kind="objective" className="mb-3 font-semibold">
+              {copy.objective}
+            </StickerLabel>
             <Note blue>{copy.objectiveCriterion}</Note>
           </div>
         </div>
@@ -161,8 +185,12 @@ export function StepGuideIllustration({
           <Flow>
             <div className="space-y-3 rounded-xl border bg-background p-4">
               <p className="font-semibold">{copy.palette}</p>
-              <p className="text-sm text-red-700">{copy.subjectiveRemaining}</p>
-              <p className="text-sm text-blue-700">{copy.objectiveRemaining}</p>
+              <StickerLabel kind="subjective" className="text-sm">
+                {copy.subjectiveRemaining}
+              </StickerLabel>
+              <StickerLabel kind="objective" className="text-sm">
+                {copy.objectiveRemaining}
+              </StickerLabel>
             </div>
             <div className="text-center text-sm">
               {copy.attach}
@@ -171,11 +199,9 @@ export function StepGuideIllustration({
             </div>
             <Note>
               <span className="block">{copy.forgotten}</span>
-              <span className="mt-3 inline-block rounded-full border border-red-300 bg-red-100 px-2 text-red-800">
-                {copy.subjective}
-              </span>
-              <span className="ml-2 inline-block border border-blue-300 bg-blue-100 px-2 text-blue-800">
-                {copy.objective}
+              <span className="mt-3 flex gap-1.5">
+                <DotVoteStickerImage kind="subjective" />
+                <DotVoteStickerImage kind="objective" />
               </span>
             </Note>
           </Flow>

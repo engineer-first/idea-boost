@@ -173,6 +173,8 @@ export function removeVoteSticker(sql: SqlStorage, stickerId: string): void {
 
 // 旧クリッククライアントの操作も、同じ個別シールの真実へ収容する。新UIは
 // note:vote-sticker:add を使うため、この座標は過渡的な互換値である。
+// イチオシ！（subjective）は需要ありそう（objective）のどれよりも左に置き、
+// 結果の集計と同じく主観を左・客観を右にそろえる。
 export function addUserNoteVote(
   sql: SqlStorage,
   noteId: string,
@@ -185,7 +187,7 @@ export function addUserNoteVote(
     {
       id: crypto.randomUUID(),
       kind,
-      x: kind === "subjective" ? 0.82 : Math.min(0.93, 0.72 + ordinal * 0.08),
+      x: kind === "subjective" ? 0.62 : Math.min(0.93, 0.72 + ordinal * 0.08),
       y: 0.16,
     },
     noteId,

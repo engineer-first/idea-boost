@@ -43,5 +43,5 @@ date: "2026-10-14"
 - [実装 PR #652](https://github.com/engineer-first/idea-boost/pull/652)
 - [本人単位の調整](../../workers/account/account-do.ts)
 - [照合した実装・規約](../../workers/account/account-do.ts)（確認日：2026-11-03）。
-- 2026-10-12 Codexセッション 01a129f8（複数ルーム利用への疑問）、2026-10-14 01a135ce（確定仕様の実装依頼）。本人の単一参加の意図と、AIが選んだAccountDO方式の採用承認は区別する。
+- 2026-10-12にオーナーが複数ルーム利用への疑問を示し、2026-10-14に確定仕様の実装を依頼した。本人の単一参加の意図と、AIが選んだAccountDO方式の採用承認は区別する。
 - [書き直し前の記録と詳細](https://github.com/engineer-first/idea-boost/blob/ac5e7b56/docs/adr/0015-account-room-participation.md)。実装詳細の正本は上記の仕様・運用文書または実装PRを参照する。
