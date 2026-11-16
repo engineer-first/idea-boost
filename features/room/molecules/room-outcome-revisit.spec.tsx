@@ -2,6 +2,33 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { RoomOutcomeView } from "./room-outcome-view";
 
+it("成果の持ち帰り操作と同じ画面でAI振り返りを表示する", () => {
+  render(
+    <RoomOutcomeView
+      outcome={{ issue: "課題", hmw: "問い", idea: "案" }}
+      authorized
+      reflection={<button type="button">AIと振り返る</button>}
+    />,
+  );
+  expect(
+    screen.getByRole("button", { name: "AIと振り返る" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "テキストを保存" }),
+  ).toBeInTheDocument();
+  expect(
+    screen
+      .getByRole("button", { name: "AIと振り返る" })
+      .compareDocumentPosition(
+        screen.getByRole("button", { name: "テキストを保存" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  const context = screen.getByText("課題・問いを見返す").closest("details");
+  expect(context).not.toHaveAttribute("open");
+  fireEvent.click(screen.getByText("課題・問いを見返す"));
+  expect(screen.getByText("問い")).toBeVisible();
+});
+
 it("認可済み再訪では作業用接続なしで全文コピーでき、ボードへ戻る操作を出さない", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {
@@ -16,7 +43,7 @@ it("認可済み再訪では作業用接続なしで全文コピーでき、ボ�
       onBackToBoard={undefined}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+  fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
   expect(writeText).toHaveBeenCalledWith(
     expect.stringContaining("3. 採用したアイデア\n案"),
   );
@@ -49,7 +76,7 @@ it("認可済み再訪でもコピー成功の案内と記録本文を維持す�
     screen.getByRole("region", { name: "完了ルームの記録" }),
   ).toBeVisible();
   expect(screen.getByText("フィードバックの案内")).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+  fireEvent.click(screen.getByRole("button", { name: "成果をコピー" }));
   await screen.findByText(/コピーしました/);
   expect(schedulePrompt).toHaveBeenCalledOnce();
 });

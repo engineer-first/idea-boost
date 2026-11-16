@@ -20,11 +20,15 @@ PORT="${SMOKE_PORT:-8788}"
 URL="http://localhost:${PORT}/api/health"
 LOG_FILE="$(mktemp)"
 PID=""
+SMOKE_API_CONFIG=""
 
 cleanup() {
   if [[ -n "$PID" ]]; then
     kill "$PID" 2>/dev/null || true
     wait "$PID" 2>/dev/null || true
+  fi
+  if [[ -n "$SMOKE_API_CONFIG" ]]; then
+    rm -f "$SMOKE_API_CONFIG"
   fi
 }
 trap cleanup EXIT
@@ -38,7 +42,22 @@ echo "==> Building (OpenNext / Cloudflare)"
 npm run build:cf
 
 echo "==> Starting preview server on :${PORT} (Next.js + api-worker, service binding)"
-npx wrangler dev -c wrangler.jsonc -c workers/wrangler.jsonc --port "$PORT" \
+# 複数構成では --local が先頭Workerだけに適用されるため、疎通で使わないAIを除く。
+# 同じディレクトリへ一時構成を置き、entrypoint・D1・DO・秘密設定の参照は維持する。
+SMOKE_API_CONFIG="$(node --input-type=module <<'NODE'
+import { randomUUID } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import ts from 'typescript';
+const source = 'workers/wrangler.jsonc';
+const { config, error } = ts.parseConfigFileTextToJson(source, readFileSync(source, 'utf8'));
+if (error) throw new Error('smoke用のWorker構成を読み取れません。');
+delete config.ai;
+const target = `workers/.wrangler-smoke-${randomUUID()}.json`;
+writeFileSync(target, JSON.stringify(config), { flag: 'wx' });
+process.stdout.write(target);
+NODE
+)"
+npx wrangler dev --local -c wrangler.jsonc -c "$SMOKE_API_CONFIG" --port "$PORT" \
   >"$LOG_FILE" 2>&1 &
 PID=$!
 

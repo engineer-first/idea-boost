@@ -153,6 +153,7 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
 }
 
 export type RoomBoardViewProps = {
+  outcomeReflection?: ReactNode;
   sharingReactionDisplay?: ReactNode;
   reactionControls?: (disabled: boolean) => ReactNode;
   feedback?: FeedbackControls;
@@ -296,6 +297,7 @@ type VoteStampPointer = {
 };
 
 export function RoomBoardView({
+  outcomeReflection,
   sharingReactionDisplay,
   reactionControls,
   feedback,
@@ -1719,6 +1721,7 @@ export function RoomBoardView({
     return (
       <>
         <RoomOutcomeView
+          reflection={outcomeReflection}
           onOpenFeedback={feedback ? () => feedback.open("app") : undefined}
           feedbackButtonRef={feedbackButtonRef}
           onExportSuccess={feedback?.schedulePrompt}
