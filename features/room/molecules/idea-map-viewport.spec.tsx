@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { IdeaMapViewport } from "./idea-map-viewport";
 
 describe("IdeaMapViewport", () => {
@@ -58,5 +58,41 @@ describe("IdeaMapViewport", () => {
     expect(
       screen.getByTestId("idea-value-feasibility-map-x-axis-label"),
     ).toHaveTextContent("実現のしやすさ");
+  });
+  it("追加執筆中にパンしても、横軸左端がズーム操作と重ならない位置を再計算する", () => {
+    let panX = 400;
+    const offsetProperty = "--horizontal-low-endpoint-offset";
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.dataset.testid === "idea-map-x-low-endpoint") {
+          const offset =
+            Number.parseFloat(this.style.getPropertyValue(offsetProperty)) || 0;
+          return new DOMRect(panX + 100 + offset, 500, 600, 24);
+        }
+        if (this.dataset.testid === "canvas-zoom-hud")
+          return new DOMRect(12, 500, 280, 38);
+        return new DOMRect();
+      });
+    try {
+      const view = (x: number) => (
+        <div data-testid="board-frame">
+          <div data-testid="canvas-zoom-hud" />
+          <IdeaMapViewport
+            workspace
+            groupHorizontalAxisEndpoint
+            pan={{ x, y: 0 }}
+          />
+        </div>
+      );
+      const { rerender } = render(view(panX));
+      const endpoint = screen.getByTestId("idea-map-x-low-endpoint");
+      expect(endpoint.style.getPropertyValue(offsetProperty)).toBe("");
+      panX = 0;
+      rerender(view(panX));
+      expect(endpoint.getBoundingClientRect().left).toBe(309);
+    } finally {
+      rect.mockRestore();
+    }
   });
 });

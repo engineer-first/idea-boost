@@ -293,39 +293,6 @@ export function useCanvasCamera({
     pendingCameraRef.current = null;
   }, []);
 
-  const savedViewRef = useRef<{
-    camera: CanvasCamera;
-    hasFit: boolean;
-    hasDefaulted: boolean;
-    hasFitIdeaMap: boolean;
-  } | null>(null);
-  useLayoutEffect(() => {
-    if (temporaryView) {
-      if (!savedViewRef.current)
-        savedViewRef.current = {
-          camera: { ...cameraRef.current },
-          hasFit: hasFitRef.current,
-          hasDefaulted: hasDefaultedRef.current,
-          hasFitIdeaMap: hasFitIdeaMapRef.current,
-        };
-      return;
-    }
-    const saved = savedViewRef.current;
-    if (!saved) return;
-    savedViewRef.current = null;
-    cancelScheduledCamera();
-    cancelFollowAnimation();
-    hasFitRef.current = saved.hasFit;
-    hasDefaultedRef.current = saved.hasDefaulted;
-    hasFitIdeaMapRef.current = saved.hasFitIdeaMap;
-    setCameraImmediately(saved.camera);
-  }, [
-    temporaryView,
-    cancelScheduledCamera,
-    cancelFollowAnimation,
-    setCameraImmediately,
-  ]);
-
   const followWorldCenter = useCallback(
     (center: CanvasPoint, requestedZoom: number) => {
       const element = viewportRef.current;
@@ -544,6 +511,42 @@ export function useCanvasCamera({
     spacePressedRef.current = false;
     endPan();
   }, [endPan, navigationDisabled]);
+
+  const savedViewRef = useRef<{
+    camera: CanvasCamera;
+    hasFit: boolean;
+    hasDefaulted: boolean;
+    hasFitIdeaMap: boolean;
+  } | null>(null);
+  useLayoutEffect(() => {
+    if (temporaryView) {
+      if (!savedViewRef.current)
+        savedViewRef.current = {
+          camera: { ...cameraRef.current },
+          hasFit: hasFitRef.current,
+          hasDefaulted: hasDefaultedRef.current,
+          hasFitIdeaMap: hasFitIdeaMapRef.current,
+        };
+      return;
+    }
+    const saved = savedViewRef.current;
+    if (!saved) return;
+    savedViewRef.current = null;
+    // 一時閲覧中に始めたパンが復元後のカメラを上書きしないよう先に終える。
+    endPan();
+    cancelScheduledCamera();
+    cancelFollowAnimation();
+    hasFitRef.current = saved.hasFit;
+    hasDefaultedRef.current = saved.hasDefaulted;
+    hasFitIdeaMapRef.current = saved.hasFitIdeaMap;
+    setCameraImmediately(saved.camera);
+  }, [
+    temporaryView,
+    endPan,
+    cancelScheduledCamera,
+    cancelFollowAnimation,
+    setCameraImmediately,
+  ]);
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {

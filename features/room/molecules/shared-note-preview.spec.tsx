@@ -46,4 +46,39 @@ describe("共有付箋の全文確認", () => {
     viewport.remove();
     panel.remove();
   });
+  it("上部欄の下端は画面座標として扱い、ボード上端を重ねて足さない", () => {
+    const board = document.createElement("div");
+    board.dataset.testid = "room-board-view-root";
+    board.style.setProperty("--board-private-expanded-top", "212px");
+    board.getBoundingClientRect = () => new DOMRect(0, 100, 1280, 620);
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 100, 1280, 620);
+    const anchor = document.createElement("div");
+    anchor.dataset.testid = "note-card";
+    anchor.getBoundingClientRect = () => new DOMRect(100, 240, 200, 100);
+    viewport.append(anchor);
+    board.append(viewport);
+    const panel = document.createElement("div");
+    panel.getBoundingClientRect = () => new DOMRect(20, 400, 1240, 300);
+    document.body.append(board, panel);
+    const onClose = vi.fn();
+    const view = render(
+      <SharedNotePreview
+        note={buildNote({ content: "上部欄とパネルの間で読む" })}
+        anchor={anchor}
+        viewport={viewport}
+        panel={panel}
+        layoutKey="0"
+        onClose={onClose}
+      />,
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("region", { name: "共有付箋の全文" })).toHaveStyle({
+      top: "224px",
+      maxHeight: "164px",
+    });
+    view.unmount();
+    board.remove();
+    panel.remove();
+  });
 });

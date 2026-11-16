@@ -1838,3 +1838,31 @@ it("完了受信待ちに操作エラーを受けたら、遅れた完了で確�
     vi.useRealTimers();
   }
 });
+
+it("3-3から追加執筆の3-1へ移っても、マップ位置を保ったまま共通の配置を更新し続ける", () => {
+  const props = setupProps({ phase: buildPhaseStep(3, 3) });
+  const { rerender } = render(
+    <div data-testid="room-board-view-root">
+      <RoomBoardHeader {...props} />
+    </div>,
+  );
+  const board = screen.getByTestId("room-board-view-root");
+  const header = screen.getByTestId("board-header-row");
+  const mapTop = board.style.getPropertyValue("--board-map-top");
+  expect(mapTop).not.toBe("");
+  expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
+  rerender(
+    <div data-testid="room-board-view-root">
+      <RoomBoardHeader
+        {...props}
+        phase={buildPhaseStep(1, 3)}
+        isAdditionalWriting
+      />
+    </div>,
+  );
+  expect(board.style.getPropertyValue("--board-map-top")).toBe(mapTop);
+  expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
+  header.style.removeProperty("--board-location-height");
+  fireEvent.resize(window);
+  expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
+});

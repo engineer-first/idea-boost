@@ -43,13 +43,16 @@ export function SharedNotePreview({
       const board = viewport.closest<HTMLElement>(
         '[data-testid="room-board-view-root"]',
       );
-      const headerBottom = board
-        ? board.getBoundingClientRect().top +
-          (Number.parseFloat(
+      // RoomBoardView が画面座標で保存するため、ボード上端は足さない。
+      const expandedTop = board
+        ? Number.parseFloat(
             getComputedStyle(board).getPropertyValue(
               "--board-private-expanded-top",
             ),
-          ) || 0)
+          )
+        : Number.NaN;
+      const headerBottom = Number.isFinite(expandedTop)
+        ? expandedTop
         : viewportBounds.top;
       const next = placeSharedNotePreview(
         anchor.getBoundingClientRect(),

@@ -211,13 +211,12 @@ export function RoomBoardHeader({
       '[data-testid="room-board-view-root"]',
     );
     if (!area || !header) return;
-    if (additionalWritingMap && board && mapLayoutBeforeWritingRef.current) {
-      for (const [property, value] of Object.entries(
-        mapLayoutBeforeWritingRef.current,
-      ))
+    // 追加執筆の3-1は書き足し前のマップ位置を保ち、共通の配置だけを更新する。
+    const keptMapLayout =
+      additionalWritingMap && board ? mapLayoutBeforeWritingRef.current : null;
+    if (keptMapLayout && board)
+      for (const [property, value] of Object.entries(keptMapLayout))
         board.style.setProperty(property, value);
-      return;
-    }
     function updateBoardLayoutOffsets(): void {
       const notice =
         connectionStatus === "open"
@@ -226,7 +225,8 @@ export function RoomBoardHeader({
               '[data-testid="board-connection-status"]',
             );
       if (!header) return;
-      if (usesIdeaMapViewport && board) {
+      // 復元したマップ位置は再計算で上書きも削除もしない。
+      if (usesIdeaMapViewport && board && !keptMapLayout) {
         const boardTop = board.getBoundingClientRect().top;
         const location = header.querySelector<HTMLElement>(
           '[data-testid="board-location-card"]',
@@ -298,7 +298,7 @@ export function RoomBoardHeader({
             ? notice.getBoundingClientRect().bottom - boardTop + 8
             : 72;
         board.style.setProperty("--board-map-tray-top", `${noticeBottom}px`);
-      } else {
+      } else if (!keptMapLayout) {
         board?.style.removeProperty("--board-map-top");
         board?.style.removeProperty("--board-map-shift-y");
         board?.style.removeProperty("--board-map-tray-top");
