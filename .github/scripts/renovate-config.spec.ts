@@ -58,13 +58,13 @@ describe("Renovateの更新方針 (#395)", () => {
     expect(patch?.matchCurrentVersion).toBe("!/^0/");
   });
 
-  it("1.0以上のマイナーはパッチと別の1つのPRにまとめ、自動マージしない", () => {
+  it("1.0以上のマイナーはパッチと別の1つのPRにまとめ、必須チェックの成功後に自動マージする", () => {
     const minor = groupFor("minor");
     expect(minor?.groupName).toBeTruthy();
     expect(minor?.groupName).not.toBe(groupFor("patch")?.groupName);
     expect(minor?.matchCurrentVersion).toBe("!/^0/");
     expect(minor?.matchDepTypes).toEqual(["dependencies", "devDependencies"]);
-    expect(minor?.automerge).not.toBe(true);
+    expect(minor?.automerge).toBe(true);
   });
 
   it("1.0以上のパッチは必須チェックの成功後に自動マージする", () => {
@@ -83,10 +83,10 @@ describe("Renovateの更新方針 (#395)", () => {
     expect(overrides?.automerge).not.toBe(true);
   });
 
-  it("パッチ以外は自動マージの対象にしない", () => {
+  it("自動マージは1.0以上のパッチとマイナーだけにする", () => {
     for (const rule of rules) {
       if (rule.automerge === true) {
-        expect(rule.matchUpdateTypes).toEqual(["patch"]);
+        expect([["patch"], ["minor"]]).toContainEqual(rule.matchUpdateTypes);
         expect(rule.matchCurrentVersion).toBe("!/^0/");
       }
     }
