@@ -27,6 +27,7 @@ it("PR版APIを同じPreview内で動かし、PR専用D1と独立RoomDOへ接続
       database_name: "idea-boost-preview-pr-587-lobby",
     }),
   ]);
+  expect(config.previews.ai).toEqual({ binding: "AI" });
   expect(config.previews.durable_objects.bindings).toEqual([
     { name: "ROOM_DO", class_name: "PreviewRoomDO" },
     { name: "ACCOUNT_DO", class_name: "PreviewAccountDO" },
@@ -43,6 +44,7 @@ it("本番のWorker・D1・DOへの接続や別公開入口を拒否する", () 
     "11111111-1111-4111-8111-111111111111",
     "a".repeat(40),
   );
+  expect(api.ai).toEqual({ binding: "AI" });
   assertPreviewConfig(api, "api");
   for (const bad of [
     { ...api, name: "idea-flow-api" },
@@ -104,7 +106,12 @@ it("追加binding・外部DO namespace・環境別overrideを拒否する", () =
     databaseId: "11111111-1111-4111-8111-111111111111",
     sha: "a".repeat(40),
   });
+  const { ai: _apiAi, ...apiWithoutAi } = api;
+  const { ai: _appAi, ...appPreviewsWithoutAi } = app.previews;
   for (const bad of [
+    apiWithoutAi,
+    { ...api, ai: { binding: "OTHER" } },
+    { ...api, ai: { binding: "AI", staging: true } },
     { ...api, services: [{ binding: "PRODUCTION", service: "idea-flow-api" }] },
     {
       ...api,
@@ -127,6 +134,15 @@ it("追加binding・外部DO namespace・環境別overrideを拒否する", () =
   ])
     expect(() => assertPreviewConfig(bad, "api")).toThrow();
   for (const bad of [
+    { ...app, previews: appPreviewsWithoutAi },
+    {
+      ...app,
+      previews: { ...app.previews, ai: { binding: "OTHER" } },
+    },
+    {
+      ...app,
+      previews: { ...app.previews, ai: { binding: "AI", remote: true } },
+    },
     { ...app, services: [{ binding: "API_WORKER", service: "idea-flow-api" }] },
     {
       ...app,

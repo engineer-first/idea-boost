@@ -41,6 +41,9 @@ const appSchema = z.object({
       PREVIEW_PR_NUMBER: z.string().regex(/^[1-9]\d*$/),
       PREVIEW_API_COMMIT: z.string().regex(/^[a-f0-9]{40}$/),
     }),
+    ai: z.object({
+      binding: z.literal("AI"),
+    }),
     durable_objects: z.object({
       bindings: previewBindingsSchema,
     }),
@@ -64,6 +67,9 @@ const apiSchema = z.object({
   main: z.literal("preview-worker.ts"),
   workers_dev: z.literal(false),
   preview_urls: z.literal(false),
+  ai: z.object({
+    binding: z.literal("AI"),
+  }),
   vars: z.object({
     PREVIEW_ENABLED: z.literal("true"),
     PREVIEW_API_COMMIT: z.string().regex(/^[a-f0-9]{40}$/),
