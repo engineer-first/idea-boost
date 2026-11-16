@@ -4,7 +4,9 @@
   "timezone": "Asia/Tokyo",
   "schedule": ["before 9am"],
   "labels": ["dependencies"],
-  "dependencyDashboard": true,
+  "dependencyDashboard": {
+    "enabled": true
+  },
   "major": {
     "dependencyDashboardApproval": true
   },
@@ -16,6 +18,14 @@
       "matchCurrentVersion": "!/^0/",
       "groupName": "patch updates",
       "automerge": true
+    },
+    {
+      "description": "1.0以上のマイナーを1つのPRにまとめ、取り込みは人が判断する。部品ごとのPRが並ぶ手間を減らす (#395)",
+      "matchDepTypes": ["dependencies", "devDependencies"],
+      "matchUpdateTypes": ["minor"],
+      "matchCurrentVersion": "!/^0/",
+      "groupName": "minor updates",
+      "automerge": false
     },
     {
       "description": "overridesは脆弱性対応で固定した版。lockfileの別の版と比べてパッチと誤判定されるため、Dashboardで承認した時だけ更新する（docs/development/dependencies.md の限定override）",
