@@ -1,4 +1,4 @@
-export type PreviewBounds = {
+type PreviewBounds = {
   left: number;
   top: number;
   right: number;

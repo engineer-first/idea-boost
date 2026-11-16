@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { placeSharedNotePreview } from "./shared-note-preview";
+import { placeSharedNotePreview } from "./shared-note-preview-placement";
 
 describe("共有付箋の全文表示位置", () => {
   const viewport = { left: 0, top: 80, right: 1280, bottom: 720 };

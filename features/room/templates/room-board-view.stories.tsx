@@ -24,14 +24,14 @@ import {
   useRoomBoardInteractions,
 } from "../logic/use-room-board-interactions";
 import {
-  ADDITIONAL_WRITING_PRIVATE_NOTES,
-  additionalWritingSharedNotes,
-} from "./additional-writing.fixture";
-import {
   getBoardFitInsets,
   RoomBoardView,
   type RoomBoardViewProps,
 } from "./room-board-view";
+import {
+  ADDITIONAL_WRITING_PRIVATE_NOTES,
+  additionalWritingSharedNotes,
+} from "./room-board-view.fixture";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const STEP_1_1 = buildPhaseStep(1);

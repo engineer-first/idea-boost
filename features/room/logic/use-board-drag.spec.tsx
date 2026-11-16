@@ -1689,7 +1689,7 @@ describe("個人作業エリア内の並べ替え", () => {
     }
     const { result, args } = setup({
       privateToolbarRef: { current: toolbar },
-      privateDragOnly: true,
+      keepPrivateDragInList: true,
       canPublish: false,
       privateNotes: ["private-1", "private-2", "private-3"].map((id) =>
         buildNote({ id, authorId: ME, visibility: "private" }),

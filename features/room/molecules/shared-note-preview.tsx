@@ -6,14 +6,14 @@ import type { Note } from "@/features/notes";
 import {
   placeSharedNotePreview,
   type SharedNotePreviewPlacement,
-} from "../logic/shared-note-preview";
+} from "../logic/shared-note-preview-placement";
 
 export type SharedNotePreviewProps = {
   note: Note;
   anchor: HTMLElement | null;
   viewport: HTMLElement | null;
   panel: HTMLElement | null;
-  layoutVersion: string;
+  layoutKey: string;
   onClose: () => void;
 };
 
@@ -22,18 +22,18 @@ export function SharedNotePreview({
   anchor,
   viewport,
   panel,
-  layoutVersion,
+  layoutKey,
   onClose,
 }: SharedNotePreviewProps) {
   const [placement, setPlacement] = useState<SharedNotePreviewPlacement | null>(
     null,
   );
   const popupRef = useRef<HTMLElement>(null);
-  const currentLayoutRef = useRef(layoutVersion);
+  const currentLayoutRef = useRef(layoutKey);
   useLayoutEffect(() => {
-    currentLayoutRef.current = layoutVersion;
+    currentLayoutRef.current = layoutKey;
     const update = (): void => {
-      if (currentLayoutRef.current !== layoutVersion) return;
+      if (currentLayoutRef.current !== layoutKey) return;
       if (!anchor || !viewport) {
         onClose();
         return;
@@ -85,7 +85,7 @@ export function SharedNotePreview({
       resize?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [anchor, viewport, panel, onClose, layoutVersion]);
+  }, [anchor, viewport, panel, onClose, layoutKey]);
   useEffect(() => {
     const pointer = (event: PointerEvent): void => {
       if (

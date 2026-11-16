@@ -16,7 +16,7 @@ const meta = {
     anchor: null,
     viewport: null,
     panel: null,
-    layoutVersion: "0",
+    layoutKey: "0",
     onClose: () => undefined,
   },
   render: function Preview() {
@@ -52,7 +52,7 @@ const meta = {
             anchor={anchor.current}
             viewport={viewport.current}
             panel={panel.current}
-            layoutVersion="0"
+            layoutKey="0"
             onClose={() => setOpen(false)}
           />
         ) : null}

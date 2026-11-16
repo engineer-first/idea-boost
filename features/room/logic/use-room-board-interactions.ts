@@ -411,7 +411,7 @@ export function useRoomBoardInteractions({
       ? notePositionFromClient
       : undefined,
     canMoveSharedNotes,
-    privateDragOnly: phase.kind === "step" && phase.step === 1,
+    keepPrivateDragInList: phase.kind === "step" && phase.step === 1,
     canPublish,
     canReturnToPrivate,
     lockPrivateMapDrag: isPhaseStep(phase, 3, 2) && isPublishAllowedStep(phase),

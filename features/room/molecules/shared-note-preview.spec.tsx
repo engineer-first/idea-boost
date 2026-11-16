@@ -25,7 +25,7 @@ describe("共有付箋の全文確認", () => {
         anchor={anchor}
         viewport={viewport}
         panel={panel}
-        layoutVersion="0"
+        layoutKey="0"
         onClose={onClose}
       />,
     );

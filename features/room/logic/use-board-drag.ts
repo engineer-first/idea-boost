@@ -96,7 +96,7 @@ export type UseBoardDragArgs = {
   // 共有済み付箋の移動を許可するか。公開（publish）の可否とは別に、
   // フェーズごとの既存付箋の移動権限を指定する。
   canMoveSharedNotes?: boolean;
-  privateDragOnly?: boolean;
+  keepPrivateDragInList?: boolean;
   canPublish?: boolean;
   canReturnToPrivate?: boolean;
   onPublishBlocked?: () => void;
@@ -189,7 +189,7 @@ export function useBoardDrag({
   clampCoordinate = clampCanvasCoordinate,
   notePositionFromClient,
   canMoveSharedNotes = true,
-  privateDragOnly = false,
+  keepPrivateDragInList = false,
   canPublish = true,
   canReturnToPrivate = canPublish,
   onPublishBlocked,
@@ -687,7 +687,7 @@ export function useBoardDrag({
       }
 
       stopPrivateListAutoScroll();
-      if (privateDragOnly && current.status === "private") return;
+      if (keepPrivateDragInList && current.status === "private") return;
       // 固定マップではマップ平面自身が有効範囲を判定する。
       // HUDはドラッグ開始や通常のボード操作を遮るが、ドラッグ中にその上を
       // 通過しただけで座標更新まで止めない。
@@ -755,7 +755,7 @@ export function useBoardDrag({
     [
       boardPositionFromPointer,
       canPublish,
-      privateDragOnly,
+      keepPrivateDragInList,
       canReturnToPrivate,
       canMoveSharedNotes,
       clampCoordinate,
