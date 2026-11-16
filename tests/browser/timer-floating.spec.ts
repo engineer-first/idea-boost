@@ -149,22 +149,8 @@ test("390pxの問い共有でタイマー下のマイ付箋が下部の操作欄
     const notes = await rect(page, "private-notes-toolbar");
     const operations = await rect(page, "board-operation-matrix");
     expect(notes.y + notes.height).toBeLessThanOrEqual(operations.y - 12);
-    const close = page.getByRole("button", { name: "マイ付箋を閉じる" });
-    expect(
-      await close.evaluate((element) => {
-        const box = element.getBoundingClientRect();
-        return element.contains(
-          document.elementFromPoint(
-            box.x + box.width / 2,
-            box.y + box.height / 2,
-          ),
-        );
-      }),
-    ).toBe(true);
-    await close.click();
-    expect(
-      await page.getByRole("button", { name: "マイ付箋を開く" }).isVisible(),
-    ).toBe(true);
+    expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+    await page.getByTestId("private-notes-scroll").hover();
   } finally {
     await page.close();
   }
@@ -240,7 +226,7 @@ test("幅982pxでマイ付箋を開いてもタイマーを右上HUDの下に保
 });
 
 test.each([1280, 900, 640, 390, 320])(
-  "幅%dの共有完了操作は上部にまとまり、再共有でタイマーを開始する",
+  "幅%dの共有完了操作は上部の書き直しと次へにまとまる",
   async (width) => {
     const page = await browser.newPage({
       viewport: { width, height: 900 },
@@ -253,7 +239,7 @@ test.each([1280, 900, 640, 390, 320])(
       const controls = page.getByTestId("board-control-hud");
       await controls.waitFor();
       expect(await page.getByTestId("timer-floating").count()).toBe(0);
-      for (const name of ["共有を続ける", "付箋を書き足す", "次のステップへ"]) {
+      for (const name of ["付箋を書き直す", "次のステップへ"]) {
         const b = controls.getByRole("button", { name, exact: true });
         expect(await b.isVisible()).toBe(true);
         const r = await b.boundingBox();
@@ -272,11 +258,14 @@ test.each([1280, 900, 640, 390, 320])(
           }),
         ).toBe(true);
       }
-      await page.getByRole("button", { name: "共有を続ける" }).click();
-      await page.getByTestId("room-timer").waitFor();
       expect(
-        await page.getByTestId("room-timer").getAttribute("data-status"),
-      ).toBe("running");
+        await controls
+          .getByRole("button", { name: "共有を続ける", exact: true })
+          .count(),
+      ).toBe(0);
+      await controls
+        .getByRole("button", { name: "付箋を書き直す", exact: true })
+        .click({ trial: true });
     } finally {
       await page.close();
     }
@@ -292,13 +281,13 @@ test("最後の発表者のできた後に上部から次の操作を選べる",
     await page.getByRole("button", { name: "できた！", exact: true }).click();
     const controls = page.getByTestId("board-control-hud");
     await controls
-      .getByRole("button", { name: "付箋を書き足す", exact: true })
+      .getByRole("button", { name: "付箋を書き直す", exact: true })
       .waitFor();
     expect(
       await controls
         .getByRole("button", { name: "共有を続ける", exact: true })
-        .isVisible(),
-    ).toBe(true);
+        .count(),
+    ).toBe(0);
     expect(
       await controls
         .getByRole("button", { name: "次のステップへ", exact: true })

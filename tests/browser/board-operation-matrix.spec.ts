@@ -33,14 +33,14 @@ for (const viewport of [
       expect(await page.getByTestId("board-header-row").isVisible()).toBe(true);
       expect(
         await page
-          .getByTestId("private-notes-controls")
+          .getByTestId("private-notes-list")
           .getByRole("button", { name: "付箋を追加", exact: true })
           .isVisible(),
       ).toBe(true);
     });
   }
 
-  test(`${viewport.width}×${viewport.height}: 共有ではマイ付箋の開閉とスクロールが操作を妨げない`, async () => {
+  test(`${viewport.width}×${viewport.height}: 共有中の付箋一覧をスクロールしてもボード操作を妨げない`, async () => {
     page = await browser.newPage({ viewport });
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-2&viewMode=story`,
@@ -64,21 +64,16 @@ for (const viewport of [
     expect(
       await scroll.evaluate((element) => element.scrollTop),
     ).toBeGreaterThan(0);
-    await page.getByRole("button", { name: "マイ付箋を閉じる" }).click();
-    expect(await toolbar.getAttribute("data-expanded")).toBe("false");
-    const collapsed = await toolbar.boundingBox();
-    expect(collapsed?.width).toBeLessThanOrEqual(bounds.width);
-    expect(collapsed?.x).toBe(bounds.x);
-    expect(await matrix.boundingBox()).toEqual(before);
-    await page.getByRole("button", { name: "マイ付箋を開く" }).click();
     expect(await toolbar.getAttribute("data-expanded")).toBe("true");
+    expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+    expect(await toolbar.boundingBox()).toEqual(bounds);
     expect(await matrix.boundingBox()).toEqual(before);
     expect(
       await page
-        .getByTestId("private-notes-controls")
+        .getByTestId("private-notes-list")
         .getByRole("button", { name: "付箋を追加", exact: true })
-        .isDisabled(),
-    ).toBe(true);
+        .count(),
+    ).toBe(0);
     await page
       .getByRole("button", { name: "キャンバスを拡大", exact: true })
       .click();

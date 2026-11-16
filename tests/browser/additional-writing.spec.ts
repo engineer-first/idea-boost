@@ -243,7 +243,7 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
     exact: true,
   });
   const addWriting = page.getByRole("button", {
-    name: "付箋を書き足す",
+    name: "付箋を書き直す",
     exact: true,
   });
   await nextStep.waitFor({ state: "visible" });
@@ -251,7 +251,7 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
     await page
       .getByTestId("board-control-hud")
       .getByRole("button", {
-        name: "付箋を書き足す",
+        name: "付箋を書き直す",
         exact: true,
       })
       .isVisible(),
@@ -270,7 +270,7 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
   await expect.poll(viewTransform).not.toBe(initial);
   const before = await viewTransform();
   await page
-    .getByRole("button", { name: "付箋を書き足す", exact: true })
+    .getByRole("button", { name: "付箋を書き直す", exact: true })
     .click();
   await expect
     .poll(() =>

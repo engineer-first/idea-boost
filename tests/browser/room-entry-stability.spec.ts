@@ -50,12 +50,10 @@ for (const width of [390, 1440]) {
         await page.goto(
           `${origin}/iframe.html?id=room-roomboardview--${state === "open" ? "connected-empty" : "connecting"}&viewMode=story`,
         );
-        const add = page
-          .getByTestId("private-notes-controls")
-          .getByRole("button", {
-            name: "付箋を追加",
-            exact: true,
-          });
+        const add = page.getByTestId("private-notes-list").getByRole("button", {
+          name: "付箋を追加",
+          exact: true,
+        });
         await add.waitFor();
         await page.evaluate(() => document.fonts.ready);
         positions.push((await add.boundingBox())?.y ?? -1);

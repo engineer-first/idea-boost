@@ -1470,11 +1470,11 @@ export function RoomBoardCanvas({
                     : isPhaseStep(phase, 3, 2)
                       ? canPublishPrivateNote
                         ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
-                        : "付箋の共有は、自分の番になるまでお待ちください。"
+                        : "自分の番で発表できます"
                       : phase.kind === "step" && phase.step === 2
                         ? canPublishPrivateNote
                           ? "あなたの番です。付箋をボードへドラッグして共有できます。"
-                          : "付箋の共有は、自分の番になるまでお待ちください。"
+                          : "自分の番で発表できます"
                         : undefined
                 }
                 presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}

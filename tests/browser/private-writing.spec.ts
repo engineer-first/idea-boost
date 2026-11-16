@@ -190,7 +190,7 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
   expect(layers.panelTop).toBeLessThanOrEqual(layers.headerBottom + 50);
 
   const add = page
-    .getByTestId("private-notes-controls")
+    .getByTestId("private-notes-list")
     .getByRole("button", { name: "付箋を追加", exact: true });
   expect(await add.isEnabled()).toBe(true);
   const previousIds = await privateNoteIds();
@@ -313,7 +313,7 @@ test.each([390, 1280])(
       .toBe(true);
 
     await page
-      .getByTestId("private-notes-controls")
+      .getByTestId("private-notes-list")
       .getByRole("button", { name: "付箋を追加", exact: true })
       .click({ trial: true });
     await guide.click();
@@ -505,7 +505,7 @@ for (const { platform, key, width } of [
     );
     await oldEditor.press(key);
     const add = page
-      .getByTestId("private-notes-controls")
+      .getByTestId("private-notes-list")
       .getByRole("button", { name: "付箋を追加", exact: true });
     await expect.poll(() => add.isDisabled()).toBe(true);
     // 同じ待ち時間のキー連打と＋操作は作成予約にしない。
@@ -608,12 +608,12 @@ test("Shift・Alt・キーリピート・別OSの修飾キーは追加せず、�
   expect(await cards.count()).toBe(initialCount);
   expect(
     await page
-      .getByTestId("private-notes-controls")
+      .getByTestId("private-notes-list")
       .getByRole("button", { name: "付箋を追加", exact: true })
       .isDisabled(),
   ).toBe(false);
   const add = page
-    .getByTestId("private-notes-controls")
+    .getByTestId("private-notes-list")
     .getByRole("button", { name: "付箋を追加", exact: true });
   await add.focus();
   await page.keyboard.press("Control+Enter");

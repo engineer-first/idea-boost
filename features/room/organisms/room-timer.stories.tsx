@@ -78,7 +78,6 @@ export const SharingComplete: Story = {
     timer: { status: "idle" },
     sharingComplete: true,
     onRestartWriting: fn(),
-    onReplay: fn(),
   },
 };
 export const Disconnected: Story = {

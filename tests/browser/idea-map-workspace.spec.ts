@@ -1000,7 +1000,7 @@ test.each([
   },
 );
 
-test("マイ付箋だけを開閉・スクロールし、参照情報を開いてもマップが動かない", async () => {
+test("個人付箋をスクロールし、参照情報を開いてもマップが動かない", async () => {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 720 },
   });
@@ -1008,13 +1008,7 @@ test("マイ付箋だけを開閉・スクロールし、参照情報を開い�
     await openWorkspace(page);
     const plane = page.getByTestId("idea-value-feasibility-map-plane");
     const before = await plane.boundingBox();
-    await page
-      .getByRole("button", { name: "マイ付箋を閉じる", exact: true })
-      .click();
-    expect(await plane.boundingBox()).toEqual(before);
-    await page
-      .getByRole("button", { name: "マイ付箋を開く", exact: true })
-      .click();
+    expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
     expect(await plane.boundingBox()).toEqual(before);
     const scroll = page.getByTestId("private-notes-scroll");
     await scroll.hover();
@@ -2102,7 +2096,7 @@ test("3-2でマイ付箋をマップへ共有でき、画面幅を変えても�
 });
 
 test.each([320, 390])(
-  "%ipxではマイ付箋を開閉してもマップを表示し続ける",
+  "%ipxでは個人付箋の一覧とマップを同時に表示し続ける",
   async (width) => {
     const page = await browser.newPage({ viewport: { width, height: 844 } });
     try {
@@ -2113,13 +2107,7 @@ test.each([320, 390])(
       expect(before.width).toBeGreaterThan(width * 0.65);
       const slot = await readBounds(page, "idea-value-feasibility-map-slot");
       expect(before.y + before.height).toBeCloseTo(slot.y + slot.height, 1);
-      await page
-        .getByRole("button", { name: "マイ付箋を閉じる", exact: true })
-        .click();
-      expect(await plane.boundingBox()).toEqual(before);
-      await page
-        .getByRole("button", { name: "マイ付箋を開く", exact: true })
-        .click();
+      expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
       expect(await page.getByTestId("private-notes-scroll").isVisible()).toBe(
         true,
       );

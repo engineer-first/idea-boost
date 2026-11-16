@@ -50,16 +50,53 @@ async function expectInsideViewport(selector: string) {
 }
 
 for (const width of [390, 1280]) {
+  test(`${width}px: 全付箋を共有して空になった欄へ共有付箋をドラッグで戻せる`, async () => {
+    await openStory("sharing", width);
+    const toolbar = page.getByTestId("private-notes-toolbar");
+    const frame = await page.getByTestId("board-frame").boundingBox();
+    if (!frame) throw new Error("共有ボードがありません");
+    for (let remaining = 1; remaining >= 0; remaining--) {
+      const surface = toolbar
+        .getByRole("button", { name: "付箋", exact: true })
+        .first();
+      const source = await surface.boundingBox();
+      if (!source) throw new Error("共有する付箋がありません");
+      await page.mouse.move(source.x + 40, source.y + 40);
+      await page.mouse.down();
+      await page.mouse.move(source.x + 46, source.y + 46);
+      await page.mouse.move(frame.x + 45, frame.y + 100, { steps: 12 });
+      await page.mouse.up();
+      await expect
+        .poll(() => toolbar.getByTestId("note-card").count())
+        .toBe(remaining);
+    }
+    const shared = page.getByTestId("board-note-guidance-second");
+    const surface = shared.getByRole("button", { name: "付箋", exact: true });
+    await surface.hover();
+    const source = await surface.boundingBox();
+    const target = await toolbar.boundingBox();
+    if (!source || !target)
+      throw new Error("戻す付箋または空の付箋欄がありません");
+    await page.mouse.move(source.x + 40, source.y + 40);
+    await page.mouse.down();
+    await page.mouse.move(source.x + 46, source.y + 46);
+    await page.mouse.move(
+      target.x + target.width / 2,
+      target.y + target.height / 2,
+      { steps: 12 },
+    );
+    await page.mouse.up();
+    await expect.poll(() => toolbar.getByTestId("note-card").count()).toBe(1);
+    expect(await shared.count()).toBe(0);
+  });
+
   test(`${width}px: 空のマイ付箋からTab/Enterで一枚作成し、本文を入力する`, async () => {
     await openStory("empty", width);
     expect(await page.getByTestId("note-card").count()).toBe(0);
     const add = page
-      .getByTestId("private-notes-controls")
+      .getByTestId("private-notes-list")
       .getByRole("button", { name: "付箋を追加" });
-    const privacyMessage = page.getByText(
-      "この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。",
-      { exact: true },
-    );
+    const privacyMessage = page.getByText("自分だけに表示", { exact: true });
     expect(await privacyMessage.isVisible()).toBe(true);
     expect(
       await privacyMessage.evaluate(
@@ -67,7 +104,7 @@ for (const width of [390, 1280]) {
       ),
     ).toBe(true);
     await expectInsideViewport(
-      '[data-testid="private-notes-controls"] [aria-label="付箋を追加"]',
+      '[data-testid="private-notes-list"] [aria-label="付箋を追加"]',
     );
     await add.focus();
     await page.keyboard.press("Enter");
@@ -103,10 +140,10 @@ for (const width of [390, 1280]) {
     expect(await toolbar.getByTestId("note-card").count()).toBe(2);
     expect(
       await page
-        .getByTestId("private-notes-controls")
+        .getByTestId("private-notes-list")
         .getByRole("button", { name: "付箋を追加" })
-        .isDisabled(),
-    ).toBe(true);
+        .count(),
+    ).toBe(0);
     expect(
       await page
         .getByRole("button", { name: /ボードに共有|マイ付箋へ戻す/ })
@@ -175,16 +212,14 @@ for (const width of [390, 1280]) {
     await openStory("disconnected", width);
     const toolbar = page.getByTestId("private-notes-toolbar");
     expect(
-      await toolbar
-        .getByText("自分だけに見える付箋エリア", { exact: true })
-        .isVisible(),
+      await toolbar.getByText("自分だけに表示", { exact: true }).isVisible(),
     ).toBe(true);
     expect(
       await page
-        .getByTestId("private-notes-controls")
+        .getByTestId("private-notes-list")
         .getByRole("button", { name: "付箋を追加" })
-        .isDisabled(),
-    ).toBe(true);
+        .count(),
+    ).toBe(0);
     expect(
       await toolbar
         .getByRole("button", { name: "付箋", exact: true })

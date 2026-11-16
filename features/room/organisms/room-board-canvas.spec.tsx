@@ -1360,7 +1360,7 @@ describe("RoomBoardCanvas", () => {
     });
 
     fireEvent.click(
-      within(screen.getByTestId("private-notes-footer")).getByRole("button", {
+      within(screen.getByTestId("private-notes-list")).getByRole("button", {
         name: "付箋を追加",
       }),
     );
@@ -1831,12 +1831,12 @@ describe("RoomBoardCanvas", () => {
     const toolbar = screen.getByTestId("private-notes-toolbar");
     expect(toolbar).toHaveAttribute("data-expanded", "true");
     expect(
-      within(toolbar).getByRole("button", { name: "マイ付箋を閉じる" }),
-    ).toHaveAttribute("aria-expanded", "true");
+      within(toolbar).queryByRole("button", { name: "マイ付箋を閉じる" }),
+    ).not.toBeInTheDocument();
     expect(within(toolbar).getByText("共有するアイデア")).toBeVisible();
     expect(
-      within(toolbar).getByRole("button", { name: "付箋を追加" }),
-    ).toBeDisabled();
+      within(toolbar).queryByRole("button", { name: "付箋を追加" }),
+    ).not.toBeInTheDocument();
   });
 
   it("Step1-1では共有キャンバスを非操作の背景に表示し、個人付箋を一箇所だけに表示する", () => {
@@ -2133,8 +2133,8 @@ describe("Step 3-2〜3-5（固定2軸マップ）", () => {
     const toolbar = screen.getByTestId("private-notes-toolbar");
     expect(toolbar).toHaveAttribute("data-expanded", "true");
     expect(
-      within(toolbar).getByRole("button", { name: "マイ付箋を閉じる" }),
-    ).toHaveAttribute("aria-expanded", "true");
+      within(toolbar).queryByRole("button", { name: "マイ付箋を閉じる" }),
+    ).not.toBeInTheDocument();
     expect(within(toolbar).getByText("共有前のアイデア")).toBeVisible();
 
     const operations = screen.getByTestId("board-operation-matrix");

@@ -149,7 +149,7 @@ describe("フローティングタイマー", () => {
     expect(p.onExtend).toHaveBeenCalledOnce();
     expect(p.onStart).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole("button", { name: "付箋を書き足す" }),
+      screen.queryByRole("button", { name: "付箋を書き直す" }),
     ).not.toBeInTheDocument();
   });
 
@@ -167,9 +167,9 @@ describe("フローティングタイマー", () => {
       "共有が一巡しました",
     );
     expect(
-      screen.getByRole("button", { name: "共有を続ける" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
+      screen.queryByRole("button", { name: "共有を続ける" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "付箋を書き直す" }));
     expect(onRestartWriting).toHaveBeenCalledOnce();
     expect(
       screen.queryByRole("button", { name: "次へ進む" }),

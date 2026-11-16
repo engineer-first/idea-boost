@@ -653,19 +653,6 @@ export function RoomBoardHeader({
                     : "あなたは作業中です"}
               </span>
             ) : null}
-            {canCompleteSharing && onSharingStart ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 shrink-0 px-3 text-sm"
-                disabled={
-                  isDisconnected || isRemovingMember || isNextPhasePending
-                }
-                onClick={() => onSharingStart(sharingDuration)}
-              >
-                共有を続ける
-              </Button>
-            ) : null}
             {canCompleteSharing && onRestartWriting ? (
               <Button
                 type="button"
@@ -677,7 +664,7 @@ export function RoomBoardHeader({
                 onClick={onRestartWriting}
                 title="全員で個人作業へ戻ります。共有済み付箋と下書きは残ります。"
               >
-                付箋を書き足す
+                付箋を書き直す
               </Button>
             ) : null}
             {isManualProgressStep && (onToggleReady || activeSharing) ? (

@@ -95,9 +95,9 @@ test.each(
           await page.evaluate(() => document.fonts.ready);
           await page.keyboard.press("Escape");
           if (phase === "3-2")
-            await page
-              .getByRole("button", { name: "マイ付箋を閉じる", exact: true })
-              .click();
+            expect(await page.getByTestId("private-notes-footer").count()).toBe(
+              0,
+            );
           const plane = await bounds(page, "idea-map-viewport-plane");
           const note = page
             .getByTestId("idea-value-feasibility-map-note-map-edge-movable")

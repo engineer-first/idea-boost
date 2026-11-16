@@ -132,7 +132,7 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
             .click();
         }
         await startWork(actor, peer);
-        await actor.getByRole("button", { name: "マイ付箋を開く" }).click();
+        await actor.getByTestId("private-notes-scroll").waitFor();
         const toolbar = actor.getByTestId("private-notes-toolbar");
         const privateCard = toolbar.getByTestId("note-card").first();
         const id = await privateCard.getAttribute("data-note-id");
@@ -189,16 +189,14 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
         await actor.mouse.up();
         expect(publishCount()).toBe(0);
         expect(await peerCard.count()).toBe(0);
-        // パネル閉鎖は未送信dragを取消し、同じpointerupを公開へ転用しない。
+        // Escapeは未送信dragを取消し、同じpointerupを公開へ転用しない。
         await startDrag(actor, privateCard);
         await actor.mouse.move(820, 360, { steps: 8 });
-        await actor
-          .getByRole("button", { name: "マイ付箋を閉じる" })
-          .evaluate((button) => (button as HTMLButtonElement).click());
+        await actor.keyboard.press("Escape");
         await actor.mouse.up();
         expect(publishCount()).toBe(0);
         expect(await peerCard.count()).toBe(0);
-        await actor.getByRole("button", { name: "マイ付箋を開く" }).click();
+        await actor.getByTestId("private-notes-scroll").waitFor();
         await startDrag(actor, privateCard);
         await actor.mouse.move(820, 360, { steps: 8 });
         expect(publishCount()).toBe(0);

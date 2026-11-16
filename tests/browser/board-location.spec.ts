@@ -398,7 +398,7 @@ test.each([
     if ((await notes.getAttribute("data-presentation")) === "workspace") {
       expect(await notes.isVisible()).toBe(true);
     } else {
-      await reachable(page.getByRole("button", { name: "マイ付箋を閉じる" }));
+      await reachable(page.getByTestId("private-notes-scroll"));
     }
     expect(await scroll.evaluate((el) => el.scrollTop)).toBe(scrollTop);
     const link = notice.getByRole("link");

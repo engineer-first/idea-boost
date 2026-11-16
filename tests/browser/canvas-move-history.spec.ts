@@ -517,7 +517,7 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
       const id = await original.getAttribute("data-note-id");
       await drag(actor, original, 35, 20);
       await expect.poll(() => undo(actor).isEnabled()).toBe(true);
-      await actor.getByRole("button", { name: "マイ付箋を開く" }).click();
+      await actor.getByTestId("private-notes-scroll").waitFor();
       const start = await original.boundingBox();
       if (!start) throw new Error("戻す付箋がありません");
       await actor.mouse.move(
@@ -684,26 +684,14 @@ describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
             if ((await button.isVisible()) && (await button.isEnabled()))
               await button.click({ trial: true, timeout: 2000 });
           if (checkpoint === "1-2" && height === 667 && width === 375) {
-            const expand = actor.getByRole("button", {
-              name: "マイ付箋を開く",
-              exact: true,
-            });
-            await expand.click();
-            const close = actor.getByRole("button", {
-              name: "マイ付箋を閉じる",
-              exact: true,
-            });
-            await close.click({ trial: true });
-            const add = actor.getByRole("button", {
-              name: "付箋を追加",
-              exact: true,
-            });
-            if (await add.isEnabled()) await add.click({ trial: true });
+            await actor.getByTestId("private-notes-scroll").waitFor();
+            expect(
+              await actor.getByTestId("private-notes-footer").count(),
+            ).toBe(0);
             if (evidence)
               await actor.screenshot({
                 path: `${evidence}/mobile-expanded-667.png`,
               });
-            await close.click();
           }
           if (evidence)
             await actor.screenshot({

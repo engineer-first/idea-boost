@@ -125,7 +125,7 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
       expect(id).toBeTruthy();
       const peerNote = peer.locator(`[data-note-id="${id}"]`);
       await peerNote.waitFor();
-      await actor.getByRole("button", { name: "マイ付箋を開く" }).click();
+      await actor.getByTestId("private-notes-scroll").waitFor();
       await drag(actor, note);
       await expect
         .poll(() => sent.some((message) => message.type === "note:move:start"))
@@ -147,7 +147,7 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
       expect(types).not.toContain("note:move:commit");
       await actor.reload();
       await actor.getByTestId("board-canvas").waitFor();
-      await actor.getByRole("button", { name: "マイ付箋を開く" }).click();
+      await actor.getByTestId("private-notes-scroll").waitFor();
       await expect
         .poll(() =>
           actor

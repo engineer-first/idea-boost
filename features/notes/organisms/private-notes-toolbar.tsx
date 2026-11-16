@@ -114,9 +114,10 @@ export function PrivateNotesToolbar({
 }: PrivateNotesToolbarProps) {
   const isWorkspace = presentation === "workspace";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const hasFooter = !isWorkspace && canCreateNote;
   const displayedExpanded = workspaceCollapsible
     ? workspaceExpanded
-    : isExpanded;
+    : !hasFooter || isExpanded;
   const lastEditedNoteIdRef = useRef<string | null>(null);
   const restoredWorkspaceRef = useRef(false);
   const previousPresentationRef = useRef(presentation);
@@ -519,8 +520,13 @@ export function PrivateNotesToolbar({
         isReturnDropTarget && "bg-primary/5 ring-2 ring-primary/40",
         isWorkspace
           ? "h-full w-full max-w-7xl rounded-none border-0 bg-transparent shadow-none"
-          : isExpanded
-            ? "h-[min(48rem,calc(100vh-6rem))] w-[min(15rem,calc(100vw-1.5rem))]"
+          : displayedExpanded
+            ? cn(
+                "w-[min(15rem,calc(100vw-1.5rem))]",
+                !hasFooter && notes.length === 0
+                  ? "h-auto"
+                  : "h-[min(48rem,calc(100vh-6rem))]",
+              )
             : "h-14 w-fit",
         className,
       )}
@@ -530,14 +536,14 @@ export function PrivateNotesToolbar({
       data-return-drop-target={isReturnDropTarget || undefined}
     >
       <CardContent
-        hidden={!isWorkspace && !isExpanded}
+        hidden={!isWorkspace && !displayedExpanded}
         className="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
       >
         <section
           ref={scrollContainerRef}
           className={cn(
             "min-h-0 flex-1 overflow-y-auto overscroll-contain",
-            isWorkspace ? "p-3 md:p-5" : "p-3",
+            isWorkspace ? "p-3 md:p-5" : "px-2 py-3",
           )}
           aria-label={isWorkspace ? "個人付箋の入力" : "マイ付箋一覧"}
           data-testid="private-notes-scroll"
@@ -586,7 +592,7 @@ export function PrivateNotesToolbar({
             <div className="mx-auto mb-6 max-w-5xl text-base text-muted-foreground">
               <p className="flex items-center justify-center gap-2 text-center">
                 <LockKeyhole aria-hidden="true" className="size-4 shrink-0" />
-                この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
+                自分だけに表示
               </p>
               <p className="mt-3 text-center text-xs">
                 （付箋追加ショートカットキー：
@@ -600,7 +606,7 @@ export function PrivateNotesToolbar({
                 canCreateNote ? "mb-1" : "mb-3",
               )}
             >
-              自分だけに見える付箋エリア
+              自分だけに表示
             </p>
           )}
           {!isWorkspace && sharingHint ? (
@@ -635,7 +641,7 @@ export function PrivateNotesToolbar({
                 type="button"
                 variant="outline"
                 disabled={disabled || !canCreateNote || noteCreationPending}
-                ref={workspaceCollapsible ? addButtonRef : undefined}
+                ref={addButtonRef}
                 aria-label={
                   workspaceCollapsible ? "新しい付箋を追加" : "付箋を追加"
                 }
@@ -730,7 +736,8 @@ export function PrivateNotesToolbar({
                     autoFocusEditor={autoFocusNoteId === note.id}
                     onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
                     className={cn(
-                      "relative",
+                      // 非表示の決定はんこが一覧の横スクロール範囲を広げないようにする。
+                      "relative [&_[data-slot=sticky-note-stamp-layer]]:hidden",
                       isWorkspace && "w-[200px]",
                       newlyAddedNote?.id === note.id &&
                         newlyAddedNote.slideIn &&
@@ -743,7 +750,7 @@ export function PrivateNotesToolbar({
           </div>
         </section>
       </CardContent>
-      {workspaceCollapsible ? null : (
+      {!hasFooter ? null : (
         <CardFooter
           data-testid="private-notes-footer"
           className={cn(

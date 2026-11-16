@@ -176,7 +176,7 @@ for (const { width, height } of [
       .toBe(true);
     await page.screenshot({ path: `${output}/${width}-closed.png` });
     await page
-      .getByTestId("private-notes-controls")
+      .getByTestId("private-notes-list")
       .getByRole("button", { name: "付箋を追加" })
       .click({ trial: true });
   });

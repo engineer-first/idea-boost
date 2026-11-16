@@ -246,8 +246,8 @@ describe("PrivateNotesToolbar", () => {
       "true",
     );
     expect(
-      screen.getByRole("button", { name: "マイ付箋を閉じる" }),
-    ).toHaveAttribute("aria-expanded", "true");
+      screen.queryByRole("button", { name: "マイ付箋を閉じる" }),
+    ).not.toBeInTheDocument();
   });
 
   it("作成待ちで＋が無効になったときのブラウザの自動blurは新規本文への移動を取り消さない", () => {
@@ -907,7 +907,7 @@ describe("PrivateNotesToolbar", () => {
     );
 
     fireEvent.click(
-      within(screen.getByTestId("private-notes-controls")).getByRole("button", {
+      within(screen.getByTestId("private-notes-list")).getByRole("button", {
         name: "付箋を追加",
       }),
     );
@@ -927,7 +927,7 @@ describe("PrivateNotesToolbar", () => {
     expect(fifthCard).not.toHaveClass("slide-in-from-bottom-2");
 
     fireEvent.click(
-      within(screen.getByTestId("private-notes-controls")).getByRole("button", {
+      within(screen.getByTestId("private-notes-list")).getByRole("button", {
         name: "付箋を追加",
       }),
     );
@@ -1346,7 +1346,7 @@ describe("PrivateNotesToolbar", () => {
     expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
   });
 
-  it("canCreateNoteがfalseの場合は追加ボタンを無効化する", () => {
+  it("作成権限がないdockは追加と開閉の操作を表示しない", () => {
     render(
       <PrivateNotesToolbar
         notes={[]}
@@ -1365,7 +1365,8 @@ describe("PrivateNotesToolbar", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "付箋を追加" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "付箋を追加" })).toBeNull();
+    expect(screen.queryByTestId("private-notes-footer")).toBeNull();
   });
 
   it.each(["dock", "workspace"] as const)(

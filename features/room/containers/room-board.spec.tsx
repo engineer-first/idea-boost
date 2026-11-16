@@ -533,10 +533,9 @@ it.each([
 );
 
 function getPrivateNoteAddButton() {
-  return within(screen.getByTestId("private-notes-controls")).getByRole(
-    "button",
-    { name: "付箋を追加" },
-  );
+  return within(screen.getByTestId("private-notes-list")).getByRole("button", {
+    name: "付箋を追加",
+  });
 }
 
 describe("問いの投票中の付箋移動", () => {
@@ -1114,8 +1113,8 @@ describe("サーバーメッセージ → 画面反映", () => {
         "true",
       );
       expect(
-        screen.getByRole("button", { name: "マイ付箋を閉じる" }),
-      ).toHaveAttribute("aria-expanded", "true");
+        screen.queryByRole("button", { name: "マイ付箋を閉じる" }),
+      ).not.toBeInTheDocument();
     },
   );
 

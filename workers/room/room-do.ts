@@ -1503,6 +1503,7 @@ export class RoomDO extends DurableObject {
     }
     const currentTimer = getTimerState(this.sql);
     if (
+      phase.step !== 2 &&
       getPhaseRevision(this.sql) === phaseRevision &&
       currentTimer.status === "ended" &&
       currentTimer.extensionUsed

@@ -18,7 +18,7 @@ const phases = [
   { phase: 3, count: 5, goal: "アイデア" },
 ] as const;
 const progression =
-  /^(次へ進む|次のフェーズへ|付箋を書き足す|もう一度投票する|採用する付箋を選ぶ)$/;
+  /^(次へ進む|次のフェーズへ|付箋を書き直す|もう一度投票する|採用する付箋を選ぶ)$/;
 let browser: Browser;
 let page: Page;
 
@@ -227,7 +227,7 @@ test("共有一巡後の書き足し操作は上部の操作欄から選べる",
   await openStory("room-roomboardview--floating-timer-sharing-complete");
   const controls = page.getByTestId("board-control-hud");
   const trigger = controls.getByRole("button", {
-    name: "付箋を書き足す",
+    name: "付箋を書き直す",
     exact: true,
   });
   await expectReachable(trigger);

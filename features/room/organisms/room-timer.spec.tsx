@@ -24,10 +24,10 @@ function props() {
 }
 
 describe("RoomTimer", () => {
-  it("延長終了後の自動進行は工程の必須条件が揃ってからと案内する", () => {
+  it("時間切れには1分延長を案内し、全工程で自動進行するとは案内しない", () => {
     render(<RoomTimer {...props()} timer={buildEndedTimer()} />);
-    expect(screen.getByText(/進行条件が揃うと/)).toBeInTheDocument();
-    expect(screen.queryByText(/次へ進めます/)).not.toBeInTheDocument();
+    expect(screen.getByText(/1分延長できます/)).toBeInTheDocument();
+    expect(screen.queryByText(/自動で次へ進みます/)).not.toBeInTheDocument();
   });
   it("時間切れに1分延長を選べ、稼働中の円では一時停止しない", () => {
     const p = { ...props(), onExtend: vi.fn() };
@@ -112,7 +112,7 @@ describe("RoomTimer", () => {
     const floating = screen.getByTestId("timer-floating");
     expect(floating).toHaveAttribute("data-timer-attention", "pulse");
     fireEvent.pointerDown(
-      screen.getByRole("button", { name: "付箋を書き足す" }),
+      screen.getByRole("button", { name: "付箋を書き直す" }),
     );
     expect(floating).toHaveAttribute("data-timer-attention", "none");
   });
