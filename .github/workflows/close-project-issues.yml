@@ -2,11 +2,11 @@ name: Close Project Issues
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
-        description: '完了・見送りからのclose予定だけを確認する'
+        description: "完了・見送りからのclose予定だけを確認する"
         type: boolean
         default: true
 

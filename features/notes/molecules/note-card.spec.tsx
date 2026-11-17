@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import { type ComponentProps, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { getNoteHeight } from "@/contracts/board";
 import type { NoteColor } from "@/contracts/room-protocol";
@@ -51,6 +51,32 @@ function clickNote(clientX = 10, clientY = 10) {
   const surface = getNoteSurface();
   fireEvent.pointerDown(surface, { pointerId: 1, clientX, clientY });
   fireEvent.pointerUp(surface, { pointerId: 1, clientX, clientY });
+}
+
+function ControlledNoteCard({
+  initialNote,
+  vote,
+}: Pick<ComponentProps<typeof NoteCard>, "vote"> & {
+  initialNote: ComponentProps<typeof NoteCard>["note"];
+}) {
+  const [note, setNote] = useState(initialNote);
+  return (
+    <NoteCard
+      note={note}
+      isOwnDrag={false}
+      isSelected
+      canEditNote
+      canDeleteNote
+      canMoveNote
+      onSelect={vi.fn()}
+      onDragStart={vi.fn()}
+      onContentChange={(_noteId, content) =>
+        setNote((current) => ({ ...current, content }))
+      }
+      onDelete={vi.fn()}
+      vote={vote}
+    />
+  );
 }
 
 describe("NoteCard", () => {
@@ -1231,27 +1257,7 @@ describe("NoteCard", () => {
         onVote: vi.fn(),
         onVoteRemove: vi.fn(),
       };
-      function ControlledNoteCard() {
-        const [note, setNote] = useState(initialNote);
-        return (
-          <NoteCard
-            note={note}
-            isOwnDrag={false}
-            isSelected
-            canEditNote
-            canDeleteNote
-            canMoveNote
-            onSelect={vi.fn()}
-            onDragStart={vi.fn()}
-            onContentChange={(_noteId, content) =>
-              setNote((current) => ({ ...current, content }))
-            }
-            onDelete={vi.fn()}
-            vote={vote}
-          />
-        );
-      }
-      render(<ControlledNoteCard />);
+      render(<ControlledNoteCard initialNote={initialNote} vote={vote} />);
 
       clickNote();
       const textarea = screen.getByRole("textbox");

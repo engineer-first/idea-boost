@@ -93,7 +93,7 @@ rule:
     all:
       - regex: "[.@]/features/"
       - not:
-          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback|auth)[\"'/]"
+          regex: '[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback|auth)["''/]'
 ---
 id: room-feature-allowed-edges-tsx
 language: tsx
@@ -116,7 +116,7 @@ rule:
     all:
       - regex: "[.@]/features/"
       - not:
-          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback|auth)[\"'/]"
+          regex: '[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback|auth)["''/]'
 ---
 # notes が依存してよいのは dot-vote / room-members のみ。
 # room への依存は禁止（room → notes のエッジと循環する）。
@@ -141,7 +141,7 @@ rule:
     all:
       - regex: "[.@]/features/"
       - not:
-          regex: "[.@]/features/(dot-vote|room-members)[\"'/]"
+          regex: '[.@]/features/(dot-vote|room-members)["''/]'
 ---
 id: notes-feature-allowed-edges-tsx
 language: tsx
@@ -164,7 +164,7 @@ rule:
     all:
       - regex: "[.@]/features/"
       - not:
-          regex: "[.@]/features/(dot-vote|room-members)[\"'/]"
+          regex: '[.@]/features/(dot-vote|room-members)["''/]'
 ---
 # feature 内の構成は「ルート（index.ts）+ 5 箱（containers/ templates/
 # organisms/ molecules/ logic/）の 1 段」まで。

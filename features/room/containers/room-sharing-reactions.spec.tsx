@@ -40,6 +40,11 @@ function setup(overrides: Partial<RoomSharingReactionsProps> = {}) {
 
 afterEach(() => vi.useRealTimers());
 
+function Board({ onRender }: { onRender: () => void }) {
+  onRender();
+  return <div>共有キャンバス</div>;
+}
+
 describe("RoomSharingReactions", () => {
   it("選んだ種類を送信し、受信した反応をbridge経由で表示して3秒後に消す", () => {
     vi.useFakeTimers();
@@ -135,14 +140,10 @@ describe("RoomSharingReactions", () => {
   it("受信・送信待機・消去の更新で無関係なchildrenの描画処理を繰り返さない", () => {
     vi.useFakeTimers();
     const drawBoard = vi.fn();
-    function Board() {
-      drawBoard();
-      return <div>共有キャンバス</div>;
-    }
     const { messageRef } = setup({
       children: (
         <>
-          <Board />
+          <Board onRender={drawBoard} />
           <RoomSharingReactionControls />
           <RoomSharingReactionDisplay />
         </>

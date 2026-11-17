@@ -6,7 +6,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import { useState } from "react";
+import { type ComponentProps, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { ClientMessage } from "@/contracts/room-protocol";
@@ -33,6 +33,36 @@ function setup(disabled = false, selectedNoteId: string | null = null) {
   };
   render(<PrivateNotesToolbar {...props} />);
   return props;
+}
+
+type ToolbarProps = ComponentProps<typeof PrivateNotesToolbar>;
+
+function SelectionHarness({
+  notes,
+  props,
+}: {
+  notes: ToolbarProps["notes"];
+  props: ToolbarProps;
+}) {
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
+    "old-note",
+  );
+  return (
+    <PrivateNotesToolbar
+      {...props}
+      notes={notes}
+      noteCreationReceipt={
+        notes.some((note) => note.id === "new-note")
+          ? { operationId: "create-1", noteId: "new-note" }
+          : undefined
+      }
+      selectedNoteId={selectedNoteId}
+      onSelect={(id) => {
+        props.onSelect(id);
+        setSelectedNoteId(id);
+      }}
+    />
+  );
 }
 
 describe("PrivateNotesToolbar", () => {
@@ -1031,28 +1061,7 @@ describe("PrivateNotesToolbar", () => {
       onDelete: vi.fn(),
       onDragStart: vi.fn(),
     };
-    function Harness({ notes }: { notes: typeof props.notes }) {
-      const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
-        "old-note",
-      );
-      return (
-        <PrivateNotesToolbar
-          {...props}
-          notes={notes}
-          noteCreationReceipt={
-            notes.some((note) => note.id === "new-note")
-              ? { operationId: "create-1", noteId: "new-note" }
-              : undefined
-          }
-          selectedNoteId={selectedNoteId}
-          onSelect={(id) => {
-            props.onSelect(id);
-            setSelectedNoteId(id);
-          }}
-        />
-      );
-    }
-    const view = render(<Harness notes={[oldNote]} />);
+    const view = render(<SelectionHarness props={props} notes={[oldNote]} />);
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
     fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
       key: "Enter",
@@ -1061,7 +1070,9 @@ describe("PrivateNotesToolbar", () => {
     fireEvent.input(editor, { target: { value: "既存draftへ入力を続ける" } });
     expect(editor).toHaveFocus();
 
-    view.rerender(<Harness notes={[oldNote, newNote]} />);
+    view.rerender(
+      <SelectionHarness props={props} notes={[oldNote, newNote]} />,
+    );
 
     expect(editor).toHaveFocus();
     expect(editor).toHaveValue("既存draftへ入力を続ける");

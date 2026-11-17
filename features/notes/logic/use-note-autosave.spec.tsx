@@ -32,6 +32,15 @@ function snapshot(revision = 0): Extract<ServerMessage, { type: "snapshot" }> {
   };
 }
 
+function RecoveryCountProbe({
+  send,
+}: {
+  send: (message: ClientMessage) => boolean;
+}) {
+  const draft = useNoteAutosave({ roomId: "room", userId, send });
+  return <p>回収: {draft.recoveries.length}</p>;
+}
+
 describe("useNoteAutosave", () => {
   const send = vi.fn<(message: ClientMessage) => boolean>(() => true);
   beforeEach(() => {
@@ -1523,20 +1532,16 @@ describe("useNoteAutosave", () => {
         ],
       }),
     );
-    const Probe = () => {
-      const draft = useNoteAutosave({ roomId: "room", userId, send });
-      return <p>回収: {draft.recoveries.length}</p>;
-    };
     const browserWindow = window;
     vi.stubGlobal("window", undefined);
-    const serverHtml = renderToString(<Probe />);
+    const serverHtml = renderToString(<RecoveryCountProbe send={send} />);
     vi.stubGlobal("window", browserWindow);
     const container = document.createElement("div");
     container.innerHTML = serverHtml;
     const errors: string[] = [];
     let root: ReturnType<typeof hydrateRoot> | undefined;
     await act(async () => {
-      root = hydrateRoot(container, <Probe />, {
+      root = hydrateRoot(container, <RecoveryCountProbe send={send} />, {
         onRecoverableError: (error) =>
           errors.push(error instanceof Error ? error.message : String(error)),
       });

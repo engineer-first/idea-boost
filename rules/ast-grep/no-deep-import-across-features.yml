@@ -22,7 +22,7 @@ rule:
     - kind: export_statement
   has:
     field: source
-    regex: "[.@]/features/[^/\"']+/"
+    regex: '[.@]/features/[^/"'']+/'
 ---
 id: no-deep-import-across-features-tsx
 language: tsx
@@ -40,4 +40,4 @@ rule:
     - kind: export_statement
   has:
     field: source
-    regex: "[.@]/features/[^/\"']+/"
+    regex: '[.@]/features/[^/"'']+/'

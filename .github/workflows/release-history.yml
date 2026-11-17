@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: '記録し直すDeployのrun ID（手動receiptとは併用不可）'
+        description: "記録し直すDeployのrun ID（手動receiptとは併用不可）"
         type: string
       attempt:
-        description: '確認するDeployのattempt'
+        description: "確認するDeployのattempt"
         type: string
       note_json:
-        description: '外部手動・旧版の履歴補完receipt JSON（run IDとは併用不可）'
+        description: "外部手動・旧版の履歴補完receipt JSON（run IDとは併用不可）"
         type: string
 
 permissions:

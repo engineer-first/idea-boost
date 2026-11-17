@@ -49,6 +49,8 @@ Miniflareのルールは親名に限定する。版別の2ルールを同時に�
 
 OpenNext 1.20.12のpeer条件はNext `>=15.5.28 <16 || >=16.4.1`、Wrangler `^4.148.0`。採用版Next 16.4.2/Wrangler 4.151.1は条件内。Cloudflare Vitest plugin 1.4.4はVitest `^4.1.0 || ^5.0.0`を要求するため、5.0.5を使う。TypeScriptは5.9.3を採用し、Node型も実行基準の26系を使う。Storybook内部の `vite-tsconfig-paths → tsconfck 3.1.6` はTypeScript `^5.0.0` のoptional peerを持ち、6.0.3では `npm ci` と `npm ls --depth=0` が成功しても `npm ls --all` がinvalidで失敗する。MSW 3の `>=5.9.x` も満たす5.9.3へ揃え、peer条件の書換え・検査の省略で通さない。`vite-tsconfig-paths` の最新安定版6.1.1にもtsconfckが残るため、この推移依存だけを別メジャーへ強制更新しない。tsconfckを除去する7系はalphaのため、対応する安定Storybookへ移行して全階層のpeer・型・buildを確認できたらTypeScript 6以降を再評価する。[StorybookのVite 8分岐](https://github.com/storybookjs/storybook/blob/v10.6.2/code/lib/vite-plugin-storybook-nextjs/src/index.ts#L60-L82)では旧pluginを使わないが、今回は未使用という理由だけで不整合を残さない。
 
+Biome 2.6からMarkdownも整形・lint対象になったが、Markdownはこれまでどおり `npm run format:md`（remark）に任せ、`biome.json` の `markdown` で無効にする。2つの整形が同じファイルを別の形へ書き換え合うのを避けるため。YAML・CSSはBiomeの整形に揃える。
+
 `diff` はアプリから直接使わないが、devDependenciesに `^9.0.0` を置く。OpenNext 1.20.16 と同梱の `@opennextjs/aws` 4.1.15 は `diff ^9.0.0` を optional peer に持ち、shadcn・Storybook が使う diff 8 がルートに置かれると `npm ls --all` がinvalidで失敗するため。peer条件の書換え・検査の省略では通さない。shadcnとStorybookがdiff 9へ移るか、OpenNextがこのpeerを外したら削除する。
 
 ## auditの残件と到達性
