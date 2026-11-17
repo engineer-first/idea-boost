@@ -4,6 +4,7 @@
   "timezone": "Asia/Tokyo",
   "schedule": ["before 9am"],
   "labels": ["dependencies"],
+  "prHourlyLimit": 0,
   "dependencyDashboard": {
     "enabled": true
   },
