@@ -19,6 +19,7 @@ type RenovateConfig = {
   packageRules?: PackageRule[];
   vulnerabilityAlerts?: { enabled?: boolean };
   platformAutomerge?: boolean;
+  prHourlyLimit?: number;
 };
 
 const config: RenovateConfig = JSON.parse(
@@ -90,6 +91,10 @@ describe("Renovateの更新方針 (#395)", () => {
         expect(rule.matchCurrentVersion).toBe("!/^0/");
       }
     }
+  });
+
+  it("まとめPRが1時間あたりの作成数の上限で翌朝へ持ち越されないようにする", () => {
+    expect(config.prHourlyLimit).toBe(0);
   });
 
   it("脆弱性アラートからの修正PRを無効にしない", () => {

@@ -18,7 +18,7 @@ Node.jsはビルドと検証のホスト。公開先はworkerdであり、Node�
 
 ## Renovateによる更新PR
 
-`renovate.json` を正本とし、方針は `.github/scripts/renovate-config.spec.ts` で検査する。Mend Renovate の GitHub App がこのリポジトリだけを対象に、日本時間9時前に更新PRを作る。npmの版は公開から3日たってから取り込み（`security:minimumReleaseAgeNpm`）、直後の取り下げや乗っ取られた版を避ける。
+`renovate.json` を正本とし、方針は `.github/scripts/renovate-config.spec.ts` で検査する。Mend Renovate の GitHub App がこのリポジトリだけを対象に、日本時間9時前に更新PRを作る。npmの版は公開から3日たってから取り込み（`security:minimumReleaseAgeNpm`）、直後の取り下げや乗っ取られた版を避ける。1時間あたりのPR作成数の上限（`config:recommended` の既定は2）は外す。パッチ・マイナーをまとめたためPRの数は少なく、上限があると朝の時間帯に作られずに翌日へ持ち越されるため（2026-11-17に発生）。同時に開くPRの上限は既定の10のまま。
 
 | 更新                 | 扱い                                                                                                                                                                          |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
