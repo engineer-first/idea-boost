@@ -87,7 +87,7 @@
     "closing": ["When you're stuck for ideas,", "start here."],
     "examples": {
       "heading": "What teams decided using Idea Boost",
-      "description": "From problem to question to idea: three outcomes teams took away. Participant responses are shown in their original language.",
+      "description": "From problem to question to idea: three outcomes teams took away. Participant responses have been translated from Japanese.",
       "labels": ["Problem", "Question", "Idea"],
       "countPrefix": "From",
       "countSuffix": " notes"
@@ -330,21 +330,21 @@
   "landingOutcomes": [
     {
       "noteCount": 27,
-      "issue": "寝る時間が日によって違う",
-      "question": "どうしたら睡眠前の時間の無駄遣いを減らせるか？",
-      "idea": "特定の時間になったら、アラーム等で教えて眠る準備をさせる。"
+      "issue": "My bedtime varies from day to day",
+      "question": "How can I avoid wasting time before bed?",
+      "idea": "Set an alarm at a specific time to remind me to get ready for bed."
     },
     {
       "noteCount": 29,
-      "issue": "時間を忘れて作業など没頭してしまう。寝る時間が削れる時がある。",
-      "question": "作業に没頭してても時間を意識できる方法はないのかな？",
-      "idea": "作業中に等間隔で時間を知らせてくれる通知系のアプリ"
+      "issue": "I get so absorbed in my work that I lose track of time and sometimes cut into my sleep.",
+      "question": "How can I stay aware of the time even when I'm absorbed in my work?",
+      "idea": "An app that sends time reminders at regular intervals while I'm working."
     },
     {
       "noteCount": 61,
-      "issue": "服の管理方法の最善案が思いつかない",
-      "question": "どうすれば視覚的にわかりやすく収納できるか",
-      "idea": "服とケースをタグで連動させてどこに何が入っているかわかるようにする"
+      "issue": "I can't figure out the best way to organize my clothes.",
+      "question": "How can I store clothes so it's easy to see where everything is?",
+      "idea": "Use matching tags on clothes and storage boxes so I know what is in each box."
     }
   ]
 }
