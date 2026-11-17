@@ -120,15 +120,16 @@ describe("RoomAdmissionGate", () => {
   });
 });
 
+function ConnectedRoom({ onRender }: { onRender: () => void }) {
+  onRender();
+  return <p>接続済みの盤面</p>;
+}
+
 it("認証待ちはルームの背景を残し、接続する子はマウントしない", () => {
   const connected = vi.fn();
-  function ConnectedRoom() {
-    connected();
-    return <p>接続済みの盤面</p>;
-  }
   render(
     <RoomAdmissionGate roomId={roomId} fallback={<p>ルームの枠</p>}>
-      <ConnectedRoom />
+      <ConnectedRoom onRender={connected} />
     </RoomAdmissionGate>,
   );
   expect(screen.getByText("ルームの枠")).toBeInTheDocument();

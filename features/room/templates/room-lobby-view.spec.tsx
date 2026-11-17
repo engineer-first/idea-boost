@@ -197,34 +197,39 @@ it("招待URLの共有は明示操作からURLだけを送る", async () => {
   }
 });
 
+function MemberRemovalPreview({
+  members,
+}: {
+  members: ReturnType<typeof buildMembers>;
+}) {
+  const memberRemoval = useMemberRemoval({
+    currentUserId: ME,
+    members,
+    connected: true,
+    blocked: false,
+    send: () => true,
+  });
+  return (
+    <RoomLobbyView
+      members={members}
+      currentUserId={ME}
+      phase={buildLobbyPhase()}
+      inviteCode="AB12CD"
+      inviteUrl="https://example.test"
+      connectionStatus="open"
+      isStarting={false}
+      onStart={vi.fn()}
+      onLeave={vi.fn()}
+      isLeaving={false}
+      memberRemoval={memberRemoval}
+    />
+  );
+}
+
 it("20人全員を表示し、参加者の除外を取消すと選んだ参加者へ戻る", async () => {
   const members = buildMembers(20, ME);
   const user = userEvent.setup();
-  function Preview() {
-    const memberRemoval = useMemberRemoval({
-      currentUserId: ME,
-      members,
-      connected: true,
-      blocked: false,
-      send: () => true,
-    });
-    return (
-      <RoomLobbyView
-        members={members}
-        currentUserId={ME}
-        phase={buildLobbyPhase()}
-        inviteCode="AB12CD"
-        inviteUrl="https://example.test"
-        connectionStatus="open"
-        isStarting={false}
-        onStart={vi.fn()}
-        onLeave={vi.fn()}
-        isLeaving={false}
-        memberRemoval={memberRemoval}
-      />
-    );
-  }
-  render(<Preview />);
+  render(<MemberRemovalPreview members={members} />);
   expect(screen.queryByTestId("room-members-overflow")).not.toBeInTheDocument();
   for (const member of members)
     expect(screen.getByText(member.name)).toBeVisible();

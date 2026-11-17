@@ -52,8 +52,9 @@
 @media (max-width: 639px) {
   /* 全幅のヒントは参照付箋の上に開く。閉じると参照へ戻れる。 */
   [data-testid="board-context-column"]:has(
-    [data-testid="board-help-panel"][data-open="true"]
-  ) :is(.references, .references *) {
+      [data-testid="board-help-panel"][data-open="true"]
+    )
+    :is(.references, .references *) {
     display: none;
   }
 }

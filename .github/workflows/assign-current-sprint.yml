@@ -2,11 +2,11 @@ name: Assign Current Sprint
 
 on:
   schedule:
-    - cron: '23 * * * *'
+    - cron: "23 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
-        description: '付け替え予定だけを確認する'
+        description: "付け替え予定だけを確認する"
         type: boolean
         default: true
 
