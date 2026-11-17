@@ -1,10 +1,17 @@
 import Image from "next/image";
-import { landingBoardCopy } from "../logic/landing-board-copy";
-import { landingCopy as copy } from "../logic/landing-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import { landingHeadingClass } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
-export function LandingStrengthsSection() {
+export function LandingStrengthsSection({
+  locale = "ja",
+}: {
+  locale?: AppLocale;
+}) {
+  const copy = getLandingContent(locale).landingCopy;
+  const { landingBoardCopy } = getLandingContent(locale);
   return (
     <section
       className={`${styles.theme} ${styles.strengths}`}

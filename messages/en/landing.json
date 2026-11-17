@@ -1,0 +1,350 @@
+{
+  "LANDING_CONTACT_URL": "https://forms.gle/Adq3ZMyEVGEnxb169",
+  "landingCopy": {
+    "brand": "Idea Boost",
+    "title": "Idea Boost | Bring your team to one idea with Design Sprint thinking",
+    "description": "Idea Boost is a web app that brings Design Sprint thinking to teams, guiding them from defining a problem to choosing an idea.",
+    "heading": ["Stuck for ideas?", "Start here."],
+    "subheading": ["The Design Sprint", "born at Google,", "now in an app."],
+    "comparison": {
+      "heading": ["No facilitator needed.", "One idea in about two hours."],
+      "subject": "Design Sprint",
+      "timeLabel": "to choose one idea",
+      "afterLabel": "With Idea Boost",
+      "timeBefore": "Usually 3 days",
+      "timeAfter": "About 2 hours",
+      "guideLabel": "How it works",
+      "guideBefore": "A dedicated facilitator is needed",
+      "guideAfter": "The app guides you",
+      "timeNote": [
+        "* About two hours is",
+        "the median time for teams",
+        "that reached one idea."
+      ]
+    },
+    "introduction": "Start your hackathon, pitch competition, or team project here.",
+    "login": "Log in",
+    "join": "Have an invitation code?",
+    "stepsHeading": ["Don't rush to ideas.", "Start with a question."],
+    "flow": {
+      "intro": "Turn a problem into a question before exploring ideas, so everyone thinks in the same direction.",
+      "example": "An illustrative example.",
+      "issue": "Staying up late and going to bed at different times",
+      "question": ["How might we", "wrap up", "our evening work", "with ease?"],
+      "prompts": [
+        {
+          "viewpoint": "Why?",
+          "detail": ["We don't know", "when to", "stop working"]
+        },
+        {
+          "viewpoint": "Look at it differently",
+          "detail": ["It's less about bedtime", "than how we stop"]
+        },
+        {
+          "viewpoint": "There is no single answer",
+          "detail": ["Ask a question", "that invites many ideas"]
+        }
+      ],
+      "ideas": [
+        ["Set an", "alarm at", "a fixed", "time"],
+        ["Tomorrow's", "schedule can", "help set", "your bedtime"]
+      ],
+      "chosenIdea": [
+        "Thirty minutes before bed,",
+        "write down today's progress",
+        "and tomorrow's",
+        "first step,",
+        "then close",
+        "your work"
+      ],
+      "alternatives": "Possible ideas (illustrative)",
+      "selected": "Chosen idea",
+      "source": "Source: IDEO Design Kit — How Might We",
+      "url": "https://www.designkit.org/methods/how-might-we.html",
+      "diamondSource": "Source: Design Council — The Double Diamond",
+      "diamondUrl": "https://www.designcouncil.org.uk/resources/the-double-diamond/"
+    },
+    "steps": [
+      {
+        "title": "Identify a problem",
+        "description": "Share everyday challenges and choose one to tackle as a team."
+      },
+      {
+        "title": "Frame a question",
+        "description": "Turn the problem into a “How might we…?” question."
+      },
+      {
+        "title": "Choose an idea",
+        "description": "Explore and compare ideas, then narrow them down to one."
+      }
+    ],
+    "moodSlogan": [
+      "Think on your own.",
+      "Bring ideas together.",
+      "Talk and decide."
+    ],
+    "headingAccent": "Stuck",
+    "closing": ["When you're stuck for ideas,", "start here."],
+    "examples": {
+      "heading": "What teams decided using Idea Boost",
+      "description": "From problem to question to idea: three outcomes teams took away. Participant responses are shown in their original language.",
+      "labels": ["Problem", "Question", "Idea"],
+      "countPrefix": "From",
+      "countSuffix": " notes"
+    },
+    "demo": {
+      "typing": ["Mark the end", "of work"],
+      "note": "Plan the time before bed together"
+    },
+    "features": {
+      "demo": {
+        "code": "ABC123",
+        "copy": "Copy",
+        "copied": "Copied",
+        "friend": "Share with teammates",
+        "timer": "Time to focus",
+        "private": "Only me",
+        "shared": "Shared",
+        "note": "Write an observation",
+        "voting": "Voting: only your votes",
+        "revealed": "Voting ended: everyone's votes are visible",
+        "hint": "What about another situation?",
+        "hintPrompt": "Need inspiration?",
+        "save": "Save as text",
+        "saved": "Saved",
+        "outcome": "Problem, question, idea"
+      },
+      "heading": "Features that support focused thinking.",
+      "items": [
+        {
+          "title": "Bring everyone together with a code",
+          "description": "Send the code to teammates to join the same room."
+        },
+        {
+          "title": "Focus in timed steps",
+          "description": "A timer for each step helps pace individual work."
+        },
+        {
+          "title": "Start privately",
+          "description": "Your notes stay visible only to you until you share them."
+        },
+        {
+          "title": "Choose without seeing others' votes",
+          "description": "Cast one favorite vote and three “likely needed” votes.",
+          "note": "Inspired by subjective and objective voting in Design Sprints."
+        },
+        {
+          "title": "Find a new angle",
+          "description": "Prompts help you see a problem from another perspective."
+        },
+        {
+          "title": "Take your outcome with you",
+          "description": "Copy everything or save it as text for what comes next."
+        }
+      ]
+    },
+    "method": {
+      "heading": ["Why do good ideas", "emerge?"],
+      "introduction": "Put a method born at Google to work for your team.",
+      "description": "Jake Knapp started the Design Sprint at Google, and GV developed the method. Idea Boost draws on its approach.",
+      "scope": "Idea Boost helps you decide on one idea. Prototyping and user testing come next.",
+      "source": "About Design Sprints (GV)",
+      "sourceUrl": "https://www.gv.com/sprint/",
+      "cases": "Google's Design Sprint Kit includes case studies from 3M × Bontouch, H&M, and Headspace.",
+      "casesLabel": "View Design Sprint Kit case studies",
+      "casesUrl": "https://designsprintkit.withgoogle.com/case-studies",
+      "principles": [
+        {
+          "title": "Start with a",
+          "accent": "problem worth solving.",
+          "label": "Find the problem",
+          "description": "Before proposing ideas, decide whose problem you want to solve and choose it together.",
+          "evidence": "Lack of market fit is one reason startups fail.",
+          "source": "Source: CB Insights",
+          "url": "https://www.cbinsights.com/research/report/startup-failure-reasons-top/"
+        },
+        {
+          "title": "Think alone,",
+          "accent": "then build together.",
+          "label": "From individual work to sharing",
+          "description": "Everyone writes first, without waiting for a turn to speak. Private notes capture each person's thinking.",
+          "evidence": "In spoken brainstorming, waiting to speak can reduce the number of ideas generated.",
+          "source": "Source: Diehl & Stroebe (1987)",
+          "url": "https://doi.org/10.1037/0022-3514.53.3.497"
+        },
+        {
+          "title": "Choose without being swayed,",
+          "accent": "from your own perspective.",
+          "label": "Private voting",
+          "description": "Choose from your own perspective, without seeing others' votes while voting.",
+          "evidence": "Inspired by the silent voting used in Design Sprints.",
+          "source": "Source: GV The Design Sprint",
+          "url": "https://www.gv.com/sprint/#wednesday"
+        }
+      ]
+    },
+    "gettingStarted": {
+      "heading": "Invite your team and get started.",
+      "steps": [
+        {
+          "title": "Choose how to start",
+          "description": "Continue with Google or as a guest. Guests only need to enter the name shown to teammates."
+        },
+        {
+          "title": "Create a room and invite others",
+          "description": "Copy the invitation URL or six-character code and send it to your team."
+        },
+        {
+          "title": "Start when everyone is ready",
+          "description": "Follow the on-screen guide through individual thinking and team sharing."
+        },
+        {
+          "title": "Take your outcome with you",
+          "description": "Copy the problem, question, and idea or save them as a text file."
+        }
+      ],
+      "codeHelp": "Have an invitation code? Choose how to start, then enter it on the home page."
+    },
+    "faq": {
+      "heading": ["Before you start,", "here's what to know."],
+      "items": [
+        {
+          "question": "Does it cost anything?",
+          "answer": "It's currently free to use."
+        },
+        {
+          "id": "landing-duration",
+          "question": "How long does it take?",
+          "answer": "Teams that reached one idea took about two hours (median). Time varies with the number of people and the discussion. Each step has a timer to guide you."
+        },
+        {
+          "question": "Can I use it without knowing Design Sprints?",
+          "answer": "Yes. A full Design Sprint takes five days, including prototyping and testing, with a facilitator leading the team. Idea Boost covers choosing one idea (usually the first three days) and guides you with step-by-step instructions and timers.",
+          "source": {
+            "label": "Source: GV The Design Sprint",
+            "url": "https://www.gv.com/sprint/"
+          }
+        },
+        {
+          "question": "What do I need?",
+          "answer": "A browser with an internet connection. You can start as a guest without a Google account by entering a name. This introduction page works on desktop and mobile. Full board functionality is not guaranteed on every smartphone."
+        },
+        {
+          "question": "How long are outcomes saved?",
+          "answer": "People present at completion, and those who left after saving an outcome, can revisit it for 180 days after first completion. Incomplete shared outcomes are kept for 180 days after the last use. After that, they can no longer be viewed, so copy or save anything you want to keep. See “Storage and privacy” below."
+        },
+        {
+          "question": "Is this a Google product?",
+          "answer": "No. Idea Boost is not a Google product and is not endorsed by or affiliated with Google. It draws on Design Sprint thinking."
+        }
+      ]
+    },
+    "disclaimer": "Idea Boost is not a Google product and is not endorsed by or affiliated with Google. Google is a trademark of Google LLC.",
+    "privacy": "Storage and privacy",
+    "contact": "Contact us (Google Form)",
+    "footerNav": "Site information",
+    "cta": {
+      "normal": ["Start for free", "Go to home"],
+      "invite": [
+        "Continue to invitation confirmation",
+        "Continue to invitation confirmation"
+      ],
+      "return": [
+        "Log in to return to the previous page",
+        "Return to the previous page"
+      ]
+    }
+  },
+  "landingBoardCopy": {
+    "header": "③ Ideas | Explore",
+    "next": "Next step",
+    "room": "Sleep ideas",
+    "timer": "03:00",
+    "subjective": "Favorite!",
+    "objective": "Likely needed",
+    "issueLabel": "Start with an everyday problem",
+    "hero": [
+      {
+        "text": "Remind me when it's time to get ready for bed",
+        "member": 0
+      },
+      {
+        "text": "Remind me of the time while working",
+        "member": 1
+      },
+      {
+        "text": "Work back from the next morning's schedule",
+        "member": 1
+      },
+      {
+        "text": "Make evening plans visible",
+        "member": 2
+      }
+    ],
+    "issue": [
+      "Bedtime varies from day to day",
+      "I lose track of time while working",
+      "I don't have enough time to get ready in the morning"
+    ],
+    "private": [
+      "My private space",
+      "Shared space",
+      "I lose track of time while working",
+      "Bedtime varies from day to day"
+    ],
+    "vote": [
+      "My votes",
+      "Others' votes are hidden",
+      "Remind me when it's time to get ready for bed",
+      "Remind me of the time while working"
+    ]
+  },
+  "landingMembers": [
+    {
+      "name": "Yui",
+      "initial": "Y",
+      "color": "yellow"
+    },
+    {
+      "name": "Takumi",
+      "initial": "T",
+      "color": "blue"
+    },
+    {
+      "name": "Saki",
+      "initial": "S",
+      "color": "pink"
+    }
+  ],
+  "landingMoodCharacters": [
+    {
+      "id": "a",
+      "text": ["In the morning,", "I can't wake up"]
+    },
+    {
+      "id": "b",
+      "text": ["Our schedules", "don't match"]
+    }
+  ],
+  "landingMoodPrompt": "What's been bothering you lately?",
+  "landingOutcomes": [
+    {
+      "noteCount": 27,
+      "issue": "寝る時間が日によって違う",
+      "question": "どうしたら睡眠前の時間の無駄遣いを減らせるか？",
+      "idea": "特定の時間になったら、アラーム等で教えて眠る準備をさせる。"
+    },
+    {
+      "noteCount": 29,
+      "issue": "時間を忘れて作業など没頭してしまう。寝る時間が削れる時がある。",
+      "question": "作業に没頭してても時間を意識できる方法はないのかな？",
+      "idea": "作業中に等間隔で時間を知らせてくれる通知系のアプリ"
+    },
+    {
+      "noteCount": 61,
+      "issue": "服の管理方法の最善案が思いつかない",
+      "question": "どうすれば視覚的にわかりやすく収納できるか",
+      "idea": "服とケースをタグで連動させてどこに何が入っているかわかるようにする"
+    }
+  ]
+}

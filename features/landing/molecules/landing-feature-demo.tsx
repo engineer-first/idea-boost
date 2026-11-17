@@ -1,13 +1,21 @@
 import { Check, Copy, LockKeyhole, Star, Users } from "lucide-react";
 import type { CSSProperties } from "react";
-import { landingMembers } from "../logic/landing-board-copy";
-import { landingCopy } from "../logic/landing-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import { landingPaperStyle } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
-const copy = landingCopy.features.demo;
 const timerAngles = Array.from({ length: 12 }, (_, index) => index * 30);
-export function LandingFeatureDemo({ index }: { index: number }) {
+export function LandingFeatureDemo({
+  index,
+  locale = "ja",
+}: {
+  index: number;
+  locale?: AppLocale;
+}) {
+  const { landingMembers, landingCopy } = getLandingContent(locale);
+  const copy = landingCopy.features.demo;
   return (
     <div
       data-testid="landing-feature-decoration"

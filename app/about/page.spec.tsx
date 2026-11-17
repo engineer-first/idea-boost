@@ -3,6 +3,9 @@ import { expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ user: vi.fn() }));
 vi.mock("@/lib/session/current-user", () => ({ getCurrentUser: mocks.user }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers({ "accept-language": "ja-JP" }),
+}));
 
 import AboutPage from "./page";
 

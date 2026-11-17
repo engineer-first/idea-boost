@@ -1,4 +1,6 @@
-import { landingCopy as copy } from "../logic/landing-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import {
   landingHeadingClass,
   landingLinkClass,
@@ -7,7 +9,8 @@ import {
 import styles from "./landing.module.css";
 import { LandingFaqItem } from "./landing-faq-item";
 
-export function LandingFaqSection() {
+export function LandingFaqSection({ locale = "ja" }: { locale?: AppLocale }) {
+  const copy = getLandingContent(locale).landingCopy;
   return (
     <section
       className={`${styles.theme} ${landingSectionClass}`}
@@ -31,7 +34,7 @@ export function LandingFaqSection() {
             </summary>
             <div className="pb-5 text-base leading-8 sm:text-lg text-[var(--lp-body)]">
               <p>{item.answer}</p>
-              {"source" in item && (
+              {item.source && (
                 <a
                   href={item.source.url}
                   target="_blank"

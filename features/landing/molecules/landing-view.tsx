@@ -1,9 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  landingCopy as copy,
-  LANDING_CONTACT_URL,
-} from "../logic/landing-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+import { LANDING_CONTACT_URL } from "../logic/landing-copy";
 import type { LandingEntry } from "../logic/landing-entry";
 import {
   landingCtaClass,
@@ -19,9 +18,18 @@ import { LandingMethodSection } from "./landing-method-section";
 import { LandingStartSection } from "./landing-start-section";
 import { LandingStrengthsSection } from "./landing-strengths-section";
 
-export type LandingViewProps = { isLoggedIn: boolean; entry: LandingEntry };
+export type LandingViewProps = {
+  isLoggedIn: boolean;
+  entry: LandingEntry;
+  locale?: AppLocale;
+};
 
-export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
+export function LandingView({
+  isLoggedIn,
+  entry,
+  locale = "ja",
+}: LandingViewProps) {
+  const copy = getLandingContent(locale).landingCopy;
   return (
     <main
       className={`${styles.theme} min-h-0 flex-1 overflow-y-auto bg-[var(--lp-surface)] text-[var(--lp-ink)] selection:bg-[var(--lp-tint)] [color-scheme:light]`}
@@ -45,7 +53,7 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
         </header>
       )}
       <div className="mx-auto max-w-6xl px-6 sm:px-10">
-        <LandingHeroSection entry={entry} />
+        <LandingHeroSection locale={locale} entry={entry} />
       </div>
       <div className={styles.sloganBand}>
         <p>
@@ -57,12 +65,12 @@ export function LandingView({ isLoggedIn, entry }: LandingViewProps) {
         </p>
       </div>
       <div className="mx-auto max-w-6xl px-6 sm:px-10">
-        <LandingStrengthsSection />
-        <LandingMethodSection />
-        <LandingFeaturesSection />
-        <LandingFlowSection />
-        <LandingStartSection entry={entry} />
-        <LandingFaqSection />
+        <LandingStrengthsSection locale={locale} />
+        <LandingMethodSection locale={locale} />
+        <LandingFeaturesSection locale={locale} />
+        <LandingFlowSection locale={locale} />
+        <LandingStartSection locale={locale} entry={entry} />
+        <LandingFaqSection locale={locale} />
       </div>
       <footer>
         <div className={styles.closingBand}>

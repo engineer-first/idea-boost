@@ -15,6 +15,20 @@ import RootPage from "./page";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.user.mockResolvedValue(null);
+  mocks.headers.mockResolvedValue(new Headers({ "accept-language": "ja-JP" }));
+});
+
+it("英語を優先するブラウザでLPの見出しと利用開始リンクを英語で表示する", async () => {
+  mocks.headers.mockResolvedValue(
+    new Headers({ "accept-language": "en-US,en;q=0.9" }),
+  );
+  render(await RootPage());
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+    "Stuck for ideas?",
+  );
+  expect(
+    screen.getAllByRole("link", { name: "Start for free" }).length,
+  ).toBeGreaterThan(0);
 });
 
 it("未ログインでRootPageを開くとリダイレクトせずLPから利用開始できる", async () => {

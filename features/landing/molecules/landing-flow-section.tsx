@@ -1,7 +1,8 @@
 import { ArrowDown, Star } from "lucide-react";
 import Image from "next/image";
-import { landingCopy as copy } from "../logic/landing-copy";
-import { landingOutcomes } from "../logic/landing-outcomes";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import {
   landingHeadingClass,
   landingLinkClass,
@@ -10,7 +11,9 @@ import {
 } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
-export function LandingFlowSection() {
+export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
+  const copy = getLandingContent(locale).landingCopy;
+  const { landingOutcomes } = getLandingContent(locale);
   return (
     <section
       style={landingPaperStyle}

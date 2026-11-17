@@ -1,16 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  landingMoodCharacters,
-  landingMoodPrompt,
-} from "../logic/landing-board-copy";
-import { landingCopy as copy } from "../logic/landing-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import type { LandingEntry } from "../logic/landing-entry";
 import { landingCtaClass, landingLinkClass } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 import { LandingDemo } from "./landing-demo";
 
-export function LandingHeroSection({ entry }: { entry: LandingEntry }) {
+export function LandingHeroSection({
+  entry,
+  locale = "ja",
+}: {
+  entry: LandingEntry;
+  locale?: AppLocale;
+}) {
+  const {
+    landingCopy: copy,
+    landingMoodCharacters,
+    landingMoodPrompt,
+  } = getLandingContent(locale);
   return (
     <section
       className={`${styles.theme} ${styles.hero}`}
@@ -81,7 +90,7 @@ export function LandingHeroSection({ entry }: { entry: LandingEntry }) {
           </div>
         )}
       </div>
-      <LandingDemo />
+      <LandingDemo locale={locale} />
     </section>
   );
 }

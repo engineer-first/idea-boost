@@ -1,6 +1,8 @@
 import { EyeOff, Lightbulb, Users } from "lucide-react";
 import Image from "next/image";
-import { landingCopy as copy } from "../logic/landing-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import {
   landingHeadingClass,
   landingLinkClass,
@@ -12,7 +14,12 @@ import { LandingBoardMock } from "./landing-board-mock";
 const visuals = ["issue", "private", "vote"] as const;
 const characters = ["b", "c", "d"] as const;
 const icons = [Lightbulb, Users, EyeOff];
-export function LandingMethodSection() {
+export function LandingMethodSection({
+  locale = "ja",
+}: {
+  locale?: AppLocale;
+}) {
+  const copy = getLandingContent(locale).landingCopy;
   return (
     <section
       style={landingPaperStyle}
@@ -52,7 +59,7 @@ export function LandingMethodSection() {
         return (
           <article key={item.title} className={styles.reason}>
             <div className={styles.reasonVisual}>
-              <LandingBoardMock variant={visuals[index]} />
+              <LandingBoardMock variant={visuals[index]} locale={locale} />
               <Image
                 className={styles.reasonCharacter}
                 src={`/landing/mood-${characters[index]}.webp`}
