@@ -674,7 +674,7 @@ export function PrivateNotesToolbar({
                   </StickyNote>
                 ))
               : null}
-            {notes.map((note) =>
+            {notes.flatMap((note) => [
               dropPlaceholder?.noteId === note.id ? (
                 <div
                   key={note.id}
@@ -746,7 +746,23 @@ export function PrivateNotesToolbar({
                   />
                 </ViewTransition>
               ),
-            )}
+              isWorkspace && canCreateNote && selectedNoteId === note.id ? (
+                // 入力中の付箋のすぐ隣から続けて追加できるようにする。
+                <Button
+                  key={`${note.id}:add-next`}
+                  type="button"
+                  variant="outline"
+                  disabled={disabled || noteCreationPending}
+                  aria-label="続けて付箋を追加"
+                  onClick={handleAdd}
+                  className="flex h-[150px] w-[200px] flex-col items-center justify-center gap-3 rounded-lg border-2 border-primary/50 border-dashed bg-muted/50 font-medium text-foreground hover:border-primary/75 hover:bg-muted active:bg-muted/80"
+                  style={{ width: NOTE_WIDTH, height: NOTE_HEIGHT }}
+                >
+                  <Plus aria-hidden="true" className="size-6" />
+                  <span>続けて追加</span>
+                </Button>
+              ) : null,
+            ])}
           </div>
         </section>
       </CardContent>
