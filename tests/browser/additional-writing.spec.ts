@@ -243,7 +243,7 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
     exact: true,
   });
   const addWriting = page.getByRole("button", {
-    name: "付箋を書き直す",
+    name: "付箋を書き足す",
     exact: true,
   });
   await nextStep.waitFor({ state: "visible" });
@@ -251,7 +251,7 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
     await page
       .getByTestId("board-control-hud")
       .getByRole("button", {
-        name: "付箋を書き直す",
+        name: "付箋を書き足す",
         exact: true,
       })
       .isVisible(),
@@ -270,7 +270,13 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
   await expect.poll(viewTransform).not.toBe(initial);
   const before = await viewTransform();
   await page
-    .getByRole("button", { name: "付箋を書き直す", exact: true })
+    .getByRole("button", { name: "付箋を書き足す", exact: true })
+    .click();
+  await page
+    .getByRole("alertdialog", {
+      name: "全員で1-1に戻って、付箋を書き足しますか？",
+    })
+    .getByRole("button", { name: "付箋を書き足す", exact: true })
     .click();
   await expect
     .poll(() =>
@@ -314,11 +320,11 @@ test("3-3から追加執筆へ戻っても2軸マップの配置と表示倍率�
     .locator('[data-note-id="reference-one"]');
   const before = await note.boundingBox();
   await page
-    .getByRole("button", { name: "もう一度付箋を書く", exact: true })
+    .getByRole("button", { name: "付箋を書き足す", exact: true })
     .click();
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: "個人作業へ戻る", exact: true })
+    .getByRole("button", { name: "付箋を書き足す", exact: true })
     .click();
   await expect
     .poll(() =>
