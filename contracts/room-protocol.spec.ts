@@ -1577,3 +1577,30 @@ describe("表示名の変更境界", () => {
       expect(ClientMessageSchema.safeParse(invalid).success).toBe(false);
   });
 });
+
+describe("追加執筆のサーバー状態", () => {
+  it("共有付箋0枚でもphase:updatedの追加執筆判定を保持する", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({
+          type: "phase:updated",
+          phase: STEP_1_1,
+          phaseRevision: 3,
+          isAdditionalWriting: true,
+        }),
+      ),
+    ).toMatchObject({ isAdditionalWriting: true });
+  });
+  it("追加執筆判定の文字列を拒否する", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({
+          type: "phase:updated",
+          phase: STEP_1_1,
+          phaseRevision: 3,
+          isAdditionalWriting: "true",
+        }),
+      ),
+    ).toBeNull();
+  });
+});

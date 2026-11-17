@@ -801,6 +801,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     members: z.array(MemberSchema),
     phase: RoomPhaseSchema,
     phaseRevision: z.int().nonnegative().default(0),
+    // RoomDOの工程履歴に基づく現在フェーズの追加執筆。開閉状態は同期しない。
+    isAdditionalWriting: z.boolean().optional(),
     rollbackTarget: RoomPhaseSchema.nullable().optional(),
     rollbackRevision: z.int().nonnegative().optional(),
     pendingPhaseTransition: PendingPhaseTransitionSchema.nullable().optional(),
@@ -972,6 +974,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     mapRevision: z.int().nonnegative().optional(),
     phase: RoomPhaseSchema,
     phaseRevision: z.int().nonnegative().default(0),
+    // RoomDOの工程履歴に基づく現在フェーズの追加執筆。開閉状態は同期しない。
+    isAdditionalWriting: z.boolean().optional(),
     rollbackTarget: RoomPhaseSchema.nullable().optional(),
     rollbackRevision: z.int().nonnegative().optional(),
   }),

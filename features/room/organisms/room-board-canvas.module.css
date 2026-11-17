@@ -40,3 +40,71 @@
     bottom: var(--idea-map-note-bottom-desktop);
   }
 }
+
+.additionalWritingCanvas {
+  /* 150px の付箋に上下32pxずつ余白を取る閉じた状態の高さ。 */
+  --writing-panel-height: min(
+    214px,
+    max(
+      140px,
+      calc((100dvh - var(--board-private-expanded-top, 5rem) - 0.75rem) * 0.5)
+    )
+  );
+}
+.additionalWritingTools {
+  bottom: calc(var(--writing-panel-height) + 1.5rem);
+}
+.additionalWritingCanvas:has(
+    [data-testid="private-notes-toolbar"][data-expanded="false"]
+  )
+  [data-testid="hmw-hint-hud"] {
+  bottom: calc(var(--writing-panel-height) + 1.5rem);
+}
+/* ボードの寸法・カメラには触れず、前面のパネルだけを下へスライドする。 */
+.additionalWritingPanel {
+  transform: translateY(max(0px, calc(100% - var(--writing-panel-height))));
+  clip-path: inset(0 0 calc(100% - var(--writing-panel-height)) 0 round 12px);
+  transition:
+    transform 250ms ease,
+    clip-path 250ms ease;
+  pointer-events: none;
+}
+.additionalWritingPanel.writingExpanded {
+  transform: translateY(0);
+  clip-path: inset(0 round 12px);
+}
+.additionalWritingPanel [data-testid="private-notes-toolbar"] {
+  height: var(--writing-panel-height);
+  max-width: 80rem;
+  transition: height 250ms ease;
+}
+.additionalWritingPanel.writingExpanded [data-testid="private-notes-toolbar"] {
+  height: 100%;
+  pointer-events: none;
+}
+.additionalWritingPanel.writingExpanded
+  [data-testid="private-notes-toolbar"]
+  button,
+.additionalWritingPanel.writingExpanded
+  [data-testid="private-notes-toolbar"]
+  [data-testid="note-card"],
+.additionalWritingPanel.writingExpanded
+  [data-testid="private-notes-toolbar"]
+  [data-testid="private-note-placeholder"] {
+  pointer-events: auto;
+}
+.additionalWritingPanel [data-testid="private-notes-scroll"] {
+  padding: 12px;
+}
+.additionalWritingPanel [data-testid="private-notes-list"] {
+  padding-bottom: 0;
+}
+.additionalWritingPanel.writingExpanded [data-testid="private-notes-scroll"] {
+  padding-inline-start: max(12px, var(--board-private-reference-inset, 0px));
+}
+@media (prefers-reduced-motion: reduce) {
+  .additionalWritingPanel,
+  .additionalWritingPanel [data-testid="private-notes-toolbar"] {
+    transition: none;
+  }
+}

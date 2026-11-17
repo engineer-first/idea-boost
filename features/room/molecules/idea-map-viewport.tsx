@@ -116,6 +116,7 @@ export type IdeaMapViewportProps = {
   workspace?: boolean;
   expanded?: boolean;
   zoom?: number;
+  pan?: { x: number; y: number };
 };
 
 /**
@@ -132,11 +133,14 @@ export function IdeaMapViewport({
   workspace = false,
   expanded = false,
   zoom = 1,
+  pan,
 }: IdeaMapViewportProps) {
   const horizontalAxisRef = useRef<HTMLFieldSetElement>(null);
   const horizontalEndpointRef = useRef<HTMLDivElement>(null);
+  const updateHorizontalOffsetRef = useRef<(() => void) | null>(null);
   const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
   const transforms = [
+    pan ? `translate(${pan.x}px, ${pan.y}px)` : null,
     workspace ? "translateY(var(--board-map-shift-y, 0px))" : null,
     zoom === 1 ? null : `scale(${zoom})`,
   ].filter((transform) => transform !== null);
@@ -193,6 +197,7 @@ export function IdeaMapViewport({
         endpoint.style.setProperty(offsetProperty, `${offset}px`);
     };
     updateOffset();
+    updateHorizontalOffsetRef.current = updateOffset;
     const resizeObserver =
       typeof ResizeObserver === "undefined"
         ? null
@@ -215,12 +220,17 @@ export function IdeaMapViewport({
       });
     window.addEventListener("resize", updateOffset);
     return () => {
+      updateHorizontalOffsetRef.current = null;
       resizeObserver?.disconnect();
       layoutObserver?.disconnect();
       window.removeEventListener("resize", updateOffset);
       endpoint.style.removeProperty(offsetProperty);
     };
   }, [workspace, groupHorizontalAxisEndpoint, zoom]);
+  // パンはtransformだけを変えて監視に掛からないため、変化したら同じ計算をやり直す。
+  useLayoutEffect(() => {
+    if (pan) updateHorizontalOffsetRef.current?.();
+  }, [pan]);
 
   return (
     <section

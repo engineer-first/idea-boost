@@ -150,7 +150,7 @@ describe("一人ずつの共有", () => {
     reconnect.close();
   });
 
-  it("最後の発表者本人が完了すると次の工程へ進む", async () => {
+  it("最後の発表者が完了しても共有画面に留まり、次の操作を選べる", async () => {
     const { owner, member, roomId } = await setup();
     await runInRoomDO(roomId, async (_, state) => {
       const sharingPhase = {
@@ -212,6 +212,24 @@ describe("一人ずつの共有", () => {
     expect(completed).toMatchObject({
       type: "sharing:updated",
       sharing: { status: "complete" },
+    });
+    expect(await currentSnapshot(roomId)).toMatchObject({
+      phase: { kind: "step", phase: 1, step: 2 },
+      timer: { status: "ended" },
+    });
+    owner.ws.send(
+      JSON.stringify({
+        type: "phase:restart-writing",
+        ...(await currentPhaseExpectation(roomId)),
+      }),
+    );
+    expect(await until(owner, "phase:updated")).toMatchObject({
+      phase: { kind: "step", phase: 1, step: 1 },
+      isAdditionalWriting: true,
+    });
+    expect(await currentSnapshot(roomId)).toMatchObject({
+      phase: { kind: "step", phase: 1, step: 1 },
+      timer: { status: "idle" },
     });
     owner.close();
     member.close();
@@ -422,8 +440,8 @@ describe("共有の遷移と同期", () => {
       durationMs: 30000,
     });
     const snapshot = await currentSnapshot(roomId);
-    expect(snapshot.phase).toEqual({ kind: "step", phase: 1, step: 3 });
-    expect(snapshot.timer).toMatchObject({ status: "idle" });
+    expect(snapshot.phase).toEqual({ kind: "step", phase: 1, step: 2 });
+    expect(snapshot.timer).toMatchObject({ status: "ended" });
     owner.close();
     member.close();
   });

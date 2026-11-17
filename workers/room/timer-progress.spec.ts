@@ -50,7 +50,7 @@ async function setup(step: 1 | 2 = 1) {
 
 describe("タイマーと完了条件に応じた進行", () => {
   it.each([0, 1])(
-    "発表者%d本人の完了は時間途中でも交代し、最後なら次の工程へ進む",
+    "発表者%d本人の完了は時間途中でも交代し、最後なら共有画面に留まる",
     async (index) => {
       const roomId = await setup(2);
       await runInRoomDO(roomId, async (_, state) => {
@@ -90,7 +90,9 @@ describe("タイマーと完了条件に応じた進行", () => {
             results: ["done"],
           });
         } else {
-          expect(getPhase(sql)).toEqual({ kind: "step", phase: 1, step: 3 });
+          expect(getPhase(sql)).toEqual({ kind: "step", phase: 1, step: 2 });
+          expect(getSharingState(sql)).toMatchObject({ status: "complete" });
+          expect(getTimerState(sql)).toMatchObject({ status: "ended" });
         }
       });
     },
@@ -210,7 +212,7 @@ describe("タイマーと完了条件に応じた進行", () => {
     });
   });
   it.each([0, 1])(
-    "発表者%dの延長終了で交代し、最後なら共有を終えて次の工程へ進む",
+    "発表者%dの延長終了で交代し、最後なら共有画面に留まる",
     async (index) => {
       const roomId = await setup(2);
       await runInRoomDO(roomId, async (instance, state) => {
@@ -246,12 +248,65 @@ describe("タイマーと完了条件に応じた進行", () => {
           expect(getPhase(state.storage.sql)).toEqual({
             kind: "step",
             phase: 1,
-            step: 3,
+            step: 2,
+          });
+          expect(getSharingState(state.storage.sql)).toMatchObject({
+            status: "complete",
+            results: ["done", "done"],
+          });
+          await instance.alarm();
+          expect(getPhase(state.storage.sql)).toEqual({
+            kind: "step",
+            phase: 1,
+            step: 2,
           });
         }
       });
     },
   );
+  it.each([1, 2, 3] as const)(
+    "フェーズ%iの最後の発表が延長終了しても再度のalarmと再接続で共有完了を保つ",
+    async (phase) => {
+      const roomId = await setup(2);
+      await runInRoomDO(roomId, async (instance, state) => {
+        const currentPhase = { kind: "step", phase, step: 2 } as const;
+        savePhase(state.storage.sql, currentPhase);
+        resetSharingForPhase(state.storage.sql, currentPhase);
+        const sharing = getSharingState(state.storage.sql);
+        if (!sharing) throw new Error("共有状態がありません");
+        saveSharingState(state.storage.sql, {
+          ...sharing,
+          status: "active",
+          currentIndex: sharing.order.length - 1,
+          startsAt: null,
+          results: sharing.order.slice(1).map(() => "done" as const),
+        });
+        saveTimerState(state.storage.sql, {
+          status: "running",
+          endsAt: Date.now() - 1,
+          durationMs: 60_000,
+          extensionUsed: true,
+        });
+        await instance.alarm();
+        await instance.alarm();
+        expect(getPhase(state.storage.sql)).toEqual(currentPhase);
+        expect(getSharingState(state.storage.sql)).toMatchObject({
+          status: "complete",
+        });
+      });
+      const socket = await connectRoomAs(host, roomId);
+      try {
+        expect(await socket.next()).toMatchObject({
+          type: "snapshot",
+          phase: { kind: "step", phase, step: 2 },
+          sharing: { status: "complete" },
+        });
+      } finally {
+        socket.close();
+      }
+    },
+  );
+
   it("延長終了時に投票未完了なら待ち、最後の投票が届いたら全員を結果へ進める", async () => {
     const roomId = await setup();
     const noteId = crypto.randomUUID();
@@ -424,7 +479,7 @@ describe("タイマーと完了条件に応じた進行", () => {
     });
   });
   it.each([1, 2] as const)(
-    "工程1-%dを延長終了による進行後に戻すと1分を再計時し、新たな終了時だけ再び進む",
+    "工程1-%dを延長終了後の進行から戻すと1分を再計時し、共有完了後は手動進行を待つ",
     async (step) => {
       const roomId = await setup(step);
       await runInRoomDO(roomId, async (instance, state) => {
@@ -447,8 +502,6 @@ describe("タイマーと完了条件に応じた進行", () => {
           extensionUsed: true,
         });
         await instance.alarm();
-        const nextPhase = getPhase(sql);
-        expect(nextPhase).toEqual({ kind: "step", phase: 1, step: step + 1 });
         const ctx: HandlerCtx = {
           sql,
           storage: state.storage,
@@ -458,6 +511,14 @@ describe("タイマーと完了条件に応じた進行", () => {
           broadcaster: new RoomBroadcaster(state),
           refreshSnapshots: () => {},
         };
+        if (step === 2)
+          await phaseHandlers["phase:next"](ctx, {
+            type: "phase:next",
+            expectedPhase: getPhase(sql),
+            expectedRevision: getPhaseRevision(sql),
+          });
+        const nextPhase = getPhase(sql);
+        expect(nextPhase).toEqual({ kind: "step", phase: 1, step: step + 1 });
         const restoredAt = Date.now();
         await rollbackHandlers["phase:rollback"](ctx, {
           type: "phase:rollback",
@@ -482,7 +543,9 @@ describe("タイマーと完了条件に応じた進行", () => {
           });
         sql.exec("UPDATE timer_state SET ends_at=? WHERE id=1", Date.now() - 1);
         await instance.alarm();
-        expect(getPhase(sql)).toEqual(nextPhase);
+        expect(getPhase(sql)).toEqual(
+          step === 2 ? { kind: "step", phase: 1, step: 2 } : nextPhase,
+        );
       });
     },
   );
@@ -781,7 +844,7 @@ describe("タイマーと完了条件に応じた進行", () => {
   );
 
   it.each([host.sub, member.sub])(
-    "最後の発表者 %s が完了すると次の工程へ進む",
+    "最後の発表者 %s が完了しても共有画面に留まる",
     async (lastPresenterId) => {
       const roomId = await setup(2);
       const result = await runInRoomDO(roomId, async (_, state) => {
@@ -818,8 +881,8 @@ describe("タイマーと完了条件に応じた進行", () => {
         });
         return { phase: getPhase(ctx.sql), sharing: getSharingState(ctx.sql) };
       });
-      expect(result.phase).toEqual({ kind: "step", phase: 1, step: 3 });
-      expect(result.sharing?.status).toBe("inactive");
+      expect(result.phase).toEqual({ kind: "step", phase: 1, step: 2 });
+      expect(result.sharing?.status).toBe("complete");
     },
   );
 

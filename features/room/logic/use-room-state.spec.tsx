@@ -346,3 +346,34 @@ it("再接続snapshotに退出者がいなくても受信済み作者名を保�
   expect(result.current.members).toEqual([]);
   expect(result.current.authorNames.get(member.userId)).toBe(member.name);
 });
+
+it("追加執筆はsnapshotから復元し、次フェーズの初回執筆では解除する", () => {
+  const { result } = renderHook(() =>
+    useRoomState({ initialMembers: [], initialPhase: buildPhaseStep(1) }),
+  );
+  act(() =>
+    result.current.applyMessage({
+      type: "snapshot",
+      phase: buildPhaseStep(1),
+      phaseRevision: 3,
+      isAdditionalWriting: true,
+      notes: [],
+      members: [],
+      completedVoterIds: [],
+      decision: null,
+      carryovers: [],
+      timer: { status: "idle" },
+      serverNow: 0,
+    }),
+  );
+  expect(result.current.isAdditionalWriting).toBe(true);
+  act(() =>
+    result.current.applyMessage({
+      type: "phase:updated",
+      phase: buildPhaseStep(1, 2),
+      phaseRevision: 6,
+      isAdditionalWriting: false,
+    }),
+  );
+  expect(result.current.isAdditionalWriting).toBe(false);
+});

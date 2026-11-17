@@ -61,6 +61,7 @@ test.each([390, 1280])(
     await expect
       .poll(() =>
         page
+          .getByTestId("private-notes-list")
           .getByRole("button", { name: "付箋を追加" })
           .evaluate((element) => element === document.activeElement),
       )

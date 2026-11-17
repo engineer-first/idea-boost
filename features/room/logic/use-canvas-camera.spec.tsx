@@ -801,3 +801,65 @@ it("note内nativeシールbuttonのSpaceはdefaultを防がずパン保持にし
   unmount();
   viewport.remove();
 });
+
+it("追加執筆中だけの視点変更を終えると、既存の共有ボードの視点へ戻す", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
+  const viewportRef = { current: viewport };
+  const notes = buildNotes(1);
+  const { result, rerender } = renderHook(
+    ({ temporaryView }) =>
+      useCanvasCamera({ viewportRef, notes, temporaryView }),
+    { initialProps: { temporaryView: false } },
+  );
+  act(() => result.current.zoomTo(1.5));
+  const sharedCamera = { ...result.current.cameraRef.current };
+  rerender({ temporaryView: true });
+  expect(result.current.cameraRef.current).toEqual(sharedCamera);
+  act(() => result.current.zoomTo(2));
+  expect(result.current.cameraRef.current).not.toEqual(sharedCamera);
+  rerender({ temporaryView: false });
+  expect(result.current.cameraRef.current).toEqual(sharedCamera);
+});
+
+it("追加執筆中のパンの途中で閲覧を終えても、復元した視点をパンで上書きしない", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
+  viewport.hasPointerCapture = () => true;
+  viewport.setPointerCapture = vi.fn();
+  viewport.releasePointerCapture = vi.fn();
+  const viewportRef = { current: viewport };
+  const notes = buildNotes(1);
+  const { result, rerender } = renderHook(
+    ({ temporaryView }) =>
+      useCanvasCamera({
+        viewportRef,
+        notes,
+        temporaryView,
+        panOnBackground: temporaryView,
+      }),
+    { initialProps: { temporaryView: false } },
+  );
+  const sharedCamera = { ...result.current.cameraRef.current };
+  rerender({ temporaryView: true });
+  const event = {
+    target: viewport,
+    currentTarget: viewport,
+    button: 0,
+    buttons: 1,
+    pointerId: 1,
+    pointerType: "mouse",
+    clientX: 10,
+    clientY: 20,
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+  } as unknown as PointerEvent<HTMLDivElement>;
+  act(() => result.current.handlePointerDown(event));
+  act(() => result.current.handlePointerMove({ ...event, clientX: 60 }));
+  expect(result.current.isPanning).toBe(true);
+  rerender({ temporaryView: false });
+  expect(result.current.isPanning).toBe(false);
+  expect(viewport.releasePointerCapture).toHaveBeenCalledWith(1);
+  act(() => result.current.handlePointerMove({ ...event, clientX: 120 }));
+  expect(result.current.cameraRef.current).toEqual(sharedCamera);
+});

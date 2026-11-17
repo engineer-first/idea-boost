@@ -224,7 +224,7 @@ test("選択ツールのマイ付箋も矢印カーソルを表示する", async
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--canvas-input-private&viewMode=story`,
   );
-  await page.getByRole("button", { name: "マイ付箋を閉じる" }).waitFor();
+  await page.getByTestId("private-notes-scroll").waitFor();
   const surface = page
     .getByTestId("private-notes-toolbar")
     .locator("[data-canvas-note-surface='true']")
@@ -511,7 +511,7 @@ for (const focusTarget of ["body", "toolbar"] as const) {
       `${origin}/iframe.html?id=room-roomboardview--canvas-input-private&viewMode=story`,
     );
     await page.getByTestId("note-card").first().waitFor();
-    await page.getByRole("button", { name: "マイ付箋を閉じる" }).waitFor();
+    await page.getByTestId("private-notes-scroll").waitFor();
     const privateCard = page
       .getByTestId("private-notes-list")
       .getByTestId("note-card");
@@ -653,7 +653,7 @@ test("AT-002: private閾値前mouse press中はnative tool activationを受理�
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--canvas-input-private&viewMode=story`,
   );
-  await page.getByRole("button", { name: "マイ付箋を閉じる" }).waitFor();
+  await page.getByTestId("private-notes-scroll").waitFor();
   const surface = page
     .getByTestId("private-notes-list")
     .getByRole("button", { name: "付箋", exact: true });
@@ -694,7 +694,7 @@ test("AT-002/024: private第一touchの所有中はcanvas第二touchをpanへ渡
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--canvas-input-private&viewMode=story`,
   );
-  await page.getByRole("button", { name: "マイ付箋を閉じる" }).waitFor();
+  await page.getByTestId("private-notes-scroll").waitFor();
   const surface = page
     .getByTestId("private-notes-list")
     .getByRole("button", { name: "付箋", exact: true });

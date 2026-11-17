@@ -15,9 +15,11 @@ afterAll(async () => {
 async function checkPlacement(page: Page): Promise<void> {
   const character = page.getByTestId("board-character").locator("img");
   await page.getByTestId("board-character-bubble").waitFor();
-  await character.evaluate(async (element) => {
+  await page.getByTestId("board-character").evaluate(async (element) => {
     await Promise.all(
-      element.getAnimations().map((animation) => animation.finished),
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished),
     );
   });
   const box = await character.boundingBox();

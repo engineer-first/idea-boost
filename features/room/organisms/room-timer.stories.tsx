@@ -73,14 +73,6 @@ export const EndedAfterExtension: Story = {
     },
   },
 };
-export const SharingComplete: Story = {
-  args: {
-    timer: { status: "idle" },
-    sharingComplete: true,
-    onRestartWriting: fn(),
-    onReplay: fn(),
-  },
-};
 export const Disconnected: Story = {
   args: { ...EndedHost.args, disabled: true },
 };

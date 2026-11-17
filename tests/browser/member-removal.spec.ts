@@ -188,6 +188,7 @@ test.each([
 });
 
 test("切断中は除外を確定できず、再接続後に同じ確認を実行できる", async () => {
+  await page.clock.install();
   await open();
   await select();
   const event = async (detail: string): Promise<void> => {
@@ -206,6 +207,8 @@ test("切断中は除外を確定できず、再接続後に同じ確認を実�
   });
   await expect.poll(() => confirm.isDisabled()).toBe(true);
   await event("reconnect");
+  // 再接続の初回バックオフ（最大1秒）をブラウザの時計で進める。
+  await page.clock.runFor(1000);
   await expect.poll(() => confirm.isEnabled()).toBe(true);
   await confirm.click();
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });

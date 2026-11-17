@@ -21,6 +21,7 @@ import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
   isPhaseStep,
+  isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
   type RoomPhase,
@@ -76,6 +77,7 @@ import { RoomNameDialog } from "../molecules/room-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
+import canvasStyles from "../organisms/room-board-canvas.module.css";
 import { RoomBoardHeader } from "../organisms/room-board-header";
 
 // 透過wrapper全体ではなく実際にpointerを受ける表示領域だけを計測する。
@@ -168,6 +170,7 @@ export type RoomBoardViewProps = {
   inviteUrl: string;
   phase: RoomPhase;
   phaseRevision?: number;
+  isAdditionalWriting?: boolean;
   rollbackTarget?: RoomPhase | null;
   rollbackRevision?: number;
   onRollbackPhase?: () => void;
@@ -313,6 +316,7 @@ export function RoomBoardView({
   inviteUrl,
   phase,
   phaseRevision = 0,
+  isAdditionalWriting = false,
   rollbackTarget = null,
   rollbackRevision = 0,
   onRollbackPhase,
@@ -645,7 +649,7 @@ export function RoomBoardView({
     interactions.cancelPan?.();
     cancelVoteDrag();
     if (!continuePrivateEditing) setSelectedNoteId(null);
-    if (phaseChanged && shouldExpandPrivateNotes)
+    if (phaseChanged && shouldExpandPrivateNotes && !isAdditionalWriting)
       setExpandPrivateNotesRequest((request) => request + 1);
   }, [
     phase,
@@ -659,6 +663,7 @@ export function RoomBoardView({
     selectedNoteId,
     cancelRootPress,
     shouldExpandPrivateNotes,
+    isAdditionalWriting,
     selection.cancel,
     interactions.cancelCurrentNoteDrag,
     interactions.cancelPan,
@@ -948,30 +953,34 @@ export function RoomBoardView({
       ? null
       : (notes.find((note) => note.id === decision.noteId)?.content ??
         "確定した内容");
-  const phaseLoopControls = isResultStep(phase) ? (
-    <PhaseLoopControls
-      key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
-      phase={phase}
-      isSelecting={isAdoptMode}
-      decisionContent={decisionContent}
-      candidateCount={candidateNotes.length}
-      disabled={
-        isDisconnected ||
-        isNextPhasePending ||
-        isCandidatePending ||
-        isRemovingMember
-      }
-      selectionDisabled={boardInteractionBlocked}
-      onRestartWriting={onRestartWriting}
-      onRevote={onRevote}
-      onStartSelection={() => {
-        setSelectedNoteId(null);
-        setIsAdoptMode(true);
-      }}
-      onCancelSelection={() => setIsAdoptMode(false)}
-      onClearDecision={outcomePublished ? undefined : onDecisionClear}
-    />
-  ) : null;
+  const phaseLoopControls =
+    isResultStep(phase) ||
+    (isRestartWritingAllowedStep(phase) &&
+      phase.kind === "step" &&
+      phase.step !== 2) ? (
+      <PhaseLoopControls
+        key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
+        phase={phase}
+        isSelecting={isAdoptMode}
+        decisionContent={decisionContent}
+        candidateCount={candidateNotes.length}
+        disabled={
+          isDisconnected ||
+          isNextPhasePending ||
+          isCandidatePending ||
+          isRemovingMember
+        }
+        selectionDisabled={boardInteractionBlocked}
+        onRestartWriting={onRestartWriting}
+        onRevote={onRevote}
+        onStartSelection={() => {
+          setSelectedNoteId(null);
+          setIsAdoptMode(true);
+        }}
+        onCancelSelection={() => setIsAdoptMode(false)}
+        onClearDecision={outcomePublished ? undefined : onDecisionClear}
+      />
+    ) : null;
 
   function hasActiveCanvasGesture(): boolean {
     return Boolean(
@@ -1343,12 +1352,13 @@ export function RoomBoardView({
       );
     const suppressedPan = interactions.consumePanClick?.() ?? false;
     const nativeCanvasActivation =
-      event.detail === 0 &&
       targetElement?.closest("button, summary") &&
       targetElement.dataset.canvasNoteSurface !== "true";
     if (
       inCanvas &&
-      ((interactionTool === "hand" && !nativeCanvasActivation) ||
+      ((interactionTool === "hand" &&
+        !isAdditionalWriting &&
+        !nativeCanvasActivation) ||
         (event.detail !== 0 &&
           (suppressCanvasClickRef.current || suppressedPan)))
     ) {
@@ -1741,7 +1751,7 @@ export function RoomBoardView({
                 : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)), max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))",
           } as CSSProperties
         }
-        className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
+        className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${isAdditionalWriting && phase.kind === "step" && phase.step === 1 ? canvasStyles.additionalWritingCanvas : ""} ${
           isNoteDragging
             ? "cursor-grabbing"
             : isAdoptMode
@@ -2026,6 +2036,7 @@ export function RoomBoardView({
           inviteUrl={inviteUrl}
           phase={phase}
           phaseRevision={phaseRevision}
+          isAdditionalWriting={isAdditionalWriting}
           rollbackTarget={rollbackTarget}
           onRollbackPhase={onRollbackPhase}
           sharing={sharing}
@@ -2083,6 +2094,7 @@ export function RoomBoardView({
           ? sharingReactionDisplay
           : null}
         {timer.status === "idle" &&
+        !isAdditionalWriting &&
         sharing?.status !== "complete" &&
         !sharing?.startsAt &&
         phase.kind === "step" &&
@@ -2127,6 +2139,7 @@ export function RoomBoardView({
           decision={decision}
           adoptionFocusNoteId={adoptionFocusNoteId}
           privateNotes={toolbarNotes}
+          isAdditionalWriting={isAdditionalWriting}
           exampleNotes={exampleNotes}
           isSavingBeforeShare={isSavingBeforeShare}
           canPublishPrivateNote={
@@ -2285,6 +2298,7 @@ export function RoomBoardView({
         {isHmwWriting ? (
           <div
             className="pointer-events-auto absolute bottom-3 left-3 z-40"
+            data-testid="hmw-hint-hud"
             data-board-fit-edge="bottom"
           >
             <HmwHintCharacter

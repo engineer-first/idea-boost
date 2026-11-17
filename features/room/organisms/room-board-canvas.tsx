@@ -9,7 +9,13 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useEffect, useRef, useState, ViewTransition } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  ViewTransition,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   DRAG_THRESHOLD_PX,
@@ -74,6 +80,7 @@ import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { NoteFontSizeControls } from "../molecules/note-font-size-controls";
 import { RemoteCursor } from "../molecules/remote-cursor";
+import { SharedNotePreview } from "../molecules/shared-note-preview";
 import styles from "./room-board-canvas.module.css";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
@@ -88,6 +95,7 @@ export type RoomBoardCanvasProps = {
   exampleNotes?: readonly string[];
   groups: PersistentGroup[];
   phase: RoomPhase;
+  isAdditionalWriting?: boolean;
   isPrivateNotesHandoffPending?: boolean;
   decision: Decision | null;
   privateNotes: Note[];
@@ -130,6 +138,7 @@ export type RoomBoardCanvasProps = {
     height: number;
     noteDisplayScale?: number;
     unscaledNoteHeight?: number;
+    clipPath?: string;
   } | null;
   isReturnDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
@@ -209,6 +218,7 @@ export function RoomBoardCanvas({
   notes,
   groups,
   phase,
+  isAdditionalWriting = false,
   isPrivateNotesHandoffPending = false,
   decision,
   privateNotes,
@@ -297,10 +307,106 @@ export function RoomBoardCanvas({
   privateNoteAddRef,
 }: RoomBoardCanvasProps) {
   const [ideaMapViewportZoom, setIdeaMapViewportZoom] = useState(1);
+  const isAdditionalWritingStep =
+    isAdditionalWriting && phase.kind === "step" && phase.step === 1;
+  const [writingExpanded, setWritingExpanded] = useState(false);
+  const [previewNoteId, setPreviewNoteId] = useState<string | null>(null);
+  const writingKey =
+    isAdditionalWritingStep && phase.kind === "step" ? phase.phase : null;
+  const previousWritingKeyRef = useRef(writingKey);
+  useLayoutEffect(() => {
+    if (previousWritingKeyRef.current === writingKey) return;
+    previousWritingKeyRef.current = writingKey;
+    setWritingExpanded(false);
+    setPreviewNoteId(null);
+  }, [writingKey]);
+  const writingCollapsed = isAdditionalWritingStep && !writingExpanded;
+  useEffect(() => {
+    if (!isAdditionalWritingStep || !writingExpanded) return;
+    const toolbar = privateToolbarRef?.current;
+    const boardFrame = toolbar?.closest<HTMLElement>(
+      "[data-testid='board-frame']",
+    );
+    if (!toolbar || !boardFrame) return;
+
+    const closeOnBoardPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Node) ||
+        !boardFrame.contains(target) ||
+        toolbar.contains(target)
+      )
+        return;
+      setWritingExpanded(false);
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    document.addEventListener("pointerdown", closeOnBoardPointerDown, true);
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        closeOnBoardPointerDown,
+        true,
+      );
+    };
+  }, [isAdditionalWritingStep, privateToolbarRef, writingExpanded]);
+  const additionalWritingMap =
+    isAdditionalWritingStep && phase.kind === "step" && phase.phase === 3;
+  const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
+  const mapPanGestureRef = useRef<{
+    pointerId: number;
+    clientX: number;
+    clientY: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const mapViewBeforeWritingRef = useRef({ zoom: 1, expanded: false });
+  const wasAdditionalWritingMapRef = useRef(false);
+  if (
+    !additionalWritingMap &&
+    !wasAdditionalWritingMapRef.current &&
+    isIdeaMapViewportStep(phase)
+  ) {
+    mapViewBeforeWritingRef.current = {
+      zoom: ideaMapViewportZoom,
+      expanded: phase.kind === "step" && phase.step >= 3,
+    };
+  }
+  useLayoutEffect(() => {
+    if (!additionalWritingMap && wasAdditionalWritingMapRef.current) {
+      setMapPan({ x: 0, y: 0 });
+      setIdeaMapViewportZoom(mapViewBeforeWritingRef.current.zoom);
+    }
+    wasAdditionalWritingMapRef.current = additionalWritingMap;
+  }, [additionalWritingMap]);
+  useEffect(() => {
+    if (!additionalWritingMap || !writingCollapsed) return;
+    const viewport = boardScrollerRef.current;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      if (event.ctrlKey || event.metaKey)
+        setIdeaMapViewportZoom((zoom) =>
+          clampCanvasZoom(zoom * Math.exp(-event.deltaY * 0.002)),
+        );
+      else
+        setMapPan((pan) => ({
+          x: pan.x - (event.shiftKey ? event.deltaY : event.deltaX),
+          y: pan.y - (event.shiftKey ? 0 : event.deltaY),
+        }));
+    };
+    viewport?.addEventListener("wheel", wheel, { passive: false });
+    return () => viewport?.removeEventListener("wheel", wheel);
+  }, [additionalWritingMap, writingCollapsed, boardScrollerRef]);
   const selectionIds =
     selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
   const isMultiSelected = selectionIds.length > 1;
-  const renderGroups = getBoardRenderGroups(notes, groups, phase);
+  const renderGroups = getBoardRenderGroups(
+    notes,
+    groups,
+    phase,
+    isAdditionalWritingStep,
+  );
   // 候補外を先に描き、付箋単位の wrapper で重なり順を管理する。
   // カードと採用領域を同じ単位に収め、見えている候補とクリック先を一致させる。
   const orderedNotes = [...notes].sort(
@@ -330,7 +436,8 @@ export function RoomBoardCanvas({
     (phase.step >= 2 || notes.length > 0);
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
-  const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
+  const usesIdeaMapViewport =
+    isIdeaMapViewportStep(phase) || additionalWritingMap;
   const ideaMapNoteDisplayScale = getIdeaMapNoteDisplayScale(ideaMapSizeLevel);
   const isPersonalNoteEntryPhase =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
@@ -338,9 +445,11 @@ export function RoomBoardCanvas({
   const privateNotesInteractionBlocked =
     boardInteractionBlocked && !isInitialPersonalEntryPhase;
   // 1-1・2-1・3-1は同じ上端から書き始められるよう、上部の操作欄の直下に固定する。
-  const privateNotesContainerClassName = isPersonalNoteEntryPhase
-    ? "fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 sm:top-[var(--board-private-expanded-top,5rem)] lg:inset-x-5 lg:bottom-5 lg:top-[var(--board-private-expanded-top,5rem)]"
-    : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[var(--board-timer-row-bottom,4.5rem)] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-start max-[639px]:top-[var(--board-timer-row-bottom,10rem)] max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
+  const privateNotesContainerClassName = isAdditionalWritingStep
+    ? `${styles.additionalWritingPanel} ${writingExpanded ? styles.writingExpanded : ""} fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 lg:inset-x-5`
+    : isPersonalNoteEntryPhase
+      ? "fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 sm:top-[var(--board-private-expanded-top,5rem)] lg:inset-x-5 lg:bottom-5 lg:top-[var(--board-private-expanded-top,5rem)]"
+      : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[var(--board-timer-row-bottom,4.5rem)] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-start max-[639px]:top-[var(--board-timer-row-bottom,10rem)] max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
   const selectedNote = [...notes, ...privateNotes].find(
@@ -472,10 +581,39 @@ export function RoomBoardCanvas({
 
   function handleViewportPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     handleBoardPointerDown(event);
+    if (
+      additionalWritingMap &&
+      writingCollapsed &&
+      (event.button === 0 || event.button === 1) &&
+      !(event.target as HTMLElement).closest(
+        "[data-testid='note-card'],button,input,textarea",
+      )
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      mapPanGestureRef.current = {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        ...mapPan,
+      };
+      return;
+    }
     onCanvasPointerDown(event);
   }
 
   function handleViewportPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const pan = mapPanGestureRef.current;
+    if (pan?.pointerId === event.pointerId) {
+      if (event.buttons === 0) mapPanGestureRef.current = null;
+      else
+        setMapPan({
+          x: pan.x + event.clientX - pan.clientX,
+          y: pan.y + event.clientY - pan.clientY,
+        });
+      return;
+    }
     const background = backgroundPointerRef.current;
     if (
       background &&
@@ -516,7 +654,7 @@ export function RoomBoardCanvas({
         }
         isSelected={selectionIds.includes(note.id)}
         isMultiSelected={isMultiSelected}
-        interactionTool={interactionTool}
+        interactionTool={isAdditionalWritingStep ? "select" : interactionTool}
         editingDisabled={isResultStep(phase)}
         canDeleteNote={
           !boardInteractionBlocked &&
@@ -555,7 +693,10 @@ export function RoomBoardCanvas({
           adoptionFocusNoteId === note.id && decision?.noteId !== note.id
         }
         disabled={isDisconnected}
-        onSelect={onSelect}
+        onSelect={(id, options) => {
+          if (writingCollapsed && id) setPreviewNoteId(id);
+          else onSelect(id, options);
+        }}
         onDragStart={onNoteDragStart}
         onContentChange={onNoteContentChange}
         draftValue={draftValue?.(note.id)}
@@ -604,7 +745,11 @@ export function RoomBoardCanvas({
       moveHistory={moveHistory}
       showNavigationControls
       interactionTool={interactionTool}
-      onToolChange={isIdeaMapWorkspaceStep ? undefined : onToolChange}
+      onToolChange={
+        isIdeaMapWorkspaceStep || isAdditionalWritingStep
+          ? undefined
+          : onToolChange
+      }
       toolDisabled={toolDisabled}
       zoom={canvasZoom}
       onZoomOut={zoomOut}
@@ -843,11 +988,11 @@ export function RoomBoardCanvas({
   return (
     <div className="min-h-0 flex-1">
       <div
-        className={
+        className={`${
           usesIdeaMapViewport
             ? "relative flex h-full min-h-0 flex-row max-[639px]:flex-col"
             : "relative h-full min-h-80"
-        }
+        } ${isAdditionalWritingStep ? styles.additionalWritingCanvas : ""}`}
         data-testid="board-frame"
         data-map-workspace={usesIdeaMapViewport || undefined}
         style={{
@@ -875,10 +1020,13 @@ export function RoomBoardCanvas({
           {character}
         </div>
         <div
-          className="pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
+          className={`pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 ${isAdditionalWritingStep ? styles.additionalWritingTools : ""}`}
           data-testid="board-tools-hud"
-          hidden={isPersonalNoteEntryPhase}
           data-board-fit-edge="bottom"
+          hidden={
+            isAdditionalWritingStep ||
+            (isPersonalNoteEntryPhase && !writingCollapsed)
+          }
         >
           <div
             className={`flex items-center gap-2 ${usesIdeaMapViewport ? "min-w-[122px]" : ""}`}
@@ -925,7 +1073,11 @@ export function RoomBoardCanvas({
               ? "relative min-h-0 min-w-0 flex-1"
               : "absolute inset-0"
           }
-          hidden={isPersonalNoteEntryPhase && !isInitialPersonalEntryPhase}
+          hidden={
+            isPersonalNoteEntryPhase &&
+            !isInitialPersonalEntryPhase &&
+            !isAdditionalWritingStep
+          }
         >
           <div
             ref={boardScrollerRef}
@@ -939,22 +1091,27 @@ export function RoomBoardCanvas({
                     ? "cursor-none"
                     : isPanning
                       ? "cursor-grabbing"
-                      : interactionTool === "hand"
+                      : interactionTool === "hand" || writingCollapsed
                         ? "cursor-grab"
                         : "cursor-default"
             }`}
             data-testid="board-scroller"
-            inert={isInitialPersonalEntryPhase}
+            inert={
+              (isInitialPersonalEntryPhase || isAdditionalWritingStep) &&
+              !writingCollapsed
+            }
             data-interaction-tool={interactionTool}
             tabIndex={-1}
             role="application"
             aria-label="共有キャンバス"
             aria-description={
-              usesIdeaMapViewport
-                ? isIdeaMapWorkspaceStep
-                  ? "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。"
-                  : "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。"
-                : "背景でVは選択、Hは手のひら。Spaceとドラッグで画面移動"
+              isAdditionalWritingStep
+                ? "背景のドラッグやホイールで共有ボードを移動し、共有付箋のクリックで全文を確認できます。表示の移動と拡大縮小は自分だけに反映されます。"
+                : usesIdeaMapViewport
+                  ? isIdeaMapWorkspaceStep
+                    ? "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。"
+                    : "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。"
+                  : "背景でVは選択、Hは手のひら。Spaceとドラッグで画面移動"
             }
             data-selection-count={selectionIds.length}
             data-adopt-mode={isAdoptMode || undefined}
@@ -962,10 +1119,19 @@ export function RoomBoardCanvas({
               ...(usesIdeaMapViewport || isInitialPersonalEntryPhase
                 ? { backgroundImage: "none" }
                 : gridStyle),
-              filter: isInitialPersonalEntryPhase ? "blur(4px)" : "none",
+              filter:
+                (isInitialPersonalEntryPhase || isAdditionalWritingStep) &&
+                !writingCollapsed
+                  ? "blur(4px)"
+                  : "none",
             }}
             onPointerDownCapture={handleViewportPointerDown}
             onPointerUp={(event) => {
+              if (mapPanGestureRef.current?.pointerId === event.pointerId) {
+                mapPanGestureRef.current = null;
+                if (event.currentTarget.hasPointerCapture?.(event.pointerId))
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+              }
               finishAdoptionPointer(event);
               const background = backgroundPointerRef.current;
               if (
@@ -1011,7 +1177,12 @@ export function RoomBoardCanvas({
               <IdeaMapViewport
                 planeRef={ideaMapPlaneRef}
                 workspace
-                expanded={phase.kind === "step" && phase.step >= 3}
+                expanded={
+                  additionalWritingMap
+                    ? mapViewBeforeWritingRef.current.expanded
+                    : phase.kind === "step" && phase.step >= 3
+                }
+                pan={additionalWritingMap ? mapPan : undefined}
                 workspaceControls={
                   isIdeaMapWorkspaceStep
                     ? (ideaMapWorkspaceControls ?? {
@@ -1183,6 +1354,7 @@ export function RoomBoardCanvas({
                 style={{
                   left: dragPreview.left,
                   top: dragPreview.top,
+                  clipPath: dragPreview.clipPath,
                   width:
                     dragPreview.noteDisplayScale === undefined
                       ? dragPreview.width
@@ -1221,6 +1393,33 @@ export function RoomBoardCanvas({
         >
           <BoardOperationMatrix permissions={permissions} />
         </div>
+        {writingCollapsed &&
+        previewNoteId &&
+        notes.some((note) => note.id === previewNoteId) ? (
+          <SharedNotePreview
+            note={notes.find((note) => note.id === previewNoteId) as Note}
+            anchor={
+              Array.from(
+                boardScrollerRef.current?.querySelectorAll<HTMLElement>(
+                  "[data-testid='note-card']",
+                ) ?? [],
+              ).find((element) => element.dataset.noteId === previewNoteId) ??
+              null
+            }
+            viewport={boardScrollerRef.current}
+            panel={privateToolbarRef.current}
+            layoutKey={`${camera.x}:${camera.y}:${camera.zoom}:${mapPan.x}:${mapPan.y}:${ideaMapViewportZoom}`}
+            onClose={() => setPreviewNoteId(null)}
+          />
+        ) : null}
+        {writingCollapsed && notes.length === 0 ? (
+          <p
+            role="status"
+            className="pointer-events-none absolute inset-x-4 top-1/3 text-center text-base text-muted-foreground"
+          >
+            共有された付箋はまだありません
+          </p>
+        ) : null}
         {permissions.showPrivateToolbar ? (
           <ViewTransition
             name="private-notes-area"
@@ -1231,7 +1430,7 @@ export function RoomBoardCanvas({
             <div
               className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
               style={
-                isPhaseStep(phase, 2, 1)
+                isPhaseStep(phase, 2, 1) && !isAdditionalWritingStep
                   ? {
                       bottom: "7rem",
                     }
@@ -1266,7 +1465,8 @@ export function RoomBoardCanvas({
                   !privateNotesInteractionBlocked && permissions.canEditNote
                 }
                 canMoveNote={
-                  !privateNotesInteractionBlocked && permissions.canMoveNote
+                  !privateNotesInteractionBlocked &&
+                  (isAdditionalWritingStep || permissions.canMoveNote)
                 }
                 sharingHint={
                   isSavingBeforeShare
@@ -1274,14 +1474,17 @@ export function RoomBoardCanvas({
                     : isPhaseStep(phase, 3, 2)
                       ? canPublishPrivateNote
                         ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
-                        : "付箋の共有は、自分の番になるまでお待ちください。"
+                        : "自分の番で発表できます"
                       : phase.kind === "step" && phase.step === 2
                         ? canPublishPrivateNote
                           ? "あなたの番です。付箋をボードへドラッグして共有できます。"
-                          : "付箋の共有は、自分の番になるまでお待ちください。"
+                          : "自分の番で発表できます"
                         : undefined
                 }
                 presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
+                workspaceCollapsible={isAdditionalWritingStep}
+                workspaceExpanded={writingExpanded}
+                onWorkspaceExpandedChange={setWritingExpanded}
                 expandOnWorkspaceExit={
                   phase.kind === "step" && phase.step === 2
                 }

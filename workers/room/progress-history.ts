@@ -22,6 +22,22 @@ type HistoryRow = {
   reflected_at: number | null;
 };
 
+// 本文を持たない工程履歴だけで判定する。共有0枚・再入室でも同じ結果を返す。
+export function isAdditionalWriting(
+  sql: SqlStorage,
+  phase: RoomPhase,
+): boolean {
+  if (phase.kind !== "step" || phase.step !== 1) return false;
+  return (
+    sql
+      .exec(
+        "SELECT 1 FROM progress_history WHERE action = 'restart-writing' AND json_extract(next_phase_json, '$.phase') = ?1 LIMIT 1",
+        phase.phase,
+      )
+      .toArray().length > 0
+  );
+}
+
 // 呼出元のステップ更新と同じ transactionSync 内で実行する。
 export function recordProgressTransition(
   sql: SqlStorage,

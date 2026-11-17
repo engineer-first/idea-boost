@@ -18,6 +18,7 @@ function setup({
   movePending = false,
   moveBlocked = movePending,
   isDecided = false,
+  isAdditionalWriting = false,
   withPrivateNote = false,
   sharedNotePosition = { x: 100, y: 100 },
   privateNotes,
@@ -31,6 +32,7 @@ function setup({
   movePending?: boolean;
   moveBlocked?: boolean;
   isDecided?: boolean;
+  isAdditionalWriting?: boolean;
   withPrivateNote?: boolean;
   sharedNotePosition?: { x: number; y: number };
   privateNotes?: ReturnType<typeof buildNote>[];
@@ -71,6 +73,7 @@ function setup({
         draggingNoteId,
         phase,
         isDecided,
+        isAdditionalWriting,
         sharing,
         ideaMapSizeLevel,
         ideaMapSizeInitialized,
@@ -1288,3 +1291,60 @@ it.each([
   );
   expect(onNoteDragStart).toHaveBeenCalledWith("shared-1");
 });
+
+it("追加執筆の長文付箋のドラッグは元の大きさを維持してパネル外の表示だけを切り取る", () => {
+  const { result, toolbar } = setup({
+    phase: buildPhaseStep(1),
+    withPrivateNote: true,
+  });
+  const surface = document.createElement("button");
+  surface.getBoundingClientRect = () => new DOMRect(600, 100, 200, 800);
+  act(() =>
+    result.current.onPrivateNoteDragStart("private-1", {
+      target: surface,
+      currentTarget: surface,
+      pointerId: 1,
+      clientX: 650,
+      clientY: 150,
+    } as unknown as PointerEvent<HTMLButtonElement>),
+  );
+  const preview = result.current.dragPreview;
+  expect(preview?.height).toBe(800);
+  expect(preview?.top).toBeGreaterThanOrEqual(
+    toolbar.getBoundingClientRect().top,
+  );
+  expect(preview?.clipPath).toBe("inset(0px 0px 300px 0px)");
+});
+
+it.each([1, 2] as const)(
+  "フェーズ%dの追加執筆ではツールを変えずに背景をドラッグでき、共有付箋のクリックはパンにしない",
+  (phase) => {
+    const { result, viewport } = setup({
+      phase: buildPhaseStep(1, phase),
+      isAdditionalWriting: true,
+    });
+    const down = {
+      target: viewport,
+      currentTarget: viewport,
+      button: 0,
+      buttons: 1,
+      pointerType: "mouse",
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as PointerEvent<HTMLDivElement>;
+    act(() => result.current.onCanvasPointerDown(down));
+    expect(result.current.isPanning).toBe(true);
+    act(() => result.current.onCanvasPointerEnd(down));
+    const card = document.createElement("div");
+    card.dataset.testid = "note-card";
+    const surface = document.createElement("button");
+    card.append(surface);
+    viewport.append(card);
+    act(() => result.current.onToolChange?.("hand"));
+    act(() => result.current.onCanvasPointerDown({ ...down, target: surface }));
+    expect(result.current.isPanning).toBe(false);
+  },
+);

@@ -50,7 +50,7 @@ for (const width of [390, 1440]) {
         await page.goto(
           `${origin}/iframe.html?id=room-roomboardview--${state === "open" ? "connected-empty" : "connecting"}&viewMode=story`,
         );
-        const add = page.getByRole("button", {
+        const add = page.getByTestId("private-notes-list").getByRole("button", {
           name: "付箋を追加",
           exact: true,
         });

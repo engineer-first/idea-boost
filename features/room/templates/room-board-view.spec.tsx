@@ -46,6 +46,12 @@ beforeEach(() => {
   );
 });
 
+function getPrivateNoteAddButton() {
+  return within(screen.getByTestId("private-notes-list")).getByRole("button", {
+    name: "付箋を追加",
+  });
+}
+
 const ME = "11111111-1111-4111-8111-111111111111";
 
 describe("2-1のキャラクターによる問いのヒント", () => {
@@ -426,8 +432,8 @@ describe("2軸評価画面の周辺操作", () => {
     });
 
     expect(
-      screen.queryByRole("button", { name: "もう一度付箋を書く" }),
-    ).toBeNull();
+      screen.getByRole("button", { name: "もう一度付箋を書く" }),
+    ).toBeVisible();
     const mapSizeHud = screen.getByTestId("idea-map-size-controls-hud");
     expect(mapSizeHud).toContainElement(
       screen.getByRole("group", { name: "2軸マップの広さ操作" }),
@@ -907,9 +913,7 @@ describe("マイ付箋の追加ショートカット", () => {
         interactions: buildInteractions([], [privateNote]),
       });
       const toolbar = within(screen.getByTestId("private-notes-toolbar"));
-      expect(
-        toolbar.getByText(/この付箋はあなたにだけ表示されています/),
-      ).toBeVisible();
+      expect(toolbar.getByText(/自分だけに表示/)).toBeVisible();
       expect(toolbar.getByText(/付箋追加ショートカットキー/)).toHaveTextContent(
         /Macは⌘＋Enter、Windows等はCtrl＋Enter/,
       );
@@ -1041,7 +1045,7 @@ describe("マイ付箋の追加ショートカット", () => {
       interactions: buildInteractions([], []),
       onAddPrivateNote,
     });
-    const add = screen.getByRole("button", { name: "付箋を追加" });
+    const add = getPrivateNoteAddButton();
     add.focus();
 
     fireEvent.keyDown(add, { key: "Enter", ctrlKey: true });
@@ -1080,12 +1084,13 @@ describe("マイ付箋の追加ショートカット", () => {
     const platform = vi
       .spyOn(window.navigator, "platform", "get")
       .mockReturnValue("MacIntel");
+    onTestFinished(() => platform.mockRestore());
     const { props } = setup({
       phase: buildPhaseStep(1),
       notes: [],
       interactions: buildInteractions([], []),
     });
-    const add = screen.getByRole("button", { name: "付箋を追加" });
+    const add = getPrivateNoteAddButton();
     fireEvent.keyDown(add, {
       key: "Enter",
       ctrlKey: true,
@@ -1096,7 +1101,6 @@ describe("マイ付箋の追加ショートカット", () => {
       metaKey: true,
     });
     expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
-    platform.mockRestore();
   });
 
   it.each([
@@ -1105,12 +1109,18 @@ describe("マイ付箋の追加ショートカット", () => {
     { noteCreationSupported: false },
   ])("工程・接続・対応状態が作成不可なら追加しない: %j", (overrides) => {
     const { props } = setup({ phase: buildPhaseStep(1), ...overrides });
-    fireEvent.keyDown(screen.getByRole("button", { name: "付箋を追加" }), {
+    const add = within(screen.getByTestId("private-notes-list")).queryByRole(
+      "button",
+      { name: "付箋を追加" },
+    );
+    fireEvent.keyDown(add ?? screen.getByTestId("private-notes-scroll"), {
       key: "Enter",
       ctrlKey: true,
     });
     expect(props.onAddPrivateNote).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "付箋を追加" })).toBeDisabled();
+    if (add) expect(add).toBeDisabled();
+    else
+      expect(screen.queryByRole("button", { name: "付箋を追加" })).toBeNull();
   });
 
   it("本文のIME中はKeyboardEventが未確定でも追加せず、変換終了後は追加できる", () => {
@@ -1144,10 +1154,13 @@ describe("マイ付箋の追加ショートカット", () => {
       key: "Enter",
       ctrlKey: true,
     });
-    fireEvent.keyDown(screen.getByRole("button", { name: "付箋を追加" }), {
-      key: "Enter",
-      ctrlKey: true,
-    });
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+      {
+        key: "Enter",
+        ctrlKey: true,
+      },
+    );
     openRoomMenu();
     fireEvent.keyDown(screen.getByTestId("board-scroller"), {
       key: "Enter",
@@ -1166,7 +1179,7 @@ describe("マイ付箋の追加ショートカット", () => {
         notes: [],
         interactions,
       });
-      fireEvent.keyDown(screen.getByRole("button", { name: "付箋を追加" }), {
+      fireEvent.keyDown(getPrivateNoteAddButton(), {
         key: "Enter",
         ctrlKey: true,
       });
@@ -1190,7 +1203,7 @@ describe("マイ付箋の追加ショートカット", () => {
       phase: buildPhaseStep(1),
       noteCreationPending: true,
     });
-    const add = screen.getByRole("button", { name: "付箋を追加" });
+    const add = getPrivateNoteAddButton();
     expect(add).toBeDisabled();
     fireEvent.keyDown(add, {
       key: "Enter",
@@ -2074,7 +2087,7 @@ describe("RoomBoardView", () => {
     const onAddPrivateNote = vi.fn();
     setup({ phase: buildPhaseStep(1), onAddPrivateNote });
 
-    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+    fireEvent.click(getPrivateNoteAddButton());
 
     expect(onAddPrivateNote).toHaveBeenCalledTimes(1);
   });
@@ -2899,20 +2912,16 @@ describe("RoomBoardView", () => {
     it.each(["connecting", "closed"] as const)(
       "%sの間はツールバーの「付箋を追加」ボタンが無効化される",
       (connectionStatus) => {
-        setup({ connectionStatus });
+        setup({ phase: buildPhaseStep(1), connectionStatus });
 
-        expect(
-          screen.getByRole("button", { name: "付箋を追加" }),
-        ).toBeDisabled();
+        expect(getPrivateNoteAddButton()).toBeDisabled();
       },
     );
 
     it("openの間はツールバーの「付箋を追加」ボタンが有効", () => {
       setup({ phase: buildPhaseStep(1), connectionStatus: "open" });
 
-      expect(
-        screen.getByRole("button", { name: "付箋を追加" }),
-      ).not.toBeDisabled();
+      expect(getPrivateNoteAddButton()).not.toBeDisabled();
     });
 
     it("closedの間は付箋をクリックしても選択されない", () => {
@@ -3285,7 +3294,7 @@ describe("RoomBoardView", () => {
         interactions: buildInteractions([], [privateNote]),
       });
 
-      expect(screen.getByRole("button", { name: "付箋を追加" })).toBeEnabled();
+      expect(getPrivateNoteAddButton()).toBeEnabled();
 
       const card = screen.getByTestId("note-card");
       clickNote(card);
@@ -3663,6 +3672,21 @@ describe("ステップに結び付いた決定事項", () => {
 
 describe("反復ワークフロー", () => {
   it.each([1, 2, 3] as const)(
+    "フェーズ%dの初回執筆はフッターなしの追加タイルから付箋を作成する",
+    (phase) => {
+      const { props } = setup({ phase: buildPhaseStep(1, phase) });
+      expect(screen.queryByTestId("private-notes-footer")).toBeNull();
+      const add = within(screen.getByTestId("private-notes-list")).getByRole(
+        "button",
+        { name: "付箋を追加" },
+      );
+      expect(add).toBeEnabled();
+      fireEvent.click(add);
+      expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([1, 2, 3] as const)(
     "フェーズ%dの共有一巡後は共有付箋が0枚でも次へ進める",
     (phase) => {
       const { props } = setup({
@@ -3675,7 +3699,7 @@ describe("反復ワークフロー", () => {
         }),
         timer: { status: "ended", durationMs: 180_000 },
       });
-      const next = screen.getByRole("button", { name: "できた！" });
+      const next = screen.getByRole("button", { name: "次のステップへ" });
       expect(next).toBeEnabled();
       fireEvent.click(next);
       expect(props.onNextPhase).toHaveBeenCalledOnce();
@@ -3683,21 +3707,33 @@ describe("反復ワークフロー", () => {
   );
 
   it.each([1, 2, 3] as const)(
-    "フェーズ%dの共有一巡後に、タイマーから付箋を書き足す",
+    "フェーズ%dの共有一巡後は上部から書き直しと次への進行を選べる",
     (phase) => {
       const { props } = setup({
         phase: buildPhaseStep(2, phase),
         sharing: buildSharingState({
           status: "complete",
           results: ["done", "done", "done"],
+          durationMs: 60_000,
         }),
         timer: { status: "idle" },
         onRestartWriting: vi.fn(),
+        onSharingStart: vi.fn(),
       });
-      const addMore = screen.getByRole("button", { name: "付箋を書き足す" });
+      const controls = within(screen.getByTestId("board-control-hud"));
+      const addMore = controls.getByRole("button", { name: "付箋を書き直す" });
       expect(addMore).toBeEnabled();
       fireEvent.click(addMore);
       expect(props.onRestartWriting).toHaveBeenCalledOnce();
+      expect(
+        controls.queryByRole("button", { name: "共有を続ける" }),
+      ).toBeNull();
+      expect(props.onSharingStart).not.toHaveBeenCalled();
+      const next = controls.getByRole("button", { name: "次のステップへ" });
+      expect(next).toBeEnabled();
+      fireEvent.click(next);
+      expect(props.onNextPhase).toHaveBeenCalledOnce();
+      expect(screen.queryByTestId("timer-floating")).toBeNull();
       expect(screen.queryByRole("alertdialog")).toBeNull();
     },
   );
@@ -4899,4 +4935,48 @@ it("作者の退出・表示名更新後も共有付箋に作者名のホバー�
     />,
   );
   expect(screen.queryByTitle(/^作者:/)).not.toBeInTheDocument();
+});
+
+it("追加執筆中は停止中タイマーの中央案内で付箋エリアを覆わない", () => {
+  setup({
+    phase: buildPhaseStep(1),
+    isAdditionalWriting: true,
+    timer: { status: "idle" },
+  });
+  expect(screen.queryByTestId("timer-work-hint")).not.toBeInTheDocument();
+});
+
+it.each([1, 3] as const)(
+  "フェーズ%dの整理・評価から追加執筆へ戻る操作を表示する",
+  (phaseNumber) => {
+    const { props } = setup({
+      phase: buildPhaseStep(3, phaseNumber),
+      onRestartWriting: vi.fn(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "もう一度付箋を書く" }));
+    fireEvent.click(screen.getByRole("button", { name: "個人作業へ戻る" }));
+    expect(props.onRestartWriting).toHaveBeenCalledOnce();
+  },
+);
+
+it("手のひらを選んでから追加執筆へ戻っても、マイ付箋の開閉と追加を操作できる", () => {
+  const notes = buildNotes(2);
+  const { props, rerender } = setup({
+    notes,
+    interactions: buildInteractions(notes, []),
+  });
+  fireEvent.click(screen.getByRole("button", { name: "手のひらツール" }));
+  rerender(
+    <TestBoardView {...props} phase={buildPhaseStep(1)} isAdditionalWriting />,
+  );
+  const toolbar = screen.getByTestId("private-notes-toolbar");
+  fireEvent.click(screen.getByTestId("private-notes-scroll"));
+  expect(toolbar).toHaveAttribute("data-expanded", "true");
+  const add = within(toolbar).getByRole("button", { name: "新しい付箋を追加" });
+  fireEvent.click(add, { detail: 1 });
+  expect(toolbar).toHaveAttribute("data-expanded", "true");
+  fireEvent.pointerDown(screen.getByTestId("board-scroller"));
+  expect(toolbar).toHaveAttribute("data-expanded", "false");
+  expect(screen.queryByTestId("private-notes-footer")).not.toBeInTheDocument();
+  expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
 });

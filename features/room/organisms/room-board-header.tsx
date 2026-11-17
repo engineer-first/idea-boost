@@ -89,6 +89,7 @@ export type RoomBoardHeaderProps = {
   inviteUrl: string;
   phase: RoomPhase;
   phaseRevision?: number;
+  isAdditionalWriting?: boolean;
   rollbackTarget?: RoomPhase | null;
   onRollbackPhase?: () => void;
   sharing?: SharingState | null;
@@ -147,6 +148,7 @@ export function RoomBoardHeader({
   inviteUrl,
   phase,
   phaseRevision = 0,
+  isAdditionalWriting = false,
   rollbackTarget = null,
   onRollbackPhase,
   sharing = null,
@@ -196,7 +198,10 @@ export function RoomBoardHeader({
   const controlsAreaRef = useRef<HTMLDivElement>(null);
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
-  const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
+  const additionalWritingMap = isAdditionalWriting && isPhaseStep(phase, 3, 1);
+  const usesIdeaMapViewport =
+    isIdeaMapViewportStep(phase) || additionalWritingMap;
+  const mapLayoutBeforeWritingRef = useRef<Record<string, string> | null>(null);
   useEffect(() => {
     const area = controlsAreaRef.current;
     const header = area?.closest<HTMLElement>(
@@ -206,6 +211,12 @@ export function RoomBoardHeader({
       '[data-testid="room-board-view-root"]',
     );
     if (!area || !header) return;
+    // 追加執筆の3-1は書き足し前のマップ位置を保ち、共通の配置だけを更新する。
+    const keptMapLayout =
+      additionalWritingMap && board ? mapLayoutBeforeWritingRef.current : null;
+    if (keptMapLayout && board)
+      for (const [property, value] of Object.entries(keptMapLayout))
+        board.style.setProperty(property, value);
     function updateBoardLayoutOffsets(): void {
       const notice =
         connectionStatus === "open"
@@ -214,7 +225,8 @@ export function RoomBoardHeader({
               '[data-testid="board-connection-status"]',
             );
       if (!header) return;
-      if (usesIdeaMapViewport && board) {
+      // 復元したマップ位置は再計算で上書きも削除もしない。
+      if (usesIdeaMapViewport && board && !keptMapLayout) {
         const boardTop = board.getBoundingClientRect().top;
         const location = header.querySelector<HTMLElement>(
           '[data-testid="board-location-card"]',
@@ -286,7 +298,7 @@ export function RoomBoardHeader({
             ? notice.getBoundingClientRect().bottom - boardTop + 8
             : 72;
         board.style.setProperty("--board-map-tray-top", `${noticeBottom}px`);
-      } else {
+      } else if (!keptMapLayout) {
         board?.style.removeProperty("--board-map-top");
         board?.style.removeProperty("--board-map-shift-y");
         board?.style.removeProperty("--board-map-tray-top");
@@ -342,11 +354,28 @@ export function RoomBoardHeader({
       header.style.removeProperty("--board-location-top");
       header.style.removeProperty("--board-location-height");
       board?.style.removeProperty("--board-connection-notice-bottom");
+      if (usesIdeaMapViewport && !additionalWritingMap && board) {
+        mapLayoutBeforeWritingRef.current = Object.fromEntries(
+          [
+            "--board-map-top",
+            "--board-map-shift-y",
+            "--board-map-tray-top",
+          ].map((property) => [
+            property,
+            board.style.getPropertyValue(property),
+          ]),
+        );
+      }
       board?.style.removeProperty("--board-map-top");
       board?.style.removeProperty("--board-map-shift-y");
       board?.style.removeProperty("--board-map-tray-top");
     };
-  }, [connectionStatus, isIdeaMapWorkspaceStep, usesIdeaMapViewport]);
+  }, [
+    connectionStatus,
+    isIdeaMapWorkspaceStep,
+    usesIdeaMapViewport,
+    additionalWritingMap,
+  ]);
   const activeSharing =
     phase.kind === "step" && phase.step === 2 ? sharing : null;
   const transitioning = activeSharing?.startsAt != null;
@@ -410,12 +439,10 @@ export function RoomBoardHeader({
   const canProceedByTimeOrReady = progress.allReady || timer.status === "ended";
   const sharingCompletionDisabled =
     activeSharing !== null &&
-    (canCompleteSharing
-      ? !canProceedByTimeOrReady || isNextPhaseBlocked
-      : activeSharing.status !== "active" ||
-        transitioning ||
-        presenter?.userId !== currentUserId ||
-        !onSharingAdvance);
+    (activeSharing.status !== "active" ||
+      transitioning ||
+      presenter?.userId !== currentUserId ||
+      !onSharingAdvance);
   const canPublishOutcome =
     canProceedByTimeOrReady &&
     hasFinalDecision &&
@@ -606,7 +633,7 @@ export function RoomBoardHeader({
           className={`pointer-events-none flex min-w-0 flex-col items-end gap-2 max-[900px]:max-w-[426px] max-[639px]:order-first max-[639px]:w-full ${isCurrentVotingStep || isResultStep(phase) ? "max-[900px]:pb-6" : ""}`}
         >
           <fieldset
-            className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-xl border border-border bg-background p-1.5 shadow-tool max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"
+            className={`board-hud pointer-events-auto relative flex ${canCompleteSharing ? "min-h-14 flex-wrap" : "h-14"} min-w-0 max-w-full shrink-0 items-center justify-end gap-1 rounded-xl border border-border bg-background p-1.5 shadow-tool max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2`}
             aria-label="ルームの操作"
             data-completion-cue={completionCue.stage}
             data-testid="board-control-hud"
@@ -621,7 +648,23 @@ export function RoomBoardHeader({
                     : "あなたは作業中です"}
               </span>
             ) : null}
-            {isManualProgressStep && (onToggleReady || activeSharing) ? (
+            {canCompleteSharing && onRestartWriting ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 shrink-0 px-3 text-sm"
+                disabled={
+                  isDisconnected || isRemovingMember || isNextPhasePending
+                }
+                onClick={onRestartWriting}
+                title="全員で個人作業へ戻ります。共有済み付箋と下書きは残ります。"
+              >
+                付箋を書き直す
+              </Button>
+            ) : null}
+            {!canCompleteSharing &&
+            isManualProgressStep &&
+            (onToggleReady || activeSharing) ? (
               <Button
                 type="button"
                 variant={isCurrentUserReady ? "secondary" : "outline"}
@@ -640,29 +683,37 @@ export function RoomBoardHeader({
                 aria-busy={completionCue.stage === "waiting"}
                 aria-pressed={activeSharing ? undefined : isCurrentUserReady}
                 aria-label={
-                  isCurrentUserReady ? "準備OK！を取り消す" : "できた！"
+                  activeSharing
+                    ? "できた！"
+                    : isCurrentUserReady
+                      ? "準備OK！を取り消す"
+                      : "できた！"
                 }
                 title={
                   activeSharing
-                    ? canCompleteSharing || isLastPresenter
-                      ? "次のステップへ進みます"
+                    ? isLastPresenter
+                      ? "発表を終えて共有を完了します"
                       : "次の人の発表へバトンタッチします"
                     : isCurrentUserReady
                       ? "クリックして作業中に戻す"
                       : "次へ進む準備ができたことをみんなに伝えます"
                 }
                 onClick={() => {
-                  if (activeSharing) {
-                    if (canCompleteSharing) onNextPhase();
-                    else onSharingAdvance?.("done");
-                  } else if (isCurrentUserReady) onToggleReady?.(false);
+                  if (activeSharing) onSharingAdvance?.("done");
+                  else if (isCurrentUserReady) onToggleReady?.(false);
                   else completionCue.request(null);
                 }}
               >
                 <span className={styles.completionMark} aria-hidden="true">
                   <Check className="size-3.5" strokeWidth={2.5} />
                 </span>
-                <span>{isCurrentUserReady ? "準備OK！" : "できた！"}</span>
+                <span>
+                  {activeSharing
+                    ? "できた！"
+                    : isCurrentUserReady
+                      ? "準備OK！"
+                      : "できた！"}
+                </span>
               </Button>
             ) : showVotingCompletion ? (
               <span
@@ -970,7 +1021,8 @@ export function RoomBoardHeader({
                   </AlertDialogContent>
                 </AlertDialog>
               )
-            ) : phase.kind === "step" && !activeSharing ? (
+            ) : phase.kind === "step" &&
+              (!activeSharing || canCompleteSharing) ? (
               <NextPhaseConfirmDialog
                 key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
                 waiting={
@@ -991,16 +1043,21 @@ export function RoomBoardHeader({
                   !votingAllComplete ||
                   (activeSharing !== null && !canCompleteSharing) ||
                   !canProceedByTimeOrReady ||
-                  isRemovingMember
+                  isRemovingMember ||
+                  (canCompleteSharing && isLeaving)
                 }
-                requireConfirmation={requireProgressConfirmation}
+                requireConfirmation={
+                  canCompleteSharing ? false : requireProgressConfirmation
+                }
                 notReadyNames={notReadyNames}
                 notReadyMembers={notReadyMembers}
-                onConfirm={() =>
-                  onNextPhase(
-                    progress.allReady ? undefined : progress.progressRevision,
-                  )
-                }
+                onConfirm={() => {
+                  if (canCompleteSharing) onNextPhase();
+                  else
+                    onNextPhase(
+                      progress.allReady ? undefined : progress.progressRevision,
+                    );
+                }}
               />
             ) : null}
 
@@ -1217,7 +1274,7 @@ export function RoomBoardHeader({
               </PopoverContent>
             </Popover>
           </fieldset>
-          {!outcomePublished && phase.kind === "step" ? (
+          {!outcomePublished && phase.kind === "step" && !canCompleteSharing ? (
             <RoomTimer
               timer={timer}
               serverOffsetMs={timerServerOffsetMs}
@@ -1239,15 +1296,6 @@ export function RoomBoardHeader({
               }
               onResume={onTimerResume}
               onExtend={onTimerExtend}
-              sharingComplete={canCompleteSharing}
-              onReplay={
-                canCompleteSharing
-                  ? () => onSharingStart?.(sharingDuration)
-                  : undefined
-              }
-              onRestartWriting={
-                canCompleteSharing ? onRestartWriting : undefined
-              }
             />
           ) : null}
           {/* 通常の接続案内1行を予約し、同期完了で個人入力を動かさない。 */}

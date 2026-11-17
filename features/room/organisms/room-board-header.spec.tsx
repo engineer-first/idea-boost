@@ -1512,8 +1512,13 @@ it("一巡後はHUDに次の操作を表示する", () => {
     />,
   );
   expect(screen.getByText("共有完了")).toBeVisible();
-  expect(screen.getByRole("button", { name: "できた！" })).toBeEnabled();
-  expect(screen.getByRole("timer")).toBeInTheDocument();
+  const next = screen.getByRole("button", { name: "次のステップへ" });
+  expect(next).toBeEnabled();
+  expect(next).toHaveTextContent("次のステップへ");
+  expect(
+    screen.queryByRole("button", { name: "できた！" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "次の人へ" }),
   ).not.toBeInTheDocument();
@@ -1530,7 +1535,10 @@ it("共有完了後は参加者全員が完了から次工程へ進める", () =
   });
 
   expect(screen.queryByTestId("sharing-advance")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "できた！" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "次のステップへ" })).toBeEnabled();
+  expect(
+    screen.queryByRole("button", { name: "できた！" }),
+  ).not.toBeInTheDocument();
 });
 it("発表者以外は完了を押せず、時間切れ後のパスだけ行える", () => {
   render(
@@ -1626,7 +1634,12 @@ it("最後の発表中は発表完了操作だけを表示する", () => {
   });
 
   expect(screen.queryByTestId("sharing-advance")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "できた！" })).toBeInTheDocument();
+  const finishSharing = screen.getByRole("button", { name: "できた！" });
+  expect(finishSharing).toBeInTheDocument();
+  expect(finishSharing).toHaveAttribute(
+    "title",
+    "発表を終えて共有を完了します",
+  );
 
   openRoomMenu();
   expect(
@@ -1824,4 +1837,32 @@ it("完了受信待ちに操作エラーを受けたら、遅れた完了で確�
   } finally {
     vi.useRealTimers();
   }
+});
+
+it("3-3から追加執筆の3-1へ移っても、マップ位置を保ったまま共通の配置を更新し続ける", () => {
+  const props = setupProps({ phase: buildPhaseStep(3, 3) });
+  const { rerender } = render(
+    <div data-testid="room-board-view-root">
+      <RoomBoardHeader {...props} />
+    </div>,
+  );
+  const board = screen.getByTestId("room-board-view-root");
+  const header = screen.getByTestId("board-header-row");
+  const mapTop = board.style.getPropertyValue("--board-map-top");
+  expect(mapTop).not.toBe("");
+  expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
+  rerender(
+    <div data-testid="room-board-view-root">
+      <RoomBoardHeader
+        {...props}
+        phase={buildPhaseStep(1, 3)}
+        isAdditionalWriting
+      />
+    </div>,
+  );
+  expect(board.style.getPropertyValue("--board-map-top")).toBe(mapTop);
+  expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
+  header.style.removeProperty("--board-location-height");
+  fireEvent.resize(window);
+  expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
 });

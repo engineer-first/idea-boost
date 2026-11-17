@@ -28,6 +28,10 @@ import {
   RoomBoardView,
   type RoomBoardViewProps,
 } from "./room-board-view";
+import {
+  ADDITIONAL_WRITING_PRIVATE_NOTES,
+  additionalWritingSharedNotes,
+} from "./room-board-view.fixture";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const STEP_1_1 = buildPhaseStep(1);
@@ -1610,18 +1614,24 @@ export const IdeaDecidedMoveInteraction: Story = {
 function FloatingTimerPreview({
   args,
   complete = false,
+  lastPresenter = false,
 }: {
   args: RoomBoardViewProps;
   complete?: boolean;
+  lastPresenter?: boolean;
 }) {
   const [phase, setPhase] = useState(args.phase);
   const help = useBoardHelp(phase);
   const [sharing, setSharing] = useState(() =>
     buildSharingState({
       status: complete ? "complete" : "active",
-      currentIndex: complete ? null : 0,
+      currentIndex: complete ? null : lastPresenter ? 2 : 0,
       durationMs: 180_000,
-      results: complete ? ["done", "done", "done"] : [],
+      results: complete
+        ? ["done", "done", "done"]
+        : lastPresenter
+          ? ["done", "done"]
+          : [],
     }),
   );
   const [timer, setTimer] = useState<TimerState>(() =>
@@ -1635,6 +1645,9 @@ function FloatingTimerPreview({
       phase={phase}
       help={help}
       timer={timer}
+      currentUserId={
+        lastPresenter ? sharing.order[2].userId : args.currentUserId
+      }
       sharing={phase.kind === "step" && phase.step === 2 ? sharing : null}
       onNextPhase={() => {
         args.onNextPhase();
@@ -1672,8 +1685,6 @@ function FloatingTimerPreview({
         args.onSharingAdvance?.(outcome);
         const nextIndex = (sharing.currentIndex ?? 0) + 1;
         const complete = nextIndex >= sharing.order.length;
-        if (complete && outcome === "done" && phase.kind === "step")
-          setPhase(buildPhaseStep(3, phase.phase));
         setSharing({
           ...sharing,
           status: complete ? "complete" : "active",
@@ -1682,7 +1693,7 @@ function FloatingTimerPreview({
         });
         setTimer(
           complete
-            ? { status: "idle" }
+            ? { status: "ended", durationMs: sharing.durationMs }
             : {
                 status: "running",
                 endsAt: Date.now() + sharing.durationMs,
@@ -1713,6 +1724,7 @@ export const FloatingTimerRunning: Story = {
   render: (args) => <FloatingTimerPreview args={args} />,
 };
 export const FloatingTimerSharingComplete: Story = {
+  name: "共有一巡後の操作",
   args: {
     ...Step1_2_Sharing.args,
     onRestartWriting: fn(),
@@ -1720,6 +1732,15 @@ export const FloatingTimerSharingComplete: Story = {
   },
   render: (args) => <FloatingTimerPreview args={args} complete />,
 };
+export const SharingLastPresenter: Story = {
+  name: "最後の発表から共有一巡へ",
+  args: {
+    ...FloatingTimerSharingComplete.args,
+    currentUserId: buildSharingState().order[2].userId,
+  },
+  render: (args) => <FloatingTimerPreview args={args} lastPresenter />,
+};
+
 export const FloatingTimerSharingEmpty: Story = {
   args: {
     ...FloatingTimerSharingComplete.args,
@@ -1731,4 +1752,171 @@ export const FloatingTimerSharingEmpty: Story = {
 
 export const GuestSession: Story = {
   args: { sessionKind: "guest", signOutAction: fn() },
+};
+
+function AdditionalWritingExperience(args: RoomBoardViewProps) {
+  const [phase, setPhase] = useState(args.phase);
+  const [additionalWriting, setAdditionalWriting] = useState(
+    args.isAdditionalWriting ?? true,
+  );
+  const [privateNotes, setPrivateNotes] = useState(
+    args.interactions.privateNotes,
+  );
+  const [receipt, setReceipt] = useState<{
+    operationId: string;
+    noteId: string;
+  }>();
+  const [timer, setTimer] = useState(args.timer);
+  const help = useBoardHelp(phase);
+  const interactions = useRoomBoardInteractions({
+    notes: args.notes,
+    privateNotes,
+    phase,
+    isAdditionalWriting: additionalWriting,
+    currentUserId: ME,
+    draggingNoteId: null,
+    getFitInsets: getBoardFitInsets,
+    onNoteDragStart: () => undefined,
+    onNoteDragMove: () => undefined,
+    onNoteDragEnd: () => undefined,
+    onNoteDragCancel: () => undefined,
+    onPrivateNotePublish: () => undefined,
+    onPrivateNoteUnpublish: () => undefined,
+    onCursorMove: () => undefined,
+    onCursorLeave: () => undefined,
+  });
+  return (
+    <RoomBoardView
+      {...args}
+      phase={phase}
+      isAdditionalWriting={additionalWriting}
+      interactions={interactions}
+      help={help}
+      timer={timer}
+      noteCreationReceipt={receipt}
+      onTimerStart={(durationMs) =>
+        setTimer({
+          status: "running",
+          durationMs,
+          endsAt: Date.now() + durationMs,
+        })
+      }
+      onAddPrivateNote={(content = "") => {
+        const operationId = crypto.randomUUID();
+        const noteId = crypto.randomUUID();
+        setPrivateNotes((current) => [
+          ...current,
+          buildNote({
+            id: noteId,
+            authorId: ME,
+            visibility: "private",
+            content,
+          }),
+        ]);
+        setReceipt({ operationId, noteId });
+        return operationId;
+      }}
+      onPrivateNoteContentChange={(id, content) =>
+        setPrivateNotes((current) =>
+          current.map((note) =>
+            note.id === id
+              ? {
+                  ...note,
+                  content,
+                  contentRevision: note.contentRevision + 1,
+                  updatedAt: new Date().toISOString(),
+                }
+              : note,
+          ),
+        )
+      }
+      onPrivateNoteDelete={(id) =>
+        setPrivateNotes((current) => current.filter((note) => note.id !== id))
+      }
+      onRestartWriting={() => {
+        if (phase.kind === "step") setPhase(buildPhaseStep(1, phase.phase));
+        setAdditionalWriting(true);
+        setTimer({ status: "idle" });
+      }}
+      onNextPhase={() => {
+        if (phase.kind === "step") setPhase(buildPhaseStep(2, phase.phase));
+        setAdditionalWriting(false);
+      }}
+    />
+  );
+}
+
+function additionalWritingStory(phase: 1 | 2 | 3): Story {
+  return {
+    name: `追加執筆 / フェーズ${phase}`,
+    args: {
+      phase: buildPhaseStep(1, phase),
+      isAdditionalWriting: true,
+      notes: additionalWritingSharedNotes(phase),
+      timer: { status: "idle" },
+      interactions: {
+        ...INTERACTIONS,
+        privateNotes: ADDITIONAL_WRITING_PRIVATE_NOTES,
+      },
+      hmwDecidedIssue: phase >= 2 ? GUIDE_ISSUE : null,
+      decidedHmw: phase === 3 ? GUIDE_QUESTION : null,
+    },
+    render: (args) => <AdditionalWritingExperience {...args} />,
+  };
+}
+export const AdditionalWriting: Story = additionalWritingStory(1);
+export const AdditionalWritingQuestion: Story = additionalWritingStory(2);
+export const AdditionalWritingIdea: Story = additionalWritingStory(3);
+export const AdditionalWritingEmpty: Story = {
+  ...AdditionalWriting,
+  name: "追加執筆 / 付箋0枚",
+  args: {
+    ...AdditionalWriting.args,
+    notes: [],
+    interactions: { ...INTERACTIONS, privateNotes: [] },
+  },
+};
+export const AdditionalWritingConnecting: Story = {
+  ...AdditionalWriting,
+  name: "追加執筆 / 再接続中",
+  args: { ...AdditionalWriting.args, connectionStatus: "reconnecting" },
+};
+export const AdditionalWritingFromSharing: Story = {
+  ...AdditionalWriting,
+  name: "追加執筆 / 共有から戻る",
+  args: {
+    ...AdditionalWriting.args,
+    phase: buildPhaseStep(2),
+    isAdditionalWriting: false,
+    sharing: buildSharingState({ status: "complete" }),
+  },
+};
+export const AdditionalWritingFromIdeaEvaluation: Story = {
+  ...AdditionalWritingIdea,
+  name: "追加執筆 / アイデア評価から戻る",
+  args: {
+    ...AdditionalWritingIdea.args,
+    phase: buildPhaseStep(3, 3),
+    isAdditionalWriting: false,
+  },
+};
+
+export const AdditionalWritingGroups: Story = {
+  ...AdditionalWriting,
+  name: "追加執筆 / 共有グループの参照",
+  args: {
+    ...AdditionalWriting.args,
+    notes: additionalWritingSharedNotes(1).map((note, index) => ({
+      ...note,
+      x: 160 + index * 220,
+      y: 160,
+    })),
+    groups: [
+      {
+        id: "shared-group",
+        name: "共有したまとまり",
+        noteIds: ["reference-one", "reference-two"],
+      },
+    ],
+  },
 };

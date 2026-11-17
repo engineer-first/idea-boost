@@ -335,10 +335,12 @@ for (const [phase, reference] of [
       const referenceNote = page
         .getByTestId(`board-reference-${reference}-content`)
         .locator("xpath=..");
-      const addNote = page.getByRole("button", {
-        name: "付箋を追加",
-        exact: true,
-      });
+      const addNote = page
+        .getByTestId("private-notes-list")
+        .getByRole("button", {
+          name: "付箋を追加",
+          exact: true,
+        });
       expect(await referenceNote.isVisible()).toBe(true);
       expect(await addNote.isVisible()).toBe(true);
 
@@ -1024,7 +1026,7 @@ test.each([1280, 1024, 768])(
       .getByTestId("private-notes-toolbar")
       .boundingBox();
 
-    const addNote = page.getByRole("button", {
+    const addNote = page.getByTestId("private-notes-list").getByRole("button", {
       name: "付箋を追加",
       exact: true,
     });
@@ -1449,7 +1451,7 @@ test.each([1280, 1024, 768])(
   },
 );
 
-test("U03: 3-3のマップ増減へ通常pointerで到達でき、書き足し操作を出さない", async () => {
+test("U03: 3-3のマップ増減と追加執筆へ通常pointerで到達できる", async () => {
   await openStory("room-roomboardlayout--map-controls");
   const map = page.getByRole("group", { name: "2軸マップの広さ操作" });
   await map.waitFor();
@@ -1462,9 +1464,9 @@ test("U03: 3-3のマップ増減へ通常pointerで到達でき、書き足し�
   expect(await map.getByRole("status").innerText()).toContain("2段階目");
   expect(
     await page
-      .getByRole("button", { name: /もう一度付箋を書く|付箋を書き足す/ })
-      .count(),
-  ).toBe(0);
+      .getByRole("button", { name: "もう一度付箋を書く", exact: true })
+      .isVisible(),
+  ).toBe(true);
 });
 
 test("U03: 390pxで旧ガイドを表示せず、現在の操作へ到達できる", async () => {
@@ -1475,7 +1477,10 @@ test("U03: 390pxで旧ガイドを表示せず、現在の操作へ到達でき�
   const controls = await page.getByTestId("board-control-hud").boundingBox();
   expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(390);
   expect(
-    await page.getByRole("button", { name: "付箋を追加" }).isVisible(),
+    await page
+      .getByTestId("private-notes-list")
+      .getByRole("button", { name: "付箋を追加" })
+      .isVisible(),
   ).toBe(true);
 });
 

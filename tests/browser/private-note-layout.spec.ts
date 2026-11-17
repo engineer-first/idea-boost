@@ -132,7 +132,7 @@ for (const phase of [2, 3]) {
 }
 
 for (const step of [2, 3]) {
-  test(`390px・1-${step}: トレイを閉じた上部欄の下の空白でボードを操作できる`, async () => {
+  test(`390px・1-${step}: 上部欄の下の空白でボードを操作できる`, async () => {
     page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-${step}&viewMode=story`,

@@ -148,31 +148,5 @@ describe("フローティングタイマー", () => {
     fireEvent.click(screen.getByRole("button", { name: "＋1分" }));
     expect(p.onExtend).toHaveBeenCalledOnce();
     expect(p.onStart).not.toHaveBeenCalled();
-    expect(
-      screen.queryByRole("button", { name: "付箋を書き足す" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("共有が一巡したときは書き足し操作を実行できる", () => {
-    const onRestartWriting = vi.fn();
-    render(
-      <RoomTimer
-        {...props()}
-        timer={{ status: "idle" }}
-        sharingComplete
-        onRestartWriting={onRestartWriting}
-      />,
-    );
-    expect(screen.getByRole("timer")).toHaveAccessibleName(
-      "共有が一巡しました",
-    );
-    expect(
-      screen.getByRole("button", { name: "共有を続ける" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
-    expect(onRestartWriting).toHaveBeenCalledOnce();
-    expect(
-      screen.queryByRole("button", { name: "次へ進む" }),
-    ).not.toBeInTheDocument();
   });
 });

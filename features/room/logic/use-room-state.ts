@@ -41,6 +41,7 @@ export type UseRoomStateResult = {
   authorNames: ReadonlyMap<string, string>;
   phase: RoomPhase;
   phaseRevision: number;
+  isAdditionalWriting: boolean;
   rollbackTarget: RoomPhase | null;
   rollbackRevision: number;
   decision: Decision | null;
@@ -68,6 +69,7 @@ export function useRoomState(options: {
   );
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
   const [phaseRevision, setPhaseRevision] = useState(0);
+  const [isAdditionalWriting, setIsAdditionalWriting] = useState(false);
   const [rollbackRevision, setRollbackRevision] = useState(0);
   const [rollbackTarget, setRollbackTarget] = useState<RoomPhase | null>(null);
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -118,6 +120,7 @@ export function useRoomState(options: {
       setPhase((current) => applyPhaseServerMessage(current, message));
       if (message.type === "snapshot" || message.type === "phase:updated") {
         setPhaseRevision(message.phaseRevision ?? 0);
+        setIsAdditionalWriting(message.isAdditionalWriting ?? false);
         setRollbackTarget(message.rollbackTarget ?? null);
         if (
           message.type === "snapshot" ||
@@ -154,6 +157,7 @@ export function useRoomState(options: {
     authorNames,
     phase,
     phaseRevision,
+    isAdditionalWriting,
     rollbackTarget,
     rollbackRevision,
     decision,

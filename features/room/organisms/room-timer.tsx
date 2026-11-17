@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Play, RotateCcw } from "lucide-react";
+import { Play, RotateCcw } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { TimerState } from "@/contracts/room-protocol";
 import { getRoomTimerDisplay } from "../logic/room-timer-display";
@@ -16,9 +16,6 @@ export type RoomTimerProps = {
   onStart: (durationMs: number) => void;
   onResume?: () => void;
   onExtend?: () => void;
-  onReplay?: () => void;
-  sharingComplete?: boolean;
-  onRestartWriting?: () => void;
   now?: () => number;
   initialDurationMs?: number;
 };
@@ -32,9 +29,6 @@ export function RoomTimer({
   onStart,
   onResume,
   onExtend,
-  onReplay,
-  sharingComplete = false,
-  onRestartWriting,
   now: getNow = systemNow,
   initialDurationMs = TIMER_DEFAULT_DURATION_MS,
 }: RoomTimerProps) {
@@ -45,26 +39,16 @@ export function RoomTimer({
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const focusTarget = useRef<"circle" | "actions" | null>(null);
   const display = getRoomTimerDisplay(
-    sharingComplete
-      ? { status: "ended", durationMs: initialDurationMs }
-      : timer,
+    timer,
     initialDurationMs,
     now + serverOffsetMs,
   );
-  const ended = display.ended || sharingComplete;
-  const paused = timer.status === "paused" && !sharingComplete;
+  const ended = display.ended;
+  const paused = timer.status === "paused";
   const extensionUsed = timer.status !== "idle" && !!timer.extensionUsed;
-  const hasActions = sharingComplete || paused || (ended && !extensionUsed);
+  const hasActions = paused || (ended && !extensionUsed);
   const expanded = hasActions && !collapsed;
-  const [attention, setAttention] = useState<"none" | "pulse" | "quiet">(() =>
-    ended && !disabled ? "quiet" : "none",
-  );
-  const previousStatus = useRef({ ended, sharingComplete, disabled });
-  const { dragging, ...floating } = useFloatingTimer(
-    ref,
-    expanded,
-    !sharingComplete && !paused,
-  );
+  const { dragging, ...floating } = useFloatingTimer(ref, expanded, !paused);
 
   useEffect(() => {
     if (timer.status !== "running") return;
@@ -76,14 +60,6 @@ export function RoomTimer({
   useEffect(() => {
     if (!hasActions) setCollapsed(false);
   }, [hasActions]);
-  useEffect(() => {
-    const previous = previousStatus.current;
-    previousStatus.current = { ended, sharingComplete, disabled };
-    if (!ended || disabled) setAttention("none");
-    else if (previous.disabled) setAttention("quiet");
-    else if (!previous.ended || (sharingComplete && !previous.sharingComplete))
-      setAttention("pulse");
-  }, [ended, sharingComplete, disabled]);
   useLayoutEffect(() => {
     if (
       !focusTarget.current ||
@@ -100,31 +76,19 @@ export function RoomTimer({
     }
   }, [expanded]);
 
-  const label = sharingComplete
-    ? "共有が一巡しました"
-    : `タイマー ${ended ? "終了" : timer.status === "idle" ? "未開始" : timer.status === "paused" ? "一時停止中" : "残り"} ${display.label}`;
-  const replay = () => {
-    if (disabled) return;
-    if (onReplay) onReplay();
-    else onStart(initialDurationMs);
-  };
+  const label = `タイマー ${ended ? "終了" : timer.status === "idle" ? "未開始" : timer.status === "paused" ? "一時停止中" : "残り"} ${display.label}`;
 
   return (
     <fieldset
       ref={ref}
       className={styles.floating}
-      hidden={ended && extensionUsed && !sharingComplete}
+      hidden={ended && extensionUsed}
       data-testid="timer-floating"
       data-timer-expanded={expanded}
-      data-timer-attention={
-        expanded && sharingComplete && !disabled ? attention : "none"
-      }
       data-dragging={dragging}
       data-board-native-control
       aria-label="タイマー。Altと矢印キーで移動できます"
       {...floating}
-      onPointerDownCapture={() => setAttention("none")}
-      onFocusCapture={() => setAttention("none")}
       onBlurCapture={(event) => {
         if (
           event.relatedTarget &&
@@ -133,7 +97,6 @@ export function RoomTimer({
           focusTarget.current = null;
       }}
       onKeyDown={(event) => {
-        setAttention("none");
         floating.onKeyDown(event);
         if (event.key === "Escape" && expanded) {
           event.stopPropagation();
@@ -186,53 +149,31 @@ export function RoomTimer({
             <button
               type="button"
               ref={primaryActionRef}
-              disabled={disabled || (!paused && !sharingComplete && !onExtend)}
+              disabled={disabled || (!paused && !onExtend)}
               onClick={(event) => {
                 if (event.currentTarget === document.activeElement)
                   focusTarget.current = "circle";
                 if (paused) onResume?.();
-                else if (sharingComplete) replay();
                 else onExtend?.();
               }}
               title={
-                paused
-                  ? `残り${display.label}から再開します`
-                  : sharingComplete
-                    ? "共有をもう一巡します"
-                    : "1分延長し、終了後に進行条件が揃えば自動で次へ進みます"
+                paused ? `残り${display.label}から再開します` : "1分延長します"
               }
             >
-              {paused ? (
-                <Play aria-hidden="true" />
-              ) : sharingComplete ? (
-                <RotateCcw aria-hidden="true" />
-              ) : null}
-              {paused ? "再開" : sharingComplete ? "共有を続ける" : "＋1分"}
+              {paused ? <Play aria-hidden="true" /> : null}
+              {paused ? "再開" : "＋1分"}
             </button>
-            {sharingComplete && onRestartWriting ? (
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={onRestartWriting}
-                title="全員で個人作業へ戻ります。共有済み付箋と下書きは残ります。"
-              >
-                <Pencil aria-hidden="true" />
-                付箋を書き足す
-              </button>
-            ) : null}
           </div>
         )}
       </div>
       <span aria-live="polite" className="sr-only">
-        {sharingComplete
-          ? "全員の共有が一巡しました。共有を続けるか、付箋を書き足すか、みんなに確認して次へ進んでください。"
-          : paused
-            ? `タイマーを再開すると残り${display.label}から計時します。`
-            : ended
-              ? extensionUsed
-                ? "時間になりました。進行条件を確認してください。"
-                : "時間になりました。1分延長できます。延長終了後は、進行条件が揃うと自動で次へ進みます。"
-              : null}
+        {paused
+          ? `タイマーを再開すると残り${display.label}から計時します。`
+          : ended
+            ? extensionUsed
+              ? "時間になりました。進行条件を確認してください。"
+              : "時間になりました。1分延長できます。"
+            : null}
       </span>
     </fieldset>
   );

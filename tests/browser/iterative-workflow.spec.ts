@@ -18,7 +18,7 @@ const phases = [
   { phase: 3, count: 5, goal: "アイデア" },
 ] as const;
 const progression =
-  /^(次へ進む|次のフェーズへ|付箋を書き足す|もう一度投票する|採用する付箋を選ぶ)$/;
+  /^(次へ進む|次のフェーズへ|付箋を書き直す|もう一度投票する|採用する付箋を選ぶ)$/;
 let browser: Browser;
 let page: Page;
 
@@ -141,7 +141,14 @@ for (const { phase, count } of phases) {
       ).toBe(0);
       const loop = page.getByTestId("phase-loop-hud");
       const loopButtons = loop.getByRole("button");
-      expect(await loopButtons.count()).toBe(isResult ? 2 : 0);
+      const canRestartWriting = step === 3 && (phase === 1 || phase === 3);
+      expect(await loopButtons.count()).toBe(
+        isResult ? 2 : canRestartWriting ? 1 : 0,
+      );
+      if (canRestartWriting)
+        await expectReachable(
+          loop.getByRole("button", { name: "もう一度付箋を書く" }),
+        );
       if (isResult) {
         const boxes = await loopButtons.evaluateAll((elements) =>
           elements.map((element) => element.getBoundingClientRect().toJSON()),
@@ -216,11 +223,11 @@ test("決定内容をキーボードで開閉し、フォーカスを保つ", as
   ).toBe(true);
 });
 
-test("共有一巡後の書き足し操作はタイマー内で選べる", async () => {
+test("共有一巡後の書き足し操作は上部の操作欄から選べる", async () => {
   await openStory("room-roomboardview--floating-timer-sharing-complete");
-  const timer = page.getByTestId("timer-floating");
-  const trigger = timer.getByRole("button", {
-    name: "付箋を書き足す",
+  const controls = page.getByTestId("board-control-hud");
+  const trigger = controls.getByRole("button", {
+    name: "付箋を書き直す",
     exact: true,
   });
   await expectReachable(trigger);
