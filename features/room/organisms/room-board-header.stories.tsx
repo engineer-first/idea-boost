@@ -89,16 +89,16 @@ const meta = {
           "3-1",
           "3-3",
         ]) {
-          window.sessionStorage.setItem(
+          window.localStorage.setItem(
             `step-onboarding:${context.args.inviteCode}:${member.userId}:${step}`,
             "seen",
           );
         }
       }
       if (context.parameters.firstVisitOnboarding) {
-        window.sessionStorage.removeItem(sessionKey);
+        window.localStorage.removeItem(sessionKey);
       } else {
-        window.sessionStorage.setItem(sessionKey, "seen");
+        window.localStorage.setItem(sessionKey, "seen");
       }
       return (
         <div

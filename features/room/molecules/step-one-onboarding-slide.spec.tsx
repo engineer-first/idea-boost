@@ -25,6 +25,16 @@ describe("StepOneOnboardingSlide", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     },
   );
+  it("一度閉じた案内は、タブを閉じて開き直した後（sessionStorageが空）でも再表示しない", () => {
+    const props = { sessionKey: "revisit", phaseKey: "1-2", isReady: true };
+    const first = render(<StepOneOnboardingSlide {...props} />);
+    expect(screen.getByRole("dialog")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    first.unmount();
+    sessionStorage.clear();
+    render(<StepOneOnboardingSlide {...props} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
   it.each([
     ["2-2", "自分の付箋を共有し、みんなの考えを知ろう。"],
     ["3-2", "自分の付箋を共有し、みんなの考えを知ろう。"],
@@ -232,9 +242,7 @@ describe("StepOneOnboardingSlide", () => {
       rerender(<StepOneOnboardingSlide {...props} />);
       expect(screen.queryByRole("dialog")).toBeNull();
       expect(
-        sessionStorage.getItem(
-          `step-onboarding:${props.sessionKey}:${phaseKey}`,
-        ),
+        localStorage.getItem(`step-onboarding:${props.sessionKey}:${phaseKey}`),
       ).toBe("seen");
     },
   );

@@ -306,12 +306,12 @@ export function StepOneOnboardingSlide({
     if (activeVisitRef.current === storageKey) return;
     activeVisitRef.current = storageKey;
     try {
-      if (sessionStorage.getItem(storageKey) === "seen") {
+      if (localStorage.getItem(storageKey) === "seen") {
         setOpen(false);
         onReady?.();
         return;
       }
-      sessionStorage.setItem(storageKey, "seen");
+      localStorage.setItem(storageKey, "seen");
     } catch {
       // ストレージを使えない環境では、この表示中だけ一度表示する。
     }

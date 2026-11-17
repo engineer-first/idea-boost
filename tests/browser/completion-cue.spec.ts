@@ -18,7 +18,7 @@ test.each([1280, 360])(
     });
     try {
       await page.addInitScript(() =>
-        sessionStorage.setItem(
+        localStorage.setItem(
           "step-onboarding:AB12CD:11111111-1111-4111-8111-111111111111:1-1",
           "seen",
         ),
@@ -57,7 +57,7 @@ test("進行の送信中は二重操作を止める", async () => {
   const page = await browser.newPage({ reducedMotion: "reduce" });
   try {
     await page.addInitScript(() =>
-      sessionStorage.setItem(
+      localStorage.setItem(
         "step-onboarding:AB12CD:11111111-1111-4111-8111-111111111111:1-1",
         "seen",
       ),

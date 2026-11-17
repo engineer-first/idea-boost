@@ -117,7 +117,7 @@ const meta = {
       const currentUserId = context.args.participant
         ? PREVIEW_TARGET
         : PREVIEW_SELF;
-      window.sessionStorage.setItem(
+      window.localStorage.setItem(
         `step-onboarding:ABC234:${currentUserId}:1-1`,
         "seen",
       );
@@ -130,7 +130,7 @@ const meta = {
         "3-1",
         "3-3",
       ]) {
-        window.sessionStorage.setItem(
+        window.localStorage.setItem(
           `step-onboarding:ABC234:${currentUserId}:${phaseKey}`,
           "seen",
         );

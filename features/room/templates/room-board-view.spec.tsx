@@ -35,6 +35,7 @@ beforeEach(() => {
     else delete (document as { elementFromPoint?: unknown }).elementFromPoint;
   });
   sessionStorage.clear();
+  localStorage.clear();
   // jsdomには寸法観測がない。通知との重なりはPlaywright側で検証する。
   vi.stubGlobal(
     "ResizeObserver",
@@ -253,11 +254,11 @@ function setup(
 
   if (!options.showOnboarding) {
     for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
-      sessionStorage.setItem(
+      localStorage.setItem(
         `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:${step}`,
         "seen",
       );
-    sessionStorage.setItem(
+    localStorage.setItem(
       `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:1-1`,
       "seen",
     );

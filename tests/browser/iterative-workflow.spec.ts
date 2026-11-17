@@ -29,7 +29,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   page = await browser.newPage({ viewport, reducedMotion: "reduce" });
   await page.addInitScript(() =>
-    sessionStorage.setItem(
+    localStorage.setItem(
       "step-onboarding:AB12CD:11111111-1111-4111-8111-111111111111:1-1",
       "seen",
     ),

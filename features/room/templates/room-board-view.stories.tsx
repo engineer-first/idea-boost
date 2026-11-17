@@ -197,15 +197,15 @@ const meta = {
     (Story, context) => {
       const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
       for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"]) {
-        window.sessionStorage.setItem(
+        window.localStorage.setItem(
           `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:${step}`,
           "seen",
         );
       }
       if (context.parameters.firstVisitOnboarding) {
-        window.sessionStorage.removeItem(sessionKey);
+        window.localStorage.removeItem(sessionKey);
       } else {
-        window.sessionStorage.setItem(sessionKey, "seen");
+        window.localStorage.setItem(sessionKey, "seen");
       }
       return (
         <div style={{ height: "100vh" }}>
