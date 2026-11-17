@@ -136,6 +136,14 @@ export function RoomTimer({
               }}
               aria-hidden="true"
             />
+            {!ended && timer.status !== "idle" ? (
+              <span
+                data-testid="room-timer-hand"
+                className={styles.hand}
+                style={{ transform: `rotate(${display.elapsedDegrees}deg)` }}
+                aria-hidden="true"
+              />
+            ) : null}
             {!ended &&
             (timer.status === "idle" || timer.status === "paused") ? (
               <Play className={styles.startIcon} aria-hidden="true" />

@@ -47,6 +47,19 @@
   height: 66px;
   border-radius: 50%;
 }
+/* 針は12時方向を0度とし、円の中心を軸に時計回りへ回る */
+.hand {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 28px;
+  margin: -28px 0 0 -1.5px;
+  transform-origin: 50% 100%;
+  border-radius: 2px;
+  background: var(--ib-color-ink);
+  box-shadow: 0 0 0 1px var(--background);
+}
 .startIcon {
   position: absolute;
   top: 50%;
