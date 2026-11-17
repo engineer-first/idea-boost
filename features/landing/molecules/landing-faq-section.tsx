@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 
@@ -17,10 +18,11 @@ export function LandingFaqSection({ locale = "ja" }: { locale?: AppLocale }) {
       aria-labelledby="landing-faq"
     >
       <h2 id="landing-faq" className={landingHeadingClass}>
-        {copy.faq.heading.map((phrase) => (
-          <span key={phrase} className={`inline-block ${styles.marker}`}>
-            {phrase}
-          </span>
+        {copy.faq.heading.map((phrase, index) => (
+          <Fragment key={phrase}>
+            {locale === "en" && index > 0 ? " " : null}
+            <span className={`inline-block ${styles.marker}`}>{phrase}</span>
+          </Fragment>
         ))}
       </h2>
       <div className="mt-8 max-w-3xl divide-y divide-[var(--lp-line)] border-y border-[var(--lp-line)]">

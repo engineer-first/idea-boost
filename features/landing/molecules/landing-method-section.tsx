@@ -1,5 +1,6 @@
 import { EyeOff, Lightbulb, Users } from "lucide-react";
 import Image from "next/image";
+import { Fragment } from "react";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 
@@ -33,10 +34,11 @@ export function LandingMethodSection({
       </div>
       <div className={styles.methodIntro}>
         <h2 id="landing-method" className={landingHeadingClass}>
-          {copy.method.heading.map((phrase) => (
-            <span key={phrase} className={styles.marker}>
-              {phrase}
-            </span>
+          {copy.method.heading.map((phrase, index) => (
+            <Fragment key={phrase}>
+              {locale === "en" && index > 0 ? " " : null}
+              <span className={styles.marker}>{phrase}</span>
+            </Fragment>
           ))}
         </h2>
         <p className="mt-6 text-xl font-bold sm:text-2xl">

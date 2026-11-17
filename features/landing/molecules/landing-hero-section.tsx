@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Fragment } from "react";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 
@@ -39,8 +40,11 @@ export function LandingHeroSection({
               unoptimized
             />
             <span>
-              {character.text.map((line) => (
-                <span key={line}>{line}</span>
+              {character.text.map((line, index) => (
+                <Fragment key={line}>
+                  {locale === "en" && index > 0 ? " " : null}
+                  <span>{line}</span>
+                </Fragment>
               ))}
             </span>
           </div>
@@ -54,24 +58,28 @@ export function LandingHeroSection({
           {copy.introduction}
         </p>
         <h1 id="landing-heading" className={styles.heroHeading}>
-          {copy.heading.map((phrase) => (
-            <span key={phrase} className="block">
-              {phrase.includes(copy.headingAccent) ? (
-                <>
-                  <span className={styles.marker}>{copy.headingAccent}</span>
-                  {phrase.slice(copy.headingAccent.length)}
-                </>
-              ) : (
-                phrase
-              )}
-            </span>
+          {copy.heading.map((phrase, index) => (
+            <Fragment key={phrase}>
+              {locale === "en" && index > 0 ? " " : null}
+              <span className="block">
+                {phrase.includes(copy.headingAccent) ? (
+                  <>
+                    <span className={styles.marker}>{copy.headingAccent}</span>
+                    {phrase.slice(copy.headingAccent.length)}
+                  </>
+                ) : (
+                  phrase
+                )}
+              </span>
+            </Fragment>
           ))}
         </h1>
         <p className={styles.heroSubheading}>
-          {copy.subheading.map((phrase) => (
-            <span key={phrase} className="inline-block">
-              {phrase}
-            </span>
+          {copy.subheading.map((phrase, index) => (
+            <Fragment key={phrase}>
+              {locale === "en" && index > 0 ? " " : null}
+              <span className="inline-block">{phrase}</span>
+            </Fragment>
           ))}
         </p>
         <div className="mt-6">

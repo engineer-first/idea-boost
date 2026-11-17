@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Fragment } from "react";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 import { LANDING_CONTACT_URL } from "../logic/landing-copy";
@@ -57,10 +58,11 @@ export function LandingView({
       </div>
       <div className={styles.sloganBand}>
         <p>
-          {copy.moodSlogan.map((phrase) => (
-            <span key={phrase} className={styles.marker}>
-              {phrase}
-            </span>
+          {copy.moodSlogan.map((phrase, index) => (
+            <Fragment key={phrase}>
+              {locale === "en" && index > 0 ? " " : null}
+              <span className={styles.marker}>{phrase}</span>
+            </Fragment>
           ))}
         </p>
       </div>
@@ -77,10 +79,11 @@ export function LandingView({
           <div className={styles.closingInner}>
             <div>
               <h2 className={`${landingHeadingClass} mb-6`}>
-                {copy.closing.map((phrase) => (
-                  <span key={phrase} className="block">
-                    {phrase}
-                  </span>
+                {copy.closing.map((phrase, index) => (
+                  <Fragment key={phrase}>
+                    {locale === "en" && index > 0 ? " " : null}
+                    <span className="block">{phrase}</span>
+                  </Fragment>
                 ))}
               </h2>
               <Link href={entry.href} className={landingCtaClass}>

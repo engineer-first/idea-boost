@@ -1,5 +1,6 @@
 import { ArrowDown, Star } from "lucide-react";
 import Image from "next/image";
+import { Fragment } from "react";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 
@@ -21,10 +22,11 @@ export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
       aria-labelledby="landing-steps"
     >
       <h2 id="landing-steps" className={landingHeadingClass}>
-        {copy.stepsHeading.map((phrase) => (
-          <span key={phrase} className={`inline-block ${styles.marker}`}>
-            {phrase}
-          </span>
+        {copy.stepsHeading.map((phrase, index) => (
+          <Fragment key={phrase}>
+            {locale === "en" && index > 0 ? " " : null}
+            <span className={`inline-block ${styles.marker}`}>{phrase}</span>
+          </Fragment>
         ))}
       </h2>
       <p className="mt-6 max-w-3xl text-base sm:text-lg leading-8">
@@ -47,10 +49,11 @@ export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
                   <li key={prompt.viewpoint}>
                     <strong>{prompt.viewpoint}</strong>
                     <span>
-                      {prompt.detail.map((phrase) => (
-                        <span key={phrase} className={styles.flowPhrase}>
-                          {phrase}
-                        </span>
+                      {prompt.detail.map((phrase, index) => (
+                        <Fragment key={phrase}>
+                          {locale === "en" && index > 0 ? " " : null}
+                          <span className={styles.flowPhrase}>{phrase}</span>
+                        </Fragment>
                       ))}
                     </span>
                   </li>
@@ -63,10 +66,11 @@ export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
                 {copy.steps[1].title}
               </h3>
               <p className={styles.phaseQuestionNote}>
-                {copy.flow.question.map((phrase) => (
-                  <span key={phrase} className={styles.flowPhrase}>
-                    {phrase}
-                  </span>
+                {copy.flow.question.map((phrase, index) => (
+                  <Fragment key={phrase}>
+                    {locale === "en" && index > 0 ? " " : null}
+                    <span className={styles.flowPhrase}>{phrase}</span>
+                  </Fragment>
                 ))}
               </p>
             </div>
@@ -83,10 +87,11 @@ export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
             <div className={styles.ideaFan}>
               {copy.flow.ideas.map((idea) => (
                 <p key={idea.join("")}>
-                  {idea.map((phrase) => (
-                    <span key={phrase} className={styles.flowPhrase}>
-                      {phrase}
-                    </span>
+                  {idea.map((phrase, index) => (
+                    <Fragment key={phrase}>
+                      {locale === "en" && index > 0 ? " " : null}
+                      <span className={styles.flowPhrase}>{phrase}</span>
+                    </Fragment>
                   ))}
                 </p>
               ))}
@@ -97,10 +102,11 @@ export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
                 {copy.flow.selected}
               </span>
               <p>
-                {copy.flow.chosenIdea.map((phrase) => (
-                  <span key={phrase} className={styles.flowPhrase}>
-                    {phrase}
-                  </span>
+                {copy.flow.chosenIdea.map((phrase, index) => (
+                  <Fragment key={phrase}>
+                    {locale === "en" && index > 0 ? " " : null}
+                    <span className={styles.flowPhrase}>{phrase}</span>
+                  </Fragment>
                 ))}
               </p>
             </div>

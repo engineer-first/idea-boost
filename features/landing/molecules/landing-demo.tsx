@@ -1,5 +1,5 @@
 import { MousePointer2, Star, Users } from "lucide-react";
-import type { CSSProperties } from "react";
+import { type CSSProperties, Fragment } from "react";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 
@@ -34,12 +34,14 @@ export function LandingDemo({ locale = "ja" }: { locale?: AppLocale }) {
             className={`${styles.demoNote} ${styles.typedNote}`}
           >
             {copy.demo.typing.map((line, index) => (
-              <div
-                key={line}
-                className={index === 0 ? styles.typingOne : styles.typingTwo}
-              >
-                {line}
-              </div>
+              <Fragment key={line}>
+                {locale === "en" && index > 0 ? " " : null}
+                <div
+                  className={index === 0 ? styles.typingOne : styles.typingTwo}
+                >
+                  {line}
+                </div>
+              </Fragment>
             ))}
           </div>
           <div

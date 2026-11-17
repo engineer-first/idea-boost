@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Fragment } from "react";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 
@@ -18,10 +19,11 @@ export function LandingStrengthsSection({
       aria-labelledby="landing-strengths"
     >
       <h2 id="landing-strengths" className={landingHeadingClass}>
-        {copy.comparison.heading.map((phrase) => (
-          <span key={phrase} className={`inline-block ${styles.marker}`}>
-            {phrase}
-          </span>
+        {copy.comparison.heading.map((phrase, index) => (
+          <Fragment key={phrase}>
+            {locale === "en" && index > 0 ? " " : null}
+            <span className={`inline-block ${styles.marker}`}>{phrase}</span>
+          </Fragment>
         ))}
       </h2>
       <div className={styles.comparisons}>
@@ -63,10 +65,11 @@ export function LandingStrengthsSection({
           </div>
           <p className={styles.comparisonNote}>
             <a href="#landing-duration">
-              {copy.comparison.timeNote.map((phrase) => (
-                <span key={phrase} className="inline-block">
-                  {phrase}
-                </span>
+              {copy.comparison.timeNote.map((phrase, index) => (
+                <Fragment key={phrase}>
+                  {locale === "en" && index > 0 ? " " : null}
+                  <span className="inline-block">{phrase}</span>
+                </Fragment>
               ))}
             </a>
           </p>
