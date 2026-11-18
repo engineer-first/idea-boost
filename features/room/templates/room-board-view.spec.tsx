@@ -11,6 +11,7 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import type { Note } from "@/features/notes";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { SharingReactionDisplay } from "../molecules/sharing-reaction-display";
@@ -255,11 +256,11 @@ function setup(
   if (!options.showOnboarding) {
     for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
       localStorage.setItem(
-        `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:${step}`,
+        stepGuideSeenStorageKey(resolvedProps.currentUserId, step),
         "seen",
       );
     localStorage.setItem(
-      `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:1-1`,
+      stepGuideSeenStorageKey(resolvedProps.currentUserId, "1-1"),
       "seen",
     );
   }

@@ -12,6 +12,7 @@ import {
 } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 
 const noteCommitProbe = vi.hoisted(() => ({
   enabled: false,
@@ -254,9 +255,9 @@ function renderBoard(
   } = {},
 ) {
   FakeWebSocket.instances = [];
-  localStorage.setItem(`step-onboarding:AB12CD:${USER_ID}:1-1`, "seen");
+  localStorage.setItem(stepGuideSeenStorageKey(USER_ID, "1-1"), "seen");
   for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
-    localStorage.setItem(`step-onboarding:AB12CD:${USER_ID}:${step}`, "seen");
+    localStorage.setItem(stepGuideSeenStorageKey(USER_ID, step), "seen");
   const factory = (url: string) =>
     new FakeWebSocket(url) as unknown as WebSocket;
   const view = render(
