@@ -19,6 +19,10 @@
 .floating[data-timer-expanded="true"] {
   border-radius: var(--ib-rounded-xl);
 }
+/* 閉じた円はキッチンタイマーに見立て、黒い外枠を付ける */
+.floating:not([data-timer-expanded="true"]) {
+  border: 3px solid var(--ib-color-ink);
+}
 .floating[data-dragging="true"] {
   cursor: grabbing;
 }
@@ -33,19 +37,74 @@
 .circle {
   position: absolute;
   inset: 0;
-  width: 72px;
-  height: 72px;
-  padding: 2px;
+  width: 100%;
+  height: 100%;
+  padding: 3px;
   border: 0;
   border-radius: 50%;
   background: var(--background);
   cursor: inherit;
 }
 .disk {
+  position: relative;
   display: block;
-  width: 66px;
-  height: 66px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
+}
+/* 12・3・6・9時の目盛り。扇形の上に白く抜いて文字盤に見せる */
+.disk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from -1.5deg,
+    var(--background) 0deg 3deg,
+    transparent 3deg 90deg
+  );
+  mask: radial-gradient(
+    closest-side,
+    transparent calc(100% - 5px),
+    black calc(100% - 5px)
+  );
+}
+/* 円の上に付くつまみと左右のベル。円の外へはみ出す装飾 */
+.crown,
+.crown::before,
+.crown::after {
+  position: absolute;
+  pointer-events: none;
+}
+.crown {
+  top: -9px;
+  left: 50%;
+  width: 14px;
+  height: 11px;
+  margin-left: -7px;
+  border-radius: 2px 2px 0 0;
+  background:
+    linear-gradient(var(--ib-color-ink), var(--ib-color-ink)) 50% 100% / 6px 7px
+    no-repeat,
+    linear-gradient(var(--ib-color-ink), var(--ib-color-ink)) 0 0 / 14px 4px
+    no-repeat;
+}
+.crown::before,
+.crown::after {
+  content: "";
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 5px;
+  border-radius: 2px;
+  background: var(--ib-color-ink);
+  transform-origin: 4px 39px;
+}
+.crown::before {
+  transform: rotate(-42deg);
+}
+.crown::after {
+  transform: rotate(42deg);
 }
 /* 針は12時方向を0度とし、円の中心を軸に時計回りへ回る */
 .hand {
@@ -53,12 +112,24 @@
   top: 50%;
   left: 50%;
   width: 3px;
-  height: 28px;
-  margin: -28px 0 0 -1.5px;
+  height: 24px;
+  margin: -24px 0 0 -1.5px;
   transform-origin: 50% 100%;
   border-radius: 2px;
   background: var(--ib-color-ink);
   box-shadow: 0 0 0 1px var(--background);
+}
+/* 針の根元の軸 */
+.hand::after {
+  content: "";
+  position: absolute;
+  bottom: -3.5px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  border-radius: 50%;
+  background: var(--ib-color-ink);
 }
 .startIcon {
   position: absolute;

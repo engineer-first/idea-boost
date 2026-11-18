@@ -109,6 +109,13 @@ export function RoomTimer({
       <span className="sr-only" role="timer" aria-label={label}>
         {display.label}
       </span>
+      {!expanded ? (
+        <span
+          data-testid="room-timer-crown"
+          className={styles.crown}
+          aria-hidden="true"
+        />
+      ) : null}
       <div className={styles.surface}>
         {!expanded ? (
           <button
