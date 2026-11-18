@@ -127,6 +127,38 @@ describe("PrivateNotesToolbar", () => {
     },
   );
 
+  it("workspaceでは付箋を追加ボタンを最後の付箋の直後に1つだけ置き、選択中の付箋の隣には出さない", () => {
+    const onAdd = vi.fn(() => "op-1");
+    render(
+      <PrivateNotesToolbar
+        notes={[
+          buildNote({ id: "a", visibility: "private", content: "A" }),
+          buildNote({ id: "b", visibility: "private", content: "B" }),
+        ]}
+        disabled={false}
+        selectedNoteId="a"
+        canCreateNote
+        canDeleteNote
+        canMoveNote
+        canEditNote
+        onSelect={vi.fn()}
+        onAdd={onAdd}
+        onContentChange={vi.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+        presentation="workspace"
+      />,
+    );
+    const [add, ...rest] = screen.getAllByRole("button", {
+      name: "付箋を追加",
+    });
+    expect(rest).toHaveLength(0);
+    const cards = screen.getAllByTestId("note-card");
+    expect(cards[cards.length - 1].nextElementSibling).toBe(add);
+    fireEvent.click(add);
+    expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
   it("workspaceからdockへ切り替わるとマイ付箋を展開する", () => {
     const props = {
       notes: [buildNote({ visibility: "private", content: "非公開の考え" })],

@@ -435,7 +435,7 @@ for (const { step, storyId } of [
 }
 
 for (const width of [390, 1440]) {
-  test(`${width}px: 個人作業の追加ボタンは空の状態から追加を繰り返しても一覧の左上から動かない`, async () => {
+  test(`${width}px: 個人作業の追加ボタンは空の状態から追加を繰り返しても最後の付箋の直後で押せる`, async () => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardcanvas--private-guidance-empty&viewMode=story`,
@@ -445,21 +445,30 @@ for (const width of [390, 1440]) {
       .getByRole("button", { name: "付箋を追加", exact: true });
     await add.waitFor();
     await page.evaluate(() => document.fonts.ready);
-    // 新規本文への自動スクロールと、一覧内の配置移動を区別する。
-    const positionInList = () =>
+    // 書いた付箋のすぐ後ろにあり、スクロールせずに押せることを確かめる。
+    const placement = () =>
       add.evaluate((element) => {
-        const list = element.parentElement;
-        if (!list) throw new Error("付箋一覧がありません");
-        const buttonBounds = element.getBoundingClientRect();
-        const listBounds = list.getBoundingClientRect();
+        const bounds = element.getBoundingClientRect();
+        const hit = document
+          .elementFromPoint(
+            bounds.x + bounds.width / 2,
+            bounds.y + bounds.height / 2,
+          )
+          ?.closest('button[aria-label="付箋を追加"]');
         return {
-          x: buttonBounds.x - listBounds.x,
-          y: buttonBounds.y - listBounds.y,
+          previousNoteId:
+            element.previousElementSibling
+              ?.querySelector("[data-note-id]")
+              ?.getAttribute("data-note-id") ??
+            element.previousElementSibling?.getAttribute("data-note-id") ??
+            null,
+          reachable: hit === element,
         };
       });
-    const initial = await positionInList();
-    expect(initial.y).toBe(0);
-    expect(initial.x).toBeGreaterThanOrEqual(0);
+    expect(await placement()).toEqual({
+      previousNoteId: null,
+      reachable: true,
+    });
     // デスクトップでは次の行への折り返しも含める。
     const count = width === 390 ? 2 : 7;
     for (let index = 0; index < count; index += 1) {
@@ -471,18 +480,21 @@ for (const width of [390, 1440]) {
       await expectFocused(editor);
       await page.keyboard.insertText(`下書き ${index + 1}`);
       await page.keyboard.press("Escape");
-      await expect.poll(positionInList).toEqual(initial);
+      const ids = await privateNoteIds();
+      await expect
+        .poll(placement)
+        .toEqual({ previousNoteId: ids[ids.length - 1], reachable: true });
     }
-    // 視覚上の先頭とキーボードの順序を揃える。
+    // 視覚上の末尾とキーボードの順序を揃える。
     await add.focus();
-    await page.keyboard.press("Tab");
+    await page.keyboard.press("Shift+Tab");
     expect(
       await page.evaluate(() =>
         document.activeElement
           ?.closest("[data-note-id]")
           ?.getAttribute("data-note-id"),
       ),
-    ).toBe((await privateNoteIds())[0]);
+    ).toBe((await privateNoteIds()).at(-1));
   });
 }
 

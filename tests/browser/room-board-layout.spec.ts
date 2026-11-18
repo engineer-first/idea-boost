@@ -343,6 +343,8 @@ for (const [phase, reference] of [
         });
       expect(await referenceNote.isVisible()).toBe(true);
       expect(await addNote.isVisible()).toBe(true);
+      // 追加カードは一覧の末尾にあるため、付箋が多いときはスクロールして届く位置で確かめる。
+      await addNote.scrollIntoViewIfNeeded();
 
       const referenceBox = await referenceNote.boundingBox();
       if (!referenceBox) throw new Error("参照付箋が見つかりません");
