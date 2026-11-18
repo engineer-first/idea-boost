@@ -14,7 +14,12 @@
   "packageRules": [
     {
       "description": "1.0以上のパッチを1つのPRにまとめ、developの必須チェックが成功した後にGitHubのauto-mergeで取り込む (#395)",
-      "matchDepTypes": ["dependencies", "devDependencies"],
+      "matchDepTypes": [
+        "dependencies",
+        "devDependencies",
+        "packageManager",
+        "tools"
+      ],
       "matchUpdateTypes": ["patch"],
       "matchCurrentVersion": "!/^0/",
       "groupName": "patch updates",
@@ -22,7 +27,12 @@
     },
     {
       "description": "1.0以上のマイナーを1つのPRにまとめ、developの必須チェックが成功した後にGitHubのauto-mergeで取り込む。本番公開前の確認はreleaseスキルで行う (#395)",
-      "matchDepTypes": ["dependencies", "devDependencies"],
+      "matchDepTypes": [
+        "dependencies",
+        "devDependencies",
+        "packageManager",
+        "tools"
+      ],
       "matchUpdateTypes": ["minor"],
       "matchCurrentVersion": "!/^0/",
       "groupName": "minor updates",

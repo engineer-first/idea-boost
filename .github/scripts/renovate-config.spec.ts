@@ -26,6 +26,14 @@ const config: RenovateConfig = JSON.parse(
   readFileSync(new URL("../../renovate.json", import.meta.url), "utf8"),
 );
 const rules = config.packageRules ?? [];
+// npmの依存に加え、package.jsonのnpm本体（packageManager）とmise.tomlの開発ツール（tools）もまとめる。
+// overridesやengines（Nodeの範囲）は含めない。
+const groupedDepTypes = [
+  "dependencies",
+  "devDependencies",
+  "packageManager",
+  "tools",
+];
 const groupFor = (updateType: string): PackageRule | undefined =>
   rules.find(
     (rule) =>
@@ -64,7 +72,7 @@ describe("Renovateの更新方針 (#395)", () => {
     expect(minor?.groupName).toBeTruthy();
     expect(minor?.groupName).not.toBe(groupFor("patch")?.groupName);
     expect(minor?.matchCurrentVersion).toBe("!/^0/");
-    expect(minor?.matchDepTypes).toEqual(["dependencies", "devDependencies"]);
+    expect(minor?.matchDepTypes).toEqual(groupedDepTypes);
     expect(minor?.automerge).toBe(true);
   });
 
@@ -76,7 +84,7 @@ describe("Renovateの更新方針 (#395)", () => {
 
   it("overridesの固定版はまとめPRに混ぜず、Dashboardで承認した時だけ更新する", () => {
     const patch = groupFor("patch");
-    expect(patch?.matchDepTypes).toEqual(["dependencies", "devDependencies"]);
+    expect(patch?.matchDepTypes).toEqual(groupedDepTypes);
     const overrides = rules.find((rule) =>
       rule.matchDepTypes?.includes("overrides"),
     );
