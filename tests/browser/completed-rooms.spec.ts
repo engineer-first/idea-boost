@@ -272,7 +272,7 @@ it.each([390, 1280])(
         .fill("退出後の感想は未送信");
       await dialog.getByRole("button", { name: "送信", exact: true }).click();
       await dialog.getByRole("alert").waitFor();
-      expect(await dialog.getByRole("alert").innerText()).toContain(
+      expect(await dialog.getByRole("alert").textContent()).toContain(
         "退出後は送信できません",
       );
       expect(

@@ -228,7 +228,7 @@ test("問いのヒントで選んだ本文を追加執筆へ渡し、縮小状�
   await word.click();
   const question = await dialog
     .getByRole("region", { name: "問いの文例" })
-    .innerText();
+    .textContent();
   await dialog.getByRole("button", { name: "この問いにする" }).click();
   const editor = toolbar.locator("textarea:not([readonly])");
   await expect.poll(() => editor.inputValue()).toBe(question);
@@ -257,7 +257,7 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
       .isVisible(),
   ).toBe(true);
   expect(await page.getByTestId("timer-floating").count()).toBe(0);
-  expect(await nextStep.innerText()).toContain("次のステップへ");
+  expect(await nextStep.textContent()).toContain("次のステップへ");
   expect(
     await page.getByRole("button", { name: "できた！", exact: true }).count(),
   ).toBe(0);

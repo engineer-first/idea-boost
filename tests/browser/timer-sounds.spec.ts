@@ -276,7 +276,7 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       ).toBeNull();
       const status = page.getByRole("group", { name: "通知音の再生エラー" });
       await status.waitFor();
-      expect(await status.innerText()).toContain("再試行");
+      expect(await status.textContent()).toContain("再試行");
       const bounds = await status.boundingBox();
       expect(bounds).not.toBeNull();
       expect(bounds?.x).toBeGreaterThanOrEqual(0);

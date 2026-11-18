@@ -125,7 +125,7 @@ for (const { phase, count } of phases) {
           .locator("li")
           .count(),
       ).toBe(count);
-      expect(await context.innerText()).not.toContain("次の作業");
+      expect(await context.textContent()).not.toContain("次の作業");
       await location.click();
 
       const expected = isResult ? 2 : 0;
@@ -259,7 +259,7 @@ test.each(phases)(
     });
     await dialog.waitFor();
     await expectReadable(dialog);
-    expect(await dialog.innerText()).toContain("付箋は消えません");
+    expect(await dialog.textContent()).toContain("付箋は消えません");
     expect(await dialog.locator("li, blockquote").count()).toBe(0);
     await expectReachable(
       dialog.getByRole("button", {
@@ -358,7 +358,7 @@ test("時間切れ後は未チェックの参加者を確認して次へ進む",
     .getByRole("alertdialog")
     .getByRole("button", { name: "次へ進む", exact: true })
     .press("Enter");
-  expect(await page.getByTestId("phase-next-count").innerText()).toBe("1");
+  expect(await page.getByTestId("phase-next-count").textContent()).toBe("1");
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
 });
 

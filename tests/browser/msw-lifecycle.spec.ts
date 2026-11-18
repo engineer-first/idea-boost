@@ -38,7 +38,7 @@ test("同じStorybook iframeでstoryを切り替えてもモックを再起動�
       .click();
     await iframe.getByRole("button", { name: "ルームから外す" }).click();
     await iframe.getByRole("alert").waitFor();
-    expect(await iframe.getByRole("alert").innerText()).toContain(
+    expect(await iframe.getByRole("alert").textContent()).toContain(
       "現在の参加者を確認",
     );
     expect(

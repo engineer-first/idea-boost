@@ -210,7 +210,7 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
       expect(textVisibility, "案内の各行が表示される").toEqual(
         textVisibility.map((line) => ({ ...line, visible: true })),
       );
-      expect(await notice.innerText()).toContain("再接続中");
+      expect(await notice.textContent()).toContain("再接続中");
       const noticeBox = await notice.boundingBox();
       const controlsBox = await page
         .getByTestId("board-control-hud")

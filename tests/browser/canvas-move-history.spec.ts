@@ -346,7 +346,7 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
         .click();
       for (const page of [actor, peer])
         await expect
-          .poll(() => page.getByTestId("board-location-step").innerText())
+          .poll(() => page.getByTestId("board-location-step").textContent())
           .toBe("投票");
       for (const page of [actor, peer])
         await expect
