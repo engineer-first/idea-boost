@@ -22,7 +22,7 @@ test.each([390, 1920])(
       await page.evaluate(() => document.fonts.ready);
       const reset = page.getByRole("button", { name: "ズームを100%に戻す" });
       await reset.click();
-      await expect.poll(() => reset.innerText()).toBe("100%");
+      await expect.poll(() => reset.textContent()).toBe("100%");
       const card = page.getByTestId("note-card").first();
       await expect
         .poll(async () => (await card.boundingBox())?.width)

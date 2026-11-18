@@ -15,7 +15,7 @@ class PlanningIssueSpecTests(unittest.TestCase):
             "repo": "engineer-first/idea-boost",
             "project_owner": "engineer-first",
             "project_number": 3,
-            "pbi": {"genre": "CANVAS", "title": "タイトル", "story": "参加者として、案を比較したい。なぜなら、結論を選びたいからだ。"},
+            "pbi": {"title": "タイトル", "story": "参加者として、案を比較したい。なぜなら、結論を選びたいからだ。"},
             "demo_goals": [{"title": "確認する", "goal": "画面で結果を確認できる。"}],
         }
 
@@ -49,66 +49,24 @@ class PlanningIssueSpecTests(unittest.TestCase):
                       "画面で結果を確認できる。", "追加後すぐ入力できる", "対象は個人作業中"]:
             self.assertIn(value, body)
 
-    def test_pbi_id_is_optional_for_the_existing_auto_numbering_route(self):
-        planning.validate_spec(self.spec())
-
-    def test_concurrent_creations_derive_distinct_ids_from_created_issue_numbers(self):
-        specs = [self.spec(), self.spec()]
-        with patch.object(planning, "create_issue", side_effect=[
-            {"number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340"},
-            {"number": 341, "url": "https://github.com/engineer-first/idea-boost/issues/341"},
-        ]) as create, patch.object(planning, "run") as run:
-            for spec in specs:
-                planning.create_pbi_issue(spec)
-        self.assertEqual([spec["pbi"]["id"] for spec in specs], ["PBI-CANVAS-340", "PBI-CANVAS-341"])
-        self.assertEqual([call.args[1] for call in create.call_args_list], ["タイトル", "タイトル"])
-        self.assertEqual([call.args[0][-1] for call in run.call_args_list], ["PBI-CANVAS-340 タイトル", "PBI-CANVAS-341 タイトル"])
-
-    def test_explicit_genre_code_is_kept_during_creation(self):
+    def test_title_is_only_the_subject_without_type_or_genre_prefix(self):
         spec = self.spec()
-        spec["pbi"]["id"] = "PBI-CANVAS-04"
-        del spec["pbi"]["genre"]
         planning.validate_spec(spec)
         with patch.object(planning, "create_issue", return_value={
             "number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340",
         }) as create, patch.object(planning, "run") as run:
             planning.create_pbi_issue(spec)
-        self.assertEqual(create.call_args.args[1], "PBI-CANVAS-04 タイトル")
-        self.assertEqual(spec["pbi"]["id"], "PBI-CANVAS-04")
+        self.assertEqual(create.call_args.args[1], "タイトル")
+        self.assertEqual(create.call_args.args[3], "PBI")
         run.assert_not_called()
 
-    def test_auto_numbering_requires_a_valid_genre_before_any_creation(self):
-        for genre in [None, "", "guide", "NEW GENRE", "01"]:
-            with self.subTest(genre=genre):
+    def test_old_id_and_genre_inputs_are_rejected_before_any_creation(self):
+        for key, value in [("genre", "CANVAS"), ("id", "PBI-CANVAS-04"), ("id", "PBI-12")]:
+            with self.subTest(key=key, value=value):
                 spec = self.spec()
-                spec["pbi"]["genre"] = genre
-                with self.assertRaisesRegex(ValueError, "genre"):
+                spec["pbi"][key] = value
+                with self.assertRaisesRegex(ValueError, f"pbi.{key}"):
                     planning.validate_spec(spec)
-
-    def test_additional_genre_can_be_created_and_numbered(self):
-        spec = self.spec()
-        spec["pbi"]["genre"] = "ACCESS"
-        planning.validate_spec(spec)
-        with patch.object(planning, "create_issue", return_value={
-            "number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340",
-        }), patch.object(planning, "run") as run:
-            planning.create_pbi_issue(spec)
-        self.assertEqual(spec["pbi"]["id"], "PBI-ACCESS-340")
-        self.assertEqual(run.call_args.args[0][-1], "PBI-ACCESS-340 タイトル")
-
-    def test_explicit_additional_genre_code_is_preserved(self):
-        spec = self.spec()
-        spec["pbi"]["id"] = "PBI-ACCESS-07"
-        del spec["pbi"]["genre"]
-        planning.validate_spec(spec)
-        planning.assign_pbi_id(spec, 340)
-        self.assertEqual(spec["pbi"]["id"], "PBI-ACCESS-07")
-
-    def test_explicit_code_and_genre_cannot_disagree(self):
-        spec = self.spec()
-        spec["pbi"]["id"] = "PBI-GUIDE-01"
-        with self.assertRaisesRegex(ValueError, "genre"):
-            planning.validate_spec(spec)
 
     def test_story_is_the_first_body_content(self):
         spec = self.spec()
@@ -132,28 +90,13 @@ class PlanningIssueSpecTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "pbi.why"):
                 planning.validate_spec(spec)
 
-    def test_title_update_failure_reports_the_created_issue_for_recovery(self):
-        with patch.object(planning, "create_issue", return_value={
-            "number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340",
-        }), patch.object(planning, "run", side_effect=RuntimeError("network failure")):
-            with self.assertRaisesRegex(RuntimeError, "issues/340"):
-                planning.create_pbi_issue(self.spec())
-
-    def test_dry_run_needs_no_github_access_and_does_not_assign_a_real_id(self):
+    def test_dry_run_needs_no_github_access_and_shows_the_plain_title(self):
         spec = self.spec()
         with patch.object(planning, "run") as run, redirect_stdout(io.StringIO()) as output:
             planning.render_dry_run(spec)
         run.assert_not_called()
-        self.assertNotIn("id", spec["pbi"])
-        self.assertIn("PBI-CANVAS-00 タイトル", output.getvalue())
-
-    def test_preserves_an_explicit_legacy_pbi_id(self):
-        spec = self.spec()
-        spec["pbi"]["id"] = "PBI-12"
-        with patch.object(planning, "run") as run:
-            planning.assign_pbi_id(spec, 340)
-        self.assertEqual(spec["pbi"]["id"], "PBI-12")
-        run.assert_not_called()
+        self.assertIn("# タイトル\n", output.getvalue())
+        self.assertNotIn("PBI-", output.getvalue())
 
     def test_planning_can_start_with_only_a_pbi_story(self):
         spec = self.spec()

@@ -75,7 +75,7 @@ test.each([
     const label = page.getByTestId("idea-value-feasibility-map-x-axis-label");
     await label.waitFor();
     await page.evaluate(() => document.fonts.ready);
-    expect(await label.innerText()).toBe("実現のしやすさ");
+    expect(await label.textContent()).toBe("実現のしやすさ");
     const initialFontSize = await label.evaluate((e) =>
       Number.parseFloat(getComputedStyle(e).fontSize),
     );
@@ -104,7 +104,7 @@ test.each([
       .poll(() =>
         page
           .getByRole("button", { name: "ズームを100%に戻す", exact: true })
-          .innerText(),
+          .textContent(),
       )
       .toBe("51%");
     await page.evaluate(

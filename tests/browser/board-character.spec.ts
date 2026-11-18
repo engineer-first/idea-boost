@@ -116,7 +116,7 @@ test.each([
   },
 );
 
-test("残り時間の一言と先生が8秒後に一緒に消える", async () => {
+test("残り時間の一言と先生が15秒後に一緒に消える", async () => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   page.setDefaultTimeout(15_000);
   try {
@@ -134,7 +134,7 @@ test("残り時間の一言と先生が8秒後に一緒に消える", async () =
     await page.screenshot({
       path: "test-results/board-layout/character-bubble.png",
     });
-    await page.clock.fastForward(8_000);
+    await page.clock.fastForward(15_000);
     expect(await character.getByTestId("board-character-bubble").count()).toBe(
       0,
     );

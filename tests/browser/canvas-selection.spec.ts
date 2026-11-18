@@ -408,7 +408,7 @@ test.each([25, 100, 200])(
     }, zoom);
     await expect
       .poll(() =>
-        page.getByRole("button", { name: "ズームを100%に戻す" }).innerText(),
+        page.getByRole("button", { name: "ズームを100%に戻す" }).textContent(),
       )
       .toBe(`${zoom}%`);
     const note = page.getByTestId("note-card").nth(1);

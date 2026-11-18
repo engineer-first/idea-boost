@@ -52,7 +52,7 @@ describe("共有HUD", () => {
         (element) => getComputedStyle(element).animationName,
       ),
     ).toBe("none");
-    expect(await page.getByRole("timer").innerText()).toBe("03:00");
+    expect(await page.getByRole("timer").textContent()).toBe("03:00");
     expect(
       await page
         .getByRole("button", { name: "できた！", exact: true })

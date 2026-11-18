@@ -196,9 +196,9 @@ test.each([
     await trigger.click();
     expect(await card.getAttribute("data-state")).toBe("expanded");
     await reachable(page.getByTestId("board-current-step"));
-    expect(await page.getByTestId("board-current-step").innerText()).toContain(
-      "価値×実現のしやすさで評価",
-    );
+    expect(
+      await page.getByTestId("board-current-step").textContent(),
+    ).toContain("価値×実現のしやすさで評価");
     expect(
       await Promise.all([reference.boundingBox(), canvas.boundingBox()]),
     ).toEqual(boxes);
@@ -209,7 +209,7 @@ test.each([
     ).toBe("true");
     const list = page.getByRole("list", { name: "このフェーズの全手順" });
     expect(await list.locator("li").count()).toBe(5);
-    expect(await list.locator('[aria-current="step"]').innerText()).toContain(
+    expect(await list.locator('[aria-current="step"]').textContent()).toContain(
       "価値×実現のしやすさで評価",
     );
     for (const row of await list.locator("li").all()) await reachable(row);
@@ -224,8 +224,8 @@ test.each([
     });
     await page.getByRole("tab", { name: /問い/ }).click();
     expect(await list.locator("li").count()).toBe(4);
-    expect(await trigger.innerText()).toContain("③アイデア");
-    expect(await trigger.getByTestId("board-location-step").innerText()).toBe(
+    expect(await trigger.textContent()).toContain("③アイデア");
+    expect(await trigger.getByTestId("board-location-step").textContent()).toBe(
       "2軸評価",
     );
     expect(
@@ -299,8 +299,8 @@ test("キーボードで3フェーズを直接閲覧し、上の入口とEscape�
   expect(
     await page.getByRole("tab", { name: /問い/ }).getAttribute("aria-current"),
   ).toBe("step");
-  expect(await trigger.innerText()).toContain("②問い");
-  expect(await trigger.getByTestId("board-location-step").innerText()).toBe(
+  expect(await trigger.textContent()).toContain("②問い");
+  expect(await trigger.getByTestId("board-location-step").textContent()).toBe(
     "個人",
   );
   expect(

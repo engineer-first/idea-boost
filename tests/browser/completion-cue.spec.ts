@@ -35,14 +35,18 @@ test.each([1280, 360])(
         exact: true,
       });
       await next.waitFor();
-      expect(await page.getByTestId("phase-next-count").innerText()).toBe("0");
+      expect(await page.getByTestId("phase-next-count").textContent()).toBe(
+        "0",
+      );
       expect(await page.getByTestId("member-voting-complete").count()).toBe(0);
       await next.press("Enter");
       await page
         .getByRole("alertdialog")
         .getByRole("button", { name: "次へ進む", exact: true })
         .press("Enter");
-      expect(await page.getByTestId("phase-next-count").innerText()).toBe("1");
+      expect(await page.getByTestId("phase-next-count").textContent()).toBe(
+        "1",
+      );
       await page.getByRole("alertdialog").waitFor({ state: "hidden" });
       await expect
         .poll(() => next.evaluate((el) => document.activeElement === el))

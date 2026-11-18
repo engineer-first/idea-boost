@@ -136,7 +136,7 @@
   "engines": {
     "node": "^26.13.1"
   },
-  "packageManager": "npm@11.20.0",
+  "packageManager": "npm@11.21.2",
   "sideEffects": [
     "**/*.css",
     "./instrumentation-client.ts",

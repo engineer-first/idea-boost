@@ -637,7 +637,7 @@ test("3-5の固定マップで投票結果を表示し、採用する付箋を�
     );
     const before = await note.boundingBox();
     expect(
-      await note.getByTestId("dot-vote-result-count-objective").innerText(),
+      await note.getByTestId("dot-vote-result-count-objective").textContent(),
     ).toBe("6");
     await page
       .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
@@ -1091,7 +1091,7 @@ test.each([
     );
     const zoomControls = await page
       .getByTestId("canvas-zoom-controls")
-      .innerText();
+      .textContent();
 
     const expectNoteScale = async (
       note: (typeof notes)[number],
@@ -1174,7 +1174,7 @@ test.each([
         ),
       ),
     ).toEqual(logicalPositions);
-    expect(await page.getByTestId("canvas-zoom-controls").innerText()).toBe(
+    expect(await page.getByTestId("canvas-zoom-controls").textContent()).toBe(
       zoomControls,
     );
 

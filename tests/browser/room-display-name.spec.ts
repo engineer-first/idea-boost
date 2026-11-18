@@ -108,7 +108,7 @@ test.each([
       await page.getByRole("alert").waitFor();
       await input.fill("あ".repeat(16));
       await input.press("Enter");
-      expect(await page.getByRole("alert").innerText()).toContain("15");
+      expect(await page.getByRole("alert").textContent()).toContain("15");
       await input.fill("Hana Sato");
       await input.press("Enter");
       await dialog.waitFor({ state: "hidden" });
@@ -120,7 +120,7 @@ test.each([
         .click();
       const confirm = page.getByRole("alertdialog");
       await confirm.waitFor();
-      expect(await confirm.innerText()).toContain("識別色: 青色");
+      expect(await confirm.textContent()).toContain("識別色: 青色");
       await page
         .getByRole("button", { name: "キャンセル", exact: true })
         .click();

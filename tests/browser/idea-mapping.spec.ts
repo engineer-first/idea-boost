@@ -50,8 +50,8 @@ test.each([390, 1440])(
         explanation.evaluate((element) => getComputedStyle(element).opacity),
       )
       .toBe("1");
-    expect(await explanation.innerText()).toContain("全員に反映");
-    expect(await explanation.innerText()).toContain(
+    expect(await explanation.textContent()).toContain("全員に反映");
+    expect(await explanation.textContent()).toContain(
       "個人用ズームは表示範囲と独立しており、自分だけの見え方を調整します。",
     );
     const bounds = await explanation.boundingBox();
@@ -134,7 +134,7 @@ test.each([
       explanation.evaluate((element) => getComputedStyle(element).opacity),
     )
     .toBe("1");
-  expect(await explanation.innerText()).toContain(reason);
+  expect(await explanation.textContent()).toContain(reason);
   await page.screenshot({ path: `${output}/help-${story}.png` });
   await page.keyboard.press("Escape");
   await expect

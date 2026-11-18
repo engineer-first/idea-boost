@@ -123,7 +123,7 @@ for (const width of [390, 1280]) {
             () => document.documentElement.dataset.copiedValue,
           ),
         ).toBe(inviteUrl);
-        expect(await copy.innerText()).toBe(inviteUrl);
+        expect(await copy.textContent()).toBe(inviteUrl);
         expect(
           await copy
             .locator("svg")
@@ -205,7 +205,7 @@ for (const width of [390, 1280]) {
           .poll(() => share.getAttribute("data-share-state"))
           .toBe("error");
         await expect.poll(() => share.boundingBox()).toEqual(shareBox);
-        expect(await share.innerText()).toBe("共有");
+        expect(await share.textContent()).toBe("共有");
         expect(
           await share
             .locator("svg")

@@ -24,7 +24,7 @@ const phases = [
   { phase: 3, count: 5, goal: "アイデア" },
 ] as const;
 const progression =
-  /^(次へ進む|次のフェーズへ|付箋を書き直す|もう一度投票する|採用する付箋を選ぶ)$/;
+  /^(次へ進む|次のフェーズへ|もう一度投票する|採用する付箋を選ぶ)$/;
 let browser: Browser;
 let page: Page;
 
@@ -129,7 +129,7 @@ for (const { phase, count } of phases) {
           .locator("li")
           .count(),
       ).toBe(count);
-      expect(await context.innerText()).not.toContain("次の作業");
+      expect(await context.textContent()).not.toContain("次の作業");
       await location.click();
 
       const expected = isResult ? 2 : 0;
@@ -151,7 +151,7 @@ for (const { phase, count } of phases) {
       );
       if (canRestartWriting)
         await expectReachable(
-          loop.getByRole("button", { name: "もう一度付箋を書く" }),
+          loop.getByRole("button", { name: "付箋を書き足す" }),
         );
       if (isResult) {
         const boxes = await loopButtons.evaluateAll((elements) =>
@@ -231,7 +231,7 @@ test("共有一巡後の書き足し操作は上部の操作欄から選べる",
   await openStory("room-roomboardview--floating-timer-sharing-complete");
   const controls = page.getByTestId("board-control-hud");
   const trigger = controls.getByRole("button", {
-    name: "付箋を書き直す",
+    name: "付箋を書き足す",
     exact: true,
   });
   await expectReachable(trigger);
@@ -239,7 +239,14 @@ test("共有一巡後の書き足し操作は上部の操作欄から選べる",
     "共有済み付箋と下書きは残",
   );
   await trigger.press("Enter");
-  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+  const dialog = page.getByRole("alertdialog", {
+    name: "全員で1-1に戻って、付箋を書き足しますか？",
+  });
+  await dialog.waitFor();
+  await expectReadable(dialog);
+  await dialog.getByRole("button", { name: "キャンセル" }).click();
+  await dialog.waitFor({ state: "hidden" });
+  expect(await trigger.isVisible()).toBe(true);
 });
 
 test.each(phases)(
@@ -256,7 +263,7 @@ test.each(phases)(
     });
     await dialog.waitFor();
     await expectReadable(dialog);
-    expect(await dialog.innerText()).toContain("付箋は消えません");
+    expect(await dialog.textContent()).toContain("付箋は消えません");
     expect(await dialog.locator("li, blockquote").count()).toBe(0);
     await expectReachable(
       dialog.getByRole("button", {
@@ -355,7 +362,7 @@ test("時間切れ後は未チェックの参加者を確認して次へ進む",
     .getByRole("alertdialog")
     .getByRole("button", { name: "次へ進む", exact: true })
     .press("Enter");
-  expect(await page.getByTestId("phase-next-count").innerText()).toBe("1");
+  expect(await page.getByTestId("phase-next-count").textContent()).toBe("1");
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
 });
 

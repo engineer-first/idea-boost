@@ -263,8 +263,8 @@ test.each(["reconnecting", "participant"])(
     await expectLayout();
     await page.getByText("決定した課題", { exact: true }).click();
     const content = page.getByTestId("board-context-hud");
-    expect(await content.innerText()).toContain("全員が自分の考えを伝え");
-    expect(await content.innerText()).toContain("決定した問い");
+    expect(await content.textContent()).toContain("全員が自分の考えを伝え");
+    expect(await content.textContent()).toContain("決定した問い");
     await expectLayout();
   },
 );
@@ -343,6 +343,8 @@ for (const [phase, reference] of [
         });
       expect(await referenceNote.isVisible()).toBe(true);
       expect(await addNote.isVisible()).toBe(true);
+      // 追加カードは一覧の末尾にあるため、付箋が多いときはスクロールして届く位置で確かめる。
+      await addNote.scrollIntoViewIfNeeded();
 
       const referenceBox = await referenceNote.boundingBox();
       if (!referenceBox) throw new Error("参照付箋が見つかりません");
@@ -566,7 +568,7 @@ for (const theme of ["light", "dark"]) {
           expect(await action.isVisible()).toBe(true);
         } else {
           expect(await page.getByTestId("room-timer").isVisible()).toBe(true);
-          expect(await page.getByRole("timer").innerText()).toMatch(
+          expect(await page.getByRole("timer").textContent()).toMatch(
             /\d{2}:\d{2}/,
           );
         }
@@ -648,7 +650,7 @@ test("接続中断時と参加者表示でもタイマー枠を薄くせず、�
     if (state === "idle") participantRight = bounds.x + bounds.width;
     else expect(bounds.x + bounds.width).toBe(participantRight);
     if (state === "idle") {
-      expect(await page.getByRole("timer").innerText()).toBe("05:00");
+      expect(await page.getByRole("timer").textContent()).toBe("05:00");
       expect(await page.getByTestId("timer-sound-toggle").count()).toBe(0);
     }
   }
@@ -992,7 +994,7 @@ test.each([1280, 1024, 768])(
     );
     await location.click();
     const step = hud.getByTestId("board-current-step");
-    expect(await step.innerText()).toContain("アイデアを書き出す（個人）");
+    expect(await step.textContent()).toContain("アイデアを書き出す（個人）");
     expect(await step.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
       true,
     );
@@ -1138,7 +1140,7 @@ test.each([1280, 1024, 768])(
     ).toBe(width >= 1280 ? 10 : width >= 1024 ? 3 : 1);
     const more = members.getByTestId("member-overflow-indicator");
     expect(await more.isVisible()).toBe(true);
-    expect((await more.innerText()).trim()).toBe(
+    expect(await more.locator(":scope > span:visible").textContent()).toBe(
       width >= 1280 ? "+2" : width >= 1024 ? "+9" : "+11",
     );
     const moreBox = await more.boundingBox();
@@ -1459,12 +1461,12 @@ test("U03: 3-3のマップ増減と追加執筆へ通常pointerで到達でき�
   await map
     .getByRole("button", { name: "マップを広くする" })
     .click({ timeout: 2500 });
-  expect(await map.getByRole("status").innerText()).toContain("3段階目");
+  expect(await map.getByRole("status").textContent()).toContain("3段階目");
   await map.getByRole("button", { name: "マップを狭くする" }).click();
-  expect(await map.getByRole("status").innerText()).toContain("2段階目");
+  expect(await map.getByRole("status").textContent()).toContain("2段階目");
   expect(
     await page
-      .getByRole("button", { name: "もう一度付箋を書く", exact: true })
+      .getByRole("button", { name: "付箋を書き足す", exact: true })
       .isVisible(),
   ).toBe(true);
 });
@@ -1655,7 +1657,7 @@ test.each([1280, 768, 390, 320])(
     const note = page
       .locator('[data-slot="sticky-note"]')
       .filter({ has: body });
-    expect((await body.locator("p").innerText()).length).toBe(2000);
+    expect((await body.locator("p").textContent())?.length).toBe(2000);
     expect(await trigger.getAttribute("aria-expanded")).toBe("true");
     const bounds = await note.boundingBox();
     expect(bounds?.width).toBe(200);

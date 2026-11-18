@@ -434,7 +434,7 @@ describe("2軸評価画面の周辺操作", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "もう一度付箋を書く" }),
+      screen.getByRole("button", { name: "付箋を書き足す" }),
     ).toBeVisible();
     const mapSizeHud = screen.getByTestId("idea-map-size-controls-hud");
     expect(mapSizeHud).toContainElement(
@@ -3709,7 +3709,7 @@ describe("反復ワークフロー", () => {
   );
 
   it.each([1, 2, 3] as const)(
-    "フェーズ%dの共有一巡後は上部から書き直しと次への進行を選べる",
+    "フェーズ%dの共有一巡後は行き先を確認してから付箋を書き足せる",
     (phase) => {
       const { props } = setup({
         phase: buildPhaseStep(2, phase),
@@ -3723,9 +3723,23 @@ describe("反復ワークフロー", () => {
         onSharingStart: vi.fn(),
       });
       const controls = within(screen.getByTestId("board-control-hud"));
-      const addMore = controls.getByRole("button", { name: "付箋を書き直す" });
+      const addMore = controls.getByRole("button", { name: /^付箋を書き/ });
       expect(addMore).toBeEnabled();
       fireEvent.click(addMore);
+      expect(props.onRestartWriting).not.toHaveBeenCalled();
+      const dialog = screen.getByRole("alertdialog", {
+        name: `全員で${phase}-1に戻って、付箋を書き足しますか？`,
+      });
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: "キャンセル" }),
+      );
+      expect(props.onRestartWriting).not.toHaveBeenCalled();
+      fireEvent.click(addMore);
+      fireEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", {
+          name: "付箋を書き足す",
+        }),
+      );
       expect(props.onRestartWriting).toHaveBeenCalledOnce();
       expect(
         controls.queryByRole("button", { name: "共有を続ける" }),
@@ -3739,6 +3753,68 @@ describe("反復ワークフロー", () => {
       expect(screen.queryByRole("alertdialog")).toBeNull();
     },
   );
+  it("共有中には書き足し操作を出さず、一巡したときに表示する", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(2),
+      sharing: buildSharingState({ status: "active", startsAt: null }),
+      onRestartWriting: vi.fn(),
+    });
+    expect(screen.queryByRole("button", { name: "付箋を書き足す" })).toBeNull();
+    rerender(
+      <TestBoardView
+        {...props}
+        sharing={buildSharingState({
+          status: "complete",
+          currentIndex: null,
+          results: ["done", "done", "done"],
+        })}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "付箋を書き足す" }),
+    ).toBeEnabled();
+  });
+
+  it("書き足しの確認中に切断したら確認を閉じ、再接続まで操作を止める", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(2),
+      sharing: buildSharingState({ status: "complete" }),
+      onRestartWriting: vi.fn(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^付箋を書き/ }));
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    rerender(<TestBoardView {...props} connectionStatus="reconnecting" />);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "付箋を書き足す" }),
+    ).toBeDisabled();
+    expect(props.onRestartWriting).not.toHaveBeenCalled();
+  });
+
+  it("確認後の送信待ちでは重複操作を止め、失敗後はもう一度確認できる", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(2),
+      sharing: buildSharingState({ status: "complete" }),
+      onRestartWriting: vi.fn(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^付箋を書き/ }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "付箋を書き足す",
+      }),
+    );
+    rerender(<TestBoardView {...props} isNextPhasePending />);
+    expect(screen.getByRole("button", { name: "切り替え中…" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "次のステップへ" }),
+    ).toBeDisabled();
+    expect(props.onRestartWriting).toHaveBeenCalledOnce();
+    rerender(<TestBoardView {...props} isNextPhasePending={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    expect(props.onRestartWriting).toHaveBeenCalledOnce();
+  });
+
   it("採用前は次への操作を無効にして再投票を確認できる", () => {
     setup({
       phase: buildPhaseStep(5),
@@ -4955,8 +5031,12 @@ it.each([1, 3] as const)(
       phase: buildPhaseStep(3, phaseNumber),
       onRestartWriting: vi.fn(),
     });
-    fireEvent.click(screen.getByRole("button", { name: "もう一度付箋を書く" }));
-    fireEvent.click(screen.getByRole("button", { name: "個人作業へ戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "付箋を書き足す",
+      }),
+    );
     expect(props.onRestartWriting).toHaveBeenCalledOnce();
   },
 );

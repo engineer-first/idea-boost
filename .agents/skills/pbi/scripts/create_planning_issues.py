@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-PBI_GENRE_PATTERN = r"[A-Z][A-Z0-9]*"
 STORY_POINTS = (0.1, 1, 2, 3, 5, 8, 13)
 
 
@@ -92,7 +91,8 @@ def bullet_list(items):
 
 
 def issue_title(item):
-    return f"{item['id']} {item['title']}"
+    """種類は Issue Type、番号は #番号 で分かるため、タイトルは主題だけにする。"""
+    return item["title"]
 
 
 def demo_section(demo):
@@ -150,20 +150,11 @@ def validate_spec(spec):
         if key not in pbi:
             raise ValueError(f"pbi.{key} is required")
         require_string(pbi[key], f"pbi.{key}")
-    genre = pbi.get("genre")
-    if genre is not None and (
-        not isinstance(genre, str) or not re.fullmatch(PBI_GENRE_PATTERN, genre)
-    ):
-        raise ValueError("pbi.genre must start with an uppercase letter and use uppercase letters/digits")
-    if pbi.get("id") is not None:
-        pbi_id = require_string(pbi["id"], "pbi.id")
-        match = re.fullmatch(r"PBI-(" + PBI_GENRE_PATTERN + r")-\d{2,}", pbi_id)
-        if not match and not re.fullmatch(r"PBI-\d{2,}", pbi_id):
-            raise ValueError("pbi.id must use PBI-GENRE-XX format (legacy PBI-XX is preserved)")
-        if match and genre is not None and match[1] != genre:
-            raise ValueError("pbi.genre must match the genre in pbi.id")
-    elif genre is None:
-        raise ValueError("pbi.genre is required when pbi.id is omitted")
+    for key in ["id", "genre"]:
+        if key in pbi:
+            raise ValueError(
+                f"pbi.{key} is no longer used: PBI titles carry no PBI-/genre prefix; put only the subject in pbi.title"
+            )
     require_optional_string(pbi.get("why"), "pbi.why")
     require_list(pbi.get("acceptance"), "pbi.acceptance")
     require_list(pbi.get("memo"), "pbi.memo")
@@ -290,28 +281,9 @@ def status_field(fields):
     return field["name"], field["id"]
 
 
-def assign_pbi_id(spec, issue_number):
-    """GitHub が採番した Issue 番号を使い、自動採番同士の競合をなくす。"""
-    pbi = spec["pbi"]
-    if not pbi.get("id"):
-        pbi["id"] = f"PBI-{pbi['genre']}-{issue_number:02d}"
-    return pbi["id"]
-
-
 def create_pbi_issue(spec):
-    """Issue 作成後に ID を確定し、改題の失敗時は復旧先を知らせる。"""
     pbi = spec["pbi"]
-    initial_title = issue_title(pbi) if pbi.get("id") else pbi["title"]
-    created = create_issue(spec["repo"], initial_title, pbi_body(spec), "PBI", spec.get("milestone"))
-    assign_pbi_id(spec, created["number"])
-    if initial_title != issue_title(pbi):
-        try:
-            run(["gh", "issue", "edit", created["url"], "--title", issue_title(pbi)])
-        except RuntimeError as exc:
-            raise RuntimeError(
-                f"PBI was created: {created['url']}; title update failed. "
-                f"Rename it to {issue_title(pbi)!r}; do not rerun creation. {exc}"
-            ) from exc
+    created = create_issue(spec["repo"], issue_title(pbi), pbi_body(spec), "PBI", spec.get("milestone"))
     result = set_story_points_if_empty(spec["repo"], created["number"], pbi.get("story_points"))
     if pbi.get("story_points") is not None:
         print(f"Story points: {result} ({created['url']})")
@@ -341,11 +313,7 @@ def set_project_status(item_id, project_id_value, status_field_id, status_option
 
 
 def render_dry_run(spec):
-    """未採番なら仮 ID で表示し、元の spec と GitHub を変更しない。"""
-    if not spec["pbi"].get("id"):
-        preview_id = f"PBI-{spec['pbi']['genre']}-00"
-        print(f"{preview_id} は仮表示です。ID は作成された Issue 番号で確定します。")
-        spec = {**spec, "pbi": {**spec["pbi"], "id": preview_id}}
+    """GitHub を変更せず、作成されるタイトルと本文を表示する。"""
     pbi = spec["pbi"]
     print(f"# {issue_title(pbi)}")
     print(pbi_body(spec))
