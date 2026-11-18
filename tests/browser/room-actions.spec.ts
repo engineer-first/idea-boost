@@ -68,13 +68,13 @@ for (const width of [390, 1280]) {
           document.getAnimations().map((animation) => animation.finished),
         );
       });
-      expect(await dialog.innerText()).not.toContain("解散");
+      expect(await dialog.textContent()).not.toContain("解散");
       await page.keyboard.press("Escape");
       await dialog.waitFor({ state: "hidden" });
       await expect
         .poll(() => menu.evaluate((node) => node === document.activeElement))
         .toBe(true);
-      expect(await page.getByRole("timer").innerText()).toContain("02:18");
+      expect(await page.getByRole("timer").textContent()).toContain("02:18");
     },
   );
 }
@@ -90,7 +90,7 @@ test("ロビーの退出を取り消すと退出ボタンへ戻り、参加者�
       document.getAnimations().map((animation) => animation.finished),
     );
   });
-  expect(await dialog.innerText()).not.toContain("解散");
+  expect(await dialog.textContent()).not.toContain("解散");
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
   await expect

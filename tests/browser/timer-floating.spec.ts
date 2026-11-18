@@ -226,7 +226,7 @@ test("幅982pxでマイ付箋を開いてもタイマーを右上HUDの下に保
 });
 
 test.each([1280, 900, 640, 390, 320])(
-  "幅%dの共有完了操作は上部の書き直しと次へにまとまる",
+  "幅%dの共有完了後は書き足しの確認と次への操作に到達できる",
   async (width) => {
     const page = await browser.newPage({
       viewport: { width, height: 900 },
@@ -239,7 +239,7 @@ test.each([1280, 900, 640, 390, 320])(
       const controls = page.getByTestId("board-control-hud");
       await controls.waitFor();
       expect(await page.getByTestId("timer-floating").count()).toBe(0);
-      for (const name of ["付箋を書き直す", "次のステップへ"]) {
+      for (const name of ["付箋を書き足す", "次のステップへ"]) {
         const b = controls.getByRole("button", { name, exact: true });
         expect(await b.isVisible()).toBe(true);
         const r = await b.boundingBox();
@@ -264,8 +264,36 @@ test.each([1280, 900, 640, 390, 320])(
           .count(),
       ).toBe(0);
       await controls
-        .getByRole("button", { name: "付箋を書き直す", exact: true })
-        .click({ trial: true });
+        .getByRole("button", { name: "付箋を書き足す", exact: true })
+        .click();
+      const dialog = page.getByRole("alertdialog", {
+        name: "全員で1-1に戻って、付箋を書き足しますか？",
+      });
+      await dialog.waitFor();
+      const bounds = await dialog.boundingBox();
+      expect(bounds?.x).toBeGreaterThanOrEqual(0);
+      expect(bounds ? bounds.x + bounds.width : Infinity).toBeLessThanOrEqual(
+        width,
+      );
+      for (const name of ["キャンセル", "付箋を書き足す"]) {
+        const action = dialog.getByRole("button", { name, exact: true });
+        expect(await action.isVisible()).toBe(true);
+        expect(
+          await action.evaluate(
+            (element) => element.scrollWidth <= element.clientWidth,
+          ),
+        ).toBe(true);
+        await action.click({ trial: true });
+      }
+      await dialog.getByRole("button", { name: "キャンセル" }).press("Escape");
+      await dialog.waitFor({ state: "hidden" });
+      await expect
+        .poll(() =>
+          controls
+            .getByRole("button", { name: "付箋を書き足す", exact: true })
+            .evaluate((element) => document.activeElement === element),
+        )
+        .toBe(true);
     } finally {
       await page.close();
     }
@@ -281,7 +309,7 @@ test("最後の発表者のできた後に上部から次の操作を選べる",
     await page.getByRole("button", { name: "できた！", exact: true }).click();
     const controls = page.getByTestId("board-control-hud");
     await controls
-      .getByRole("button", { name: "付箋を書き直す", exact: true })
+      .getByRole("button", { name: "付箋を書き足す", exact: true })
       .waitFor();
     expect(
       await controls

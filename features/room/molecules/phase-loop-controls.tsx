@@ -19,6 +19,7 @@ import {
   type RoomPhase,
 } from "@/contracts/phase";
 import { AdoptNoteControl } from "./adopt-note-control";
+import { RestartWritingConfirmDialog } from "./restart-writing-confirm-dialog";
 
 export type PhaseLoopControlsProps = {
   phase: RoomPhase;
@@ -27,6 +28,7 @@ export type PhaseLoopControlsProps = {
   candidateCount: number;
   disabled: boolean;
   selectionDisabled?: boolean;
+  pending?: boolean;
   onRestartWriting: () => void;
   onRevote: () => void;
   onStartSelection: () => void;
@@ -41,13 +43,14 @@ export function PhaseLoopControls({
   candidateCount,
   disabled,
   selectionDisabled = false,
+  pending = false,
   onRestartWriting,
   onRevote,
   onStartSelection,
   onCancelSelection,
   onClearDecision,
 }: PhaseLoopControlsProps) {
-  const [dialog, setDialog] = useState<"writing" | "revote" | null>(null);
+  const [revoteOpen, setRevoteOpen] = useState(false);
   if (phase.kind !== "step") return null;
   const isResult = isResultStep(phase);
   const canRestart = isRestartWritingAllowedStep(phase);
@@ -76,48 +79,40 @@ export function PhaseLoopControls({
         </p>
       ) : null}
       <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl border border-border bg-background p-2 shadow-tool">
-        {!isSelecting ? (
-          <AlertDialog
-            open={dialog !== null}
-            onOpenChange={(open) =>
-              setDialog(open ? (canRestart ? "writing" : "revote") : null)
-            }
-          >
+        {!isSelecting && canRestart ? (
+          <RestartWritingConfirmDialog
+            phaseNumber={phase.phase}
+            disabled={disabled}
+            pending={pending}
+            onConfirm={onRestartWriting}
+          />
+        ) : !isSelecting ? (
+          <AlertDialog open={revoteOpen} onOpenChange={setRevoteOpen}>
             <AlertDialogTrigger asChild>
               <Button
                 type="button"
                 variant="outline"
-                disabled={disabled || (isResult && candidateCount === 0)}
+                disabled={disabled || candidateCount === 0}
               >
-                {canRestart ? "もう一度付箋を書く" : "もう一度投票する"}
+                もう一度投票する
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent
-              aria-describedby={
-                dialog === "writing" ? undefined : "revote-description"
-              }
-            >
+            <AlertDialogContent aria-describedby="revote-description">
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  {dialog === "writing"
-                    ? "もう少し考えるために、個人作業へ戻りますか？"
-                    : `候補${candidateCount}件に投票し直しますか？`}
+                  候補{candidateCount}件に投票し直しますか？
                 </AlertDialogTitle>
-                {dialog === "revote" && (
-                  <AlertDialogDescription id="revote-description">
-                    付箋は消えません。
-                  </AlertDialogDescription>
-                )}
+                <AlertDialogDescription id="revote-description">
+                  付箋は消えません。
+                </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>キャンセル</AlertDialogCancel>
                 <AlertDialogAction
-                  disabled={disabled || (isResult && candidateCount === 0)}
-                  onClick={dialog === "writing" ? onRestartWriting : onRevote}
+                  disabled={disabled || candidateCount === 0}
+                  onClick={onRevote}
                 >
-                  {dialog === "writing"
-                    ? "個人作業へ戻る"
-                    : "前回の票を消して始める"}
+                  前回の票を消して始める
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

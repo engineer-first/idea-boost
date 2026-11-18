@@ -93,7 +93,7 @@ for (const width of [1280, 375]) {
       const decision = page.getByRole("region", {
         name: `採用する${label}の確定状態`,
       });
-      expect(await decision.innerText()).toContain(content);
+      expect(await decision.textContent()).toContain(content);
       expect(await page.locator("[data-adopt-target]").count()).toBe(0);
       if (phase === "3-5") {
         expect(await complete.isEnabled()).toBe(true);
@@ -102,7 +102,7 @@ for (const width of [1280, 375]) {
         await page
           .getByRole("button", { name: "キャンセル", exact: true })
           .click();
-        expect(await decision.innerText()).toContain(content);
+        expect(await decision.textContent()).toContain(content);
       }
       await page.screenshot({
         path: `${output}/${phase}-${width}-reselected.png`,

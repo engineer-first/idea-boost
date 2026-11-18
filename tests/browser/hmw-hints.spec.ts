@@ -258,7 +258,7 @@ test("動きを減らす設定では雲・ワード・キャラクターの浮�
   );
   const nudge = page.getByRole("button", { name: /こんな問い方も.*あるかも/ });
   await nudge.waitFor();
-  expect(await nudge.innerText()).toBe("こんな問い方も\nあるかも...");
+  expect(await nudge.textContent()).toBe("こんな問い方もあるかも...");
   await nudge.click();
   const dialog = page.getByRole("dialog", { name: "問いのヒント" });
   await dialog.waitFor();

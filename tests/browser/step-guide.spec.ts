@@ -103,7 +103,7 @@ test("1-1の2枚目で付箋追加の実操作動画を読み込み、3枚目で
     ).toEqual({ muted: true, loop: true, width: 960, height: 300 });
     await dialog.getByRole("button", { name: "次へ" }).click();
     await expect
-      .poll(() => dialog.locator("h2").first().innerText())
+      .poll(() => dialog.locator("h2").first().textContent())
       .toMatch(/タイマー/);
   } finally {
     await page.close();

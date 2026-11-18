@@ -971,6 +971,7 @@ export function RoomBoardView({
           isRemovingMember
         }
         selectionDisabled={boardInteractionBlocked}
+        pending={isNextPhasePending}
         onRestartWriting={onRestartWriting}
         onRevote={onRevote}
         onStartSelection={() => {

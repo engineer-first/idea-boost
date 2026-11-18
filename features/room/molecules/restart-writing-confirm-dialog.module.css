@@ -1,0 +1,51 @@
+.trigger {
+  width: 132px;
+  gap: 4px;
+  padding-inline: 6px;
+  font-weight: 700;
+}
+
+.trigger:enabled {
+  border-color: color-mix(
+    in oklab,
+    var(--ib-color-primary) 25%,
+    var(--ib-color-line)
+  );
+  background: var(--ib-color-primary-soft);
+  color: var(--ib-color-primary-strong);
+}
+
+.trigger:enabled:is(:hover, :focus-visible) {
+  border-color: color-mix(
+    in oklab,
+    var(--ib-color-primary) 45%,
+    var(--ib-color-line)
+  );
+  background: color-mix(
+    in oklab,
+    var(--ib-color-primary) 12%,
+    var(--ib-color-surface)
+  );
+}
+
+.icon {
+  transition: transform 160ms ease-out;
+}
+
+.trigger:enabled:is(:hover, :focus-visible) .icon {
+  transform: translateY(-1px) rotate(-6deg);
+}
+
+.trigger:enabled:active .icon {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon {
+    transition: none;
+  }
+
+  .trigger:enabled:is(:hover, :focus-visible) .icon {
+    transform: none;
+  }
+}

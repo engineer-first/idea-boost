@@ -225,7 +225,7 @@ test("コピー拒否時の全文をキーボードで選択でき、再試行�
     expect(text).toContain("出力日: 2026/10/15 11:34");
     for (const noteId of ["outcome-issue", "outcome-hmw", "outcome-idea"]) {
       const note = retryPage.locator(`[data-note-id="${noteId}"]`);
-      expect(text).toContain(await note.locator("p").innerText());
+      expect(text).toContain(await note.locator("p").textContent());
     }
     await retryPage.keyboard.press("Tab");
     expect(

@@ -83,7 +83,7 @@ test.each([
     await page.getByRole("alertdialog").waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "参加者 1人" }).click();
     expect(await page.getByText("Hana Sato", { exact: true }).count()).toBe(0);
-    expect(await page.getByRole("timer").innerText()).toContain("02:18");
+    expect(await page.getByRole("timer").textContent()).toContain("02:18");
   },
 );
 test("ロビーでも確認・拒否・再試行を通して退出できる", async () => {
@@ -184,7 +184,7 @@ test.each([
   await expect
     .poll(() => trigger.evaluate((node) => node === document.activeElement))
     .toBe(true);
-  expect(await page.getByRole("timer").innerText()).toContain("02:18");
+  expect(await page.getByRole("timer").textContent()).toContain("02:18");
 });
 
 test("切断中は除外を確定できず、再接続後に同じ確認を実行できる", async () => {

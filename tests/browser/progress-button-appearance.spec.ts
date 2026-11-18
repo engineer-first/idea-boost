@@ -29,14 +29,14 @@ test.each([1280, 390])(
       const presenter = page.getByRole("button", {
         name: "発表者と全体の順番を確認",
       });
-      const first = await presenter.innerText();
+      const first = await presenter.textContent();
       expect(
         await page
           .getByRole("button", { name: /次の人へ|共有を終える|次のステップへ/ })
           .count(),
       ).toBe(0);
       await complete.click();
-      await expect.poll(() => presenter.innerText()).not.toBe(first);
+      await expect.poll(() => presenter.textContent()).not.toBe(first);
       expect(await complete.isEnabled()).toBe(true);
       await complete.click();
       await page.getByRole("button", { name: "次のステップへ" }).waitFor();
