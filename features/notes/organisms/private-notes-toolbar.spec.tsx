@@ -127,37 +127,36 @@ describe("PrivateNotesToolbar", () => {
     },
   );
 
-  it("workspaceで選択中の付箋の隣から続けて付箋を追加できる", () => {
+  it("workspaceでは付箋を追加ボタンを最後の付箋の直後に1つだけ置き、選択中の付箋の隣には出さない", () => {
     const onAdd = vi.fn(() => "op-1");
-    const notes = [
-      buildNote({ id: "a", visibility: "private", content: "A" }),
-      buildNote({ id: "b", visibility: "private", content: "B" }),
-    ];
-    const props = {
-      notes,
-      disabled: false,
-      selectedNoteId: "a",
-      canCreateNote: true,
-      canDeleteNote: true,
-      canMoveNote: true,
-      canEditNote: true,
-      onSelect: vi.fn(),
-      onAdd,
-      onContentChange: vi.fn(),
-      onDelete: vi.fn(),
-      onDragStart: vi.fn(),
-      presentation: "workspace" as const,
-    };
-    const { rerender } = render(<PrivateNotesToolbar {...props} />);
-    const next = screen.getByRole("button", { name: "続けて付箋を追加" });
+    render(
+      <PrivateNotesToolbar
+        notes={[
+          buildNote({ id: "a", visibility: "private", content: "A" }),
+          buildNote({ id: "b", visibility: "private", content: "B" }),
+        ]}
+        disabled={false}
+        selectedNoteId="a"
+        canCreateNote
+        canDeleteNote
+        canMoveNote
+        canEditNote
+        onSelect={vi.fn()}
+        onAdd={onAdd}
+        onContentChange={vi.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+        presentation="workspace"
+      />,
+    );
+    const [add, ...rest] = screen.getAllByRole("button", {
+      name: "付箋を追加",
+    });
+    expect(rest).toHaveLength(0);
     const cards = screen.getAllByTestId("note-card");
-    expect(cards[0].nextElementSibling).toBe(next);
-    fireEvent.click(next);
+    expect(cards[cards.length - 1].nextElementSibling).toBe(add);
+    fireEvent.click(add);
     expect(onAdd).toHaveBeenCalledTimes(1);
-    rerender(<PrivateNotesToolbar {...props} selectedNoteId={null} />);
-    expect(
-      screen.queryByRole("button", { name: "続けて付箋を追加" }),
-    ).toBeNull();
   });
 
   it("workspaceからdockへ切り替わるとマイ付箋を展開する", () => {
