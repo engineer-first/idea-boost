@@ -77,7 +77,7 @@ describe("キャラクターの一言", () => {
     );
     expect(new Set(messages).size).toBe(4);
   });
-  it("コツの時刻に0枚案内が重なっても8秒間優先する", () => {
+  it("コツの時刻に0枚案内が重なっても15秒間優先する", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     const { result, rerender } = renderHook(
@@ -109,7 +109,7 @@ describe("キャラクターの一言", () => {
     );
     const first = result.current.message;
     expect(first).toBeTruthy();
-    act(() => vi.advanceTimersByTime(8_000));
+    act(() => vi.advanceTimersByTime(15_000));
     expect(result.current.message).toBeNull();
     rerender({ step: 2 });
     expect(result.current.message).toBeTruthy();
@@ -122,8 +122,8 @@ describe("キャラクターの一言", () => {
       useCharacterHint({ phase, timer: long, serverOffsetMs: 0, noteCount: 1 }),
     );
     const shown: string[] = [result.current.message ?? ""];
-    act(() => vi.advanceTimersByTime(8_000));
-    for (let second = 9; second <= 600; second += 1) {
+    act(() => vi.advanceTimersByTime(15_000));
+    for (let second = 16; second <= 600; second += 1) {
       act(() => vi.advanceTimersByTime(1_000));
       const message = result.current.message;
       if (message && message !== shown.at(-1)) {
@@ -145,9 +145,9 @@ describe("キャラクターの一言", () => {
       }),
     );
     expect(result.current.message).toContain("最近困ったこと");
-    act(() => vi.advanceTimersByTime(8_000));
+    act(() => vi.advanceTimersByTime(15_000));
     expect(result.current.message).toBeNull();
-    act(() => vi.advanceTimersByTime(71_000));
+    act(() => vi.advanceTimersByTime(64_000));
     expect(result.current.message).toBeNull();
     act(() => vi.advanceTimersByTime(1_000));
     expect(result.current.message).toBeTruthy();
@@ -174,7 +174,7 @@ describe("キャラクターの一言", () => {
     act(() => vi.advanceTimersByTime(30_000));
     expect(result.current.message).toBeTruthy();
   });
-  it("個人作業で30秒書いていないと案内し、8秒後に消える", () => {
+  it("個人作業で30秒書いていないと案内し、15秒後に消える", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     const { result } = renderHook(() =>
@@ -188,7 +188,7 @@ describe("キャラクターの一言", () => {
     expect(result.current.message).toContain("最近困ったこと");
     act(() => vi.advanceTimersByTime(30_000));
     expect(result.current.message).toContain("1枚");
-    act(() => vi.advanceTimersByTime(8_000));
+    act(() => vi.advanceTimersByTime(15_000));
     expect(result.current.message).toBeNull();
   });
   it("残り30秒と時間切れを優先し、同じ案内を繰り返さない", () => {
@@ -204,9 +204,9 @@ describe("キャラクターの一言", () => {
     );
     act(() => vi.advanceTimersByTime(1_000));
     expect(result.current.message).toContain("残り30秒");
-    act(() => vi.advanceTimersByTime(10_000));
+    act(() => vi.advanceTimersByTime(15_000));
     expect(result.current.message).toBeNull();
-    act(() => vi.advanceTimersByTime(20_000));
+    act(() => vi.advanceTimersByTime(15_000));
     expect(result.current.message).toContain("時間");
   });
   it("停止中・ロビー・切断中は自動案内せず、工程変更で過去の案内を消す", () => {
@@ -286,7 +286,7 @@ describe("キャラクターの一言", () => {
             status === "ended" ? { status, durationMs: 180_000 } : { status },
         });
       }
-      act(() => vi.advanceTimersByTime(8_000));
+      act(() => vi.advanceTimersByTime(15_000));
       rerender({ timer: { ...running, endsAt: Date.now() + 180_000 } });
       expect(result.current.message).toBeNull();
       act(() => vi.advanceTimersByTime(29_000));
@@ -396,7 +396,24 @@ describe("キャラクターの一言", () => {
     act(() => vi.advanceTimersByTime(1_000));
     expect(result.current.message).toContain("小さな不便");
   });
-  it("StrictModeでも最初の一言が8秒で消える", () => {
+  it("一言は15秒間表示し続けてから消える", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(160_000);
+    const { result } = renderHook(() =>
+      useCharacterHint({
+        phase,
+        timer: running,
+        serverOffsetMs: 0,
+        noteCount: 1,
+      }),
+    );
+    expect(result.current.message).not.toBeNull();
+    act(() => vi.advanceTimersByTime(14_000));
+    expect(result.current.message).not.toBeNull();
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(result.current.message).toBeNull();
+  });
+  it("StrictModeでも最初の一言が15秒で消える", () => {
     vi.useFakeTimers();
     vi.setSystemTime(160_000);
     const { result } = renderHook(
@@ -410,7 +427,7 @@ describe("キャラクターの一言", () => {
       { wrapper: ({ children }) => createElement(StrictMode, null, children) },
     );
     expect(result.current.message).not.toBeNull();
-    act(() => vi.advanceTimersByTime(8_000));
+    act(() => vi.advanceTimersByTime(15_000));
     expect(result.current.message).toBeNull();
   });
 });

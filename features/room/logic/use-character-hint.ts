@@ -126,7 +126,7 @@ export function useCharacterHint({
   active = true,
   tipsEnabled = true,
 }: CharacterHintOptions): { message: string | null } {
-  // 同じ文言の案内でも8秒を数え直すよう、表示ごとに新しいオブジェクトにする。
+  // 同じ文言の案内でも15秒を数え直すよう、表示ごとに新しいオブジェクトにする。
   const [hint, setHint] = useState<{ text: string } | null>(null);
   const stepHints =
     tipsEnabled && phase.kind === "step"
@@ -147,7 +147,7 @@ export function useCharacterHint({
   // 非表示タイマーを表示状態に連動させ、StrictModeの再実行でも登録し直す。
   useEffect(() => {
     if (!hint) return;
-    const timeout = setTimeout(() => setHint(null), 8_000);
+    const timeout = setTimeout(() => setHint(null), 15_000);
     return () => clearTimeout(timeout);
   }, [hint]);
 

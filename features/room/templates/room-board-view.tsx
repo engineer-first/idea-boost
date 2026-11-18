@@ -1552,7 +1552,7 @@ export function RoomBoardView({
         ) || 16;
       root.style.setProperty(
         "--board-character-bubble-max-width",
-        `${15 * rem}px`,
+        `${22 * rem}px`,
       );
       root.style.setProperty("--board-character-bubble-top", "0.25rem");
       root.style.setProperty("--board-character-bubble-left", "100%");
