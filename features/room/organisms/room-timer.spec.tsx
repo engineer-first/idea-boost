@@ -24,6 +24,19 @@ function props() {
 }
 
 describe("RoomTimer", () => {
+  it("稼働中は経過に合わせて時計の針を回し、未開始と時間切れでは出さない", () => {
+    const { rerender } = render(
+      <RoomTimer
+        {...props()}
+        timer={buildRunningTimer({ remainingMs: 150_000, durationMs: 300_000 })}
+      />,
+    );
+    expect(screen.getByTestId("room-timer-hand")).toHaveStyle({
+      transform: "rotate(180deg)",
+    });
+    rerender(<RoomTimer {...props()} timer={buildEndedTimer()} />);
+    expect(screen.queryByTestId("room-timer-hand")).toBeNull();
+  });
   it("時間切れには1分延長を案内し、全工程で自動進行するとは案内しない", () => {
     render(<RoomTimer {...props()} timer={buildEndedTimer()} />);
     expect(screen.getByText(/1分延長できます/)).toBeInTheDocument();
