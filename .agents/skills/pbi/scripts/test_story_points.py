@@ -71,7 +71,7 @@ class StoryPointsTests(unittest.TestCase):
 
     def test_起票経路でSP失敗後も作成済みIssueを返す(self):
         spec = {"repo": "engineer-first/idea-boost", "pbi": {
-            "id": "PBI-OPS-123", "title": "成果", "story": "利用者として…", "story_points": 8}}
+            "title": "成果", "story": "利用者として…", "story_points": 8}}
         created = {"number": 123, "url": "https://github.com/engineer-first/idea-boost/issues/123"}
         with patch.object(planning, "create_issue", return_value=created) as create, \
              patch.object(planning, "run", side_effect=RuntimeError("forbidden")), \
@@ -81,7 +81,7 @@ class StoryPointsTests(unittest.TestCase):
             estimate.assert_called_once_with(spec["repo"], 123, 8)
 
     def test_dry_runはSP候補を表示し外部通信しない(self):
-        spec = {"pbi": {"id": "PBI-OPS-123", "title": "成果", "story": "利用者として…", "story_points": 0.1}}
+        spec = {"pbi": {"title": "成果", "story": "利用者として…", "story_points": 0.1}}
         with patch.object(planning, "run") as run, redirect_stdout(io.StringIO()) as output:
             planning.render_dry_run(spec)
         run.assert_not_called()
@@ -91,7 +91,7 @@ class StoryPointsTests(unittest.TestCase):
         import tempfile
         from pathlib import Path
         spec = {"repo": "engineer-first/idea-boost", "project_owner": "engineer-first", "project_number": 3,
-                "pbi": {"id": "PBI-OPS-123", "title": "成果", "story": "利用者として…", "story_points": 13}}
+                "pbi": {"title": "成果", "story": "利用者として…", "story_points": 13}}
         fields = [{"id": "status", "name": "Status", "options": [{"id": "initial", "name": "未整理"}]}]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "spec.json"
