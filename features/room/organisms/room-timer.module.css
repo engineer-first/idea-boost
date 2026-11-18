@@ -19,9 +19,13 @@
 .floating[data-timer-expanded="true"] {
   border-radius: var(--ib-rounded-xl);
 }
-/* 閉じた円はキッチンタイマーに見立て、黒い外枠を付ける */
+/* 閉じた円はキッチンタイマーに見立て、黒い外枠を付ける。
+   押せる円の寸法を変えないよう、枠の太さは外側の影で足す */
 .floating:not([data-timer-expanded="true"]) {
-  border: 3px solid var(--ib-color-ink);
+  border-color: var(--ib-color-ink);
+  box-shadow:
+    0 0 0 2px var(--ib-color-ink),
+    var(--elevation-tool);
 }
 .floating[data-dragging="true"] {
   cursor: grabbing;
@@ -37,9 +41,9 @@
 .circle {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  padding: 3px;
+  width: 72px;
+  height: 72px;
+  padding: 2px;
   border: 0;
   border-radius: 50%;
   background: var(--background);
@@ -48,8 +52,8 @@
 .disk {
   position: relative;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 66px;
+  height: 66px;
   border-radius: 50%;
 }
 /* 12・3・6・9時の目盛り。扇形の上に白く抜いて文字盤に見せる */
@@ -98,7 +102,7 @@
   height: 5px;
   border-radius: 2px;
   background: var(--ib-color-ink);
-  transform-origin: 4px 39px;
+  transform-origin: 4px 41px;
 }
 .crown::before {
   transform: rotate(-42deg);
@@ -112,8 +116,8 @@
   top: 50%;
   left: 50%;
   width: 3px;
-  height: 24px;
-  margin: -24px 0 0 -1.5px;
+  height: 26px;
+  margin: -26px 0 0 -1.5px;
   transform-origin: 50% 100%;
   border-radius: 2px;
   background: var(--ib-color-ink);
