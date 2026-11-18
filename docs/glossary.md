@@ -16,7 +16,7 @@
 | シール       | 投票で付箋に貼るもの。読み上げでは「「イチオシ！」シール」のように名前を鉤括弧で囲む。数え方は「票」。                                                                             | `DotVoteSticker`、`dotVoteStickerName` | ドット（画面では使わない）             |
 | 投票パレット | 投票ステップで、シールの種類のタグ・名前・残票を出し、シールを選んだりドラッグしたりする置き場。使い切った種類を押すと、その種類の自分の票をすべて取り消す。基準の一文は出さない。 | `DotVotePalette`                       | —                                      |
 
-コード上の `subjective` / `objective` は保存データとプロトコルの互換のために残している（[ADR 0028](adr/0028-vote-sticker-display-names.md)）。画面に出す名前は `features/dot-vote/logic/dot-vote.ts` の `DOT_VOTE_LABELS`、種類のタグは同じファイルの `DOT_VOTE_KIND_TAGS` から使う。dot-vote に依存しない LP（`landing-board-copy.ts`・`landing-copy.ts`）と運営画面（`shared-outcome-board.tsx`）は同じ名前を写して持つので、名前を変えるときはこの3か所も直す。
+コード上の `subjective` / `objective` は保存データとプロトコルの互換のために残している（[ADR 0028](adr/0028-vote-sticker-display-names.md)。内部名を変えない方針はオーナーが選んだ。3範囲をすべて改名しない比較はAIの提案で、オーナーの確認待ち）。画面に出す名前は `features/dot-vote/logic/dot-vote.ts` の `DOT_VOTE_LABELS`、種類のタグは同じファイルの `DOT_VOTE_KIND_TAGS` から使う。dot-vote に依存しない LP（`landing-board-copy.ts`・`landing-copy.ts`）と運営画面（`shared-outcome-board.tsx`）は同じ名前を写して持つので、名前を変えるときはこの3か所も直す。
 
 文書では、デザインスプリントの元の手法を指すときだけ「主観・客観の投票」と書いてよい。
 
