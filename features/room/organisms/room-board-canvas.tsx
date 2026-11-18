@@ -807,11 +807,24 @@ export function RoomBoardCanvas({
       !isDisconnected &&
       remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
     const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
+    // 他者の移動は約40msごとに届く。カーソルと同じ補間で位置をつなぎ、
+    // 自分が掴んでいる付箋（複数選択を含む）はポインターから遅らせない。
+    const ownDragAnchorId = draggingNoteId ?? localDraggingNoteId;
+    const isOwnMovingNote =
+      ownDragAnchorId !== null &&
+      (ownDragAnchorId === note.id ||
+        (selectionIds.includes(ownDragAnchorId) &&
+          selectionIds.includes(note.id)));
+    const positionTransition = usesIdeaMapViewport
+      ? `${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none`
+      : isOwnMovingNote
+        ? ""
+        : "transition-[left,top] duration-100 ease-out motion-reduce:transition-none";
 
     return (
       <div
         key={note.id}
-        className={`isolate pointer-events-auto absolute ${usesIdeaMapViewport ? `${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none` : ""}`}
+        className={`isolate pointer-events-auto absolute ${positionTransition}`}
         data-testid={
           isIdeaValueFeasibilityMapVisible
             ? `idea-value-feasibility-map-note-${note.id}`

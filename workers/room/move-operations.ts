@@ -58,6 +58,10 @@ type StoredRequest = {
   historyExpected?: HistoryExpected;
 };
 export const MOVE_LEASE_MS = 15_000;
+// 1ユーザーが1分間に開始できる移動（Undo/Redoを含む）の上限。
+// 短い移動を続けて並べ替える操作では1分60回を超えるため、人の操作では
+// 届かない毎秒10回を上限にし、機械的な大量送信だけを止める。
+export const MOVE_OPERATIONS_PER_MINUTE = 600;
 export const MOVE_RECEIPT_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 export function moveRevisions(sql: SqlStorage): {
@@ -627,7 +631,7 @@ export const moveHandlers: MessageHandlers<
         ),
       );
     if (
-      recent >= 60 ||
+      recent >= MOVE_OPERATIONS_PER_MINUTE ||
       !sourceReceipt?.changed ||
       source?.user_id !== ctx.userId ||
       source.connection_id !== connectionId(ctx) ||
@@ -873,7 +877,7 @@ export const moveHandlers: MessageHandlers<
     const request: StoredRequest = { start: message, before: [] };
     const rows = validate(ctx, request);
     if (
-      recent >= 60 ||
+      recent >= MOVE_OPERATIONS_PER_MINUTE ||
       unique.size !== message.targets.length ||
       !rows ||
       rows.some(

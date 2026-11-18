@@ -84,6 +84,22 @@ function setup() {
 }
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
+describe("ドラッグ中の途中位置の送信", () => {
+  it("掴んでいる間は40msごとに最新の途中位置を他者向けに送る", () => {
+    const h = setup();
+    h.start();
+    const previews = () =>
+      h.send.mock.calls
+        .map(([message]) => message)
+        .filter((message) => message.type === "note:move:preview");
+    act(() => h.result.current.moveNote(N, 110, 100));
+    act(() => h.result.current.moveNote(N, 120, 100));
+    expect(previews()).toHaveLength(1);
+    act(() => vi.advanceTimersByTime(40));
+    expect(previews()).toHaveLength(2);
+    expect(previews().at(-1)).toMatchObject({ delta: { x: 20, y: 0 } });
+  });
+});
 describe("保存待ち中の連続移動", () => {
   it("3回の短い移動を即時表示し、各成功の版で順番に保存する", () => {
     const h = setup();

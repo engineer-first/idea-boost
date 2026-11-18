@@ -121,8 +121,9 @@ export const NOTE_SPAWN_X_MIN = 800;
 export const NOTE_SPAWN_Y_MIN = 500;
 export const NOTE_SPAWN_JITTER = 200;
 
-// ドラッグ中のnote-drag配信を間引く間隔（ミリ秒）。
-export const DRAG_BROADCAST_THROTTLE_MS = 80;
+// ドラッグ中の途中位置（note:move:preview）を送る間隔（ミリ秒）。
+// 他者の画面で付箋がカーソルと一緒に滑らかに動くよう、毎秒25回まで送る。
+export const DRAG_BROADCAST_THROTTLE_MS = 40;
 
 // pointerdownからこの距離(px)を超えて動いたらドラッグとみなす閾値。
 // クリック（選択・編集開始）とドラッグ（移動）を同じポインター操作から

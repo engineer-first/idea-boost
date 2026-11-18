@@ -1,7 +1,8 @@
 import { isCursorSharingAllowed, type RoomPhase } from "@/contracts/phase";
 import type { CursorPresence, ServerMessage } from "@/contracts/room-protocol";
 
-export const CURSOR_SEND_INTERVAL_MS = 80;
+// 付箋の途中位置と同じ間隔で送り、他者の画面でカーソルと付箋をずらさない。
+export const CURSOR_SEND_INTERVAL_MS = 40;
 export const CURSOR_IDLE_AFTER_MS = 3_000;
 
 export type RemoteCursorPresence = CursorPresence & {
