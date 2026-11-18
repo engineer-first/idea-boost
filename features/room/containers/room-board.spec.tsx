@@ -293,7 +293,7 @@ function connectWithSnapshot(
     ideaMapSizeLevel?: number;
     ideaMapSizeInitialized?: boolean;
     ideaMapDragging?: boolean;
-    moveProtocolVersion?: 1;
+    moveProtocolVersion?: 1 | null;
     noteCreateProtocolVersion?: 1 | null;
     sharing?: SharingState | null;
     members?: Array<{ userId: string; name: string; color: "yellow" | "blue" }>;
@@ -309,7 +309,9 @@ function connectWithSnapshot(
   act(() =>
     socket.simulateServerMessage({
       type: "snapshot",
-      moveProtocolVersion: options?.moveProtocolVersion,
+      // RoomDO は常に移動プロトコル v1 を返す。
+      moveProtocolVersion:
+        options?.moveProtocolVersion === null ? undefined : 1,
       noteCreateProtocolVersion:
         options?.noteCreateProtocolVersion === null ? undefined : 1,
       phaseRevision: 0,
@@ -777,12 +779,8 @@ describe("問いの投票中の付箋移動", () => {
     move(81);
     const firstMove = socket.sent
       .map((raw) => JSON.parse(raw))
-      .find((message) => message.type === "note:drag:end");
-    expect(firstMove).toMatchObject({
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      position: expect.not.objectContaining({ x: 100, y: 100 }),
-    });
+      .find((message) => message.type === "note:move:commit");
+    expect(firstMove?.delta).not.toEqual({ x: 0, y: 0 });
     expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
       expect.objectContaining({ type: expect.stringMatching(/vote/) }),
     );
@@ -792,8 +790,9 @@ describe("問いの投票中の付箋移動", () => {
     ).toHaveStyle({ left: "20%", top: "30%" });
     act(() => {
       socket.simulateServerMessage({
-        type: "note:updated",
-        note: { ...note, ...firstMove.position },
+        type: "note:move:result",
+        operationId: firstMove.operationId,
+        status: "accepted",
       });
       socket.simulateServerMessage({
         type: "phase:updated",
@@ -812,7 +811,7 @@ describe("問いの投票中の付箋移動", () => {
     expect(
       socket.sent
         .map((raw) => JSON.parse(raw))
-        .filter((message) => message.type === "note:drag:end"),
+        .filter((message) => message.type === "note:move:commit"),
     ).toHaveLength(2);
   });
 });
@@ -1818,12 +1817,11 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     const move = socket.sent
       .map((payload) => JSON.parse(payload) as Record<string, unknown>)
-      .find((message) => message.type === "note:drag:end");
-    expect(move).toMatchObject({
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      position: expect.not.objectContaining({ x: dragged.x, y: dragged.y }),
-    });
+      .find((message) => message.type === "note:move:commit") as
+      | { operationId: string; delta: { x: number; y: number } }
+      | undefined;
+    expect(move?.delta).not.toEqual({ x: 0, y: 0 });
+    if (!move) throw new Error("移動の確定が送られていません");
     expect(
       screen
         .getByDisplayValue("移動する付箋")
@@ -1842,16 +1840,27 @@ describe("サーバーメッセージ → 画面反映", () => {
         .closest("[data-testid='note-card']")?.parentElement,
     ).toHaveStyle({ zIndex: "2147483647" });
 
-    act(() =>
+    act(() => {
       socket.simulateServerMessage({
-        type: "note:updated",
-        note: {
-          ...dragged,
-          ...(move?.position as { x: number; y: number }),
-          stackOrder: 10,
-        },
-      }),
-    );
+        type: "notes:moved",
+        operationId: move.operationId,
+        groups: [],
+        groupRevision: 0,
+        notes: [
+          {
+            ...dragged,
+            x: dragged.x + move.delta.x,
+            y: dragged.y + move.delta.y,
+            stackOrder: 10,
+          },
+        ],
+      });
+      socket.simulateServerMessage({
+        type: "note:move:result",
+        operationId: move.operationId,
+        status: "accepted",
+      });
+    });
     expect(
       screen
         .getByDisplayValue("移動する付箋")
@@ -2178,11 +2187,15 @@ describe("サーバーメッセージ → 画面反映", () => {
       noteId: NOTE_ID,
       privateIndex: 0,
     });
-    expectSent(socket, {
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      position: null,
-    });
+    // 移動のlockを先に解除してから非公開化し、移動は確定しない。
+    const types = socket.sent.map(
+      (raw) => (JSON.parse(raw) as { type: string }).type,
+    );
+    expect(types.indexOf("note:move:cancel")).toBeGreaterThan(-1);
+    expect(types.indexOf("note:move:cancel")).toBeLessThan(
+      types.indexOf("note:unpublish"),
+    );
+    expect(types).not.toContain("note:move:commit");
   });
 
   it("共有付箋をマイ付箋領域へ入れた瞬間に、挿入位置と追従プレビューを表示する", () => {
@@ -2424,10 +2437,14 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     const dragStarts = socket.sent
       .map(
-        (payload) => JSON.parse(payload) as { type?: string; noteId?: string },
+        (payload) =>
+          JSON.parse(payload) as {
+            type?: string;
+            targets?: Array<{ noteId: string }>;
+          },
       )
-      .filter((message) => message.type === "note:drag:start");
-    expect(dragStarts.map(({ noteId }) => noteId)).toEqual([
+      .filter((message) => message.type === "note:move:start");
+    expect(dragStarts.map(({ targets }) => targets?.[0]?.noteId)).toEqual([
       NOTE_ID,
       TARGET_NOTE_ID,
     ]);
@@ -3266,7 +3283,12 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       clientX: 110,
       clientY: 110,
     });
-    expectSent(socket, { type: "note:drag:start", noteId: NOTE_ID });
+    expect(socket.sent.map((raw) => JSON.parse(raw))).toContainEqual(
+      expect.objectContaining({
+        type: "note:move:start",
+        targets: [expect.objectContaining({ noteId: NOTE_ID })],
+      }),
+    );
 
     act(() => socket.simulateUnexpectedClose());
 
@@ -3719,12 +3741,11 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
 
       const end = socket.sent
         .map((raw) => JSON.parse(raw))
-        .find((message) => message.type === "note:drag:end");
+        .find((message) => message.type === "note:move:commit");
       // 閾値を越える移動もpointerdownからの実移動量に含め、
       // 400×400pxのマップ全体に対して最終的な110pxの移動を反映する。
-      expect(end.noteId).toBe(NOTE_ID);
-      expect(end.position.x).toBeCloseTo(25 + (110 / 400) * 100);
-      expect(end.position.y).toBeCloseTo(75 - (110 / 400) * 100);
+      expect(end.delta.x).toBeCloseTo((110 / 400) * 100);
+      expect(end.delta.y).toBeCloseTo(-(110 / 400) * 100);
       expect(canvas.style.transform).toBe(cameraBefore);
     },
   );

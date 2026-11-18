@@ -57,18 +57,13 @@ export type UseRoomBoardInteractionsArgs = {
   ideaMapSizeInitialized?: boolean;
   onNoteDragStart: (
     noteId: string,
-    privateMapLock?: boolean,
     selectedNoteIds?: readonly string[],
   ) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
-  onPrivateNoteUnpublish: (
-    noteId: string,
-    privateIndex: number,
-    preserveDragUntilPointerEnd?: boolean,
-  ) => void;
+  onPrivateNoteUnpublish: (noteId: string, privateIndex: number) => void;
   onCursorMove: (
     point: { x: number; y: number },
     draggingNoteId: string | null,
@@ -414,7 +409,6 @@ export function useRoomBoardInteractions({
     keepPrivateDragInList: phase.kind === "step" && phase.step === 1,
     canPublish,
     canReturnToPrivate,
-    lockPrivateMapDrag: isPhaseStep(phase, 3, 2) && isPublishAllowedStep(phase),
     onPublishBlocked: roomNotify.cannotPublishNote,
     onNoteDragStart,
     onNoteDragMove,
@@ -570,7 +564,7 @@ export function useRoomBoardInteractions({
         note.id === drag?.note.id &&
         (drag.status === "shared" ||
           (drag.status === "private" && drag.privateDropIndex === null))
-      ) && note.id !== draggingNoteId,
+      ),
   );
 
   const presencePointFromPointer = (

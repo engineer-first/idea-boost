@@ -1,15 +1,10 @@
 // useRoomNotes（付箋の状態とプロトコル化・楽観更新ポリシー）の単体テスト。
 // ポリシーの検証に集中する:
-// - 移動・本文は楽観更新（操作の追従性優先）
+// - 移動は移動操作として表示へ重ね、RoomDO の結果で確定する
 // - 削除は楽観しない（author 以外はサーバーが拒否するため、確定を待つ）
-// - 自分がドラッグ中の付箋へのエコーは無視する
-// - ドラッグ中の座標はスロットルして送る
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  CANVAS_COORDINATE_LIMIT,
-  DRAG_BROADCAST_THROTTLE_MS,
-} from "@/contracts/board";
+import { CANVAS_COORDINATE_LIMIT } from "@/contracts/board";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type {
   MoveReceipt,
@@ -67,41 +62,6 @@ describe("useRoomNotes", () => {
       }),
     );
   }
-
-  it("送信関数の変更中もドラッグを維持し、間引いた座標は最新の送信関数へ届ける", () => {
-    const previousSend = vi.fn(() => true);
-    const nextSend = vi.fn(() => true);
-    const hook = renderHook(
-      ({ send }) => useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
-      {
-        initialProps: { send: previousSend },
-      },
-    );
-    act(() => hook.result.current.applyMessage(snapshotMessage()));
-    act(() => {
-      hook.result.current.startNoteDrag(NOTE_ID);
-      hook.result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      });
-      hook.result.current.moveNote(NOTE_ID, 200, 300);
-      hook.result.current.moveNote(NOTE_ID, 210, 310);
-    });
-    hook.rerender({ send: nextSend });
-    act(() => vi.advanceTimersByTime(DRAG_BROADCAST_THROTTLE_MS));
-    expect(hook.result.current.draggingNoteId).toBe(NOTE_ID);
-    expect(nextSend).toHaveBeenCalledWith({
-      type: "note:drag:move",
-      noteId: NOTE_ID,
-      dragId: DRAG_ID,
-      x: 210,
-      y: 310,
-    });
-    expect(previousSend).not.toHaveBeenCalledWith(
-      expect.objectContaining({ x: 210, y: 310 }),
-    );
-  });
 
   describe("明示的なマイ付箋追加", () => {
     function setupCreation(connected = true) {
@@ -538,42 +498,6 @@ describe("useRoomNotes", () => {
     expect(result.current.snapshotVersion).toBe(2);
   });
 
-  it("採用が確定したらドラッグを止め、最後に受理された位置へ揃える", () => {
-    const { result } = setup();
-    act(() =>
-      result.current.applyMessage(
-        snapshotMessage([buildNote({ id: NOTE_ID, x: 100, y: 100 })]),
-      ),
-    );
-    act(() => result.current.startNoteDrag(NOTE_ID));
-    act(() =>
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      }),
-    );
-    act(() => result.current.moveNote(NOTE_ID, 150, 150));
-    act(() =>
-      result.current.applyMessage({
-        type: "note:updated",
-        note: buildNote({ id: NOTE_ID, x: 140, y: 140 }),
-      }),
-    );
-    act(() =>
-      result.current.applyMessage({
-        type: "decision:updated",
-        decision: {
-          phase: 1,
-          noteId: NOTE_ID,
-          decidedBy: "11111111-1111-4111-8111-111111111111",
-        },
-      }),
-    );
-    expect(result.current.draggingNoteId).toBeNull();
-    expect(result.current.notes[0]).toMatchObject({ x: 140, y: 140 });
-  });
-
   it("snapshot で notes を全置換する", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));
@@ -620,153 +544,21 @@ describe("useRoomNotes", () => {
     expect(result.current.frontNoteId).toBeNull();
   });
 
-  it("開始受理までは動かさず、受理後に最新位置だけを楽観反映して送る", () => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-
-    act(() => {
-      result.current.startNoteDrag(NOTE_ID);
-      result.current.moveNote(NOTE_ID, 200, 300);
-    });
-
-    expect(result.current.notes[0]).not.toMatchObject({ x: 200, y: 300 });
-    expect(send).toHaveBeenCalledWith({
-      type: "note:drag:start",
-      noteId: NOTE_ID,
-      dragId: DRAG_ID,
-    });
-    act(() =>
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      }),
-    );
-    expect(result.current.notes[0]).toMatchObject({ x: 200, y: 300 });
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:drag:move",
-      noteId: NOTE_ID,
-      dragId: DRAG_ID,
-      x: 200,
-      y: 300,
-    });
-
-    // インターバル内の連続移動は間引かれ、終端で最後の座標だけ送られる。
-    act(() => {
-      result.current.moveNote(NOTE_ID, 210, 310);
-      result.current.moveNote(NOTE_ID, 220, 320);
-    });
-    expect(send).toHaveBeenCalledTimes(2);
-    act(() => {
-      vi.advanceTimersByTime(DRAG_BROADCAST_THROTTLE_MS);
-    });
-    expect(send).toHaveBeenCalledTimes(3);
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:drag:move",
-      noteId: NOTE_ID,
-      dragId: DRAG_ID,
-      x: 220,
-      y: 320,
-    });
-  });
-
-  it("pointer cancel は座標なしの終了を送り、ローカル操作権を解除する", () => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-
-    act(() => {
-      result.current.startNoteDrag(NOTE_ID);
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      });
-      result.current.moveNote(NOTE_ID, 200, 300);
-    });
-    act(() => {
-      result.current.cancelNoteDrag(NOTE_ID);
-    });
-
-    expect(result.current.draggingNoteId).toBeNull();
-    expect(result.current.notes[0]).toMatchObject({ x: 100, y: 120 });
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      dragId: DRAG_ID,
-      position: null,
-    });
-  });
-
-  it("private map lockは共有前に本文付箋を隠さず、公開時に通常ドラッグへ昇格する", () => {
-    const { result } = setup();
-    act(() =>
-      result.current.applyMessage(
-        snapshotMessage([buildNote({ id: NOTE_ID, visibility: "private" })]),
-      ),
-    );
-
-    act(() => result.current.startNoteDrag(NOTE_ID, true));
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:drag:start",
-      noteId: NOTE_ID,
-      dragId: DRAG_ID,
-    });
-    act(() =>
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      }),
-    );
-    expect(result.current.draggingNoteId).toBeNull();
-
-    act(() => result.current.startNoteDrag(NOTE_ID));
-    expect(result.current.draggingNoteId).toBe(NOTE_ID);
-    expect(send).toHaveBeenCalledTimes(1);
-  });
-
-  it("returning dragをunpublishしてもpointerup用の操作を保持する", () => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-
-    act(() => {
-      result.current.startNoteDrag(NOTE_ID);
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      });
-      result.current.unpublishNote(NOTE_ID, 4, true);
-    });
-    expect(result.current.draggingNoteId).toBeNull();
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:unpublish",
-      noteId: NOTE_ID,
-      privateIndex: 4,
-    });
-
-    act(() => result.current.cancelNoteDrag(NOTE_ID));
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      dragId: DRAG_ID,
-      position: null,
-    });
-  });
-
-  it("ドロップ確定までは最前面を維持し、無関係な更新では解除しない", () => {
+  it("移動の確定応答までは最前面を維持し、無関係な更新では解除しない", () => {
     const { result } = setup();
     const initial = buildNote({ id: NOTE_ID, x: 100, y: 100, stackOrder: 4 });
     const other = buildNote({ id: TARGET_NOTE_ID, stackOrder: 5 });
-    act(() => result.current.applyMessage(snapshotMessage([initial, other])));
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage([initial, other]),
+        moveProtocolVersion: 1,
+        groupRevision: 0,
+        mapRevision: 0,
+      } as ServerMessage),
+    );
 
     act(() => {
       result.current.startNoteDrag(NOTE_ID);
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      });
       result.current.moveNote(NOTE_ID, 240, 340);
       result.current.endNoteDrag(NOTE_ID, 240, 340);
     });
@@ -783,163 +575,12 @@ describe("useRoomNotes", () => {
 
     act(() =>
       result.current.applyMessage({
-        type: "note:updated",
-        note: { ...initial, x: 240, y: 340, stackOrder: 4 },
-      }),
-    );
-    expect(result.current.frontNoteId).toBe(NOTE_ID);
-
-    act(() =>
-      result.current.applyMessage({
-        type: "note:updated",
-        note: { ...initial, x: 240, y: 340, stackOrder: 6 },
+        type: "note:move:result",
+        operationId: DRAG_ID,
+        status: "accepted",
       }),
     );
     expect(result.current.frontNoteId).toBeNull();
-  });
-
-  it.each([
-    {
-      name: "snapshot",
-      message: snapshotMessage(),
-    },
-    {
-      name: "note:deleted",
-      message: { type: "note:deleted", noteId: NOTE_ID } as ServerMessage,
-    },
-  ])("$name による再同期・削除で確定待ち最前面を解除する", ({ message }) => {
-    const { result } = setup();
-    act(() =>
-      result.current.applyMessage(
-        snapshotMessage([
-          buildNote({ id: NOTE_ID, x: 100, y: 100, stackOrder: 4 }),
-        ]),
-      ),
-    );
-    act(() => {
-      result.current.startNoteDrag(NOTE_ID);
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      });
-      result.current.endNoteDrag(NOTE_ID, 240, 340);
-    });
-    expect(result.current.frontNoteId).toBe(NOTE_ID);
-
-    act(() => result.current.applyMessage(message));
-
-    expect(result.current.frontNoteId).toBeNull();
-  });
-
-  it("pending 中の cancel は即座に終了を送り、後着の開始受理と旧 dragId を無視する", () => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-
-    act(() => {
-      result.current.startNoteDrag(NOTE_ID);
-      result.current.moveNote(NOTE_ID, 200, 300);
-      result.current.cancelNoteDrag(NOTE_ID);
-    });
-
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      dragId: DRAG_ID,
-      position: null,
-    });
-    act(() => {
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      });
-      result.current.moveNote(NOTE_ID, 400, 500);
-    });
-
-    expect(result.current.draggingNoteId).toBeNull();
-    expect(result.current.notes[0]).not.toMatchObject({ x: 200, y: 300 });
-    expect(send).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "note:drag:move", dragId: DRAG_ID }),
-    );
-  });
-
-  it("active drag の cancel 直後に元座標へ戻り、後続のサーバー確定位置も反映する", () => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-    act(() => {
-      result.current.startNoteDrag(NOTE_ID);
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      });
-      result.current.moveNote(NOTE_ID, 200, 300);
-      result.current.cancelNoteDrag(NOTE_ID);
-    });
-    expect(result.current.notes[0]).toMatchObject({ x: 100, y: 120 });
-
-    act(() =>
-      result.current.applyMessage({
-        type: "note:updated",
-        note: buildNote({ id: NOTE_ID, x: 150, y: 160 }),
-      }),
-    );
-
-    expect(result.current.notes[0]).toMatchObject({ x: 150, y: 160 });
-  });
-
-  it("受理済みの共有付箋を非公開に戻すと旧操作を局所終了し、後着応答を無視して次の付箋を開始できる", () => {
-    const nextDragId = vi
-      .fn<() => string>()
-      .mockReturnValueOnce(DRAG_ID)
-      .mockReturnValueOnce("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
-    const { result } = renderHook(() =>
-      useRoomNotes({ send, createNoteDragId: nextDragId }),
-    );
-    act(() =>
-      result.current.applyMessage(
-        snapshotMessage([
-          buildNote({ id: NOTE_ID }),
-          buildNote({ id: TARGET_NOTE_ID }),
-        ]),
-      ),
-    );
-
-    act(() => {
-      result.current.startNoteDrag(NOTE_ID);
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      });
-      result.current.moveNote(NOTE_ID, 200, 300);
-      result.current.unpublishNote(NOTE_ID);
-    });
-
-    expect(result.current.draggingNoteId).toBeNull();
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:unpublish",
-      noteId: NOTE_ID,
-    });
-    expect(send).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "note:drag:end", dragId: DRAG_ID }),
-    );
-
-    act(() => {
-      result.current.applyMessage({
-        type: "note:drag:result",
-        dragId: DRAG_ID,
-        accepted: true,
-      });
-      result.current.startNoteDrag(TARGET_NOTE_ID);
-    });
-
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:drag:start",
-      noteId: TARGET_NOTE_ID,
-      dragId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-    });
   });
 
   it("changeNoteFontSize は操作ID付きで楽観更新し、拒否時は確定値へ戻す", () => {
@@ -1492,7 +1133,7 @@ describe("transaction move", () => {
     act(() => result.current.startNoteDrag(NOTE_ID));
     act(() => result.current.moveNote(NOTE_ID, 80, 70));
     send.mockClear();
-    act(() => result.current.unpublishNote(NOTE_ID, 4, true));
+    act(() => result.current.unpublishNote(NOTE_ID, 4));
     expect(send.mock.calls.map(([message]) => message)).toEqual([
       { type: "note:move:cancel", operationId: DRAG_ID },
       { type: "note:unpublish", noteId: NOTE_ID, privateIndex: 4 },
@@ -1572,7 +1213,7 @@ describe("transaction move", () => {
       } as ServerMessage),
     );
     act(() =>
-      result.current.startNoteDrag(NOTE_ID, false, [
+      result.current.startNoteDrag(NOTE_ID, [
         NOTE_ID,
         TARGET_NOTE_ID,
         STICKER_ID,
@@ -1736,9 +1377,7 @@ it("canvas両端の集合previewとcommit deltaを位置域へclampする", () =
       mapRevision: 0,
     } as ServerMessage),
   );
-  act(() =>
-    result.current.startNoteDrag(NOTE_ID, false, [NOTE_ID, TARGET_NOTE_ID]),
-  );
+  act(() => result.current.startNoteDrag(NOTE_ID, [NOTE_ID, TARGET_NOTE_ID]));
   act(() => result.current.endNoteDrag(NOTE_ID, CANVAS_COORDINATE_LIMIT, 100));
   expect(result.current.notes.map((n) => n.x)).toEqual([
     CANVAS_COORDINATE_LIMIT - 40,
@@ -1857,9 +1496,7 @@ it("moveProtocolVersion省略時は複数付箋の移動を開始せず、要求
       ]),
     ),
   );
-  act(() =>
-    result.current.startNoteDrag(NOTE_ID, false, [NOTE_ID, TARGET_NOTE_ID]),
-  );
+  act(() => result.current.startNoteDrag(NOTE_ID, [NOTE_ID, TARGET_NOTE_ID]));
   act(() => result.current.moveNote(NOTE_ID, 150, 140));
   act(() => result.current.endNoteDrag(NOTE_ID, 150, 140));
   expect(send).not.toHaveBeenCalled();

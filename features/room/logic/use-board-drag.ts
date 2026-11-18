@@ -2,7 +2,8 @@
 
 // マイ付箋ツールバーとボードをまたぐドラッグの状態機械。
 // private（本人だけのpreview。有効pointerupでpublish）→ shared →
-// returning（自分の共有付箋をツールバーへ戻す = unpublish 待ち）を管理する。
+// returning（自分の共有付箋がツールバーに重なっている間の表示。
+// 共有付箋の移動は続け、ツールバー内で離した時だけ unpublish する）を管理する。
 // RoomDO の応答を待たずに表示を確定させるため、renderedNotes /
 // renderedPrivateNotes として「表示用に畳み込んだ」配列を返す。
 // DOM 参照はビューポートの矩形読み取りだけに限定し、JSX は持たない。
@@ -102,20 +103,13 @@ export type UseBoardDragArgs = {
   onPublishBlocked?: () => void;
   onNoteDragStart: (
     noteId: string,
-    privateMapLock?: boolean,
     selectedNoteIds?: readonly string[],
   ) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
-  onPrivateNoteUnpublish: (
-    noteId: string,
-    privateIndex: number,
-    preserveDragUntilPointerEnd?: boolean,
-  ) => void;
-  // 3-2 で公開可能な private 付箋は pointerdown 時に先行 lock する。
-  lockPrivateMapDrag?: boolean;
+  onPrivateNoteUnpublish: (noteId: string, privateIndex: number) => void;
 };
 
 function applyPrivateOrder(source: Note[], order: string[]) {
@@ -199,7 +193,6 @@ export function useBoardDrag({
   onNoteDragCancel,
   onPrivateNotePublish,
   onPrivateNoteUnpublish,
-  lockPrivateMapDrag = false,
 }: UseBoardDragArgs) {
   const [drag, setDrag] = useState<BoardDrag | null>(null);
   const [privateOrder, setPrivateOrder] = useState<string[]>([]);
@@ -551,7 +544,7 @@ export function useBoardDrag({
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
-      if (selected) onNoteDragStart(noteId, false, targetIds);
+      if (selected) onNoteDragStart(noteId, targetIds);
       else onNoteDragStart(noteId);
     },
     [
@@ -644,11 +637,8 @@ export function useBoardDrag({
         (current.status !== "shared" || canReturnSharedNote)
       ) {
         if (canReturnSharedNote) {
-          // ドック上は挿入先の候補にすぎないため、pointer-up まで非公開化しない。
-          // 3-2 の private map lock は pointer-up で非公開化した後に解除する。
-          if (!lockPrivateMapDrag) {
-            onNoteDragCancel(current.note.id);
-          }
+          // ドック上は挿入先の候補にすぎない。共有付箋の移動は取り消さず、
+          // pointer-up でドック内に離した時だけ非公開化する。
           updateDrag({
             ...currentAtPointer,
             status: "returning",
@@ -724,10 +714,6 @@ export function useBoardDrag({
         updateDrag(currentAtPointer);
         return;
       }
-      if (current.status === "returning") {
-        // トレイからボードへ戻ったので、共有付箋のドラッグを再開する。
-        onNoteDragStart(current.note.id);
-      }
       if (current.status === "private") {
         if (!canPublish && !hasNotifiedBlockedRef.current) {
           onPublishBlocked?.();
@@ -765,10 +751,7 @@ export function useBoardDrag({
       stopPrivateListAutoScroll,
       trackPrivateListAutoScroll,
       onNoteDragMove,
-      onNoteDragCancel,
-      onNoteDragStart,
       onPublishBlocked,
-      lockPrivateMapDrag,
       notePositionFromClient,
       preservePrivateGrabOffset,
       updateDrag,
@@ -784,8 +767,7 @@ export function useBoardDrag({
         !isPrivatePanelExpanded(privateToolbarRef.current)
       ) {
         stopPrivateListAutoScroll();
-        if (current.status === "returning" && lockPrivateMapDrag)
-          onNoteDragCancel(current.note.id);
+        if (current.status === "returning") onNoteDragCancel(current.note.id);
         updateDrag(null);
         boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
         return;
@@ -822,15 +804,18 @@ export function useBoardDrag({
         current.status === "returning" &&
         isPointerInPrivateDropArea(event.clientX, event.clientY);
       if (current.status === "returning" && !isReturningDropTarget) {
-        if (lockPrivateMapDrag) {
-          onNoteDragCancel(current.note.id);
-        }
+        // ボードにもドックにも入らない位置で離したら、最後のボード位置で確定する。
+        if (canMoveSharedNotes)
+          onNoteDragEnd(current.note.id, current.x, current.y);
+        else onNoteDragCancel(current.note.id);
         updateDrag(null);
         boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
         return;
       }
       if (current.status === "shared") {
-        if (canMoveSharedNotes) {
+        if (!canMoveSharedNotes) {
+          onNoteDragCancel(current.note.id);
+        } else {
           // 固定マップでは平面の外なら変換が null を返すため、HUD上に
           // ポインターがあっても最終位置をマップ基準で確定できる。
           const mappedPosition = notePositionFromClient?.(
@@ -884,17 +869,12 @@ export function useBoardDrag({
               privateDropIndex,
             ).map((note) => note.id),
           );
-          if (current.status === "returning") {
-            if (lockPrivateMapDrag && canReturnToPrivate) {
-              onPrivateNoteUnpublish(current.note.id, privateDropIndex, true);
-            } else {
-              onPrivateNoteUnpublish(current.note.id, privateDropIndex);
-            }
-          }
+          // 非公開化の前に共有付箋の移動を解除するのは onPrivateNoteUnpublish 側の責務。
+          if (current.status === "returning")
+            onPrivateNoteUnpublish(current.note.id, privateDropIndex);
+        } else if (current.status === "returning") {
+          onNoteDragCancel(current.note.id);
         }
-      }
-      if (lockPrivateMapDrag && current.status === "returning") {
-        onNoteDragCancel(current.note.id);
       }
       updateDrag(null);
       boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
@@ -913,9 +893,7 @@ export function useBoardDrag({
       orderedPrivateNotes,
       privateDropIndexFromPointer,
       onNoteDragCancel,
-      lockPrivateMapDrag,
       canPublish,
-      canReturnToPrivate,
       notePositionFromClient,
       preservePrivateGrabOffset,
       stopPrivateListAutoScroll,
@@ -929,49 +907,24 @@ export function useBoardDrag({
       if (!current || current.pointerId !== event.pointerId) return;
       stopPrivateListAutoScroll();
       hasNotifiedBlockedRef.current = false;
-      if (
-        current.status === "shared" ||
-        (lockPrivateMapDrag && current.status === "returning")
-      ) {
-        onNoteDragCancel(current.note.id);
-      }
+      if (current.status !== "private") onNoteDragCancel(current.note.id);
       updateDrag(null);
       boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
     },
-    [
-      boardScrollerRef,
-      lockPrivateMapDrag,
-      onNoteDragCancel,
-      stopPrivateListAutoScroll,
-      updateDrag,
-    ],
+    [boardScrollerRef, onNoteDragCancel, stopPrivateListAutoScroll, updateDrag],
   );
 
   const cancelCurrentNoteDrag = useCallback(
     (includePrivate = false) => {
       const current = dragRef.current;
       stopPrivateListAutoScroll();
-      if (
-        !current ||
-        (!includePrivate && current.status === "private" && !lockPrivateMapDrag)
-      )
-        return;
+      if (!current || (!includePrivate && current.status === "private")) return;
       hasNotifiedBlockedRef.current = false;
-      if (
-        current.status === "shared" ||
-        (lockPrivateMapDrag && current.status === "returning")
-      )
-        onNoteDragCancel(current.note.id);
+      if (current.status !== "private") onNoteDragCancel(current.note.id);
       updateDrag(null);
       boardScrollerRef.current?.releasePointerCapture?.(current.pointerId);
     },
-    [
-      boardScrollerRef,
-      lockPrivateMapDrag,
-      onNoteDragCancel,
-      stopPrivateListAutoScroll,
-      updateDrag,
-    ],
+    [boardScrollerRef, onNoteDragCancel, stopPrivateListAutoScroll, updateDrag],
   );
 
   const hasPrivatePreview =

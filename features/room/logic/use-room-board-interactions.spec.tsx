@@ -970,7 +970,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(onCursorMove).toHaveBeenLastCalledWith({ x: 40, y: 40 }, null);
   });
 
-  it("shared drag 中に private toolbar へ入ると操作権だけ解放し、unpublish はドロップまで遅延する", () => {
+  it("shared drag 中に private toolbar へ入っても移動を続け、unpublish はドロップまで遅延する", () => {
     const { result, onCursorLeave, onNoteDragCancel, onPrivateNoteUnpublish } =
       setup({
         withSharedDrag: true,
@@ -1012,7 +1012,8 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLDivElement>);
     });
 
-    expect(onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+    expect(result.current.isReturnDropTarget).toBe(true);
+    expect(onNoteDragCancel).not.toHaveBeenCalled();
     expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
     expect(onCursorLeave).not.toHaveBeenCalled();
   });
@@ -1264,7 +1265,7 @@ it("AT-030: viewの複数選択drag入口を固定集合付き移動へ接続す
       } as unknown as PointerEvent<HTMLButtonElement>,
     ),
   );
-  expect(onNoteDragStart).toHaveBeenCalledWith("shared-1", false, [
+  expect(onNoteDragStart).toHaveBeenCalledWith("shared-1", [
     "shared-1",
     "shared-2",
     "shared-3",

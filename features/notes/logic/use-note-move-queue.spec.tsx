@@ -194,7 +194,7 @@ describe("保存待ち中の連続移動", () => {
     const h = setup();
     h.start();
     h.end(150);
-    act(() => h.result.current.startNoteDrag(M, false, [N, M]));
+    act(() => h.result.current.startNoteDrag(M, [N, M]));
     h.end(430, M);
     expect(h.x()).toBe(180);
     expect(h.result.current.notes.find((n) => n.id === M)?.x).toBe(430);

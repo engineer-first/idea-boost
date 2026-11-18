@@ -284,11 +284,11 @@
 - **入力**: 本人のマイ付箋→共有ボード
 - **主体・工程**: share能力がある本人、同phaseのStep2
 - **対象・前提**: 自分の未共有付箋1枚。有効なボード領域。HUD/パネル/画面外は無効
-- **結果**: MUST: drag中は本人だけのpreviewを表示し、有効dropのpointerupで1回だけpublish要求を送る。RoomDO受理で共有確定。境界を跨ぐだけ、click/Enter/ツール切替では公開しない。成功前は共有済みと表示しない。
+- **結果**: MUST: drag中は本人だけのpreviewを表示し、有効dropのpointerupで1回だけpublish要求を送る。RoomDO受理で共有確定。境界を跨ぐだけ、click/Enter/ツール切替では公開しない。応答待ちの間は本人の画面だけdrop位置に置き、マイ付箋へ戻して見せない。他者へは受理後にだけ配信する。
 - **取消**: publish要求送信前のEscape/無効dropはprivateを保つ。送信後のEscapeは既に受理した共有を取り消さない。結果を照会し、非共有へ戻すならCI-SHARE-002の別操作。
-- **失敗**: 拒否はprivateに残し再試行可能。曖昧な応答は再接続snapshotで可視性を確認し、重複作成しない。
+- **失敗**: 拒否はprivateへ戻し再試行可能。曖昧な応答は再接続snapshotで可視性を確認し、重複作成しない。
 - **同時操作**: 工程変更/切断/ロック失効時はpublishせず最新状態を確認。本文/枚数/previewを他者へ先行配信しない。
-- **実装契約**: snapshotの`shareProtocolVersion: 1`で操作ID・工程版・付箋位置版・可視性版付きpublish/unpublishを使用する。pointerdownからpointermoveまではprivateのdrag要求を送信せず、3-2の先行map lockも取得しない。パネルDOM/refが残る閉鎖も`data-expanded=false`を観測して未送信previewを即取消し、同tickのdropも拒否する。旧サーバーに対してはdropのpublish/unpublishのみを互換送信する（結果照会は使用しない）。
+- **実装契約**: snapshotの`shareProtocolVersion: 1`で操作ID・工程版・付箋位置版・可視性版付きpublish/unpublishを使用する。pointerdownからpointermoveまではprivateのdrag要求を送信しない。パネルDOM/refが残る閉鎖も`data-expanded=false`を観測して未送信previewを即取消し、同tickのdropも拒否する。旧サーバーに対してはdropのpublish/unpublishのみを互換送信する（結果照会は使用しない）。
 - **結果解決**: RoomDOは可視性・位置/順序変更と作者専用receiptを同じSQLite transactionで保存し、commit後にvisibleTo経由で配信する。同じ操作IDは再実行せず保存結果を返す。`note:share:status`は2秒間隔・再接続snapshot・送信後の工程変更で照会し、errorだけで成功/失敗を決めない。作者以外にはunknown、工程外/削除後には状態だけ返す。24時間経過後はexpiredとしてreceiptを返さない。
 - **履歴境界**: `note:share:result`のcommitted receiptは本文を含めずbefore/afterの可視性・位置・専用版・操作ID・工程版（戻しでは挿入index）を提供する。UI hookの`lastShareReceipt`で#525へ渡す。共有のUndoはこの変更に含めない。
 - **検証**: AT-014: 有効/無効drop・境界往復・Escape・切断を二者接続で検証し、他者への初回配信時点を確認。
@@ -302,8 +302,8 @@
 - **入力**: 自分の共有付箋をマイ付箋の有効drop領域へ
 - **主体・工程**: returnPrivate能力を持つ作者。共有Step2で発表順が進行中の間は発表者本人のみ（待機中もマイ付箋一覧内の並べ替えは可能）
 - **対象・前提**: 本人のshared付箋1枚。private panelが開いている
-- **結果**: hover中は本人画面に戻し先placeholder/順序previewを示す。pointerupでunpublish要求。server成功で他者から消え本人privateへ。共有本文を見た人の記憶まで取り消せるとは説明しない。
-- **取消**: drop前に領域外へ戻せばshared dragへ。Escapeはunpublishしない。
+- **結果**: hover中は本人画面に戻し先placeholder/順序previewを示す。マイ付箋エリア内のpointerupで移動を取り消してからunpublish要求を送る。server成功で他者から消え本人privateへ。共有本文を見た人の記憶まで取り消せるとは説明しない。
+- **取消**: hover中も共有付箋の移動は取り消さず、drop前に領域外へ戻せば同じshared dragを続ける。ボードにもマイ付箋にも入らない位置で離したら、最後のボード位置で確定する。Escapeはunpublishしない。
 - **失敗**: 他者付箋/他工程/複数選択は戻せない。失敗は最新sharedへ戻し、並行の位置変更を巻き戻さない。
 - **同時操作**: unpublish応答待ちで二重に戻す/再公開しない。最新snapshotで結果を解決。
 - **表示と順序**: returning中と応答待ちは本人だけが戻し先をpreviewし、拒否/結果不明解決では最新のserver値へ戻す。作者の縦一覧で挿入indexを求めるgeometry readはDOM順の二分探索で行い、auto-scroll後も最新の中点で再計算する。privateの並べ替えはローカル表示順のみを保持する。FLIPは全行のtopを先にまとめて読み、その後にanimationを書き込む2passとする。

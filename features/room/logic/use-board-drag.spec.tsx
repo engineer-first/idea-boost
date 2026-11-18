@@ -532,7 +532,7 @@ describe("useBoardDrag", () => {
   });
 
   it("private map preview はpointerdownからdock内pointerupまで送信しない", () => {
-    const { args, result } = setup({ lockPrivateMapDrag: true });
+    const { args, result } = setup();
 
     act(() => {
       result.current.handlePrivateDragStart(
@@ -550,7 +550,7 @@ describe("useBoardDrag", () => {
   });
 
   it("private map preview のpointercancelは送信せず終了する", () => {
-    const { args, result } = setup({ lockPrivateMapDrag: true });
+    const { args, result } = setup();
 
     act(() => {
       result.current.handlePrivateDragStart(
@@ -565,8 +565,8 @@ describe("useBoardDrag", () => {
     expect(result.current.drag).toBeNull();
   });
 
-  it("mapで共有付箋をprivate dockへ戻した後もpointerupまでlockを維持する", () => {
-    const { args, result } = setup({ lockPrivateMapDrag: true });
+  it("共有付箋をマイ付箋エリアへ離すと unpublish だけを送る", () => {
+    const { args, result } = setup();
 
     act(() => {
       result.current.handleSharedNoteDragStart(
@@ -583,12 +583,13 @@ describe("useBoardDrag", () => {
       result.current.handlePointerEnd(pointerEvent(14, 400, 560));
     });
 
+    // 移動の解除は非公開化の直前に onPrivateNoteUnpublish 側で行う。
     expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith(
       "shared-1",
       expect.any(Number),
-      true,
     );
-    expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
+    expect(args.onNoteDragEnd).not.toHaveBeenCalled();
   });
 
   it("2軸マップへ共有するとマイ付箋をポインター位置の連続座標で配置する", () => {
@@ -1021,7 +1022,7 @@ describe("useBoardDrag", () => {
     "<div data-canvas-help><button>ヘルプ</button></div>",
     "<div data-board-fit-edge><button>全体表示</button></div>",
   ])("戻し候補に重なった操作面へのdropは非共有化しない: %s", (markup) => {
-    const { args, result } = setup({ lockPrivateMapDrag: true });
+    const { args, result } = setup();
     act(() => {
       result.current.handleSharedNoteDragStart(
         "shared-1",
@@ -1044,7 +1045,8 @@ describe("useBoardDrag", () => {
     try {
       act(() => result.current.handlePointerEnd(pointerEvent(1, 400, 560)));
       expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
-      expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+      // ボードへ動かす前に戻し候補へ入ったため、元の位置のまま確定する。
+      expect(args.onNoteDragEnd).toHaveBeenCalledWith("shared-1", 100, 100);
       expect(result.current.drag).toBeNull();
       expect(result.current.renderedNotes.map((note) => note.id)).toContain(
         "shared-1",
@@ -1136,6 +1138,52 @@ describe("useBoardDrag", () => {
     }
   });
 
+  it("マイ付箋エリアに重ねただけでは共有付箋の移動を取り消さない", () => {
+    const { args, result } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 250, 180));
+      result.current.handlePointerMove(pointerEvent(1, 400, 560));
+    });
+
+    expect(result.current.drag?.status).toBe("returning");
+    // 他の参加者の画面で付箋が元の位置へ戻らないよう、移動は続ける。
+    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(1, 300, 200));
+    });
+
+    // ボードへ戻っても移動を作り直さず、同じ移動の続きとして扱う。
+    expect(args.onNoteDragStart).toHaveBeenCalledTimes(1);
+    expect(args.onNoteDragMove).toHaveBeenLastCalledWith("shared-1", 300, 200);
+  });
+
+  it("マイ付箋エリアを通ってから操作ボタン上で離したら、最後のボード位置で確定する", () => {
+    const { args, result } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 250, 180));
+      result.current.handlePointerMove(pointerEvent(1, 400, 560));
+      // ボードにもマイ付箋エリアにも入らない位置（操作ボタンなど）で離す。
+      result.current.handlePointerMove(pointerEvent(1, 700, 550));
+      result.current.handlePointerEnd(pointerEvent(1, 700, 550));
+    });
+
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
+    expect(args.onNoteDragEnd).toHaveBeenCalledWith("shared-1", 250, 180);
+    expect(result.current.drag).toBeNull();
+  });
+
   it("マイ付箋エリアの外で離した returning は非公開へ戻さない", () => {
     const { args, result } = setup();
 
@@ -1155,30 +1203,6 @@ describe("useBoardDrag", () => {
     expect(result.current.renderedNotes.map((note) => note.id)).toContain(
       "shared-1",
     );
-  });
-
-  it("map lock 中に戻し先候補から外れて離したら保持中のlockを解除する", () => {
-    const { args, result } = setup({ lockPrivateMapDrag: true });
-
-    act(() => {
-      result.current.handleSharedNoteDragStart(
-        "shared-1",
-        pointerEvent(15, 100, 100),
-      );
-      result.current.handlePointerMove(pointerEvent(15, 400, 560));
-      result.current.handlePointerMove(pointerEvent(15, 700, 550));
-    });
-
-    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
-    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
-
-    act(() => {
-      result.current.handlePointerEnd(pointerEvent(15, 700, 550));
-    });
-
-    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
-    expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
-    expect(result.current.drag).toBeNull();
   });
 
   it("returning をキャンセルすると unpublish せず共有付箋を元の領域へ戻す", () => {
@@ -1343,6 +1367,8 @@ describe("useBoardDrag", () => {
 
     expect(args.onNoteDragMove).not.toHaveBeenCalled();
     expect(args.onNoteDragEnd).not.toHaveBeenCalled();
+    // 開始済みの移動を残すと、次のドラッグが始められなくなる。
+    expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
     expect(result.current.drag).toBeNull();
   });
 
@@ -1647,7 +1673,7 @@ describe("move集合の入口", () => {
         pointerEvent(1, 120, 130),
       ),
     );
-    expect(args.onNoteDragStart).toHaveBeenCalledWith("shared-1", false, [
+    expect(args.onNoteDragStart).toHaveBeenCalledWith("shared-1", [
       "shared-1",
       "shared-2",
     ]);
