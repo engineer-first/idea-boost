@@ -17,7 +17,7 @@ Issue Type・フォーム・Project 状態の定義は[Issue と GitHub Project 
 ホワイトボードには短い見出しと Issue 番号だけを書きます。
 
 ```text
-PBI-13 開発テーマ比較
+#13 開発テーマ比較
 #312 ログイン画面を作る
 ```
 
