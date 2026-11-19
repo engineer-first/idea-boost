@@ -42,6 +42,25 @@ describe("ciScope: PRの変更ファイルから回す検査を決める", () =>
     expect(ciScope([".github/workflows/deploy.yml"]).browser).toBe(false);
   });
 
+  it("Storybook の build と browser テストが読む scripts・図の設定を変えたPRは browser も回す", () => {
+    for (const file of [
+      "scripts/build-d1-schema.mts",
+      "scripts/build-room-do-schema.mts",
+      "scripts/build-dependency-diagrams.mts",
+      "scripts/verification-config.mts",
+      "scripts/verification-process.mts",
+    ])
+      expect(ciScope([file]), file).toEqual({ browser: true, workers: true });
+    expect(ciScope([".tbls/d1.yml"])).toEqual({
+      browser: true,
+      workers: false,
+    });
+    expect(ciScope(["scripts/preview-bundle.mts"])).toEqual({
+      browser: false,
+      workers: true,
+    });
+  });
+
   it("一覧にない場所の変更は安全側に倒して両方を回す", () => {
     expect(ciScope(["unknown/new-area.ts"])).toEqual({
       browser: true,

@@ -18,6 +18,14 @@ const rules: Rule[] = [
     browser: true,
     workers: false,
   },
+  // Storybook の build が図を作る scripts と設定、実アプリを起動する browser テストが読む scripts。
+  {
+    pattern:
+      /^scripts\/(build-(d1-schema|room-do-schema|dependency-diagrams)\.mts|verification-[^/]+\.mts)$/,
+    browser: true,
+    workers: true,
+  },
+  { pattern: /^\.tbls\//, browser: true, workers: false },
   // Worker / RoomDO / Preview / 検証用 worker のテストが読むもの。
   {
     pattern:
