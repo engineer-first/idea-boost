@@ -25,11 +25,7 @@ export type StepGuideDiagramKind =
 export type StepGuideSlide = {
   title: string;
   description: string;
-  illustration:
-    | StepGuideDiagramKind
-    | "many-notes"
-    | "operation-video"
-    | "add-note";
+  illustration: StepGuideDiagramKind | "many-notes" | "add-note";
   illustrationAlt: string;
   videoSrc?: string;
 };

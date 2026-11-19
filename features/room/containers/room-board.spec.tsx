@@ -532,10 +532,16 @@ it.each([
   },
 );
 
-function getPrivateNoteAddButton() {
-  return within(screen.getByTestId("private-notes-list")).getByRole("button", {
-    name: "付箋を追加",
-  });
+function getPrivateNoteComposer() {
+  return screen.getByRole("textbox", { name: "付箋を書く" });
+}
+
+function submitPrivateNote(content: string) {
+  const composer = getPrivateNoteComposer();
+  composer.focus();
+  fireEvent.change(composer, { target: { value: content } });
+  fireEvent.keyDown(composer, { key: "Enter" });
+  return composer;
 }
 
 describe("問いの投票中の付箋移動", () => {
@@ -1337,7 +1343,10 @@ describe("サーバーメッセージ → 画面反映", () => {
       const note = screen.getByRole("button", { name: "付箋" });
       fireEvent.click(note);
       fireEvent.keyDown(note, { key: "Enter" });
-      fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+      fireEvent.keyDown(
+        within(screen.getByTestId("note-card")).getByRole("textbox"),
+        { key: "Escape" },
+      );
       expect(
         socket.sent.some((message) =>
           /"type":"note:(publish|unpublish)"/.test(message),
@@ -2730,51 +2739,110 @@ describe("接続状態 → 画面反映", () => {
 });
 
 describe("ユーザー操作 → プロトコルメッセージ送信", () => {
-  it("「付箋を追加」で note:create が送信される（楽観挿入はしない）", () => {
+  it("入力欄で確定した本文をnote:createへ送り、応答後に付箋として表示する", () => {
+    const { socket } = connectWithSnapshot([]);
+    const content = "本文を入力してから追加する";
+    const composer = screen.getByRole("textbox", { name: "付箋を書く" });
+
+    composer.focus();
+    fireEvent.change(composer, { target: { value: content } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    const create = socket.sent
+      .map((raw) => JSON.parse(raw))
+      .find((message) => message.type === "note:create");
+    expect(create).toEqual(
+      expect.objectContaining({
+        type: "note:create",
+        operationId: expect.any(String),
+        content,
+      }),
+    );
+    expect(screen.queryAllByTestId("note-card")).toHaveLength(0);
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:inserted",
+        operationId: create.operationId,
+        note: protocolNote({ content, visibility: "private" }),
+      }),
+    );
+
+    expect(screen.getAllByTestId("note-card")).toHaveLength(1);
+    expect(screen.getByText(content)).toBeInTheDocument();
+    expect(composer).toHaveValue("");
+    expect(composer).toHaveFocus();
+  });
+
+  it("入力欄の本文で note:create が送信される（楽観挿入はしない）", () => {
     const { socket } = connectWithSnapshot([]);
 
-    fireEvent.click(getPrivateNoteAddButton());
+    submitPrivateNote("最初の追加本文");
 
     expectSent(socket, {
       type: "note:create",
       operationId: expect.any(String),
+      content: "最初の追加本文",
     });
     // 確定（note:inserted）が届くまでは描画されない。
     expect(screen.queryAllByTestId("note-card")).toHaveLength(0);
   });
 
-  it("キーと＋の連続追加は1要求だけ送り、相関した応答後に新しい本文を入力できる", () => {
+  it("相関した応答後も同じ入力欄から続けて付箋を追加できる", () => {
     const { socket } = connectWithSnapshot([]);
-    const background = screen.getByTestId("board-scroller");
-    background.focus();
-    fireEvent.keyDown(background, { key: "Enter", ctrlKey: true });
-    fireEvent.click(getPrivateNoteAddButton());
-    const creates = socket.sent
+    const composer = submitPrivateNote("1枚目の本文");
+    let creates = socket.sent
       .map((raw) => JSON.parse(raw))
       .filter((message) => message.type === "note:create");
     expect(creates).toHaveLength(1);
-    expect(creates[0].operationId).toEqual(expect.any(String));
-    expect(getPrivateNoteAddButton()).toBeDisabled();
+    expect(creates[0]).toEqual(
+      expect.objectContaining({ content: "1枚目の本文" }),
+    );
+    expect(composer).toBeEnabled();
+    expect(composer).toHaveValue("1枚目の本文");
     act(() =>
       socket.simulateServerMessage({
         type: "note:inserted",
         operationId: creates[0].operationId,
-        note: protocolNote({ content: "", visibility: "private" }),
+        note: protocolNote({ content: "1枚目の本文", visibility: "private" }),
       }),
     );
-    expect(screen.getByRole("textbox")).toHaveFocus();
-    expect(getPrivateNoteAddButton()).toBeEnabled();
+    expect(composer).toHaveValue("");
+    expect(composer).toHaveFocus();
+
+    fireEvent.change(composer, { target: { value: "2枚目の本文" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    creates = socket.sent
+      .map((raw) => JSON.parse(raw))
+      .filter((message) => message.type === "note:create");
+    expect(creates).toHaveLength(2);
+    expect(creates[1]).toEqual(
+      expect.objectContaining({ content: "2枚目の本文" }),
+    );
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:inserted",
+        operationId: creates[1].operationId,
+        note: protocolNote({
+          id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+          content: "2枚目の本文",
+          visibility: "private",
+        }),
+      }),
+    );
+    expect(composer).toHaveValue("");
+    expect(composer).toHaveFocus();
+    expect(screen.getAllByTestId("note-card")).toHaveLength(2);
   });
 
   it("相関応答に未対応の接続では追加を送らない", () => {
     const { socket } = connectWithSnapshot([], {
       noteCreateProtocolVersion: null,
     });
-    fireEvent.click(getPrivateNoteAddButton());
     expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
       expect.objectContaining({ type: "note:create" }),
     );
-    expect(getPrivateNoteAddButton()).toBeDisabled();
+    expect(screen.queryByRole("textbox", { name: "付箋を書く" })).toBeNull();
   });
 
   it("前の本文の保存確認が遅れても次の本文を書けて、古い配信で下書きを失わない", () => {
@@ -2816,7 +2884,11 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
         }),
       }),
     );
-    const newEditor = screen.getByDisplayValue("");
+    const newNoteCard = screen
+      .getByTestId("private-notes-list")
+      .querySelector<HTMLElement>(`[data-note-id="${NEW_PRIVATE_NOTE_ID}"]`);
+    expect(newNoteCard).not.toBeNull();
+    const newEditor = within(newNoteCard as HTMLElement).getByRole("textbox");
     expect(newEditor).toHaveFocus();
     fireEvent.change(newEditor, { target: { value: "次の文章" } });
     act(() =>
@@ -2830,11 +2902,11 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     expect(screen.queryByText("保存確認待ち")).not.toBeInTheDocument();
   });
 
-  it("相関した作成拒否は理由を通知し、元の文章を保持して＋を再び使える", () => {
+  it("相関した作成拒否は理由を通知し、入力した本文を保持する", () => {
     const { socket } = connectWithSnapshot([
       protocolNote({ visibility: "private", content: "残したい文章" }),
     ]);
-    fireEvent.click(getPrivateNoteAddButton());
+    const composer = submitPrivateNote("新しく書いた本文");
     const create = socket.sent
       .map((raw) => JSON.parse(raw))
       .find((message) => message.type === "note:create");
@@ -2850,8 +2922,9 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       "この工程では付箋を追加できません。",
     );
     expect(screen.getByDisplayValue("残したい文章")).toBeInTheDocument();
+    expect(composer).toHaveValue("新しく書いた本文");
     expect(screen.getAllByTestId("note-card")).toHaveLength(1);
-    expect(getPrivateNoteAddButton()).toBeEnabled();
+    expect(composer).toBeEnabled();
   });
 
   it("「イチオシ！」シールを付箋へドロップすると、操作IDつき座標投票が送信される", () => {
@@ -3223,19 +3296,21 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
   // room-client.send() は未openだとメッセージを黙って破棄するため、
   // 未接続中は操作自体を無効化し「送ったつもりが届かない」を防ぐ。
-  it("接続確立前は「付箋を追加」ボタンが無効化され、クリックしても何も送信されない", () => {
+  it("接続確立前は本文入力欄を利用できず、何も送信されない", () => {
     const { socket } = renderBoard({ open: false });
 
-    fireEvent.click(getPrivateNoteAddButton());
+    const composer = screen.queryByRole("textbox", { name: "付箋を書く" });
+    if (composer) expect(composer).toBeDisabled();
 
     expect(socket.sent).toHaveLength(0);
   });
 
-  it("予期しない切断後も「付箋を追加」ボタンが無効化され、クリックしても何も送信されない", () => {
+  it("予期しない切断後も本文入力欄を利用できない", () => {
     const { socket } = connectWithSnapshot([]);
 
     act(() => socket.simulateUnexpectedClose());
-    fireEvent.click(getPrivateNoteAddButton());
+    const composer = screen.queryByRole("textbox", { name: "付箋を書く" });
+    if (composer) expect(composer).toBeDisabled();
 
     expect(socket.sent).toHaveLength(0);
   });
@@ -3461,8 +3536,11 @@ describe("保存待ちを伴わない工程進行", () => {
             pendingPhaseTransition: pending,
           }),
         );
-      fireEvent.click(getPrivateNoteAddButton());
-      expectSent(socket, { type: "note:create" });
+      submitPrivateNote("工程切替前の本文");
+      expectSent(socket, {
+        type: "note:create",
+        content: "工程切替前の本文",
+      });
       act(() =>
         socket.simulateServerMessage({
           type: "timer:updated",
@@ -3542,21 +3620,22 @@ describe("Step 2-1（問いの個人執筆）", () => {
     expect(screen.getByText("宿題を後回しにしてしまう")).toBeInTheDocument();
   });
 
-  it("「付箋を追加」は content なしの note:create を送る（イベントを content に流さない）", () => {
+  it("入力欄に書いた本文を含めて note:create を送る", () => {
     const { socket } = connectAtHmwStep();
 
-    fireEvent.click(getPrivateNoteAddButton());
+    submitPrivateNote("問いに対する個人の考え");
 
     expect(socket.sent.map((raw) => JSON.parse(raw))).toContainEqual(
       expect.objectContaining({
         type: "note:create",
         operationId: expect.any(String),
+        content: "問いに対する個人の考え",
       }),
     );
     const manualCreate = socket.sent
       .map((raw) => JSON.parse(raw))
       .find((message) => message.operationId);
-    expect(manualCreate).not.toHaveProperty("content");
+    expect(manualCreate.content).toBe("問いに対する個人の考え");
   });
 
   it("Step 2-1 ではフェーズ1の共有付箋・グループをボードに描画しない", () => {

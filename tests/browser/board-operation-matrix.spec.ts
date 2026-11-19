@@ -33,8 +33,8 @@ for (const viewport of [
       expect(await page.getByTestId("board-header-row").isVisible()).toBe(true);
       expect(
         await page
-          .getByTestId("private-notes-list")
-          .getByRole("button", { name: "付箋を追加", exact: true })
+          .getByTestId("private-notes-toolbar")
+          .getByRole("textbox", { name: "付箋を書く" })
           .isVisible(),
       ).toBe(true);
     });
@@ -65,13 +65,15 @@ for (const viewport of [
       await scroll.evaluate((element) => element.scrollTop),
     ).toBeGreaterThan(0);
     expect(await toolbar.getAttribute("data-expanded")).toBe("true");
-    expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+    expect(
+      await page.getByRole("textbox", { name: "付箋を書く" }).count(),
+    ).toBe(0);
     expect(await toolbar.boundingBox()).toEqual(bounds);
     expect(await matrix.boundingBox()).toEqual(before);
     expect(
       await page
-        .getByTestId("private-notes-list")
-        .getByRole("button", { name: "付箋を追加", exact: true })
+        .getByTestId("private-notes-toolbar")
+        .getByRole("textbox", { name: "付箋を書く" })
         .count(),
     ).toBe(0);
     await page

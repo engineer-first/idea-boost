@@ -29,7 +29,7 @@ async function open(story: string, height = 720): Promise<void> {
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story`,
   );
-  await page.getByTestId("board-scroller").waitFor();
+  await page.getByTestId("board-scroller").waitFor({ state: "attached" });
   await page.evaluate(() => document.fonts.ready);
 }
 async function waitForPanelTransition(): Promise<void> {
@@ -93,13 +93,15 @@ for (const story of [
       const panel = await toolbar.boundingBox();
       const board = await page.getByTestId("board-scroller").boundingBox();
       if (!panel || !board) throw new Error("ボードとパネルを計測できません");
-      expect(panel.height).toBeLessThanOrEqual(260);
-      expect(panel.height).toBeGreaterThanOrEqual(140);
-      if (height === 560) expect(panel.height).toBeLessThanOrEqual(240);
+      expect(panel.height).toBeLessThanOrEqual(300);
+      expect(panel.height).toBeGreaterThanOrEqual(260);
+      if (height === 560) expect(panel.height).toBe(260);
       expect(height - panel.y - panel.height).toBeGreaterThanOrEqual(8);
       expect(height - panel.y - panel.height).toBeLessThanOrEqual(20);
       expect(await page.getByTestId("board-tools-hud").isVisible()).toBe(false);
-      expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+      expect(
+        await page.getByRole("textbox", { name: "付箋を書く" }).count(),
+      ).toBe(story === "additional-writing" ? 1 : 0);
       expect(board.width).toBeGreaterThan(1000);
       const note = toolbar.locator('[data-testid="note-card"]').last();
       const noteBefore = await note.boundingBox();
@@ -133,15 +135,13 @@ for (const story of [
   }
 }
 
-test("縮小中の追加・IME変換と選択範囲を保ち、パネルのホイールでボードを動かさない", async () => {
+test("縮小中も入力・IME変換と選択範囲を保ち、パネルのホイールでボードを動かさない", async () => {
   await open("additional-writing-empty");
   const toolbar = page.getByTestId("private-notes-toolbar");
-  await page
-    .getByRole("button", { name: "新しい付箋を追加", exact: true })
-    .click();
-  const editor = toolbar.locator("textarea:not([readonly])");
+  const editor = toolbar.getByRole("textbox", { name: "付箋を書く" });
   await editor.waitFor();
   expect(await toolbar.getAttribute("data-expanded")).toBe("false");
+  await editor.focus();
   expect(
     await editor.evaluate((element) => document.activeElement === element),
   ).toBe(true);
@@ -150,6 +150,19 @@ test("縮小中の追加・IME変換と選択範囲を保ち、パネルのホ�
     (element as HTMLTextAreaElement).setSelectionRange(2, 5),
   );
   await editor.dispatchEvent("compositionstart", { data: "変換" });
+  await editor.evaluate((element) =>
+    element.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 229,
+        which: 229,
+        isComposing: true,
+        bubbles: true,
+      }),
+    ),
+  );
+  expect(await toolbar.getByTestId("note-card").count()).toBe(0);
   await expandPrivatePanel();
   await collapsePrivatePanel();
   expect(await editor.inputValue()).toBe("日本語の変換を保つ");
@@ -214,7 +227,8 @@ test("問いのヒントで選んだ本文を追加執筆へ渡し、縮小状�
     .poll(() => page.getByTestId("room-timer").getAttribute("data-status"))
     .toBe("running");
   const toolbar = page.getByTestId("private-notes-toolbar");
-  const draft = toolbar.locator('[data-note-id="additional-draft-9"] textarea');
+  const draftNote = toolbar.locator('[data-note-id="additional-draft-9"]');
+  const draft = draftNote.locator("textarea");
   const original = await draft.inputValue();
   await page.getByRole("button", { name: "問いのヒントを開く" }).click();
   const dialog = page.getByRole("dialog", { name: "問いのヒント" });
@@ -230,7 +244,9 @@ test("問いのヒントで選んだ本文を追加執筆へ渡し、縮小状�
     .getByRole("region", { name: "問いの文例" })
     .textContent();
   await dialog.getByRole("button", { name: "この問いにする" }).click();
-  const editor = toolbar.locator("textarea:not([readonly])");
+  const editor = toolbar
+    .getByTestId("private-notes-list")
+    .locator("textarea:not([readonly])");
   await expect.poll(() => editor.inputValue()).toBe(question);
   expect(await toolbar.getAttribute("data-expanded")).toBe("false");
   expect(await draft.inputValue()).toBe(original);

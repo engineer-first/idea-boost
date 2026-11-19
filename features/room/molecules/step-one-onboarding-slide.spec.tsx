@@ -265,7 +265,7 @@ describe("StepOneOnboardingSlide", () => {
     ).toBeVisible();
   });
 
-  it("1-1は困りごとの案内から始まり、2枚目に付箋の実操作動画、3枚目にタイマーの説明を表示する", async () => {
+  it("1-1は困りごとの案内から始まり、2枚目に本文入力の図、3枚目にタイマーの説明を表示する", async () => {
     render(
       <StepOneOnboardingSlide
         phaseKey="1-1"
@@ -283,8 +283,11 @@ describe("StepOneOnboardingSlide", () => {
       ).toHaveAttribute("data-slide-transition", "idle"),
     );
     fireEvent.click(next);
-    const video = await screen.findByLabelText("付箋を追加して書き出す操作");
-    expect(video).toHaveAttribute("src", "/onboarding/step-1-1.webm");
+    expect(
+      await screen.findByRole("img", {
+        name: "付箋を書く欄に本文を入力し、付箋を追加する操作",
+      }),
+    ).toBeVisible();
     await waitFor(() =>
       expect(
         screen.getByTestId("step-one-onboarding-slide-content"),
@@ -312,13 +315,19 @@ describe("StepOneOnboardingSlide", () => {
     expect(next).toHaveFocus();
     fireEvent.click(next);
     expect(
-      await screen.findByLabelText("付箋を追加して書き出す操作"),
+      await screen.findByRole("img", {
+        name: "付箋を書く欄に本文を入力し、付箋を追加する操作",
+      }),
     ).toBeVisible();
     fireEvent.click(next);
     await waitFor(() =>
       expect(content).toHaveAttribute("data-slide-transition", "idle"),
     );
-    expect(screen.getByLabelText("付箋を追加して書き出す操作")).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: "困ったことを書いた複数の付箋",
+      }),
+    ).toBeVisible();
     expect(next).toBeEnabled();
     expect(next).toHaveFocus();
   });

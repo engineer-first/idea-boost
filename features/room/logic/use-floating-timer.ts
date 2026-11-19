@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { NOTE_HEIGHT } from "@/contracts/board";
 import {
   placeRoomTimer,
   type TimerPosition,
@@ -13,7 +14,9 @@ import {
 } from "./timer-position";
 
 const OBSTACLES =
-  '[data-testid="step-one-onboarding-trigger"], [data-testid="board-control-hud"], [data-testid="board-context-hud"], [data-testid="board-location-card"], [data-testid="private-notes-toolbar"], [data-testid="canvas-zoom-hud"], [data-testid="board-tools-hud"], [data-testid="board-operation-matrix"], [data-testid="idea-map-size-controls-hud"], [data-testid="board-connection-status"]';
+  '[data-testid="step-one-onboarding-trigger"], [data-testid="board-control-hud"], [data-testid="board-context-hud"], [data-testid="board-location-card"], [data-testid="private-notes-toolbar"], [data-testid="canvas-zoom-hud"], [data-testid="board-tools-hud"], [data-testid="board-operation-matrix"], [data-testid="idea-map-size-controls-hud"], [data-testid="board-connection-status"], [data-private-writing-hint] [data-testid="board-character-bubble"]';
+const MIN_PRIVATE_COMPOSER_WIDTH = 192;
+const PRIVATE_WRITING_HEADER_SPACE = 136;
 
 export function useFloatingTimer(
   ref: RefObject<HTMLElement | null>,
@@ -69,10 +72,45 @@ export function useFloatingTimer(
         .map((node) => node.getBoundingClientRect()),
     );
     // 狭幅で楕円が現在地の下へ移る場合も、マイ付箋はその下から開く。
+    const rowBottom = initial.top + 84;
     root?.style.setProperty(
       "--board-timer-row-bottom",
-      `${initial.top - bounds.top + 84}px`,
+      `${rowBottom - bounds.top}px`,
     );
+    if (root && settle) {
+      const header = root.querySelector<HTMLElement>(
+        '[data-presentation="workspace"] [data-testid="private-notes-header"]:has([data-private-note-composer])',
+      );
+      const headerBounds = header?.getBoundingClientRect();
+      const timerLeft = initial.right - width;
+      const endInset = headerBounds
+        ? Math.max(0, Math.ceil(headerBounds.right - timerLeft + 12))
+        : 0;
+      const fitsBesideTimer =
+        !header ||
+        !headerBounds ||
+        endInset === 0 ||
+        headerBounds.width -
+          endInset -
+          Number.parseFloat(getComputedStyle(header).paddingInlineStart) >=
+          MIN_PRIVATE_COMPOSER_WIDTH;
+      // 入力欄と付箋1段の高さが残るスマホでは、タイマーの下を入力に使う。
+      const workspaceBottom =
+        header?.parentElement?.getBoundingClientRect().bottom ?? rowBottom;
+      const hasRoomBelowTimer =
+        window.innerWidth < 640 &&
+        workspaceBottom - rowBottom >=
+          PRIVATE_WRITING_HEADER_SPACE + NOTE_HEIGHT;
+      const needsTimerRow = hasRoomBelowTimer || !fitsBesideTimer;
+      root.style.setProperty(
+        "--board-private-timer-inset",
+        `${needsTimerRow ? 0 : endInset}px`,
+      );
+      root.style.setProperty(
+        "--board-private-timer-top",
+        `${needsTimerRow ? rowBottom : 0}px`,
+      );
+    }
     const obstacles: TimerRect[] = obstacleNodes
       .filter(
         (node) =>
@@ -158,6 +196,8 @@ export function useFloatingTimer(
       mutations?.disconnect();
       window.removeEventListener("resize", update);
       root?.style.removeProperty("--board-timer-row-bottom");
+      root?.style.removeProperty("--board-private-timer-inset");
+      root?.style.removeProperty("--board-private-timer-top");
     };
   }, [ref]);
 

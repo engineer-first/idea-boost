@@ -1187,7 +1187,7 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
         selectedNoteId={selectedNoteId}
         onSelect={setSelectedNoteId}
         noteCreationReceipt={receipt}
-        onAddPrivateNote={() => {
+        onAddPrivateNote={(content = "") => {
           const operationId = crypto.randomUUID();
           const noteId = crypto.randomUUID();
           setNotes((current) => [
@@ -1196,7 +1196,9 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
               id: noteId,
               authorId: GUIDANCE_USER,
               visibility: "private",
-              content: "",
+              content,
+              stackOrder:
+                Math.max(-1, ...current.map((note) => note.stackOrder)) + 1,
             }),
           ]);
           setReceipt({ operationId, noteId });

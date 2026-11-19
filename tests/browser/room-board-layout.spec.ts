@@ -273,78 +273,48 @@ for (const [phase, reference] of [
   [2, "issue"],
   [3, "hmw"],
 ] as const) {
-  test(`${phase}-1の付箋と追加カードは参照情報の右側の中央に横一列で並ぶ`, async () => {
+  test(`${phase}-1の広い画面では入力欄を中央に置き、付箋を左から右へ並べる`, async () => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
 
     const workspace = page.getByTestId("private-notes-toolbar");
-    const list = page.getByTestId("private-notes-list");
-    const layout = await page.evaluate(() => {
-      const workspace = document.querySelector(
-        '[data-testid="private-notes-toolbar"]',
-      );
-      const references = document.querySelector(
-        '[data-testid="board-context-references"]',
-      );
-      const list = document.querySelector('[data-testid="private-notes-list"]');
-      if (!workspace || !references || !list) return null;
-      const workspaceBounds = workspace.getBoundingClientRect();
-      const areaLeft = Math.max(
-        workspaceBounds.left,
-        references.getBoundingClientRect().right,
-      );
-      const cards = Array.from(list.children).map((element) => {
-        const bounds = element.getBoundingClientRect();
-        return {
-          left: bounds.left,
-          right: bounds.right,
-          top: bounds.top,
-        };
-      });
-      const firstRowTop = cards[0]?.top;
-      const firstRow = cards.filter(
-        (card) => Math.abs(card.top - (firstRowTop ?? 0)) < 1,
-      );
-      return {
-        areaCenter: (areaLeft + workspaceBounds.right) / 2,
-        firstRowCenter:
-          firstRow.length > 0
-            ? (firstRow[0].left + firstRow[firstRow.length - 1].right) / 2
-            : null,
-        firstRowCount: firstRow.length,
-      };
-    });
-
-    expect(await workspace.isVisible()).toBe(true);
-    expect(await list.isVisible()).toBe(true);
-    expect(layout).not.toBeNull();
-    expect(layout?.firstRowCount).toBe(5);
-    expect(
-      Math.abs((layout?.firstRowCenter ?? 0) - (layout?.areaCenter ?? 0)),
-    ).toBeLessThan(16);
+    const panel = await workspace.boundingBox();
+    const composer = await workspace
+      .getByRole("textbox", { name: "付箋を書く" })
+      .boundingBox();
+    const cards = workspace
+      .getByTestId("private-notes-list")
+      .getByTestId("note-card");
+    const first = await cards.nth(0).boundingBox();
+    const second = await cards.nth(1).boundingBox();
+    if (!panel || !composer || !first || !second)
+      throw new Error("入力欄または付箋がありません");
+    expect(composer.x + composer.width / 2).toBeCloseTo(
+      panel.x + panel.width / 2,
+      0,
+    );
+    expect(first.x).toBeLessThan(composer.x);
+    expect(first.y).toBeGreaterThan(composer.y + composer.height);
+    expect(second.x).toBeGreaterThan(first.x + first.width);
+    expect(second.y).toBeCloseTo(first.y, 0);
   });
 
   for (const [width, height] of [
     [1280, 720],
     [1920, 1080],
   ] as const) {
-    test(`${phase}-1 ${width}×${height}pxで参照情報は付箋と追加カードに重ならない`, async () => {
+    test(`${phase}-1 ${width}×${height}pxで参照情報は付箋と入力欄に重ならない`, async () => {
       await page.setViewportSize({ width, height });
       await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
 
       const referenceNote = page
         .getByTestId(`board-reference-${reference}-content`)
         .locator("xpath=..");
-      const addNote = page
-        .getByTestId("private-notes-list")
-        .getByRole("button", {
-          name: "付箋を追加",
-          exact: true,
-        });
+      const composer = page
+        .getByTestId("private-notes-toolbar")
+        .getByRole("textbox", { name: "付箋を書く" });
       expect(await referenceNote.isVisible()).toBe(true);
-      expect(await addNote.isVisible()).toBe(true);
-      // 追加カードは一覧の末尾にあるため、付箋が多いときはスクロールして届く位置で確かめる。
-      await addNote.scrollIntoViewIfNeeded();
+      expect(await composer.isVisible()).toBe(true);
 
       const referenceBox = await referenceNote.boundingBox();
       if (!referenceBox) throw new Error("参照付箋が見つかりません");
@@ -354,7 +324,10 @@ for (const [phase, reference] of [
         .evaluateAll((elements) =>
           elements.map((element) => element.getBoundingClientRect().toJSON()),
         );
-      for (const card of cardBoxes) {
+      const composerBox = await composer.evaluate((element) =>
+        element.getBoundingClientRect().toJSON(),
+      );
+      for (const card of [...cardBoxes, composerBox]) {
         const overlaps =
           Math.min(referenceBox.x + referenceBox.width, card.right) >
             Math.max(referenceBox.x, card.left) &&
@@ -363,7 +336,7 @@ for (const [phase, reference] of [
         expect(overlaps, JSON.stringify({ referenceBox, card })).toBe(false);
       }
       expect(
-        await addNote.evaluate((element) => {
+        await composer.evaluate((element) => {
           const bounds = element.getBoundingClientRect();
           return (
             document
@@ -371,7 +344,7 @@ for (const [phase, reference] of [
                 bounds.x + bounds.width / 2,
                 bounds.y + bounds.height / 2,
               )
-              ?.closest('button[aria-label="付箋を追加"]') === element
+              ?.closest('textarea[aria-label="付箋を書く"]') === element
           );
         }),
       ).toBe(true);
@@ -379,7 +352,7 @@ for (const [phase, reference] of [
   }
 }
 
-test("3-1で考えるヒントを開いても、付箋と追加カードはヒントに隠れない", async () => {
+test("3-1で考えるヒントを開いても、付箋と入力欄はヒントに隠れない", async () => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openStory("room-roomboardlayout--phase-3-step-1");
   await page.getByRole("button", { name: "考えるヒントを開く" }).click();
@@ -396,7 +369,10 @@ test("3-1で考えるヒントを開いても、付箋と追加カードはヒ�
       elements.map((element) => element.getBoundingClientRect().toJSON()),
     );
   expect(cards.length).toBeGreaterThan(0);
-  for (const card of cards) {
+  const composer = await page
+    .getByRole("textbox", { name: "付箋を書く" })
+    .evaluate((element) => element.getBoundingClientRect().toJSON());
+  for (const card of [...cards, composer]) {
     const overlaps =
       Math.min(helpBox.x + helpBox.width, card.right) >
         Math.max(helpBox.x, card.left) &&
@@ -456,7 +432,7 @@ for (const phase of [1, 2, 3] as const) {
   });
 }
 
-test("1-1・2-1・3-1のマイ付箋エリアは現在地と上部メニューの真下から始まる", async () => {
+test("1280pxの1-1では上部中央に入力欄を置き、各個人作業でタイマーを避ける", async () => {
   await page.setViewportSize({ width: 1280, height: 720 });
   const tops: Record<string, number> = {};
   for (const phase of [1, 2, 3] as const) {
@@ -464,6 +440,29 @@ test("1-1・2-1・3-1のマイ付箋エリアは現在地と上部メニュー�
     const box = await page.getByTestId("private-notes-toolbar").boundingBox();
     if (!box) throw new Error("マイ付箋エリアが見つかりません");
     tops[`${phase}-1`] = box.y;
+    const composer = page
+      .getByTestId("private-notes-header")
+      .locator("textarea");
+    const timer = page.getByTestId("timer-floating");
+    await expect
+      .poll(async () => {
+        const [input, clock] = await Promise.all([
+          composer.boundingBox(),
+          timer.boundingBox(),
+        ]);
+        if (!input || !clock) return false;
+        if (
+          phase === 1 &&
+          Math.abs(input.x + input.width / 2 - box.x - box.width / 2) >= 1
+        )
+          return false;
+        return (
+          input.x + input.width <= clock.x ||
+          clock.y + clock.height <= input.y ||
+          input.y + input.height <= clock.y
+        );
+      })
+      .toBe(true);
   }
   // 1280×720では最上段の現在地・上部メニュー（下端68px）の真下、80pxから始める。
   // 接続案内はエリアの前面に重ねる。
@@ -474,6 +473,55 @@ test("1-1・2-1・3-1のマイ付箋エリアは現在地と上部メニュー�
       `${key}: ${JSON.stringify(tops)}`,
     ).toBeLessThan(1);
   }
+});
+
+test("390pxの1-1では進行案内とタイマーの下に入力欄が見える", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openStory("room-roomboardlayout--phase-1-step-1");
+  const hint = page.getByTestId("board-character-bubble");
+  const timer = page.getByTestId("timer-floating");
+  const header = page.getByTestId("private-notes-header");
+  await hint.waitFor();
+  await expect
+    .poll(async () => {
+      const [bubble, clock, writing] = await Promise.all([
+        hint.boundingBox(),
+        timer.boundingBox(),
+        header.boundingBox(),
+      ]);
+      if (!bubble || !clock || !writing) return false;
+      return (
+        writing.y >=
+          Math.max(bubble.y + bubble.height, clock.y + clock.height) &&
+        (bubble.x + bubble.width <= clock.x ||
+          bubble.y + bubble.height <= clock.y ||
+          clock.y + clock.height <= bubble.y)
+      );
+    })
+    .toBe(true);
+  await header
+    .getByRole("textbox", { name: "付箋を書く" })
+    .click({ trial: true });
+});
+
+test("320×568pxの2-1では参照欄とタイマーがあっても入力欄全体が見える", async () => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openStory("room-roomboardlayout--phase-2-step-1");
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
+  await composer.waitFor();
+  await expect
+    .poll(async () => {
+      const [input, panel] = await Promise.all([
+        composer.boundingBox(),
+        toolbar.boundingBox(),
+      ]);
+      return Boolean(
+        input && panel && input.y + input.height <= panel.y + panel.height,
+      );
+    })
+    .toBe(true);
+  await composer.click({ trial: true });
 });
 
 for (const id of [
@@ -1028,12 +1076,11 @@ test.each([1280, 1024, 768])(
       .getByTestId("private-notes-toolbar")
       .boundingBox();
 
-    const addNote = page.getByTestId("private-notes-list").getByRole("button", {
-      name: "付箋を追加",
-      exact: true,
-    });
+    const composer = page
+      .getByTestId("private-notes-toolbar")
+      .getByRole("textbox", { name: "付箋を書く" });
 
-    expect(await addNote.isVisible()).toBe(true);
+    expect(await composer.isVisible()).toBe(true);
     expect(
       (toolbarBox?.x ?? Infinity) + (toolbarBox?.width ?? 0),
     ).toBeLessThanOrEqual(width);
@@ -1480,8 +1527,8 @@ test("U03: 390pxで旧ガイドを表示せず、現在の操作へ到達でき�
   expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(390);
   expect(
     await page
-      .getByTestId("private-notes-list")
-      .getByRole("button", { name: "付箋を追加" })
+      .getByTestId("private-notes-toolbar")
+      .getByRole("textbox", { name: "付箋を書く" })
       .isVisible(),
   ).toBe(true);
 });
@@ -1606,7 +1653,7 @@ async function expectHudTargets(context: string): Promise<void> {
       if (
         (a.family === "timer" && b.family === "timer") ||
         // 全幅の個人作業エリアでは参照欄・ヒントと付箋カードの部分重なりを許容する。
-        // 上のhit検査と参照情報・ヒント・追加カードの専用操作テストで双方の到達性を保つ。
+        // 上のhit検査と参照情報・ヒント・入力欄の操作テストで双方の到達性を保つ。
         (a.family === "context" && b.family === "workspace") ||
         (a.family === "workspace" && b.family === "context") ||
         a.contains.includes(b.index) ||

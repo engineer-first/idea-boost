@@ -10,14 +10,42 @@
 
 .personalWorkspace {
   --private-workspace-padding: 0.75rem;
+  --private-workspace-grid-inset: calc(
+    (100% - var(--private-notes-grid-width)) /
+    2
+  );
+  --private-workspace-reference-inset: var(
+    --board-private-reference-inset,
+    0px
+  );
+  --private-workspace-timer-inset: var(--board-private-timer-inset, 0px);
 }
 
-/* デスクトップの決定事項・考えるヒントは左側で前面に重なるため、付箋一覧をその右側から始める。 */
-.personalWorkspace [data-testid="private-notes-scroll"] {
-  padding-block-start: var(--private-workspace-padding);
+.personalWorkspacePanel {
+  top: max(
+    var(--board-private-expanded-top, 5rem),
+    var(--board-private-timer-top, 0px)
+  );
+}
+
+.personalWorkspace [data-testid="private-notes-header"] {
+  padding-inline-end: max(
+    var(--private-workspace-padding),
+    var(--private-workspace-timer-inset),
+    var(--private-workspace-grid-inset)
+  );
+}
+
+/* 広い画面では一覧の分だけ中央に余白を取り、左側の参照情報も避ける。 */
+.personalWorkspace
+  :is(
+    [data-testid="private-notes-header"],
+    [data-testid="private-notes-scroll"]
+  ) {
   padding-inline-start: max(
     var(--private-workspace-padding),
-    var(--board-private-reference-inset, 0px)
+    var(--private-workspace-reference-inset),
+    var(--private-workspace-grid-inset)
   );
 }
 
@@ -42,11 +70,11 @@
 }
 
 .additionalWritingCanvas {
-  /* 150px の付箋に上下32pxずつ余白を取る閉じた状態の高さ。 */
+  /* 付箋と固定の本文入力欄を閉じた状態でも見せる高さ。 */
   --writing-panel-height: min(
-    214px,
+    300px,
     max(
-      140px,
+      260px,
       calc((100dvh - var(--board-private-expanded-top, 5rem) - 0.75rem) * 0.5)
     )
   );
@@ -74,33 +102,29 @@
   clip-path: inset(0 round 12px);
 }
 .additionalWritingPanel [data-testid="private-notes-toolbar"] {
+  --private-workspace-padding: 0.75rem;
   height: var(--writing-panel-height);
   max-width: 80rem;
   transition: height 250ms ease;
+}
+.additionalWritingPanel:not(.writingExpanded) .personalWorkspace {
+  --private-workspace-reference-inset: 0px;
+  --private-workspace-timer-inset: 0px;
 }
 .additionalWritingPanel.writingExpanded [data-testid="private-notes-toolbar"] {
   height: 100%;
   pointer-events: none;
 }
-.additionalWritingPanel.writingExpanded
-  [data-testid="private-notes-toolbar"]
-  button,
-.additionalWritingPanel.writingExpanded
-  [data-testid="private-notes-toolbar"]
-  [data-testid="note-card"],
-.additionalWritingPanel.writingExpanded
-  [data-testid="private-notes-toolbar"]
-  [data-testid="private-note-placeholder"] {
+.additionalWritingPanel
+  :is(
+    [data-testid="private-notes-header"],
+    [data-testid="private-notes-scroll"]
+  ) {
   pointer-events: auto;
 }
 .additionalWritingPanel [data-testid="private-notes-scroll"] {
-  padding: 12px;
-}
-.additionalWritingPanel [data-testid="private-notes-list"] {
-  padding-bottom: 0;
-}
-.additionalWritingPanel.writingExpanded [data-testid="private-notes-scroll"] {
-  padding-inline-start: max(12px, var(--board-private-reference-inset, 0px));
+  padding-block: 0.75rem;
+  padding-inline-end: var(--private-workspace-padding);
 }
 @media (prefers-reduced-motion: reduce) {
   .additionalWritingPanel,

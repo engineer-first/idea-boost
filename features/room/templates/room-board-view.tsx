@@ -1491,6 +1491,8 @@ export function RoomBoardView({
       "board-connection-slot",
     ] as const;
     const helpPanelSelector = '[data-testid="board-help-panel"] > div';
+    const characterSelector = '[data-testid="board-character"]';
+    const characterBubbleSelector = '[data-testid="board-character-bubble"]';
     const referenceSelectors = [
       '[data-testid="board-context-references"]',
       helpPanelSelector,
@@ -1593,24 +1595,38 @@ export function RoomBoardView({
             }
             headerBottom = Math.max(headerBottom, bounds.bottom);
           }
-          // モバイルの考えるヒントは上部欄の下に重なるため、その下から始める。
-          const mobileHelpPanel = isDesktop
-            ? null
-            : visibleBounds(helpPanelSelector);
-          if (mobileHelpPanel)
-            headerBottom = Math.max(headerBottom, mobileHelpPanel.bottom);
+          if (!isDesktop) {
+            const guide = visibleBounds(characterSelector);
+            const bubble = characterHint.message
+              ? root.querySelector<HTMLElement>(characterBubbleSelector)
+              : null;
+            // 登場時の拡大率にかかわらず、吹き出しのレイアウト上の下端まで空ける。
+            const bubbleBottom =
+              guide && bubble
+                ? guide.top + bubble.offsetTop + bubble.offsetHeight
+                : 0;
+            headerBottom = Math.max(
+              headerBottom,
+              visibleBounds(helpPanelSelector)?.bottom ?? 0,
+              guide?.bottom ?? 0,
+              bubbleBottom,
+            );
+          }
           root.style.setProperty(
             "--board-private-expanded-top",
             `${Math.ceil(headerBottom + 12)}px`,
           );
-          // デスクトップの決定事項・考えるヒントは左側で前面に重なるため、
-          // 付箋一覧をその右側へ寄せる。
+          // デスクトップでは参照情報の右側から書き始める。
+          // 2-1は問いのヒントが開いても付箋を動かさないよう、左の列全体を空ける。
           const workspace = root.querySelector<HTMLElement>(
             '[data-testid="private-notes-toolbar"]',
           );
           const referenceRight = isDesktop
             ? Math.max(
-                0,
+                isPhaseStep(phase, 2, 1)
+                  ? (visibleBounds('[data-testid="board-context-column"]')
+                      ?.right ?? 0)
+                  : 0,
                 ...referenceSelectors.map(
                   (selector) => visibleBounds(selector)?.right ?? 0,
                 ),
@@ -1661,6 +1677,8 @@ export function RoomBoardView({
       '[data-testid="board-location-slot"]',
       '[data-testid="step-one-onboarding-trigger"]',
       '[data-testid="board-help-panel"]',
+      characterSelector,
+      characterBubbleSelector,
       ...referenceSelectors,
     ]) {
       const element = root.querySelector<HTMLElement>(selector);
@@ -1672,7 +1690,13 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, phase, isIdeaMapWorkspaceStep, hmwHintNudge.hasBeenShown]);
+  }, [
+    boardRootRef,
+    phase,
+    isIdeaMapWorkspaceStep,
+    hmwHintNudge.hasBeenShown,
+    characterHint.message,
+  ]);
 
   const handleNoteSelect = (
     noteId: string | null,
@@ -1900,6 +1924,8 @@ export function RoomBoardView({
           ) {
             const inPrivateToolbar =
               target.closest('[data-testid="private-notes-toolbar"]') !== null;
+            const isPrivateComposer =
+              target.closest('[data-private-note-composer="true"]') !== null;
             const isPrivateWorkspace =
               inPrivateToolbar &&
               privateToolbarRef.current?.dataset.presentation === "workspace";
@@ -1911,6 +1937,7 @@ export function RoomBoardView({
               !target.readOnly;
             // 個人作業で付箋を作れる場所はマイ付箋エリアだけ。背景キャンバスは起点にしない。
             if (
+              !isPrivateComposer &&
               (isPrivateSurface || isPrivateEditor || isPrivateWorkspace) &&
               !target.closest(
                 '[data-board-native-control], [role="menu"], [role="dialog"]',

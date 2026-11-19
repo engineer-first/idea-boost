@@ -1132,7 +1132,11 @@ export function NoteCard({
           fontSize: `${note.fontSize}px`,
           lineHeight: `${Math.ceil(note.fontSize * 1.5)}px`,
         }}
-        placeholder="メモを入力..."
+        placeholder={
+          note.visibility === "private" && !isEditing
+            ? undefined
+            : "メモを入力..."
+        }
       />
       {vote.displayMode === "result" ? (
         <div

@@ -262,6 +262,7 @@ export const PrivateNoteAdditionDelayed: Story = {
       { operationId: string; noteId: string } | undefined
     >();
     const pendingRef = useRef<string | null>(null);
+    const pendingContentRef = useRef("");
     useEffect(() => {
       if (!pendingOperationId) return;
       const timer = window.setTimeout(() => {
@@ -272,7 +273,7 @@ export const PrivateNoteAdditionDelayed: Story = {
             id: noteId,
             authorId: ME,
             visibility: "private",
-            content: "",
+            content: pendingContentRef.current,
           }),
         ]);
         setReceipt({ operationId: pendingOperationId, noteId });
@@ -305,10 +306,11 @@ export const PrivateNoteAdditionDelayed: Story = {
         help={help}
         noteCreationPending={pendingOperationId !== null}
         noteCreationReceipt={receipt}
-        onAddPrivateNote={() => {
+        onAddPrivateNote={(content = "") => {
           if (pendingRef.current) return null;
           const operationId = crypto.randomUUID();
           pendingRef.current = operationId;
+          pendingContentRef.current = content;
           setPendingOperationId(operationId);
           return operationId;
         }}
