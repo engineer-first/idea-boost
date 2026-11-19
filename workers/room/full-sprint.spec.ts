@@ -16,7 +16,6 @@ import {
 import {
   connectRoomAs,
   createRoomAs,
-  endTimerForTest,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
@@ -47,7 +46,10 @@ type SnapshotMessage = Extract<ServerMessage, { type: "snapshot" }>;
 class RoomClient {
   readonly user: TestUser;
   readonly socket: RoomSocket;
+  // テストが読み進めたメッセージ。読んでいない受信分は含まない。
   readonly seen: ServerMessage[] = [];
+  // 読み進めたかに関係なく、この接続が受信したすべての本文。配信漏れの確認に使う。
+  readonly received: string[] = [];
   phase: RoomPhase = { kind: "lobby" };
   phaseRevision = 0;
   groupRevision = 0;
@@ -62,6 +64,7 @@ class RoomClient {
     this.user = user;
     this.socket = socket;
     socket.ws.addEventListener("message", (event) => {
+      this.received.push(String(event.data));
       const parsed = parseServerMessage(event.data);
       if (parsed?.type === "phase:progress") {
         this.seen.push(parsed);
@@ -149,10 +152,25 @@ class RoomClient {
     }
   }
 
+  // 届かないメッセージを待ち続けず、どの利用者で止まったかを示して失敗させる。
   async next(): Promise<ServerMessage> {
-    const message = await this.socket.next();
-    this.apply(message);
-    return message;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new Error(`${this.user.name} に5秒以内にメッセージが届きません`),
+          ),
+        5000,
+      );
+    });
+    try {
+      const message = await Promise.race([this.socket.next(), timeout]);
+      this.apply(message);
+      return message;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async waitFor<T extends ServerMessage["type"]>(
@@ -405,6 +423,23 @@ async function castAllVotes(
   );
 }
 
+// 工程が移ると snapshot と phase:updated の両方が届く。届く順に依存せず両方を待つ。
+async function waitForPhaseChange(
+  clients: readonly RoomClient[],
+  phase: RoomPhase,
+): Promise<SnapshotMessage[]> {
+  const key = JSON.stringify(phase);
+  return await Promise.all(
+    clients.map(async (client) => {
+      const [snapshot] = await client.waitForAll([
+        (m) => m.type === "snapshot" && JSON.stringify(m.phase) === key,
+        (m) => m.type === "phase:updated" && JSON.stringify(m.phase) === key,
+      ]);
+      return snapshot as SnapshotMessage;
+    }),
+  );
+}
+
 async function markBothReadyAndAdvance(
   first: RoomClient,
   second: RoomClient,
@@ -462,26 +497,10 @@ async function markBothReadyAndAdvance(
   });
 
   if (options?.expectSnapshot) {
-    const [firstSnapshot, secondSnapshot] = await Promise.all([
-      first.waitFor(
-        "snapshot",
-        (m) => JSON.stringify(m.phase) === JSON.stringify(expectedNextPhase),
-      ),
-      second.waitFor(
-        "snapshot",
-        (m) => JSON.stringify(m.phase) === JSON.stringify(expectedNextPhase),
-      ),
-    ]);
-    await Promise.all([
-      first.waitFor(
-        "phase:updated",
-        (m) => JSON.stringify(m.phase) === JSON.stringify(expectedNextPhase),
-      ),
-      second.waitFor(
-        "phase:updated",
-        (m) => JSON.stringify(m.phase) === JSON.stringify(expectedNextPhase),
-      ),
-    ]);
+    const [firstSnapshot, secondSnapshot] = await waitForPhaseChange(
+      [first, second],
+      expectedNextPhase,
+    );
     return { firstSnapshot, secondSnapshot };
   }
 
@@ -722,7 +741,9 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
 
     await startStepTimer(hostClient, memberClient, 300_000);
 
-    const memberSeenBefore11 = memberClient.seen.length;
+    // 個人ワークの未共有付箋は、本文を含めて相手へ配信しない。RoomDO は要求を順に
+    // 処理するので、相手自身の操作への応答が届いた後に、それまでの受信をすべて見る。
+    const memberReceivedBefore11 = memberClient.received.length;
     const p1HostNote1 = await createPrivateNote(
       hostClient,
       "課題A：会議が長い",
@@ -731,25 +752,18 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       hostClient,
       "課題B：議事録が散らばる",
     );
-    // 個人ワークの未共有付箋が相手へ配信されないこと。
-    expect(
-      memberClient.seen
-        .slice(memberSeenBefore11)
-        .some((m) => m.type === "note:inserted"),
-    ).toBe(false);
-    expect(memberClient.notes.size).toBe(0);
-
-    const hostSeenBeforeMember11 = hostClient.seen.length;
+    const hostReceivedBefore11 = hostClient.received.length;
     const p1MemberNote = await createPrivateNote(
       memberClient,
       "課題C：決定事項が追えない",
     );
-    expect(
-      hostClient.seen
-        .slice(hostSeenBeforeMember11)
-        .some((m) => m.type === "note:inserted"),
-    ).toBe(false);
-    expect(hostClient.notes.has(p1MemberNote.id)).toBe(false);
+    const memberReceived11 = memberClient.received
+      .slice(memberReceivedBefore11)
+      .join("\n");
+    expect(memberReceived11).not.toContain("課題A：会議が長い");
+    expect(memberReceived11).not.toContain("課題B：議事録が散らばる");
+    expect(memberClient.notes.has(p1HostNote1.id)).toBe(false);
+    expect(memberClient.notes.has(p1HostNote2.id)).toBe(false);
 
     // #653: 旧 host:transfer 要求は拒否され、両者の付箋が消えないこと。
     hostClient.send({
@@ -761,6 +775,10 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       type: "error",
       code: "forbidden",
     });
+    expect(
+      hostClient.received.slice(hostReceivedBefore11).join("\n"),
+    ).not.toContain("課題C：決定事項が追えない");
+    expect(hostClient.notes.has(p1MemberNote.id)).toBe(false);
     expect(hostClient.notes.has(p1HostNote1.id)).toBe(true);
     expect(hostClient.notes.has(p1HostNote2.id)).toBe(true);
     expect(memberClient.notes.has(p1MemberNote.id)).toBe(true);
@@ -798,34 +816,11 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       expectedPhase: hostClient.phase,
       expectedRevision: hostClient.phaseRevision,
     });
-    await Promise.all([
-      hostClient.waitFor(
-        "snapshot",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 1, step: 3 }),
-      ),
-      memberClient.waitFor(
-        "snapshot",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 1, step: 3 }),
-      ),
-    ]);
-    await Promise.all([
-      hostClient.waitFor(
-        "phase:updated",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 1, step: 3 }),
-      ),
-      memberClient.waitFor(
-        "phase:updated",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 1, step: 3 }),
-      ),
-    ]);
+    await waitForPhaseChange([hostClient, memberClient], {
+      kind: "step",
+      phase: 1,
+      step: 3,
+    });
 
     // ------------------------------------------------------------
     // #717: 1-3 から 1-2 へ戻して再び 1-3 へ進めること
@@ -987,34 +982,11 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       expectedPhase: hostClient.phase,
       expectedRevision: hostClient.phaseRevision,
     });
-    const [p2StartHost] = await Promise.all([
-      hostClient.waitFor(
-        "snapshot",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 2, step: 1 }),
-      ),
-      memberClient.waitFor(
-        "snapshot",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 2, step: 1 }),
-      ),
-    ]);
-    await Promise.all([
-      hostClient.waitFor(
-        "phase:updated",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 2, step: 1 }),
-      ),
-      memberClient.waitFor(
-        "phase:updated",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 2, step: 1 }),
-      ),
-    ]);
+    const [p2StartHost] = await waitForPhaseChange([hostClient, memberClient], {
+      kind: "step",
+      phase: 2,
+      step: 1,
+    });
     expect(p2StartHost.carryovers).toEqual([
       expect.objectContaining({
         phase: 1,
@@ -1027,7 +999,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     // 2-1（課題に対する問い・個人）(#658)
     // ------------------------------------------------------------
     await startStepTimer(hostClient, memberClient, 180_000);
-    const memberSeenBefore21 = memberClient.seen.length;
+    const memberReceivedBefore21 = memberClient.received.length;
     const p2HostNote1 = await createPrivateNote(
       hostClient,
       "問いA：どうすれば会議時間を半分にできるか？",
@@ -1036,23 +1008,30 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       hostClient,
       "問いB：どうすれば事前共有だけで済ませられるか？",
     );
-    expect(
-      memberClient.seen
-        .slice(memberSeenBefore21)
-        .some((m) => m.type === "note:inserted"),
-    ).toBe(false);
+    const hostReceivedBefore21 = hostClient.received.length;
     const p2MemberNote = await createPrivateNote(
       memberClient,
       "問いC：どうすれば決定事項を自動で残せるか？",
     );
+    const memberReceived21 = memberClient.received
+      .slice(memberReceivedBefore21)
+      .join("\n");
+    expect(memberReceived21).not.toContain("問いA：");
+    expect(memberReceived21).not.toContain("問いB：");
 
-    // 2-1 → 2-2
+    // 2-1 → 2-2。共有の前なので、移行時の snapshot にも相手の本文を含めない。
     await markBothReadyAndAdvance(
       hostClient,
       memberClient,
       { kind: "step", phase: 2, step: 2 },
       { expectSnapshot: true },
     );
+    expect(
+      hostClient.received.slice(hostReceivedBefore21).join("\n"),
+    ).not.toContain("問いC：");
+    expect(
+      memberClient.received.slice(memberReceivedBefore21).join("\n"),
+    ).not.toContain("問いA：");
 
     // ------------------------------------------------------------
     // 2-2（問い共有・#660 自分の番でないときの unpublish 拒否）
@@ -1080,34 +1059,11 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       expectedPhase: hostClient.phase,
       expectedRevision: hostClient.phaseRevision,
     });
-    await Promise.all([
-      hostClient.waitFor(
-        "snapshot",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 2, step: 3 }),
-      ),
-      memberClient.waitFor(
-        "snapshot",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 2, step: 3 }),
-      ),
-    ]);
-    await Promise.all([
-      hostClient.waitFor(
-        "phase:updated",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 2, step: 3 }),
-      ),
-      memberClient.waitFor(
-        "phase:updated",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 2, step: 3 }),
-      ),
-    ]);
+    await waitForPhaseChange([hostClient, memberClient], {
+      kind: "step",
+      phase: 2,
+      step: 3,
+    });
 
     // ------------------------------------------------------------
     // 2-3（問い投票）
@@ -1232,34 +1188,11 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       expectedPhase: hostClient.phase,
       expectedRevision: hostClient.phaseRevision,
     });
-    await Promise.all([
-      hostClient.waitFor(
-        "snapshot",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 3, step: 3 }),
-      ),
-      memberClient.waitFor(
-        "snapshot",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 3, step: 3 }),
-      ),
-    ]);
-    await Promise.all([
-      hostClient.waitFor(
-        "phase:updated",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 3, step: 3 }),
-      ),
-      memberClient.waitFor(
-        "phase:updated",
-        (m) =>
-          JSON.stringify(m.phase) ===
-          JSON.stringify({ kind: "step", phase: 3, step: 3 }),
-      ),
-    ]);
+    await waitForPhaseChange([hostClient, memberClient], {
+      kind: "step",
+      phase: 3,
+      step: 3,
+    });
 
     // ------------------------------------------------------------
     // 3-3（価値×実現のしやすさで評価）
@@ -1321,26 +1254,16 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     });
 
     hostClient.send({ type: "note:decide", noteId: p3HostNote1.id });
-    await Promise.all([
-      hostClient.waitFor(
-        "snapshot",
-        (m) => m.decision?.noteId === p3HostNote1.id,
+    await Promise.all(
+      [hostClient, memberClient].map((client) =>
+        client.waitForAll([
+          (m) => m.type === "snapshot" && m.decision?.noteId === p3HostNote1.id,
+          (m) =>
+            m.type === "decision:updated" &&
+            m.decision?.noteId === p3HostNote1.id,
+        ]),
       ),
-      memberClient.waitFor(
-        "snapshot",
-        (m) => m.decision?.noteId === p3HostNote1.id,
-      ),
-    ]);
-    await Promise.all([
-      hostClient.waitFor(
-        "decision:updated",
-        (m) => m.decision?.noteId === p3HostNote1.id,
-      ),
-      memberClient.waitFor(
-        "decision:updated",
-        (m) => m.decision?.noteId === p3HostNote1.id,
-      ),
-    ]);
+    );
 
     // 両者の準備完了で成果を公開する。
     hostClient.send({
@@ -1430,6 +1353,3 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     expect(outsiderRes.status).toBe(404);
   });
 });
-
-// 未使用のインポートにならないように参照（必要時のフォールバック用）
-void endTimerForTest;
