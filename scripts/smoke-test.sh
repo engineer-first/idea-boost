@@ -88,3 +88,16 @@ if [[ "$body" != *'"ok":true'* ]]; then
 fi
 
 echo "==> OK: service binding is wired correctly"
+
+# /api/health は Worker の起動と経路だけを見る。OpenNext の実行時エラーやルーティング崩れで
+# 利用者が入口から入れない状態は、画面を開かないと分からない。
+for path in / /login; do
+  status="$(curl -sS -o /dev/null -w '%{http_code}' "http://localhost:${PORT}${path}")"
+  if [[ "$status" != "200" ]]; then
+    echo "unexpected status from ${path}: ${status}" >&2
+    echo "---- wrangler log ----" >&2
+    cat "$LOG_FILE" >&2
+    exit 1
+  fi
+  echo "==> OK: ${path} rendered (200)"
+done
