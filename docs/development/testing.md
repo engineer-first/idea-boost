@@ -101,21 +101,23 @@ PR の待ち時間を短くするため、重い検査は変更範囲で回す�
 [scripts/ci-scope.mts](../../scripts/ci-scope.mts)、判定できない場所の変更は回す側に倒す。
 エージェントは push 前に、変更範囲に必要な検査をローカルで実行する（[AGENTS.md](../../AGENTS.md#開発と検証)）。
 
-| 検査                                      | PR                                                    | develop へのマージ後 | リリース（deploy gate） |
-| ----------------------------------------- | ----------------------------------------------------- | -------------------- | ----------------------- |
-| lint・型・unit / DOM・build（Preview）    | 毎回                                                  | 毎回                 | 毎回                    |
-| Worker / Preview / verification テスト    | `workers/`・`contracts/`・`lib/`・`scripts/` 等の変更 | 毎回                 | Worker テスト           |
-| browser（PC・iPad 幅）                    | 画面のコード・`contracts/`・`lib/`・依存の変更        | 毎回                 | なし                    |
-| browser（スマホ幅）                       | `mobile` ラベルを付けた PR だけ                       | なし                 | なし                    |
-| smoke（本番構成の疎通・トップとログイン） | なし（build の preview-smoke が代わりに確かめる）     | 毎回                 | 毎回                    |
+| 検査                                      | PR                                                     | develop へのマージ後 | リリース（deploy gate） |
+| ----------------------------------------- | ------------------------------------------------------ | -------------------- | ----------------------- |
+| lint・型・unit / DOM・build               | 毎回（Preview bundle の起動確認を含む）                | 毎回                 | 毎回                    |
+| Worker / Preview / verification テスト    | `workers/`・`contracts/`・`lib/`・`scripts/` 等の変更  | 毎回                 | `test:workers` だけ     |
+| browser（PC・iPad 幅）                    | 画面のコード・`contracts/`・`lib/`・依存の変更         | 毎回                 | なし                    |
+| browser（スマホ幅）                       | `mobile` ラベルを付けた PR・手動実行で指定したときだけ | なし                 | なし                    |
+| smoke（本番構成の疎通・トップとログイン） | なし（build の preview-smoke が代わりに確かめる）      | 毎回                 | 毎回                    |
 
 - [CI](../../.github/workflows/ci.yml) は lint・test・build・smoke、
   [Browser](../../.github/workflows/browser.yml) は browser を実行する。
   browser を分けるのは、PR Preview が CI の成功を待つため。
-- 対象外の検査は、ステップを飛ばしてジョブを成功で終える。必須チェックが pending で残らないようにするため。
+- 対象外の検査は、ステップを飛ばしてジョブを成功で終える（smoke は PR ではジョブごと skipped）。
+  必須チェックが pending で残らないようにするため。
 - スマホ縦（幅 360 以上）の見た目や操作を変える PR には `mobile` ラベルを付ける。
   付けると Browser が再実行され、スマホ幅も検査する。幅 360 未満は対応外なので検査しない。
 - develop へのマージ後に browser・Worker テストが落ちたら、その PR の作業者が直す。
+  リリースのゲートは develop の browser の結果を見ないため、落ちたまま放置しない。
 - 公開後は deploy の health-check が、API の疎通に加えてトップとログイン画面が 200 を返すことを確かめる。
 
 ## 公開 Storybook で表示を確認する
