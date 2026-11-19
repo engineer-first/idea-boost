@@ -44,6 +44,8 @@ describe("本番公開と履歴の接続", () => {
     expect(check.run).toContain('"$SITE_URL/api/health"');
     expect(check.run).toContain('"$SITE_URL/"');
     expect(check.run).toContain('"$SITE_URL/login"');
+    // 公開直後の一時的な5xxやタイムアウトで、正常な公開を失敗扱いにしない。
+    expect(check.run).toMatch(/http_code.*--retry \d/);
   });
   it("記録だけの再試行・外部手動記録を同じキューで直列化し、デプロイしない", () => {
     const retry = workflow("release-history");
