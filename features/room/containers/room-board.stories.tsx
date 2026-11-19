@@ -16,6 +16,7 @@ import {
   PREVIEW_TARGET,
   type RoomPreviewMode,
 } from "../logic/room-connection-preview.fixture";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { RoomBoard } from "./room-board";
 
 const ACTIVE_PHASE = buildPhaseStep(3);
@@ -117,8 +118,8 @@ const meta = {
       const currentUserId = context.args.participant
         ? PREVIEW_TARGET
         : PREVIEW_SELF;
-      window.sessionStorage.setItem(
-        `step-onboarding:ABC234:${currentUserId}:1-1`,
+      window.localStorage.setItem(
+        stepGuideSeenStorageKey(currentUserId, "1-1"),
         "seen",
       );
       for (const phaseKey of [
@@ -130,8 +131,8 @@ const meta = {
         "3-1",
         "3-3",
       ]) {
-        window.sessionStorage.setItem(
-          `step-onboarding:ABC234:${currentUserId}:${phaseKey}`,
+        window.localStorage.setItem(
+          stepGuideSeenStorageKey(currentUserId, phaseKey),
           "seen",
         );
       }

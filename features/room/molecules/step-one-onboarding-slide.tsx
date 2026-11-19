@@ -16,12 +16,13 @@ import {
   getStepGuideSlides,
   type StepGuideSlide,
 } from "../logic/step-guide-copy";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { StepGuideIllustration } from "./step-guide-illustration";
 import styles from "./step-one-onboarding-slide.module.css";
 
 export type StepOneOnboardingSlideProps = {
   phaseKey: string;
-  sessionKey: string;
+  userId: string;
   isReady: boolean;
   onReady?: () => void;
 };
@@ -248,7 +249,7 @@ function StepOneOnboardingIllustration(props: {
 
 export function StepOneOnboardingSlide({
   phaseKey,
-  sessionKey,
+  userId,
   isReady,
   onReady,
 }: StepOneOnboardingSlideProps) {
@@ -301,22 +302,22 @@ export function StepOneOnboardingSlide({
       return;
     }
 
-    const storageKey = `step-onboarding:${sessionKey}:${phaseKey}`;
+    const storageKey = stepGuideSeenStorageKey(userId, phaseKey);
     // StrictModeのEffect再実行では、この訪問で開いた案内を閉じない。
     if (activeVisitRef.current === storageKey) return;
     activeVisitRef.current = storageKey;
     try {
-      if (sessionStorage.getItem(storageKey) === "seen") {
+      if (localStorage.getItem(storageKey) === "seen") {
         setOpen(false);
         onReady?.();
         return;
       }
-      sessionStorage.setItem(storageKey, "seen");
+      localStorage.setItem(storageKey, "seen");
     } catch {
       // ストレージを使えない環境では、この表示中だけ一度表示する。
     }
     setOpen(true);
-  }, [isReady, phaseKey, sessionKey, onReady]);
+  }, [isReady, phaseKey, userId, onReady]);
 
   useEffect(() => {
     if (open) {
