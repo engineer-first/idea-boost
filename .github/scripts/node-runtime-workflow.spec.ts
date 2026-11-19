@@ -69,7 +69,9 @@ describe("CIのChromium準備", () => {
     // ミラー障害もあるため、起動を確かめて足りないときだけ取得する。
     const run = install?.run ?? "";
     expect(run).not.toContain("--with-deps");
-    expect(run.indexOf("npx playwright install chromium")).toBeGreaterThanOrEqual(0);
+    expect(
+      run.indexOf("npx playwright install chromium"),
+    ).toBeGreaterThanOrEqual(0);
     expect(run.indexOf("chromium.launch")).toBeGreaterThan(
       run.indexOf("npx playwright install chromium"),
     );
