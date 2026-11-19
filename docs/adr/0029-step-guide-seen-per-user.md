@@ -37,9 +37,10 @@ date: "2026-11-18"
 
 - 良い影響：2回目以降のワークショップでは、案内が自動で開かずに作業へ入れる。サーバー・境界の型・保存先は変えない。
 - 良い影響：原稿を直すときに、版を上げるかを基準に沿って決められる。上げたステップだけが、既読の人に一度だけ伝え直される。
-- 悪い影響（受け入れるリスク）：別の端末・別のブラウザ・シークレットウィンドウでは、案内が一度また開く。閲覧データを消した場合や、Safariでサイトを7日以上開かなかった場合も同じである。
+- 悪い影響（受け入れるリスク）：別の端末・別のブラウザ・シークレットウィンドウでは、案内が一度また開く。閲覧データを消した場合や、Safariを使った7日間にこのサイトで一度も操作しなかった場合も同じである。
 - 悪い影響：数か月ぶりに参加して手順を忘れた人にも、案内は自動では開かない。その人は「進め方」から自分で開く必要がある。
 - 悪い影響：版を上げるかどうかは人またはAIエージェントの判断に頼る。機械では、伝え直すべき変更を見落としたことを検出できない。
+- 根拠未確認：版を上げる基準の文言はAIの提案で、オーナーの採用承認をまだ確認していない。
 - 中立：導入前の既読の記録はタブを閉じると消える保存先にあったため、引き継がない。導入後に各ステップへ入ると、一度だけ案内が開く。
 - 見直す条件：
   - 別の端末で案内が再び開くことへの不満が出たとき、または利用者が端末を頻繁に替えることが分かったとき。サーバー保存を検討する。
@@ -60,4 +61,4 @@ PRの見直しで、次の案を利用場面ごとに比べた。
 - [PR #1033](https://github.com/engineer-first/idea-boost/pull/1033)：2026-11-18にオーナーがルームをまたいで端末に残す案を選び、版を持つこととその判断基準をADRに残すよう求めた。版を上げる基準の文言はAIの提案で、オーナーの採用承認はまだないため Proposed とする。
 - 実装の確認（2026-11-18）：`features/room/logic/step-guide-copy.ts` の版と基準の要約、`features/room/logic/step-guide-seen.ts` の記録のキー、`features/room/molecules/step-one-onboarding-slide.tsx` の自動表示。
 - 原稿の変更履歴：`git log --since=2026-10-01 -- features/room/logic/step-guide-copy.ts features/room/logic/step-one-onboarding-copy.ts`（2026-11-18確認、6件）。
-- [WebKit: Full Third-Party Cookie Blocking and More](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/)：Safariが、7日間操作のないサイトのスクリプトで書き込んだ保存データを削除する。
+- [WebKit: Full Third-Party Cookie Blocking and More](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/)：Safariを使った7日間に利用者の操作がなかったサイトについて、スクリプトで書き込んだ保存データを削除する。
