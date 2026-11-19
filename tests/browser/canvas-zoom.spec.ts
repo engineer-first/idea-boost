@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -10,7 +11,7 @@ afterAll(async () => {
   await browser.close();
 });
 
-test.each([390, 1920])(
+test.each(widths(390, 1920))(
   "%ipxで新100%の実寸と選択表示の画面内への収まりを保つ",
   async (width) => {
     const page = await browser.newPage({ viewport: { width, height: 900 } });

@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout/private-note-guidance";
@@ -49,7 +50,7 @@ async function expectInsideViewport(selector: string) {
   );
 }
 
-for (const width of [390, 1280]) {
+for (const width of widths(390, 1280)) {
   test(`${width}px: 全付箋を共有して空になった欄へ共有付箋をドラッグで戻せる`, async () => {
     await openStory("sharing", width);
     const toolbar = page.getByTestId("private-notes-toolbar");

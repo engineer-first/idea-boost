@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { byViewport } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -14,11 +15,11 @@ afterAll(async () => {
   await browser?.close();
 });
 
-for (const viewport of [
+for (const viewport of byViewport(
   { width: 1280, height: 720 },
   { width: 390, height: 844 },
   { width: 414, height: 635 },
-]) {
+)) {
   for (const phase of [1, 2, 3]) {
     test(`${viewport.width}×${viewport.height}・${phase}-1: 個人入力では下部のキャンバスHUDを表示しない`, async () => {
       page = await browser.newPage({ viewport });

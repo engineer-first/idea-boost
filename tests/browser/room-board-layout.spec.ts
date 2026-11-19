@@ -9,6 +9,7 @@ import {
   test,
   vi,
 } from "vitest";
+import { checksWidth, includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout";
@@ -1471,50 +1472,56 @@ test("U03: 3-3のマップ増減と追加執筆へ通常pointerで到達でき�
   ).toBe(true);
 });
 
-test("U03: 390pxで旧ガイドを表示せず、現在の操作へ到達できる", async () => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openStory("room-roomboardlayout--phase-3-step-1");
-  await page.screenshot({ path: `${output}/u03-narrow.png` });
-  expect(await page.getByTestId("step-guide").count()).toBe(0);
-  const controls = await page.getByTestId("board-control-hud").boundingBox();
-  expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(390);
-  expect(
-    await page
-      .getByTestId("private-notes-list")
-      .getByRole("button", { name: "付箋を追加" })
-      .isVisible(),
-  ).toBe(true);
-});
-
-test.each([
-  [1280, "undo-notification"],
-  [390, "undo-notification"],
-  [1280, "undo-notification-hmw"],
-  [390, "undo-notification-hmw"],
-  [1280, "undo-notification-idea"],
-  [390, "undo-notification-idea"],
-] as const)(
-  "U03: %ipxの%sで決定中の通知とUndoへ到達できる",
-  async (width, story) => {
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
-    await openStory(`room-roomboardlayout--${story}`);
-    const board = page.getByTestId("room-board-view-root");
-    const before = await board.boundingBox();
-    await page.getByRole("button", { name: "除外通知を再現" }).click();
-    await page.getByText(/投票完了により0票の付箋1件/).waitFor();
-    expect(await board.boundingBox()).toEqual(before);
-    await page.waitForTimeout(400);
-    await page.screenshot({
-      path: `${output}/u03-toast-${story}-${width}.png`,
-    });
-    await page
-      .getByRole("button", { name: "まとめて元に戻す", exact: true })
-      .click();
-    expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
-      true,
+test.skipIf(!includeMobile)(
+  "U03: 390pxで旧ガイドを表示せず、現在の操作へ到達できる",
+  async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openStory("room-roomboardlayout--phase-3-step-1");
+    await page.screenshot({ path: `${output}/u03-narrow.png` });
+    expect(await page.getByTestId("step-guide").count()).toBe(0);
+    const controls = await page.getByTestId("board-control-hud").boundingBox();
+    expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(
+      390,
     );
+    expect(
+      await page
+        .getByTestId("private-notes-list")
+        .getByRole("button", { name: "付箋を追加" })
+        .isVisible(),
+    ).toBe(true);
   },
 );
+
+test.each(
+  (
+    [
+      [1280, "undo-notification"],
+      [390, "undo-notification"],
+      [1280, "undo-notification-hmw"],
+      [390, "undo-notification-hmw"],
+      [1280, "undo-notification-idea"],
+      [390, "undo-notification-idea"],
+    ] as const
+  ).filter(([width]) => checksWidth(width)),
+)("U03: %ipxの%sで決定中の通知とUndoへ到達できる", async (width, story) => {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+  await openStory(`room-roomboardlayout--${story}`);
+  const board = page.getByTestId("room-board-view-root");
+  const before = await board.boundingBox();
+  await page.getByRole("button", { name: "除外通知を再現" }).click();
+  await page.getByText(/投票完了により0票の付箋1件/).waitFor();
+  expect(await board.boundingBox()).toEqual(before);
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: `${output}/u03-toast-${story}-${width}.png`,
+  });
+  await page
+    .getByRole("button", { name: "まとめて元に戻す", exact: true })
+    .click();
+  expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
+    true,
+  );
+});
 
 // 固定情報との意図した部分重なりは許容し、各操作対象に到達できる可視部分が残ることを調べる。
 async function expectHudTargets(context: string): Promise<void> {
@@ -1624,7 +1631,7 @@ async function expectHudTargets(context: string): Promise<void> {
   );
 }
 
-test.each([1280, 390])(
+test.each(widths(1280, 390))(
   "U03: %ipxの全14工程で参加者の実操作対象を遮らない",
   async (width) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
@@ -1644,7 +1651,7 @@ test.each([1280, 390])(
   60_000,
 );
 
-test.each([1280, 768, 390, 320])(
+test.each(widths(1280, 768, 390))(
   "%ipxで長い参照本文の全文と集計に到達でき、閉じた本文へフォーカスしない",
   async (width) => {
     await page.setViewportSize({ width, height: 900 });

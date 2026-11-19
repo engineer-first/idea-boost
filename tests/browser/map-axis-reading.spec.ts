@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { expect, test } from "vitest";
+import { checksWidth, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 
@@ -60,12 +61,16 @@ test("初期82%でも軸名が14px以上相当で読め、平面や目盛りに�
 });
 
 // 固定マップの軸名はマップの広さに連動させず、従来のレスポンシブな文字サイズを保つ。
-test.each([
-  [390, "small"],
-  [1280, "small"],
-  [390, "large"],
-  [1280, "large"],
-] as const)("%ipx・%sマップで実現のしやすさが切れない", async (width, size) => {
+test.each(
+  (
+    [
+      [390, "small"],
+      [1280, "small"],
+      [390, "large"],
+      [1280, "large"],
+    ] as const
+  ).filter(([width]) => checksWidth(width)),
+)("%ipx・%sマップで実現のしやすさが切れない", async (width, size) => {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width, height: 1000 } });
@@ -175,7 +180,9 @@ test.each(
     { phase: "3-3", story: "idea-map-only" },
     { phase: "3-4", story: "idea-map-voting" },
     { phase: "3-5", story: "idea-map-result" },
-  ].flatMap((phase) => [390, 1280, 1440].map((width) => ({ ...phase, width }))),
+  ].flatMap((phase) =>
+    widths(390, 1280, 1440).map((width) => ({ ...phase, width })),
+  ),
 )(
   "$phase / $width pxで軸名のサイズと中央配置を初回・リロード後で維持する",
   async ({ story, width }) => {

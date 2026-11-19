@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { includeMobile } from "./viewports";
 
 type AudioStartRecord = {
   frequencyHz: number;
@@ -250,72 +251,77 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
     }
   }, 25_000);
 
-  it("再生拒否を表示し、キーボードで再試行すると実音声経路を有効化する", async () => {
-    const context = await browser.newContext({
-      viewport: { width: 390, height: 844 },
-      reducedMotion: "reduce",
-    });
-    const page = await context.newPage();
-    await page.addInitScript(installAudioProbe, true);
-    try {
-      await openStory(page);
-      const soundToggle = page.getByTestId("timer-sound-toggle");
-      await soundToggle.click();
-      await vi.waitFor(async () => {
-        expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
-        expect(await soundToggle.getAttribute("title")).toContain(
-          "通知音を再生できません",
+  it.skipIf(!includeMobile)(
+    "再生拒否を表示し、キーボードで再試行すると実音声経路を有効化する",
+    async () => {
+      const context = await browser.newContext({
+        viewport: { width: 390, height: 844 },
+        reducedMotion: "reduce",
+      });
+      const page = await context.newPage();
+      await page.addInitScript(installAudioProbe, true);
+      try {
+        await openStory(page);
+        const soundToggle = page.getByTestId("timer-sound-toggle");
+        await soundToggle.click();
+        await vi.waitFor(async () => {
+          expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
+          expect(await soundToggle.getAttribute("title")).toContain(
+            "通知音を再生できません",
+          );
+        });
+        expect(await page.getByRole("dialog").count()).toBe(0);
+        expect((await readAudioProbe(page)).resumeAttempts).toBe(1);
+        expect(
+          await page.evaluate(() =>
+            localStorage.getItem("idea-boost.timer-sounds.enabled.v1"),
+          ),
+        ).toBeNull();
+        const status = page.getByRole("group", { name: "通知音の再生エラー" });
+        await status.waitFor();
+        expect(await status.textContent()).toContain("再試行");
+        const bounds = await status.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds?.x).toBeGreaterThanOrEqual(0);
+        expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(
+          390,
         );
-      });
-      expect(await page.getByRole("dialog").count()).toBe(0);
-      expect((await readAudioProbe(page)).resumeAttempts).toBe(1);
-      expect(
-        await page.evaluate(() =>
-          localStorage.getItem("idea-boost.timer-sounds.enabled.v1"),
-        ),
-      ).toBeNull();
-      const status = page.getByRole("group", { name: "通知音の再生エラー" });
-      await status.waitFor();
-      expect(await status.textContent()).toContain("再試行");
-      const bounds = await status.boundingBox();
-      expect(bounds).not.toBeNull();
-      expect(bounds?.x).toBeGreaterThanOrEqual(0);
-      expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(390);
-      const background = await status.evaluate(
-        (element) => getComputedStyle(element).backgroundColor,
-      );
-      expect(background).not.toBe("rgba(0, 0, 0, 0)");
-      await page.screenshot({ path: join(output, "playback-blocked.png") });
-      await page.getByRole("button", { name: "案内を閉じる" }).click();
-      await status.waitFor({ state: "hidden" });
-      expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
-      expect(await soundToggle.getAttribute("title")).toContain("再試行");
-      expect((await readAudioProbe(page)).starts).toHaveLength(0);
-      await soundToggle.press("Space");
-      await status.waitFor();
-      expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
-      await page.getByRole("button", { name: "案内を閉じる" }).click();
-      await status.waitFor({ state: "hidden" });
+        const background = await status.evaluate(
+          (element) => getComputedStyle(element).backgroundColor,
+        );
+        expect(background).not.toBe("rgba(0, 0, 0, 0)");
+        await page.screenshot({ path: join(output, "playback-blocked.png") });
+        await page.getByRole("button", { name: "案内を閉じる" }).click();
+        await status.waitFor({ state: "hidden" });
+        expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
+        expect(await soundToggle.getAttribute("title")).toContain("再試行");
+        expect((await readAudioProbe(page)).starts).toHaveLength(0);
+        await soundToggle.press("Space");
+        await status.waitFor();
+        expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
+        await page.getByRole("button", { name: "案内を閉じる" }).click();
+        await status.waitFor({ state: "hidden" });
 
-      await page.evaluate(() => {
-        if (window.__timerAudioProbe)
-          window.__timerAudioProbe.rejectPlayback = false;
-      });
-      await soundToggle.focus();
-      await page.keyboard.press("Space");
-      await vi.waitFor(async () => {
-        expect(await soundToggle.getAttribute("aria-pressed")).toBe("true");
-      });
-      await page.getByRole("status").waitFor({ state: "hidden" });
-      const retried = await readAudioProbe(page);
-      expect(retried.starts).toHaveLength(3);
-      expect(retried.starts.every(({ state }) => state === "running")).toBe(
-        true,
-      );
-      await soundToggle.press("Space");
-      expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
-    } finally {
-      await context.close();
-    }
-  });
+        await page.evaluate(() => {
+          if (window.__timerAudioProbe)
+            window.__timerAudioProbe.rejectPlayback = false;
+        });
+        await soundToggle.focus();
+        await page.keyboard.press("Space");
+        await vi.waitFor(async () => {
+          expect(await soundToggle.getAttribute("aria-pressed")).toBe("true");
+        });
+        await page.getByRole("status").waitFor({ state: "hidden" });
+        const retried = await readAudioProbe(page);
+        expect(retried.starts).toHaveLength(3);
+        expect(retried.starts.every(({ state }) => state === "running")).toBe(
+          true,
+        );
+        await soundToggle.press("Space");
+        expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
+      } finally {
+        await context.close();
+      }
+    },
+  );
 });

@@ -8,6 +8,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { byViewport, includeMobile } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -46,10 +47,12 @@ async function select(lobby = false) {
     .getByRole("alertdialog", { name: "この参加者をルームから外しますか？" })
     .waitFor();
 }
-test.each([
-  { name: "mobile", width: 390, height: 844 },
-  { name: "desktop", width: 1280, height: 720 },
-])(
+test.each(
+  byViewport(
+    { name: "mobile", width: 390, height: 844 },
+    { name: "desktop", width: 1280, height: 720 },
+  ),
+)(
   "$name: 確認は画面内に収まり取消で参加者入口へ戻る、確定時だけ一覧から除く",
   async (viewport) => {
     await page.setViewportSize(viewport);
@@ -140,21 +143,24 @@ test("共有中も他の参加者を外せて、自分自身は除外対象に�
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "参加者 1人" }).waitFor();
 });
-test("390pxの長い名前でも確定・取消へ到達できる", async () => {
-  await page.goto(
-    `${origin}/iframe.html?id=room-memberremovedialog--long-name&viewMode=story`,
-  );
-  await page.getByRole("alertdialog").waitFor();
-  const confirm = page.getByRole("button", {
-    name: "ルームから外す",
-    exact: true,
-  });
-  await confirm.scrollIntoViewIfNeeded();
-  expect(await confirm.isVisible()).toBe(true);
-  await page.screenshot({
-    path: "test-results/board-layout/441-long-name-mobile.png",
-  });
-});
+test.skipIf(!includeMobile)(
+  "390pxの長い名前でも確定・取消へ到達できる",
+  async () => {
+    await page.goto(
+      `${origin}/iframe.html?id=room-memberremovedialog--long-name&viewMode=story`,
+    );
+    await page.getByRole("alertdialog").waitFor();
+    const confirm = page.getByRole("button", {
+      name: "ルームから外す",
+      exact: true,
+    });
+    await confirm.scrollIntoViewIfNeeded();
+    expect(await confirm.isVisible()).toBe(true);
+    await page.screenshot({
+      path: "test-results/board-layout/441-long-name-mobile.png",
+    });
+  },
+);
 
 test.each([
   "1-1",

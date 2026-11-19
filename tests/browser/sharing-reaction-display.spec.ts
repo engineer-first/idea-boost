@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Locator } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { byViewport, includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -144,10 +145,9 @@ test("5種類とも浮上中の横位置を固定し、画像の中心がまっ�
   }
 });
 
-test.each([
-  { width: 1280, height: 800 },
-  { width: 375, height: 812 },
-])(
+test.each(
+  byViewport({ width: 1280, height: 800 }, { width: 375, height: 812 }),
+)(
   "$width × $height : 画面下端から中央の高さまで上がり、その場でフェードする",
   async (viewport) => {
     const page = await browser.newPage({ viewport });
@@ -196,42 +196,45 @@ test.each([
   },
 );
 
-test("動きを減らす設定では5種類とも上昇や身振りをせず、中央の高さでフェードだけにする", async () => {
-  const page = await browser.newPage({
-    viewport: { width: 375, height: 812 },
-    reducedMotion: "reduce",
-  });
-  try {
-    await page.goto(
-      `${origin}/iframe.html?id=room-sharingreactiondisplay--all-kinds&viewMode=story`,
-    );
-    const reactions = page.locator(
-      '[aria-label="届いたリアクション"] [role="img"]',
-    );
-    await reactions.first().waitFor({ state: "attached" });
-    for (let i = 0; i < 5; i++) {
-      const reaction = reactions.nth(i);
-      const start = await frame(reaction, 300);
-      const middle = await frame(reaction, 2_250);
-      expect(middle.y).toBeGreaterThan(812 * 0.4);
-      expect(middle.y).toBeLessThan(812 * 0.6);
-      expect(middle.y).toBe(start.y);
-      expect(middle.transform).toBe("none");
-      expect((await frame(reaction, 2_999)).opacity).toBeLessThan(0.02);
-      expect(
-        await reaction.locator("img").evaluate((element) => ({
-          animations: element.getAnimations().length,
-          transform: getComputedStyle(element).transform,
-        })),
-      ).toEqual({ animations: 0, transform: "none" });
+test.skipIf(!includeMobile)(
+  "動きを減らす設定では5種類とも上昇や身振りをせず、中央の高さでフェードだけにする",
+  async () => {
+    const page = await browser.newPage({
+      viewport: { width: 375, height: 812 },
+      reducedMotion: "reduce",
+    });
+    try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-sharingreactiondisplay--all-kinds&viewMode=story`,
+      );
+      const reactions = page.locator(
+        '[aria-label="届いたリアクション"] [role="img"]',
+      );
+      await reactions.first().waitFor({ state: "attached" });
+      for (let i = 0; i < 5; i++) {
+        const reaction = reactions.nth(i);
+        const start = await frame(reaction, 300);
+        const middle = await frame(reaction, 2_250);
+        expect(middle.y).toBeGreaterThan(812 * 0.4);
+        expect(middle.y).toBeLessThan(812 * 0.6);
+        expect(middle.y).toBe(start.y);
+        expect(middle.transform).toBe("none");
+        expect((await frame(reaction, 2_999)).opacity).toBeLessThan(0.02);
+        expect(
+          await reaction.locator("img").evaluate((element) => ({
+            animations: element.getAnimations().length,
+            transform: getComputedStyle(element).transform,
+          })),
+        ).toEqual({ animations: 0, transform: "none" });
+      }
+    } finally {
+      await page.close();
     }
-  } finally {
-    await page.close();
-  }
-});
+  },
+);
 
 test.each(
-  [1280, 375, 320].flatMap((width) => [
+  widths(1280, 375).flatMap((width) => [
     { width, story: "simultaneous-likes", count: 6 },
     { width, story: "all-kinds", count: 5 },
   ]),
@@ -307,7 +310,7 @@ test("表示中のリサイズとモーション低減でも最大6画像を左1
     );
     const reactions = page.getByRole("img", { name: "いいね", exact: true });
     await reactions.first().waitFor({ state: "attached" });
-    for (const width of [1280, 375, 320]) {
+    for (const width of widths(1280, 375)) {
       await page.setViewportSize({ width, height: 800 });
       for (const reducedMotion of ["no-preference", "reduce"] as const) {
         await page.emulateMedia({ reducedMotion });

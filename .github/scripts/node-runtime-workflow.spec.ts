@@ -20,7 +20,7 @@ const directory = new URL("../workflows/", import.meta.url);
 // pull_request / push だけで動き、公開物を作らないworkflow。
 // それ以外（デプロイ・リリース記録・pull_request_target / workflow_run）は、
 // 低信頼の実行が書いたcacheを取り込まないようcacheを使わない。
-const cacheableWorkflows = new Set(["ci.yml", "chromatic.yml"]);
+const cacheableWorkflows = new Set(["ci.yml", "browser.yml", "chromatic.yml"]);
 
 describe("CIのNodeセキュリティ更新と外部ダウンロード", () => {
   for (const name of readdirSync(directory).filter((name) =>
@@ -56,10 +56,12 @@ describe("CIのNodeセキュリティ更新と外部ダウンロード", () => {
 });
 
 describe("CIのChromium準備", () => {
-  const ci = parse(readFileSync(new URL("ci.yml", directory), "utf8")) as {
+  const workflow = parse(
+    readFileSync(new URL("browser.yml", directory), "utf8"),
+  ) as {
     jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
   };
-  const install = ci.jobs.browser.steps.find(
+  const install = workflow.jobs.browser.steps.find(
     (step) => step.name === "Install Chromium",
   );
   it("aptから依存を取得できない場合も、ブラウザ本体だけ入れて検査へ進む", () => {

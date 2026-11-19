@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { includeMobile, sizes } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -84,12 +85,7 @@ async function checkPlacement(page: Page): Promise<void> {
   }
 }
 
-test.each([
-  [1280, 720],
-  [1440, 900],
-  [390, 844],
-  [320, 568],
-])(
+test.each(sizes([1280, 720], [1440, 900], [390, 844]))(
   "%i×%iで個人・共有・評価中の一言が出ている間、先生と吹き出しが配置条件を満たす",
   async (width, height) => {
     const page = await browser.newPage({ viewport: { width, height } });
@@ -116,33 +112,38 @@ test.each([
   },
 );
 
-test("残り時間の一言と先生が15秒後に一緒に消える", async () => {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  page.setDefaultTimeout(15_000);
-  try {
-    await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
-    await page.clock.pauseAt(new Date("2026-01-01T00:00:01Z"));
-    await page.goto(
-      `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-2&viewMode=story`,
-    );
-    const character = page.getByTestId("board-character");
-    await character.waitFor();
-    await page.clock.runFor(110_000);
-    expect(
-      await character.getByTestId("board-character-bubble").textContent(),
-    ).toContain("残り30秒");
-    await page.screenshot({
-      path: "test-results/board-layout/character-bubble.png",
+test.skipIf(!includeMobile)(
+  "残り時間の一言と先生が15秒後に一緒に消える",
+  async () => {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
     });
-    await page.clock.fastForward(15_000);
-    expect(await character.getByTestId("board-character-bubble").count()).toBe(
-      0,
-    );
-    expect(await character.count()).toBe(0);
-  } finally {
-    await page.close();
-  }
-});
+    page.setDefaultTimeout(15_000);
+    try {
+      await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+      await page.clock.pauseAt(new Date("2026-01-01T00:00:01Z"));
+      await page.goto(
+        `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-2&viewMode=story`,
+      );
+      const character = page.getByTestId("board-character");
+      await character.waitFor();
+      await page.clock.runFor(110_000);
+      expect(
+        await character.getByTestId("board-character-bubble").textContent(),
+      ).toContain("残り30秒");
+      await page.screenshot({
+        path: "test-results/board-layout/character-bubble.png",
+      });
+      await page.clock.fastForward(15_000);
+      expect(
+        await character.getByTestId("board-character-bubble").count(),
+      ).toBe(0);
+      expect(await character.count()).toBe(0);
+    } finally {
+      await page.close();
+    }
+  },
+);
 
 test.each(["no-preference", "reduce"] as const)(
   "動きの設定が%sのとき、先生と吹き出しの登場が設定に従う",

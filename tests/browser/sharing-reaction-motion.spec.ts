@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -26,7 +27,7 @@ async function openBar(page: Page) {
   return bar;
 }
 
-test.each([1280, 320])(
+test.each(widths(1280))(
   "幅%d：画像だけが一度動き、押せる範囲と隣の画像を動かさない",
   async (width) => {
     const page = await browser.newPage({ viewport: { width, height: 800 } });
@@ -145,34 +146,39 @@ test("モーション低減では画像とバーを拡縮せず、フォーカ�
   }
 });
 
-test("タッチは予備タップなしで1件送り、バーを維持する", async () => {
-  const page = await browser.newPage({
-    hasTouch: true,
-    isMobile: true,
-    viewport: { width: 375, height: 812 },
-  });
-  try {
-    await page.goto(
-      `${origin}/iframe.html?id=room-sharingreactioncontrols--repeated-sending&viewMode=story`,
-    );
-    await page.getByRole("button", { name: "リアクション", exact: true }).tap();
-    const bar = page.getByRole("dialog", { name: "リアクションを選ぶ" });
-    await bar.getByRole("button", { name: "拍手を送る" }).tap();
-    expect(
+test.skipIf(!includeMobile)(
+  "タッチは予備タップなしで1件送り、バーを維持する",
+  async () => {
+    const page = await browser.newPage({
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 375, height: 812 },
+    });
+    try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-sharingreactioncontrols--repeated-sending&viewMode=story`,
+      );
       await page
-        .getByRole("status", { name: "リアクションの送信回数" })
-        .textContent(),
-    ).toBe("1");
-    expect(
-      await page
-        .getByRole("status", { name: "最後に送ったリアクション" })
-        .textContent(),
-    ).toBe("拍手");
-    expect(await bar.isVisible()).toBe(true);
-  } finally {
-    await page.close();
-  }
-});
+        .getByRole("button", { name: "リアクション", exact: true })
+        .tap();
+      const bar = page.getByRole("dialog", { name: "リアクションを選ぶ" });
+      await bar.getByRole("button", { name: "拍手を送る" }).tap();
+      expect(
+        await page
+          .getByRole("status", { name: "リアクションの送信回数" })
+          .textContent(),
+      ).toBe("1");
+      expect(
+        await page
+          .getByRole("status", { name: "最後に送ったリアクション" })
+          .textContent(),
+      ).toBe("拍手");
+      expect(await bar.isVisible()).toBe(true);
+    } finally {
+      await page.close();
+    }
+  },
+);
 
 test.each([
   ["room-canvaszoomcontrols--tools", "キャンバスを拡大"],

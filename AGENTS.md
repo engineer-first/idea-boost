@@ -52,7 +52,9 @@ IssueはWhyと提供したい体験を短く伝え、PBI本文冒頭のユーザ
   （`npm run test:workers`）でテストする。
 - 完了前に変更範囲に必要なテスト・型・lint を実行する。
   コマンドの正本は [package.json](package.json)、CI の検査は
-  [.github/workflows/ci.yml](.github/workflows/ci.yml)。
+  [.github/workflows/ci.yml](.github/workflows/ci.yml) と [browser.yml](.github/workflows/browser.yml)。
+  CI は変更範囲で検査を省くため、push 前に必要な検査をローカルで通す
+  （回すタイミングは[テスト方針](docs/development/testing.md#ci-で回すタイミング)）。
   文書のみの変更はリンク・記載内容・整形を検証する。
 - 完了報告には変更内容、実行した検証と結果、未検証事項や残る問題を短く示す。
 

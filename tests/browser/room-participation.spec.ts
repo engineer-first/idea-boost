@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -29,7 +30,7 @@ async function open(story: string) {
   );
   await page.getByRole("alertdialog").waitFor();
 }
-test.each([390, 1280])(
+test.each(widths(390, 1280))(
   "%ipx: 移動中に追加確認を出さず、失敗したら再試行へ到達できる",
   async (width) => {
     await page.setViewportSize({ width, height: 667 });

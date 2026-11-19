@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { includeMobile } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -249,63 +250,70 @@ test("重なった付箋から操作帯へ移動しても対象を切り替え�
   ).toBe("test-dialog-layer");
 });
 
-test("タッチ端末では最後にタップした付箋だけ候補操作を表示する", async () => {
-  await page.close();
-  page = await browser.newPage({
-    colorScheme: "dark",
-    hasTouch: true,
-    viewport: { height: 640, width: 480 },
-  });
-  await openStory("notes-notecard--multiple-candidate-actions-for-touch");
-  const firstSurface = page
-    .locator('[data-note-id="first-note"]')
-    .getByRole("button", { name: "付箋" });
-  const secondSurface = page
-    .locator('[data-note-id="second-note"]')
-    .getByRole("button", { name: "付箋" });
-  const firstAction = page.locator(
-    '[data-candidate-action-note-id="first-note"]',
-  );
-  const secondAction = page.locator(
-    '[data-candidate-action-note-id="second-note"]',
-  );
-  const target = page
-    .getByTestId("candidate-target-corner")
-    .first()
-    .locator("..");
+test.skipIf(!includeMobile)(
+  "タッチ端末では最後にタップした付箋だけ候補操作を表示する",
+  async () => {
+    await page.close();
+    page = await browser.newPage({
+      colorScheme: "dark",
+      hasTouch: true,
+      viewport: { height: 640, width: 480 },
+    });
+    await openStory("notes-notecard--multiple-candidate-actions-for-touch");
+    const firstSurface = page
+      .locator('[data-note-id="first-note"]')
+      .getByRole("button", { name: "付箋" });
+    const secondSurface = page
+      .locator('[data-note-id="second-note"]')
+      .getByRole("button", { name: "付箋" });
+    const firstAction = page.locator(
+      '[data-candidate-action-note-id="first-note"]',
+    );
+    const secondAction = page.locator(
+      '[data-candidate-action-note-id="second-note"]',
+    );
+    const target = page
+      .getByTestId("candidate-target-corner")
+      .first()
+      .locator("..");
 
-  await firstAction.waitFor({ state: "attached" });
-  expect(
-    await firstAction.evaluate((element) => getComputedStyle(element).opacity),
-  ).toBe("0");
-  expect(
-    await target.evaluate((element) => getComputedStyle(element).opacity),
-  ).toBe("0");
+    await firstAction.waitFor({ state: "attached" });
+    expect(
+      await firstAction.evaluate(
+        (element) => getComputedStyle(element).opacity,
+      ),
+    ).toBe("0");
+    expect(
+      await target.evaluate((element) => getComputedStyle(element).opacity),
+    ).toBe("0");
 
-  await firstSurface.tap();
+    await firstSurface.tap();
 
-  await expect
-    .poll(() =>
-      firstAction.evaluate((element) => getComputedStyle(element).opacity),
-    )
-    .toBe("1");
-  expect(
-    await target.evaluate((element) => getComputedStyle(element).opacity),
-  ).toBe("1");
+    await expect
+      .poll(() =>
+        firstAction.evaluate((element) => getComputedStyle(element).opacity),
+      )
+      .toBe("1");
+    expect(
+      await target.evaluate((element) => getComputedStyle(element).opacity),
+    ).toBe("1");
 
-  await secondSurface.tap();
+    await secondSurface.tap();
 
-  await expect
-    .poll(() =>
-      firstAction.evaluate((element) => getComputedStyle(element).opacity),
-    )
-    .toBe("0");
-  expect(
-    await secondAction.evaluate((element) => getComputedStyle(element).opacity),
-  ).toBe("1");
-});
+    await expect
+      .poll(() =>
+        firstAction.evaluate((element) => getComputedStyle(element).opacity),
+      )
+      .toBe("0");
+    expect(
+      await secondAction.evaluate(
+        (element) => getComputedStyle(element).opacity,
+      ),
+    ).toBe("1");
+  },
+);
 
-test.each(["host", "participant"])(
+test.skipIf(!includeMobile).each(["host", "participant"])(
   "候補外の付箋（%s）は実タッチで本文を読みやすくし、復帰可能な場合だけ操作を出す",
   async (role) => {
     await page.close();

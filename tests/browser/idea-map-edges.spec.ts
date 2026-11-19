@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/idea-map-edges";
@@ -20,7 +21,7 @@ async function bounds(page: Page, testId: string) {
   return rect;
 }
 
-test.each([390, 900])(
+test.each(widths(390, 900))(
   "%i pxの採用モードでも縮小付箋をマップ右上端まで移動する",
   async (width) => {
     const page = await browser.newPage({ viewport: { width, height: 900 } });

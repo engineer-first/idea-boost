@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -10,7 +11,7 @@ afterAll(async () => {
   await browser?.close();
 });
 
-test.each([1280, 390])(
+test.each(widths(1280, 390))(
   "幅%dの共有は完了だけで交代し、最後の人の完了で次工程へ進む",
   async (width) => {
     const page = await browser.newPage({
@@ -51,7 +52,7 @@ test.each([1280, 390])(
   },
 );
 
-test.each([1280, 390])(
+test.each(widths(1280, 390))(
   "幅%dで進行待ちのボタンは白地の破線枠で示し、完了をチェックすると状態が切り替わる",
   async (width) => {
     const page = await browser.newPage({

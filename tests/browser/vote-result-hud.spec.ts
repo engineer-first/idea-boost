@@ -1,8 +1,9 @@
 import { chromium } from "playwright";
 import { expect, it } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
-it.each([360, 375, 640, 900, 1440])(
+it.each(widths(360, 375, 640, 900, 1440))(
   "%ipxで投票前・全員完了・結果の空白を予約せず主要操作の位置と行の高さを保つ",
   async (width) => {
     const browser = await chromium.launch();
@@ -150,7 +151,7 @@ it.each([360, 375, 640, 900, 1440])(
   },
 );
 
-it.each([360, 375, 640, 900, 1440])(
+it.each(widths(360, 375, 640, 900, 1440))(
   "%ipxで最終案の決定前後に完了ボタンの位置を保つ",
   async (width) => {
     const browser = await chromium.launch();

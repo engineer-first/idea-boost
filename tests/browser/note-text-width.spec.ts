@@ -1,9 +1,10 @@
 import { chromium } from "playwright";
 import { expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 
-test.each([390, 1280])(
+test.each(widths(390, 1280))(
   "%ipx: 表示中も編集中も本文が左右の余白まで使える",
   async (width) => {
     const browser = await chromium.launch();
@@ -44,7 +45,7 @@ test.each([390, 1280])(
   },
 );
 
-test.each([390, 1280])(
+test.each(widths(390, 1280))(
   "%ipx: 本文を票の専用余白と分け、決定はんこを右上に置く",
   async (width) => {
     const browser = await chromium.launch();

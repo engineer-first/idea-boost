@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -9,7 +10,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
 });
-test.each([1280, 360])(
+test.each(widths(1280, 360))(
   "幅%dの時間切れ後は未チェックのまま確認してキーボードで進める",
   async (width) => {
     const page = await browser.newPage({

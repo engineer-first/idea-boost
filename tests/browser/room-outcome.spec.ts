@@ -1,6 +1,7 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { NOTE_COLOR_STYLES } from "../../features/room-members/logic/note-color";
+import { includeMobile } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -20,51 +21,54 @@ beforeAll(async () => {
     { timeout: 90_000, interval: 1000 },
   );
   browser = await chromium.launch();
-  page = await browser.newPage({ viewport: { width: 320, height: 640 } });
+  page = await browser.newPage({ viewport: { width: 360, height: 640 } });
 });
 afterAll(async () => {
   await page?.close();
   await browser?.close();
 });
 
-test("320px 幅で長文カードの末尾まで読め、横にはみ出さない", async () => {
-  await page.goto(
-    `${origin}/iframe.html?id=room-roomoutcomeview--long-content&viewMode=story`,
-  );
-  const outcome = page.getByTestId("room-outcome-view");
-  await outcome.waitFor();
-  const idea = outcome.locator('[data-note-id="outcome-idea"]');
-  const ideaParagraph = idea.locator("p");
-  const ideaContent = await ideaParagraph.evaluate((element) => {
-    const title = element.querySelector("span")?.textContent;
-    const text = element.textContent ?? "";
-    return title ? text.slice(title.length + 1) : text;
-  });
-  expect(ideaContent).toMatch(/末尾確認$/);
-  expect(ideaContent.length).toBe(2000);
-  expect(
-    await outcome.evaluate((element) => element.scrollWidth),
-  ).toBeLessThanOrEqual(320);
-  await idea.locator("p").evaluate((element) => {
-    element.scrollIntoView({ block: "end" });
-  });
-  const tail = await ideaParagraph.evaluate((element) => {
-    const text = Array.from(element.childNodes).find(
-      (node) =>
-        node.nodeType === Node.TEXT_NODE &&
-        node.textContent?.endsWith("末尾確認"),
+test.skipIf(!includeMobile)(
+  "360px 幅で長文カードの末尾まで読め、横にはみ出さない",
+  async () => {
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomoutcomeview--long-content&viewMode=story`,
     );
-    if (!text) return null;
-    const end = text.textContent?.length ?? 0;
-    const range = document.createRange();
-    range.setStart(text, end - 4);
-    range.setEnd(text, end);
-    return range.getBoundingClientRect().toJSON();
-  });
-  expect(tail).not.toBeNull();
-  expect(tail?.top).toBeGreaterThanOrEqual(0);
-  expect(tail?.bottom).toBeLessThanOrEqual(640);
-});
+    const outcome = page.getByTestId("room-outcome-view");
+    await outcome.waitFor();
+    const idea = outcome.locator('[data-note-id="outcome-idea"]');
+    const ideaParagraph = idea.locator("p");
+    const ideaContent = await ideaParagraph.evaluate((element) => {
+      const title = element.querySelector("span")?.textContent;
+      const text = element.textContent ?? "";
+      return title ? text.slice(title.length + 1) : text;
+    });
+    expect(ideaContent).toMatch(/末尾確認$/);
+    expect(ideaContent.length).toBe(2000);
+    expect(
+      await outcome.evaluate((element) => element.scrollWidth),
+    ).toBeLessThanOrEqual(360);
+    await idea.locator("p").evaluate((element) => {
+      element.scrollIntoView({ block: "end" });
+    });
+    const tail = await ideaParagraph.evaluate((element) => {
+      const text = Array.from(element.childNodes).find(
+        (node) =>
+          node.nodeType === Node.TEXT_NODE &&
+          node.textContent?.endsWith("末尾確認"),
+      );
+      if (!text) return null;
+      const end = text.textContent?.length ?? 0;
+      const range = document.createRange();
+      range.setStart(text, end - 4);
+      range.setEnd(text, end);
+      return range.getBoundingClientRect().toJSON();
+    });
+    expect(tail).not.toBeNull();
+    expect(tail?.top).toBeGreaterThanOrEqual(0);
+    expect(tail?.bottom).toBeLessThanOrEqual(640);
+  },
+);
 
 test("成果画面の背景とカードはアプリと付箋の配色に揃う", async () => {
   await page.goto(
@@ -334,7 +338,7 @@ test("3枚横並びのPNGを保存でき、2000文字の長文でも生成でき
   // 成果カードが縦積みではなく横並びになっていること。
   expect(width).toBeGreaterThan(height);
 
-  // 画面幅320pxでも、画像は3枚横並びの固定レイアウト。
+  // 画面幅360pxでも、画像は3枚横並びの固定レイアウト。
   expect(width).toBeGreaterThan(1000);
 
   // 長文の成果でもPNGを生成できること。

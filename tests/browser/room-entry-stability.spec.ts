@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -10,7 +11,7 @@ afterAll(async () => {
   await browser.close();
 });
 
-for (const width of [390, 1440]) {
+for (const width of widths(390, 1440)) {
   test(`接続案内の切替でロビーの見出しと招待欄が動かない (${width}px)`, async () => {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
     try {
@@ -66,7 +67,7 @@ for (const width of [390, 1440]) {
   });
 }
 
-for (const width of [390, 1440]) {
+for (const width of widths(390, 1440)) {
   test.each(["auth-required", "unavailable", "connecting", "reconnecting"])(
     `ロビーの接続案内が参加者と招待欄に重ならない (${width}px, %s)`,
     async (state) => {
