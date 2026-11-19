@@ -48,7 +48,6 @@ function setup({
   const onNoteDragMove = vi.fn();
   const onNoteDragEnd = vi.fn();
   const onPrivateNotePublish = vi.fn();
-  const onPrivateNoteUnpublish = vi.fn();
   const notes = withSharedDrag
     ? [
         buildNote({
@@ -82,7 +81,6 @@ function setup({
         onNoteDragEnd,
         onNoteDragCancel,
         onPrivateNotePublish,
-        onPrivateNoteUnpublish,
         onCursorMove,
         onCursorLeave,
       }),
@@ -105,7 +103,6 @@ function setup({
     onNoteDragMove,
     onNoteDragEnd,
     onPrivateNotePublish,
-    onPrivateNoteUnpublish,
     viewport,
     toolbar,
   };
@@ -195,7 +192,6 @@ describe("useRoomBoardInteractions cursor input", () => {
           onNoteDragEnd: vi.fn(),
           onNoteDragCancel: vi.fn(),
           onPrivateNotePublish: vi.fn(),
-          onPrivateNoteUnpublish: vi.fn(),
           onCursorMove: vi.fn(),
           onCursorLeave: vi.fn(),
         });
@@ -699,13 +695,13 @@ describe("useRoomBoardInteractions cursor input", () => {
     ]);
   });
 
-  it("他の参加者の発表中も共有付箋を動かせるが、マイ付箋へは戻せない", () => {
+  it("他の参加者の発表中も共有付箋を動かして確定できる", () => {
     const note = buildNote({
       id: "shared-1",
       authorId: "11111111-1111-4111-8111-111111111111",
       visibility: "shared",
     });
-    const { result, onNoteDragMove, onPrivateNoteUnpublish, toolbar } = setup({
+    const { result, onNoteDragMove, onNoteDragEnd, toolbar } = setup({
       phase: buildPhaseStep(2),
       withSharedDrag: true,
       sharing: buildSharingState({
@@ -740,7 +736,6 @@ describe("useRoomBoardInteractions cursor input", () => {
         clientY: 280,
       } as unknown as PointerEvent<HTMLDivElement>),
     );
-    expect(result.current.isReturnDropTarget).toBe(false);
     expect(onNoteDragMove).toHaveBeenCalledWith(
       note.id,
       expect.any(Number),
@@ -763,35 +758,37 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLDivElement>),
     );
 
-    expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(onNoteDragEnd).toHaveBeenCalledWith(
+      note.id,
+      expect.any(Number),
+      expect.any(Number),
+    );
   });
 
   it.each([1, 2, 3] as const)(
-    "フェーズ%iの発表終了後は共有付箋を動かせるが返却しない",
+    "フェーズ%iの発表終了後も共有付箋を動かして確定できる",
     (phase) => {
       const note = buildNote({
         id: "shared-1",
         authorId: "11111111-1111-4111-8111-111111111111",
         visibility: "shared",
       });
-      const { result, onNoteDragMove, onPrivateNoteUnpublish, toolbar } = setup(
-        {
-          phase: buildPhaseStep(2, phase),
-          withSharedDrag: true,
-          sharing: buildSharingState({
-            status: "complete",
-            currentIndex: null,
-            order: [
-              { userId: note.authorId, name: "本人", color: "yellow" },
-              {
-                userId: "22222222-2222-4222-8222-222222222222",
-                name: "発表者",
-                color: "green",
-              },
-            ],
-          }),
-        },
-      );
+      const { result, onNoteDragMove, onNoteDragEnd, toolbar } = setup({
+        phase: buildPhaseStep(2, phase),
+        withSharedDrag: true,
+        sharing: buildSharingState({
+          status: "complete",
+          currentIndex: null,
+          order: [
+            { userId: note.authorId, name: "本人", color: "yellow" },
+            {
+              userId: "22222222-2222-4222-8222-222222222222",
+              name: "発表者",
+              color: "green",
+            },
+          ],
+        }),
+      });
       const plane = document.createElement("div");
       plane.getBoundingClientRect = () => new DOMRect(10, 20, 800, 600);
       result.current.ideaMapPlaneRef.current = plane;
@@ -814,7 +811,6 @@ describe("useRoomBoardInteractions cursor input", () => {
           clientY: 280,
         } as unknown as PointerEvent<HTMLDivElement>),
       );
-      expect(result.current.isReturnDropTarget).toBe(false);
       expect(onNoteDragMove).toHaveBeenCalledWith(
         note.id,
         expect.any(Number),
@@ -837,79 +833,11 @@ describe("useRoomBoardInteractions cursor input", () => {
         } as unknown as PointerEvent<HTMLDivElement>),
       );
 
-      expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each([1, 2, 3] as const)(
-    "フェーズ%iで返却先をpreview中に発表者が交代したら返却を取り消す",
-    (phase) => {
-      const sharing = buildSharingState({
-        status: "active",
-        currentIndex: 0,
-        order: [
-          {
-            userId: "11111111-1111-4111-8111-111111111111",
-            name: "本人",
-            color: "yellow",
-          },
-          {
-            userId: "22222222-2222-4222-8222-222222222222",
-            name: "次の人",
-            color: "green",
-          },
-        ],
-      });
-      const {
-        result,
-        rerender,
-        toolbar,
-        onPrivateNoteUnpublish,
-        onNoteDragCancel,
-      } = setup({
-        phase: buildPhaseStep(2, phase),
-        withSharedDrag: true,
-        sharing,
-      });
-      act(() =>
-        result.current.onNoteDragStart("shared-1", {
-          pointerId: 33,
-          clientX: 40,
-          clientY: 50,
-          currentTarget: document.createElement("button"),
-        } as unknown as PointerEvent<HTMLButtonElement>),
+      expect(onNoteDragEnd).toHaveBeenCalledWith(
+        note.id,
+        expect.any(Number),
+        expect.any(Number),
       );
-      act(() =>
-        result.current.onPointerMove({
-          pointerId: 33,
-          clientX: 650,
-          clientY: 280,
-        } as unknown as PointerEvent<HTMLDivElement>),
-      );
-      expect(result.current.notes).toHaveLength(0);
-      expect(result.current.privateNotes.map((note) => note.id)).toContain(
-        "shared-1",
-      );
-      onNoteDragCancel.mockClear();
-
-      rerender({
-        sharing: { ...sharing, currentIndex: 1, revision: crypto.randomUUID() },
-      });
-
-      expect(result.current.notes.map((note) => note.id)).toContain("shared-1");
-      expect(result.current.privateNotes).toHaveLength(0);
-      expect(result.current.dragPreview).toBeNull();
-      if (phase === 3)
-        expect(onNoteDragCancel).toHaveBeenCalledWith("shared-1");
-      act(() =>
-        result.current.onPointerEnd({
-          pointerId: 33,
-          clientX: 650,
-          clientY: 280,
-          target: toolbar,
-        } as unknown as PointerEvent<HTMLDivElement>),
-      );
-      expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
     },
   );
 
@@ -970,12 +898,11 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(onCursorMove).toHaveBeenLastCalledWith({ x: 40, y: 40 }, null);
   });
 
-  it("shared drag 中に private toolbar へ入っても移動を続け、unpublish はドロップまで遅延する", () => {
-    const { result, onCursorLeave, onNoteDragCancel, onPrivateNoteUnpublish } =
-      setup({
-        withSharedDrag: true,
-        sharing: buildSharingState({ status: "active", currentIndex: 0 }),
-      });
+  it("shared drag 中に private toolbar へ入っても移動を続け、ドロップ位置で確定する", () => {
+    const { result, onCursorLeave, onNoteDragCancel, onNoteDragEnd } = setup({
+      withSharedDrag: true,
+      sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+    });
     const toolbar = document.createElement("div");
     toolbar.getBoundingClientRect = () => new DOMRect(600, 0, 300, 600);
     result.current.privateToolbarRef.current = toolbar;
@@ -986,6 +913,7 @@ describe("useRoomBoardInteractions cursor input", () => {
         clientY: 130,
       } as unknown as PointerEvent<HTMLButtonElement>);
       result.current.onPresencePointerLeave({
+        type: "pointerleave",
         pointerId: 7,
         clientX: 650,
         clientY: 120,
@@ -993,8 +921,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     });
 
     expect(onNoteDragCancel).not.toHaveBeenCalled();
-    expect(onCursorLeave).not.toHaveBeenCalled();
-    expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(onCursorLeave).toHaveBeenCalledOnce();
     expect(result.current.isNoteDragging).toBe(true);
 
     act(() => {
@@ -1003,148 +930,24 @@ describe("useRoomBoardInteractions cursor input", () => {
         clientX: 650,
         clientY: 120,
       } as unknown as PointerEvent<HTMLDivElement>);
-      result.current.onPresencePointerMove({
+      result.current.onPointerEnd({
         pointerId: 7,
         clientX: 650,
         clientY: 120,
-        pointerType: "mouse",
         target: toolbar,
       } as unknown as PointerEvent<HTMLDivElement>);
     });
 
-    expect(result.current.isReturnDropTarget).toBe(true);
     expect(onNoteDragCancel).not.toHaveBeenCalled();
-    expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
-    expect(onCursorLeave).not.toHaveBeenCalled();
-  });
-
-  it("マイ付箋エリアの上側にある拡張認識範囲ではドラッグを解除しない", () => {
-    const { result, onCursorLeave, onNoteDragCancel } = setup({
-      withSharedDrag: true,
-    });
-    const toolbar = document.createElement("div");
-    toolbar.getBoundingClientRect = () => new DOMRect(600, 200, 200, 200);
-    result.current.privateToolbarRef.current = toolbar;
-    const surface = document.createElement("button");
-    surface.getBoundingClientRect = () => new DOMRect(100, 100, 192, 144);
-
-    act(() => {
-      result.current.onNoteDragStart("shared-1", {
-        pointerId: 7,
-        clientX: 150,
-        clientY: 150,
-        currentTarget: surface,
-      } as unknown as PointerEvent<HTMLButtonElement>);
-      result.current.onPresencePointerLeave({
-        pointerId: 7,
-        clientX: 650,
-        clientY: 130,
-      } as unknown as PointerEvent<HTMLDivElement>);
-    });
-
-    expect(onNoteDragCancel).not.toHaveBeenCalled();
-    expect(onCursorLeave).not.toHaveBeenCalled();
-    expect(result.current.isNoteDragging).toBe(true);
-  });
-
-  it("最初の共有付箋を戻すとき、ドラッグプレビューをマイ付箋一覧内に収める", () => {
-    const { result } = setup({
-      withSharedDrag: true,
-      sharing: buildSharingState({ status: "active", currentIndex: 0 }),
-    });
-    const toolbar = document.createElement("div");
-    toolbar.getBoundingClientRect = () => new DOMRect(600, 0, 300, 600);
-    const scrollContainer = document.createElement("section");
-    scrollContainer.dataset.testid = "private-notes-scroll";
-    scrollContainer.getBoundingClientRect = () =>
-      new DOMRect(612, 128, 216, 350);
-    Object.defineProperty(scrollContainer, "scrollTop", {
-      configurable: true,
-      value: 0,
-      writable: true,
-    });
-    Object.defineProperty(scrollContainer, "scrollHeight", {
-      configurable: true,
-      value: 350,
-    });
-    Object.defineProperty(scrollContainer, "clientHeight", {
-      configurable: true,
-      value: 350,
-    });
-    toolbar.append(scrollContainer);
-    result.current.privateToolbarRef.current = toolbar;
-
-    const surface = document.createElement("button");
-    surface.getBoundingClientRect = () => new DOMRect(100, 100, 192, 144);
-    const originalRequestFrame = Object.getOwnPropertyDescriptor(
-      window,
-      "requestAnimationFrame",
+    expect(onNoteDragEnd).toHaveBeenCalledWith(
+      "shared-1",
+      expect.any(Number),
+      expect.any(Number),
     );
-    const originalCancelFrame = Object.getOwnPropertyDescriptor(
-      window,
-      "cancelAnimationFrame",
-    );
-    Object.defineProperty(window, "requestAnimationFrame", {
-      configurable: true,
-      value: () => 1,
-    });
-    Object.defineProperty(window, "cancelAnimationFrame", {
-      configurable: true,
-      value: vi.fn(),
-    });
-
-    try {
-      act(() => {
-        result.current.onNoteDragStart("shared-1", {
-          pointerId: 7,
-          clientX: 150,
-          clientY: 150,
-          currentTarget: surface,
-        } as unknown as PointerEvent<HTMLButtonElement>);
-        result.current.onPointerMove({
-          pointerId: 7,
-          clientX: 650,
-          clientY: 132,
-        } as unknown as PointerEvent<HTMLDivElement>);
-      });
-
-      expect(result.current.dragPreview).toMatchObject({
-        left: 612,
-        top: 128,
-      });
-
-      act(() =>
-        result.current.onPointerMove({
-          pointerId: 7,
-          clientX: 650,
-          clientY: 470,
-        } as unknown as PointerEvent<HTMLDivElement>),
-      );
-
-      expect(result.current.dragPreview?.top).toBe(334);
-    } finally {
-      if (originalRequestFrame) {
-        Object.defineProperty(
-          window,
-          "requestAnimationFrame",
-          originalRequestFrame,
-        );
-      } else {
-        Reflect.deleteProperty(window, "requestAnimationFrame");
-      }
-      if (originalCancelFrame) {
-        Object.defineProperty(
-          window,
-          "cancelAnimationFrame",
-          originalCancelFrame,
-        );
-      } else {
-        Reflect.deleteProperty(window, "cancelAnimationFrame");
-      }
-    }
+    expect(result.current.isNoteDragging).toBe(false);
   });
 
-  it("shared drag 中に toolbar 以外へ出る presence leave は付箋操作とカーソルを同時に解除する", () => {
+  it("shared drag 中の pointercancel による presence leave は付箋操作とカーソルを同時に解除する", () => {
     const { result, onCursorLeave, onNoteDragCancel } = setup({
       withSharedDrag: true,
     });
@@ -1155,6 +958,7 @@ describe("useRoomBoardInteractions cursor input", () => {
         clientY: 130,
       } as unknown as PointerEvent<HTMLButtonElement>);
       result.current.onPresencePointerLeave({
+        type: "pointercancel",
         pointerId: 7,
         clientX: 950,
         clientY: 700,
@@ -1349,3 +1153,42 @@ it.each([1, 2] as const)(
     expect(result.current.isPanning).toBe(false);
   },
 );
+
+it("shared drag 中に scroller から pointerleave してもカーソル表示だけ解除し、付箋のドラッグは維持する", () => {
+  const { result, onCursorLeave, onNoteDragCancel, onNoteDragEnd } = setup({
+    withSharedDrag: true,
+  });
+  act(() => {
+    result.current.onNoteDragStart("shared-1", {
+      pointerId: 7,
+      clientX: 120,
+      clientY: 130,
+    } as unknown as PointerEvent<HTMLButtonElement>);
+    result.current.onPresencePointerLeave({
+      type: "pointerleave",
+      pointerId: 7,
+      clientX: 950,
+      clientY: 300,
+    } as unknown as PointerEvent<HTMLDivElement>);
+  });
+
+  expect(onCursorLeave).toHaveBeenCalledOnce();
+  expect(onNoteDragCancel).not.toHaveBeenCalled();
+  expect(result.current.isNoteDragging).toBe(true);
+
+  act(() => {
+    result.current.onPointerEnd({
+      pointerId: 7,
+      clientX: 700,
+      clientY: 250,
+      pointerType: "mouse",
+      target: document.createElement("div"),
+    } as unknown as PointerEvent<HTMLDivElement>);
+  });
+  expect(onNoteDragEnd).toHaveBeenCalledWith(
+    "shared-1",
+    expect.any(Number),
+    expect.any(Number),
+  );
+  expect(result.current.isNoteDragging).toBe(false);
+});

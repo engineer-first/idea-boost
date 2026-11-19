@@ -140,7 +140,6 @@ export type RoomBoardCanvasProps = {
     unscaledNoteHeight?: number;
     clipPath?: string;
   } | null;
-  isReturnDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   ideaMapPlaneRef: RefObject<HTMLDivElement | null>;
@@ -246,7 +245,6 @@ export function RoomBoardCanvas({
   pendingVoteOperations,
   dragGhost,
   dragPreview = null,
-  isReturnDropTarget,
   privateDropPlaceholder,
   boardScrollerRef,
   ideaMapPlaneRef,
@@ -1520,7 +1518,6 @@ export function RoomBoardCanvas({
                     : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
                 }
                 toolbarRef={privateToolbarRef}
-                isReturnDropTarget={isReturnDropTarget}
                 dropPlaceholder={privateDropPlaceholder}
                 selectedNoteId={selectedNoteId}
                 onSelect={onSelect}

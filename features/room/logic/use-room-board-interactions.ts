@@ -7,16 +7,9 @@ import type {
 } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { getNoteHeight } from "@/contracts/board";
-import {
-  isPhaseStep,
-  isPublishAllowedStep,
-  type RoomPhase,
-} from "@/contracts/phase";
+import { isPhaseStep, type RoomPhase } from "@/contracts/phase";
 import type { SharingState } from "@/contracts/room-protocol";
-import {
-  canPublishNoteInTurn,
-  canReturnNoteToPrivateInTurn,
-} from "@/contracts/sharing";
+import { canPublishNoteInTurn } from "@/contracts/sharing";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "./board-permissions";
 import {
@@ -63,7 +56,6 @@ export type UseRoomBoardInteractionsArgs = {
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
-  onPrivateNoteUnpublish: (noteId: string, privateIndex: number) => void;
   onCursorMove: (
     point: { x: number; y: number },
     draggingNoteId: string | null,
@@ -92,9 +84,9 @@ export type RoomBoardInteractions = {
     unscaledNoteHeight?: number;
     clipPath?: string;
   } | null;
-  isReturnDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
   isNoteDragging: boolean;
+  hasActiveNoteDrag?: (pointerId: number) => boolean;
   localDraggingNoteId?: string | null;
   camera: CanvasCamera;
   displayZoom?: number;
@@ -159,7 +151,6 @@ export function useRoomBoardInteractions({
   onNoteDragEnd,
   onNoteDragCancel,
   onPrivateNotePublish,
-  onPrivateNoteUnpublish,
   onCursorMove,
   onCursorLeave,
   presenterView = null,
@@ -372,10 +363,6 @@ export function useRoomBoardInteractions({
       !isIdeaValueFeasibilityMappingStep ||
       mapNoteGeometry.height > mapNoteGeometry.maxNoteHeight);
   const canPublish = canPublishNoteInTurn(phase, sharing, currentUserId);
-  const canReturnToPrivate =
-    !movePending &&
-    isPublishAllowedStep(phase) &&
-    canReturnNoteToPrivateInTurn(phase, sharing, currentUserId);
   const isIdeaMapCursorSurface = isIdeaValueFeasibilityMapVisible;
 
   const {
@@ -389,12 +376,11 @@ export function useRoomBoardInteractions({
     handlePointerCancel,
     cancelCurrentNoteDrag,
     isCurrentDragPointer,
-    isPointerInPrivateDropArea,
+    hasActiveDragPointer,
   } = useBoardDrag({
     notes,
     selectedNoteIds,
     privateNotes,
-    currentUserId,
     boardScrollerRef,
     worldPointFromClient: pointFromClient,
     privateToolbarRef,
@@ -408,14 +394,12 @@ export function useRoomBoardInteractions({
     canMoveSharedNotes,
     keepPrivateDragInList: phase.kind === "step" && phase.step === 1,
     canPublish,
-    canReturnToPrivate,
     onPublishBlocked: roomNotify.cannotPublishNote,
     onNoteDragStart,
     onNoteDragMove,
     onNoteDragEnd,
     onNoteDragCancel,
     onPrivateNotePublish,
-    onPrivateNoteUnpublish,
   });
 
   useEffect(() => {
@@ -445,7 +429,7 @@ export function useRoomBoardInteractions({
       ? { note: drag.note, x: drag.x, y: drag.y }
       : null;
   const dragPreview =
-    drag?.status === "private" || drag?.status === "returning"
+    drag?.status === "private"
       ? (() => {
           const preview: NonNullable<RoomBoardInteractions["dragPreview"]> = {
             note: drag.note,
@@ -562,8 +546,8 @@ export function useRoomBoardInteractions({
     (note) =>
       !(
         note.id === drag?.note.id &&
-        (drag.status === "shared" ||
-          (drag.status === "private" && drag.privateDropIndex === null))
+        drag.status === "private" &&
+        drag.privateDropIndex === null
       ),
   );
 
@@ -644,16 +628,12 @@ export function useRoomBoardInteractions({
     event: ReactPointerEvent<HTMLDivElement>,
   ) {
     if (!isCurrentDragPointer(event.pointerId)) return;
-    if (event.type === "pointercancel") {
-      onCursorLeave();
-      cancelCurrentNoteDrag();
-      return;
-    }
-    if (isPointerInPrivateDropArea(event.clientX, event.clientY)) {
-      return;
-    }
     onCursorLeave();
-    cancelCurrentNoteDrag();
+    // ドラッグの終了・中断は pointerup / pointercancel / lostpointercapture / blur / Escape で扱う。
+    // scroller からの pointerleave だけでは共有付箋の移動を中断しない。
+    if (event.type === "pointercancel") {
+      cancelCurrentNoteDrag();
+    }
   }
 
   return {
@@ -665,16 +645,12 @@ export function useRoomBoardInteractions({
     privateNotes: toolbarNotes,
     dragGhost,
     dragPreview,
-    isReturnDropTarget:
-      (drag?.status === "shared" || drag?.status === "returning") &&
-      drag.note.authorId === currentUserId &&
-      canReturnToPrivate,
     privateDropPlaceholder:
-      (drag?.status === "private" || drag?.status === "returning") &&
-      drag.privateDropIndex !== null
+      drag?.status === "private" && drag.privateDropIndex !== null
         ? { noteId: drag.note.id }
         : undefined,
     isNoteDragging: drag !== null,
+    hasActiveNoteDrag: hasActiveDragPointer,
     localDraggingNoteId: drag?.note.id ?? null,
     camera,
     displayZoom,
