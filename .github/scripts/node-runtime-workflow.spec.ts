@@ -64,10 +64,17 @@ describe("CIのChromium準備", () => {
   const install = workflow.jobs.browser.steps.find(
     (step) => step.name === "Install Chromium",
   );
-  it("aptから依存を取得できない場合も、ブラウザ本体だけ入れて検査へ進む", () => {
-    // OSの依存はrunnerイメージにそろっていることが多い。aptミラーの障害でCI全体を止めない。
-    expect(install?.run).toMatch(
-      /npx playwright install --with-deps chromium\s*\|\|[\s\S]*npx playwright install chromium/,
+  it("ブラウザ本体を先に入れ、起動できないときだけaptからOSの依存を入れる", () => {
+    // OSの依存はrunnerイメージにそろっていることが多い。aptは遅さのぶれが大きく（3〜7分）、
+    // ミラー障害もあるため、起動を確かめて足りないときだけ取得する。
+    const run = install?.run ?? "";
+    expect(run).not.toContain("--with-deps");
+    expect(run.indexOf("npx playwright install chromium")).toBeGreaterThanOrEqual(0);
+    expect(run.indexOf("chromium.launch")).toBeGreaterThan(
+      run.indexOf("npx playwright install chromium"),
+    );
+    expect(run.indexOf("npx playwright install-deps chromium")).toBeGreaterThan(
+      run.indexOf("chromium.launch"),
     );
   });
 });

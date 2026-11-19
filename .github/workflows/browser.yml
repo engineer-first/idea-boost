@@ -70,12 +70,15 @@ jobs:
 
       - name: Install Chromium
         if: steps.scope.outputs.browser == 'true'
-        # OSの依存はrunnerイメージにそろっていることが多い。aptミラーの障害時は
-        # ブラウザ本体だけ入れて検査へ進み、依存不足なら検査ステップで失敗させる。
+        # OSの依存はrunnerイメージにそろっていることが多い。aptは遅さのぶれが大きく（3〜7分）、
+        # ミラー障害もあるため、ブラウザ本体だけ入れて起動を確かめ、起動できないときだけ取得する。
+        # aptから取得できなくても検査へ進み、依存不足なら検査ステップで失敗させる。
         run: |
-          npx playwright install --with-deps chromium || {
-            echo "::warning::OSの依存を取得できなかったため、Chromium本体だけを入れます。"
-            npx playwright install chromium
+          npx playwright install chromium
+          node -e "require('playwright').chromium.launch().then((b) => b.close())" || {
+            echo "::notice::Chromiumを起動できないため、OSの依存をaptから入れます。"
+            npx playwright install-deps chromium ||
+              echo "::warning::OSの依存を取得できませんでした。"
           }
 
       - name: Build Storybook
