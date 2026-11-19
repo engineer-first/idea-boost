@@ -96,6 +96,7 @@
 
 ## CI で回すタイミング
 
+CI の基準はリリース時に致命的な不具合がないこと（[ADR 0029](../adr/0029-ci-release-fatal-bug-bar.md)）。
 PR の待ち時間を短くするため、重い検査は変更範囲で回すかを決める。判定は
 [scripts/ci-scope.mts](../../scripts/ci-scope.mts)、判定できない場所の変更は回す側に倒す。
 エージェントは push 前に、変更範囲に必要な検査をローカルで実行する（[AGENTS.md](../../AGENTS.md#開発と検証)）。
@@ -106,7 +107,7 @@ PR の待ち時間を短くするため、重い検査は変更範囲で回す�
 | Worker / Preview / verification テスト    | `workers/`・`contracts/`・`lib/`・`scripts/` 等の変更 | 毎回                 | Worker テスト           |
 | browser（PC・iPad 幅）                    | 画面のコード・`contracts/`・`lib/`・依存の変更        | 毎回                 | なし                    |
 | browser（スマホ幅）                       | `mobile` ラベルを付けた PR だけ                       | なし                 | なし                    |
-| smoke（本番構成のサービスバインディング） | なし（build の preview-smoke が代わりに確かめる）     | 毎回                 | 毎回                    |
+| smoke（本番構成の疎通・トップとログイン） | なし（build の preview-smoke が代わりに確かめる）     | 毎回                 | 毎回                    |
 
 - [CI](../../.github/workflows/ci.yml) は lint・test・build・smoke、
   [Browser](../../.github/workflows/browser.yml) は browser を実行する。
@@ -115,6 +116,7 @@ PR の待ち時間を短くするため、重い検査は変更範囲で回す�
 - スマホ縦（幅 360 以上）の見た目や操作を変える PR には `mobile` ラベルを付ける。
   付けると Browser が再実行され、スマホ幅も検査する。幅 360 未満は対応外なので検査しない。
 - develop へのマージ後に browser・Worker テストが落ちたら、その PR の作業者が直す。
+- 公開後は deploy の health-check が、API の疎通に加えてトップとログイン画面が 200 を返すことを確かめる。
 
 ## 公開 Storybook で表示を確認する
 
