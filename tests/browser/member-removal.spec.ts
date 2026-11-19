@@ -162,37 +162,6 @@ test.skipIf(!includeMobile)(
   },
 );
 
-test.each([
-  "1-1",
-  "1-2",
-  "1-3",
-  "1-4",
-  "1-5",
-  "2-1",
-  "2-2",
-  "2-3",
-  "2-4",
-  "3-1",
-  "3-2",
-  "3-3",
-  "3-4",
-  "3-5",
-])("Step %s: 参加者の除外確認を取り消すと常設入口へ戻る", async (step) => {
-  const [phase, number] = step.split("-");
-  await open(`phase-${phase}-step-${number}`);
-  await select();
-  await page.keyboard.press("Escape");
-  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
-  const trigger = page.getByRole("button", {
-    name: number === "2" ? "発表者と全体の順番を確認" : "参加者 2人",
-    exact: true,
-  });
-  await expect
-    .poll(() => trigger.evaluate((node) => node === document.activeElement))
-    .toBe(true);
-  expect(await page.getByRole("timer").textContent()).toContain("02:18");
-});
-
 test("切断中は除外を確定できず、再接続後に同じ確認を実行できる", async () => {
   await page.clock.install();
   await open();

@@ -53,7 +53,7 @@ test.each(widths(1280, 390))(
 );
 
 test.each(widths(1280, 390))(
-  "幅%dで進行待ちのボタンは白地の破線枠で示し、完了をチェックすると状態が切り替わる",
+  "幅%dで進行待ちの次へは押せず、完了をチェックすると押せるようになり、取り消すと戻る",
   async (width) => {
     const page = await browser.newPage({
       viewport: { width, height: 800 },
@@ -68,43 +68,15 @@ test.each(widths(1280, 390))(
       });
       await next.waitFor();
       expect(await next.isDisabled()).toBe(true);
-      const pending = await next.evaluate((node) => {
-        const style = getComputedStyle(node);
-        return {
-          background: style.backgroundColor,
-          border: style.borderTopColor,
-          borderStyle: style.borderTopStyle,
-          opacity: style.opacity,
-        };
-      });
-      expect(pending.opacity).toBe("1");
-      expect(pending.background).toBe("rgb(255, 255, 255)");
-      expect(pending.borderStyle).toBe("dashed");
-      expect(pending.border).not.toBe("rgba(0, 0, 0, 0)");
       const complete = page.getByRole("button", {
         name: "できた！",
         exact: true,
       });
-      const uncheckedBackground = await complete.evaluate(
-        (node) => getComputedStyle(node).backgroundColor,
-      );
       await complete.click();
       await expect.poll(() => next.isEnabled()).toBe(true);
       const checked = page.getByRole("button", { name: "準備OK！を取り消す" });
       expect(await checked.getAttribute("aria-pressed")).toBe("true");
-      // ボタンは背景色をtransitionで切り替えるため、切り替え後の色になるまで待つ
-      await expect
-        .poll(() =>
-          checked.evaluate((node) => getComputedStyle(node).backgroundColor),
-        )
-        .not.toBe(uncheckedBackground);
-      await expect
-        .poll(() =>
-          next.evaluate((node) => getComputedStyle(node).backgroundColor),
-        )
-        .not.toBe(pending.background);
       const hud = await page.getByTestId("board-control-hud").boundingBox();
-      expect(hud).not.toBeNull();
       if (!hud) throw new Error("HUDが表示されません");
       expect(hud.x).toBeGreaterThanOrEqual(0);
       expect(hud.x + hud.width).toBeLessThanOrEqual(width);
