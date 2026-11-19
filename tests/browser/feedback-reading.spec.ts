@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -25,7 +26,7 @@ afterAll(async () => {
   await browser?.close();
 });
 
-test.each([390, 1440])(
+test.each(widths(390, 1440))(
   "%ipxで続き取得の失敗を一覧末尾からキーボードで再試行できる",
   async (width) => {
     await page.setViewportSize({ width, height: 900 });

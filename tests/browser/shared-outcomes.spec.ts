@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium, type Page } from "playwright";
 import { describe, expect, test } from "vitest";
 import { buildSharedOutcome } from "../../contracts/shared-outcomes.fixture";
+import { byViewport, includeMobile } from "./viewports";
 
 const storybook = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const app = process.env.SHARED_OUTCOMES_APP_TEST_URL;
@@ -18,10 +19,10 @@ test("PC・モバイルで長いルーム名と検索・絞り込みが画面内
   const browser = await chromium.launch();
   try {
     await mkdir(evidence, { recursive: true });
-    for (const viewport of [
+    for (const viewport of byViewport(
       { width: 1280, height: 800 },
       { width: 390, height: 844 },
-    ]) {
+    )) {
       const page = await browser.newPage({ viewport });
       await page.goto(
         `${storybook}/iframe.html?id=sharedoutcomes-sharedoutcomesview--long-name&viewMode=story`,
@@ -154,52 +155,57 @@ describe.skipIf(!app)("専用dev:verifyの共有成果", () => {
       await browser.close();
     }
   });
-  test("実Workerの検索・日付の絞り込みと深いリンクを操作できる", async () => {
-    const browser = await chromium.launch();
-    try {
-      const page = await browser.newPage({
-        viewport: { width: 390, height: 844 },
-      });
-      await login(page);
-      const response = await page.request.get(
-        `${app}/api/shared-outcomes?q=新サービス&saveStatus=failed`,
-      );
-      const { outcomes } = await response.json();
-      const date = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Tokyo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date(outcomes[0].lastUsedAt));
-      await page.getByLabel("開始日").fill("2000-01-01");
-      await page.getByLabel("終了日").fill("2000-01-01");
-      await page.getByRole("button", { name: "検索", exact: true }).click();
-      await page
-        .getByRole("heading", { name: "条件に一致する成果はありません" })
-        .waitFor();
-      expect(await page.locator("a[data-room-id]").count()).toBe(0);
-      await page.getByLabel("開始日").fill(date);
-      await page.getByLabel("終了日").fill(date);
-      await page.getByRole("searchbox").fill("新サービス");
-      await page.getByRole("button", { name: "検索", exact: true }).click();
-      await page.getByRole("link", { name: /新サービスの企画/ }).waitFor();
-      const links = page.locator("a[data-room-id]");
-      expect(await links.count()).toBe(1);
-      await links.first().click();
-      await page.getByRole("heading", { name: "決定した3項目" }).waitFor();
-      const deepUrl = page.url();
-      await page.reload();
-      await page.getByRole("heading", { name: "決定した3項目" }).waitFor();
-      expect(page.url()).toBe(deepUrl);
-      await page.getByRole("button", { name: "成果一覧へ戻る" }).click();
-      await page.getByRole("searchbox").waitFor();
-      expect(await page.getByRole("searchbox").inputValue()).toBe("新サービス");
-      expect(await page.getByLabel("開始日").inputValue()).toBe(date);
-      expect(await page.getByLabel("終了日").inputValue()).toBe(date);
-      expect(new URL(page.url()).searchParams.get("from")).toBe(date);
-      expect(new URL(page.url()).searchParams.get("to")).toBe(date);
-    } finally {
-      await browser.close();
-    }
-  });
+  test.skipIf(!includeMobile)(
+    "実Workerの検索・日付の絞り込みと深いリンクを操作できる",
+    async () => {
+      const browser = await chromium.launch();
+      try {
+        const page = await browser.newPage({
+          viewport: { width: 390, height: 844 },
+        });
+        await login(page);
+        const response = await page.request.get(
+          `${app}/api/shared-outcomes?q=新サービス&saveStatus=failed`,
+        );
+        const { outcomes } = await response.json();
+        const date = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Tokyo",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(outcomes[0].lastUsedAt));
+        await page.getByLabel("開始日").fill("2000-01-01");
+        await page.getByLabel("終了日").fill("2000-01-01");
+        await page.getByRole("button", { name: "検索", exact: true }).click();
+        await page
+          .getByRole("heading", { name: "条件に一致する成果はありません" })
+          .waitFor();
+        expect(await page.locator("a[data-room-id]").count()).toBe(0);
+        await page.getByLabel("開始日").fill(date);
+        await page.getByLabel("終了日").fill(date);
+        await page.getByRole("searchbox").fill("新サービス");
+        await page.getByRole("button", { name: "検索", exact: true }).click();
+        await page.getByRole("link", { name: /新サービスの企画/ }).waitFor();
+        const links = page.locator("a[data-room-id]");
+        expect(await links.count()).toBe(1);
+        await links.first().click();
+        await page.getByRole("heading", { name: "決定した3項目" }).waitFor();
+        const deepUrl = page.url();
+        await page.reload();
+        await page.getByRole("heading", { name: "決定した3項目" }).waitFor();
+        expect(page.url()).toBe(deepUrl);
+        await page.getByRole("button", { name: "成果一覧へ戻る" }).click();
+        await page.getByRole("searchbox").waitFor();
+        expect(await page.getByRole("searchbox").inputValue()).toBe(
+          "新サービス",
+        );
+        expect(await page.getByLabel("開始日").inputValue()).toBe(date);
+        expect(await page.getByLabel("終了日").inputValue()).toBe(date);
+        expect(new URL(page.url()).searchParams.get("from")).toBe(date);
+        expect(new URL(page.url()).searchParams.get("to")).toBe(date);
+      } finally {
+        await browser.close();
+      }
+    },
+  );
 });

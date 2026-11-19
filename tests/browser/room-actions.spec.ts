@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -29,7 +30,7 @@ async function open(story: string): Promise<void> {
   await page.locator("#storybook-root > *").first().waitFor();
 }
 
-for (const width of [390, 1280]) {
+for (const width of widths(390, 1280)) {
   test.each(["success", "participant"])(
     `${width}px / %s: 全員が招待と退出を操作でき、取消後は入口へフォーカスを戻す`,
     async (mode) => {

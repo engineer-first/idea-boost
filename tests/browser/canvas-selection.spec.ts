@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { byViewport, includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -79,7 +80,7 @@ async function openClockedCanvas(width = 1280, cpuRate = 1): Promise<void> {
   await page.clock.pauseAt(new Date("2030-01-01T00:01:00Z"));
 }
 
-test.each([390, 1280])(
+test.each(widths(390, 1280))(
   "%ipxで各キャンバス操作のヒントをhoverの1秒後に画面内へ表示する",
   async (width) => {
     await openClockedCanvas(width);
@@ -446,26 +447,29 @@ test.each([25, 100, 200])(
   },
 );
 
-test("AT-023: 390pxでもツール入口とnative Spaceを維持する", async () => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  const hand = page.getByRole("button", { name: "手のひらツール" });
-  await hand.focus();
-  await page.keyboard.press("Space");
-  expect(await hand.getAttribute("aria-pressed")).toBe("true");
-  const box = await hand.boundingBox();
-  expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
-  expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
-  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
-  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(844);
-  const viewport = page.getByTestId("board-scroller");
-  await viewport.focus();
-  await page.keyboard.press("v");
-  expect(
-    await page
-      .getByRole("button", { name: "選択ツール" })
-      .getAttribute("aria-pressed"),
-  ).toBe("true");
-});
+test.skipIf(!includeMobile)(
+  "AT-023: 390pxでもツール入口とnative Spaceを維持する",
+  async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const hand = page.getByRole("button", { name: "手のひらツール" });
+    await hand.focus();
+    await page.keyboard.press("Space");
+    expect(await hand.getAttribute("aria-pressed")).toBe("true");
+    const box = await hand.boundingBox();
+    expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
+    expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
+    expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(844);
+    const viewport = page.getByTestId("board-scroller");
+    await viewport.focus();
+    await page.keyboard.press("v");
+    expect(
+      await page
+        .getByRole("button", { name: "選択ツール" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+  },
+);
 
 test("AT-024: Chromiumのtouch入力は空白panとtap選択を保ち、矩形に置換しない", async () => {
   const touchPage = await browser.newPage({
@@ -1155,11 +1159,13 @@ for (const gesture of ["pan", "note-drag"] as const) {
   }
 }
 
-test.each([
-  { width: 1280, height: 720 },
-  { width: 390, height: 720 },
-  { width: 1280, height: 400 },
-])(
+test.each(
+  byViewport(
+    { width: 1280, height: 720 },
+    { width: 390, height: 720 },
+    { width: 1280, height: 400 },
+  ),
+)(
   "$width×$heightで操作ヒント全文へ到達し、選択を維持してEscapeだけ閉じる",
   async (size) => {
     await page.setViewportSize(size);

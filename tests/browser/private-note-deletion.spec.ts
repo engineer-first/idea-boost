@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -15,7 +16,7 @@ afterAll(async () => {
   await browser?.close();
 });
 
-test.each([390, 1280])(
+test.each(widths(390, 1280))(
   "%ipx: 個人付箋をMacのDeleteキー単体で削除し、編集中は文字だけを削除する",
   async (width) => {
     page = await browser.newPage({ viewport: { width, height: 844 } });

@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { expect, it } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout";
@@ -16,7 +17,7 @@ const states = [
   { story: "one-vote-returned", exhausted: 1, disabled: 0 },
 ] as const;
 
-it.each([390, 1280])(
+it.each(widths(390, 1280))(
   "%ipxで残票・使い切り・確認待ちを区別しキーボード選択できる",
   async (width) => {
     const browser = await chromium.launch();

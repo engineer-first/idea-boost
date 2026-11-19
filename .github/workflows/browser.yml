@@ -1,0 +1,105 @@
+name: Browser
+
+# 実ブラウザでの配置・到達性の検査（約10分）。CI から分け、PR Preview が待たないようにする。
+# - PR: 画面に関わる変更があるときだけ回す（判定は scripts/ci-scope.mts）。
+#   スマホ幅（600px 未満）は `mobile` ラベルがある PR だけ回す。
+# - develop へのマージ後: 毎回 PC・iPad 幅を回し、PR で回さなかった変更の影響も拾う。
+# 必須チェック browser が pending で残らないよう、workflow とジョブは常に起動し、
+# 対象外のときはステップだけを飛ばして成功で終える。
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      mobile:
+        description: スマホ幅（600px 未満）も検査する
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 後続ステップに git push/fetch はないため、トークンを workspace に残さない
+          persist-credentials: false
+          # PR の変更ファイルをベースとの差分で調べる。
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@v5
+        with:
+          install: true
+          cache_max_age_days: 1
+
+      - name: Decide browser scope
+        id: scope
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            changed=$(git diff --name-only "$BASE_SHA" HEAD | node scripts/ci-scope.mts | sed -n 's/^browser=//p')
+            mobile="$MOBILE_LABEL"
+          else
+            changed=true
+            mobile="${MOBILE_INPUT:-false}"
+          fi
+          if [ "$changed" = true ] || [ "$mobile" = true ]; then browser=true; else browser=false; fi
+          echo "browser=$browser" >> "$GITHUB_OUTPUT"
+          echo "mobile=$mobile" >> "$GITHUB_OUTPUT"
+          echo "browser=$browser mobile=$mobile"
+          if [ "$browser" = false ]; then
+            echo "::notice::画面に関わる変更がないため browser 検査を省略しました。回す場合は mobile ラベルを付けるか、Browser workflow を手動実行してください。"
+          fi
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MOBILE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'mobile') }}
+          MOBILE_INPUT: ${{ inputs.mobile }}
+
+      - name: Install dependencies
+        if: steps.scope.outputs.browser == 'true'
+        run: npm ci
+
+      - name: Install Chromium
+        if: steps.scope.outputs.browser == 'true'
+        # OSの依存はrunnerイメージにそろっていることが多い。aptは遅さのぶれが大きく（3〜7分）、
+        # ミラー障害もあるため、ブラウザ本体だけ入れて起動を確かめ、起動できないときだけ取得する。
+        # aptから取得できなくても検査へ進み、依存不足なら検査ステップで失敗させる。
+        run: |
+          npx playwright install chromium
+          node -e "require('playwright').chromium.launch().then((b) => b.close())" || {
+            echo "::notice::Chromiumを起動できないため、OSの依存をaptから入れます。"
+            npx playwright install-deps chromium ||
+              echo "::warning::OSの依存を取得できませんでした。"
+          }
+
+      - name: Build Storybook
+        if: steps.scope.outputs.browser == 'true'
+        run: npm run build-storybook > storybook-test.log 2>&1
+
+      - name: Serve built Storybook
+        if: steps.scope.outputs.browser == 'true'
+        run: python3 -m http.server 6006 --bind 127.0.0.1 --directory storybook-static >> storybook-test.log 2>&1 &
+
+      - name: Check board layout in Chromium
+        if: steps.scope.outputs.browser == 'true'
+        run: npm run test:browser
+        env:
+          BROWSER_MOBILE: ${{ steps.scope.outputs.mobile == 'true' && '1' || '' }}
+
+      - name: Save screenshots and Storybook log
+        if: always() && steps.scope.outputs.browser == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-layout
+          path: |
+            test-results/board-layout/
+            storybook-test.log

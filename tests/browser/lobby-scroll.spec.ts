@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { byViewport } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -11,11 +12,13 @@ afterAll(async () => {
   await browser?.close();
 });
 
-test.each([
-  { width: 390, height: 844 },
-  { width: 390, height: 640 },
-  { width: 844, height: 390 },
-])(
+test.each(
+  byViewport(
+    { width: 390, height: 844 },
+    { width: 390, height: 640 },
+    { width: 844, height: 390 },
+  ),
+)(
   "開始待ちは $width × $height でも上端から開始・退出へ到達できる",
   async (viewport) => {
     const page = await browser.newPage({ viewport });

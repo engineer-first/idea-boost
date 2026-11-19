@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -168,55 +169,58 @@ test.each(["Escape", "閉じる", "送信して別の意見"])(
     );
   },
 );
-test("狭幅でも5段階をキーボードで選び、種類だけでも送信でき、閉じると入口に戻る", async () => {
-  await page.goto(
-    `${origin}/iframe.html?id=feedback-feedbackpanel--interactive&viewMode=story`,
-  );
-  const panel = page.getByRole("dialog", { name: "フィードバック" });
-  await panel.waitFor();
-  // 自動表示のstoryを閉じ、実際の入口から開いて復帰先を設定する。
-  await page.keyboard.press("Escape");
-  await page
-    .getByRole("button", { name: "フィードバック", exact: true })
-    .click();
-  await panel.waitFor();
-  expect(await panel.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
-    true,
-  );
-  const rating = page.getByRole("radio", { name: "4 使いやすい" });
-  await rating.focus();
-  await page.keyboard.press("Space");
-  expect(await rating.isChecked()).toBe(true);
-  await page.keyboard.press("ArrowRight");
-  expect(
-    await page.getByRole("radio", { name: "5 とても使いやすい" }).isChecked(),
-  ).toBe(true);
-  await page.getByRole("button", { name: "評価を未回答に戻す" }).click();
-  await page.getByText("よかった", { exact: true }).click();
-  await page.getByRole("button", { name: "送信", exact: true }).click();
-  await page
-    .getByRole("status")
-    .filter({ hasText: "意見を受け付けました" })
-    .waitFor();
-  await panel.getByRole("button", { name: "作業に戻る" }).focus();
-  await page.keyboard.press("Enter");
-  await panel.waitFor({ state: "hidden" });
-  expect(
+test.skipIf(!includeMobile)(
+  "狭幅でも5段階をキーボードで選び、種類だけでも送信でき、閉じると入口に戻る",
+  async () => {
+    await page.goto(
+      `${origin}/iframe.html?id=feedback-feedbackpanel--interactive&viewMode=story`,
+    );
+    const panel = page.getByRole("dialog", { name: "フィードバック" });
+    await panel.waitFor();
+    // 自動表示のstoryを閉じ、実際の入口から開いて復帰先を設定する。
+    await page.keyboard.press("Escape");
     await page
       .getByRole("button", { name: "フィードバック", exact: true })
-      .evaluate((e) => e === document.activeElement),
-  ).toBe(true);
-  await page
-    .getByRole("button", { name: "フィードバック", exact: true })
-    .click();
-  await panel.waitFor();
-  await page.keyboard.press("Escape");
-  expect(
+      .click();
+    await panel.waitFor();
+    expect(await panel.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
+      true,
+    );
+    const rating = page.getByRole("radio", { name: "4 使いやすい" });
+    await rating.focus();
+    await page.keyboard.press("Space");
+    expect(await rating.isChecked()).toBe(true);
+    await page.keyboard.press("ArrowRight");
+    expect(
+      await page.getByRole("radio", { name: "5 とても使いやすい" }).isChecked(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "評価を未回答に戻す" }).click();
+    await page.getByText("よかった", { exact: true }).click();
+    await page.getByRole("button", { name: "送信", exact: true }).click();
+    await page
+      .getByRole("status")
+      .filter({ hasText: "意見を受け付けました" })
+      .waitFor();
+    await panel.getByRole("button", { name: "作業に戻る" }).focus();
+    await page.keyboard.press("Enter");
+    await panel.waitFor({ state: "hidden" });
+    expect(
+      await page
+        .getByRole("button", { name: "フィードバック", exact: true })
+        .evaluate((e) => e === document.activeElement),
+    ).toBe(true);
     await page
       .getByRole("button", { name: "フィードバック", exact: true })
-      .evaluate((e) => e === document.activeElement),
-  ).toBe(true);
-});
+      .click();
+    await panel.waitFor();
+    await page.keyboard.press("Escape");
+    expect(
+      await page
+        .getByRole("button", { name: "フィードバック", exact: true })
+        .evaluate((e) => e === document.activeElement),
+    ).toBe(true);
+  },
+);
 test("保存結果が先に出て500ms後に案内し、閉じる・再表示・再読込でも案内を重ねない", async () => {
   await page.goto(
     `${origin}/iframe.html?id=room-roomoutcomeview--with-feedback&viewMode=story`,
@@ -326,7 +330,7 @@ test("ボード左上の入口から現行ステップを選んだ入力欄に�
   expect(await page.getByTestId("board-context-hud").isVisible()).toBe(true);
 });
 
-test.each([390, 1280])(
+test.each(widths(390, 1280))(
   "%ipxでも「わからない」をキーボードで選び種類のみ送信できる",
   async (width) => {
     await page.setViewportSize({ width, height: 900 });

@@ -20,7 +20,7 @@ push後に古いrunを見ていないか、`pull_request` のマージ結果とh
 
 ## 失敗したステップから再現する
 
-コマンドと前処理は対象版の [CI](../../../.github/workflows/ci.yml) と
+コマンドと前処理は対象版の [CI](../../../.github/workflows/ci.yml)・[Browser](../../../.github/workflows/browser.yml) と
 [package.json](../../../package.json) を読む。検査の目的は
 [テスト方針](../../../docs/development/testing.md) に照らす。
 

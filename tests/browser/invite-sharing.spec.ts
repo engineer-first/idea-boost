@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const inviteUrl = "https://idea-flow.example/invite/AB12CD";
@@ -12,7 +13,7 @@ afterAll(async () => {
   await browser?.close();
 });
 
-for (const width of [390, 1280]) {
+for (const width of widths(390, 1280)) {
   for (const surface of ["lobby", "popover"] as const) {
     test(`${surface}: ${width}px で文字列・アイコンのコピーと共有がレイアウトを変えずに使える`, async () => {
       await mkdir("test-results/board-layout", { recursive: true });

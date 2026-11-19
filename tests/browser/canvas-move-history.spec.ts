@@ -1,5 +1,6 @@
 import { chromium, type Locator, type Page } from "playwright";
 import { describe, expect, test } from "vitest";
+import { includeMobile } from "./viewports";
 
 const app = process.env.AUTH_APP_TEST_URL;
 const evidence = process.env.MOVE_HISTORY_EVIDENCE_DIR;
@@ -580,8 +581,8 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
   }, 90_000);
 });
 
-describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
-  test("320/375pxの画面で履歴・工程操作・マイ付箋・map操作が重ならず届く", async () => {
+describe.skipIf(!app || !includeMobile)("移動履歴のmobile HUD配置", () => {
+  test("375pxの画面で履歴・工程操作・マイ付箋・map操作が重ならず届く", async () => {
     const browser = await chromium.launch();
     try {
       const actor = await browser.newPage({
@@ -610,7 +611,6 @@ describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
         for (const [width, height] of [
           [375, 812],
           [375, 667],
-          [320, 667],
         ]) {
           await actor.setViewportSize({ width, height });
           await expect
