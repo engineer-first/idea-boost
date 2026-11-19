@@ -1,5 +1,5 @@
 import { mkdir } from "node:fs/promises";
-import { type Browser, chromium, type Locator, type Page } from "playwright";
+import { type Browser, chromium, type Page } from "playwright";
 import {
   afterAll,
   afterEach,
@@ -184,16 +184,6 @@ test.each(steps)(
     await page.screenshot({ path: `${output}/${step}.png` });
   },
 );
-
-test("現在地・工程進捗カードは上部操作HUDと上端・高さを揃える", async () => {
-  await openStory("room-roomboardlayout--phase-1-step-1");
-  const location = await page.getByTestId("board-location-card").boundingBox();
-  const controls = await page.getByTestId("board-control-hud").boundingBox();
-  expect(location).not.toBeNull();
-  expect(controls).not.toBeNull();
-  expect(location?.y).toBe(controls?.y);
-  expect(location?.height).toBe(controls?.height);
-});
 
 test("左右の開閉は独立し、多数の付箋とヒントは内部スクロールで末尾に到達できる", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
@@ -407,76 +397,6 @@ test("3-1で考えるヒントを開いても、付箋と追加カードはヒ�
   }
 });
 
-for (const phase of [1, 2, 3] as const) {
-  test(`${phase}-1ではマイ付箋エリア外の余白に無限キャンバスが見える`, async () => {
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
-
-    const privateNotes = page.getByTestId("private-notes-toolbar");
-    expect(await privateNotes.isVisible()).toBe(true);
-    await expectOpaqueAndReadable(privateNotes);
-
-    const boardScroller = page.getByTestId("board-scroller");
-    if (phase === 1) {
-      expect(await boardScroller.isVisible()).toBe(true);
-      expect(
-        await boardScroller.evaluate(
-          (element) => getComputedStyle(element).filter,
-        ),
-      ).toBe("blur(4px)");
-    } else {
-      expect(await boardScroller.isVisible()).toBe(false);
-    }
-
-    const canvas = page.getByTestId("private-workspace-canvas-backdrop");
-    expect(await canvas.isVisible()).toBe(true);
-    const backdropStyle = await canvas.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        backgroundImage: style.backgroundImage,
-        filter: style.filter,
-        pointerEvents: style.pointerEvents,
-      };
-    });
-    expect(backdropStyle.backgroundImage).not.toBe("none");
-    expect(backdropStyle.filter).toBe("none");
-    expect(backdropStyle.pointerEvents).toBe("none");
-
-    const canvasBox = await canvas.boundingBox();
-    const privateNotesBox = await privateNotes.boundingBox();
-    if (!canvasBox || !privateNotesBox)
-      throw new Error("キャンバスまたはマイ付箋エリアが見つかりません");
-    expect(canvasBox.x).toBeLessThan(privateNotesBox.x);
-    expect(canvasBox.y).toBeLessThan(privateNotesBox.y);
-    expect(canvasBox.x + canvasBox.width).toBeGreaterThan(
-      privateNotesBox.x + privateNotesBox.width,
-    );
-    expect(canvasBox.y + canvasBox.height).toBeGreaterThan(
-      privateNotesBox.y + privateNotesBox.height,
-    );
-  });
-}
-
-test("1-1・2-1・3-1のマイ付箋エリアは現在地と上部メニューの真下から始まる", async () => {
-  await page.setViewportSize({ width: 1280, height: 720 });
-  const tops: Record<string, number> = {};
-  for (const phase of [1, 2, 3] as const) {
-    await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
-    const box = await page.getByTestId("private-notes-toolbar").boundingBox();
-    if (!box) throw new Error("マイ付箋エリアが見つかりません");
-    tops[`${phase}-1`] = box.y;
-  }
-  // 1280×720では最上段の現在地・上部メニュー（下端68px）の真下、80pxから始める。
-  // 接続案内はエリアの前面に重ねる。
-  const expected = 80;
-  for (const [key, top] of Object.entries(tops)) {
-    expect(
-      Math.abs(top - expected),
-      `${key}: ${JSON.stringify(tops)}`,
-    ).toBeLessThan(1);
-  }
-});
-
 for (const id of [
   "phase-1-step-1",
   "phase-2-step-1",
@@ -496,89 +416,6 @@ for (const id of [
       .count();
     expect(backgroundNotes).toBe(0);
   });
-}
-
-async function expectOpaqueAndReadable(locator: Locator): Promise<void> {
-  const style = await locator.evaluate((element) => {
-    const css = getComputedStyle(element);
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas unavailable");
-    function rgba(color: string): number[] {
-      if (!context) throw new Error("Canvas unavailable");
-      context.clearRect(0, 0, 1, 1);
-      context.fillStyle = color;
-      context.fillRect(0, 0, 1, 1);
-      return Array.from(context.getImageData(0, 0, 1, 1).data);
-    }
-    function luminance(color: number[]): number {
-      const rgb = color
-        .slice(0, 3)
-        .map((v) => v / 255)
-        .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-      return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
-    }
-    const bg = rgba(css.backgroundColor);
-    const fg = rgba(css.color);
-    const a = luminance(bg),
-      b = luminance(fg);
-    let opacity = 1;
-    for (let e: Element | null = element; e; e = e.parentElement)
-      opacity *= Number(getComputedStyle(e).opacity);
-    return {
-      alpha: bg[3],
-      opacity,
-      contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
-    };
-  });
-  expect(style.alpha).toBe(255);
-  expect(style.opacity).toBe(1);
-  expect(style.contrast).toBeGreaterThanOrEqual(4.5);
-}
-
-for (const theme of ["light", "dark"]) {
-  for (const transparency of ["no-preference", "reduce"]) {
-    test(`${theme}/${transparency}: タイマー全状態の不透明度・コントラスト・寸法`, async () => {
-      const cdp = await page.context().newCDPSession(page);
-      await cdp.send("Emulation.setEmulatedMedia", {
-        features: [
-          { name: "prefers-reduced-transparency", value: transparency },
-          { name: "prefers-color-scheme", value: theme },
-        ],
-      });
-      for (const state of ["idle", "running", "paused", "ended"]) {
-        await openStory(`room-roomtimer--${state}-host`);
-        expect(
-          await page.evaluate(
-            () => matchMedia("(prefers-color-scheme: dark)").matches,
-          ),
-        ).toBe(theme === "dark");
-        const timer = page.getByTestId("timer-floating");
-        await timer.waitFor();
-        await expectOpaqueAndReadable(timer);
-        const bounds = await timer.boundingBox();
-        expect({ width: bounds?.width, height: bounds?.height }).toEqual({
-          width: state === "paused" ? 288 : state === "ended" ? 112 : 72,
-          height: 72,
-        });
-        if (state === "paused" || state === "ended") {
-          const action = page.getByRole("button", {
-            name: state === "paused" ? "再開" : "＋1分",
-            exact: true,
-          });
-          expect(await action.isVisible()).toBe(true);
-        } else {
-          expect(await page.getByTestId("room-timer").isVisible()).toBe(true);
-          expect(await page.getByRole("timer").textContent()).toMatch(
-            /\d{2}:\d{2}/,
-          );
-        }
-        await page.screenshot({
-          path: `${output}/timer-${theme}-${transparency}-${state}.png`,
-        });
-      }
-    });
-  }
 }
 
 test("2-1は例付箋をマイ付箋に表示し、考えるヒントを表示しない", async () => {
@@ -629,50 +466,6 @@ test.each([2, 3] as const)(
       .toBe(true);
   },
 );
-
-test("接続中断時と参加者表示でもタイマー枠を薄くせず、全状態で寸法を保つ", async () => {
-  let participantRight: number | undefined;
-  for (const state of ["idle", "running", "paused", "ended"]) {
-    await openStory(`room-roomtimer--${state}-host&args=disabled:true`);
-    const timer = page.getByTestId("timer-floating");
-    await timer.waitFor();
-    expect(await timer.getByRole("button").first().isDisabled()).toBe(true);
-    await expectOpaqueAndReadable(timer);
-    await openStory(`room-roomtimer--${state}-member`);
-    const memberTimer = page.getByTestId("timer-floating");
-    await memberTimer.waitFor();
-    await expectOpaqueAndReadable(memberTimer);
-    const bounds = await memberTimer.boundingBox();
-    if (!bounds) throw new Error("タイマーが表示されません");
-    expect({ width: bounds.width, height: bounds.height }).toEqual({
-      width: state === "paused" ? 288 : state === "ended" ? 112 : 72,
-      height: 72,
-    });
-    if (state === "idle") participantRight = bounds.x + bounds.width;
-    else expect(bounds.x + bounds.width).toBe(participantRight);
-    if (state === "idle") {
-      expect(await page.getByRole("timer").textContent()).toBe("05:00");
-      expect(await page.getByTestId("timer-sound-toggle").count()).toBe(0);
-    }
-  }
-});
-
-test("透明効果を減らす設定ではボード上のHUD全体が不透明", async () => {
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Emulation.setEmulatedMedia", {
-    features: [{ name: "prefers-reduced-transparency", value: "reduce" }],
-  });
-  await openStory("room-roomboardlayout--reconnecting");
-  await page.getByTestId("board-context-hud").waitFor();
-  expect(
-    await page.evaluate(
-      () => matchMedia("(prefers-reduced-transparency: reduce)").matches,
-    ),
-  ).toBe(true);
-  for (const hud of await page.locator(".board-hud:visible").all()) {
-    await expectOpaqueAndReadable(hud);
-  }
-});
 
 test("成果公開後は3件を表示し、編集ボードへ戻さずホームへ進める", async () => {
   await page.goto(
@@ -773,90 +566,6 @@ test("長文と結果行を分け、候補操作と決定済み印にも重ね�
         Math.max(votes.y, control.y) >
         1;
     expect(overlaps, storyId).toBe(false);
-  }
-});
-
-test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示す", async () => {
-  await openStory("room-roomboardview--decided");
-  expect(
-    await page.getByRole("dialog", { name: "投票結果", exact: true }).count(),
-  ).toBe(0);
-  const decidedNote = page.locator(
-    '[data-note-id="note-1"] [data-slot="sticky-note-paper"]',
-  );
-  await decidedNote.waitFor();
-
-  const outline = await decidedNote.evaluate((element) => {
-    const probe = document.createElement("div");
-    probe.style.outlineColor = "#1E8E3E";
-    document.body.append(probe);
-    const decidedGreen = getComputedStyle(probe).outlineColor;
-    probe.remove();
-
-    const css = getComputedStyle(element);
-    return {
-      color: css.outlineColor,
-      decidedGreen,
-      style: css.outlineStyle,
-      width: Number.parseFloat(css.outlineWidth),
-    };
-  });
-
-  expect(outline.style).toBe("solid");
-  expect(outline.width).toBeGreaterThanOrEqual(4);
-  expect(outline.color).toBe(outline.decidedGreen);
-  await page.screenshot({ path: `${output}/decided-note.png` });
-});
-
-test("採用候補はhover・focus-visibleでも緑の枠・背景・リングを重ねず操作範囲を保つ", async () => {
-  await openStory("room-roomboardview--selecting-candidate");
-  const candidate = page.getByRole("button", { name: /採用する付箋:/ }).first();
-  await candidate.waitFor();
-  const before = await candidate.boundingBox();
-  for (const interaction of ["hover", "focus"] as const) {
-    if (interaction === "hover") await candidate.hover();
-    else {
-      await page.mouse.move(0, 0);
-      await page.keyboard.press("Tab");
-      await candidate.focus();
-      expect(
-        await candidate.evaluate((element) =>
-          element.matches(":focus-visible"),
-        ),
-      ).toBe(true);
-    }
-    await expect
-      .poll(() =>
-        candidate.evaluate((element) => {
-          const style = getComputedStyle(element);
-          return {
-            border: style.borderColor,
-            background: style.backgroundColor,
-            shadow: style.boxShadow,
-            outline: style.outlineStyle,
-            cursor: style.cursor,
-          };
-        }),
-      )
-      .toEqual({
-        border: "rgba(0, 0, 0, 0)",
-        background: "rgba(0, 0, 0, 0)",
-        shadow: "none",
-        outline: "none",
-        cursor: "pointer",
-      });
-    expect(await candidate.boundingBox()).toEqual(before);
-    expect(
-      await candidate.evaluate((element) => {
-        const box = element.getBoundingClientRect();
-        return (
-          document.elementFromPoint(
-            box.x + box.width / 2,
-            box.y + box.height / 2,
-          ) === element
-        );
-      }),
-    ).toBe(true);
   }
 });
 

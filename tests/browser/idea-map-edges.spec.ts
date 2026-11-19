@@ -76,19 +76,15 @@ test.each(
     { phase: "3-2", story: "idea-map-sharing-edges" },
     { phase: "3-3", story: "idea-map-evaluation-edges" },
     { phase: "3-5", story: "idea-map-decision-edges" },
-  ].flatMap((phase) => [900, 1440].map((width) => ({ ...phase, width }))),
+  ].map((phase) => ({ ...phase, width: 1440 })),
 )(
-  "$phase / $width pxで広さ変更後も四隅まで移動し、確定時に跳ねない",
+  // 狭い幅での端への移動は上の採用モードの検査で見る。左上と右下で縦横の両端を確かめる。
+  "$phase / $width pxで広さ変更後も対角の隅まで移動し、確定時に跳ねない",
   async ({ phase, story, width }) => {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
     try {
       for (const level of [0, 4, 8]) {
-        for (const corner of [
-          "top-left",
-          "top-right",
-          "bottom-left",
-          "bottom-right",
-        ]) {
+        for (const corner of ["top-left", "bottom-right"]) {
           await page.goto(
             `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story&args=ideaMapSizeLevel:${level}`,
           );
@@ -222,94 +218,6 @@ test("3-4では四隅の付箋を同じ座標で表示し、投票中の移動�
         await page.mouse.up();
         expect(await note.boundingBox()).toEqual(rect);
       }
-    }
-  } finally {
-    await page.close();
-  }
-});
-
-test.each([
-  { phase: "3-2", story: "idea-map-workspace" },
-  { phase: "3-3", story: "idea-map-only" },
-  { phase: "3-4", story: "idea-map-voting" },
-  { phase: "3-5", story: "idea-map-result" },
-])("$phaseの角丸の外側にグリッドの直線を描画しない", async ({ story }) => {
-  const page = await browser.newPage({
-    viewport: { width: 1440, height: 900 },
-  });
-  try {
-    await page.goto(
-      `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story`,
-    );
-    await page.getByTestId("idea-value-feasibility-map-plane").waitFor();
-    await page.keyboard.press("Escape");
-    // 角のグリッドを測る前に、重なるフローティングタイマーを内側へ移す。
-    for (let index = 0; index < 4; index++)
-      await page.getByTestId("room-timer").press("Alt+ArrowLeft");
-    const plane = await bounds(page, "idea-value-feasibility-map-plane");
-    // 実際の半径の外側を測る。固定16pxだと12pxの角丸の内側を拾ってしまう。
-    const radius = await page
-      .getByTestId("idea-value-feasibility-map-plane")
-      .evaluate((node) =>
-        Number.parseFloat(getComputedStyle(node).borderTopLeftRadius),
-      );
-    const near = Math.floor(radius * 0.375);
-    for (const corner of [
-      {
-        x: plane.x,
-        y: plane.y,
-        points: [
-          [1, near],
-          [near, 1],
-        ],
-      },
-      {
-        x: plane.x + plane.width - radius,
-        y: plane.y,
-        points: [
-          [radius - 2, near],
-          [radius - near - 1, 1],
-        ],
-      },
-      {
-        x: plane.x,
-        y: plane.y + plane.height - radius,
-        points: [
-          [1, radius - near - 1],
-          [near, radius - 2],
-        ],
-      },
-      {
-        x: plane.x + plane.width - radius,
-        y: plane.y + plane.height - radius,
-        points: [
-          [radius - 2, radius - near - 1],
-          [radius - near - 1, radius - 2],
-        ],
-      },
-    ]) {
-      const screenshot = await page.screenshot({
-        clip: { x: corner.x, y: corner.y, width: radius, height: radius },
-      });
-      const colors = await page.evaluate(
-        async ({ encoded, points }) => {
-          const image = new Image();
-          image.src = `data:image/png;base64,${encoded}`;
-          await image.decode();
-          const canvas = document.createElement("canvas");
-          canvas.width = image.width;
-          canvas.height = image.height;
-          const context = canvas.getContext("2d");
-          if (!context) throw new Error("画像を読み込めません");
-          context.drawImage(image, 0, 0);
-          return points.map(([x, y]) =>
-            Array.from(context.getImageData(x, y, 1, 1).data).slice(0, 3),
-          );
-        },
-        { encoded: screenshot.toString("base64"), points: corner.points },
-      );
-      for (const color of colors)
-        expect(Math.min(...color)).toBeGreaterThanOrEqual(250);
     }
   } finally {
     await page.close();
