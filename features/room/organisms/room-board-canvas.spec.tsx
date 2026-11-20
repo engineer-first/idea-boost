@@ -43,7 +43,6 @@ function setup(
     selectedVoteKind: null,
     pendingVoteOperations: [],
     dragGhost: null,
-    isReturnDropTarget: false,
     boardScrollerRef: createRef<HTMLDivElement>(),
     ideaMapPlaneRef: createRef<HTMLDivElement>(),
     privateToolbarRef: createRef<HTMLDivElement>(),

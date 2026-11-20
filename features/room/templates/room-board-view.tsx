@@ -1432,7 +1432,6 @@ export function RoomBoardView({
     privateNotes: toolbarNotes,
     dragGhost,
     dragPreview,
-    isReturnDropTarget,
     privateDropPlaceholder,
     isNoteDragging,
     camera,
@@ -1868,6 +1867,7 @@ export function RoomBoardView({
           if (
             press?.pointerId === event.pointerId &&
             press.owner === event.target &&
+            !interactions.hasActiveNoteDrag?.(event.pointerId) &&
             !boardScrollerRef.current?.hasPointerCapture?.(event.pointerId)
           )
             cancelRootPress();
@@ -2195,7 +2195,6 @@ export function RoomBoardView({
           pendingVoteOperations={pendingVoteOperations}
           dragGhost={dragGhost}
           dragPreview={dragPreview}
-          isReturnDropTarget={isReturnDropTarget}
           privateDropPlaceholder={privateDropPlaceholder}
           boardScrollerRef={boardScrollerRef}
           ideaMapPlaneRef={ideaMapPlaneRef}
