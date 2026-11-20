@@ -210,6 +210,31 @@ test("縮小時は6枚目と11枚目で一覧が滑らかに動き、付箋は�
       frameYs: number[];
     }[] = [];
     list.addEventListener("scroll", () => positions.push(list.scrollTop));
+    // 一覧の移動に対してスクロールイベントの処理が1フレーム遅れる状況を再現する。
+    const listen = list.addEventListener.bind(list);
+    list.addEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions,
+    ) => {
+      if (type !== "scroll" || typeof listener !== "function") {
+        listen(type, listener, options);
+        return;
+      }
+      listen(
+        type,
+        (event) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (typeof options === "object" && options.signal?.aborted)
+                return;
+              listener.call(list, event);
+            });
+          });
+        },
+        options,
+      );
+    };
     const animate = Element.prototype.animate;
     Element.prototype.animate = function (...args) {
       const bounds = this.getBoundingClientRect();
@@ -293,6 +318,7 @@ test("縮小時は6枚目と11枚目で一覧が滑らかに動き、付箋は�
         start.frameYs.every(
           (y, index, ys) => index === 0 || y >= ys[index - 1] - 1,
         ),
+        `${count}枚目の付箋の座標 ${start.frameYs.join(", ")}`,
       ).toBe(true);
     } else {
       expect(after).toBe(before);

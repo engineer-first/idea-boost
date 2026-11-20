@@ -120,9 +120,13 @@ function revealComposerNoteWhileScrolling(
   if (active?.targetTop === targetTop) return;
   active?.cancel();
 
+  const startTop = scrollContainer.scrollTop;
+  const scrollDistance = targetTop - startTop;
   const animatingNotes = new Map<HTMLElement, Animation>();
   const listeners = new AbortController();
   const options = { signal: listeners.signal };
+  let frame: number;
+  let startedAt: number | undefined;
   const finish = () => {
     listeners.abort();
     for (const card of animatingNotes.keys()) {
@@ -131,12 +135,9 @@ function revealComposerNoteWhileScrolling(
     scrollRef.current = null;
   };
   const cancel = () => {
+    cancelAnimationFrame(frame);
     for (const animation of animatingNotes.values()) animation.cancel();
     finish();
-    scrollContainer.scrollTo({
-      top: scrollContainer.scrollTop,
-      behavior: "instant",
-    });
   };
   const animateVisibleNotes = () => {
     const clipTop =
@@ -167,19 +168,28 @@ function revealComposerNoteWhileScrolling(
       }
       waitingNotes.delete(waitingNote);
     }
-    if (Math.abs(scrollOffset) < 1) finish();
+  };
+  const scrollFrame = (now: number) => {
+    startedAt ??= now;
+    const progress = Math.min((now - startedAt) / 200, 1);
+    const easedProgress = progress * progress * (3 - 2 * progress);
+    // 一覧と付箋の位置を同じフレームで更新して、着地点を固定する。
+    scrollContainer.scrollTo({
+      top: startTop + scrollDistance * easedProgress,
+      behavior: "instant",
+    });
+    animateVisibleNotes();
+    if (progress === 1) finish();
+    else frame = requestAnimationFrame(scrollFrame);
   };
 
   scrollRef.current = { targetTop, waitingNotes, cancel };
-  scrollContainer.addEventListener("scroll", animateVisibleNotes, options);
-  scrollContainer.addEventListener("scrollend", finish, options);
   scrollContainer.addEventListener("pointerdown", cancel, options);
   scrollContainer.addEventListener("wheel", cancel, {
     ...options,
     passive: true,
   });
-  scrollContainer.scrollTo({ top: targetTop, behavior: "smooth" });
-  animateVisibleNotes();
+  frame = requestAnimationFrame(scrollFrame);
 }
 
 function animateNoteFromComposer(
