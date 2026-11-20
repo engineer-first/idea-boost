@@ -609,7 +609,7 @@ export function RoomBoardHeader({
                       ? `${phase.phase}-${phase.step}`
                       : "lobby"
                   }
-                  sessionKey={`${inviteCode}:${currentUserId}`}
+                  userId={currentUserId}
                   isReady={!isDisconnected}
                   onReady={handleInitialOnboardingReady}
                 />

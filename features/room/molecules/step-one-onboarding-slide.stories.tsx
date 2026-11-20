@@ -11,7 +11,7 @@ const meta = {
   },
   args: {
     phaseKey: "1-1",
-    sessionKey: "storybook-step-one",
+    userId: "storybook-step-one",
     isReady: true,
   },
 } satisfies Meta<typeof StepOneOnboardingSlide>;
@@ -55,7 +55,7 @@ export const FirstVisit: Story = {
 
 export const OperationSlide: Story = {
   args: {
-    sessionKey: "storybook-step-one-second-slide",
+    userId: "storybook-step-one-second-slide",
   },
   play: async () => {
     await ensureGuideIsOpen();
@@ -70,7 +70,7 @@ export const OperationSlide: Story = {
 
 export const TimerSlide: Story = {
   args: {
-    sessionKey: "storybook-step-one-third-slide",
+    userId: "storybook-step-one-third-slide",
   },
   play: async () => {
     await ensureGuideIsOpen();
@@ -81,7 +81,7 @@ export const TimerSlide: Story = {
 
 function manualStory(phaseKey: string, slideIndex = 0): Story {
   return {
-    args: { phaseKey, sessionKey: `storybook-guide-${phaseKey}-${slideIndex}` },
+    args: { phaseKey, userId: `storybook-guide-${phaseKey}-${slideIndex}` },
     play: async () => {
       await ensureGuideIsOpen();
       if (slideIndex > 0)

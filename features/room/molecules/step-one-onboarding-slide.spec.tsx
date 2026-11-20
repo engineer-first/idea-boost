@@ -1,13 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { describe, expect, it } from "vitest";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { StepOneOnboardingSlide } from "./step-one-onboarding-slide";
 
 describe("StepOneOnboardingSlide", () => {
   it.each(["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])(
     "%sへ初めて進むと案内を自動表示し、再接続では再表示しない",
     async (phaseKey) => {
-      const props = { sessionKey: `auto-${phaseKey}`, isReady: true };
+      const props = { userId: `auto-${phaseKey}`, isReady: true };
       const { rerender } = render(
         <StepOneOnboardingSlide {...props} phaseKey="2-2" />,
       );
@@ -25,6 +26,16 @@ describe("StepOneOnboardingSlide", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     },
   );
+  it("一度閉じた案内は、タブを閉じて開き直した後（sessionStorageが空）でも再表示しない", () => {
+    const props = { userId: "revisit", phaseKey: "1-2", isReady: true };
+    const first = render(<StepOneOnboardingSlide {...props} />);
+    expect(screen.getByRole("dialog")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    first.unmount();
+    sessionStorage.clear();
+    render(<StepOneOnboardingSlide {...props} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
   it.each([
     ["2-2", "自分の付箋を共有し、みんなの考えを知ろう。"],
     ["3-2", "自分の付箋を共有し、みんなの考えを知ろう。"],
@@ -38,7 +49,7 @@ describe("StepOneOnboardingSlide", () => {
       render(
         <StepOneOnboardingSlide
           phaseKey={phaseKey}
-          sessionKey={`reference-${phaseKey}`}
+          userId={`reference-${phaseKey}`}
           isReady
         />,
       );
@@ -53,7 +64,7 @@ describe("StepOneOnboardingSlide", () => {
       render(
         <StepOneOnboardingSlide
           phaseKey={phaseKey}
-          sessionKey={`decision-next-${phaseKey}`}
+          userId={`decision-next-${phaseKey}`}
           isReady
         />,
       );
@@ -71,11 +82,7 @@ describe("StepOneOnboardingSlide", () => {
   );
   it("投票の案内は2種類のシールの名前と基準を並べて示す", async () => {
     render(
-      <StepOneOnboardingSlide
-        phaseKey="1-4"
-        sessionKey="vote-criteria"
-        isReady
-      />,
+      <StepOneOnboardingSlide phaseKey="1-4" userId="vote-criteria" isReady />,
     );
     const dialog = await screen.findByRole("dialog", {
       name: "取り組みたい付箋に投票しよう。",
@@ -91,7 +98,7 @@ describe("StepOneOnboardingSlide", () => {
       render(
         <StepOneOnboardingSlide
           phaseKey={phaseKey}
-          sessionKey={`video-${phaseKey}`}
+          userId={`video-${phaseKey}`}
           isReady
         />,
       );
@@ -120,7 +127,7 @@ describe("StepOneOnboardingSlide", () => {
       render(
         <StepOneOnboardingSlide
           phaseKey="1-2"
-          sessionKey="reduced-motion-video"
+          userId="reduced-motion-video"
           isReady
         />,
       );
@@ -137,7 +144,7 @@ describe("StepOneOnboardingSlide", () => {
     }
   });
   it("1-1の3枚目へ移動中に2枚構成の工程へ変わっても落ちず、案内を閉じる", async () => {
-    const props = { sessionKey: "moving-phase-change", isReady: true };
+    const props = { userId: "moving-phase-change", isReady: true };
     const { rerender } = render(
       <StepOneOnboardingSlide {...props} phaseKey="1-1" />,
     );
@@ -163,7 +170,7 @@ describe("StepOneOnboardingSlide", () => {
     async (phaseKey) => {
       const props = {
         phaseKey,
-        sessionKey: `manual-${phaseKey}`,
+        userId: `manual-${phaseKey}`,
         isReady: true,
       };
       const { rerender } = render(<StepOneOnboardingSlide {...props} />);
@@ -232,9 +239,7 @@ describe("StepOneOnboardingSlide", () => {
       rerender(<StepOneOnboardingSlide {...props} />);
       expect(screen.queryByRole("dialog")).toBeNull();
       expect(
-        sessionStorage.getItem(
-          `step-onboarding:${props.sessionKey}:${phaseKey}`,
-        ),
+        localStorage.getItem(stepGuideSeenStorageKey(props.userId, phaseKey)),
       ).toBe("seen");
     },
   );
@@ -243,7 +248,7 @@ describe("StepOneOnboardingSlide", () => {
     render(
       <StepOneOnboardingSlide
         phaseKey={phaseKey}
-        sessionKey="unsupported"
+        userId="unsupported"
         isReady
       />,
     );
@@ -252,7 +257,7 @@ describe("StepOneOnboardingSlide", () => {
   });
 
   it("開いたまま対象工程へ変わっても閉じ、新しい工程の先頭から開ける", async () => {
-    const props = { sessionKey: "phase-change", isReady: true };
+    const props = { userId: "phase-change", isReady: true };
     const { rerender } = render(
       <StepOneOnboardingSlide {...props} phaseKey="1-1" />,
     );
@@ -267,11 +272,7 @@ describe("StepOneOnboardingSlide", () => {
 
   it("1-1は困りごとの案内から始まり、2枚目に本文入力の図、3枚目にタイマーの説明を表示する", async () => {
     render(
-      <StepOneOnboardingSlide
-        phaseKey="1-1"
-        sessionKey="timer-first"
-        isReady
-      />,
+      <StepOneOnboardingSlide phaseKey="1-1" userId="timer-first" isReady />,
     );
     expect(screen.getByRole("dialog", { name: /困ったこと/ })).toBeVisible();
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
@@ -303,7 +304,7 @@ describe("StepOneOnboardingSlide", () => {
     render(
       <StepOneOnboardingSlide
         phaseKey="1-1"
-        sessionKey="transition-focus"
+        userId="transition-focus"
         isReady
       />,
     );
@@ -335,7 +336,7 @@ describe("StepOneOnboardingSlide", () => {
   it("StrictModeでも初回案内を表示し、閉じた後の再マウントでは自動表示しない", async () => {
     const props = {
       phaseKey: "1-1",
-      sessionKey: "strict-visit",
+      userId: "strict-visit",
       isReady: true,
     };
     const { unmount } = render(
@@ -361,7 +362,7 @@ describe("StepOneOnboardingSlide", () => {
       render(
         <StepOneOnboardingSlide
           phaseKey="1-1"
-          sessionKey={`focus-${reopen}`}
+          userId={`focus-${reopen}`}
           isReady
         />,
       );
@@ -383,7 +384,7 @@ describe("StepOneOnboardingSlide", () => {
   it("他工程から1-1へ戻っても既読の案内を自動表示しない", async () => {
     const props = {
       phaseKey: "1-1",
-      sessionKey: "return-visit",
+      userId: "return-visit",
       isReady: true,
     };
     const { rerender } = render(<StepOneOnboardingSlide {...props} />);

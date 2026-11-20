@@ -7,6 +7,7 @@ import {
   buildMembers,
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { RoomBoardHeader } from "./room-board-header";
 import { buildPausedTimer } from "./room-timer.fixture";
 
@@ -77,7 +78,10 @@ const meta = {
   },
   decorators: [
     (Story, context) => {
-      const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      const firstStepGuideKey = stepGuideSeenStorageKey(
+        context.args.currentUserId,
+        "1-1",
+      );
       for (const member of context.args.members) {
         for (const step of [
           "1-1",
@@ -89,16 +93,16 @@ const meta = {
           "3-1",
           "3-3",
         ]) {
-          window.sessionStorage.setItem(
-            `step-onboarding:${context.args.inviteCode}:${member.userId}:${step}`,
+          window.localStorage.setItem(
+            stepGuideSeenStorageKey(member.userId, step),
             "seen",
           );
         }
       }
       if (context.parameters.firstVisitOnboarding) {
-        window.sessionStorage.removeItem(sessionKey);
+        window.localStorage.removeItem(firstStepGuideKey);
       } else {
-        window.sessionStorage.setItem(sessionKey, "seen");
+        window.localStorage.setItem(firstStepGuideKey, "seen");
       }
       return (
         <div
