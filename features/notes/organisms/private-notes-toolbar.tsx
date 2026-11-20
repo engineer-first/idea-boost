@@ -154,14 +154,16 @@ function revealComposerNoteWhileScrolling(
       const bounds = waitingNote.getBoundingClientRect();
       if (bounds.top >= clipBottom || bounds.bottom <= clipTop) continue;
       const origin = composer.getBoundingClientRect();
+      waitingNote.style.translate = translate;
       const animation = playComposerNoteEntrance(
         waitingNote,
         origin.left - bounds.left,
         origin.bottom - bounds.top - scrollOffset,
       );
       if (animation) {
-        waitingNote.style.translate = translate;
         animatingNotes.set(waitingNote, animation);
+      } else {
+        waitingNote.style.removeProperty("translate");
       }
       waitingNotes.delete(waitingNote);
     }
