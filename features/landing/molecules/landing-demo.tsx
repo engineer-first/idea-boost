@@ -1,12 +1,15 @@
 import { MousePointer2, Star, Users } from "lucide-react";
-import type { CSSProperties } from "react";
-import { landingBoardCopy, landingMembers } from "../logic/landing-board-copy";
-import { landingCopy as copy } from "../logic/landing-copy";
+import { type CSSProperties, Fragment } from "react";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import { landingPaperStyle } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 import { LandingBoardMock } from "./landing-board-mock";
 
-export function LandingDemo() {
+export function LandingDemo({ locale = "ja" }: { locale?: AppLocale }) {
+  const { landingBoardCopy, landingMembers } = getLandingContent(locale);
+  const copy = getLandingContent(locale).landingCopy;
   const cursorClasses = [
     styles.cursorOne,
     styles.cursorTwo,
@@ -18,7 +21,7 @@ export function LandingDemo() {
       className={`${styles.theme} ${styles.demo}`}
     >
       <div className={styles.board}>
-        <LandingBoardMock variant="hero" />
+        <LandingBoardMock variant="hero" locale={locale} />
         <div
           data-testid="landing-demo-decoration"
           aria-hidden="true"
@@ -31,12 +34,14 @@ export function LandingDemo() {
             className={`${styles.demoNote} ${styles.typedNote}`}
           >
             {copy.demo.typing.map((line, index) => (
-              <div
-                key={line}
-                className={index === 0 ? styles.typingOne : styles.typingTwo}
-              >
-                {line}
-              </div>
+              <Fragment key={line}>
+                {locale === "en" && index > 0 ? " " : null}
+                <div
+                  className={index === 0 ? styles.typingOne : styles.typingTwo}
+                >
+                  {line}
+                </div>
+              </Fragment>
             ))}
           </div>
           <div

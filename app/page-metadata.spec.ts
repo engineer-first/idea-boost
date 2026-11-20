@@ -4,12 +4,17 @@
 import type { Metadata } from "next";
 import { describe, expect, it, vi } from "vitest";
 
+const language = vi.hoisted(() => ({ value: "ja-JP" }));
+
 vi.mock("next/font/google", () => ({
   Noto_Sans_JP: () => ({ variable: "noto" }),
   Geist_Mono: () => ({ variable: "mono" }),
 }));
 vi.mock("@/lib/session/current-user", () => ({
   getCurrentUser: async () => null,
+}));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers({ "accept-language": language.value }),
 }));
 
 import { metadata as rootMetadata } from "./layout";
@@ -27,17 +32,30 @@ function isIndexed(metadata: Metadata): boolean {
 }
 
 describe("検索に出す画面", () => {
+  it("英語を優先するブラウザへ英語のtitle・description・OGを配信する", async () => {
+    language.value = "en-US,en;q=0.9";
+    const top = await import("./page");
+    const metadata = await top.generateMetadata();
+    expect(metadata.title).toContain("Bring your team to one idea");
+    expect(metadata.description).toContain("web app");
+    expect(metadata.openGraph?.title).toBe(metadata.title);
+    expect(metadata.openGraph?.description).toBe(metadata.description);
+    expect(metadata.openGraph?.locale).toBe("en_US");
+    language.value = "ja-JP";
+  });
   it("LP（/ と /about）だけを検索に出す", async () => {
     const top = await import("./page");
     const about = await import("./about/page");
-    expect(isIndexed(resolve(top.metadata))).toBe(true);
-    expect(isIndexed(resolve(about.metadata))).toBe(true);
+    expect(isIndexed(resolve(await top.generateMetadata()))).toBe(true);
+    expect(isIndexed(resolve(await about.generateMetadata()))).toBe(true);
   });
 
   it("metadata を持たない画面は共通の既定で noindex になり、LP の説明文を引き継がない", async () => {
     const top = await import("./page");
     expect(isIndexed(rootMetadata)).toBe(false);
-    expect(rootMetadata.description).not.toBe(top.metadata.description);
+    expect(rootMetadata.description).not.toBe(
+      (await top.generateMetadata()).description,
+    );
   });
 });
 

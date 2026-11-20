@@ -1,7 +1,9 @@
 import { ArrowDown, Star } from "lucide-react";
 import Image from "next/image";
-import { landingCopy as copy } from "../logic/landing-copy";
-import { landingOutcomes } from "../logic/landing-outcomes";
+import { Fragment } from "react";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import {
   landingHeadingClass,
   landingLinkClass,
@@ -10,7 +12,9 @@ import {
 } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
-export function LandingFlowSection() {
+export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
+  const copy = getLandingContent(locale).landingCopy;
+  const { landingOutcomes } = getLandingContent(locale);
   return (
     <section
       style={landingPaperStyle}
@@ -18,10 +22,11 @@ export function LandingFlowSection() {
       aria-labelledby="landing-steps"
     >
       <h2 id="landing-steps" className={landingHeadingClass}>
-        {copy.stepsHeading.map((phrase) => (
-          <span key={phrase} className={`inline-block ${styles.marker}`}>
-            {phrase}
-          </span>
+        {copy.stepsHeading.map((phrase, index) => (
+          <Fragment key={phrase}>
+            {locale === "en" && index > 0 ? " " : null}
+            <span className={`inline-block ${styles.marker}`}>{phrase}</span>
+          </Fragment>
         ))}
       </h2>
       <p className="mt-6 max-w-3xl text-base sm:text-lg leading-8">
@@ -44,10 +49,11 @@ export function LandingFlowSection() {
                   <li key={prompt.viewpoint}>
                     <strong>{prompt.viewpoint}</strong>
                     <span>
-                      {prompt.detail.map((phrase) => (
-                        <span key={phrase} className={styles.flowPhrase}>
-                          {phrase}
-                        </span>
+                      {prompt.detail.map((phrase, index) => (
+                        <Fragment key={phrase}>
+                          {locale === "en" && index > 0 ? " " : null}
+                          <span className={styles.flowPhrase}>{phrase}</span>
+                        </Fragment>
                       ))}
                     </span>
                   </li>
@@ -60,10 +66,11 @@ export function LandingFlowSection() {
                 {copy.steps[1].title}
               </h3>
               <p className={styles.phaseQuestionNote}>
-                {copy.flow.question.map((phrase) => (
-                  <span key={phrase} className={styles.flowPhrase}>
-                    {phrase}
-                  </span>
+                {copy.flow.question.map((phrase, index) => (
+                  <Fragment key={phrase}>
+                    {locale === "en" && index > 0 ? " " : null}
+                    <span className={styles.flowPhrase}>{phrase}</span>
+                  </Fragment>
                 ))}
               </p>
             </div>
@@ -80,10 +87,11 @@ export function LandingFlowSection() {
             <div className={styles.ideaFan}>
               {copy.flow.ideas.map((idea) => (
                 <p key={idea.join("")}>
-                  {idea.map((phrase) => (
-                    <span key={phrase} className={styles.flowPhrase}>
-                      {phrase}
-                    </span>
+                  {idea.map((phrase, index) => (
+                    <Fragment key={phrase}>
+                      {locale === "en" && index > 0 ? " " : null}
+                      <span className={styles.flowPhrase}>{phrase}</span>
+                    </Fragment>
                   ))}
                 </p>
               ))}
@@ -94,10 +102,11 @@ export function LandingFlowSection() {
                 {copy.flow.selected}
               </span>
               <p>
-                {copy.flow.chosenIdea.map((phrase) => (
-                  <span key={phrase} className={styles.flowPhrase}>
-                    {phrase}
-                  </span>
+                {copy.flow.chosenIdea.map((phrase, index) => (
+                  <Fragment key={phrase}>
+                    {locale === "en" && index > 0 ? " " : null}
+                    <span className={styles.flowPhrase}>{phrase}</span>
+                  </Fragment>
                 ))}
               </p>
             </div>

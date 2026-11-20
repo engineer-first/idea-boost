@@ -1,4 +1,7 @@
-import { landingCopy as copy } from "../logic/landing-copy";
+import { Fragment } from "react";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import {
   landingHeadingClass,
   landingLinkClass,
@@ -7,17 +10,19 @@ import {
 import styles from "./landing.module.css";
 import { LandingFaqItem } from "./landing-faq-item";
 
-export function LandingFaqSection() {
+export function LandingFaqSection({ locale = "ja" }: { locale?: AppLocale }) {
+  const copy = getLandingContent(locale).landingCopy;
   return (
     <section
       className={`${styles.theme} ${landingSectionClass}`}
       aria-labelledby="landing-faq"
     >
       <h2 id="landing-faq" className={landingHeadingClass}>
-        {copy.faq.heading.map((phrase) => (
-          <span key={phrase} className={`inline-block ${styles.marker}`}>
-            {phrase}
-          </span>
+        {copy.faq.heading.map((phrase, index) => (
+          <Fragment key={phrase}>
+            {locale === "en" && index > 0 ? " " : null}
+            <span className={`inline-block ${styles.marker}`}>{phrase}</span>
+          </Fragment>
         ))}
       </h2>
       <div className="mt-8 max-w-3xl divide-y divide-[var(--lp-line)] border-y border-[var(--lp-line)]">
@@ -31,7 +36,7 @@ export function LandingFaqSection() {
             </summary>
             <div className="pb-5 text-base leading-8 sm:text-lg text-[var(--lp-body)]">
               <p>{item.answer}</p>
-              {"source" in item && (
+              {item.source && (
                 <a
                   href={item.source.url}
                   target="_blank"

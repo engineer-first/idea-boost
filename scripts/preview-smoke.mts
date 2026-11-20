@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { readD1Migrations } from "@cloudflare/vitest-plugin";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { createFetchMock, Miniflare } from "miniflare";
-import { landingCopy } from "../features/landing/logic/landing-copy.ts";
+import landingMessages from "../messages/ja/landing.json" with { type: "json" };
 import { previewProbeToken, previewSessionSecret } from "./preview-secrets.mts";
 import type { PreviewBrowserSmokeInput } from "./preview-smoke-browser.mts";
 
@@ -175,11 +175,19 @@ export async function smokePreviewBundle(
       ?.split(";")[0];
     assert.ok(signedOutCookie);
     const landing = await a.fetch(`${origin}/`, {
-      headers: { ...headers, Cookie: signedOutCookie },
+      headers: {
+        ...headers,
+        "Accept-Language": "ja-JP",
+        Cookie: signedOutCookie,
+      },
       redirect: "manual",
     });
     assert.equal(landing.status, 200);
-    assert.ok((await landing.text()).includes(landingCopy.cta.normal[0]));
+    assert.ok(
+      (await landing.text()).includes(
+        landingMessages.landingCopy.cta.normal[0],
+      ),
+    );
     const login = await a.fetch(`${origin}/login?next=%2Fhome`, {
       headers: { ...headers, Cookie: signedOutCookie },
       redirect: "manual",
