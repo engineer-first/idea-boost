@@ -331,8 +331,9 @@ export async function smokePreviewBrowserCollaboration(
       () => composer.inputValue().then((value) => value === ""),
       "追加が確定すると入力欄が空になる",
     );
-    assert.ok(
-      await composer.evaluate((input) => input === document.activeElement),
+    assert.equal(
+      await composer.and(member.locator(":focus")).count(),
+      1,
       "付箋を続けて書けるよう入力欄にフォーカスが残る必要があります。",
     );
     await poll(
