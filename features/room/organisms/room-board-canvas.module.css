@@ -19,6 +19,11 @@
     0px
   );
   --private-workspace-timer-inset: var(--board-private-timer-inset, 0px);
+  --private-workspace-start-inset: max(
+    var(--private-workspace-padding),
+    var(--private-workspace-reference-inset),
+    var(--private-workspace-grid-inset)
+  );
 }
 
 .personalWorkspacePanel {
@@ -29,10 +34,26 @@
 }
 
 .personalWorkspace [data-testid="private-notes-header"] {
+  --private-workspace-grid-end-inset: calc(
+    100% -
+    var(--private-workspace-start-inset) -
+    var(--private-notes-grid-width)
+  );
+  /* 中央寄せでは右余白の半分だけ入力欄が左に動く。タイマーに重なる分だけ余白を取る。 */
+  --private-workspace-header-timer-inset: min(
+    var(--private-workspace-timer-inset),
+    calc(
+      2 *
+      var(--private-workspace-timer-inset) +
+      var(--private-workspace-start-inset) +
+      var(--private-note-composer-width) -
+      100%
+    )
+  );
   padding-inline-end: max(
     var(--private-workspace-padding),
-    var(--private-workspace-timer-inset),
-    var(--private-workspace-grid-inset)
+    var(--private-workspace-grid-end-inset),
+    var(--private-workspace-header-timer-inset)
   );
 }
 
@@ -42,11 +63,7 @@
     [data-testid="private-notes-header"],
     [data-testid="private-notes-scroll"]
   ) {
-  padding-inline-start: max(
-    var(--private-workspace-padding),
-    var(--private-workspace-reference-inset),
-    var(--private-workspace-grid-inset)
-  );
+  padding-inline-start: var(--private-workspace-start-inset);
 }
 
 @media (min-width: 768px) {
@@ -70,12 +87,19 @@
 }
 
 .additionalWritingCanvas {
-  /* 付箋と固定の本文入力欄を閉じた状態でも見せる高さ。 */
+  /* 縮小時は操作列56pxと付箋1段150pxに上下の余白・枠を足す。 */
   --writing-panel-height: min(
-    300px,
+    14rem,
     max(
-      260px,
-      calc((100dvh - var(--board-private-expanded-top, 5rem) - 0.75rem) * 0.5)
+      0px,
+      calc(
+        100dvh -
+        max(
+          var(--board-private-expanded-top, 5rem),
+          var(--board-private-timer-top, 0px)
+        ) -
+        0.75rem
+      )
     )
   );
 }
@@ -123,7 +147,6 @@
   pointer-events: auto;
 }
 .additionalWritingPanel [data-testid="private-notes-scroll"] {
-  padding-block: 0.75rem;
   padding-inline-end: var(--private-workspace-padding);
 }
 @media (prefers-reduced-motion: reduce) {

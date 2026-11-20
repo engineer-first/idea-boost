@@ -1813,6 +1813,8 @@ function AdditionalWritingExperience(args: RoomBoardViewProps) {
             authorId: ME,
             visibility: "private",
             content,
+            stackOrder:
+              Math.max(0, ...current.map((note) => note.stackOrder)) + 1,
           }),
         ]);
         setReceipt({ operationId, noteId });

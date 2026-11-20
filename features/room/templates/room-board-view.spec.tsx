@@ -921,13 +921,13 @@ describe("マイ付箋の追加ショートカット", () => {
       const toolbar = within(screen.getByTestId("private-notes-toolbar"));
       expect(toolbar.getByText(/自分だけに表示/)).toBeVisible();
       expect(toolbar.getByText(/Enterで追加/)).toHaveTextContent(
-        /Shift＋Enterで改行/,
+        /Shift\+Enterで改行/,
       );
       expect(screen.getByTestId("private-notes-workspace")).toBeInTheDocument();
 
       rerender(<TestBoardView {...props} phase={buildPhaseStep(2, phase)} />);
       expect(
-        toolbar.queryByText("Enterで追加 · Shift＋Enterで改行"),
+        toolbar.queryByText("Enterで追加 · Shift+Enterで改行"),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByTestId("private-notes-workspace"),

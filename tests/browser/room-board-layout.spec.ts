@@ -432,6 +432,42 @@ for (const phase of [1, 2, 3] as const) {
   });
 }
 
+test.each([1160, 1280])(
+  "%ipxの1-1では入力欄を付箋の中央3列に揃え、案内を枠の上に置く",
+  async (width) => {
+    await page.setViewportSize({ width, height: 720 });
+    await openStory("room-roomboardlayout--phase-1-step-1");
+    const composer = page.getByRole("textbox", { name: "付箋を書く" });
+    await composer.click({ trial: true });
+    const [first, second, , fourth, fifth] = await page
+      .getByTestId("private-notes-list")
+      .getByTestId("note-card")
+      .evaluateAll((cards) =>
+        cards.slice(0, 5).map((card) => card.getBoundingClientRect().toJSON()),
+      );
+    const input = await composer.boundingBox();
+    if (!input || !first || !second || !fourth || !fifth)
+      throw new Error("入力欄または5列分の付箋がありません");
+    expect(fifth.y).toBeCloseTo(first.y, 0);
+    expect(input.x).toBeCloseTo(second.left, 0);
+    expect(input.x + input.width).toBeCloseTo(fourth.right, 0);
+    expect(input.height).toBe(56);
+    expect(first.top - (input.y + input.height)).toBeCloseTo(24, 0);
+
+    const title = await page
+      .getByRole("heading", { name: "マイ付箋" })
+      .boundingBox();
+    const help = await page
+      .getByText("Enterで追加 · Shift+Enterで改行", { exact: true })
+      .boundingBox();
+    if (!title || !help)
+      throw new Error("入力欄の見出しまたは案内がありません");
+    expect(title.x).toBeCloseTo(input.x, 0);
+    expect(help.x + help.width).toBeCloseTo(input.x + input.width, 0);
+    expect(help.y + help.height).toBeLessThan(input.y);
+  },
+);
+
 test("1280pxの1-1では上部中央に入力欄を置き、各個人作業でタイマーを避ける", async () => {
   await page.setViewportSize({ width: 1280, height: 720 });
   const tops: Record<string, number> = {};
@@ -510,18 +546,28 @@ test("320×568pxの2-1では参照欄とタイマーがあっても入力欄全�
   const toolbar = page.getByTestId("private-notes-toolbar");
   const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
   await composer.waitFor();
-  await expect
-    .poll(async () => {
-      const [input, panel] = await Promise.all([
-        composer.boundingBox(),
-        toolbar.boundingBox(),
-      ]);
-      return Boolean(
-        input && panel && input.y + input.height <= panel.y + panel.height,
-      );
-    })
-    .toBe(true);
-  await composer.click({ trial: true });
+  const inputFits = async () => {
+    const [input, panel] = await Promise.all([
+      composer.boundingBox(),
+      toolbar.boundingBox(),
+    ]);
+    return Boolean(
+      input &&
+        panel &&
+        input.x >= panel.x &&
+        input.x + input.width <= panel.x + panel.width &&
+        input.y + input.height <= panel.y + panel.height,
+    );
+  };
+  await expect.poll(inputFits).toBe(true);
+  await composer.click();
+  await composer.fill(
+    "1行目\nここから2行目\nここから3行目\nここから4行目\nここから5行目",
+  );
+  await expect.poll(inputFits).toBe(true);
+  expect(
+    await composer.evaluate((input) => input.scrollHeight > input.clientHeight),
+  ).toBe(true);
 });
 
 for (const id of [

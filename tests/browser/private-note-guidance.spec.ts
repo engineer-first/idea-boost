@@ -105,6 +105,9 @@ for (const width of [390, 1280]) {
     await expectInsideViewport(
       '[data-testid="private-notes-header"] [aria-label="付箋を書く"]',
     );
+    await composer.click();
+    const initialBounds = await composer.boundingBox();
+    if (!initialBounds) throw new Error("入力欄がありません");
     await composer.press("Enter");
     expect(await toolbar.getByTestId("note-card").count()).toBe(0);
     await composer.fill(" \n\t ");
@@ -132,18 +135,23 @@ for (const width of [390, 1280]) {
         new CompositionEvent("compositionend", { data: "変換後" }),
       ),
     );
-    await composer.fill("改行してから作る");
+    await composer.fill("変換後の本文");
     await composer.press("Shift+Enter");
-    expect(await composer.inputValue()).toBe("改行してから作る\n");
+    expect(await composer.inputValue()).toBe("変換後の本文\n");
     expect(await toolbar.getByTestId("note-card").count()).toBe(0);
-    await composer.fill("自分で書いた下書き");
+    await page.keyboard.insertText("2行目");
+    const expandedBounds = await composer.boundingBox();
+    if (!expandedBounds) throw new Error("改行後の入力欄がありません");
+    expect(expandedBounds.y).toBe(initialBounds.y);
+    expect(expandedBounds.height).toBeGreaterThan(initialBounds.height);
     await composer.press("Enter");
     await expect.poll(() => page.getByTestId("note-card").count()).toBe(1);
     const createdNote = toolbar.locator("[data-note-id]").first();
     await expect
       .poll(() => createdNote.getByRole("textbox").inputValue())
-      .toBe("自分で書いた下書き");
+      .toBe("変換後の本文\n2行目");
     await expect.poll(() => composer.inputValue()).toBe("");
+    await expect.poll(() => composer.boundingBox()).toEqual(initialBounds);
     await expect
       .poll(() =>
         composer.evaluate((element) => element === document.activeElement),

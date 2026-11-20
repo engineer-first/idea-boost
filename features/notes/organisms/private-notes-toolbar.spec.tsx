@@ -160,7 +160,7 @@ describe("PrivateNotesToolbar", () => {
     );
     expect(scroll).not.toContainElement(composer);
     expect(composer).toHaveAccessibleDescription(
-      "Enterで追加 · Shift＋Enterで改行",
+      "Enterで追加 · Shift+Enterで改行",
     );
     expect(within(scroll).getAllByTestId("note-card")).toHaveLength(2);
     expect(within(scroll).queryByPlaceholderText("メモを入力...")).toBeNull();
@@ -1747,9 +1747,13 @@ describe("追加執筆のマイ付箋", () => {
       "data-expanded",
       "false",
     );
+    expect(screen.getByRole("button", { name: "広げる" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     expect(
-      screen.getByRole("button", { name: "マイ付箋を開く" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "マイ付箋" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("note-card")).toBeVisible();
     const composer = screen.getByRole("textbox", { name: "付箋を書く" });
     expect(composer).toBeVisible();
@@ -1766,6 +1770,32 @@ describe("追加執筆のマイ付箋", () => {
     render(<PrivateNotesToolbar {...props()} notes={[]} />);
     expect(screen.getByRole("textbox", { name: "付箋を書く" })).toBeVisible();
     expect(screen.getByTestId("private-notes-scroll")).toBeVisible();
+  });
+  it("広げる・縮めるボタンで、書きかけの本文と選択位置を保ったまま切り替える", async () => {
+    const options = props();
+    const view = render(<PrivateNotesToolbar {...options} />);
+    const composer = screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: "付箋を書く",
+    });
+    const user = userEvent.setup();
+    composer.focus();
+    fireEvent.change(composer, { target: { value: "書きかけの本文" } });
+    composer.setSelectionRange(2, 5);
+
+    await user.click(screen.getByRole("button", { name: "広げる" }));
+    expect(options.onWorkspaceExpandedChange).toHaveBeenLastCalledWith(true);
+    view.rerender(<PrivateNotesToolbar {...options} workspaceExpanded />);
+    expect(screen.getByRole("heading", { name: "マイ付箋" })).toBeVisible();
+    const collapse = screen.getByRole("button", { name: "縮める" });
+    expect(collapse).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(collapse);
+    expect(options.onWorkspaceExpandedChange).toHaveBeenLastCalledWith(false);
+    view.rerender(<PrivateNotesToolbar {...options} />);
+    expect(screen.getByRole("textbox", { name: "付箋を書く" })).toBe(composer);
+    expect(composer).toHaveValue("書きかけの本文");
+    expect(composer).toHaveFocus();
+    expect([composer.selectionStart, composer.selectionEnd]).toEqual([2, 5]);
   });
   it("展開で入力要素を作り直さず、選択範囲と変換中の本文を保つ", () => {
     const options = props();
