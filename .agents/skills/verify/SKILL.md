@@ -18,7 +18,7 @@ description: このリポジトリの変更をローカルで起動して実際�
 1. `npm run dev:api`（バックグラウンド、ログをファイルへ）— api-worker (localhost:8787)。
 2. `npm run dev`（バックグラウンド、ログをファイルへ）。**ポート注意**: 別 worktree の dev サーバーが 3000 を掴んでいると起動を拒否する（Next 16 の dev ロック）。ログの `Local:` を必ず確認。
 3. `/login` → 「開発用ユーザーでログイン」→ `/` → 「ルームを作成」→ `/rooms/{id}`。
-4. 「付箋を追加」で付箋を作成。
+4. マイ付箋の「付箋を書く」に本文を入力し、Enterで付箋を作成。
 
 ブラウザ操作は agent-browser CLI で行う（使い方は `agent-browser skills get core`）。
 agent-browser の `click` / `keyboard type` は付箋の追加・入力にそのまま届くので、下記の合成イベントは不要。

@@ -48,10 +48,16 @@ beforeEach(() => {
   );
 });
 
-function getPrivateNoteAddButton() {
-  return within(screen.getByTestId("private-notes-list")).getByRole("button", {
-    name: "付箋を追加",
-  });
+function getPrivateNoteComposer() {
+  return screen.getByRole("textbox", { name: "付箋を書く" });
+}
+
+function submitPrivateNote(content: string) {
+  const composer = getPrivateNoteComposer();
+  composer.focus();
+  fireEvent.change(composer, { target: { value: content } });
+  fireEvent.keyDown(composer, { key: "Enter" });
+  return composer;
 }
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -902,7 +908,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
 
 describe("マイ付箋の追加ショートカット", () => {
   it.each([1, 2, 3] as const)(
-    "%d-1で追加ショートカットを表示し、共有フェーズでは隠す",
+    "%d-1で入力欄の使い方を表示し、作成不可の工程では隠す",
     (phase) => {
       const privateNote = buildNote({
         id: "private",
@@ -916,14 +922,14 @@ describe("マイ付箋の追加ショートカット", () => {
       });
       const toolbar = within(screen.getByTestId("private-notes-toolbar"));
       expect(toolbar.getByText(/自分だけに表示/)).toBeVisible();
-      expect(toolbar.getByText(/付箋追加ショートカットキー/)).toHaveTextContent(
-        /Macは⌘＋Enter、Windows等はCtrl＋Enter/,
+      expect(toolbar.getByText(/Enterで追加/)).toHaveTextContent(
+        /Shift\+Enterで改行/,
       );
       expect(screen.getByTestId("private-notes-workspace")).toBeInTheDocument();
 
       rerender(<TestBoardView {...props} phase={buildPhaseStep(2, phase)} />);
       expect(
-        screen.queryByText(/付箋追加ショートカットキー/),
+        toolbar.queryByText("Enterで追加 · Shift+Enterで改行"),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByTestId("private-notes-workspace"),
@@ -958,7 +964,7 @@ describe("マイ付箋の追加ショートカット", () => {
     const surface = screen.getByRole("button", { name: "付箋" });
     fireEvent.keyDown(surface, { key: "Enter" });
     fireEvent.keyDown(surface, { key: "Enter" });
-    const editor = screen.getByRole("textbox");
+    const editor = within(screen.getByTestId("note-card")).getByRole("textbox");
     expect(editor).not.toHaveAttribute("readonly");
     expect(editor).toHaveFocus();
     act(() => {
@@ -985,7 +991,10 @@ describe("マイ付箋の追加ショートカット", () => {
     );
     expect(editor).toHaveFocus();
     expect(editor).toHaveValue("指示後も入力を続ける");
-    expect(screen.getAllByRole("textbox")[1]).toHaveAttribute("readonly");
+    const added = screen
+      .getAllByTestId("note-card")
+      .find((card) => card.dataset.noteId === newNote.id);
+    expect(added?.querySelector("textarea")).toHaveAttribute("readonly");
   });
   it.each([
     { noteCreationPending: true },
@@ -1039,7 +1048,7 @@ describe("マイ付箋の追加ショートカット", () => {
     },
   );
 
-  it("空の個人付箋ワークスペースでは追加ボタンにフォーカスしてCtrl+Enterで追加できる", () => {
+  it("空の個人付箋ワークスペースでは入力した本文をEnterで追加できる", () => {
     const onAddPrivateNote = vi.fn(() => "create-1");
     const { props } = setup({
       phase: buildPhaseStep(1),
@@ -1047,12 +1056,10 @@ describe("マイ付箋の追加ショートカット", () => {
       interactions: buildInteractions([], []),
       onAddPrivateNote,
     });
-    const add = getPrivateNoteAddButton();
-    add.focus();
-
-    fireEvent.keyDown(add, { key: "Enter", ctrlKey: true });
+    submitPrivateNote("最初のアイデア");
 
     expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+    expect(props.onAddPrivateNote).toHaveBeenCalledWith("最初のアイデア");
   });
 
   it.each([
@@ -1082,23 +1089,28 @@ describe("マイ付箋の追加ショートカット", () => {
     },
   );
 
-  it("Macは⌘＋Enterを使い、Ctrl＋Enterでは追加しない", () => {
+  it("Macの⌘＋Enterはマイ付箋本文から追加し、Ctrl＋Enterでは追加しない", () => {
     const platform = vi
       .spyOn(window.navigator, "platform", "get")
       .mockReturnValue("MacIntel");
     onTestFinished(() => platform.mockRestore());
+    const privateNote = buildNote({
+      id: "private",
+      authorId: ME,
+      visibility: "private",
+    });
     const { props } = setup({
       phase: buildPhaseStep(1),
       notes: [],
-      interactions: buildInteractions([], []),
+      interactions: buildInteractions([], [privateNote]),
     });
-    const add = getPrivateNoteAddButton();
-    fireEvent.keyDown(add, {
+    const surface = screen.getByRole("button", { name: "付箋" });
+    fireEvent.keyDown(surface, {
       key: "Enter",
       ctrlKey: true,
     });
     expect(props.onAddPrivateNote).not.toHaveBeenCalled();
-    fireEvent.keyDown(add, {
+    fireEvent.keyDown(surface, {
       key: "Enter",
       metaKey: true,
     });
@@ -1111,18 +1123,13 @@ describe("マイ付箋の追加ショートカット", () => {
     { noteCreationSupported: false },
   ])("工程・接続・対応状態が作成不可なら追加しない: %j", (overrides) => {
     const { props } = setup({ phase: buildPhaseStep(1), ...overrides });
-    const add = within(screen.getByTestId("private-notes-list")).queryByRole(
-      "button",
-      { name: "付箋を追加" },
-    );
-    fireEvent.keyDown(add ?? screen.getByTestId("private-notes-scroll"), {
+    const composer = screen.queryByRole("textbox", { name: "付箋を書く" });
+    fireEvent.keyDown(composer ?? screen.getByTestId("private-notes-scroll"), {
       key: "Enter",
       ctrlKey: true,
     });
     expect(props.onAddPrivateNote).not.toHaveBeenCalled();
-    if (add) expect(add).toBeDisabled();
-    else
-      expect(screen.queryByRole("button", { name: "付箋を追加" })).toBeNull();
+    if (composer) expect(composer).toBeDisabled();
   });
 
   it("本文のIME中はKeyboardEventが未確定でも追加せず、変換終了後は追加できる", () => {
@@ -1139,7 +1146,7 @@ describe("マイ付箋の追加ショートカット", () => {
     const surface = screen.getByRole("button", { name: "付箋" });
     fireEvent.keyDown(surface, { key: "Enter" });
     fireEvent.keyDown(surface, { key: "Enter" });
-    const editor = screen.getByRole("textbox");
+    const editor = within(screen.getByTestId("note-card")).getByRole("textbox");
     expect(editor).not.toHaveAttribute("readonly");
     expect(editor).toHaveFocus();
     fireEvent.compositionStart(editor);
@@ -1181,7 +1188,7 @@ describe("マイ付箋の追加ショートカット", () => {
         notes: [],
         interactions,
       });
-      fireEvent.keyDown(getPrivateNoteAddButton(), {
+      fireEvent.keyDown(screen.getByTestId("private-notes-scroll"), {
         key: "Enter",
         ctrlKey: true,
       });
@@ -1200,19 +1207,18 @@ describe("マイ付箋の追加ショートカット", () => {
     },
   );
 
-  it("作成待ちでは＋を無効にし、キー入力も予約しない", () => {
+  it("作成待ちは入力欄を有効のまま保ち、入力を予約しない", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(1),
       noteCreationPending: true,
     });
-    const add = getPrivateNoteAddButton();
-    expect(add).toBeDisabled();
-    fireEvent.keyDown(add, {
-      key: "Enter",
-      ctrlKey: true,
-    });
+    const composer = getPrivateNoteComposer();
+    expect(composer).toBeEnabled();
+    fireEvent.change(composer, { target: { value: "待機中に書いた本文" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
     rerender(<TestBoardView {...props} noteCreationPending={false} />);
     expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+    expect(composer).toHaveValue("待機中に書いた本文");
   });
 });
 
@@ -2085,13 +2091,13 @@ describe("RoomBoardView", () => {
     expect(interactions.onFitToNotes).toHaveBeenCalledOnce();
   });
 
-  it("ツールバーの付箋追加ボタンでonAddPrivateNoteを呼ぶ", () => {
+  it("マイ付箋の入力欄から本文付きでonAddPrivateNoteを呼ぶ", () => {
     const onAddPrivateNote = vi.fn();
     setup({ phase: buildPhaseStep(1), onAddPrivateNote });
 
-    fireEvent.click(getPrivateNoteAddButton());
+    submitPrivateNote("入力した本文");
 
-    expect(onAddPrivateNote).toHaveBeenCalledTimes(1);
+    expect(onAddPrivateNote).toHaveBeenCalledExactlyOnceWith("入力した本文");
   });
 
   it("時間切れ後も投票を完了できる", () => {
@@ -2912,18 +2918,21 @@ describe("RoomBoardView", () => {
     // 送信を黙って破棄するため「入力したのに再接続後のsnapshotで消える」
     // ことになる。未接続中はボタン・付箋の操作自体を無効化する。
     it.each(["connecting", "closed"] as const)(
-      "%sの間はツールバーの「付箋を追加」ボタンが無効化される",
+      "%sの間は本文入力欄を利用できない",
       (connectionStatus) => {
         setup({ phase: buildPhaseStep(1), connectionStatus });
 
-        expect(getPrivateNoteAddButton()).toBeDisabled();
+        const composer = screen.queryByRole("textbox", {
+          name: "付箋を書く",
+        });
+        if (composer) expect(composer).toBeDisabled();
       },
     );
 
-    it("openの間はツールバーの「付箋を追加」ボタンが有効", () => {
+    it("openの間は本文入力欄を利用できる", () => {
       setup({ phase: buildPhaseStep(1), connectionStatus: "open" });
 
-      expect(getPrivateNoteAddButton()).not.toBeDisabled();
+      expect(getPrivateNoteComposer()).toBeEnabled();
     });
 
     it("closedの間は付箋をクリックしても選択されない", () => {
@@ -3296,7 +3305,7 @@ describe("RoomBoardView", () => {
         interactions: buildInteractions([], [privateNote]),
       });
 
-      expect(getPrivateNoteAddButton()).toBeEnabled();
+      expect(getPrivateNoteComposer()).toBeEnabled();
 
       const card = screen.getByTestId("note-card");
       clickNote(card);
@@ -3374,15 +3383,13 @@ describe("RoomBoardView", () => {
 
       expect(within(first).getByRole("textbox")).toHaveAttribute("readonly");
     });
-    it("Step1-4では付箋追加入口を表示しない", () => {
+    it("Step1-4では付箋入力欄を表示しない", () => {
       setup({
         phase: buildPhaseStep(4),
       });
 
       expect(
-        screen.queryByRole("button", {
-          name: "付箋を追加",
-        }),
+        screen.queryByRole("textbox", { name: "付箋を書く" }),
       ).not.toBeInTheDocument();
     });
   });
@@ -3674,17 +3681,15 @@ describe("ステップに結び付いた決定事項", () => {
 
 describe("反復ワークフロー", () => {
   it.each([1, 2, 3] as const)(
-    "フェーズ%dの初回執筆はフッターなしの追加タイルから付箋を作成する",
+    "フェーズ%dの初回執筆は固定の入力欄から付箋を作成する",
     (phase) => {
       const { props } = setup({ phase: buildPhaseStep(1, phase) });
-      expect(screen.queryByTestId("private-notes-footer")).toBeNull();
-      const add = within(screen.getByTestId("private-notes-list")).getByRole(
-        "button",
-        { name: "付箋を追加" },
+      expect(screen.getByRole("textbox", { name: "付箋を書く" })).toBeVisible();
+      const composer = submitPrivateNote(`フェーズ${phase}の本文`);
+      expect(composer).toHaveValue(`フェーズ${phase}の本文`);
+      expect(props.onAddPrivateNote).toHaveBeenCalledExactlyOnceWith(
+        `フェーズ${phase}の本文`,
       );
-      expect(add).toBeEnabled();
-      fireEvent.click(add);
-      expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
     },
   );
 
@@ -5041,7 +5046,7 @@ it.each([1, 3] as const)(
   },
 );
 
-it("手のひらを選んでから追加執筆へ戻っても、マイ付箋の開閉と追加を操作できる", () => {
+it("手のひらを選んでから追加執筆へ戻っても、入力欄から追加できる", () => {
   const notes = buildNotes(2);
   const { props, rerender } = setup({
     notes,
@@ -5054,11 +5059,12 @@ it("手のひらを選んでから追加執筆へ戻っても、マイ付箋の�
   const toolbar = screen.getByTestId("private-notes-toolbar");
   fireEvent.click(screen.getByTestId("private-notes-scroll"));
   expect(toolbar).toHaveAttribute("data-expanded", "true");
-  const add = within(toolbar).getByRole("button", { name: "新しい付箋を追加" });
-  fireEvent.click(add, { detail: 1 });
+  submitPrivateNote("続けて書く本文");
   expect(toolbar).toHaveAttribute("data-expanded", "true");
   fireEvent.pointerDown(screen.getByTestId("board-scroller"));
   expect(toolbar).toHaveAttribute("data-expanded", "false");
-  expect(screen.queryByTestId("private-notes-footer")).not.toBeInTheDocument();
-  expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+  expect(screen.getByRole("textbox", { name: "付箋を書く" })).toBeVisible();
+  expect(props.onAddPrivateNote).toHaveBeenCalledExactlyOnceWith(
+    "続けて書く本文",
+  );
 });

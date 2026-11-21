@@ -315,28 +315,38 @@ export async function smokePreviewBrowserCollaboration(
     const ownerPrivateText = "ローカル本人Aだけの編集済み下書き";
     const memberPrivateText = "ローカル本人Bだけの追加済み下書き";
     await editNote(owner, privateCard(owner, ownerNoteId), ownerPrivateText);
-    await member
-      .getByRole("button", { name: "付箋を追加", exact: true })
-      .click();
-    const added = member
-      .getByTestId("private-notes-toolbar")
-      .getByTestId("note-card")
-      .first();
+    const toolbar = member.getByTestId("private-notes-toolbar");
+    const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
+    await composer.fill(memberPrivateText);
+    await composer.press("Enter");
+    const added = toolbar.getByTestId("note-card").first();
     await added.waitFor();
     const memberNoteId = await added.getAttribute("data-note-id");
     assert.ok(memberNoteId);
-    await editNote(member, added, memberPrivateText);
+    assert.equal(
+      await added.locator("textarea").inputValue(),
+      memberPrivateText,
+    );
+    await poll(
+      () => composer.inputValue().then((value) => value === ""),
+      "追加が確定すると入力欄が空になる",
+    );
+    assert.equal(
+      await composer.and(member.locator(":focus")).count(),
+      1,
+      "付箋を続けて書けるよう入力欄にフォーカスが残る必要があります。",
+    );
     await poll(
       () =>
         ownerTrace.sent.some((raw) => raw.includes(ownerPrivateText)) &&
         memberTrace.sent.some((raw) => raw.includes(memberPrivateText)),
-      "2本人の編集要求を実WSで送る",
+      "作成者の編集と参加者の作成を実WSで送る",
     );
     await poll(
       () =>
         ownerTrace.received.some((raw) => raw.includes(ownerPrivateText)) &&
         memberTrace.received.some((raw) => raw.includes(memberPrivateText)),
-      "2本人の編集内容をサーバーが受理する",
+      "作成者と参加者の本文をサーバーが受理する",
     );
     await member.reload();
     await member.getByTestId("private-notes-workspace").waitFor();

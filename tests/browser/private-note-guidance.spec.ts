@@ -90,12 +90,11 @@ for (const width of [390, 1280]) {
     expect(await shared.count()).toBe(0);
   });
 
-  test(`${width}px: 空のマイ付箋からTab/Enterで一枚作成し、本文を入力する`, async () => {
+  test(`${width}px: 入力欄から本文入りの付箋を作成し、入力を続けられる`, async () => {
     await openStory("empty", width);
     expect(await page.getByTestId("note-card").count()).toBe(0);
-    const add = page
-      .getByTestId("private-notes-list")
-      .getByRole("button", { name: "付箋を追加" });
+    const toolbar = page.getByTestId("private-notes-toolbar");
+    const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
     const privacyMessage = page.getByText("自分だけに表示", { exact: true });
     expect(await privacyMessage.isVisible()).toBe(true);
     expect(
@@ -104,29 +103,60 @@ for (const width of [390, 1280]) {
       ),
     ).toBe(true);
     await expectInsideViewport(
-      '[data-testid="private-notes-list"] [aria-label="付箋を追加"]',
+      '[data-testid="private-notes-header"] [aria-label="付箋を書く"]',
     );
-    await add.focus();
-    await page.keyboard.press("Enter");
+    await composer.click();
+    const initialBounds = await composer.boundingBox();
+    if (!initialBounds) throw new Error("入力欄がありません");
+    await composer.press("Enter");
+    expect(await toolbar.getByTestId("note-card").count()).toBe(0);
+    await composer.fill(" \n\t ");
+    await composer.press("Enter");
+    expect(await toolbar.getByTestId("note-card").count()).toBe(0);
+    await composer.fill("変換中の本文");
+    await composer.evaluate((element) =>
+      element.dispatchEvent(
+        new CompositionEvent("compositionstart", { data: "変換" }),
+      ),
+    );
+    await composer.evaluate((element) =>
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          code: "Enter",
+          isComposing: true,
+          bubbles: true,
+        }),
+      ),
+    );
+    expect(await toolbar.getByTestId("note-card").count()).toBe(0);
+    await composer.evaluate((element) =>
+      element.dispatchEvent(
+        new CompositionEvent("compositionend", { data: "変換後" }),
+      ),
+    );
+    await composer.fill("変換後の本文");
+    await composer.press("Shift+Enter");
+    expect(await composer.inputValue()).toBe("変換後の本文\n");
+    expect(await toolbar.getByTestId("note-card").count()).toBe(0);
+    await page.keyboard.insertText("2行目");
+    const expandedBounds = await composer.boundingBox();
+    if (!expandedBounds) throw new Error("改行後の入力欄がありません");
+    expect(expandedBounds.y).toBe(initialBounds.y);
+    expect(expandedBounds.height).toBeGreaterThan(initialBounds.height);
+    await composer.press("Enter");
     await expect.poll(() => page.getByTestId("note-card").count()).toBe(1);
+    const createdNote = toolbar.locator("[data-note-id]").first();
     await expect
-      .poll(() => page.locator("textarea:not([readonly])").count())
-      .toBe(1);
+      .poll(() => createdNote.getByRole("textbox").inputValue())
+      .toBe("変換後の本文\n2行目");
+    await expect.poll(() => composer.inputValue()).toBe("");
+    await expect.poll(() => composer.boundingBox()).toEqual(initialBounds);
     await expect
       .poll(() =>
-        page
-          .getByRole("textbox")
-          .evaluate((element) => element === document.activeElement),
+        composer.evaluate((element) => element === document.activeElement),
       )
       .toBe(true);
-    await page.keyboard.insertText("自分で書いた下書き");
-    await expect
-      .poll(() => page.getByRole("textbox").inputValue())
-      .toBe("自分で書いた下書き");
-    await page.keyboard.press("Escape");
-    expect(await page.getByRole("textbox").inputValue()).toBe(
-      "自分で書いた下書き",
-    );
     expect(
       await page.getByRole("button", { name: "ボードに共有" }).count(),
     ).toBe(0);
@@ -139,10 +169,7 @@ for (const width of [390, 1280]) {
     const firstNote = toolbar.locator('[data-note-id="guidance-first"]');
     expect(await toolbar.getByTestId("note-card").count()).toBe(2);
     expect(
-      await page
-        .getByTestId("private-notes-list")
-        .getByRole("button", { name: "付箋を追加" })
-        .count(),
+      await toolbar.getByRole("textbox", { name: "付箋を書く" }).count(),
     ).toBe(0);
     expect(
       await page
@@ -215,10 +242,7 @@ for (const width of [390, 1280]) {
       await toolbar.getByText("自分だけに表示", { exact: true }).isVisible(),
     ).toBe(true);
     expect(
-      await page
-        .getByTestId("private-notes-list")
-        .getByRole("button", { name: "付箋を追加" })
-        .count(),
+      await toolbar.getByRole("textbox", { name: "付箋を書く" }).count(),
     ).toBe(0);
     expect(
       await toolbar

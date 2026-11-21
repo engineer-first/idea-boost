@@ -1350,7 +1350,7 @@ describe("RoomBoardCanvas", () => {
     });
   });
 
-  it("マイ付箋ツールバーの「付箋を追加」で onAddPrivateNote を呼ぶ", () => {
+  it("マイ付箋の入力欄から本文付きで onAddPrivateNote を呼ぶ", () => {
     const onAddPrivateNote = vi.fn();
     const phase = buildPhaseStep(1);
     setup({
@@ -1359,13 +1359,12 @@ describe("RoomBoardCanvas", () => {
       onAddPrivateNote,
     });
 
-    fireEvent.click(
-      within(screen.getByTestId("private-notes-list")).getByRole("button", {
-        name: "付箋を追加",
-      }),
-    );
+    const composer = screen.getByRole("textbox", { name: "付箋を書く" });
+    composer.focus();
+    fireEvent.change(composer, { target: { value: "入力した本文" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
 
-    expect(onAddPrivateNote).toHaveBeenCalledTimes(1);
+    expect(onAddPrivateNote).toHaveBeenCalledExactlyOnceWith("入力した本文");
   });
 
   it("未接続中（error）は付箋の操作が無効化される", () => {
@@ -1376,11 +1375,7 @@ describe("RoomBoardCanvas", () => {
       isDisconnected: true,
     });
 
-    for (const button of within(
-      screen.getByTestId("private-notes-toolbar"),
-    ).getAllByRole("button", { name: "付箋を追加" })) {
-      expect(button).toBeDisabled();
-    }
+    expect(screen.getByRole("textbox", { name: "付箋を書く" })).toBeDisabled();
   });
 
   it("発想支援が利用できないステップではサイドバーを表示しない", () => {
@@ -1835,7 +1830,7 @@ describe("RoomBoardCanvas", () => {
     ).not.toBeInTheDocument();
     expect(within(toolbar).getByText("共有するアイデア")).toBeVisible();
     expect(
-      within(toolbar).queryByRole("button", { name: "付箋を追加" }),
+      within(toolbar).queryByRole("textbox", { name: "付箋を書く" }),
     ).not.toBeInTheDocument();
   });
 
@@ -1890,10 +1885,10 @@ describe("RoomBoardCanvas", () => {
 
       const workspace = screen.getByTestId("private-notes-workspace");
       const note = within(workspace).getByTestId("note-card");
-      const editor = within(note).getByPlaceholderText("メモを入力...");
-      const addButton = within(
-        within(workspace).getByTestId("private-notes-list"),
-      ).getByRole("button", { name: "付箋を追加" });
+      const editor = within(note).getByRole("textbox");
+      const composer = within(workspace).getByRole("textbox", {
+        name: "付箋を書く",
+      });
 
       expect(
         screen.getByTestId("board-scroller").parentElement,
@@ -1906,11 +1901,14 @@ describe("RoomBoardCanvas", () => {
       ).not.toBeInTheDocument();
       expect(note).toHaveStyle({ width: "200px", height: "150px" });
       expect(editor).toHaveStyle({ fontSize: "14px", lineHeight: "21px" });
-      expect(addButton).toBeEnabled();
-      expect(addButton).toHaveStyle({ width: "200px", height: "150px" });
+      expect(composer).toBeEnabled();
+      expect(
+        within(workspace).getByTestId("private-notes-header"),
+      ).toContainElement(composer);
 
-      fireEvent.click(addButton);
-      expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+      fireEvent.change(composer, { target: { value: "新しい本文" } });
+      fireEvent.keyDown(composer, { key: "Enter" });
+      expect(props.onAddPrivateNote).toHaveBeenCalledWith("新しい本文");
 
       const sharingPhase = buildPhaseStep(2, phase.phase);
       rerender(
@@ -2265,13 +2263,13 @@ describe("追加執筆の共有ボード", () => {
       );
       expect(screen.getByTestId("board-scroller")).not.toHaveAttribute("inert");
       const toolbar = screen.getByTestId("private-notes-toolbar");
-      const addButton = within(toolbar).getByRole("button", {
-        name: "新しい付箋を追加",
+      const composer = within(toolbar).getByRole("textbox", {
+        name: "付箋を書く",
       });
-      expect(addButton).toBeEnabled();
-      expect(
-        screen.queryByTestId("private-notes-footer"),
-      ).not.toBeInTheDocument();
+      expect(composer).toBeEnabled();
+      expect(screen.getByTestId("private-notes-header")).toContainElement(
+        composer,
+      );
       fireEvent.click(screen.getByTestId("private-notes-scroll"));
       expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
         "data-expanded",
@@ -2302,12 +2300,12 @@ describe("追加執筆の共有ボード", () => {
       fireEvent.pointerDown(privateNote, { button: 0, pointerId: 2 });
       expect(toolbar).toHaveAttribute("data-expanded", "true");
       fireEvent.click(privateNote);
-      fireEvent.pointerDown(addButton, { button: 0, pointerId: 3 });
+      composer.focus();
+      fireEvent.change(composer, { target: { value: "続けて入力する" } });
+      fireEvent.keyDown(composer, { key: "Enter" });
       expect(toolbar).toHaveAttribute("data-expanded", "true");
-      fireEvent.click(addButton);
-      expect(
-        screen.queryByTestId("private-notes-footer"),
-      ).not.toBeInTheDocument();
+      expect(props.onAddPrivateNote).toHaveBeenCalledWith("続けて入力する");
+      expect(screen.getByRole("textbox", { name: "付箋を書く" })).toBeVisible();
       expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
         "data-expanded",
         "true",

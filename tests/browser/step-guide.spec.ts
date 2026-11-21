@@ -68,7 +68,7 @@ test.each([
   },
 );
 
-test("1-1の2枚目で付箋追加の実操作動画を読み込み、3枚目でタイマーを説明する", async () => {
+test("1-1の2枚目で本文を先に書く操作を案内し、3枚目でタイマーを説明する", async () => {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 720 },
   });
@@ -82,25 +82,16 @@ test("1-1の2枚目で付箋追加の実操作動画を読み込み、3枚目で
     await dialog
       .getByRole("heading", { name: "1枚に1つ、困ったことを書こう。" })
       .waitFor();
-    const video = dialog.locator('video[src="/onboarding/step-1-1.webm"]');
-    await expect
-      .poll(() =>
-        video.evaluate((element: HTMLVideoElement) => element.readyState),
-      )
-      .toBeGreaterThanOrEqual(2);
-    await expect
-      .poll(() =>
-        video.evaluate((element: HTMLVideoElement) => element.currentTime),
-      )
-      .toBeGreaterThan(0);
     expect(
-      await video.evaluate((element: HTMLVideoElement) => ({
-        muted: element.muted,
-        loop: element.loop,
-        width: element.videoWidth,
-        height: element.videoHeight,
-      })),
-    ).toEqual({ muted: true, loop: true, width: 960, height: 300 });
+      await dialog
+        .getByRole("img", {
+          name: "付箋を書く欄に本文を入力し、付箋を追加する操作",
+        })
+        .isVisible(),
+    ).toBe(true);
+    expect(
+      await dialog.getByText("付箋を書く", { exact: true }).isVisible(),
+    ).toBe(true);
     await dialog.getByRole("button", { name: "次へ" }).click();
     await expect
       .poll(() => dialog.locator("h2").first().textContent())

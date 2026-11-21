@@ -10,15 +10,60 @@
 
 .personalWorkspace {
   --private-workspace-padding: 0.75rem;
+  --private-workspace-grid-inset: calc(
+    (100% - var(--private-notes-grid-width)) /
+    2
+  );
+  --private-workspace-reference-inset: var(
+    --board-private-reference-inset,
+    0px
+  );
+  --private-workspace-timer-inset: var(--board-private-timer-inset, 0px);
+  --private-workspace-start-inset: max(
+    var(--private-workspace-padding),
+    var(--private-workspace-reference-inset),
+    var(--private-workspace-grid-inset)
+  );
 }
 
-/* デスクトップの決定事項・考えるヒントは左側で前面に重なるため、付箋一覧をその右側から始める。 */
-.personalWorkspace [data-testid="private-notes-scroll"] {
-  padding-block-start: var(--private-workspace-padding);
-  padding-inline-start: max(
-    var(--private-workspace-padding),
-    var(--board-private-reference-inset, 0px)
+.personalWorkspacePanel {
+  top: max(
+    var(--board-private-expanded-top, 5rem),
+    var(--board-private-timer-top, 0px)
   );
+}
+
+.personalWorkspace [data-testid="private-notes-header"] {
+  --private-workspace-grid-end-inset: calc(
+    100% -
+    var(--private-workspace-start-inset) -
+    var(--private-notes-grid-width)
+  );
+  /* 中央寄せでは右余白の半分だけ入力欄が左に動く。タイマーに重なる分だけ余白を取る。 */
+  --private-workspace-header-timer-inset: min(
+    var(--private-workspace-timer-inset),
+    calc(
+      2 *
+      var(--private-workspace-timer-inset) +
+      var(--private-workspace-start-inset) +
+      var(--private-note-composer-width) -
+      100%
+    )
+  );
+  padding-inline-end: max(
+    var(--private-workspace-padding),
+    var(--private-workspace-grid-end-inset),
+    var(--private-workspace-header-timer-inset)
+  );
+}
+
+/* 広い画面では一覧の分だけ中央に余白を取り、左側の参照情報も避ける。 */
+.personalWorkspace
+  :is(
+    [data-testid="private-notes-header"],
+    [data-testid="private-notes-scroll"]
+  ) {
+  padding-inline-start: var(--private-workspace-start-inset);
 }
 
 @media (min-width: 768px) {
@@ -42,12 +87,19 @@
 }
 
 .additionalWritingCanvas {
-  /* 150px の付箋に上下32pxずつ余白を取る閉じた状態の高さ。 */
+  /* 縮小時は操作列56pxと付箋1段150pxに上下の余白・枠を足す。 */
   --writing-panel-height: min(
-    214px,
+    14rem,
     max(
-      140px,
-      calc((100dvh - var(--board-private-expanded-top, 5rem) - 0.75rem) * 0.5)
+      0px,
+      calc(
+        100dvh -
+        max(
+          var(--board-private-expanded-top, 5rem),
+          var(--board-private-timer-top, 0px)
+        ) -
+        0.75rem
+      )
     )
   );
 }
@@ -74,33 +126,28 @@
   clip-path: inset(0 round 12px);
 }
 .additionalWritingPanel [data-testid="private-notes-toolbar"] {
+  --private-workspace-padding: 0.75rem;
   height: var(--writing-panel-height);
   max-width: 80rem;
   transition: height 250ms ease;
+}
+.additionalWritingPanel:not(.writingExpanded) .personalWorkspace {
+  --private-workspace-reference-inset: 0px;
+  --private-workspace-timer-inset: 0px;
 }
 .additionalWritingPanel.writingExpanded [data-testid="private-notes-toolbar"] {
   height: 100%;
   pointer-events: none;
 }
-.additionalWritingPanel.writingExpanded
-  [data-testid="private-notes-toolbar"]
-  button,
-.additionalWritingPanel.writingExpanded
-  [data-testid="private-notes-toolbar"]
-  [data-testid="note-card"],
-.additionalWritingPanel.writingExpanded
-  [data-testid="private-notes-toolbar"]
-  [data-testid="private-note-placeholder"] {
+.additionalWritingPanel
+  :is(
+    [data-testid="private-notes-header"],
+    [data-testid="private-notes-scroll"]
+  ) {
   pointer-events: auto;
 }
 .additionalWritingPanel [data-testid="private-notes-scroll"] {
-  padding: 12px;
-}
-.additionalWritingPanel [data-testid="private-notes-list"] {
-  padding-bottom: 0;
-}
-.additionalWritingPanel.writingExpanded [data-testid="private-notes-scroll"] {
-  padding-inline-start: max(12px, var(--board-private-reference-inset, 0px));
+  padding-inline-end: var(--private-workspace-padding);
 }
 @media (prefers-reduced-motion: reduce) {
   .additionalWritingPanel,

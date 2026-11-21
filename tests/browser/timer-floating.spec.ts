@@ -149,7 +149,9 @@ test("390pxの問い共有でタイマー下のマイ付箋が下部の操作欄
     const notes = await rect(page, "private-notes-toolbar");
     const operations = await rect(page, "board-operation-matrix");
     expect(notes.y + notes.height).toBeLessThanOrEqual(operations.y - 12);
-    expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+    expect(
+      await page.getByRole("textbox", { name: "付箋を書く" }).count(),
+    ).toBe(0);
     await page.getByTestId("private-notes-scroll").hover();
   } finally {
     await page.close();

@@ -29,7 +29,7 @@ async function open(story: string, height = 720): Promise<void> {
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story`,
   );
-  await page.getByTestId("board-scroller").waitFor();
+  await page.getByTestId("board-scroller").waitFor({ state: "attached" });
   await page.evaluate(() => document.fonts.ready);
 }
 async function waitForPanelTransition(): Promise<void> {
@@ -93,17 +93,28 @@ for (const story of [
       const panel = await toolbar.boundingBox();
       const board = await page.getByTestId("board-scroller").boundingBox();
       if (!panel || !board) throw new Error("ボードとパネルを計測できません");
-      expect(panel.height).toBeLessThanOrEqual(260);
-      expect(panel.height).toBeGreaterThanOrEqual(140);
-      if (height === 560) expect(panel.height).toBeLessThanOrEqual(240);
+      const header = await toolbar
+        .getByTestId("private-notes-header")
+        .boundingBox();
+      if (!header) throw new Error("入力と開閉の操作列がありません");
+      expect(header.height).toBeGreaterThanOrEqual(48);
+      expect(header.height).toBeLessThanOrEqual(56);
+      expect(panel.height).toBeLessThan(240);
       expect(height - panel.y - panel.height).toBeGreaterThanOrEqual(8);
       expect(height - panel.y - panel.height).toBeLessThanOrEqual(20);
       expect(await page.getByTestId("board-tools-hud").isVisible()).toBe(false);
-      expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+      expect(
+        await page.getByRole("textbox", { name: "付箋を書く" }).count(),
+      ).toBe(story === "additional-writing" ? 1 : 0);
       expect(board.width).toBeGreaterThan(1000);
       const note = toolbar.locator('[data-testid="note-card"]').last();
       const noteBefore = await note.boundingBox();
-      expect(noteBefore?.width).toBe(200);
+      if (!noteBefore) throw new Error("縮小時に見せる付箋がありません");
+      expect(noteBefore.width).toBe(200);
+      expect(noteBefore.y).toBeGreaterThanOrEqual(header.y + header.height);
+      expect(noteBefore.y + noteBefore.height).toBeLessThan(
+        panel.y + panel.height,
+      );
       const before = await viewTransform();
       await expandPrivatePanel();
       await expect
@@ -133,15 +144,13 @@ for (const story of [
   }
 }
 
-test("縮小中の追加・IME変換と選択範囲を保ち、パネルのホイールでボードを動かさない", async () => {
+test("縮小中も入力・IME変換と選択範囲を保ち、パネルのホイールでボードを動かさない", async () => {
   await open("additional-writing-empty");
   const toolbar = page.getByTestId("private-notes-toolbar");
-  await page
-    .getByRole("button", { name: "新しい付箋を追加", exact: true })
-    .click();
-  const editor = toolbar.locator("textarea:not([readonly])");
+  const editor = toolbar.getByRole("textbox", { name: "付箋を書く" });
   await editor.waitFor();
   expect(await toolbar.getAttribute("data-expanded")).toBe("false");
+  await editor.focus();
   expect(
     await editor.evaluate((element) => document.activeElement === element),
   ).toBe(true);
@@ -150,6 +159,19 @@ test("縮小中の追加・IME変換と選択範囲を保ち、パネルのホ�
     (element as HTMLTextAreaElement).setSelectionRange(2, 5),
   );
   await editor.dispatchEvent("compositionstart", { data: "変換" });
+  await editor.evaluate((element) =>
+    element.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 229,
+        which: 229,
+        isComposing: true,
+        bubbles: true,
+      }),
+    ),
+  );
+  expect(await toolbar.getByTestId("note-card").count()).toBe(0);
   await expandPrivatePanel();
   await collapsePrivatePanel();
   expect(await editor.inputValue()).toBe("日本語の変換を保つ");
@@ -166,6 +188,188 @@ test("縮小中の追加・IME変換と選択範囲を保ち、パネルのホ�
   await page.mouse.wheel(0, 400);
   expect(await viewTransform()).toBe(before);
   expect(await toolbar.getAttribute("data-expanded")).toBe("false");
+});
+
+test("縮小時は6枚目と11枚目で一覧が滑らかに動き、付箋は入力欄から着地する", async () => {
+  await open("additional-writing-empty");
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  const scroll = toolbar.getByTestId("private-notes-scroll");
+  const cards = scroll.getByTestId("note-card");
+  const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
+  const toggle = toolbar.getByRole("button", { name: "広げる" });
+  await composer.click();
+  const composerBounds = await composer.boundingBox();
+  if (!composerBounds) throw new Error("入力欄がありません");
+  const headerBounds = [composerBounds, await toggle.boundingBox()];
+  const monitor = await scroll.evaluateHandle((list: HTMLElement) => {
+    const positions: number[] = [];
+    const starts: {
+      scrollTop: number;
+      startX: number;
+      startY: number;
+      frameYs: number[];
+    }[] = [];
+    list.addEventListener("scroll", () => positions.push(list.scrollTop));
+    // 一覧の移動に対してスクロールイベントの処理が1フレーム遅れる状況を再現する。
+    const listen = list.addEventListener.bind(list);
+    list.addEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions,
+    ) => {
+      if (type !== "scroll" || typeof listener !== "function") {
+        listen(type, listener, options);
+        return;
+      }
+      listen(
+        type,
+        (event) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (typeof options === "object" && options.signal?.aborted)
+                return;
+              listener.call(list, event);
+            });
+          });
+        },
+        options,
+      );
+    };
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (...args) {
+      const bounds = this.getBoundingClientRect();
+      const animation = animate.apply(this, args);
+      if (list.contains(this) && this.matches('[data-testid="note-card"]')) {
+        const effect = animation.effect as KeyframeEffect;
+        const transform = new DOMMatrix(
+          String(effect.getKeyframes()[0].transform ?? "none"),
+        );
+        const start = {
+          scrollTop: list.scrollTop,
+          startX: bounds.left + transform.m41,
+          startY: bounds.top + transform.m42,
+          frameYs: [bounds.top + transform.m42],
+        };
+        starts.push(start);
+        const recordFrame = () => {
+          start.frameYs.push(this.getBoundingClientRect().top);
+          if (animation.playState === "running")
+            requestAnimationFrame(recordFrame);
+        };
+        requestAnimationFrame(recordFrame);
+      }
+      return animation;
+    };
+    return { starts, positions };
+  });
+  const nextDraft = "連続追加 7";
+  for (let count = 1; count <= 11; count += 1) {
+    const before = await scroll.evaluate((list) => list.scrollTop);
+    await monitor.evaluate(({ positions, starts }) => {
+      positions.length = 0;
+      starts.length = 0;
+    });
+    if (count !== 7) await composer.fill(`連続追加 ${count}`);
+    await composer.press("Enter");
+    await expect.poll(() => cards.count()).toBe(count);
+    await expect
+      .poll(() => monitor.evaluate(({ starts }) => starts.length))
+      .toBe(1);
+    if (count === 6) await page.keyboard.insertText(nextDraft);
+    await waitForPanelTransition();
+    const card = cards.nth(count - 1);
+    expect(await card.locator("textarea").inputValue()).toBe(
+      `連続追加 ${count}`,
+    );
+    await expect
+      .poll(() =>
+        card.evaluate((note) => {
+          const viewport = note.closest('[data-testid="private-notes-scroll"]');
+          if (!viewport) return false;
+          const bounds = note.getBoundingClientRect();
+          const clipTop =
+            viewport.getBoundingClientRect().top + viewport.clientTop;
+          return (
+            bounds.top >= clipTop - 1 &&
+            bounds.bottom <= clipTop + viewport.clientHeight + 1
+          );
+        }),
+      )
+      .toBe(true);
+    const {
+      positions,
+      starts: [start],
+    } = await monitor.jsonValue();
+    const after = await scroll.evaluate((list) => list.scrollTop);
+    expect(start.startX).toBeCloseTo(composerBounds.x, 0);
+    expect(start.startY).toBeCloseTo(
+      composerBounds.y + composerBounds.height,
+      0,
+    );
+    if (count === 6 || count === 11) {
+      expect(after).toBeGreaterThan(before);
+      expect(
+        positions.some((position) => position > before && position < after),
+      ).toBe(true);
+      expect(start.scrollTop).toBeGreaterThan(before);
+      expect(start.scrollTop).toBeLessThan(after);
+      expect(start.frameYs.length).toBeGreaterThan(2);
+      expect(
+        start.frameYs.every(
+          (y, index, ys) => index === 0 || y >= ys[index - 1] - 1,
+        ),
+        `${count}枚目の付箋の座標 ${start.frameYs.join(", ")}`,
+      ).toBe(true);
+    } else {
+      expect(after).toBe(before);
+      expect(positions.every((position) => position === before)).toBe(true);
+    }
+    expect(await composer.inputValue()).toBe(count === 6 ? nextDraft : "");
+    expect(
+      await composer.evaluate((element) => element === document.activeElement),
+    ).toBe(true);
+    expect([await composer.boundingBox(), await toggle.boundingBox()]).toEqual(
+      headerBounds,
+    );
+  }
+});
+
+test("次の段へ移動中に広げると、縮小時の付箋アニメーションを終了する", async () => {
+  await open("additional-writing-empty");
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  const cards = toolbar.getByTestId("note-card");
+  const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
+  await toolbar.evaluate((element) => {
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (...args) {
+      const animation = animate.apply(this, args);
+      if (this === element.querySelectorAll('[data-testid="note-card"]')[5]) {
+        animation.pause();
+        queueMicrotask(() =>
+          element
+            .querySelector<HTMLButtonElement>(
+              'button[aria-expanded="false"][aria-controls]',
+            )
+            ?.click(),
+        );
+      }
+      return animation;
+    };
+  });
+  for (let count = 1; count <= 6; count += 1) {
+    await composer.fill(`下書き ${count}`);
+    await composer.press("Enter");
+    await expect.poll(() => cards.count()).toBe(count);
+  }
+  await expect.poll(() => toolbar.getAttribute("data-expanded")).toBe("true");
+  const card = cards.last();
+  expect(await card.evaluate((element) => element.getAnimations().length)).toBe(
+    0,
+  );
+  expect(await card.locator("textarea").inputValue()).toBe("下書き 6");
+  expect(
+    await composer.evaluate((input) => input === document.activeElement),
+  ).toBe(true);
 });
 
 test("最後に編集した未共有付箋を表示し、共有付箋の全文を開いたまま入力できる", async () => {
@@ -214,7 +418,8 @@ test("問いのヒントで選んだ本文を追加執筆へ渡し、縮小状�
     .poll(() => page.getByTestId("room-timer").getAttribute("data-status"))
     .toBe("running");
   const toolbar = page.getByTestId("private-notes-toolbar");
-  const draft = toolbar.locator('[data-note-id="additional-draft-9"] textarea');
+  const draftNote = toolbar.locator('[data-note-id="additional-draft-9"]');
+  const draft = draftNote.locator("textarea");
   const original = await draft.inputValue();
   await page.getByRole("button", { name: "問いのヒントを開く" }).click();
   const dialog = page.getByRole("dialog", { name: "問いのヒント" });
@@ -230,13 +435,15 @@ test("問いのヒントで選んだ本文を追加執筆へ渡し、縮小状�
     .getByRole("region", { name: "問いの文例" })
     .textContent();
   await dialog.getByRole("button", { name: "この問いにする" }).click();
-  const editor = toolbar.locator("textarea:not([readonly])");
+  const editor = toolbar
+    .getByTestId("private-notes-list")
+    .locator("textarea:not([readonly])");
   await expect.poll(() => editor.inputValue()).toBe(question);
   expect(await toolbar.getAttribute("data-expanded")).toBe("false");
   expect(await draft.inputValue()).toBe(original);
 });
 
-test("共有から戻ると同じカメラ位置と倍率を維持し、開閉は別画面へ同期しない", async () => {
+test("共有から縮小で戻り、右端のボタンで開閉しても入力とカメラ位置を保つ", async () => {
   await open("additional-writing-from-sharing");
   const nextStep = page.getByRole("button", {
     name: "次のステップへ",
@@ -283,6 +490,67 @@ test("共有から戻ると同じカメラ位置と倍率を維持し、開閉�
       page.getByTestId("private-notes-toolbar").getAttribute("data-expanded"),
     )
     .toBe("false");
+  await waitForPanelTransition();
+  expect(await viewTransform()).toBe(before);
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  const header = toolbar.getByTestId("private-notes-header");
+  const composer = header.getByRole("textbox", { name: "付箋を書く" });
+  const expand = header.getByRole("button", { name: "広げる", exact: true });
+  expect(await header.getByText("マイ付箋", { exact: true }).isVisible()).toBe(
+    false,
+  );
+  expect(
+    await header.getByText("自分だけに表示", { exact: true }).isVisible(),
+  ).toBe(false);
+  expect(await header.getByText(/Enterで追加/).isVisible()).toBe(false);
+  const input = await composer.boundingBox();
+  const toggle = await expand.boundingBox();
+  if (!input || !toggle)
+    throw new Error("縮小時の入力欄またはボタンがありません");
+  expect(input.y).toBeCloseTo(toggle.y, 0);
+  expect(input.x + input.width).toBeLessThan(toggle.x);
+  expect(toggle.height).toBeCloseTo(40, 0);
+
+  const draft = "共有を見ながら書き足す";
+  await composer.fill(draft);
+  await composer.evaluate((element) =>
+    (element as HTMLTextAreaElement).setSelectionRange(2, 5),
+  );
+  await expand.click();
+  await waitForPanelTransition();
+  expect(await toolbar.getAttribute("data-expanded")).toBe("true");
+  expect(await header.getByText(/Enterで追加/).isVisible()).toBe(true);
+  const collapse = header.getByRole("button", { name: "縮める", exact: true });
+  const expanded = await composer.boundingBox();
+  const collapseBounds = await collapse.boundingBox();
+  if (!expanded || !collapseBounds)
+    throw new Error("展開時の入力欄またはボタンがありません");
+  expect(expanded.width).toBe(624);
+  expect(expanded.height).toBe(56);
+  expect(collapseBounds.x + collapseBounds.width).toBeCloseTo(
+    expanded.x + expanded.width,
+    0,
+  );
+  expect(collapseBounds.height).toBeCloseTo(toggle.height, 0);
+  await collapse.click();
+  await waitForPanelTransition();
+  expect(await toolbar.getAttribute("data-expanded")).toBe("false");
+  expect(await composer.inputValue()).toBe(draft);
+  expect(
+    await composer.evaluate((element: HTMLTextAreaElement) => [
+      document.activeElement === element,
+      element.selectionStart,
+      element.selectionEnd,
+    ]),
+  ).toEqual([true, 2, 5]);
+
+  const cards = toolbar.getByTestId("note-card");
+  const count = await cards.count();
+  await composer.press("Enter");
+  await expect.poll(() => cards.count()).toBe(count + 1);
+  expect(await cards.last().locator("textarea").inputValue()).toBe(draft);
+  expect(await composer.inputValue()).toBe("");
+  expect(await toolbar.getAttribute("data-expanded")).toBe("false");
   expect(await viewTransform()).toBe(before);
   await page
     .getByTestId("board-scroller")

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fn } from "storybook/test";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import {
@@ -144,13 +144,18 @@ function DelayedAdditionExample(args: PrivateNotesToolbarProps) {
   const [receipt, setReceipt] = useState<
     { operationId: string; noteId: string } | undefined
   >();
+  const pendingContentRef = useRef("");
   useEffect(() => {
     if (!adding) return;
     const timer = window.setTimeout(() => {
-      setNotes((current) => [...current, delayedNewNote]);
+      const insertedNote = {
+        ...delayedNewNote,
+        content: pendingContentRef.current,
+      };
+      setNotes((current) => [...current, insertedNote]);
       setReceipt({
         operationId: "delayed-addition",
-        noteId: delayedNewNote.id,
+        noteId: insertedNote.id,
       });
       setAdding(false);
     }, 1800);
@@ -163,9 +168,10 @@ function DelayedAdditionExample(args: PrivateNotesToolbarProps) {
       selectedNoteId={selectedNoteId}
       noteCreationPending={adding}
       noteCreationReceipt={receipt}
-      onAdd={() => {
+      onAdd={(content) => {
         if (adding || notes.some((note) => note.id === delayedNewNote.id))
           return null;
+        pendingContentRef.current = content ?? "";
         setAdding(true);
         return "delayed-addition";
       }}
@@ -184,7 +190,7 @@ export const DelayedAddition: Story = {
     docs: {
       description: {
         story:
-          "追加応答を1.8秒遅らせる表示用の例です。待ち時間に既存付箋をEnterで編集すると、その入力を優先します。サーバー保存の検証には使いません。",
+          "入力欄へ本文を書いてEnterを押すと、追加応答を1.8秒遅らせます。待ち時間に別の操作をしたときは、その操作と入力中の本文を優先します。サーバー保存の検証には使いません。",
       },
     },
   },

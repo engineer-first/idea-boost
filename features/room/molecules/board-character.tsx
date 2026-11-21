@@ -21,7 +21,7 @@ export function BoardCharacter({ message }: BoardCharacterProps) {
           <div
             aria-hidden="true"
             data-testid="board-character-bubble"
-            className={`${styles.bubble} absolute top-1 left-full ml-1.5 w-max max-w-[min(22rem,calc(100vw-6.5rem))] rounded-2xl rounded-tl-sm border bg-background px-3.5 py-2.5 text-sm text-foreground leading-snug shadow-[0_8px_20px_rgb(0_0_0/0.05)] sm:top-[var(--board-character-bubble-top,0.25rem)] sm:left-[var(--board-character-bubble-left,100%)] sm:ml-[var(--board-character-bubble-gap,0.375rem)] sm:max-w-[var(--board-character-bubble-max-width,22rem)] sm:whitespace-nowrap`}
+            className={`${styles.bubble} absolute top-1 left-full ml-1.5 w-max max-w-[min(22rem,calc(100vw-var(--board-character-mobile-inline-space,6.5rem)))] rounded-2xl rounded-tl-sm border bg-background px-3.5 py-2.5 text-sm text-foreground leading-snug shadow-[0_8px_20px_rgb(0_0_0/0.05)] sm:top-[var(--board-character-bubble-top,0.25rem)] sm:left-[var(--board-character-bubble-left,100%)] sm:ml-[var(--board-character-bubble-gap,0.375rem)] sm:max-w-[var(--board-character-bubble-max-width,22rem)] sm:whitespace-nowrap`}
           >
             {message}
           </div>

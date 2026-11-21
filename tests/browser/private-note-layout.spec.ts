@@ -89,7 +89,9 @@ for (const viewport of [
     await page.keyboard.press("Enter");
     expect(await note.getAttribute("aria-pressed")).toBe("true");
     await page.keyboard.press("Enter");
-    const editor = toolbar.getByRole("textbox").first();
+    const editor = toolbar.locator(
+      '[data-testid="note-card"] textarea:not([readonly])',
+    );
     expect(await editor.getAttribute("readonly")).toBeNull();
     await page.keyboard.press("Escape");
     await page.screenshot({
@@ -124,8 +126,7 @@ for (const phase of [2, 3]) {
       );
     });
 
-    // 通常の説明文・パディング分は許容し、参照情報を避ける13remの
-    // 追加オフセットで付箋と追加カードが下がらないことを確かめる。
+    // 一覧上部の余白と問いの文例1行分までを許容し、参照情報で一覧全体が下がらないことを確かめる。
     expect(spacing).not.toBeNull();
     expect(spacing).toBeLessThan(200);
   });

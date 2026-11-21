@@ -45,7 +45,9 @@ for (const width of [390, 1280]) {
       expect(note.x + note.width).toBeLessThanOrEqual(area.x + area.width);
       expect(note.y).toBeLessThan(area.y + area.height);
       expect(note.y + note.height).toBeLessThanOrEqual(area.y + area.height);
-      expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+      expect(
+        await page.getByRole("textbox", { name: "付箋を書く" }).count(),
+      ).toBe(0);
     },
   );
 }
