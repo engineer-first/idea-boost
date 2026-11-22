@@ -91,9 +91,10 @@ it("failed jobsだけの再実行が成功したら同じrunの成功buildのart
 it("artifact IDで取得しても公開runnerが読むcandidate直下へ展開する", () => {
   const workflow = readFileSync(".github/workflows/preview.yml", "utf8");
   const download = workflow
-    .split("- uses: actions/download-artifact@v4")[1]
+    .split(/- uses: actions\/download-artifact@v\d+/)[1]
     ?.split("# PRのApp/API")[0];
-  // v4はname指定なしではartifact名のsubdirectoryへ展開する。
+  // v4はID指定で1件だけ取るとartifact名のsubdirectoryへ展開した。版をまたいでも
+  // candidate直下へ揃うよう、merge-multipleを明示する。
   expect(download).toContain("artifact-ids:");
   expect(download).toContain("merge-multiple: true");
 });
