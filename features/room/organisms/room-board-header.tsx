@@ -63,6 +63,7 @@ import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
+import { RestartWritingConfirmDialog } from "../molecules/restart-writing-confirm-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
 import { SharingPresenter } from "../molecules/sharing-presenter";
@@ -608,7 +609,7 @@ export function RoomBoardHeader({
                       ? `${phase.phase}-${phase.step}`
                       : "lobby"
                   }
-                  sessionKey={`${inviteCode}:${currentUserId}`}
+                  userId={currentUserId}
                   isReady={!isDisconnected}
                   onReady={handleInitialOnboardingReady}
                 />
@@ -648,19 +649,14 @@ export function RoomBoardHeader({
                     : "あなたは作業中です"}
               </span>
             ) : null}
-            {canCompleteSharing && onRestartWriting ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 shrink-0 px-3 text-sm"
-                disabled={
-                  isDisconnected || isRemovingMember || isNextPhasePending
-                }
-                onClick={onRestartWriting}
-                title="全員で個人作業へ戻ります。共有済み付箋と下書きは残ります。"
-              >
-                付箋を書き直す
-              </Button>
+            {canCompleteSharing && onRestartWriting && phase.kind === "step" ? (
+              <RestartWritingConfirmDialog
+                key={`${phase.phase}:${phaseRevision}:${connectionStatus}`}
+                phaseNumber={phase.phase}
+                disabled={isDisconnected || isRemovingMember || isLeaving}
+                pending={isNextPhasePending}
+                onConfirm={onRestartWriting}
+              />
             ) : null}
             {!canCompleteSharing &&
             isManualProgressStep &&

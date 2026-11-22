@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Locator, type Page } from "playwright";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { byViewport, includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout/hmw-hints";
@@ -74,12 +75,11 @@ afterAll(async () => {
   await browser?.close();
 });
 
-for (const { width, height } of [
+for (const { width, height } of byViewport(
   { width: 1280, height: 800 },
   { width: 1268, height: 632 },
   { width: 390, height: 800 },
-  { width: 320, height: 568 },
-]) {
+)) {
   test(`${width}x${height}px: 3択と文例を画面内で使い、Escapeでキャラクターへ戻る`, async () => {
     page = await browser.newPage({
       viewport: { width, height },
@@ -182,10 +182,10 @@ for (const { width, height } of [
   });
 }
 
-for (const width of [1280, 320]) {
+for (const width of widths(1280)) {
   test(`${width}px: キャラクターと吹き出しを常時表示し、採用後も表示に戻す`, async () => {
     page = await browser.newPage({
-      viewport: { width, height: width === 320 ? 568 : 800 },
+      viewport: { width, height: 800 },
       reducedMotion: "reduce",
     });
     await page.clock.install();
@@ -248,44 +248,50 @@ test("フェードなしで常に表示し、書き出し後も消えない", as
   expect(await character.count()).toBe(1);
 });
 
-test("動きを減らす設定では雲・ワード・キャラクターの浮遊を止める", async () => {
-  page = await browser.newPage({
-    viewport: { width: 390, height: 800 },
-    reducedMotion: "reduce",
-  });
-  await page.goto(
-    `${origin}/iframe.html?id=hmw-hmwhintcharacter--nudge&viewMode=story`,
-  );
-  const nudge = page.getByRole("button", { name: /こんな問い方も.*あるかも/ });
-  await nudge.waitFor();
-  expect(await nudge.innerText()).toBe("こんな問い方も\nあるかも...");
-  await nudge.click();
-  const dialog = page.getByRole("dialog", { name: "問いのヒント" });
-  await dialog.waitFor();
-  const activeAnimations = await page.evaluate(
-    () =>
-      document
-        .getAnimations()
-        .filter((animation) => animation.playState === "running").length,
-  );
-  expect(activeAnimations).toBe(0);
-  await dialog.getByRole("button", { name: "先回り" }).click();
-  await dialog.getByRole("button", { name: "この問いにする" }).click();
-  expect(await page.getByRole("status").textContent()).toContain(
-    "いっしょに書き出そう",
-  );
-  expect(
-    await page.evaluate(() =>
-      document.getAnimations().map((animation) => ({
-        type: animation.constructor.name,
-        state: animation.playState,
-        target:
-          (animation.effect as KeyframeEffect | null)?.target instanceof Element
-            ? (
-                (animation.effect as KeyframeEffect).target as Element
-              ).outerHTML.slice(0, 160)
-            : null,
-      })),
-    ),
-  ).toEqual([]);
-});
+test.skipIf(!includeMobile)(
+  "動きを減らす設定では雲・ワード・キャラクターの浮遊を止める",
+  async () => {
+    page = await browser.newPage({
+      viewport: { width: 390, height: 800 },
+      reducedMotion: "reduce",
+    });
+    await page.goto(
+      `${origin}/iframe.html?id=hmw-hmwhintcharacter--nudge&viewMode=story`,
+    );
+    const nudge = page.getByRole("button", {
+      name: /こんな問い方も.*あるかも/,
+    });
+    await nudge.waitFor();
+    expect(await nudge.textContent()).toBe("こんな問い方もあるかも...");
+    await nudge.click();
+    const dialog = page.getByRole("dialog", { name: "問いのヒント" });
+    await dialog.waitFor();
+    const activeAnimations = await page.evaluate(
+      () =>
+        document
+          .getAnimations()
+          .filter((animation) => animation.playState === "running").length,
+    );
+    expect(activeAnimations).toBe(0);
+    await dialog.getByRole("button", { name: "先回り" }).click();
+    await dialog.getByRole("button", { name: "この問いにする" }).click();
+    expect(await page.getByRole("status").textContent()).toContain(
+      "いっしょに書き出そう",
+    );
+    expect(
+      await page.evaluate(() =>
+        document.getAnimations().map((animation) => ({
+          type: animation.constructor.name,
+          state: animation.playState,
+          target:
+            (animation.effect as KeyframeEffect | null)?.target instanceof
+            Element
+              ? (
+                  (animation.effect as KeyframeEffect).target as Element
+                ).outerHTML.slice(0, 160)
+              : null,
+        })),
+      ),
+    ).toEqual([]);
+  },
+);

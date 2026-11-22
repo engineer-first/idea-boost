@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = process.env.U09_EVIDENCE_DIR ?? "test-results/idea-mapping";
@@ -18,7 +19,7 @@ afterAll(async () => {
   await browser.close();
 });
 
-test.each([390, 1440])(
+test.each(widths(390, 1440))(
   "%spxで共有範囲を説明し、通常pointerとkeyboardから操作できる",
   async (width) => {
     page = await browser.newPage({ viewport: { width, height: 844 } });
@@ -50,8 +51,8 @@ test.each([390, 1440])(
         explanation.evaluate((element) => getComputedStyle(element).opacity),
       )
       .toBe("1");
-    expect(await explanation.innerText()).toContain("全員に反映");
-    expect(await explanation.innerText()).toContain(
+    expect(await explanation.textContent()).toContain("全員に反映");
+    expect(await explanation.textContent()).toContain(
       "個人用ズームは表示範囲と独立しており、自分だけの見え方を調整します。",
     );
     const bounds = await explanation.boundingBox();
@@ -109,7 +110,7 @@ test.each([390, 1440])(
   },
 );
 
-test.each([
+test.skipIf(!includeMobile).each([
   ["initializing", "準備"],
   ["disconnected", "接続が回復"],
   ["dragging-blocked", "ドラッグ中"],
@@ -134,7 +135,7 @@ test.each([
       explanation.evaluate((element) => getComputedStyle(element).opacity),
     )
     .toBe("1");
-  expect(await explanation.innerText()).toContain(reason);
+  expect(await explanation.textContent()).toContain(reason);
   await page.screenshot({ path: `${output}/help-${story}.png` });
   await page.keyboard.press("Escape");
   await expect
@@ -142,7 +143,7 @@ test.each([
     .toBe(true);
 });
 
-test.each([390, 1440])(
+test.each(widths(390, 1440))(
   "%spxの参加者もマップを閲覧して広さを変更できる",
   async (width) => {
     page = await browser.newPage({ viewport: { width, height: 844 } });

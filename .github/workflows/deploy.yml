@@ -20,7 +20,7 @@ jobs:
     # PR と同等の品質ゲート。全ジョブが通ったあと deploy へ進む。
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -81,7 +81,7 @@ jobs:
     needs: gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -116,7 +116,7 @@ jobs:
     needs: deploy-api
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -152,15 +152,29 @@ jobs:
             echo "SITE_URL is not set." >&2
             exit 1
           fi
+          healthy=false
           for i in $(seq 1 10); do
             if curl -fsS --connect-timeout 5 --max-time 10 "$SITE_URL/api/health" | grep -q '"ok"\s*:\s*true'; then
               echo "Health check passed: $SITE_URL/api/health"
-              exit 0
+              healthy=true
+              break
             fi
             sleep 3
           done
-          echo "Health check failed after 10 retries" >&2
-          exit 1
+          if [ "$healthy" != true ]; then
+            echo "Health check failed after 10 retries" >&2
+            exit 1
+          fi
+          # /api/health は Worker の起動だけを見る。利用者の入口が描画できるかを読み取りだけで確かめる。
+          for page in "$SITE_URL/" "$SITE_URL/login"; do
+            # 公開直後の一時的な5xx・タイムアウトは待って再確認する。
+            status=$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 5 --connect-timeout 5 --max-time 20 "$page")
+            if [ "$status" != 200 ]; then
+              echo "Page check failed: $page returned $status" >&2
+              exit 1
+            fi
+            echo "Page check passed: $page"
+          done
         env:
           SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
 
@@ -171,7 +185,7 @@ jobs:
       contents: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: jdx/mise-action@v5

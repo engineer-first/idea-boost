@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -24,7 +25,7 @@ afterAll(async () => {
   await browser.close();
 });
 
-for (const width of [390, 1440]) {
+for (const width of widths(390, 1440)) {
   for (const terminal of [
     { story: "auth-required", label: "再読み込み", href: null },
     { story: "unavailable", label: "ホームへ戻る", href: "/home" },
@@ -94,7 +95,7 @@ for (const width of [390, 1440]) {
   }
 }
 
-for (const width of [390, 1440]) {
+for (const width of widths(390, 1440)) {
   test(`長文をコピーし、復旧UIを閉じて再表示できる (${width}px)`, async () => {
     await page.setViewportSize({ width, height: 844 });
     await page
@@ -159,23 +160,26 @@ test("クリップボード拒否時は全文を選択して手動回収でき�
   ).toBe((await text.inputValue()).length);
 });
 
-test("390pxで復旧通知を閉じると通常の付箋操作に戻れる", async () => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(
-    `${origin}/iframe.html?id=notes-notedraftrecovery--board-toolbar-reachability&viewMode=story`,
-  );
-  const ordinaryAction = page.getByRole("button", { name: "マイ付箋を開く" });
-  await ordinaryAction.click({ timeout: 3000 });
-  await page.getByRole("button", { name: "確認・コピー" }).click();
-  await page.getByRole("button", { name: "閉じる", exact: true }).click();
-  await ordinaryAction.click({ timeout: 3000 });
-  await page.getByRole("button", { name: "確認・コピー" }).click();
-  expect(await page.getByRole("textbox").inputValue()).toBe(
-    "消さずに残した文章です。",
-  );
-});
+test.skipIf(!includeMobile)(
+  "390pxで復旧通知を閉じると通常の付箋操作に戻れる",
+  async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(
+      `${origin}/iframe.html?id=notes-notedraftrecovery--board-toolbar-reachability&viewMode=story`,
+    );
+    const ordinaryAction = page.getByRole("button", { name: "マイ付箋を開く" });
+    await ordinaryAction.click({ timeout: 3000 });
+    await page.getByRole("button", { name: "確認・コピー" }).click();
+    await page.getByRole("button", { name: "閉じる", exact: true }).click();
+    await ordinaryAction.click({ timeout: 3000 });
+    await page.getByRole("button", { name: "確認・コピー" }).click();
+    expect(await page.getByRole("textbox").inputValue()).toBe(
+      "消さずに残した文章です。",
+    );
+  },
+);
 
-for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
+for (const width of widths(390, 640, 768, 900, 1024, 1280, 1440)) {
   for (const variant of ["layout", "view"] as const) {
     test(`接続待ちの案内は進行操作を覆わず、メニューへ到達できる (${width}px / ${variant})`, async () => {
       await page.setViewportSize({ width, height: 844 });
@@ -210,7 +214,7 @@ for (const width of [390, 640, 768, 900, 1024, 1280, 1440]) {
       expect(textVisibility, "案内の各行が表示される").toEqual(
         textVisibility.map((line) => ({ ...line, visible: true })),
       );
-      expect(await notice.innerText()).toContain("再接続中");
+      expect(await notice.textContent()).toContain("再接続中");
       const noticeBox = await notice.boundingBox();
       const controlsBox = await page
         .getByTestId("board-control-hud")

@@ -13,15 +13,16 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import * as facilitationGuide from "../logic/facilitation-guide";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { RoomBoardHeader } from "./room-board-header";
 import styles from "./room-board-header.module.css";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
-  sessionStorage.setItem(`step-onboarding:AB12CD:${ME}:1-1`, "seen");
+  localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
   for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
-    sessionStorage.setItem(`step-onboarding:AB12CD:${ME}:${step}`, "seen");
+    localStorage.setItem(stepGuideSeenStorageKey(ME, step), "seen");
 });
 
 function allReadyProgress(members: ReturnType<typeof buildMembers>) {
@@ -483,7 +484,7 @@ describe("RoomBoardHeader", () => {
 
   it("1-1の初回に3枚の説明スライドを順に表示し、最後の「はじめる」で閉じる", async () => {
     const inviteCode = "ONBOARD1";
-    sessionStorage.removeItem(`step-onboarding:${inviteCode}:${ME}:1-1`);
+    localStorage.removeItem(stepGuideSeenStorageKey(ME, "1-1"));
     const props = setupProps({
       progress: {
         ...allReadyProgress(buildMembers(2, ME)),
@@ -556,9 +557,37 @@ describe("RoomBoardHeader", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("一度開いたステップガイドは、別のルームで同じステップに入っても自動表示しない", async () => {
+    const userId = "33333333-3333-4333-8333-333333333333";
+    const firstRoom = render(
+      <RoomBoardHeader
+        {...setupProps({
+          inviteCode: "FIRST-ROOM",
+          currentUserId: userId,
+          phase: buildPhaseStep(3),
+        })}
+      />,
+    );
+    expect(
+      await screen.findByRole("dialog", {
+        name: "似ている困りごとを集めよう。",
+      }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    firstRoom.unmount();
+
+    setup({
+      inviteCode: "SECOND-ROOM",
+      currentUserId: userId,
+      phase: buildPhaseStep(3),
+    });
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("1-1の「進め方」から初回表示後の説明スライドを再度開ける", async () => {
     const inviteCode = "MANUAL1";
-    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
     setup({ inviteCode, phase: buildPhaseStep(1, 1) });
 
     const openGuide = screen.getByRole("button", { name: "進め方" });
@@ -591,7 +620,7 @@ describe("RoomBoardHeader", () => {
 
   it("スライドの進捗から前のスライドへ戻れる", async () => {
     const inviteCode = "ONBOARD-BACK";
-    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
     setup({ inviteCode, phase: buildPhaseStep(1, 1) });
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
@@ -613,7 +642,7 @@ describe("RoomBoardHeader", () => {
 
   it("スライドの進捗表示はドット列の幅を保つ", async () => {
     const inviteCode = "ONBOARD-PROGRESS-WIDTH";
-    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
     setup({ inviteCode, phase: buildPhaseStep(1, 1) });
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
@@ -633,7 +662,7 @@ describe("RoomBoardHeader", () => {
 
   it("アニメーション終了を受け取れない環境でもスライドを長く隠さない", async () => {
     const inviteCode = "ONBOARD-QUICK";
-    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
     setup({ inviteCode, phase: buildPhaseStep(1, 1) });
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
@@ -658,7 +687,7 @@ describe("RoomBoardHeader", () => {
 
   it("はじめるのモーションが終わった時点でスライドを閉じる", async () => {
     const inviteCode = "ONBOARD-CLOSE";
-    sessionStorage.setItem(`step-onboarding:${inviteCode}:${ME}:1-1`, "seen");
+    localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
     setup({ inviteCode, phase: buildPhaseStep(1, 1) });
 
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
@@ -693,8 +722,8 @@ describe("RoomBoardHeader", () => {
     ["3-2", 2, 3],
     ["3-3", 3, 3],
   ] as const)("%sの初回は対象工程だけ案内を表示する", (label, step, phase) => {
+    localStorage.removeItem(stepGuideSeenStorageKey(ME, label));
     setup({
-      inviteCode: `ONBOARD-${label}`,
       phase: buildPhaseStep(step, phase),
     });
 
@@ -945,14 +974,11 @@ describe("RoomBoardHeader", () => {
       (phase, minutes) => {
         const onTimerStart = vi.fn();
         const inviteCode = `TIMER-DURATION-${JSON.stringify(phase)}`;
-        sessionStorage.setItem(
-          `step-onboarding:${inviteCode}:${ME}:${phase.phase}-${phase.step}`,
+        localStorage.setItem(
+          stepGuideSeenStorageKey(ME, `${phase.phase}-${phase.step}`),
           "seen",
         );
-        sessionStorage.setItem(
-          `step-onboarding:${inviteCode}:${ME}:1-1`,
-          "seen",
-        );
+        localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
         setup({
           inviteCode,
 
@@ -1497,8 +1523,8 @@ it("一巡後はHUDに次の操作を表示する", () => {
     status: "complete",
     results: ["done", "passed", "done"],
   });
-  sessionStorage.setItem(
-    `step-onboarding:AB12CD:${sharing.order.at(-1)?.userId ?? ME}:1-2`,
+  localStorage.setItem(
+    stepGuideSeenStorageKey(sharing.order.at(-1)?.userId ?? ME, "1-2"),
     "seen",
   );
   render(

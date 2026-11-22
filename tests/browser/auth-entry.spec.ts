@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium, type Page } from "playwright";
 import { describe, expect, test } from "vitest";
+import { includeMobile } from "./viewports";
 
 const storybook = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const app = process.env.AUTH_APP_TEST_URL;
@@ -19,40 +20,45 @@ async function login(page: Page, email: string): Promise<void> {
   await page.getByRole("button", { name: "開発用ユーザーでログイン" }).click();
 }
 
-test("認証失敗後の入力と再試行を公開storyで操作できる", async () => {
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage({
-      viewport: { width: 375, height: 420 },
-    });
-    await page.goto(
-      `${storybook}/iframe.html?id=auth-logincard--retry-dev-auth&viewMode=story`,
-    );
-    await page.getByLabel("メールアドレス").fill("member@example.test");
-    await page.getByLabel("パスワード").fill("incorrect");
-    await page
-      .getByRole("button", { name: "開発用ユーザーでログイン" })
-      .click();
-    await page.getByRole("alert").waitFor();
-    expect(await page.getByLabel("メールアドレス").inputValue()).toBe(
-      "member@example.test",
-    );
-    expect(await page.getByLabel("パスワード").inputValue()).toBe("incorrect");
-    await capture(page, "story-retry-short");
-    await page.getByLabel("パスワード").fill("password");
-    const retry = page.getByRole("button", {
-      name: "開発用ユーザーでログイン",
-    });
-    await retry.scrollIntoViewIfNeeded();
-    const box = await retry.boundingBox();
-    expect(box?.y).toBeGreaterThanOrEqual(0);
-    expect((box?.y ?? 420) + (box?.height ?? 0)).toBeLessThanOrEqual(420);
-    await retry.click();
-    await capture(page, "story-retry-scrolled");
-  } finally {
-    await browser.close();
-  }
-});
+test.skipIf(!includeMobile)(
+  "認証失敗後の入力と再試行を公開storyで操作できる",
+  async () => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({
+        viewport: { width: 375, height: 420 },
+      });
+      await page.goto(
+        `${storybook}/iframe.html?id=auth-logincard--retry-dev-auth&viewMode=story`,
+      );
+      await page.getByLabel("メールアドレス").fill("member@example.test");
+      await page.getByLabel("パスワード").fill("incorrect");
+      await page
+        .getByRole("button", { name: "開発用ユーザーでログイン" })
+        .click();
+      await page.getByRole("alert").waitFor();
+      expect(await page.getByLabel("メールアドレス").inputValue()).toBe(
+        "member@example.test",
+      );
+      expect(await page.getByLabel("パスワード").inputValue()).toBe(
+        "incorrect",
+      );
+      await capture(page, "story-retry-short");
+      await page.getByLabel("パスワード").fill("password");
+      const retry = page.getByRole("button", {
+        name: "開発用ユーザーでログイン",
+      });
+      await retry.scrollIntoViewIfNeeded();
+      const box = await retry.boundingBox();
+      expect(box?.y).toBeGreaterThanOrEqual(0);
+      expect((box?.y ?? 420) + (box?.height ?? 0)).toBeLessThanOrEqual(420);
+      await retry.click();
+      await capture(page, "story-retry-scrolled");
+    } finally {
+      await browser.close();
+    }
+  },
+);
 
 test("送信中と設定不足で操作可否が伝わる", async () => {
   const browser = await chromium.launch();
@@ -259,31 +265,35 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
         "incorrect",
       );
       await capture(page, "after-error");
-      await page.setViewportSize({ width: 375, height: 420 });
-      await page.locator("main").evaluate((element) => {
-        element.scrollTop = 0;
-      });
-      const heading = page.getByRole("heading", { name: "Idea Boost" });
-      await heading.scrollIntoViewIfNeeded();
-      const headingBox = await heading.boundingBox();
-      expect(headingBox?.y).toBeGreaterThanOrEqual(0);
-      expect(
-        (headingBox?.y ?? 420) + (headingBox?.height ?? 0),
-      ).toBeLessThanOrEqual(420);
-      await capture(page, "after-short-top");
-      await page.getByLabel("パスワード").fill("password");
-      await page
-        .getByRole("button", { name: "開発用ユーザーでログイン" })
-        .scrollIntoViewIfNeeded();
-      const submitBox = await page
-        .getByRole("button", { name: "開発用ユーザーでログイン" })
-        .boundingBox();
-      expect(submitBox?.y).toBeGreaterThanOrEqual(0);
-      expect(
-        (submitBox?.y ?? 420) + (submitBox?.height ?? 0),
-      ).toBeLessThanOrEqual(420);
-      await capture(page, "after-short-bottom");
-      await page.setViewportSize({ width: 1280, height: 800 });
+      if (includeMobile) {
+        await page.setViewportSize({ width: 375, height: 420 });
+        await page.locator("main").evaluate((element) => {
+          element.scrollTop = 0;
+        });
+        const heading = page.getByRole("heading", { name: "Idea Boost" });
+        await heading.scrollIntoViewIfNeeded();
+        const headingBox = await heading.boundingBox();
+        expect(headingBox?.y).toBeGreaterThanOrEqual(0);
+        expect(
+          (headingBox?.y ?? 420) + (headingBox?.height ?? 0),
+        ).toBeLessThanOrEqual(420);
+        await capture(page, "after-short-top");
+        await page.getByLabel("パスワード").fill("password");
+        await page
+          .getByRole("button", { name: "開発用ユーザーでログイン" })
+          .scrollIntoViewIfNeeded();
+        const submitBox = await page
+          .getByRole("button", { name: "開発用ユーザーでログイン" })
+          .boundingBox();
+        expect(submitBox?.y).toBeGreaterThanOrEqual(0);
+        expect(
+          (submitBox?.y ?? 420) + (submitBox?.height ?? 0),
+        ).toBeLessThanOrEqual(420);
+        await capture(page, "after-short-bottom");
+        await page.setViewportSize({ width: 1280, height: 800 });
+      } else {
+        await page.getByLabel("パスワード").fill("password");
+      }
       await page
         .getByRole("button", { name: "開発用ユーザーでログイン" })
         .click();

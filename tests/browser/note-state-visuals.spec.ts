@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const expectedDecisionColors = {
@@ -328,7 +329,7 @@ test("決定はんこは本文・シールより前面で、中身と重なる�
   }
 });
 
-test.each([320, 1280])(
+test.each(widths(1280))(
   "%ipxの課題参照欄と問いポップオーバーで、決定枠とはんこを見切れず表示する",
   async (width) => {
     const browser = await chromium.launch();

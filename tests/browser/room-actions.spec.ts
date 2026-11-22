@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -29,7 +30,7 @@ async function open(story: string): Promise<void> {
   await page.locator("#storybook-root > *").first().waitFor();
 }
 
-for (const width of [390, 1280]) {
+for (const width of widths(390, 1280)) {
   test.each(["success", "participant"])(
     `${width}px / %s: 全員が招待と退出を操作でき、取消後は入口へフォーカスを戻す`,
     async (mode) => {
@@ -68,13 +69,13 @@ for (const width of [390, 1280]) {
           document.getAnimations().map((animation) => animation.finished),
         );
       });
-      expect(await dialog.innerText()).not.toContain("解散");
+      expect(await dialog.textContent()).not.toContain("解散");
       await page.keyboard.press("Escape");
       await dialog.waitFor({ state: "hidden" });
       await expect
         .poll(() => menu.evaluate((node) => node === document.activeElement))
         .toBe(true);
-      expect(await page.getByRole("timer").innerText()).toContain("02:18");
+      expect(await page.getByRole("timer").textContent()).toContain("02:18");
     },
   );
 }
@@ -90,7 +91,7 @@ test("ロビーの退出を取り消すと退出ボタンへ戻り、参加者�
       document.getAnimations().map((animation) => animation.finished),
     );
   });
-  expect(await dialog.innerText()).not.toContain("解散");
+  expect(await dialog.textContent()).not.toContain("解散");
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
   await expect

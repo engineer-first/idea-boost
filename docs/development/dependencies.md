@@ -12,7 +12,7 @@ npm 11.20は依存パッケージのinstall scriptを既定で実行せず、`al
 
 完全固定は更新のたびに設定変更が必要になり、`lts` だけでは将来のLTSメジャー切替で `engines.node` と検証対象から外れる。このため26系の範囲指定を採用する。ローカルに古い26系がある場合は `mise upgrade node` で更新し、`mise exec -- node --version` で最低条件以上を確認する。将来のLTSメジャー移行は依存のengine・peer条件とCIを確認する別の変更として扱う。[miseの版指定](https://mise.jdx.dev/lang/node.html#choosing-a-version)と[NodeのLTS方針](https://nodejs.org/en/about/previous-releases)も参照。
 
-jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する26系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、PR・pushで動く `ci.yml` と `chromatic.yml` は `jdx/mise-action@v5` の `cache_max_age_days: 1` でtool cacheを毎日作り直す。毎回GitHubのリリースからダウンロードすると配布側の一時障害（HTTP 5xx）でジョブが落ちるため、修正版への追従を最大1日遅らせる代わりにダウンロードを減らす。デプロイ・リリース記録・`pull_request_target` / `workflow_run` のworkflowは、低信頼の実行が書いたcacheを取り込まないようcacheを使わない。tblsを使わないジョブは `install_args: node` でNodeだけを入れる。この方針は `.github/scripts/node-runtime-workflow.spec.ts` で検査する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)と[mise-actionのcache設定](https://github.com/jdx/mise-action#cache-configuration)も参照。
+jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する26系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、PR・pushで動く `ci.yml`・`browser.yml`・`chromatic.yml` は `jdx/mise-action@v5` の `cache_max_age_days: 1` でtool cacheを毎日作り直す。毎回GitHubのリリースからダウンロードすると配布側の一時障害（HTTP 5xx）でジョブが落ちるため、修正版への追従を最大1日遅らせる代わりにダウンロードを減らす。デプロイ・リリース記録・`pull_request_target` / `workflow_run` のworkflowは、低信頼の実行が書いたcacheを取り込まないようcacheを使わない。tblsを使わないジョブは `install_args: node` でNodeだけを入れる。この方針は `.github/scripts/node-runtime-workflow.spec.ts` で検査する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)と[mise-actionのcache設定](https://github.com/jdx/mise-action#cache-configuration)も参照。
 
 Node.jsはビルドと検証のホスト。公開先はworkerdであり、Nodeのバージョン指定でWorkersの互換性を保証したことにはしない。App/APIの `compatibility_date: 2026-06-01` と `nodejs_compat` を維持し、Workerテストとコンパイル済みPreviewでサービスバインディング・D1・RoomDOを検査する。[OpenNextの前提](https://opennext.js.org/cloudflare/get-started)は互換日付2024-09-23以降と `nodejs_compat`。
 
@@ -20,20 +20,39 @@ Node.jsはビルドと検証のホスト。公開先はworkerdであり、Node�
 
 `renovate.json` を正本とし、方針は `.github/scripts/renovate-config.spec.ts` で検査する。Mend Renovate の GitHub App がこのリポジトリだけを対象に、日本時間9時前に更新PRを作る。npmの版は公開から3日たってから取り込み（`security:minimumReleaseAgeNpm`）、直後の取り下げや乗っ取られた版を避ける。1時間あたりのPR作成数の上限（`config:recommended` の既定は2）は外す。パッチ・マイナーをまとめたためPRの数は少なく、上限があると朝の時間帯に作られずに翌日へ持ち越されるため（2026-11-17に発生）。同時に開くPRの上限は既定の10のまま。
 
-| 更新                 | 扱い                                                                                                                                                                          |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0以上のパッチ      | 1つのPRにまとめる。developの必須チェック（`ci.yml` の lint・test・browser・build・smoke）が最新headで成功した後に取り込む                                                     |
-| 1.0以上のマイナー    | パッチとは別の1つのPRにまとめ、パッチと同じく必須チェックの成功後に取り込む。CIで分からない破壊的変更・挙動変更は、本番公開時にreleaseスキルがリリースノートから確かめる      |
-| 0.xの更新            | 部品ごとのPR。0.xはマイナーでも破壊的変更を含みうるため、人が取り込む                                                                                                         |
-| メジャー             | Dependency Dashboard（Renovateが作るIssue）で承認した時だけPRを作る。TypeScript 6/7は #738 の条件を満たすまで承認しない                                                       |
-| `overrides` の固定版 | Dashboard で承認した時だけPRを作る。lockfile にある別の版と比べるため、メジャーをまたぐ更新もパッチと誤判定されることがある。削除・更新は下の「限定override」の条件で判断する |
-| 脆弱性の修正         | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま                                                             |
+まとめPRの対象は `package.json` の依存（dependencies・devDependencies）、npm本体（`packageManager`）、`mise.toml` の開発ツール（tbls等）。
+
+| 更新                 | 扱い                                                                                                                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0以上のパッチ      | 1つのPRにまとめる。developの必須チェック（`ci.yml` の lint・test・build・smoke と `browser.yml` の browser）が最新headで成功した後に取り込む                                                        |
+| 1.0以上のマイナー    | パッチとは別の1つのPRにまとめ、パッチと同じく必須チェックの成功後に取り込む。CIで分からない破壊的変更・挙動変更は、本番公開時にreleaseスキルがリリースノートから確かめる                            |
+| 0.xの更新            | 部品ごとのPR。0.xはマイナーでも破壊的変更を含みうるため自動マージせず、エージェントが下の「エージェントによるレビュー」の手順で取り込む                                                             |
+| メジャー             | 承認を待たずに部品ごとのPRを作り、自動マージせずエージェントがレビューして取り込む。TypeScript 6/7だけは #738 の条件を満たすまでDependency Dashboard（Renovateが作るIssue）で承認した時だけPRを作る |
+| `overrides` の固定版 | Dashboard で承認した時だけPRを作る。lockfile にある別の版と比べるため、メジャーをまたぐ更新もパッチと誤判定されることがある。削除・更新は下の「限定override」の条件で判断する                       |
+| 脆弱性の修正         | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま                                                                                   |
 
 依存更新PRには `dependencies` ラベルが付く。CIが失敗したPRは取り込まれずopenのまま残るため、open PRの一覧で気づける。Renovateのマージはdevelopへのマージ通知（Discord）から外す。developへの取り込みと本番公開は別で、本番公開は既存のリリース手順で人が行う。
 
 1.0以上のパッチとマイナーは、GitHubのauto-mergeで必須チェックの成功を待って取り込む。マイナーは当初「代表E2Eを整えた後に広げる」としていたが、developへの取り込みは本番公開と別であり、公開前に確かめる場があるため先に広げた。導入時の最初のまとめPR #1000 では、`overrides` の誤判定・OpenNextの設定変更・optional peerの不足で必須チェックが失敗し、取り込まれずに止まった。自動マージが失敗のまま取り込んだ場合は、`automerge` を `false` に戻して原因を調べる。
 
 まとめPRは1つの部品の失敗で全体が止まる。#1000と同じく、必要な修正をそのブランチへ足すか、developで先に直してから取り込む。すぐに直せない部品は `packageRules` で一時的にまとめから外し、外した理由と戻す条件をこの文書に書く。
+
+### エージェントによるレビュー
+
+依存更新は人が管理する手間をなくすための仕組みなので、PRを人が1件ずつ見て承認する前提にしない。自動マージしないPR（0.x・メジャー）は、エージェントがレビューしてマージまで進める。人はマージ通知と、止めたPRの報告だけを見る。
+
+1. リリースノート・移行ガイドの破壊的変更を、このリポジトリでの使い方（`git grep` で探した利用箇所、workflowの入力値・イベント）と突き合わせる
+2. 必要なら同じブランチで設定・コード・テストを直す。関係する部品のPRは1つにまとめてよい
+3. 必須チェックと、変更範囲に応じた検証（[検証](#検証)）が成功してからマージする。`workflow_run`・`pull_request_target`・Pagesのworkflowはdefault branchの定義で動き、PRのCIでは確かめられない。マージ後の最初の実行で確認する
+
+次の場合はマージせず、理由と再評価の条件をPRまたは関係Issueに残して人へ報告する。
+
+- 通るようにするには、テストを広く書き換える・検査を緩める必要がある
+- 開発端末やCIのツールチェーン（npm本体・Node・ランタイム）が変わり、チーム全員の手元に影響する
+- 限定override・関係Issue（例: TypeScriptの #738）の条件を満たしていない
+- 本番のデータ・認証・課金など、CIとPreviewでは確かめられない経路に影響する
+
+2026-11-22にDashboardの承認待ちを処理し、GitHub Actions（#1071）と jest-dom・string-width（#1072）を取り込んだ。次の3つは止めて残している。jsdom 31は、新しいCSS実装で `var()` を含むショートハンドがcomputed styleに出ず、付箋の配置などのunit 24件が失敗する。npm 12は、取り込むと開発端末とCIのnpm本体の入れ方が変わる。TypeScript 7は #738 の条件を満たしていない。
 
 ## 限定override
 
@@ -55,11 +74,19 @@ Biome 2.6からMarkdownも整形・lint対象になったが、Markdownはこれ
 
 ## auditの残件と到達性
 
-2026-10-18時点で全件auditのhigh 10件は[bracesの再帰DoS](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)と依存元への波及集計。braces 3.0.3も対象で修正版はない。`shadcn → @shadcn/registry / fast-glob / ts-morph → micromatch → braces` と `remark-cli → unified-args → chokidar → braces` に残る。
+2026-11-21時点で `--omit=dev` は0件、全件auditはhigh 2・moderate 15。10月に残件だった[bracesの再帰DoS](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)は10月23日に取り下げられた。同じ日に、範囲内で直せるbody-parser 2.4.0・fast-uri 3.1.9・systeminformation 5.33.23・glob 13.0.7へlockfileを更新した。残りは次の3系統で、どれも依存元の対応を待つ。
+
+| 対象と経路                                                                                                                         | 残る理由                                                                                                                                                                          | 到達性                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| [zodの配列検証のメモリ枯渇](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)。`@google/design.md 0.4.0 → zod 3.25.76`            | 修正は4.6.6以降だけで3系の修正版はない。design.mdの最新版も `zod ^3.24.0` のまま                                                                                                  | `lint:design`・`gen:design-tokens` がリポジトリ内のDESIGN.mdだけを検証する。アプリの `contracts/` は修正済みのzod 4.6.7を使う |
+| [minimatchのパターン増幅DoS](https://github.com/advisories/GHSA-g3hv-75wg-m249)。shadcn・remark-cli配下の9.0.9・10.2.6             | 修正は11.0.1以降だけで9・10系の修正版はない                                                                                                                                       | 影響は利用側が `optimizationLevel` 2以上で未信頼のパターンを渡した場合。CLIへ渡すのはリポジトリ内の固定パターンだけ           |
+| [globの中断後の走査継続](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4)。OpenNext・Storybook配下の13.0.7、限定overrideの10.5.0 | 13.0.7は修正コミット[d94a8c8](https://github.com/isaacs/node-glob/commit/d94a8c8d0a)を取り込み済みだが、advisoryの範囲（`<=14.0.1`）が未更新のためauditに残る。10系は修正版がない | 影響は `signal` で走査を打ち切る呼出し。ビルド・整形ツールが信頼するリポジトリを走査するだけで、アプリ入力から到達しない      |
 
 shadcnはCSSをビルド時にimportするためdevDependenciesへ分類する。`--omit=dev` の0件だけでは安全と判断しない。Miniflare/Wrangler/Storybook等も開発端末やCIでコードを実行する。auditが返さないadvisoryもあるため、上流のsecurity情報と実際のlockfileを突き合わせる。
 
-未信頼のglob・registryをCLIへ渡さず、信頼するリポジトリのビルド・整形に限定する。通常のアプリ入力からbracesへ到達する呼出経路は確認されていないが、非到達を全面的に証明したものではない。修正版または依存除去を追跡し再監査する。機能破壊を伴う古いshadcn/remarkへのaudit推奨ダウングレードは採用しない。
+Next.jsはReactのServer Components実装を同梱するため、`react-server-dom-*` の脆弱性はルートのreact版だけで判断しない。2026-11-10の[RSCのRCE](https://github.com/advisories/GHSA-xqc2-xf4c-x3h3)では、Next 16.4.6の同梱版に修正版19.3.1と同じ修正が入っていることを確認した。
+
+未信頼のglob・registryをCLIへ渡さず、信頼するリポジトリのビルド・整形に限定する。上の残件へ通常のアプリ入力から到達する呼出経路は確認されていないが、非到達を全面的に証明したものではない。修正版または依存除去を追跡し再監査する。機能破壊を伴う古いshadcn/remarkへのaudit推奨ダウングレードは採用しない。
 
 ## 検証
 

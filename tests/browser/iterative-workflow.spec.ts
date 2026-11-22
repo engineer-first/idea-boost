@@ -8,6 +8,13 @@ import {
   expect,
   test,
 } from "vitest";
+import { stepGuideSeenStorageKey } from "../../features/room/logic/step-guide-seen";
+import { includeMobile } from "./viewports";
+
+const FIRST_STEP_GUIDE_KEY = stepGuideSeenStorageKey(
+  "11111111-1111-4111-8111-111111111111",
+  "1-1",
+);
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/iterative-workflow";
@@ -18,7 +25,7 @@ const phases = [
   { phase: 3, count: 5, goal: "アイデア" },
 ] as const;
 const progression =
-  /^(次へ進む|次のフェーズへ|付箋を書き直す|もう一度投票する|採用する付箋を選ぶ)$/;
+  /^(次へ進む|次のフェーズへ|もう一度投票する|採用する付箋を選ぶ)$/;
 let browser: Browser;
 let page: Page;
 
@@ -28,11 +35,9 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   page = await browser.newPage({ viewport, reducedMotion: "reduce" });
-  await page.addInitScript(() =>
-    sessionStorage.setItem(
-      "step-onboarding:AB12CD:11111111-1111-4111-8111-111111111111:1-1",
-      "seen",
-    ),
+  await page.addInitScript(
+    (key) => localStorage.setItem(key, "seen"),
+    FIRST_STEP_GUIDE_KEY,
   );
 });
 afterEach(async () => {
@@ -125,7 +130,7 @@ for (const { phase, count } of phases) {
           .locator("li")
           .count(),
       ).toBe(count);
-      expect(await context.innerText()).not.toContain("次の作業");
+      expect(await context.textContent()).not.toContain("次の作業");
       await location.click();
 
       const expected = isResult ? 2 : 0;
@@ -147,7 +152,7 @@ for (const { phase, count } of phases) {
       );
       if (canRestartWriting)
         await expectReachable(
-          loop.getByRole("button", { name: "もう一度付箋を書く" }),
+          loop.getByRole("button", { name: "付箋を書き足す" }),
         );
       if (isResult) {
         const boxes = await loopButtons.evaluateAll((elements) =>
@@ -227,7 +232,7 @@ test("共有一巡後の書き足し操作は上部の操作欄から選べる",
   await openStory("room-roomboardview--floating-timer-sharing-complete");
   const controls = page.getByTestId("board-control-hud");
   const trigger = controls.getByRole("button", {
-    name: "付箋を書き直す",
+    name: "付箋を書き足す",
     exact: true,
   });
   await expectReachable(trigger);
@@ -235,7 +240,14 @@ test("共有一巡後の書き足し操作は上部の操作欄から選べる",
     "共有済み付箋と下書きは残",
   );
   await trigger.press("Enter");
-  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+  const dialog = page.getByRole("alertdialog", {
+    name: "全員で1-1に戻って、付箋を書き足しますか？",
+  });
+  await dialog.waitFor();
+  await expectReadable(dialog);
+  await dialog.getByRole("button", { name: "キャンセル" }).click();
+  await dialog.waitFor({ state: "hidden" });
+  expect(await trigger.isVisible()).toBe(true);
 });
 
 test.each(phases)(
@@ -252,7 +264,7 @@ test.each(phases)(
     });
     await dialog.waitFor();
     await expectReadable(dialog);
-    expect(await dialog.innerText()).toContain("付箋は消えません");
+    expect(await dialog.textContent()).toContain("付箋は消えません");
     expect(await dialog.locator("li, blockquote").count()).toBe(0);
     await expectReachable(
       dialog.getByRole("button", {
@@ -351,7 +363,7 @@ test("時間切れ後は未チェックの参加者を確認して次へ進む",
     .getByRole("alertdialog")
     .getByRole("button", { name: "次へ進む", exact: true })
     .press("Enter");
-  expect(await page.getByTestId("phase-next-count").innerText()).toBe("1");
+  expect(await page.getByTestId("phase-next-count").textContent()).toBe("1");
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
 });
 
@@ -365,65 +377,72 @@ test("課題の確定後は取消と、時間切れ後の次フェーズ進行�
   ).toBe(0);
 });
 
-test("390px fit失敗の案内がルーム操作/閉じる操作を遮らず、案内を閉じられる", async () => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openStory("room-roomboardview--fit-unavailable");
-  await page.getByRole("button", { name: "付箋全体を表示" }).click();
-  const notice = page.getByText(/ヒント・マイ付箋を閉じてから/);
-  await notice.waitFor();
-  const control = page.getByTestId("board-control-hud");
-  expect(
-    await control.evaluate((el) => {
-      const box = el.getBoundingClientRect();
-      return el.contains(
-        document.elementFromPoint(
-          box.x + box.width / 2,
-          box.y + box.height / 2,
-        ),
-      );
-    }),
-  ).toBe(true);
-  const dismiss = page.getByRole("button", {
-    name: /通知を閉じる|Close toast/,
-  });
-  expect(await dismiss.count()).toBeGreaterThan(0);
-  await dismiss.click();
-  await notice.waitFor({ state: "hidden" });
-});
+test.skipIf(!includeMobile)(
+  "390px fit失敗の案内がルーム操作/閉じる操作を遮らず、案内を閉じられる",
+  async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openStory("room-roomboardview--fit-unavailable");
+    await page.getByRole("button", { name: "付箋全体を表示" }).click();
+    const notice = page.getByText(/ヒント・マイ付箋を閉じてから/);
+    await notice.waitFor();
+    const control = page.getByTestId("board-control-hud");
+    expect(
+      await control.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        return el.contains(
+          document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          ),
+        );
+      }),
+    ).toBe(true);
+    const dismiss = page.getByRole("button", {
+      name: /通知を閉じる|Close toast/,
+    });
+    expect(await dismiss.count()).toBeGreaterThan(0);
+    await dismiss.click();
+    await notice.waitFor({ state: "hidden" });
+  },
+);
 
-test("390px template展開後のprivate本文がdock内で通常pointerとEnterから編集できる", async () => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openStory("room-roomboardview--hmw-writing-step");
-  const toolbar = page.getByTestId("private-notes-toolbar");
-  const scroll = page.getByTestId("private-notes-scroll");
-  const scrollBox = await scroll.boundingBox();
-  if (!scrollBox) throw new Error("マイ付箋のスクロール領域がありません");
-  await page.mouse.move(
-    scrollBox.x + scrollBox.width / 2,
-    scrollBox.y + scrollBox.height / 2,
-  );
-  await page.mouse.wheel(0, 500);
-  await page.waitForFunction(() => {
-    const scroll = document.querySelector<HTMLElement>(
-      '[data-testid="private-notes-scroll"]',
+test.skipIf(!includeMobile)(
+  "390px template展開後のprivate本文がdock内で通常pointerとEnterから編集できる",
+  async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openStory("room-roomboardview--hmw-writing-step");
+    const toolbar = page.getByTestId("private-notes-toolbar");
+    const scroll = page.getByTestId("private-notes-scroll");
+    const scrollBox = await scroll.boundingBox();
+    if (!scrollBox) throw new Error("マイ付箋のスクロール領域がありません");
+    await page.mouse.move(
+      scrollBox.x + scrollBox.width / 2,
+      scrollBox.y + scrollBox.height / 2,
     );
-    return (
-      scroll &&
-      (scroll.scrollHeight <= scroll.clientHeight ||
-        Math.abs(scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop) <
-          1)
-    );
-  });
-  const card = toolbar.getByTestId("note-card").last();
-  const point = await card.evaluate((el) => {
-    const box = el.getBoundingClientRect();
-    const x = box.x + box.width / 2;
-    const y = box.y + box.height / 2;
-    return { x, y, reachable: el.contains(document.elementFromPoint(x, y)) };
-  });
-  expect(point.reachable).toBe(true);
-  await page.mouse.click(point.x, point.y);
-  await page.keyboard.press("Enter");
-  expect(await card.locator("textarea").getAttribute("readonly")).toBeNull();
-  await page.screenshot({ path: `${output}/private-dock-mobile.png` });
-});
+    await page.mouse.wheel(0, 500);
+    await page.waitForFunction(() => {
+      const scroll = document.querySelector<HTMLElement>(
+        '[data-testid="private-notes-scroll"]',
+      );
+      return (
+        scroll &&
+        (scroll.scrollHeight <= scroll.clientHeight ||
+          Math.abs(
+            scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop,
+          ) < 1)
+      );
+    });
+    const card = toolbar.getByTestId("note-card").last();
+    const point = await card.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      return { x, y, reachable: el.contains(document.elementFromPoint(x, y)) };
+    });
+    expect(point.reachable).toBe(true);
+    await page.mouse.click(point.x, point.y);
+    await page.keyboard.press("Enter");
+    expect(await card.locator("textarea").getAttribute("readonly")).toBeNull();
+    await page.screenshot({ path: `${output}/private-dock-mobile.png` });
+  },
+);

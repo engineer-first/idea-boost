@@ -11,6 +11,7 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import type { Note } from "@/features/notes";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { SharingReactionDisplay } from "../molecules/sharing-reaction-display";
@@ -35,6 +36,7 @@ beforeEach(() => {
     else delete (document as { elementFromPoint?: unknown }).elementFromPoint;
   });
   sessionStorage.clear();
+  localStorage.clear();
   // jsdomには寸法観測がない。通知との重なりはPlaywright側で検証する。
   vi.stubGlobal(
     "ResizeObserver",
@@ -141,7 +143,6 @@ function buildInteractions(
     notes,
     privateNotes,
     dragGhost: null,
-    isReturnDropTarget: false,
     isNoteDragging: false,
     camera: { x: 0, y: 0, zoom: 1 },
     gridStyle: {
@@ -253,12 +254,12 @@ function setup(
 
   if (!options.showOnboarding) {
     for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"])
-      sessionStorage.setItem(
-        `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:${step}`,
+      localStorage.setItem(
+        stepGuideSeenStorageKey(resolvedProps.currentUserId, step),
         "seen",
       );
-    sessionStorage.setItem(
-      `step-onboarding:${resolvedProps.inviteCode}:${resolvedProps.currentUserId}:1-1`,
+    localStorage.setItem(
+      stepGuideSeenStorageKey(resolvedProps.currentUserId, "1-1"),
       "seen",
     );
   }
@@ -432,7 +433,7 @@ describe("2軸評価画面の周辺操作", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "もう一度付箋を書く" }),
+      screen.getByRole("button", { name: "付箋を書き足す" }),
     ).toBeVisible();
     const mapSizeHud = screen.getByTestId("idea-map-size-controls-hud");
     expect(mapSizeHud).toContainElement(
@@ -3707,7 +3708,7 @@ describe("反復ワークフロー", () => {
   );
 
   it.each([1, 2, 3] as const)(
-    "フェーズ%dの共有一巡後は上部から書き直しと次への進行を選べる",
+    "フェーズ%dの共有一巡後は行き先を確認してから付箋を書き足せる",
     (phase) => {
       const { props } = setup({
         phase: buildPhaseStep(2, phase),
@@ -3721,9 +3722,23 @@ describe("反復ワークフロー", () => {
         onSharingStart: vi.fn(),
       });
       const controls = within(screen.getByTestId("board-control-hud"));
-      const addMore = controls.getByRole("button", { name: "付箋を書き直す" });
+      const addMore = controls.getByRole("button", { name: /^付箋を書き/ });
       expect(addMore).toBeEnabled();
       fireEvent.click(addMore);
+      expect(props.onRestartWriting).not.toHaveBeenCalled();
+      const dialog = screen.getByRole("alertdialog", {
+        name: `全員で${phase}-1に戻って、付箋を書き足しますか？`,
+      });
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: "キャンセル" }),
+      );
+      expect(props.onRestartWriting).not.toHaveBeenCalled();
+      fireEvent.click(addMore);
+      fireEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", {
+          name: "付箋を書き足す",
+        }),
+      );
       expect(props.onRestartWriting).toHaveBeenCalledOnce();
       expect(
         controls.queryByRole("button", { name: "共有を続ける" }),
@@ -3737,6 +3752,68 @@ describe("反復ワークフロー", () => {
       expect(screen.queryByRole("alertdialog")).toBeNull();
     },
   );
+  it("共有中には書き足し操作を出さず、一巡したときに表示する", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(2),
+      sharing: buildSharingState({ status: "active", startsAt: null }),
+      onRestartWriting: vi.fn(),
+    });
+    expect(screen.queryByRole("button", { name: "付箋を書き足す" })).toBeNull();
+    rerender(
+      <TestBoardView
+        {...props}
+        sharing={buildSharingState({
+          status: "complete",
+          currentIndex: null,
+          results: ["done", "done", "done"],
+        })}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "付箋を書き足す" }),
+    ).toBeEnabled();
+  });
+
+  it("書き足しの確認中に切断したら確認を閉じ、再接続まで操作を止める", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(2),
+      sharing: buildSharingState({ status: "complete" }),
+      onRestartWriting: vi.fn(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^付箋を書き/ }));
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    rerender(<TestBoardView {...props} connectionStatus="reconnecting" />);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "付箋を書き足す" }),
+    ).toBeDisabled();
+    expect(props.onRestartWriting).not.toHaveBeenCalled();
+  });
+
+  it("確認後の送信待ちでは重複操作を止め、失敗後はもう一度確認できる", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(2),
+      sharing: buildSharingState({ status: "complete" }),
+      onRestartWriting: vi.fn(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^付箋を書き/ }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "付箋を書き足す",
+      }),
+    );
+    rerender(<TestBoardView {...props} isNextPhasePending />);
+    expect(screen.getByRole("button", { name: "切り替え中…" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "次のステップへ" }),
+    ).toBeDisabled();
+    expect(props.onRestartWriting).toHaveBeenCalledOnce();
+    rerender(<TestBoardView {...props} isNextPhasePending={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    expect(props.onRestartWriting).toHaveBeenCalledOnce();
+  });
+
   it("採用前は次への操作を無効にして再投票を確認できる", () => {
     setup({
       phase: buildPhaseStep(5),
@@ -4515,6 +4592,27 @@ it("AT-002: private press取消後の新native HUD press/upは古pointer抑止�
   expect(interactions.onZoomOut).toHaveBeenCalledTimes(1);
 });
 
+it("付箋ドラッグ中の pointer capture 引き継ぎによる lostPointerCapture は pointerUp を抑止しない", () => {
+  const note = buildNote({ id: "shared-handoff", authorId: ME });
+  const interactions = {
+    ...buildInteractions([note], []),
+    hasActiveNoteDrag: vi.fn((pointerId: number) => pointerId === 77),
+  };
+  setup({ notes: [note], interactions, phase: buildPhaseStep(2) });
+  const surface = getNoteSurface(screen.getByTestId("note-card"));
+  const root = screen.getByTestId("room-board-view-root");
+  fireEvent.pointerDown(surface, {
+    pointerId: 77,
+    button: 0,
+    buttons: 1,
+    clientX: 100,
+    clientY: 100,
+  });
+  fireEvent.lostPointerCapture(surface, { pointerId: 77 });
+  fireEvent.pointerUp(root, { pointerId: 77, clientX: 220, clientY: 180 });
+  expect(interactions.onPointerEnd).toHaveBeenCalledTimes(1);
+});
+
 describe("AT-002: 第一note所有中の第二palette入力", () => {
   it.each(["first", "second"])(
     "%sを先にreleaseしても棄却paletteのcapture/ghost/投票/旧clickは0",
@@ -4953,8 +5051,12 @@ it.each([1, 3] as const)(
       phase: buildPhaseStep(3, phaseNumber),
       onRestartWriting: vi.fn(),
     });
-    fireEvent.click(screen.getByRole("button", { name: "もう一度付箋を書く" }));
-    fireEvent.click(screen.getByRole("button", { name: "個人作業へ戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "付箋を書き足す",
+      }),
+    );
     expect(props.onRestartWriting).toHaveBeenCalledOnce();
   },
 );

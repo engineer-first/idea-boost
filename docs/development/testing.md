@@ -45,6 +45,12 @@
 - 文言・CSS・配置だけを変える場合は、story と表示レビューを基本にし、固定文言や
   クラスの存在だけを写す専用 DOM テストを原則増やさない。文言配列の全文一致にも同じ基準を使う。
   クリックの到達性、表示条件、データの対応、フォーカス等を変える場合は振る舞いの変更として扱う。
+- browser テストは、重なり・画面外・スクロール・フォーカス・キーボード到達など
+  実ブラウザでしか分からない不具合に限る。色・影・アニメーションの秒数や軌跡・固定の px 寸法・
+  別画面との位置の完全一致は、意図した見た目の変更のたびに壊れて不具合を検知しないため、
+  browser テストに書かず stories と表示レビューで確かめる。同じ振る舞いを DOM テストで
+  検知できるなら browser テストを足さない。全工程を 1 工程ずつ繰り返す検査は、同じ部品・条件を
+  繰り返すものだけ代表の工程に絞り、工程ごとに部品が異なる配置・到達性の検査は全工程分残す。
 - `getByText` や `toHaveClass` を一律に禁止・削除しない。どの不具合を検知するかで判断する。
   操作対象には role と accessible name 等を使い、表示データにはテキスト照合を使える。
   投票対象・基準や誤操作防止の説明など、内容自体が PRD の要件なら必要部分の一致と表示条件を残す。
@@ -87,8 +93,33 @@
 - browser: Storybook を起動または build して配信し、`npm run test:browser`
   （[vitest.browser.config.mts](../../vitest.browser.config.mts)、`tests/browser/`）。
   配信先は `STORYBOOK_TEST_URL`、既定は `http://127.0.0.1:6006`。
+  スマホ幅（600px 未満）の検査は `BROWSER_MOBILE=1` のときだけ含める（`tests/browser/viewports.ts`）。
 
-[CI](../../.github/workflows/ci.yml) は unit・Worker・browser 等を実行する。
+## CI で回すタイミング
+
+CI の基準はリリース時に致命的な不具合がないこと（[ADR 0030](../adr/0030-ci-release-fatal-bug-bar.md)）。
+PR の待ち時間を短くするため、重い検査は変更範囲で回すかを決める。判定は
+[scripts/ci-scope.mts](../../scripts/ci-scope.mts)、判定できない場所の変更は回す側に倒す。
+エージェントは push 前に、変更範囲に必要な検査をローカルで実行する（[AGENTS.md](../../AGENTS.md#開発と検証)）。
+
+| 検査                                      | PR                                                     | develop へのマージ後 | リリース（deploy gate） |
+| ----------------------------------------- | ------------------------------------------------------ | -------------------- | ----------------------- |
+| lint・型・unit / DOM・build               | 毎回（Preview bundle の起動確認を含む）                | 毎回                 | 毎回                    |
+| Worker / Preview / verification テスト    | `workers/`・`contracts/`・`lib/`・`scripts/` 等の変更  | 毎回                 | `test:workers` だけ     |
+| browser（PC・iPad 幅）                    | 画面のコード・`contracts/`・`lib/`・依存の変更         | 毎回                 | なし                    |
+| browser（スマホ幅）                       | `mobile` ラベルを付けた PR・手動実行で指定したときだけ | なし                 | なし                    |
+| smoke（本番構成の疎通・トップとログイン） | なし（build の preview-smoke が代わりに確かめる）      | 毎回                 | 毎回                    |
+
+- [CI](../../.github/workflows/ci.yml) は lint・test・build・smoke、
+  [Browser](../../.github/workflows/browser.yml) は browser を実行する。
+  browser を分けるのは、PR Preview が CI の成功を待つため。
+- 対象外の検査は、ステップを飛ばしてジョブを成功で終える（smoke は PR ではジョブごと skipped）。
+  必須チェックが pending で残らないようにするため。
+- スマホ縦（幅 360 以上）の見た目や操作を変える PR には `mobile` ラベルを付ける。
+  付けると Browser が再実行され、スマホ幅も検査する。幅 360 未満は対応外なので検査しない。
+- develop へのマージ後に browser・Worker テストが落ちたら、その PR の作業者が直す。
+  リリースのゲートは develop の browser の結果を見ないため、落ちたまま放置しない。
+- 公開後は deploy の health-check が、API の疎通に加えてトップとログイン画面が 200 を返すことを確かめる。
 
 ## 公開 Storybook で表示を確認する
 

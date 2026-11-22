@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -19,7 +20,7 @@ async function rect(page: Page, id: string) {
   return r;
 }
 
-test.each([1280, 390])(
+test.each(widths(1280, 390))(
   "幅%dで時間切れ後の1分延長とドラッグを操作できる",
   async (width) => {
     const page = await browser.newPage({
@@ -59,7 +60,7 @@ test.each([1280, 390])(
   },
 );
 
-test.each([1280, 390])(
+test.each(widths(1280, 390))(
   "幅%dで実行中の円をドラッグしても一時停止しない",
   async (width) => {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -139,24 +140,27 @@ test("工程の途中で操作欄が現れるとタイマーが避け、操作�
   }
 });
 
-test("390pxの問い共有でタイマー下のマイ付箋が下部の操作欄を覆わない", async () => {
-  const page = await browser.newPage({
-    viewport: { width: 390, height: 844 },
-    reducedMotion: "reduce",
-  });
-  try {
-    await story(page, "room-roomboardlayout--phase-2-step-2");
-    const notes = await rect(page, "private-notes-toolbar");
-    const operations = await rect(page, "board-operation-matrix");
-    expect(notes.y + notes.height).toBeLessThanOrEqual(operations.y - 12);
-    expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
-    await page.getByTestId("private-notes-scroll").hover();
-  } finally {
-    await page.close();
-  }
-});
+test.skipIf(!includeMobile)(
+  "390pxの問い共有でタイマー下のマイ付箋が下部の操作欄を覆わない",
+  async () => {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+      reducedMotion: "reduce",
+    });
+    try {
+      await story(page, "room-roomboardlayout--phase-2-step-2");
+      const notes = await rect(page, "private-notes-toolbar");
+      const operations = await rect(page, "board-operation-matrix");
+      expect(notes.y + notes.height).toBeLessThanOrEqual(operations.y - 12);
+      expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+      await page.getByTestId("private-notes-scroll").hover();
+    } finally {
+      await page.close();
+    }
+  },
+);
 
-test.each([1280, 768, 390])(
+test.each(widths(1280, 768, 390))(
   "幅%dでHUD・タイマー・開いたマイ付箋を重ねず、移動先も画面内に収める",
   async (width) => {
     const page = await browser.newPage({
@@ -225,8 +229,8 @@ test("幅982pxでマイ付箋を開いてもタイマーを右上HUDの下に保
   }
 });
 
-test.each([1280, 900, 640, 390, 320])(
-  "幅%dの共有完了操作は上部の書き直しと次へにまとまる",
+test.each(widths(1280, 900, 640, 390))(
+  "幅%dの共有完了後は書き足しの確認と次への操作に到達できる",
   async (width) => {
     const page = await browser.newPage({
       viewport: { width, height: 900 },
@@ -239,7 +243,7 @@ test.each([1280, 900, 640, 390, 320])(
       const controls = page.getByTestId("board-control-hud");
       await controls.waitFor();
       expect(await page.getByTestId("timer-floating").count()).toBe(0);
-      for (const name of ["付箋を書き直す", "次のステップへ"]) {
+      for (const name of ["付箋を書き足す", "次のステップへ"]) {
         const b = controls.getByRole("button", { name, exact: true });
         expect(await b.isVisible()).toBe(true);
         const r = await b.boundingBox();
@@ -264,8 +268,36 @@ test.each([1280, 900, 640, 390, 320])(
           .count(),
       ).toBe(0);
       await controls
-        .getByRole("button", { name: "付箋を書き直す", exact: true })
-        .click({ trial: true });
+        .getByRole("button", { name: "付箋を書き足す", exact: true })
+        .click();
+      const dialog = page.getByRole("alertdialog", {
+        name: "全員で1-1に戻って、付箋を書き足しますか？",
+      });
+      await dialog.waitFor();
+      const bounds = await dialog.boundingBox();
+      expect(bounds?.x).toBeGreaterThanOrEqual(0);
+      expect(bounds ? bounds.x + bounds.width : Infinity).toBeLessThanOrEqual(
+        width,
+      );
+      for (const name of ["キャンセル", "付箋を書き足す"]) {
+        const action = dialog.getByRole("button", { name, exact: true });
+        expect(await action.isVisible()).toBe(true);
+        expect(
+          await action.evaluate(
+            (element) => element.scrollWidth <= element.clientWidth,
+          ),
+        ).toBe(true);
+        await action.click({ trial: true });
+      }
+      await dialog.getByRole("button", { name: "キャンセル" }).press("Escape");
+      await dialog.waitFor({ state: "hidden" });
+      await expect
+        .poll(() =>
+          controls
+            .getByRole("button", { name: "付箋を書き足す", exact: true })
+            .evaluate((element) => document.activeElement === element),
+        )
+        .toBe(true);
     } finally {
       await page.close();
     }
@@ -281,7 +313,7 @@ test("最後の発表者のできた後に上部から次の操作を選べる",
     await page.getByRole("button", { name: "できた！", exact: true }).click();
     const controls = page.getByTestId("board-control-hud");
     await controls
-      .getByRole("button", { name: "付箋を書き直す", exact: true })
+      .getByRole("button", { name: "付箋を書き足す", exact: true })
       .waitFor();
     expect(
       await controls

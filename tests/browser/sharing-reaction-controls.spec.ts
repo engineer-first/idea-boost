@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { byViewport, includeMobile } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -11,11 +12,9 @@ afterAll(async () => {
   await browser?.close();
 });
 
-test.each([
-  { width: 1280, height: 800 },
-  { width: 375, height: 812 },
-  { width: 320, height: 812 },
-])(
+test.each(
+  byViewport({ width: 1280, height: 800 }, { width: 375, height: 812 }),
+)(
   "$width × $height : 5種類へTabで到達し、対応する種類を送り、バーを保つ",
   async (viewport) => {
     const page = await browser.newPage({ viewport });
@@ -105,11 +104,12 @@ test.each([
   },
 );
 
-test.each([
-  { width: 1280, story: "sharing-reactions" },
-  { width: 375, story: "sharing-reactions-with-history" },
-  { width: 320, story: "sharing-reactions-with-history" },
-])(
+test.each(
+  byViewport(
+    { width: 1280, story: "sharing-reactions" },
+    { width: 375, story: "sharing-reactions-with-history" },
+  ),
+)(
   "$width px：リアクションバーの右端が、折り返しやリサイズ後もツールバーの右端に揃う",
   async ({ width, story }) => {
     const page = await browser.newPage({ viewport: { width, height: 800 } });
@@ -151,8 +151,8 @@ test.each([
         });
       }
       await expectAligned();
-      if (width === 1280) {
-        await page.setViewportSize({ width: 320, height: 800 });
+      if (width === 1280 && includeMobile) {
+        await page.setViewportSize({ width: 360, height: 800 });
         await expectAligned();
       }
       await bar.getByRole("button").last().click();
@@ -168,10 +168,9 @@ test.each([
   },
 );
 
-test.each([
-  { width: 1280, height: 800 },
-  { width: 375, height: 812 },
-])(
+test.each(
+  byViewport({ width: 1280, height: 800 }, { width: 375, height: 812 }),
+)(
   "$width × $height : 送信待機中も通常カーソルとフォーカスを保ち、400ms後と3件上限の解除後に再送できる",
   async (viewport) => {
     const page = await browser.newPage({ viewport });

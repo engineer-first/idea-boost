@@ -14,6 +14,7 @@ import {
 import { HMW_EXAMPLES } from "@/features/hmw";
 import { NoteDraftRecovery } from "@/features/notes";
 import { roomNotify } from "../logic/room-notify";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
 import boardMeta, { MoveHistoryAvailable } from "./room-board-view.stories";
@@ -58,17 +59,20 @@ const meta = {
   parameters: { layout: "fullscreen" },
   decorators: [
     (Story, context) => {
-      const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      const firstStepGuideKey = stepGuideSeenStorageKey(
+        context.args.currentUserId,
+        "1-1",
+      );
       for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"]) {
-        window.sessionStorage.setItem(
-          `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:${step}`,
+        window.localStorage.setItem(
+          stepGuideSeenStorageKey(context.args.currentUserId, step),
           "seen",
         );
       }
       if (context.parameters.firstVisitOnboarding) {
-        window.sessionStorage.removeItem(sessionKey);
+        window.localStorage.removeItem(firstStepGuideKey);
       } else {
-        window.sessionStorage.setItem(sessionKey, "seen");
+        window.localStorage.setItem(firstStepGuideKey, "seen");
       }
       return (
         <div style={{ height: "100dvh", overflow: "hidden" }}>

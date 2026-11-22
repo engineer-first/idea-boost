@@ -971,6 +971,7 @@ export function RoomBoardView({
           isRemovingMember
         }
         selectionDisabled={boardInteractionBlocked}
+        pending={isNextPhasePending}
         onRestartWriting={onRestartWriting}
         onRevote={onRevote}
         onStartSelection={() => {
@@ -1431,7 +1432,6 @@ export function RoomBoardView({
     privateNotes: toolbarNotes,
     dragGhost,
     dragPreview,
-    isReturnDropTarget,
     privateDropPlaceholder,
     isNoteDragging,
     camera,
@@ -1551,7 +1551,7 @@ export function RoomBoardView({
         ) || 16;
       root.style.setProperty(
         "--board-character-bubble-max-width",
-        `${15 * rem}px`,
+        `${22 * rem}px`,
       );
       root.style.setProperty("--board-character-bubble-top", "0.25rem");
       root.style.setProperty("--board-character-bubble-left", "100%");
@@ -1867,6 +1867,7 @@ export function RoomBoardView({
           if (
             press?.pointerId === event.pointerId &&
             press.owner === event.target &&
+            !interactions.hasActiveNoteDrag?.(event.pointerId) &&
             !boardScrollerRef.current?.hasPointerCapture?.(event.pointerId)
           )
             cancelRootPress();
@@ -2194,7 +2195,6 @@ export function RoomBoardView({
           pendingVoteOperations={pendingVoteOperations}
           dragGhost={dragGhost}
           dragPreview={dragPreview}
-          isReturnDropTarget={isReturnDropTarget}
           privateDropPlaceholder={privateDropPlaceholder}
           boardScrollerRef={boardScrollerRef}
           ideaMapPlaneRef={ideaMapPlaneRef}

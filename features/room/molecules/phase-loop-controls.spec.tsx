@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
@@ -66,8 +66,12 @@ describe("PhaseLoopControls", () => {
   });
   it("共有の追加作業は確認で通知する", () => {
     const { props } = setup({ phase: buildPhaseStep(2) });
-    fireEvent.click(screen.getByRole("button", { name: "もう一度付箋を書く" }));
-    fireEvent.click(screen.getByRole("button", { name: "個人作業へ戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "付箋を書き足す",
+      }),
+    );
     expect(props.onRestartWriting).toHaveBeenCalledOnce();
   });
 });

@@ -38,7 +38,6 @@ export type PrivateNotesToolbarProps = {
   canEditNote: boolean;
   className?: string;
   toolbarRef?: React.RefObject<HTMLDivElement | null>;
-  isReturnDropTarget?: boolean;
   selectedNoteId: string | null;
   canCreateNote: boolean;
   canDeleteNote: boolean;
@@ -81,7 +80,6 @@ export function PrivateNotesToolbar({
   editingDisabled = false,
   className,
   toolbarRef,
-  isReturnDropTarget = false,
   selectedNoteId,
   canCreateNote,
   canDeleteNote,
@@ -517,7 +515,6 @@ export function PrivateNotesToolbar({
       ref={toolbarRef}
       className={cn(
         "flex max-w-full flex-col overflow-hidden transition-[box-shadow,background-color] duration-150",
-        isReturnDropTarget && "bg-primary/5 ring-2 ring-primary/40",
         isWorkspace
           ? "h-full w-full max-w-7xl rounded-none border-0 bg-transparent shadow-none"
           : displayedExpanded
@@ -533,7 +530,6 @@ export function PrivateNotesToolbar({
       data-testid="private-notes-toolbar"
       data-presentation={presentation}
       data-expanded={String(displayedExpanded)}
-      data-return-drop-target={isReturnDropTarget || undefined}
     >
       <CardContent
         hidden={!isWorkspace && !displayedExpanded}
@@ -636,25 +632,6 @@ export function PrivateNotesToolbar({
             )}
             data-testid="private-notes-list"
           >
-            {isWorkspace ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={disabled || !canCreateNote || noteCreationPending}
-                ref={addButtonRef}
-                aria-label={
-                  workspaceCollapsible ? "新しい付箋を追加" : "付箋を追加"
-                }
-                onClick={handleAdd}
-                className="flex h-[150px] w-[200px] flex-col items-center justify-center gap-3 rounded-lg border-2 border-primary/50 border-dashed bg-muted/50 font-medium text-foreground hover:border-primary/75 hover:bg-muted active:bg-muted/80"
-                style={{ width: NOTE_WIDTH, height: NOTE_HEIGHT }}
-              >
-                <Plus aria-hidden="true" className="size-6" />
-                <span>
-                  {workspaceCollapsible ? "新しい付箋を追加" : "付箋を追加"}
-                </span>
-              </Button>
-            ) : null}
             {isWorkspace && !workspaceCollapsible
               ? exampleNotes.map((example, index) => (
                   <StickyNote
@@ -747,6 +724,26 @@ export function PrivateNotesToolbar({
                 </ViewTransition>
               ),
             )}
+            {isWorkspace ? (
+              // 書いた付箋のすぐ後ろから続けて追加できるよう、一覧の末尾に置く。
+              <Button
+                type="button"
+                variant="outline"
+                disabled={disabled || !canCreateNote || noteCreationPending}
+                ref={addButtonRef}
+                aria-label={
+                  workspaceCollapsible ? "新しい付箋を追加" : "付箋を追加"
+                }
+                onClick={handleAdd}
+                className="flex h-[150px] w-[200px] flex-col items-center justify-center gap-3 rounded-lg border-2 border-primary/50 border-dashed bg-muted/50 font-medium text-foreground hover:border-primary/75 hover:bg-muted active:bg-muted/80"
+                style={{ width: NOTE_WIDTH, height: NOTE_HEIGHT }}
+              >
+                <Plus aria-hidden="true" className="size-6" />
+                <span>
+                  {workspaceCollapsible ? "新しい付箋を追加" : "付箋を追加"}
+                </span>
+              </Button>
+            ) : null}
           </div>
         </section>
       </CardContent>

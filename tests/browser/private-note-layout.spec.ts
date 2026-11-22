@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { byViewport, includeMobile } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout/private-note-layout";
@@ -17,11 +18,11 @@ afterAll(async () => {
   await browser?.close();
 });
 
-for (const viewport of [
+for (const viewport of byViewport(
   { width: 414, height: 635 },
   { width: 390, height: 844 },
   { width: 1280, height: 720 },
-]) {
+)) {
   test(`${viewport.width}×${viewport.height}: 個人付箋ワークスペースを操作できる`, async () => {
     page = await browser.newPage({ viewport });
     await page.goto(
@@ -132,39 +133,42 @@ for (const phase of [2, 3]) {
 }
 
 for (const step of [2, 3]) {
-  test(`390px・1-${step}: 上部欄の下の空白でボードを操作できる`, async () => {
-    page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await page.goto(
-      `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-${step}&viewMode=story`,
-    );
-    const column = page.getByTestId("board-context-column");
-    await column.waitFor();
-    await page.evaluate(() => document.fonts.ready);
-    const close = page.getByRole("button", { name: "マイ付箋を閉じる" });
-    if (await close.count()) await close.click();
-    const blank = await column.evaluate((element) => {
-      const bounds = element.getBoundingClientRect();
-      const contentBottom = Math.max(
-        ...Array.from(
-          element.children,
-          (child) => child.getBoundingClientRect().bottom,
-        ),
+  test.skipIf(!includeMobile)(
+    `390px・1-${step}: 上部欄の下の空白でボードを操作できる`,
+    async () => {
+      page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+      await page.goto(
+        `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-${step}&viewMode=story`,
       );
-      return {
-        x: bounds.x + 10,
-        y: contentBottom + 10,
-      };
-    });
-    // コンテンツの直下が同じ高さの透明な上部欄で覆われない。
-    const target = await page.evaluate(({ x, y }) => {
-      const element = document.elementFromPoint(x, y);
-      return {
-        blocked: Boolean(
-          element?.closest('[data-testid="board-context-column"]'),
-        ),
-        board: Boolean(element?.closest('[data-testid="board-frame"]')),
-      };
-    }, blank);
-    expect(target).toEqual({ blocked: false, board: true });
-  });
+      const column = page.getByTestId("board-context-column");
+      await column.waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      const close = page.getByRole("button", { name: "マイ付箋を閉じる" });
+      if (await close.count()) await close.click();
+      const blank = await column.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        const contentBottom = Math.max(
+          ...Array.from(
+            element.children,
+            (child) => child.getBoundingClientRect().bottom,
+          ),
+        );
+        return {
+          x: bounds.x + 10,
+          y: contentBottom + 10,
+        };
+      });
+      // コンテンツの直下が同じ高さの透明な上部欄で覆われない。
+      const target = await page.evaluate(({ x, y }) => {
+        const element = document.elementFromPoint(x, y);
+        return {
+          blocked: Boolean(
+            element?.closest('[data-testid="board-context-column"]'),
+          ),
+          board: Boolean(element?.closest('[data-testid="board-frame"]')),
+        };
+      }, blank);
+      expect(target).toEqual({ blocked: false, board: true });
+    },
+  );
 }

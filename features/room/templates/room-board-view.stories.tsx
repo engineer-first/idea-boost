@@ -17,6 +17,7 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { useFeedback } from "@/features/feedback";
+import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import { useCanvasCamera } from "../logic/use-canvas-camera";
 import {
@@ -73,7 +74,6 @@ const INTERACTIONS: RoomBoardInteractions = {
   notes: buildNotes(3),
   privateNotes: [],
   dragGhost: null,
-  isReturnDropTarget: false,
   isNoteDragging: false,
   camera: { x: 0, y: 0, zoom: 1 },
   gridStyle: {
@@ -195,17 +195,20 @@ const meta = {
   },
   decorators: [
     (Story, context) => {
-      const sessionKey = `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:1-1`;
+      const firstStepGuideKey = stepGuideSeenStorageKey(
+        context.args.currentUserId,
+        "1-1",
+      );
       for (const step of ["1-2", "1-3", "1-4", "1-5", "2-1", "3-1", "3-3"]) {
-        window.sessionStorage.setItem(
-          `step-onboarding:${context.args.inviteCode}:${context.args.currentUserId}:${step}`,
+        window.localStorage.setItem(
+          stepGuideSeenStorageKey(context.args.currentUserId, step),
           "seen",
         );
       }
       if (context.parameters.firstVisitOnboarding) {
-        window.sessionStorage.removeItem(sessionKey);
+        window.localStorage.removeItem(firstStepGuideKey);
       } else {
-        window.sessionStorage.setItem(sessionKey, "seen");
+        window.localStorage.setItem(firstStepGuideKey, "seen");
       }
       return (
         <div style={{ height: "100vh" }}>
@@ -293,7 +296,6 @@ export const PrivateNoteAdditionDelayed: Story = {
       onNoteDragEnd: () => undefined,
       onNoteDragCancel: () => undefined,
       onPrivateNotePublish: () => undefined,
-      onPrivateNoteUnpublish: () => undefined,
       onCursorMove: () => undefined,
       onCursorLeave: () => undefined,
     });
@@ -1073,15 +1075,6 @@ export const CanvasInputInteraction: Story = {
           { ...note, visibility: "shared", x, y },
         ]);
       },
-      onPrivateNoteUnpublish: (id) => {
-        const note = notes.find((item) => item.id === id);
-        if (!note) return;
-        setNotes((current) => current.filter((item) => item.id !== id));
-        setPrivateNotes((current) => [
-          ...current,
-          { ...note, visibility: "private" },
-        ]);
-      },
       onCursorMove: () => undefined,
       onCursorLeave: () => undefined,
     });
@@ -1781,7 +1774,6 @@ function AdditionalWritingExperience(args: RoomBoardViewProps) {
     onNoteDragEnd: () => undefined,
     onNoteDragCancel: () => undefined,
     onPrivateNotePublish: () => undefined,
-    onPrivateNoteUnpublish: () => undefined,
     onCursorMove: () => undefined,
     onCursorLeave: () => undefined,
   });

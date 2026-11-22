@@ -286,7 +286,8 @@ export async function smokePreviewBrowserCollaboration(
     await owner.getByRole("button", { name: "招待", exact: true }).click();
     const inviteUrl = await owner
       .getByRole("button", { name: "招待URLをコピー" })
-      .innerText();
+      .textContent();
+    assert.ok(inviteUrl, "招待URLが表示されていません。");
     assert.equal(new URL(inviteUrl).origin, input.origin);
     await owner.keyboard.press("Escape");
     await owner.keyboard.press("Escape");

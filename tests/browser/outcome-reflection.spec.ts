@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { byViewport, includeMobile } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -32,10 +33,7 @@ async function createStudy(): Promise<void> {
   await page.getByRole("article", { name: "調査の手順" }).waitFor();
 }
 
-test.each([
-  { width: 320, height: 640 },
-  { width: 1280, height: 800 },
-])(
+test.each(byViewport({ width: 1280, height: 800 }))(
   "$width pxで最初の画面から調査へ進め、手順送りと戻る操作で現在地へフォーカスする",
   async (viewport) => {
     await page.setViewportSize(viewport);
@@ -105,34 +103,37 @@ test.each([
   },
 );
 
-test("動きを減らす設定でも手順を切り替えられ、内容を動かさない", async () => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto(
-    `${origin}/iframe.html?id=room-outcomereflectioncontainer--outcome-page&viewMode=story`,
-  );
-  await page.getByRole("button", { name: "調査を準備する" }).click();
-  await createStudy();
-  const article = page.getByRole("article", { name: "調査の手順" });
-  await page.getByRole("button", { name: "次へ", exact: true }).click();
-  expect(
-    await article.evaluate(
-      (element) => getComputedStyle(element).animationName,
-    ),
-  ).toBe("none");
-  expect(
-    await article
-      .getByRole("progressbar")
-      .locator("span")
-      .evaluate((element) => getComputedStyle(element).transitionDuration),
-  ).toBe("0s");
-  expect(
-    await article
-      .getByRole("heading")
-      .evaluate((element) => element === document.activeElement),
-  ).toBe(true);
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-});
+test.skipIf(!includeMobile)(
+  "動きを減らす設定でも手順を切り替えられ、内容を動かさない",
+  async () => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(
+      `${origin}/iframe.html?id=room-outcomereflectioncontainer--outcome-page&viewMode=story`,
+    );
+    await page.getByRole("button", { name: "調査を準備する" }).click();
+    await createStudy();
+    const article = page.getByRole("article", { name: "調査の手順" });
+    await page.getByRole("button", { name: "次へ", exact: true }).click();
+    expect(
+      await article.evaluate(
+        (element) => getComputedStyle(element).animationName,
+      ),
+    ).toBe("none");
+    expect(
+      await article
+        .getByRole("progressbar")
+        .locator("span")
+        .evaluate((element) => getComputedStyle(element).transitionDuration),
+    ).toBe("0s");
+    expect(
+      await article
+        .getByRole("heading")
+        .evaluate((element) => element === document.activeElement),
+    ).toBe(true);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+  },
+);
 
 test("キーボード操作で遷移した見出しにfocus-visibleの枠を表示する", async () => {
   await page.setViewportSize({ width: 1280, height: 800 });

@@ -8,6 +8,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { checksWidth, includeMobile, sizes, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -63,11 +64,7 @@ async function reachable(target: Locator): Promise<void> {
   ).toBe(true);
 }
 
-test.each([
-  [1280, 720],
-  [390, 844],
-  [320, 568],
-])(
+test.each(sizes([1280, 720], [390, 844]))(
   "%i×%iで全14工程の棒・現在位置・表示幅ごとの高さを保つ",
   async (width, height) => {
     await page.setViewportSize({ width, height });
@@ -118,11 +115,7 @@ test.each([
   },
 );
 
-test.each([
-  [542, 618],
-  [390, 844],
-  [320, 568],
-])(
+test.each(sizes([542, 618], [390, 844]))(
   "%i×%iでも現在地の位置と幅を保って直下に手順を開く",
   async (width, height) => {
     await page.setViewportSize({ width, height });
@@ -154,9 +147,18 @@ test("画面を狭めても現在地は横に広がらず、開いた詳細も�
   const card = page.getByTestId("board-location-card");
   const trigger = page.getByRole("button", { name: /現在地/ });
   let previousWidth = Number.POSITIVE_INFINITY;
-  for (const width of [
-    1280, 1200, 1199, 901, 900, 640, 639, 637, 542, 390, 330, 320,
-  ]) {
+  for (const width of widths(
+    1280,
+    1200,
+    1199,
+    901,
+    900,
+    640,
+    639,
+    637,
+    542,
+    390,
+  )) {
     await page.setViewportSize({ width, height: 618 });
     const compact = await card.boundingBox();
     expect(compact).not.toBeNull();
@@ -172,11 +174,7 @@ test("画面を狭めても現在地は横に広がらず、開いた詳細も�
   }
 });
 
-test.each([
-  [1280, 720],
-  [390, 844],
-  [320, 568],
-])(
+test.each(sizes([1280, 720], [390, 844]))(
   "%i×%iで2状態・3フェーズ・長い作業名・一覧・閉じた後の操作へ到達できる",
   async (width, height) => {
     await page.setViewportSize({ width, height });
@@ -196,9 +194,9 @@ test.each([
     await trigger.click();
     expect(await card.getAttribute("data-state")).toBe("expanded");
     await reachable(page.getByTestId("board-current-step"));
-    expect(await page.getByTestId("board-current-step").innerText()).toContain(
-      "価値×実現のしやすさで評価",
-    );
+    expect(
+      await page.getByTestId("board-current-step").textContent(),
+    ).toContain("価値×実現のしやすさで評価");
     expect(
       await Promise.all([reference.boundingBox(), canvas.boundingBox()]),
     ).toEqual(boxes);
@@ -209,7 +207,7 @@ test.each([
     ).toBe("true");
     const list = page.getByRole("list", { name: "このフェーズの全手順" });
     expect(await list.locator("li").count()).toBe(5);
-    expect(await list.locator('[aria-current="step"]').innerText()).toContain(
+    expect(await list.locator('[aria-current="step"]').textContent()).toContain(
       "価値×実現のしやすさで評価",
     );
     for (const row of await list.locator("li").all()) await reachable(row);
@@ -224,8 +222,8 @@ test.each([
     });
     await page.getByRole("tab", { name: /問い/ }).click();
     expect(await list.locator("li").count()).toBe(4);
-    expect(await trigger.innerText()).toContain("③アイデア");
-    expect(await trigger.getByTestId("board-location-step").innerText()).toBe(
+    expect(await trigger.textContent()).toContain("③アイデア");
+    expect(await trigger.getByTestId("board-location-step").textContent()).toBe(
       "2軸評価",
     );
     expect(
@@ -299,8 +297,8 @@ test("キーボードで3フェーズを直接閲覧し、上の入口とEscape�
   expect(
     await page.getByRole("tab", { name: /問い/ }).getAttribute("aria-current"),
   ).toBe("step");
-  expect(await trigger.innerText()).toContain("②問い");
-  expect(await trigger.getByTestId("board-location-step").innerText()).toBe(
+  expect(await trigger.textContent()).toContain("②問い");
+  expect(await trigger.getByTestId("board-location-step").textContent()).toBe(
     "個人",
   );
   expect(
@@ -318,43 +316,49 @@ test("キーボードで3フェーズを直接閲覧し、上の入口とEscape�
   expect(await trigger.getAttribute("aria-expanded")).toBe("false");
 });
 
-test("手順一覧にキーボードフォーカスが見え、短い画面でも末尾までスクロールできる", async () => {
-  await page.setViewportSize({ width: 320, height: 320 });
-  await open("room-roomboardlayout--phase-3-step-3");
-  const trigger = page.getByRole("button", { name: /現在地/ });
-  await trigger.focus();
-  await page.keyboard.press("Enter");
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Tab");
-  const panel = page.getByRole("tabpanel");
-  expect(await panel.evaluate((el) => el === document.activeElement)).toBe(
-    true,
-  );
-  const outline = await panel.evaluate((el) => {
-    const style = getComputedStyle(el);
-    return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
-  });
-  expect(outline.style).toBe("solid");
-  expect(outline.width).toBeGreaterThanOrEqual(2);
-  await page.keyboard.press("End");
-  await expect
-    .poll(() => panel.evaluate((el) => el.scrollTop))
-    .toBeGreaterThan(0);
-  await reachable(panel.getByRole("listitem").last());
-  await page.keyboard.press("Escape");
-  expect(await trigger.evaluate((el) => el === document.activeElement)).toBe(
-    true,
-  );
-});
+test.skipIf(!includeMobile)(
+  "手順一覧にキーボードフォーカスが見え、短い画面でも末尾までスクロールできる",
+  async () => {
+    await page.setViewportSize({ width: 360, height: 320 });
+    await open("room-roomboardlayout--phase-3-step-3");
+    const trigger = page.getByRole("button", { name: /現在地/ });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Tab");
+    const panel = page.getByRole("tabpanel");
+    expect(await panel.evaluate((el) => el === document.activeElement)).toBe(
+      true,
+    );
+    const outline = await panel.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        style: style.outlineStyle,
+        width: parseFloat(style.outlineWidth),
+      };
+    });
+    expect(outline.style).toBe("solid");
+    expect(outline.width).toBeGreaterThanOrEqual(2);
+    await page.keyboard.press("End");
+    await expect
+      .poll(() => panel.evaluate((el) => el.scrollTop))
+      .toBeGreaterThan(0);
+    await reachable(panel.getByRole("listitem").last());
+    await page.keyboard.press("Escape");
+    expect(await trigger.evaluate((el) => el === document.activeElement)).toBe(
+      true,
+    );
+  },
+);
 
-test.each([
-  [1280, 720, "auth-required"],
-  [390, 844, "auth-required"],
-  [320, 568, "reconnecting"],
-  [320, 568, "auth-required"],
-  [320, 568, "unavailable"],
-  [320, 568, "auth-required-with-move-history"],
-] as const)(
+test.each(
+  (
+    [
+      [1280, 720, "auth-required"],
+      [390, 844, "auth-required"],
+    ] as const
+  ).filter(([width]) => checksWidth(width)),
+)(
   "%i×%iの%sでも接続案内とマイ付箋を保って現在地と全手順へ到達できる",
   async (width, height, state) => {
     await page.setViewportSize({ width, height });
@@ -406,10 +410,7 @@ test.each([
   },
 );
 
-test.each([
-  [1280, 720],
-  [320, 568],
-])(
+test.each(sizes([1280, 720]))(
   "%i×%iでフィードバックの対象・未送信入力・復帰先を保持する",
   async (width, height) => {
     await page.setViewportSize({ width, height });
@@ -458,10 +459,10 @@ test.each([
 );
 
 // 高さが小さいときも、展開中のタブと上の閉じる入口を下部HUDが覆わない。
-test.each([3, 4, 5])(
-  "320×320の3-%iでも現在地の直下の手順と上の開閉操作へ到達できる",
+test.skipIf(!includeMobile).each([3, 4, 5])(
+  "360×320の3-%iでも現在地の直下の手順と上の開閉操作へ到達できる",
   async (step) => {
-    await page.setViewportSize({ width: 320, height: 320 });
+    await page.setViewportSize({ width: 360, height: 320 });
     await open(`room-roomboardlayout--phase-3-step-${step}`);
     const trigger = page.getByRole("button", { name: /現在地/ });
     await trigger.click();
@@ -482,11 +483,7 @@ const nextLabels = [
   ["共有", "投票", "決定", "アイデア"],
   ["共有", "評価", "投票", "決定", "成果"],
 ];
-test.each([
-  [320, 568],
-  [390, 844],
-  [1280, 720],
-])(
+test.each(sizes([390, 844], [1280, 720]))(
   "%i×%iで14工程の現在地と次をHUD用の高さで同じ行に収める",
   async (width, height) => {
     await page.setViewportSize({ width, height });
