@@ -15,12 +15,12 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Notify Discord
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           # マージ通知（discord-merge-notify.yml）とはあえて別チャンネル・別secretにしている。
           # 同じチャンネルだと、着手通知に付いた質問スレッドがマージ通知に埋もれてしまうため。
