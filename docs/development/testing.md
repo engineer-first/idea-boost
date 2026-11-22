@@ -96,7 +96,7 @@
 
 ## CI で回すタイミング
 
-CI の基準はリリース時に致命的な不具合がないこと（[ADR 0029](../adr/0029-ci-release-fatal-bug-bar.md)）。
+CI の基準はリリース時に致命的な不具合がないこと（[ADR 0030](../adr/0030-ci-release-fatal-bug-bar.md)）。
 PR の待ち時間を短くするため、重い検査は変更範囲で回すかを決める。判定は
 [scripts/ci-scope.mts](../../scripts/ci-scope.mts)、判定できない場所の変更は回す側に倒す。
 エージェントは push 前に、変更範囲に必要な検査をローカルで実行する（[AGENTS.md](../../AGENTS.md#開発と検証)）。

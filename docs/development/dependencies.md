@@ -57,11 +57,19 @@ Biome 2.6からMarkdownも整形・lint対象になったが、Markdownはこれ
 
 ## auditの残件と到達性
 
-2026-10-18時点で全件auditのhigh 10件は[bracesの再帰DoS](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)と依存元への波及集計。braces 3.0.3も対象で修正版はない。`shadcn → @shadcn/registry / fast-glob / ts-morph → micromatch → braces` と `remark-cli → unified-args → chokidar → braces` に残る。
+2026-11-21時点で `--omit=dev` は0件、全件auditはhigh 2・moderate 15。10月に残件だった[bracesの再帰DoS](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)は10月23日に取り下げられた。同じ日に、範囲内で直せるbody-parser 2.4.0・fast-uri 3.1.9・systeminformation 5.33.23・glob 13.0.7へlockfileを更新した。残りは次の3系統で、どれも依存元の対応を待つ。
+
+| 対象と経路                                                                                                                         | 残る理由                                                                                                                                                                          | 到達性                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| [zodの配列検証のメモリ枯渇](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)。`@google/design.md 0.4.0 → zod 3.25.76`            | 修正は4.6.6以降だけで3系の修正版はない。design.mdの最新版も `zod ^3.24.0` のまま                                                                                                  | `lint:design`・`gen:design-tokens` がリポジトリ内のDESIGN.mdだけを検証する。アプリの `contracts/` は修正済みのzod 4.6.7を使う |
+| [minimatchのパターン増幅DoS](https://github.com/advisories/GHSA-g3hv-75wg-m249)。shadcn・remark-cli配下の9.0.9・10.2.6             | 修正は11.0.1以降だけで9・10系の修正版はない                                                                                                                                       | 影響は利用側が `optimizationLevel` 2以上で未信頼のパターンを渡した場合。CLIへ渡すのはリポジトリ内の固定パターンだけ           |
+| [globの中断後の走査継続](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4)。OpenNext・Storybook配下の13.0.7、限定overrideの10.5.0 | 13.0.7は修正コミット[d94a8c8](https://github.com/isaacs/node-glob/commit/d94a8c8d0a)を取り込み済みだが、advisoryの範囲（`<=14.0.1`）が未更新のためauditに残る。10系は修正版がない | 影響は `signal` で走査を打ち切る呼出し。ビルド・整形ツールが信頼するリポジトリを走査するだけで、アプリ入力から到達しない      |
 
 shadcnはCSSをビルド時にimportするためdevDependenciesへ分類する。`--omit=dev` の0件だけでは安全と判断しない。Miniflare/Wrangler/Storybook等も開発端末やCIでコードを実行する。auditが返さないadvisoryもあるため、上流のsecurity情報と実際のlockfileを突き合わせる。
 
-未信頼のglob・registryをCLIへ渡さず、信頼するリポジトリのビルド・整形に限定する。通常のアプリ入力からbracesへ到達する呼出経路は確認されていないが、非到達を全面的に証明したものではない。修正版または依存除去を追跡し再監査する。機能破壊を伴う古いshadcn/remarkへのaudit推奨ダウングレードは採用しない。
+Next.jsはReactのServer Components実装を同梱するため、`react-server-dom-*` の脆弱性はルートのreact版だけで判断しない。2026-11-10の[RSCのRCE](https://github.com/advisories/GHSA-xqc2-xf4c-x3h3)では、Next 16.4.6の同梱版に修正版19.3.1と同じ修正が入っていることを確認した。
+
+未信頼のglob・registryをCLIへ渡さず、信頼するリポジトリのビルド・整形に限定する。上の残件へ通常のアプリ入力から到達する呼出経路は確認されていないが、非到達を全面的に証明したものではない。修正版または依存除去を追跡し再監査する。機能破壊を伴う古いshadcn/remarkへのaudit推奨ダウングレードは採用しない。
 
 ## 検証
 

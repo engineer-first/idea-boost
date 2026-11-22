@@ -91,7 +91,7 @@ const DECISION_SLIDES: readonly StepGuideSlide[] = [
 ];
 
 // ステップに入ったとき自動で開く案内。
-const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
+const STEP_GUIDES = {
   "1-1": STEP_ONE_ONBOARDING_SLIDES,
   "1-2": SHARE_SLIDES,
   "1-3": [
@@ -161,7 +161,30 @@ const STEP_GUIDES: Readonly<Record<string, readonly StepGuideSlide[]>> = {
         "上ほど価値が高く、右ほど実現しやすい2軸マップで付箋を動かす",
     },
   ],
+} satisfies Readonly<Record<string, readonly StepGuideSlide[]>>;
+
+type AutoStepGuideKey = keyof typeof STEP_GUIDES;
+
+// 自動表示する案内の版。既読の記録は本人×ステップ×版ごとに端末へ残す。
+// 版を上げると、そのステップの案内を既に見た人にも一度だけ自動表示する。
+// 上げるのは、前の案内のとおりに操作すると迷う・誤る変更（操作・決まり・判断基準・
+// ボタン名が変わる）のときだけ。言い回し・誤字・図や動画の見た目だけの変更、
+// 迷う場合は上げない。新しいステップの案内は1から始める。
+// 判断の理由は docs/adr/0029-step-guide-seen-per-user.md を参照する。
+const STEP_GUIDE_REVISIONS: Readonly<Record<AutoStepGuideKey, number>> = {
+  "1-1": 1,
+  "1-2": 1,
+  "1-3": 1,
+  "1-4": 1,
+  "1-5": 1,
+  "2-1": 1,
+  "3-1": 1,
+  "3-3": 1,
 };
+
+function isAutoStepGuideKey(phaseKey: string): phaseKey is AutoStepGuideKey {
+  return Object.hasOwn(STEP_GUIDES, phaseKey);
+}
 
 // 自動では開かないが、「進め方」から開ける案内。同じ種類のステップの案内を使い回す。
 const REFERENCE_STEP_GUIDES: Readonly<
@@ -178,13 +201,19 @@ const REFERENCE_STEP_GUIDES: Readonly<
 export function getStepGuideSlides(
   phaseKey: string,
 ): readonly StepGuideSlide[] {
-  return STEP_GUIDES[phaseKey] ?? [];
+  return isAutoStepGuideKey(phaseKey) ? STEP_GUIDES[phaseKey] : [];
+}
+
+export function getStepGuideRevision(phaseKey: string): number {
+  return isAutoStepGuideKey(phaseKey) ? STEP_GUIDE_REVISIONS[phaseKey] : 0;
 }
 
 export function getStepGuideReferenceSlides(
   phaseKey: string,
 ): readonly StepGuideSlide[] {
-  return STEP_GUIDES[phaseKey] ?? REFERENCE_STEP_GUIDES[phaseKey] ?? [];
+  return isAutoStepGuideKey(phaseKey)
+    ? STEP_GUIDES[phaseKey]
+    : (REFERENCE_STEP_GUIDES[phaseKey] ?? []);
 }
 
 export const SCAMPER_QUESTION_EXAMPLES = [
