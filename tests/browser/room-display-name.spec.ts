@@ -1,13 +1,16 @@
 import { chromium } from "playwright";
 import { beforeAll, expect, test, vi } from "vitest";
+import { byViewport } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
-test.each([
-  { width: 390, connectionDelayMs: 0 },
-  { width: 1280, connectionDelayMs: 0 },
-  { width: 390, connectionDelayMs: 1500 },
-  { width: 1280, connectionDelayMs: 1500 },
-])(
+test.each(
+  byViewport(
+    { width: 390, connectionDelayMs: 0 },
+    { width: 1280, connectionDelayMs: 0 },
+    { width: 390, connectionDelayMs: 1500 },
+    { width: 1280, connectionDelayMs: 1500 },
+  ),
+)(
   "$width px / 接続遅延 $connectionDelayMs ms: 13人目の本人の編集を取消・保存した後に名前へ戻る",
   async ({ width, connectionDelayMs }) => {
     const browser = await chromium.launch();
@@ -64,10 +67,9 @@ beforeAll(async () => {
     { timeout: 90000, interval: 1000 },
   );
 });
-test.each([
-  { width: 390, height: 844 },
-  { width: 1280, height: 900 },
-])(
+test.each(
+  byViewport({ width: 390, height: 844 }, { width: 1280, height: 900 }),
+)(
   "$width px: 本人表示からキーボードで編集・取消・保存し同名の対象を色で区別する",
   async (viewport) => {
     const browser = await chromium.launch();

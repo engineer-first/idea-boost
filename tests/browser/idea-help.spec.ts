@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
+import { includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -18,7 +19,7 @@ async function open(page: Page, story: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
 }
 
-for (const width of [390, 1440]) {
+for (const width of widths(390, 1440)) {
   test(`${width}pxで選んだ発想法を保ち、キーボードで作業へ戻れる`, async () => {
     const page = await browser.newPage({ viewport: { width, height: 844 } });
     try {
@@ -85,21 +86,26 @@ for (const width of [390, 1440]) {
   });
 }
 
-test("接続拒否中は発想支援ツールを作成できない", async () => {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  try {
-    await open(page, "disconnected");
-    const guide = page.getByTestId("idea-guide-panel");
-    for (const button of await guide
-      .getByRole("button")
-      .filter({ hasNotText: "ほかの考え方" })
-      .all()) {
-      expect(await button.isDisabled()).toBe(true);
+test.skipIf(!includeMobile)(
+  "接続拒否中は発想支援ツールを作成できない",
+  async () => {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+    });
+    try {
+      await open(page, "disconnected");
+      const guide = page.getByTestId("idea-guide-panel");
+      for (const button of await guide
+        .getByRole("button")
+        .filter({ hasNotText: "ほかの考え方" })
+        .all()) {
+        expect(await button.isDisabled()).toBe(true);
+      }
+      const more = guide.getByRole("button", { name: /ほかの考え方/ });
+      await more.press("Enter");
+      expect(await more.getAttribute("aria-expanded")).toBe("true");
+    } finally {
+      await page.close();
     }
-    const more = guide.getByRole("button", { name: /ほかの考え方/ });
-    await more.press("Enter");
-    expect(await more.getAttribute("aria-expanded")).toBe("true");
-  } finally {
-    await page.close();
-  }
-});
+  },
+);

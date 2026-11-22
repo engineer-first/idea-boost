@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -15,7 +16,7 @@ afterAll(async () => {
   await browser?.close();
 });
 
-for (const width of [390, 1280]) {
+for (const width of widths(390, 1280)) {
   test.each([1, 2, 3])(
     `${width}px・%i-2: 個人付箋を横に動かさず、縦スクロールで末尾へ到達できる`,
     async (phase) => {

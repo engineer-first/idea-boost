@@ -35,6 +35,18 @@ describe("本番公開と履歴の接続", () => {
     ).toBe(true);
     expect(deploy.permissions.contents).toBe("read");
   });
+  it("公開後はAPIの疎通に加えて、トップとログイン画面が描画されることを確かめる", () => {
+    // /api/health は Worker の起動だけを見る。OpenNext の実行時エラーやルーティング崩れは
+    // 画面を開かないと分からず、利用者が入口から入れない致命的な障害になる。
+    const check = workflow("deploy").jobs["health-check"].steps.find(
+      (step: { name?: string }) => step.name === "Check health",
+    );
+    expect(check.run).toContain('"$SITE_URL/api/health"');
+    expect(check.run).toContain('"$SITE_URL/"');
+    expect(check.run).toContain('"$SITE_URL/login"');
+    // 公開直後の一時的な5xxやタイムアウトで、正常な公開を失敗扱いにしない。
+    expect(check.run).toMatch(/http_code.*--retry \d/);
+  });
   it("記録だけの再試行・外部手動記録を同じキューで直列化し、デプロイしない", () => {
     const retry = workflow("release-history");
     expect(retry.on).toHaveProperty("workflow_dispatch");

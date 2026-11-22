@@ -15,10 +15,11 @@ import {
   stopProcesses,
   waitForReady,
 } from "../../scripts/verification-process.mjs";
+import { widths as filterWidths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout";
-const widths = [390, 1280];
+const widths = filterWidths(390, 1280);
 
 type Bounds = { x: number; y: number; width: number; height: number };
 type CardLayout = {
@@ -268,7 +269,7 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 // Storybook の Next router はモック。実際の URL 遷移は下の実 Next/Worker で検証する。
-it.each([390, 640, 1280])(
+it.each(filterWidths(390, 640, 1280))(
   "作成を主役に参加を下段へ配置し、blur検証と履歴入口のTab操作を%ipxで行える",
   async (width) => {
     const browser = await chromium.launch();

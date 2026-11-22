@@ -1,8 +1,9 @@
 import { chromium } from "playwright";
 import { expect, it } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
-it.each([390, 1280])(
+it.each(widths(390, 1280))(
   "進行履歴の盤面選択・全文・再取得へ%ipxで到達できる",
   async (width) => {
     const browser = await chromium.launch();

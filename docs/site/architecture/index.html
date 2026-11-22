@@ -628,7 +628,14 @@
               <td class="mono">ci.yml</td>
               <td>pull_request</td>
               <td>
-                <b>lint</b> / <b>test</b>（unit + workers）/ <b>build:cf</b> / <b>smoke</b>。デプロイはしない
+                <b>lint</b> / <b>test</b>（unit、関係する変更時は workers）/ <b>build:cf</b>。<b>smoke</b> は develop へのマージ後。デプロイはしない
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">browser.yml</td>
+              <td>pull_request / push to <code>develop</code></td>
+              <td>
+                Storybook を配信して実ブラウザで検査。PR では画面に関わる変更時だけ、スマホ幅は <code>mobile</code> ラベル時だけ
               </td>
             </tr>
             <tr>

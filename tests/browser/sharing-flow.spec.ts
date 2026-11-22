@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -86,7 +87,7 @@ describe("共有する人の表示", () => {
     }
   });
 
-  it.each([1440, 900, 390])(
+  it.each(widths(1440, 900, 390))(
     "%ipxで交代案内が現在地と発表者カードを覆わない",
     async (width) => {
       const page = await browser.newPage({

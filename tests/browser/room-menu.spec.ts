@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -57,7 +58,7 @@ test("外側クリックでルームメニューが閉じ、再表示・Escape�
   }
 });
 
-test.each([1440, 390])(
+test.each(widths(1440, 390))(
   "幅 %i で招待を開き、Escape でメニューへ戻れる",
   async (width) => {
     const context = await browser.newContext({

@@ -92,6 +92,8 @@ jobs:
         with:
           # 後続ステップに git push/fetch はないため、トークンを workspace に残さない
           persist-credentials: false
+          # PR の変更ファイルをベースとの差分で調べる。
+          fetch-depth: 0
 
       - uses: jdx/mise-action@v5
         with:
@@ -102,52 +104,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # worker 系のテストは workerd を起動するため、関係する変更がある PR と develop へのマージ後だけ回す。
+      # 判定は scripts/ci-scope.mts。本番リリース前は deploy の gate でも test:workers を回す。
+      - name: Decide worker test scope
+        id: scope
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            git diff --name-only --no-renames "$BASE_SHA" HEAD | node scripts/ci-scope.mts
+          else
+            echo "workers=true" | tee -a "$GITHUB_OUTPUT"
+          fi
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
       - name: Run unit tests
         run: npm run test
 
       - name: Run worker tests (Durable Objects / D1)
+        if: steps.scope.outputs.workers == 'true'
         run: npm run test:workers
 
       - name: Run Preview authentication and sample worker tests
+        if: steps.scope.outputs.workers == 'true'
         run: npm run test:preview
 
       - name: Run local verification worker tests
+        if: steps.scope.outputs.workers == 'true'
         run: npm run test:verification
-
-  browser:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@v5
-        with:
-          install: true
-          cache_max_age_days: 1
-      - name: Install dependencies
-        run: npm ci
-      - name: Install Chromium
-        # OSの依存はrunnerイメージにそろっていることが多い。aptミラーの障害時は
-        # ブラウザ本体だけ入れて検査へ進み、依存不足なら検査ステップで失敗させる。
-        run: |
-          npx playwright install --with-deps chromium || {
-            echo "::warning::OSの依存を取得できなかったため、Chromium本体だけを入れます。"
-            npx playwright install chromium
-          }
-      - name: Build Storybook
-        run: npm run build-storybook > storybook-test.log 2>&1
-      - name: Serve built Storybook
-        run: python3 -m http.server 6006 --bind 127.0.0.1 --directory storybook-static >> storybook-test.log 2>&1 &
-      - name: Check board layout in Chromium
-        run: npm run test:browser
-      - name: Save screenshots and Storybook log
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: board-layout
-          path: |
-            test-results/board-layout/
-            storybook-test.log
 
   build:
     runs-on: ubuntu-latest
@@ -207,6 +191,10 @@ jobs:
     # 環境を実際に起動し、Next.js -> サービスバインディング -> api-worker の
     # 経路が生きているかを検証する。同じチェックはローカルでも
     # `npm run smoke` で再現できる。
+    # PR では build ジョブの preview-smoke が Preview bundle を workerd で起動して疎通を確かめる。
+    # 本番構成のこの検査は develop へのマージ後と、リリース時の deploy gate で回す。
+    # 必須チェック smoke は、ジョブが飛ばされた（skipped）場合も成功として扱われる。
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: build
     steps:

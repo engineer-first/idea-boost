@@ -18,7 +18,7 @@ description: features/・app/・components/ の UI 変更を、配置・stories�
 
 1. **配置と境界**: ドメイン UI が `features/`、`components/ui/` がドメインを知らないか。container / view の分離、`app/` の責務。静的検査（`npm run check:feature-layout`・`npm run lint:boundaries`）で分かることは実行結果を示し、読み直さない。
 2. **stories**: 追加・変更した UI 部品に stories があり、実際の Props と変更した状態を再現しているか。
-3. **検証の選び方**: 変更が振る舞いか、文言・CSS・配置だけかを先に判定する。振る舞いなら、検知したい不具合を観測できる層（純関数・DOM・browser）で失敗するテストから始まっているか。親の DOM テストで検知できるなら子ごとの専用 spec を求めない。データに依存する UI は、適用される loading / empty / success / error を状態を持つ container・view 等で検証し、見た目を stories で再現しているか。存在しない状態を要求しない。
+3. **検証の選び方**: 変更が振る舞いか、文言・CSS・配置だけかを先に判定する。振る舞いなら、検知したい不具合を観測できる層（純関数・DOM・browser）で失敗するテストから始まっているか。親の DOM テストで検知できるなら子ごとの専用 spec を求めない。browser テストが色・アニメーション・固定 px・別画面との位置の完全一致だけを確かめていたら、stories と表示レビューへ移すよう指摘する（[テスト方針](../../../docs/development/testing.md#ui-変更の判断)）。データに依存する UI は、適用される loading / empty / success / error を状態を持つ container・view 等で検証し、見た目を stories で再現しているか。存在しない状態を要求しない。
 4. **fixture とモック**: 生のテストデータや固定コンテンツをコンポーネントに書いていないか。spec と stories が fixture を共有し、外部 API は MSW、WS は `webSocketFactory` のフェイクでモックしているか。
 5. **見た目**: 色・角丸を値ではなくトークン名で書き、DESIGN.md の役割どおりに使っているか（主色は次にやることだけ、状態色は役割ごとに 1 色、付箋に常時の枠を付けない、押せないボタンは破線、ダイアログに説明を足さない等）。`npm run lint` で検出できない定数文字列の既定パレットや、DESIGN.md の文章にしかない基準を中心に見る。
 
