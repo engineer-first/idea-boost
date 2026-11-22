@@ -1642,6 +1642,11 @@
 .comparisonBefore > span {
   white-space: nowrap;
 }
+/* 英語の語句は日本語より長く、1行に収めると狭い画面で切れるため折り返す */
+.comparisonBefore > span:lang(en) {
+  white-space: normal;
+  text-wrap: balance;
+}
 
 .heroContent {
   position: relative;

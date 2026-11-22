@@ -4,6 +4,7 @@ import {
   LandingView,
   landingMetadata,
 } from "@/features/landing";
+import { getBrowserLocale } from "@/lib/i18n/request-locale";
 import { getCurrentUser } from "@/lib/session/current-user";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +18,13 @@ export default async function AboutPage({ searchParams }: AboutPageProps) {
   const isLoggedIn = Boolean(await getCurrentUser());
   return (
     <LandingView
+      locale="ja"
+      browserLocale={await getBrowserLocale()}
       isLoggedIn={isLoggedIn}
       entry={getLandingEntry(
         isLoggedIn,
         typeof next === "string" ? next : undefined,
+        "ja",
       )}
     />
   );

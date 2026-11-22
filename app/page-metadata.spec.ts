@@ -68,6 +68,58 @@ describe("LP のリンクプレビュー", () => {
   });
 });
 
+describe("LP の言語別 URL", () => {
+  const languages = {
+    ja: "https://ideaboost.dev/",
+    en: "https://ideaboost.dev/en",
+    "x-default": "https://ideaboost.dev/",
+  };
+
+  it("日本語の / と /about は / を正とし、英語版 /en を hreflang で示す", async () => {
+    const top = await import("./page");
+    const about = await import("./about/page");
+    for (const { metadata } of [top, about]) {
+      expect(metadata.alternates).toEqual({
+        canonical: "https://ideaboost.dev/",
+        languages,
+      });
+      expect(metadata.openGraph).toMatchObject({
+        locale: "ja_JP",
+        alternateLocale: ["en_US"],
+      });
+    }
+  });
+
+  it("英語の /en と /en/about は英語の title・OG を持ち、/en を正として日本語版を示す", async () => {
+    const top = await import("./en/page");
+    const about = await import("./en/about/page");
+    for (const { metadata } of [top, about]) {
+      expect(isIndexed(resolve(metadata))).toBe(true);
+      expect(metadata.title).toContain("Bring your team to one idea");
+      expect(metadata.alternates).toEqual({
+        canonical: "https://ideaboost.dev/en",
+        languages,
+      });
+      expect(metadata.openGraph).toMatchObject({
+        title: metadata.title,
+        description: metadata.description,
+        url: "https://ideaboost.dev/en",
+        siteName: "Idea Boost",
+        locale: "en_US",
+        alternateLocale: ["ja_JP"],
+        type: "website",
+        images: [{ url: "/brand/ogp.png", width: 1200, height: 630 }],
+      });
+      expect(metadata.twitter).toMatchObject({
+        card: "summary_large_image",
+        title: metadata.title,
+        description: metadata.description,
+        images: ["/brand/ogp.png"],
+      });
+    }
+  });
+});
+
 describe("LP 以外の画面の title", () => {
   const pages: [string, () => Promise<{ metadata: Metadata }>][] = [
     ["/home", () => import("./home/page")],

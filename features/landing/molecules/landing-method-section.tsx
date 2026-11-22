@@ -1,6 +1,9 @@
 import { EyeOff, Lightbulb, Users } from "lucide-react";
 import Image from "next/image";
-import { landingCopy as copy } from "../logic/landing-copy";
+import { Fragment } from "react";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import {
   landingHeadingClass,
   landingLinkClass,
@@ -12,7 +15,12 @@ import { LandingBoardMock } from "./landing-board-mock";
 const visuals = ["issue", "private", "vote"] as const;
 const characters = ["b", "c", "d"] as const;
 const icons = [Lightbulb, Users, EyeOff];
-export function LandingMethodSection() {
+export function LandingMethodSection({
+  locale = "ja",
+}: {
+  locale?: AppLocale;
+}) {
+  const copy = getLandingContent(locale).landingCopy;
   return (
     <section
       style={landingPaperStyle}
@@ -26,10 +34,11 @@ export function LandingMethodSection() {
       </div>
       <div className={styles.methodIntro}>
         <h2 id="landing-method" className={landingHeadingClass}>
-          {copy.method.heading.map((phrase) => (
-            <span key={phrase} className={styles.marker}>
-              {phrase}
-            </span>
+          {copy.method.heading.map((phrase, index) => (
+            <Fragment key={phrase}>
+              {locale === "en" && index > 0 ? " " : null}
+              <span className={styles.marker}>{phrase}</span>
+            </Fragment>
           ))}
         </h2>
         <p className="mt-6 text-xl font-bold sm:text-2xl">
@@ -52,7 +61,7 @@ export function LandingMethodSection() {
         return (
           <article key={item.title} className={styles.reason}>
             <div className={styles.reasonVisual}>
-              <LandingBoardMock variant={visuals[index]} />
+              <LandingBoardMock variant={visuals[index]} locale={locale} />
               <Image
                 className={styles.reasonCharacter}
                 src={`/landing/mood-${characters[index]}.webp`}

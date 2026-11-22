@@ -13,11 +13,18 @@ const meta = {
       </div>
     ),
   ],
-  args: { isLoggedIn: false, entry: getLandingEntry(false) },
+  args: { locale: "ja", isLoggedIn: false, entry: getLandingEntry(false) },
 } satisfies Meta<typeof LandingView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Guest: Story = {};
+/** 英語を望むブラウザで日本語の LP を開くと、英語版への案内を出す。 */
+export const GuestWithEnglishBrowser: Story = {
+  args: { browserLocale: "en" },
+};
+export const EnglishGuest: Story = {
+  args: { locale: "en", entry: getLandingEntry(false, undefined, "en") },
+};
 export const Member: Story = {
   args: { isLoggedIn: true, entry: getLandingEntry(true) },
 };

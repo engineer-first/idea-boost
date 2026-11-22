@@ -5,7 +5,10 @@ import { pathToFileURL } from "node:url";
 import { readD1Migrations } from "@cloudflare/vitest-plugin";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { createFetchMock, Miniflare } from "miniflare";
-import { landingCopy } from "../features/landing/logic/landing-copy.ts";
+import englishLandingMessages from "../messages/en/landing.json" with {
+  type: "json",
+};
+import landingMessages from "../messages/ja/landing.json" with { type: "json" };
 import { previewProbeToken, previewSessionSecret } from "./preview-secrets.mts";
 import type { PreviewBrowserSmokeInput } from "./preview-smoke-browser.mts";
 
@@ -174,12 +177,28 @@ export async function smokePreviewBundle(
       .get("Set-Cookie")
       ?.split(";")[0];
     assert.ok(signedOutCookie);
+    // 言語を送らない検索エンジン・SNS の取得には日本語の LP を返す。
     const landing = await a.fetch(`${origin}/`, {
       headers: { ...headers, Cookie: signedOutCookie },
       redirect: "manual",
     });
     assert.equal(landing.status, 200);
-    assert.ok((await landing.text()).includes(landingCopy.cta.normal[0]));
+    const landingHtml = await landing.text();
+    assert.ok(landingHtml.includes(landingMessages.landingCopy.cta.normal[0]));
+    assert.match(
+      landingHtml,
+      /hreflang="en" href="https:\/\/ideaboost\.dev\/en"/i,
+    );
+    const englishLanding = await a.fetch(`${origin}/en`, {
+      headers: { ...headers, Cookie: signedOutCookie },
+      redirect: "manual",
+    });
+    assert.equal(englishLanding.status, 200);
+    const englishHtml = await englishLanding.text();
+    assert.ok(
+      englishHtml.includes(englishLandingMessages.landingCopy.cta.normal[0]),
+    );
+    assert.match(englishHtml, /<main lang="en"/);
     const login = await a.fetch(`${origin}/login?next=%2Fhome`, {
       headers: { ...headers, Cookie: signedOutCookie },
       redirect: "manual",
