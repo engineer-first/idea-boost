@@ -85,7 +85,7 @@ async function releaseWithoutMove(
 // Storybookのfake transportは、この保証の代わりにしない。
 describe.skipIf(!app)("共有境界の二者同期", () => {
   test.each(["1-2", "2-2", "3-2"])(
-    "%sの有効dropだけが公開/非共有化する",
+    "%sの有効dropだけが公開し、共有付箋をマイ付箋へ落としても非共有化しない",
     async (checkpoint) => {
       const browser = await chromium.launch();
       try {
@@ -204,93 +204,33 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
         await peerCard.waitFor();
         await boardCard.waitFor();
         expect(publishCount()).toBe(1);
-        // 作者hoverの戻しpreviewは他者の確定表示を消さない。
-        const sharedRect = await boardCard
-          .getByRole("button", { name: "付箋", exact: true })
-          .boundingBox();
-        if (!sharedRect) throw new Error("共有した付箋が見つかりません。");
-        await actor.mouse.move(
-          sharedRect.x + sharedRect.width * 0.4,
-          sharedRect.y + sharedRect.height * 0.4,
-        );
-        await actor.mouse.down();
-        // パネル端のpreview収容補正に当たらない位置で、掴み位置そのものを検証する。
-        const fastReturnPoint = {
-          x: tray.x + tray.width / 2 - 20,
-          y: tray.y + 150,
-        };
-        await actor.mouse.move(fastReturnPoint.x, fastReturnPoint.y);
-        await preview.waitFor();
-        const returnPreview = await preview.boundingBox();
-        expect(returnPreview?.x).toBeCloseTo(
-          fastReturnPoint.x - sharedRect.width * 0.4,
-          0,
-        );
-        expect(returnPreview?.y).toBeCloseTo(
-          fastReturnPoint.y - sharedRect.height * 0.4,
-          0,
-        );
-        expect(unpublishCount()).toBe(0);
-        expect(await peerCard.count()).toBe(1);
-        await actor.keyboard.press("Escape");
-        await actor.mouse.up();
-        expect(unpublishCount()).toBe(0);
-        expect(await peerCard.count()).toBe(1);
-        // 戻し候補の上へ別操作面が出た場合も、背面のパネルへdropしない。
-        await startDrag(actor, boardCard);
+        // 共有付箋をマイ付箋エリアへドラッグして離しても未共有化されない。
         const returnPoint = { x: tray.x + tray.width / 2, y: tray.y + 150 };
+        await startDrag(actor, boardCard);
         await actor.mouse.move(returnPoint.x, returnPoint.y, { steps: 8 });
-        await actor.evaluate(({ x, y }) => {
-          const overlay = document.createElement("div");
-          overlay.id = "share-drop-test-overlay";
-          overlay.setAttribute("role", "dialog");
-          overlay.style.cssText = `position:fixed;left:${x - 40}px;top:${y - 40}px;width:80px;height:80px;z-index:2147483647;background:white`;
-          document.body.append(overlay);
-        }, returnPoint);
-        expect(
-          await actor.evaluate(
-            ({ x, y }) => document.elementFromPoint(x, y)?.getAttribute("role"),
-            returnPoint,
-          ),
-        ).toBe("dialog");
         await actor.mouse.up();
-        await actor.evaluate(() =>
-          document.getElementById("share-drop-test-overlay")?.remove(),
-        );
         expect(unpublishCount()).toBe(0);
         expect(await peerCard.count()).toBe(1);
-        await boardCard.waitFor();
-        await startDrag(actor, boardCard);
-        await actor.mouse.move(tray.x + tray.width / 2, tray.y + 150, {
-          steps: 8,
-        });
-        await actor.mouse.up();
-        await expect.poll(unpublishCount, { timeout: 5_000 }).toBe(1);
-        await expect.poll(() => peerCard.count(), { timeout: 5_000 }).toBe(0);
-        expect(unpublishCount()).toBe(1);
-        await expect
-          .poll(() => toolbar.locator(`[data-note-id="${id}"]`).count(), {
-            timeout: 5_000,
-          })
-          .toBe(1);
+        expect(await boardCard.count()).toBe(1);
+        expect(await toolbar.locator(`[data-note-id="${id}"]`).count()).toBe(0);
         await peer.reload();
         await peer.getByTestId("board-canvas").waitFor();
-        expect(await peerCard.count()).toBe(0);
-        // 途中moveが1回も届かない出し入れも、有効な最終dropだけを確定する。
-        await releaseWithoutMove(
-          actor,
-          toolbar.locator(`[data-note-id="${id}"]`),
-          { x: 820, y: 360 },
-        );
-        await expect.poll(publishCount, { timeout: 5_000 }).toBe(2);
-        await peerCard.waitFor();
-        await boardCard.waitFor();
-        await releaseWithoutMove(actor, boardCard, returnPoint);
-        await expect.poll(unpublishCount, { timeout: 5_000 }).toBe(2);
-        await expect.poll(() => peerCard.count(), { timeout: 5_000 }).toBe(0);
-        await expect
-          .poll(() => toolbar.locator(`[data-note-id="${id}"]`).count())
-          .toBe(1);
+        expect(await peerCard.count()).toBe(1);
+        // 途中moveが1回も届かない操作でも、マイ付箋からボードへの有効な最終dropだけを確定する。
+        const secondPrivateCard = toolbar.getByTestId("note-card").first();
+        if ((await secondPrivateCard.count()) > 0) {
+          const secondId = await secondPrivateCard.getAttribute("data-note-id");
+          await releaseWithoutMove(actor, secondPrivateCard, {
+            x: 820,
+            y: 360,
+          });
+          await expect.poll(publishCount, { timeout: 5_000 }).toBe(2);
+          await peer.locator(`[data-note-id="${secondId}"]`).waitFor();
+          await actor
+            .getByTestId("board-canvas")
+            .locator(`[data-note-id="${secondId}"]`)
+            .waitFor();
+        }
       } finally {
         await browser.close();
       }

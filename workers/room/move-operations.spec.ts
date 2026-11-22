@@ -15,6 +15,7 @@ import { groupHandlers, listGroups, saveGroups } from "./groups";
 import type { HandlerCtx } from "./handler-context";
 import {
   expireMoveOperations,
+  MOVE_OPERATIONS_PER_MINUTE,
   moveHandlers,
   releaseConnectionMoves,
   syncMovePresence,
@@ -579,6 +580,41 @@ describe("move transaction", () => {
       expect(
         ctx.sql.exec("SELECT note_id FROM note_move_locks").toArray(),
       ).toEqual([{ note_id: N2 }]);
+    }));
+  it("1分以内に120回続けて短く動かしても、すべての移動を受理する", () =>
+    setup("move-rapid-sequence", (ctx, responses) => {
+      for (let index = 0; index < 120; index += 1) {
+        const operationId = crypto.randomUUID();
+        start(ctx, operationId, [N1]);
+        moveHandlers["note:move:commit"](ctx, {
+          type: "note:move:commit",
+          operationId,
+          delta: { x: index % 2 === 0 ? 40 : -40, y: 0 },
+        } as ClientMessage & { type: "note:move:commit" });
+        expect(responses.at(-1)).toMatchObject({
+          operationId,
+          status: "accepted",
+        });
+      }
+      expect(findNote(ctx.sql, N1)?.x).toBe(100);
+    }));
+  it("1分以内に開始した移動が上限に達すると、次の開始を拒否してlockを残さない", () =>
+    setup("move-rate-limit", (ctx, responses) => {
+      for (let index = 0; index < MOVE_OPERATIONS_PER_MINUTE; index += 1)
+        ctx.sql.exec(
+          "INSERT INTO note_move_operations(operation_id,user_id,connection_id,request_json,state,lease_until,created_at) VALUES (?1,?2,'old','{}','accepted',0,?3)",
+          crypto.randomUUID(),
+          A,
+          Date.now(),
+        );
+      start(ctx, OP, [N1]);
+      expect(responses.at(-1)).toMatchObject({
+        operationId: OP,
+        status: "rejected",
+      });
+      expect(
+        ctx.sql.exec("SELECT note_id FROM note_move_locks").toArray(),
+      ).toEqual([]);
     }));
   it("全位置を一度に確定し再送・結果照会で同一receiptを返す", () =>
     setup("move-commit", (ctx, responses) => {
