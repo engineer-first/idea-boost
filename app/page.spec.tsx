@@ -18,17 +18,34 @@ beforeEach(() => {
   mocks.headers.mockResolvedValue(new Headers({ "accept-language": "ja-JP" }));
 });
 
-it("英語を優先するブラウザでLPの見出しと利用開始リンクを英語で表示する", async () => {
+it("英語を優先するブラウザでも / は日本語のまま表示し、英語版への案内だけを出す", async () => {
   mocks.headers.mockResolvedValue(
     new Headers({ "accept-language": "en-US,en;q=0.9" }),
   );
   render(await RootPage());
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-    "Stuck for ideas?",
+    "アイデア出しに",
   );
-  expect(
-    screen.getAllByRole("link", { name: "Start for free" }).length,
-  ).toBeGreaterThan(0);
+  const english = within(screen.getByRole("banner")).getByRole("link", {
+    name: "English",
+  });
+  expect(english).toHaveAttribute("href", "/en");
+  expect(english).toHaveAttribute("hreflang", "en");
+  expect(english).toHaveAttribute("lang", "en");
+});
+
+it("日本語のブラウザと言語を送らない取得には英語版への案内を出さない", async () => {
+  for (const headers of [
+    new Headers({ "accept-language": "ja-JP" }),
+    new Headers(),
+  ]) {
+    mocks.headers.mockResolvedValue(headers);
+    const { unmount } = render(await RootPage());
+    expect(
+      screen.queryByRole("link", { name: "English" }),
+    ).not.toBeInTheDocument();
+    unmount();
+  }
 });
 
 it("未ログインでRootPageを開くとリダイレクトせずLPから利用開始できる", async () => {

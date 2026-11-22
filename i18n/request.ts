@@ -1,16 +1,14 @@
-import type { AbstractIntlMessages } from "next-intl";
 import { getRequestConfig } from "next-intl/server";
-import { getDisplayLocale } from "@/lib/i18n/request-locale";
-import enLanding from "@/messages/en/landing.json";
-import jaLanding from "@/messages/ja/landing.json";
+import { DEFAULT_LOCALE } from "@/lib/i18n/locale";
+import en from "@/messages/en/landing.json";
+import ja from "@/messages/ja/landing.json";
 
-export default getRequestConfig(async () => {
-  const locale = await getDisplayLocale();
+// 表示言語は URL で決める（LP は / と /en）。Accept-Language では切り替えない。
+// 言語を指定されなかったときは日本語にする。
+export default getRequestConfig(async ({ requestLocale }) => {
+  const locale = (await requestLocale) === "en" ? "en" : DEFAULT_LOCALE;
   return {
     locale,
-    // LP は複数行の配列も持つため raw メッセージとして読み込む。
-    messages: {
-      landing: locale === "ja" ? jaLanding.landingCopy : enLanding.landingCopy,
-    } as unknown as AbstractIntlMessages,
+    messages: { landing: locale === "ja" ? ja : en },
   };
 });

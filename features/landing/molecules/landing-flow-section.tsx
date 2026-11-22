@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Fragment } from "react";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
+import { landingOutcomes } from "../logic/landing-outcomes";
 
 import {
   landingHeadingClass,
@@ -14,7 +15,6 @@ import styles from "./landing.module.css";
 
 export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
   const copy = getLandingContent(locale).landingCopy;
-  const { landingOutcomes } = getLandingContent(locale);
   return (
     <section
       style={landingPaperStyle}
@@ -165,6 +165,7 @@ export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
                 </span>
                 {copy.examples.countSuffix}
               </p>
+              {/* 参加者の回答は翻訳せず原文（日本語）で載せる。 */}
               <dl className="space-y-5">
                 {[outcome.issue, outcome.question, outcome.idea].map(
                   (text, index) => (
@@ -173,6 +174,7 @@ export function LandingFlowSection({ locale = "ja" }: { locale?: AppLocale }) {
                         {copy.examples.labels[index]}
                       </dt>
                       <dd
+                        lang="ja"
                         className={
                           index === 2
                             ? styles.outcomeIdea

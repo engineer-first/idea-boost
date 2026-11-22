@@ -4,17 +4,12 @@
 import type { Metadata } from "next";
 import { describe, expect, it, vi } from "vitest";
 
-const language = vi.hoisted(() => ({ value: "ja-JP" }));
-
 vi.mock("next/font/google", () => ({
   Noto_Sans_JP: () => ({ variable: "noto" }),
   Geist_Mono: () => ({ variable: "mono" }),
 }));
 vi.mock("@/lib/session/current-user", () => ({
   getCurrentUser: async () => null,
-}));
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ "accept-language": language.value }),
 }));
 
 import { metadata as rootMetadata } from "./layout";
@@ -32,30 +27,17 @@ function isIndexed(metadata: Metadata): boolean {
 }
 
 describe("検索に出す画面", () => {
-  it("英語を優先するブラウザへ英語のtitle・description・OGを配信する", async () => {
-    language.value = "en-US,en;q=0.9";
-    const top = await import("./page");
-    const metadata = await top.generateMetadata();
-    expect(metadata.title).toContain("Bring your team to one idea");
-    expect(metadata.description).toContain("web app");
-    expect(metadata.openGraph?.title).toBe(metadata.title);
-    expect(metadata.openGraph?.description).toBe(metadata.description);
-    expect(metadata.openGraph?.locale).toBe("en_US");
-    language.value = "ja-JP";
-  });
   it("LP（/ と /about）だけを検索に出す", async () => {
     const top = await import("./page");
     const about = await import("./about/page");
-    expect(isIndexed(resolve(await top.generateMetadata()))).toBe(true);
-    expect(isIndexed(resolve(await about.generateMetadata()))).toBe(true);
+    expect(isIndexed(resolve(top.metadata))).toBe(true);
+    expect(isIndexed(resolve(about.metadata))).toBe(true);
   });
 
   it("metadata を持たない画面は共通の既定で noindex になり、LP の説明文を引き継がない", async () => {
     const top = await import("./page");
     expect(isIndexed(rootMetadata)).toBe(false);
-    expect(rootMetadata.description).not.toBe(
-      (await top.generateMetadata()).description,
-    );
+    expect(rootMetadata.description).not.toBe(top.metadata.description);
   });
 });
 
@@ -73,6 +55,58 @@ describe("LP のリンクプレビュー", () => {
         url: "https://ideaboost.dev/",
         siteName: "Idea Boost",
         locale: "ja_JP",
+        type: "website",
+        images: [{ url: "/brand/ogp.png", width: 1200, height: 630 }],
+      });
+      expect(metadata.twitter).toMatchObject({
+        card: "summary_large_image",
+        title: metadata.title,
+        description: metadata.description,
+        images: ["/brand/ogp.png"],
+      });
+    }
+  });
+});
+
+describe("LP の言語別 URL", () => {
+  const languages = {
+    ja: "https://ideaboost.dev/",
+    en: "https://ideaboost.dev/en",
+    "x-default": "https://ideaboost.dev/",
+  };
+
+  it("日本語の / と /about は / を正とし、英語版 /en を hreflang で示す", async () => {
+    const top = await import("./page");
+    const about = await import("./about/page");
+    for (const { metadata } of [top, about]) {
+      expect(metadata.alternates).toEqual({
+        canonical: "https://ideaboost.dev/",
+        languages,
+      });
+      expect(metadata.openGraph).toMatchObject({
+        locale: "ja_JP",
+        alternateLocale: ["en_US"],
+      });
+    }
+  });
+
+  it("英語の /en と /en/about は英語の title・OG を持ち、/en を正として日本語版を示す", async () => {
+    const top = await import("./en/page");
+    const about = await import("./en/about/page");
+    for (const { metadata } of [top, about]) {
+      expect(isIndexed(resolve(metadata))).toBe(true);
+      expect(metadata.title).toContain("Bring your team to one idea");
+      expect(metadata.alternates).toEqual({
+        canonical: "https://ideaboost.dev/en",
+        languages,
+      });
+      expect(metadata.openGraph).toMatchObject({
+        title: metadata.title,
+        description: metadata.description,
+        url: "https://ideaboost.dev/en",
+        siteName: "Idea Boost",
+        locale: "en_US",
+        alternateLocale: ["ja_JP"],
         type: "website",
         images: [{ url: "/brand/ogp.png", width: 1200, height: 630 }],
       });

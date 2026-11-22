@@ -24,6 +24,7 @@
     },
     "introduction": "Start your hackathon, pitch competition, or team project here.",
     "login": "Log in",
+    "languageVersion": "English",
     "join": "Have an invitation code?",
     "stepsHeading": ["Don't rush to ideas.", "Start with a question."],
     "flow": {
@@ -87,7 +88,7 @@
     "closing": ["When you're stuck for ideas,", "start here."],
     "examples": {
       "heading": "What teams decided using Idea Boost",
-      "description": "From problem to question to idea: three outcomes teams took away. Participant responses have been translated from Japanese.",
+      "description": "From problem to question to idea: three outcomes teams took away. Participant responses are shown in the original Japanese.",
       "labels": ["Problem", "Question", "Idea"],
       "countPrefix": "From",
       "countSuffix": " notes"
@@ -326,25 +327,5 @@
       "text": ["Our schedules", "don't match"]
     }
   ],
-  "landingMoodPrompt": "What's been bothering you lately?",
-  "landingOutcomes": [
-    {
-      "noteCount": 27,
-      "issue": "My bedtime varies from day to day",
-      "question": "How can I avoid wasting time before bed?",
-      "idea": "Set an alarm at a specific time to remind me to get ready for bed."
-    },
-    {
-      "noteCount": 29,
-      "issue": "I get so absorbed in my work that I lose track of time and sometimes cut into my sleep.",
-      "question": "How can I stay aware of the time even when I'm absorbed in my work?",
-      "idea": "An app that sends time reminders at regular intervals while I'm working."
-    },
-    {
-      "noteCount": 61,
-      "issue": "I can't figure out the best way to organize my clothes.",
-      "question": "How can I store clothes so it's easy to see where everything is?",
-      "idea": "Use matching tags on clothes and storage boxes so I know what is in each box."
-    }
-  ]
+  "landingMoodPrompt": "What's been bothering you lately?"
 }

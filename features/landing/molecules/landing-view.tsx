@@ -5,6 +5,7 @@ import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 import { LANDING_CONTACT_URL } from "../logic/landing-copy";
 import type { LandingEntry } from "../logic/landing-entry";
+import { LANDING_PATHS } from "../logic/landing-metadata";
 import {
   landingCtaClass,
   landingHeadingClass,
@@ -22,17 +23,29 @@ import { LandingStrengthsSection } from "./landing-strengths-section";
 export type LandingViewProps = {
   isLoggedIn: boolean;
   entry: LandingEntry;
-  locale?: AppLocale;
+  locale: AppLocale;
+  /** ブラウザが望む言語。表示中と違うときだけ、その言語の版への案内を出す。 */
+  browserLocale?: AppLocale;
 };
 
 export function LandingView({
   isLoggedIn,
   entry,
-  locale = "ja",
+  locale,
+  browserLocale = locale,
 }: LandingViewProps) {
   const copy = getLandingContent(locale).landingCopy;
+  const otherLanguage =
+    browserLocale === locale
+      ? null
+      : {
+          locale: browserLocale,
+          href: LANDING_PATHS[browserLocale],
+          label: getLandingContent(browserLocale).landingCopy.languageVersion,
+        };
   return (
     <main
+      lang={locale}
       className={`${styles.theme} min-h-0 flex-1 overflow-y-auto bg-[var(--lp-surface)] text-[var(--lp-ink)] selection:bg-[var(--lp-tint)] [color-scheme:light]`}
       data-testid="landing-scroll"
     >
@@ -48,9 +61,21 @@ export function LandingView({
             />
             {copy.brand}
           </p>
-          <Link href={entry.loginHref} className={landingLinkClass}>
-            {copy.login}
-          </Link>
+          <div className="flex shrink-0 items-center gap-4 whitespace-nowrap sm:gap-6">
+            {otherLanguage && (
+              <Link
+                href={otherLanguage.href}
+                hrefLang={otherLanguage.locale}
+                lang={otherLanguage.locale}
+                className={landingLinkClass}
+              >
+                {otherLanguage.label}
+              </Link>
+            )}
+            <Link href={entry.loginHref} className={landingLinkClass}>
+              {copy.login}
+            </Link>
+          </div>
         </header>
       )}
       <div className="mx-auto max-w-6xl px-6 sm:px-10">

@@ -16,7 +16,6 @@ vi.mock("@/lib/session/current-user", () => ({
   getCurrentUser: async () => null,
 }));
 vi.mock("@/components/ui/sonner", () => ({ Toaster: () => null }));
-vi.mock("next-intl/server", () => ({ getMessages: async () => ({}) }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "accept-language": language.value }),
 }));
@@ -26,24 +25,18 @@ beforeEach(() => {
   language.value = "en-US,en;q=0.9";
 });
 
-it("英語を優先するブラウザへ英語の文書言語を配信する", async () => {
-  const { default: RootLayout } = await import("./layout");
-  const markup = renderToStaticMarkup(
-    await RootLayout({ children: <main>ログイン</main> }),
-  );
-  const document = new DOMParser().parseFromString(markup, "text/html");
-  expect(document.documentElement.lang).toBe("en");
-});
-
-it("日本語を優先するブラウザへ日本語の文書言語を配信する", async () => {
-  language.value = "ja-JP,ja;q=0.9,en;q=0.8";
-  const { default: RootLayout } = await import("./layout");
-  const markup = renderToStaticMarkup(
-    await RootLayout({ children: <main>本文</main> }),
-  );
-  const document = new DOMParser().parseFromString(markup, "text/html");
-  expect(document.documentElement.lang).toBe("ja");
-});
+it.each(["en-US,en;q=0.9", "ja-JP,ja;q=0.9,en;q=0.8"])(
+  "翻訳していない画面は Accept-Language が %s でも日本語として読み上げる",
+  async (header) => {
+    language.value = header;
+    const { default: RootLayout } = await import("./layout");
+    const markup = renderToStaticMarkup(
+      await RootLayout({ children: <main>ログイン</main> }),
+    );
+    const document = new DOMParser().parseFromString(markup, "text/html");
+    expect(document.documentElement.lang).toBe("ja");
+  },
+);
 
 it("LPを含む全画面の本文にswapの可変Notoを使い、Zenは読み込まない", async () => {
   const { default: RootLayout } = await import("./layout");

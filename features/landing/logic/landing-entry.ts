@@ -18,7 +18,9 @@ export function getLandingEntry(
   const pathname =
     new URL(safeNext, "https://landing.invalid").pathname.replace(/\/+$/, "") ||
     "/";
-  const destination = ["/", "/login", "/about"].includes(pathname)
+  const destination = ["/", "/login", "/about", "/en", "/en/about"].includes(
+    pathname,
+  )
     ? "/home"
     : safeNext;
   const context =
