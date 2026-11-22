@@ -366,6 +366,11 @@ async function moveSharedNote(
   ]);
   expect(committed).toMatchObject({ status: "accepted" });
   expect(peerMoved.notes.some((n) => n.id === noteId)).toBe(true);
+  // 相手に届いた位置が、指定した差分だけ動いていること。
+  expect(peerMoved.notes.find((n) => n.id === noteId)).toMatchObject({
+    x: current.x + delta.x,
+    y: current.y + delta.y,
+  });
 }
 
 async function castAllVotes(
@@ -374,7 +379,8 @@ async function castAllVotes(
   subjectiveNoteId: string,
   objectiveNoteIds: readonly [string, string, string],
 ): Promise<void> {
-  const peerCountBefore = peer.seen.length;
+  // 読み進めたかに関係なく、相手が受信したすべての本文で票の漏れを確かめる。
+  const peerReceivedBefore = peer.received.length;
   const votes: Array<{ noteId: string; kind: "subjective" | "objective" }> = [
     { noteId: subjectiveNoteId, kind: "subjective" },
     ...objectiveNoteIds.map((noteId) => ({
@@ -417,8 +423,11 @@ async function castAllVotes(
   expect(peerComplete.isComplete).toBe(true);
 
   // 投票中に相手の個別票（note:updated）が配信されていないこと。
-  const peerMessagesDuringVote = peer.seen.slice(peerCountBefore);
-  expect(peerMessagesDuringVote.some((m) => m.type === "note:updated")).toBe(
+  // 区間は投票開始前から、相手が投票完了の通知を受けるまで（結果の公開前）。
+  const peerMessagesDuringVote = peer.received
+    .slice(peerReceivedBefore)
+    .map((body) => parseServerMessage(body));
+  expect(peerMessagesDuringVote.some((m) => m?.type === "note:updated")).toBe(
     false,
   );
 }
@@ -431,11 +440,14 @@ async function waitForPhaseChange(
   const key = JSON.stringify(phase);
   return await Promise.all(
     clients.map(async (client) => {
-      const [snapshot] = await client.waitForAll([
+      const [snapshot, updated] = await client.waitForAll([
         (m) => m.type === "snapshot" && JSON.stringify(m.phase) === key,
         (m) => m.type === "phase:updated" && JSON.stringify(m.phase) === key,
       ]);
-      return snapshot as SnapshotMessage;
+      const typed = snapshot as SnapshotMessage;
+      // 同じ工程遷移の2つの通知は、同じ工程版を示す。
+      expect(updated).toMatchObject({ phaseRevision: typed.phaseRevision });
+      return typed;
     }),
   );
 }
@@ -783,13 +795,21 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     expect(hostClient.notes.has(p1HostNote2.id)).toBe(true);
     expect(memberClient.notes.has(p1MemberNote.id)).toBe(true);
 
-    // 1-1 → 1-2
+    // 1-1 → 1-2。共有の前なので、移行時の snapshot にも相手の本文を含めない。
     await markBothReadyAndAdvance(
       hostClient,
       memberClient,
       { kind: "step", phase: 1, step: 2 },
       { expectSnapshot: true },
     );
+    expect(
+      hostClient.received.slice(hostReceivedBefore11).join("\n"),
+    ).not.toContain("課題C：");
+    const memberReceivedThrough12 = memberClient.received
+      .slice(memberReceivedBefore11)
+      .join("\n");
+    expect(memberReceivedThrough12).not.toContain("課題A：");
+    expect(memberReceivedThrough12).not.toContain("課題B：");
 
     // ------------------------------------------------------------
     // 1-2（課題共有）
@@ -881,16 +901,30 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     await startStepTimer(hostClient, memberClient, 180_000);
 
     // 投票完了前は phase:ready(true) も phase:next も拒否されること（#438）。
+    // 投票完了前は準備完了自体が拒否されるため、phase:next は投票未完了の状態で拒否される。
+    const phaseBeforeVote = hostClient.phase;
+    const revisionBeforeVote = hostClient.phaseRevision;
     hostClient.send({
       type: "phase:ready",
-      expectedPhase: hostClient.phase,
-      expectedRevision: hostClient.phaseRevision,
+      expectedPhase: phaseBeforeVote,
+      expectedRevision: revisionBeforeVote,
       ready: true,
     });
     expect(await hostClient.waitFor("error")).toMatchObject({
       type: "error",
       code: "forbidden",
     });
+    hostClient.send({
+      type: "phase:next",
+      expectedPhase: phaseBeforeVote,
+      expectedRevision: revisionBeforeVote,
+    });
+    expect(await hostClient.waitFor("error")).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(hostClient.phase).toEqual(phaseBeforeVote);
+    expect(hostClient.phaseRevision).toBe(revisionBeforeVote);
 
     // p1HostNote1 と p1MemberNote に投票し、p1HostNote2 は 0 票のまま残す（#657）。
     await castAllVotes(hostClient, memberClient, p1HostNote1.id, [
@@ -1029,9 +1063,11 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     expect(
       hostClient.received.slice(hostReceivedBefore21).join("\n"),
     ).not.toContain("問いC：");
-    expect(
-      memberClient.received.slice(memberReceivedBefore21).join("\n"),
-    ).not.toContain("問いA：");
+    const memberReceivedThrough22 = memberClient.received
+      .slice(memberReceivedBefore21)
+      .join("\n");
+    expect(memberReceivedThrough22).not.toContain("問いA：");
+    expect(memberReceivedThrough22).not.toContain("問いB：");
 
     // ------------------------------------------------------------
     // 2-2（問い共有・#660 自分の番でないときの unpublish 拒否）
@@ -1142,6 +1178,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     // 3-1（アイデアを書き出す・個人）
     // ------------------------------------------------------------
     await startStepTimer(hostClient, memberClient, 300_000);
+    const memberReceivedBefore31 = memberClient.received.length;
     const p3HostNote1 = await createPrivateNote(
       hostClient,
       "アイデアA：AI要約ボット",
@@ -1150,18 +1187,27 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       hostClient,
       "アイデアB：アジェンダ事前ロック",
     );
+    const hostReceivedBefore31 = hostClient.received.length;
     const p3MemberNote = await createPrivateNote(
       memberClient,
       "アイデアC：15分タイムボックス通知",
     );
 
-    // 3-1 → 3-2
+    // 3-1 → 3-2。共有の前なので、移行時の snapshot にも相手の本文を含めない。
     await markBothReadyAndAdvance(
       hostClient,
       memberClient,
       { kind: "step", phase: 3, step: 2 },
       { expectSnapshot: true },
     );
+    expect(
+      hostClient.received.slice(hostReceivedBefore31).join("\n"),
+    ).not.toContain("アイデアC：");
+    const memberReceivedThrough32 = memberClient.received
+      .slice(memberReceivedBefore31)
+      .join("\n");
+    expect(memberReceivedThrough32).not.toContain("アイデアA：");
+    expect(memberReceivedThrough32).not.toContain("アイデアB：");
 
     // ------------------------------------------------------------
     // 3-2（共有・分類：2軸マップ座標 0〜100）

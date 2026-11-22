@@ -32,7 +32,7 @@ CIで縛らない分は、エージェントへの指示で担保する。push�
 
 ### 本ADRで決定しないこと
 
-検査を回すかを決めるパスの一覧は [scripts/ci-scope.mts](../../scripts/ci-scope.mts) へ、検査ごとの回すタイミングの表とテストの書き方は [テスト方針](../development/testing.md) へ委譲する。スマホ幅の境界（600px未満）と幅360未満を検査しない扱いは [tests/browser/viewports.ts](../../tests/browser/viewports.ts) とテスト方針へ委譲する。エージェントへの指示の文面は [AGENTS.md](../../AGENTS.md) と各スキルへ委譲する。リリースの手順は `/release` スキルと [リリース運用](../operations/release.md) へ委譲し、このADRでは変えない。
+検査を回すかを決めるパスの一覧は `scripts/ci-scope.mts` へ、検査ごとの回すタイミングの表とテストの書き方はテスト方針へ委譲する。スマホ幅の境界（600px未満）と幅360未満を検査しない扱いは `tests/browser/viewports.ts` とテスト方針へ委譲する。エージェントへの指示の文面は `AGENTS.md` と各スキルへ委譲する。リリースの手順は `/release` スキルとリリース運用へ委譲し、このADRでは変えない。委譲先へのリンクはReferencesに置く。
 
 ## Consequences
 
@@ -59,6 +59,7 @@ CIで縛らない分は、エージェントへの指示で担保する。push�
 
 ## References
 
+- 委譲先：[scripts/ci-scope.mts](../../scripts/ci-scope.mts)、[テスト方針](../development/testing.md)、[tests/browser/viewports.ts](../../tests/browser/viewports.ts)、[AGENTS.md](../../AGENTS.md)、[リリース運用](../operations/release.md)。
 - [PR #1053](https://github.com/engineer-first/idea-boost/pull/1053)（2026-11-19時点で未マージ）：実行タイミングの見直し、browserの分離と間引き、全14工程の統合テスト、smokeと公開後の確認の追加。
 - [#709](https://github.com/engineer-first/idea-boost/issues/709)・[#710](https://github.com/engineer-first/idea-boost/issues/710)：testとbrowserがよく落ちる問題。
 - 人が報告した工程の不具合：[#423](https://github.com/engineer-first/idea-boost/issues/423)、[#438](https://github.com/engineer-first/idea-boost/issues/438)、[#653](https://github.com/engineer-first/idea-boost/issues/653)、[#657](https://github.com/engineer-first/idea-boost/issues/657)、[#658](https://github.com/engineer-first/idea-boost/issues/658)、[#660](https://github.com/engineer-first/idea-boost/issues/660)、[#665](https://github.com/engineer-first/idea-boost/issues/665)、[#717](https://github.com/engineer-first/idea-boost/issues/717)。見た目の不具合の例：[#330](https://github.com/engineer-first/idea-boost/issues/330)、[#431](https://github.com/engineer-first/idea-boost/issues/431)。

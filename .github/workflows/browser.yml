@@ -45,7 +45,7 @@ jobs:
         id: scope
         run: |
           if [ "$EVENT" = pull_request ]; then
-            changed=$(git diff --name-only "$BASE_SHA" HEAD | node scripts/ci-scope.mts | sed -n 's/^browser=//p')
+            changed=$(git diff --name-only --no-renames "$BASE_SHA" HEAD | node scripts/ci-scope.mts | sed -n 's/^browser=//p')
             mobile="$MOBILE_LABEL"
           else
             changed=true

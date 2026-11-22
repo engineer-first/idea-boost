@@ -110,7 +110,7 @@ jobs:
         id: scope
         run: |
           if [ "$EVENT" = pull_request ]; then
-            git diff --name-only "$BASE_SHA" HEAD | node scripts/ci-scope.mts
+            git diff --name-only --no-renames "$BASE_SHA" HEAD | node scripts/ci-scope.mts
           else
             echo "workers=true" | tee -a "$GITHUB_OUTPUT"
           fi

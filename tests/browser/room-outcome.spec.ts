@@ -1,11 +1,19 @@
 import { type Browser, chromium, type Page } from "playwright";
-import { afterAll, beforeAll, expect, test, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from "vitest";
 import { NOTE_COLOR_STYLES } from "../../features/room-members/logic/note-color";
 import { includeMobile } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
 let page: Page;
+const DESKTOP_VIEWPORT = { width: 1280, height: 720 };
 
 function withoutExportDate(value: string): string {
   return value.replace(/^\uFEFF/, "").replace(/^出力日: .*$/m, "出力日");
@@ -21,7 +29,8 @@ beforeAll(async () => {
     { timeout: 90_000, interval: 1000 },
   );
   browser = await chromium.launch();
-  page = await browser.newPage({ viewport: { width: 360, height: 640 } });
+  // 共有 page は PC 幅で開き、スマホ幅は includeMobile のときの検査内だけで切り替える。
+  page = await browser.newPage({ viewport: DESKTOP_VIEWPORT });
 });
 afterAll(async () => {
   await page?.close();
@@ -31,6 +40,8 @@ afterAll(async () => {
 test.skipIf(!includeMobile)(
   "360px 幅で長文カードの末尾まで読め、横にはみ出さない",
   async () => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    onTestFinished(() => page.setViewportSize(DESKTOP_VIEWPORT));
     await page.goto(
       `${origin}/iframe.html?id=room-roomoutcomeview--long-content&viewMode=story`,
     );
@@ -338,7 +349,7 @@ test("3枚横並びのPNGを保存でき、2000文字の長文でも生成でき
   // 成果カードが縦積みではなく横並びになっていること。
   expect(width).toBeGreaterThan(height);
 
-  // 画面幅360pxでも、画像は3枚横並びの固定レイアウト。
+  // 画像は画面幅に関係なく3枚横並びの固定レイアウト。
   expect(width).toBeGreaterThan(1000);
 
   // 長文の成果でもPNGを生成できること。
