@@ -51,3 +51,28 @@ describe("LP の行配列", () => {
     },
   );
 });
+
+describe("LP の比較の見出し", () => {
+  it("英語では主語と続く語句の間に空白を入れ、日本語では入れない", () => {
+    const { container, rerender } = render(
+      <LandingView
+        locale="en"
+        isLoggedIn={false}
+        entry={getLandingEntry(false)}
+      />,
+    );
+    const en = getLandingContent("en").landingCopy.comparison;
+    const text = () => container.textContent ?? "";
+    expect(text()).toContain(`${en.subject} ${en.timeLabel}`);
+    expect(text()).toContain(`${en.subject} ${en.guideLabel}`);
+    const ja = getLandingContent("ja").landingCopy.comparison;
+    rerender(
+      <LandingView
+        locale="ja"
+        isLoggedIn={false}
+        entry={getLandingEntry(false)}
+      />,
+    );
+    expect(text()).toContain(`${ja.subject}${ja.timeLabel}`);
+  });
+});

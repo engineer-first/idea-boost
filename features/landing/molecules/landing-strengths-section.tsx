@@ -32,6 +32,7 @@ export function LandingStrengthsSection({
             <span className={styles.comparisonSubject}>
               {copy.comparison.subject}
             </span>
+            {locale === "en" ? " " : null}
             {copy.comparison.timeLabel}
           </p>
           <div className={styles.comparisonContent}>
@@ -79,6 +80,7 @@ export function LandingStrengthsSection({
             <span className={styles.comparisonSubject}>
               {copy.comparison.subject}
             </span>
+            {locale === "en" ? " " : null}
             {copy.comparison.guideLabel}
           </p>
           <div className={styles.comparisonContent}>
