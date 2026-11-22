@@ -1,12 +1,5 @@
 import { type Browser, chromium, type Page } from "playwright";
-import {
-  afterAll,
-  beforeAll,
-  expect,
-  onTestFinished,
-  test,
-  vi,
-} from "vitest";
+import { afterAll, beforeAll, expect, onTestFinished, test, vi } from "vitest";
 import { NOTE_COLOR_STYLES } from "../../features/room-members/logic/note-color";
 import { includeMobile } from "./viewports";
 
