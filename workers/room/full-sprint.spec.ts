@@ -80,14 +80,19 @@ class RoomClient {
   ): Promise<{ client: RoomClient; initialSnapshot: SnapshotMessage }> {
     const socket = await connectRoomAs(user, roomId);
     const client = new RoomClient(user, socket);
-    const first = await socket.next();
-    if (first.type !== "snapshot") {
-      throw new Error(
-        `初回メッセージが snapshot ではありません: ${first.type}`,
-      );
+    // 初回も5秒で打ち切る。失敗時は呼び出し元へ client を返せないため、ここで閉じる。
+    try {
+      const first = await client.next();
+      if (first.type !== "snapshot") {
+        throw new Error(
+          `初回メッセージが snapshot ではありません: ${first.type}`,
+        );
+      }
+      return { client, initialSnapshot: first };
+    } catch (error) {
+      client.close();
+      throw error;
     }
-    client.apply(first);
-    return { client, initialSnapshot: first };
   }
 
   send(message: ClientMessage): void {
@@ -389,12 +394,15 @@ async function castAllVotes(
     })),
   ];
 
+  const sentStickerIds = new Set<string>();
   for (const [index, vote] of votes.entries()) {
     const operationId = crypto.randomUUID();
+    const stickerId = crypto.randomUUID();
+    sentStickerIds.add(stickerId);
     voter.send({
       type: "note:vote-sticker:add",
       noteId: vote.noteId,
-      stickerId: crypto.randomUUID(),
+      stickerId,
       kind: vote.kind,
       x: 0.2 + index * 0.15,
       y: 0.5,
@@ -407,6 +415,13 @@ async function castAllVotes(
     // 投票中は本人の応答でも総票数 count は秘匿される。
     expect(updated.note.dotVotes.subjective.count).toBeUndefined();
     expect(updated.note.dotVotes.objective.count).toBeUndefined();
+    // 投票中の本人宛て応答には、本人が貼ったシールだけを含める。
+    expect(updated.note.dotVoteStickers.map(({ id }) => id)).toContain(
+      stickerId,
+    );
+    for (const sticker of updated.note.dotVoteStickers) {
+      expect(sentStickerIds.has(sticker.id)).toBe(true);
+    }
   }
 
   const [voterComplete, peerComplete] = await Promise.all([
@@ -438,7 +453,7 @@ async function waitForPhaseChange(
   phase: RoomPhase,
 ): Promise<SnapshotMessage[]> {
   const key = JSON.stringify(phase);
-  return await Promise.all(
+  const snapshots = await Promise.all(
     clients.map(async (client) => {
       const [snapshot, updated] = await client.waitForAll([
         (m) => m.type === "snapshot" && JSON.stringify(m.phase) === key,
@@ -450,6 +465,11 @@ async function waitForPhaseChange(
       return typed;
     }),
   );
+  // 参加者全員が同じ工程版を観測する。
+  for (const snapshot of snapshots) {
+    expect(snapshot.phaseRevision).toBe(snapshots[0]?.phaseRevision);
+  }
+  return snapshots;
 }
 
 async function markBothReadyAndAdvance(

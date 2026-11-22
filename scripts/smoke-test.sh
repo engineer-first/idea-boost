@@ -92,8 +92,11 @@ echo "==> OK: service binding is wired correctly"
 # /api/health は Worker の起動と経路だけを見る。OpenNext の実行時エラーやルーティング崩れで
 # 利用者が入口から入れない状態は、画面を開かないと分からない。
 for path in / /login; do
-  status="$(curl -sS --connect-timeout 5 --max-time 20 -o /dev/null -w '%{http_code}' "http://localhost:${PORT}${path}" || true)"
-  if [[ "$status" != "200" ]]; then
+  # 200 のヘッダー後に本文の受信が止まった場合も失敗とするため、curl の終了コードも見る。
+  curl_exit=0
+  status="$(curl -sS --connect-timeout 5 --max-time 20 -o /dev/null -w '%{http_code}' "http://localhost:${PORT}${path}")" || curl_exit=$?
+  if [[ "$curl_exit" != "0" || "$status" != "200" ]]; then
+    echo "curl exit code for ${path}: ${curl_exit}" >&2
     echo "unexpected status from ${path}: ${status}" >&2
     echo "---- wrangler log ----" >&2
     cat "$LOG_FILE" >&2
