@@ -75,7 +75,7 @@ export function PhaseLoopControls({
           role="status"
           className="rounded-lg border bg-background px-4 py-2 text-sm"
         >
-          候補がありません。薄く表示された付箋のメニューから「候補に戻す」を選んでください。
+          候補がありません。薄く表示された付箋のメニューから「除外を戻す」を選んでください。
         </p>
       ) : null}
       <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl border border-border bg-background p-2 shadow-tool">

@@ -28,8 +28,8 @@ type DotVotePaletteViewProps = {
     kind: DotVoteKind,
     event: React.PointerEvent<HTMLButtonElement>,
   ) => void;
-  // 使い切った種類のタイルを押すと、その種類の自分の票をすべて取り消す。
-  onWithdrawAll: (kind: DotVoteKind) => void;
+  // 使い切った種類のタイルを押すと、その種類の自分の最新の1票を取り消す。
+  onWithdrawOne: (kind: DotVoteKind) => void;
 };
 
 const DOT_VOTE_KINDS: readonly DotVoteKind[] = ["subjective", "objective"];
@@ -42,7 +42,7 @@ const DOT_VOTE_BUTTON_TONE = {
     "border-vote-objective bg-white text-foreground hover:bg-vote-objective-soft/40 hover:text-foreground focus-visible:border-vote-objective focus-visible:ring-vote-objective/50 active:bg-vote-objective-soft disabled:opacity-100",
 } satisfies Record<DotVoteKind, string>;
 
-// 接続待ち・確認待ち・使い切りは灰色にする。使い切りは全取り消しのために押せる。
+// 接続待ち・確認待ち・使い切りは灰色にする。使い切りは1票戻すために押せる。
 const DOT_VOTE_UNAVAILABLE_TONE =
   "border-line-strong bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground focus-visible:border-line-strong focus-visible:ring-ring/50 active:bg-muted";
 
@@ -120,7 +120,7 @@ export function DotVotePaletteView({
   isReturnDropTarget,
   onStickerSelect,
   onStickerDragStart,
-  onWithdrawAll,
+  onWithdrawOne,
 }: DotVotePaletteViewProps) {
   const paletteId = useId();
   const activeSelectedKind =
@@ -158,7 +158,7 @@ export function DotVotePaletteView({
           const isWaiting = isEmpty && (pendingOperationCount > 0 || disabled);
           const isExhausted = isEmpty && !isWaiting;
           const isSelected = activeSelectedKind === kind;
-          const canWithdrawAll =
+          const canWithdrawOne =
             isExhausted && !disabled && !interactionBlocked;
           const canPlace =
             !disabled && !interactionBlocked && voteRemaining[kind] > 0;
@@ -181,19 +181,19 @@ export function DotVotePaletteView({
               aria-label={dotVoteRemainingLabel(kind, voteRemaining[kind])}
               aria-pressed={isSelected}
               aria-describedby={
-                canWithdrawAll
+                canWithdrawOne
                   ? `${paletteId}-${kind}-state ${paletteId}-${kind}-withdraw`
                   : `${paletteId}-${kind}-state`
               }
-              disabled={!canPlace && !canWithdrawAll}
+              disabled={!canPlace && !canWithdrawOne}
               size="sm"
               variant="outline"
               className={`relative h-auto min-w-0 touch-none cursor-grab select-none flex-col items-center gap-1.5 whitespace-normal rounded-xl border-2 px-2 pt-3.5 pb-3 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "cursor-pointer border-dashed active:cursor-pointer" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
                 isSelected ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
-                if (canWithdrawAll) {
-                  onWithdrawAll(kind);
+                if (canWithdrawOne) {
+                  onWithdrawOne(kind);
                   return;
                 }
                 if (!canPlace) return;
@@ -237,9 +237,9 @@ export function DotVotePaletteView({
               <span id={`${paletteId}-${kind}-state`} className="sr-only">
                 {stateLabel}
               </span>
-              {canWithdrawAll ? (
+              {canWithdrawOne ? (
                 <span id={`${paletteId}-${kind}-withdraw`} className="sr-only">
-                  押すと、この種類の自分の票をすべて取り消します。
+                  押すと、この種類の自分の最新の1票を取り消します。
                 </span>
               ) : null}
             </Button>

@@ -40,6 +40,8 @@ export type NoteCardProps = {
   interactionTool?: "select" | "hand";
   isMultiSelected?: boolean;
   isDecided?: boolean;
+  /** 渡すと、決定済み付箋の右上のはんこから確定を取り消せる。 */
+  onClearDecision?: () => void;
   isAdoptionFocused?: boolean;
   // WebSocket未接続時（connecting/closed）に親から渡す。true の間は選択・
   // ドラッグ・編集開始・削除を無効化する。room-client.send() は未openだと
@@ -134,9 +136,13 @@ const CANDIDATE_ACTION_HEIGHT_PX = 44;
 const CANDIDATE_MENU_WIDTH_PX = 160;
 const CANDIDATE_MENU_HEIGHT_PX = 50;
 const VIEWPORT_EDGE_MARGIN_PX = 8;
-const ACTION_SHOW_DELAY_MS = 150;
-const ACTION_HIDE_DELAY_MS = 1_000;
-const candidatePointerActionOwners = new WeakMap<Document, string>();
+const ACTION_HIDE_DELAY_MS = 120;
+// ポインターで操作を出している付箋は同時に1枚だけ。別の付箋へ乗ったら
+// 前の付箋の表示を待たずに畳み、新しい付箋が即座に引き継ぐ。
+const candidatePointerActionOwners = new WeakMap<
+  Document,
+  { noteId: string; hide: () => void }
+>();
 const candidateTouchActionOwners = new WeakMap<
   Document,
   CandidateTouchActionOwner
@@ -230,6 +236,7 @@ export function NoteCard({
   interactionTool = "select",
   isMultiSelected = false,
   isDecided = false,
+  onClearDecision,
   isAdoptionFocused = false,
   disabled = false,
   canEditNote,
@@ -286,12 +293,11 @@ export function NoteCard({
   }, [disabled]);
   const pointerOwnerDocumentRef = useRef<Document | null>(null);
   const touchOwnerDocumentRef = useRef<Document | null>(null);
-  const pointerShowTimeoutRef = useRef<number | null>(null);
   const pointerHideTimeoutRef = useRef<number | null>(null);
   const focusHideTimeoutRef = useRef<number | null>(null);
   const canCandidateAction =
     !isMultiSelected && (note.excluded ? canRestoreNote : canExcludeNote);
-  const candidateActionLabel = note.excluded ? "候補に戻す" : "候補から外す";
+  const candidateActionLabel = note.excluded ? "除外を戻す" : "除外する";
   const candidateActionText = note.excluded ? "戻す" : "除外";
   const isCandidateActionVisible =
     !isOwnDrag &&
@@ -334,33 +340,32 @@ export function NoteCard({
     pointerHideTimeoutRef.current = null;
   }, []);
 
-  const cancelPointerActionShow = useCallback(() => {
-    if (pointerShowTimeoutRef.current === null) return;
-    window.clearTimeout(pointerShowTimeoutRef.current);
-    pointerShowTimeoutRef.current = null;
-  }, []);
+  const hidePointerAction = useCallback(() => {
+    cancelPointerActionHide();
+    setIsPointerActionVisible(false);
+  }, [cancelPointerActionHide]);
 
-  const claimPointerAction = useCallback(
-    (force = false): boolean => {
-      const ownerDocument = noteRef.current?.ownerDocument;
-      if (!ownerDocument) return false;
-      const currentOwner = candidatePointerActionOwners.get(ownerDocument);
-      if (!force && currentOwner !== undefined && currentOwner !== note.id) {
-        return false;
-      }
-      candidatePointerActionOwners.set(ownerDocument, note.id);
-      pointerOwnerDocumentRef.current = ownerDocument;
-      return true;
-    },
-    [note.id],
-  );
+  const claimPointerAction = useCallback((): boolean => {
+    const ownerDocument = noteRef.current?.ownerDocument;
+    if (!ownerDocument) return false;
+    const currentOwner = candidatePointerActionOwners.get(ownerDocument);
+    if (currentOwner !== undefined && currentOwner.noteId !== note.id) {
+      currentOwner.hide();
+    }
+    candidatePointerActionOwners.set(ownerDocument, {
+      noteId: note.id,
+      hide: hidePointerAction,
+    });
+    pointerOwnerDocumentRef.current = ownerDocument;
+    return true;
+  }, [hidePointerAction, note.id]);
 
   const releasePointerAction = useCallback(() => {
     const ownerDocument =
       pointerOwnerDocumentRef.current ?? noteRef.current?.ownerDocument;
     if (
       ownerDocument &&
-      candidatePointerActionOwners.get(ownerDocument) === note.id
+      candidatePointerActionOwners.get(ownerDocument)?.noteId === note.id
     ) {
       candidatePointerActionOwners.delete(ownerDocument);
     }
@@ -397,40 +402,24 @@ export function NoteCard({
   }, [hideTouchAction, note.id]);
 
   const schedulePointerActionShow = useCallback(() => {
-    cancelPointerActionShow();
     cancelPointerActionHide();
     updateCandidateOverlayLayout();
-    const tryShow = () => {
-      if (claimPointerAction()) {
-        setIsPointerActionVisible(true);
-        pointerShowTimeoutRef.current = null;
-        return;
-      }
-      pointerShowTimeoutRef.current = window.setTimeout(
-        tryShow,
-        ACTION_SHOW_DELAY_MS,
-      );
-    };
-    pointerShowTimeoutRef.current = window.setTimeout(
-      tryShow,
-      ACTION_SHOW_DELAY_MS,
-    );
+    claimPointerAction();
+    setIsPointerActionVisible(true);
   }, [
     cancelPointerActionHide,
-    cancelPointerActionShow,
     claimPointerAction,
     updateCandidateOverlayLayout,
   ]);
 
   const schedulePointerActionHide = useCallback(() => {
-    cancelPointerActionShow();
     cancelPointerActionHide();
     pointerHideTimeoutRef.current = window.setTimeout(() => {
       setIsPointerActionVisible(false);
       releasePointerAction();
       pointerHideTimeoutRef.current = null;
     }, ACTION_HIDE_DELAY_MS);
-  }, [cancelPointerActionHide, cancelPointerActionShow, releasePointerAction]);
+  }, [cancelPointerActionHide, releasePointerAction]);
 
   useEffect(() => {
     if (!isFocusActionVisible) return;
@@ -507,15 +496,9 @@ export function NoteCard({
   useEffect(() => {
     if (canCandidateAction) return;
     cancelPointerActionHide();
-    cancelPointerActionShow();
     setIsPointerActionVisible(false);
     releasePointerAction();
-  }, [
-    canCandidateAction,
-    cancelPointerActionHide,
-    cancelPointerActionShow,
-    releasePointerAction,
-  ]);
+  }, [canCandidateAction, cancelPointerActionHide, releasePointerAction]);
 
   useEffect(() => {
     if (note.excluded || canCandidateAction) return;
@@ -564,7 +547,6 @@ export function NoteCard({
   useEffect(
     () => () => {
       cancelPointerActionHide();
-      cancelPointerActionShow();
       cancelFocusActionHide();
       releasePointerAction();
       releaseTouchAction();
@@ -572,7 +554,6 @@ export function NoteCard({
     [
       cancelFocusActionHide,
       cancelPointerActionHide,
-      cancelPointerActionShow,
       releasePointerAction,
       releaseTouchAction,
     ],
@@ -907,9 +888,8 @@ export function NoteCard({
               aria-busy={candidatePending}
               tabIndex={isCandidateActionVisible ? 0 : -1}
               onPointerEnter={() => {
-                cancelPointerActionShow();
                 cancelPointerActionHide();
-                claimPointerAction(true);
+                claimPointerAction();
                 setIsPointerActionVisible(true);
               }}
               onPointerLeave={schedulePointerActionHide}
@@ -1021,6 +1001,8 @@ export function NoteCard({
       isLifted={isOwnDrag}
       isSelected={isSelected}
       isDecided={isDecided}
+      onStampClick={onClearDecision}
+      stampDisabled={disabled}
       isAdoptionFocused={isAdoptionFocused}
       color={note.color}
       height={Math.min(
@@ -1048,7 +1030,7 @@ export function NoteCard({
       {candidateOverlay}
       {note.excluded ? (
         <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-full bg-background/90 px-1 py-0.5 text-xs font-semibold text-muted-foreground">
-          候補外
+          除外済み
         </span>
       ) : null}
       <textarea
@@ -1232,7 +1214,7 @@ export function NoteCard({
           aria-label={
             selectedStampKind === null
               ? note.excluded
-                ? "候補外の付箋"
+                ? "除外済みの付箋"
                 : "付箋"
               : `付箋（${dotVoteStickerName(selectedStampKind)}を貼る）`
           }

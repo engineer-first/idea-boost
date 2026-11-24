@@ -177,7 +177,7 @@ export function SharedOutcomeBoard({
                     </p>
                   )}
                   {note.excluded && (
-                    <p className="mt-2 text-xs font-semibold">候補外</p>
+                    <p className="mt-2 text-xs font-semibold">除外済み</p>
                   )}
                 </div>
               </foreignObject>
@@ -204,7 +204,9 @@ export function SharedOutcomeBoard({
                   </span>
                 )}
                 {note.excluded && (
-                  <span className="rounded-full border px-2 py-1">候補外</span>
+                  <span className="rounded-full border px-2 py-1">
+                    除外済み
+                  </span>
                 )}
                 {group && (
                   <span className="rounded-full border px-2 py-1">

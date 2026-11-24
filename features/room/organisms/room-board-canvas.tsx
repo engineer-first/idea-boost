@@ -98,6 +98,8 @@ export type RoomBoardCanvasProps = {
   isAdditionalWriting?: boolean;
   isPrivateNotesHandoffPending?: boolean;
   decision: Decision | null;
+  /** 渡すと、決定済み付箋のはんこから確定を取り消せる。 */
+  onDecisionClear?: () => void;
   privateNotes: Note[];
   canPublishPrivateNote?: boolean;
   isSavingBeforeShare?: boolean;
@@ -220,6 +222,7 @@ export function RoomBoardCanvas({
   isAdditionalWriting = false,
   isPrivateNotesHandoffPending = false,
   decision,
+  onDecisionClear,
   privateNotes,
   exampleNotes = [],
   canPublishPrivateNote = false,
@@ -687,6 +690,7 @@ export function RoomBoardCanvas({
         }
         candidatePending={pendingCandidateNoteIds.includes(note.id)}
         isDecided={decision?.noteId === note.id}
+        onClearDecision={onDecisionClear}
         isAdoptionFocused={
           adoptionFocusNoteId === note.id && decision?.noteId !== note.id
         }
@@ -1302,7 +1306,7 @@ export function RoomBoardCanvas({
                   role="status"
                   className="absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-lg border bg-background/95 px-5 py-3 text-sm font-semibold shadow-tool"
                 >
-                  候補がありません。候補外の付箋を戻してください。
+                  候補がありません。除外済みの付箋を戻してください。
                 </div>
               ) : null}
               {!isIdeaValueFeasibilityMapVisible && dragGhost ? (

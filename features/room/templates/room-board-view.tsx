@@ -251,7 +251,7 @@ export type RoomBoardViewProps = {
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
   onNoteVoteRemove: (noteId: string, kind: DotVoteKind) => void;
   onNoteVoteStickerRemove: (stickerId: string) => void;
-  onVoteWithdrawAll: (kind: DotVoteKind) => void;
+  onVoteWithdrawOne: (kind: DotVoteKind) => void;
   onNoteVoteStickerMove: (
     stickerId: string,
     noteId: string,
@@ -398,7 +398,7 @@ export function RoomBoardView({
   onNoteVote,
   onNoteVoteRemove,
   onNoteVoteStickerRemove,
-  onVoteWithdrawAll,
+  onVoteWithdrawOne,
   onNoteVoteStickerMove,
   pendingVoteOperations,
   voteFeedback,
@@ -2138,6 +2138,7 @@ export function RoomBoardView({
           phase={phase}
           permissions={permissions}
           decision={decision}
+          onDecisionClear={outcomePublished ? undefined : onDecisionClear}
           adoptionFocusNoteId={adoptionFocusNoteId}
           privateNotes={toolbarNotes}
           isAdditionalWriting={isAdditionalWriting}
@@ -2354,7 +2355,7 @@ export function RoomBoardView({
               isReturnDropTarget={isVoteStickerReturnDropTarget}
               onStickerSelect={handlePaletteStickerSelect}
               onStickerDragStart={handlePaletteStickerDragStart}
-              onWithdrawAll={onVoteWithdrawAll}
+              onWithdrawOne={onVoteWithdrawOne}
             />
           </div>
         ) : null}

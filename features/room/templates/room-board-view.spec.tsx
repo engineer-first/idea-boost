@@ -233,7 +233,7 @@ function setup(
     onNoteVote: vi.fn(),
     onNoteVoteRemove: vi.fn(),
     onNoteVoteStickerRemove: vi.fn(),
-    onVoteWithdrawAll: vi.fn(),
+    onVoteWithdrawOne: vi.fn(),
     onNoteVoteStickerMove: vi.fn(),
     pendingVoteOperations: [],
     voteFeedback: null,
@@ -1262,7 +1262,7 @@ describe("採用する付箋の選択モード", () => {
       screen
         .getAllByRole("status")
         .some((status) =>
-          status.textContent?.includes("採用する付箋をクリックしてください"),
+          status.textContent?.includes("採用する付箋をクリック"),
         ),
     ).toBe(true);
 
@@ -1271,7 +1271,7 @@ describe("採用する付箋の選択モード", () => {
     );
     expect(onNoteDecide).toHaveBeenCalledWith("note-1");
     expect(
-      screen.queryByText("採用する付箋をクリックしてください", {
+      screen.queryByText("採用する付箋をクリック", {
         exact: false,
       }),
     ).not.toBeInTheDocument();
@@ -1287,7 +1287,7 @@ describe("採用する付箋の選択モード", () => {
       );
     const expectSelectionModeClosed = () =>
       expect(
-        screen.queryByText("採用する付箋をクリックしてください"),
+        screen.queryByText("採用する付箋をクリック"),
       ).not.toBeInTheDocument();
 
     start();
@@ -1457,7 +1457,7 @@ describe("決定フェーズのルームメニュー", () => {
       expect(screen.getByTestId("leave-button")).toBeVisible();
       expect(
         screen.queryByRole("button", {
-          name: /投票なしをまとめて候補から外す/,
+          name: /投票なしをまとめて除外する/,
         }),
       ).not.toBeInTheDocument();
       expect(screen.queryByText("候補を整理")).not.toBeInTheDocument();
@@ -2409,7 +2409,7 @@ describe("RoomBoardView", () => {
 
     expect(onNoteVote).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith(
-      expect.stringContaining("候補外の付箋には投票できません"),
+      expect.stringContaining("除外済みの付箋には投票できません"),
       expect.objectContaining({ id: "excluded-note-vote" }),
     );
     expect(
@@ -2514,14 +2514,14 @@ describe("RoomBoardView", () => {
         screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
         { clientX: 320, clientY: 24 },
       );
-      fireEvent.click(screen.getByRole("button", { name: "候補外の付箋" }), {
+      fireEvent.click(screen.getByRole("button", { name: "除外済みの付箋" }), {
         clientX: 150,
         clientY: 175,
       });
 
       expect(onNoteVote).not.toHaveBeenCalled();
       expect(notify).toHaveBeenCalledWith(
-        expect.stringContaining("候補外の付箋には投票できません"),
+        expect.stringContaining("除外済みの付箋には投票できません"),
         expect.objectContaining({ id: "excluded-note-vote" }),
       );
       expect(
@@ -2739,7 +2739,7 @@ describe("RoomBoardView", () => {
       }),
     ).toBeInTheDocument();
     expect(notify).toHaveBeenCalledWith(
-      expect.stringContaining("候補外の付箋には投票できません"),
+      expect.stringContaining("除外済みの付箋には投票できません"),
       expect.objectContaining({ id: "excluded-note-vote" }),
     );
     notify.mockRestore();

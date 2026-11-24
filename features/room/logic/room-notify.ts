@@ -5,6 +5,9 @@
 
 import { toast } from "sonner";
 
+// 自動整理のお知らせは出しっぱなしにせず、一括で戻す機会を一定時間残して閉じる。
+const AUTO_EXCLUDE_NOTICE_DURATION_MS = 15_000;
+
 export const roomNotify = {
   multipleNoteMoveUnavailable(): void {
     toast("複数の付箋の移動は準備中です。1枚ずつ選択して動かしてください。", {
@@ -15,7 +18,7 @@ export const roomNotify = {
   },
   cannotVoteExcludedNote(): void {
     toast.error(
-      "候補外の付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",
+      "除外済みの付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",
       { id: "excluded-note-vote", duration: 4000, closeButton: true },
     );
   },
@@ -62,9 +65,10 @@ export const roomNotify = {
       onUndo
         ? {
             action: { label: "まとめて元に戻す", onClick: onUndo },
-            duration: Number.POSITIVE_INFINITY,
+            duration: AUTO_EXCLUDE_NOTICE_DURATION_MS,
+            closeButton: true,
           }
-        : { duration: Number.POSITIVE_INFINITY },
+        : { duration: AUTO_EXCLUDE_NOTICE_DURATION_MS, closeButton: true },
     );
   },
 };

@@ -38,7 +38,7 @@ describe("PhaseLoopControls", () => {
   });
   it("候補0件では再投票と採用を止め、復帰を案内する", () => {
     setup({ candidateCount: 0 });
-    expect(screen.getByRole("status")).toHaveTextContent("候補に戻す");
+    expect(screen.getByRole("status")).toHaveTextContent("除外を戻す");
     expect(
       screen.getByRole("button", { name: "もう一度投票する" }),
     ).toBeDisabled();

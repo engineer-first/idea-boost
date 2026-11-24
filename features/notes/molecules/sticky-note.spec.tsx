@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { NOTE_COLOR_PALETTE } from "@/contracts/room-protocol";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { StickyNote } from "./sticky-note";
@@ -61,6 +61,40 @@ describe("StickyNote", () => {
     rerender(<StickyNote noteId="state">本文</StickyNote>);
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.getByText("決定")).toHaveAttribute("aria-hidden", "true");
+  });
+  it("取り消せる決定のはんこはボタンになり、押すと取り消しを呼ぶ", () => {
+    const onStampClick = vi.fn();
+    const { rerender } = render(
+      <StickyNote noteId="state" isDecided onStampClick={onStampClick}>
+        本文
+      </StickyNote>,
+    );
+    const stamp = screen.getByRole("button", {
+      name: "決定のはんこ（確定を取り消す）",
+    });
+    expect(stamp).toHaveTextContent("決定");
+    expect(stamp).toHaveAttribute("title", "確定を取り消す");
+    fireEvent.click(stamp);
+    expect(onStampClick).toHaveBeenCalledTimes(1);
+
+    // 参照表示（採用済み）や未決定では押せない。
+    rerender(
+      <StickyNote
+        noteId="state"
+        isDecided
+        decisionPresentation="reference"
+        onStampClick={onStampClick}
+      >
+        本文
+      </StickyNote>,
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    rerender(
+      <StickyNote noteId="state" onStampClick={onStampClick}>
+        本文
+      </StickyNote>,
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
   it.each(NOTE_COLOR_PALETTE)(
     "%s の注目でも作者色を保ち、背景を重ねない",

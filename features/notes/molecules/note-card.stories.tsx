@@ -202,8 +202,8 @@ export const ExcludedForHost: Story = {
     const canvas = within(canvasElement);
     const page = within(canvasElement.ownerDocument.body);
     const card = canvas.getByTestId("note-card");
-    const surface = canvas.getByRole("button", { name: "候補外の付箋" });
-    const restore = page.getByRole("button", { name: "候補に戻す" });
+    const surface = canvas.getByRole("button", { name: "除外済みの付箋" });
+    const restore = page.getByRole("button", { name: "除外を戻す" });
 
     await userEvent.hover(surface);
     await waitFor(() => expect(restore).toBeVisible());
@@ -212,7 +212,7 @@ export const ExcludedForHost: Story = {
     await waitFor(() => expect(restore).toBeVisible());
     // 実タッチはbrowserテストで検証する。storyではfocus時の読みやすさを確認。
     await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
-    await expect(canvas.getByText("候補外", { exact: true })).toBeVisible();
+    await expect(canvas.getByText("除外済み", { exact: true })).toBeVisible();
   },
 };
 
@@ -228,7 +228,7 @@ export const CandidateContextMenu: Story = {
 
     fireEvent.contextMenu(surface);
     await expect(args.onExclude).not.toHaveBeenCalled();
-    await userEvent.click(page.getByRole("menuitem", { name: "候補から外す" }));
+    await userEvent.click(page.getByRole("menuitem", { name: "除外する" }));
     await expect(args.onExclude).toHaveBeenCalledWith("note-1");
   },
 };
@@ -315,10 +315,10 @@ export const ExcludedKeyboardMenu: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     const page = within(canvasElement.ownerDocument.body);
-    const surface = canvas.getByRole("button", { name: "候補外の付箋" });
+    const surface = canvas.getByRole("button", { name: "除外済みの付箋" });
     surface.focus();
     await userEvent.keyboard("{Shift>}{F10}{/Shift}");
-    const menuItem = page.getByRole("menuitem", { name: "候補に戻す" });
+    const menuItem = page.getByRole("menuitem", { name: "除外を戻す" });
     await expect(menuItem).toHaveFocus();
     await expect(args.onRestore).not.toHaveBeenCalled();
     await userEvent.keyboard("{Enter}");
@@ -339,14 +339,14 @@ export const ExcludedForParticipant: Story = {
     const canvas = within(canvasElement);
     const page = within(canvasElement.ownerDocument.body);
     const card = canvas.getByTestId("note-card");
-    const surface = canvas.getByRole("button", { name: "候補外の付箋" });
+    const surface = canvas.getByRole("button", { name: "除外済みの付箋" });
 
     surface.focus();
 
     await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
-    await expect(canvas.getByText("候補外", { exact: true })).toBeVisible();
+    await expect(canvas.getByText("除外済み", { exact: true })).toBeVisible();
     await expect(
-      page.queryByRole("button", { name: "候補に戻す" }),
+      page.queryByRole("button", { name: "除外を戻す" }),
     ).not.toBeInTheDocument();
   },
 };
@@ -472,7 +472,7 @@ export const ResultWithCandidateAction: Story = {
     await waitFor(() =>
       expect(
         within(canvasElement.ownerDocument.body).getByRole("button", {
-          name: "候補から外す",
+          name: "除外する",
         }),
       ).toBeVisible(),
     );
@@ -507,11 +507,13 @@ export const ResultExcludedForHost: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.hover(canvas.getByRole("button", { name: "候補外の付箋" }));
+    await userEvent.hover(
+      canvas.getByRole("button", { name: "除外済みの付箋" }),
+    );
     await waitFor(() =>
       expect(
         within(canvasElement.ownerDocument.body).getByRole("button", {
-          name: "候補に戻す",
+          name: "除外を戻す",
         }),
       ).toBeVisible(),
     );

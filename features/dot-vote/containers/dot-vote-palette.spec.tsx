@@ -23,7 +23,7 @@ describe("DotVotePalette", () => {
         selectedKind={null}
         onStickerSelect={vi.fn()}
         onStickerDragStart={vi.fn()}
-        onWithdrawAll={vi.fn()}
+        onWithdrawOne={vi.fn()}
       />,
     );
 
@@ -86,7 +86,7 @@ describe("DotVotePalette", () => {
       name: "「イチオシ！」シール 残り0票",
       hidden: "使い切りました",
       description:
-        "使い切りました 押すと、この種類の自分の票をすべて取り消します。",
+        "使い切りました 押すと、この種類の自分の最新の1票を取り消します。",
     },
   ])(
     "$label のシールは状態を文言で画面に出さず、読み上げで伝える",
@@ -99,7 +99,7 @@ describe("DotVotePalette", () => {
           selectedKind={null}
           onStickerSelect={vi.fn()}
           onStickerDragStart={vi.fn()}
-          onWithdrawAll={vi.fn()}
+          onWithdrawOne={vi.fn()}
           {...props}
         />,
       );
@@ -124,7 +124,7 @@ describe("DotVotePalette", () => {
           selectedKind={null}
           onStickerSelect={vi.fn()}
           onStickerDragStart={vi.fn()}
-          onWithdrawAll={vi.fn()}
+          onWithdrawOne={vi.fn()}
         />,
       );
 
@@ -163,7 +163,7 @@ describe("DotVotePalette", () => {
           selectedKind={null}
           onStickerSelect={vi.fn()}
           onStickerDragStart={vi.fn()}
-          onWithdrawAll={vi.fn()}
+          onWithdrawOne={vi.fn()}
         />,
       );
       for (const button of screen.getAllByRole("button")) {
@@ -187,7 +187,7 @@ describe("DotVotePalette", () => {
         selectedKind={null}
         onStickerSelect={onStickerSelect}
         onStickerDragStart={vi.fn()}
-        onWithdrawAll={vi.fn()}
+        onWithdrawOne={vi.fn()}
       />,
     );
 
@@ -198,11 +198,11 @@ describe("DotVotePalette", () => {
   });
 
   it.each(["subjective", "objective"] as const)(
-    "%sを使い切ったタイルを押すと、その種類の票の全取り消しだけを通知する",
+    "%sを使い切ったタイルを押すと、その種類の1票取り消しだけを通知する",
     (kind) => {
       const onStickerSelect = vi.fn();
       const onStickerDragStart = vi.fn();
-      const onWithdrawAll = vi.fn();
+      const onWithdrawOne = vi.fn();
       const remaining = { subjective: 1, objective: 3, [kind]: 0 };
       const otherKind = kind === "subjective" ? "objective" : "subjective";
       render(
@@ -214,7 +214,7 @@ describe("DotVotePalette", () => {
           selectedKind={kind}
           onStickerSelect={onStickerSelect}
           onStickerDragStart={onStickerDragStart}
-          onWithdrawAll={onWithdrawAll}
+          onWithdrawOne={onWithdrawOne}
         />,
       );
 
@@ -233,8 +233,8 @@ describe("DotVotePalette", () => {
       fireEvent.click(exhausted);
       expect(onStickerSelect).not.toHaveBeenCalled();
       expect(onStickerDragStart).not.toHaveBeenCalled();
-      expect(onWithdrawAll).toHaveBeenCalledTimes(1);
-      expect(onWithdrawAll).toHaveBeenCalledWith(kind);
+      expect(onWithdrawOne).toHaveBeenCalledTimes(1);
+      expect(onWithdrawOne).toHaveBeenCalledWith(kind);
     },
   );
 
@@ -253,9 +253,9 @@ describe("DotVotePalette", () => {
     },
     { label: "送信中", disabled: false, interactionBlocked: false, pending: 1 },
   ])(
-    "$labelは残票0のタイルを押しても全取り消しを通知しない",
+    "$labelは残票0のタイルを押しても1票取り消しを通知しない",
     ({ disabled, interactionBlocked, pending }) => {
-      const onWithdrawAll = vi.fn();
+      const onWithdrawOne = vi.fn();
       render(
         <DotVotePalette
           voteRemaining={{ subjective: 0, objective: 3 }}
@@ -266,14 +266,14 @@ describe("DotVotePalette", () => {
           selectedKind={null}
           onStickerSelect={vi.fn()}
           onStickerDragStart={vi.fn()}
-          onWithdrawAll={onWithdrawAll}
+          onWithdrawOne={onWithdrawOne}
         />,
       );
 
       const exhausted = screen.getByRole("button", { name: /残り0票/ });
       expect(exhausted).toBeDisabled();
       fireEvent.click(exhausted);
-      expect(onWithdrawAll).not.toHaveBeenCalled();
+      expect(onWithdrawOne).not.toHaveBeenCalled();
     },
   );
 
@@ -288,7 +288,7 @@ describe("DotVotePalette", () => {
         isReturnDropTarget
         onStickerSelect={vi.fn()}
         onStickerDragStart={vi.fn()}
-        onWithdrawAll={vi.fn()}
+        onWithdrawOne={vi.fn()}
       />,
     );
 
@@ -310,7 +310,7 @@ describe("DotVotePalette", () => {
         selectedKind={null}
         onStickerSelect={vi.fn()}
         onStickerDragStart={vi.fn()}
-        onWithdrawAll={vi.fn()}
+        onWithdrawOne={vi.fn()}
       />,
     );
 
@@ -332,7 +332,7 @@ describe("DotVotePalette", () => {
         selectedKind={null}
         onStickerSelect={onStickerSelect}
         onStickerDragStart={onStickerDragStart}
-        onWithdrawAll={vi.fn()}
+        onWithdrawOne={vi.fn()}
       />,
     );
 
@@ -368,7 +368,7 @@ describe("DotVotePalette", () => {
         selectedKind="subjective"
         onStickerSelect={vi.fn()}
         onStickerDragStart={vi.fn()}
-        onWithdrawAll={vi.fn()}
+        onWithdrawOne={vi.fn()}
       />,
     );
 
@@ -388,7 +388,7 @@ describe("DotVotePalette", () => {
         selectedKind="subjective"
         onStickerSelect={vi.fn()}
         onStickerDragStart={vi.fn()}
-        onWithdrawAll={vi.fn()}
+        onWithdrawOne={vi.fn()}
       />,
     );
 
@@ -427,7 +427,7 @@ describe("DotVotePalette", () => {
         selectedKind="objective"
         onStickerSelect={vi.fn()}
         onStickerDragStart={vi.fn()}
-        onWithdrawAll={vi.fn()}
+        onWithdrawOne={vi.fn()}
       />,
     );
 
@@ -452,7 +452,7 @@ describe("DotVotePalette", () => {
       selectedKind: null,
       onStickerSelect: vi.fn(),
       onStickerDragStart: vi.fn(),
-      onWithdrawAll: vi.fn(),
+      onWithdrawOne: vi.fn(),
     };
     const { rerender } = render(<DotVotePalette {...props} />);
     expect(screen.queryByText("使い切りました")).not.toBeInTheDocument();
@@ -490,7 +490,7 @@ describe("DotVotePalette", () => {
       selectedKind: null,
       onStickerSelect: vi.fn(),
       onStickerDragStart: vi.fn(),
-      onWithdrawAll: vi.fn(),
+      onWithdrawOne: vi.fn(),
     };
     const { rerender } = render(<DotVotePalette {...props} />);
     expect(screen.getAllByText("使い切りました")).toHaveLength(2);
@@ -522,7 +522,7 @@ describe("DotVotePalette", () => {
       selectedKind: null,
       onStickerSelect: vi.fn(),
       onStickerDragStart: vi.fn(),
-      onWithdrawAll: vi.fn(),
+      onWithdrawOne: vi.fn(),
     };
     const { rerender } = render(<DotVotePalette {...props} />);
     expect(screen.getByRole("status")).toHaveTextContent(
@@ -553,7 +553,7 @@ describe("DotVotePalette", () => {
       selectedKind: "subjective",
       onStickerSelect: vi.fn(),
       onStickerDragStart: vi.fn(),
-      onWithdrawAll: vi.fn(),
+      onWithdrawOne: vi.fn(),
     };
     const { rerender } = render(<DotVotePalette {...props} />);
     const button = screen.getByRole("button", {
@@ -587,7 +587,7 @@ describe("DotVotePalette", () => {
           selectedKind={null}
           onStickerSelect={vi.fn()}
           onStickerDragStart={vi.fn()}
-          onWithdrawAll={vi.fn()}
+          onWithdrawOne={vi.fn()}
         />,
       );
       expect(screen.getByRole("status")).toBeEmptyDOMElement();
@@ -597,7 +597,7 @@ describe("DotVotePalette", () => {
     },
   );
 
-  it("タイマー停止中も残票ゼロの種類は使い切りを示し、再開後は選ばずに全取り消しだけを通知する", () => {
+  it("タイマー停止中も残票ゼロの種類は使い切りを示し、再開後は選ばずに1票取り消しだけを通知する", () => {
     const props: DotVotePaletteProps = {
       voteRemaining: { subjective: 0, objective: 3 },
       pendingOperationCount: 0,
@@ -607,7 +607,7 @@ describe("DotVotePalette", () => {
       selectedKind: null,
       onStickerSelect: vi.fn(),
       onStickerDragStart: vi.fn(),
-      onWithdrawAll: vi.fn(),
+      onWithdrawOne: vi.fn(),
     };
     const { rerender } = render(<DotVotePalette {...props} />);
     const subjective = screen.getByRole("button", {
@@ -623,7 +623,7 @@ describe("DotVotePalette", () => {
     fireEvent.click(subjective);
     expect(props.onStickerSelect).not.toHaveBeenCalled();
     expect(props.onStickerDragStart).not.toHaveBeenCalled();
-    expect(props.onWithdrawAll).toHaveBeenCalledWith("subjective");
+    expect(props.onWithdrawOne).toHaveBeenCalledWith("subjective");
     expect(
       screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
     ).toBeEnabled();

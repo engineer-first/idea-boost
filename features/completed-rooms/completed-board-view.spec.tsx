@@ -18,7 +18,7 @@ describe("参加者向け成果の付箋一覧", () => {
       const list = within(screen.getByRole("list"));
       expect(list.getByText(board.notes[0].content)).toBeVisible();
       expect(list.getByText("採用済み")).toBeVisible();
-      expect(list.getByText("候補外")).toBeVisible();
+      expect(list.getByText("除外済み")).toBeVisible();
       expect(list.getAllByText("グループ：つながりのきっかけ")).toHaveLength(2);
       expect(
         list.queryByText(/配置 \(|実現のしやすさ .*\/ 価値/),

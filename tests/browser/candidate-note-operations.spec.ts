@@ -189,7 +189,7 @@ test.skipIf(!includeMobile)(
 );
 
 test.skipIf(!includeMobile).each(["host", "participant"])(
-  "候補外の付箋（%s）は実タッチで本文を読みやすくし、復帰可能な場合だけ操作を出す",
+  "除外済みの付箋（%s）は実タッチで本文を読みやすくし、復帰可能な場合だけ操作を出す",
   async (role) => {
     await page.close();
     page = await browser.newPage({
@@ -205,7 +205,7 @@ test.skipIf(!includeMobile).each(["host", "participant"])(
           }
         ).__STORYBOOK_PREVIEW__.currentRender?.phase === "finished",
     );
-    const surface = page.getByRole("button", { name: "候補外の付箋" });
+    const surface = page.getByRole("button", { name: "除外済みの付箋" });
     const card = page.getByTestId("note-card");
     await surface.evaluate((element) => element.blur());
     await expect
@@ -215,7 +215,7 @@ test.skipIf(!includeMobile).each(["host", "participant"])(
     await expect
       .poll(() => card.evaluate((element) => getComputedStyle(element).opacity))
       .toBe("0.9");
-    const restore = page.getByRole("button", { name: "候補に戻す" });
+    const restore = page.getByRole("button", { name: "除外を戻す" });
     if (role === "host") {
       await expect
         .poll(() =>

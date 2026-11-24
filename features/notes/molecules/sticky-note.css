@@ -91,3 +91,29 @@
     transition: none;
   }
 }
+
+/* 取り消せるはんこだけ押せる。ホバー・フォーカスで押せると分かる見た目にする。 */
+.sticky-note-stamp-action {
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.sticky-note-stamp-action:disabled {
+  cursor: not-allowed;
+}
+.sticky-note[data-decided] .sticky-note-stamp-action:not(:disabled):hover,
+.sticky-note[data-decided]
+  .sticky-note-stamp-action:not(:disabled):focus-visible {
+  background: var(--ib-color-state-decided);
+  color: var(--ib-color-surface);
+  transform: rotate(-12deg) scale(1.08);
+  transition:
+    background-color 0.12s ease-out,
+    color 0.12s ease-out,
+    transform 0.12s ease-out;
+}
+.sticky-note-stamp-action:focus-visible {
+  outline: 3px solid var(--ib-color-state-select);
+  outline-offset: 2px;
+}

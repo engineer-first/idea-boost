@@ -34,9 +34,9 @@ describe("AdoptNoteControl", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "採用する問いをクリックしてください",
+      "採用する問いをクリック",
     );
-    expect(screen.getByRole("status")).toHaveTextContent("Escape");
+    expect(screen.getByRole("status")).not.toHaveTextContent("Escape");
     fireEvent.click(screen.getByRole("button", { name: "選択をキャンセル" }));
     expect(onCancelSelection).toHaveBeenCalledTimes(1);
   });

@@ -14,6 +14,9 @@ export type StickyNoteProps = {
   isDecided?: boolean;
   /** board: 拡大して右上へ、reference: 拡大せず内側の右下へはんこを表示する。 */
   decisionPresentation?: "board" | "reference";
+  /** 渡すと、盤面の決定はんこが「確定を取り消す」ボタンになる（参照表示では無効）。 */
+  onStampClick?: () => void;
+  stampDisabled?: boolean;
   isAdoptionFocused?: boolean;
   color?: NoteColor | null;
   children: React.ReactNode;
@@ -34,6 +37,8 @@ export function StickyNote({
   isSelected = false,
   isDecided = false,
   decisionPresentation = "board",
+  onStampClick,
+  stampDisabled = false,
   isAdoptionFocused = false,
   color = "yellow",
   children,
@@ -116,18 +121,33 @@ export function StickyNote({
         data-slot="sticky-note-stamp-layer"
         className="sticky-note-stamp-layer pointer-events-none absolute inset-0 z-30"
       >
-        <span
-          role="status"
-          aria-label={
-            decisionPresentation === "reference"
-              ? "採用済み"
-              : "取り組む課題に決定済み"
-          }
-          aria-hidden={!isDecided || undefined}
-          className="sticky-note-stamp"
-        >
-          決定
-        </span>
+        {isDecided && onStampClick && decisionPresentation === "board" ? (
+          <button
+            type="button"
+            title="確定を取り消す"
+            aria-label="決定のはんこ（確定を取り消す）"
+            disabled={stampDisabled}
+            className="sticky-note-stamp sticky-note-stamp-action"
+            // 盤面のパン・範囲選択へ押下が渡らないようにする。
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={onStampClick}
+          >
+            決定
+          </button>
+        ) : (
+          <span
+            role="status"
+            aria-label={
+              decisionPresentation === "reference"
+                ? "採用済み"
+                : "取り組む課題に決定済み"
+            }
+            aria-hidden={!isDecided || undefined}
+            className="sticky-note-stamp"
+          >
+            決定
+          </span>
+        )}
       </div>
       <div
         data-slot="sticky-note-content"

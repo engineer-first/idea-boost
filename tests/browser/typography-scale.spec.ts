@@ -106,7 +106,7 @@ test.skipIf(!includeMobile)(
 );
 
 test.skipIf(!includeMobile)(
-  "画面下端の候補メニューは一行で収まり、候補から外す操作へ到達できる",
+  "画面下端の候補メニューは一行で収まり、除外する操作へ到達できる",
   async () => {
     const page = await browser.newPage({
       viewport: { width: 360, height: 568 },
@@ -125,12 +125,12 @@ test.skipIf(!includeMobile)(
       await surface.click({ button: "right" });
       const menu = page.getByRole("menu", { name: "付箋の候補操作" });
       await menu.waitFor();
-      const item = menu.getByRole("menuitem", { name: "候補から外す" });
+      const item = menu.getByRole("menuitem", { name: "除外する" });
       const lines = await item.evaluate((node) => {
         const text = Array.from(node.childNodes).find(
           (child) =>
             child.nodeType === Node.TEXT_NODE &&
-            child.textContent?.includes("候補から外す"),
+            child.textContent?.includes("除外する"),
         );
         if (!text) throw new Error("操作ラベルがありません");
         const range = document.createRange();

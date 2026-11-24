@@ -30,7 +30,6 @@ import {
   resetNoteVoteLocally,
   restoreVoteStickerLocally,
   voteNoteLocally,
-  withdrawOwnVotesOfKindLocally,
 } from "./notes-reducer";
 import { type MoveFeedback, useNoteMove } from "./use-note-move";
 import { useNoteShare } from "./use-note-share";
@@ -123,7 +122,7 @@ export type UseRoomNotesResult = {
   ) => void;
   resetNoteVote: (noteId: string, kind: DotVoteKind) => void;
   // 指定した種類の自分の票を、すべての付箋から取り消す。
-  withdrawAllVotesOfKind: (kind: DotVoteKind) => void;
+  withdrawLatestVoteOfKind: (kind: DotVoteKind) => void;
   pendingVoteOperations: PendingVoteOperation[];
   voteFeedback: VoteFeedback | null;
 };
@@ -856,23 +855,26 @@ export function useRoomNotes({
     [send, createVoteOperationId],
   );
 
-  const withdrawAllVotesOfKind = useCallback(
+  // 使い切った種類を押したときは全票ではなく、自分の最新の1票だけを戻す。
+  // 投票中の付箋には本人のシールしか届かないため、配列の末尾が最新の1枚になる。
+  const withdrawLatestVoteOfKind = useCallback(
     (kind: DotVoteKind) => {
-      const result = withdrawOwnVotesOfKindLocally(notesRef.current, kind);
-      if (result.noteIds.length === 0) return;
-      notesRef.current = result.notes;
-      setNotes(result.notes);
-      setVoteFeedback(null);
-      for (const noteId of result.noteIds) {
-        send({
-          type: "note:vote-reset",
-          noteId,
-          kind,
-          operationId: createVoteOperationId(),
-        });
+      const current = notesRef.current;
+      for (let n = current.length - 1; n >= 0; n--) {
+        const note = current[n];
+        if (!note || note.dotVotes[kind].ownCount <= 0) continue;
+        const sticker = note.dotVoteStickers.findLast(
+          (candidate) => candidate.kind === kind,
+        );
+        if (sticker) {
+          removeVoteSticker(sticker.id);
+        } else {
+          removeNoteVote(note.id, kind);
+        }
+        return;
       }
     },
-    [send, createVoteOperationId],
+    [removeVoteSticker, removeNoteVote],
   );
 
   return {
@@ -912,7 +914,7 @@ export function useRoomNotes({
     removeVoteSticker,
     moveVoteSticker,
     resetNoteVote,
-    withdrawAllVotesOfKind,
+    withdrawLatestVoteOfKind,
     pendingVoteOperations,
     voteFeedback,
   };
