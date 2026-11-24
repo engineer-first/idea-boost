@@ -202,7 +202,7 @@ for (const width of widths(1280)) {
     await page.clock.runFor(90_000);
     expect(await nudge.count()).toBe(1);
     await page
-      .getByRole("button", { name: /困ったらここから作ってみよう/ })
+      .getByRole("button", { name: /困ったらここから.*作ってみよう/ })
       .click();
     const dialog = page.getByRole("dialog", { name: "問いのヒント" });
     await dialog.waitFor();
@@ -238,7 +238,7 @@ test("フェードなしで常に表示し、書き出し後も消えない", as
   );
   expect(hasOwnFade).toBe(false);
   await clickFloatingWord(
-    page.getByRole("button", { name: /困ったらここから作ってみよう/ }),
+    page.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
   );
   const dialog = page.getByRole("dialog", { name: "問いのヒント" });
   await dialog.waitFor();
@@ -259,7 +259,7 @@ test.skipIf(!includeMobile)(
       `${origin}/iframe.html?id=hmw-hmwhintcharacter--nudge&viewMode=story`,
     );
     const nudge = page.getByRole("button", {
-      name: /困ったらここから作ってみよう/,
+      name: /困ったらここから.*作ってみよう/,
     });
     await nudge.waitFor();
     expect(await nudge.textContent()).toBe("困ったらここから作ってみよう");

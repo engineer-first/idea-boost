@@ -57,7 +57,7 @@ describe("キャラクターの問いヒント", () => {
     );
     // 呼びかけ条件を待たずに、キャラクターと吹き出しを最初から出す。
     expect(
-      screen.getByRole("button", { name: /困ったらここから作ってみよう/ }),
+      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "問いのヒントを開く" }),
@@ -67,11 +67,11 @@ describe("キャラクターの問いヒント", () => {
       screen.getByRole("button", { name: "問いのヒントを開く" }),
     );
     expect(
-      screen.queryByRole("button", { name: /困ったらここから作ってみよう/ }),
+      screen.queryByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).not.toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     expect(
-      screen.getByRole("button", { name: /困ったらここから作ってみよう/ }),
+      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).toBeInTheDocument();
     rerender(
       <HmwHintCharacter
@@ -82,7 +82,7 @@ describe("キャラクターの問いヒント", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: /困ったらここから作ってみよう/ }),
+      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).toBeInTheDocument();
     // 閉じたら次の書き出し周期まで消えたままにする。
     await userEvent.click(
@@ -90,7 +90,7 @@ describe("キャラクターの問いヒント", () => {
     );
     expect(onDismissNudge).toHaveBeenCalledOnce();
     expect(
-      screen.queryByRole("button", { name: /困ったらここから作ってみよう/ }),
+      screen.queryByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "問いのヒントを開く" }),
@@ -128,7 +128,7 @@ describe("キャラクターの問いヒント", () => {
       />,
     );
     await userEvent.click(
-      screen.getByRole("button", { name: /困ったらここから作ってみよう/ }),
+      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     );
     const dialog = screen.getByRole("dialog", { name: "問いのヒント" });
     expect(onHintOpen).toHaveBeenCalledOnce();
@@ -336,7 +336,7 @@ describe("キャラクターの問いヒント", () => {
     expect(onDismissNudge).toHaveBeenCalledOnce();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /困ったらここから作ってみよう/ }),
+      screen.queryByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).not.toBeInTheDocument();
   });
 });
