@@ -1,13 +1,14 @@
 {
   "version": 1,
   "updated": "2026-11-24",
-  "definition": "全 item の status が pass、巡回で S1/S2 が2回続けて0件、かつ本番に載っていれば「開発として完成」。初学者チームが迷わず決められるかは別（価値検証）。",
+  "definition": "PRD のうち「壊れていたら困る」振る舞いを守る約束と、その確かめ方。全 item の status が pass、巡回で S1/S2 が2回続けて0件、かつ本番に載っていれば「開発として完成」。初学者チームが迷わず決められるか（PRD Goal 1）は別に、ユーザーテストで確かめる。",
   "rules": [
-    "finish が変更してよいのは status・evidence・production だけ。capability と acceptance を変えない。",
-    "item の追加・分割、acceptance の書き直し・弱体化・削除は replan か人が PR で行う。弱める・消すときは変更前後の文と理由を PR の設計判断に書く。",
-    "status=pass にできるのは、acceptance の全文を develop の実物で確かめたときだけ。evidence に確かめた方法（テスト名、PR、patrol log のコメント URL）を書く。",
-    "status: unverified | pass | fail | blocked。production: open（本番で使える）| closed | unknown。",
-    "初期値は全て unverified。実装済みの機能も、この台帳の acceptance で確かめ直すまで pass にしない。詳細要求の正本は docs/prd.md と docs/product/sprint-flow.md で、ここに写さない。"
+    "ループ（finish・replan）が変更してよいのは status・evidence・production だけ。capability と acceptance は人が変える。ループは変更前後の文と理由を書いた Issue（needs-human）で提案する。",
+    "このファイルは risk.mts で R2。どの変更も人がマージする。",
+    "status=pass にできるのは、acceptance の文ごとに develop で確かめた方法（テスト名、PR、patrol log のコメント URL）を evidence に書けたときだけ。1文でも確かめていなければ pass にしない。",
+    "acceptance は有限の手順で合否が決まる形で書く（「必ず」「すべて」のような全称で書かない）。合否に含めない部分はそう明記する。",
+    "status: unverified | pass | fail | blocked。production: open（本番で使える）| closed | unknown。初期値は全て unverified。",
+    "詳細要求の正本は docs/prd.md と docs/product/sprint-flow.md で、ここに写さない。PRD の節との対応は coverage に置く。"
   ],
   "items": [
     {
@@ -78,7 +79,8 @@
       "acceptance": [
         "共有ステップで発表者が順番に回り、本人の「できた！」で時間途中でも交代する",
         "今の発表者を参加者の誰でもパスでき、接続中の発表者をパスするときだけ確認が出る",
-        "発表者が退出・除外されたときは次の人へ進み、最後の発表者の完了で次の工程へ進む"
+        "発表者が退出・除外されたときは次の人へ進み、最後の発表者の完了で次の工程へ進む",
+        "共有ステップで参加者がリアクションを送れ、他のステップでは送れない"
       ],
       "journey": "J2",
       "risk": "R1",
@@ -190,6 +192,64 @@
       "status": "unverified",
       "production": "unknown",
       "evidence": ""
+    },
+    {
+      "id": "C13",
+      "area": "organize",
+      "capability": "共有した付箋をグループ化し、候補を整理できる",
+      "acceptance": [
+        "グループ化のステップで共有済みの付箋をまとめられ、全員に同じ配置で見える",
+        "決定ステップで候補外にした付箋は本文と票を保ったまま集計・採用から外れ、戻せる",
+        "採用・再投票・ステップ移行の成立時に、サーバーが受理した位置に揃う"
+      ],
+      "journey": "J2",
+      "risk": "R2",
+      "status": "unverified",
+      "production": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "C14",
+      "area": "feedback",
+      "capability": "使った人が意見を送り、担当者が読める",
+      "acceptance": [
+        "作業中と成果画面から、種類と対象のステップを選んで意見を送れる",
+        "意見には投稿者のID・氏名・メール・付箋・個別票が保存されない",
+        "feedback:read 権限を持つ担当者だけが /feedback で読め、30日を過ぎた意見は取得できない"
+      ],
+      "journey": "-",
+      "risk": "R2",
+      "status": "unverified",
+      "production": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "C15",
+      "area": "after-session",
+      "capability": "会の後に、採用案の確かめ方をチームで持ち帰れる",
+      "acceptance": [
+        "完了後の成果から、確定した課題・問い・採用案をもとにした調査の手順を開ける",
+        "手順はチーム共通で、古い版からの更新は拒否され、失敗時は前の手順が残る",
+        "チームの合意・AI の提案・調査で分かった事実が区別して表示される"
+      ],
+      "journey": "J5",
+      "risk": "R2",
+      "status": "unverified",
+      "production": "unknown",
+      "evidence": ""
     }
-  ]
+  ],
+  "coverage": {
+    "PRD 4 Goal 1（迷わず完走）": "C03・C11。迷わないかは価値検証で確かめ、台帳の合否に含めない",
+    "PRD 4 Goal 2（同じルームで共有）": "C02・C05",
+    "PRD 4 Goal 3（個人ワーク）": "C04",
+    "PRD 4 Goal 4（ステルス投票）": "C06",
+    "PRD 5 Non-Goal の例外（PBI-AI-930）": "C15",
+    "PRD 6・進行仕様（ステップ・共有・候補整理）": "C03〜C08・C13",
+    "PRD 7 コア機能・表示名・顔アイコン": "C01・C02・C08・C10",
+    "PRD 7 ルーム作成・退出・再訪": "C02・C09・C10",
+    "PRD 10 意見と使いやすさ評価": "C14",
+    "運用（リリース）": "C12",
+    "PRD 8・9（競合・パッケージ）": "対象外（振る舞いではない）"
+  }
 }

@@ -1,13 +1,12 @@
 # mend — develop を直す1回
 
-あなたは IdeaBoost の修理係です。develop の CI が赤い間、他のどの仕事よりも先にこれを直します。
+あなたは IdeaBoost の mend ループです。develop の CI が赤い間、他のどの仕事よりも先にこれを直します。条件の正本は [LOOPS.md](../LOOPS.md) の「0. 修理」。
 
-1. `git fetch origin && git checkout -B loop/mend-<日付> origin/develop`
-2. `ci-triage` skill で、develop への push で失敗した最新の CI / Browser の run・ジョブ・原因の PR を特定する
-3. 他のセッションが直していないか確かめる：`gh pr list --state open --search "develop の CI"`、原因 PR の作者のコメント
-4. 30分で直せる見込みがあれば直す。無理なら原因 PR を `git revert -m 1`（squash なら `git revert`）で戻す
-5. 失敗していた検査をローカルで回して green を確かめる
-6. write-pr skill で PR を作る。ラベル `loop:mend`、本文に原因の PR・失敗した run の URL・直し方（直したか戻したか）、末尾に `Loop: mend` と `Risk: R0`。原因 PR の作者を本文で `@` 付きで知らせる。Ready にする
-7. revert した場合は、元の Issue を開き直して理由をコメントする
-8. 再実行だけで通る一時的な失敗（外部の通信・Actions の混雑）なら `gh run rerun <id> --failed` で確かめ、通れば PR は作らずに終える
-9. `orca worktree set --worktree active --comment "<PR URL か再実行の結果>"` を残して終える
+1. `git fetch origin`。`ci-triage` skill で、develop への push で失敗した最新の CI / Browser の run・ジョブを特定する。失敗した head と、その前に成功した head の間のコミットをすべて原因の候補にする
+2. `gh run rerun <id> --failed` で再実行する。通れば一時的な失敗として、PR を作らずに終える
+3. 2回目も落ちたら原因の PR を特定する
+4. 原因がループの PR なら：`loop/mend-<日付>` で直すか `git revert` する。元の Issue を開き直して `loop:reverted` を付け、理由をコメントする
+5. 原因が人の PR なら：その PR に失敗した run の URL と原因の見立てをコメントして作者にメンションする。失敗から2時間たっていなければここで終える。2時間たっても作者の修正 PR が無ければ revert の PR を作り、`needs-human` を付ける（マージは人）
+6. migration・contracts・workers を含む PR の revert は、必ず `needs-human` にする
+7. 失敗していた検査をローカルで回して green を確かめる。write-pr skill で PR を作る。ラベル `loop:mend`、本文に原因の PR・失敗した run・直したか戻したか、末尾の2行は LOOPS.md のとおり。Ready にする
+8. 終える
