@@ -53,7 +53,7 @@ test.each(widths(1280, 390))(
 );
 
 test.each(widths(1280, 390))(
-  "幅%dで進行待ちの次へは押せず、完了をチェックすると押せるようになり、取り消すと戻る",
+  "幅%dで進行待ちの次へは押しても進まず「できた！」を示し、完了をチェックすると押せるようになり、取り消すと戻る",
   async (width) => {
     const page = await browser.newPage({
       viewport: { width, height: 800 },
@@ -67,13 +67,18 @@ test.each(widths(1280, 390))(
         name: /^(次のステップへ|あと\d+人で次へ)$/,
       });
       await next.waitFor();
-      expect(await next.isDisabled()).toBe(true);
+      expect(await next.getAttribute("aria-disabled")).toBe("true");
       const complete = page.getByRole("button", {
         name: "できた！",
         exact: true,
       });
+      // aria-disabled のボタンは Playwright が押せないと判定するため、実際の押下と同じ座標クリックで確かめる。
+      await next.click({ force: true });
+      await expect
+        .poll(() => complete.evaluate((el) => el === document.activeElement))
+        .toBe(true);
       await complete.click();
-      await expect.poll(() => next.isEnabled()).toBe(true);
+      await expect.poll(() => next.getAttribute("aria-disabled")).toBe(null);
       const checked = page.getByRole("button", { name: "準備OK！を取り消す" });
       expect(await checked.getAttribute("aria-pressed")).toBe("true");
       const hud = await page.getByTestId("board-control-hud").boundingBox();
@@ -81,7 +86,7 @@ test.each(widths(1280, 390))(
       expect(hud.x).toBeGreaterThanOrEqual(0);
       expect(hud.x + hud.width).toBeLessThanOrEqual(width);
       await checked.click();
-      expect(await next.isDisabled()).toBe(true);
+      await expect.poll(() => next.getAttribute("aria-disabled")).toBe("true");
       expect(await complete.getAttribute("aria-pressed")).toBe("false");
     } finally {
       await page.close();

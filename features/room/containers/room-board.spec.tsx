@@ -3212,7 +3212,7 @@ describe("保存待ちを伴わない工程進行", () => {
     ).toBeVisible();
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByTestId("room-timer")).toBeEnabled();
   });
 

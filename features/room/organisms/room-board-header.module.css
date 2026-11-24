@@ -118,6 +118,19 @@
     rgb(from var(--ib-color-state-decided-text) r g b / 20%);
   transform: translateY(1px) scale(0.98);
 }
+/* 全員がそろう前の次へを押したら、押すべき「できた！」を光らせる。 */
+[data-completion-cue="nudge"] .readyButton {
+  border-color: var(--ib-color-state-decided);
+  animation: ready-nudge 400ms ease-in-out 3 alternate;
+}
+@keyframes ready-nudge {
+  from {
+    box-shadow: 0 0 0 0 rgb(from var(--ib-color-state-decided) r g b / 0%);
+  }
+  to {
+    box-shadow: 0 0 0 5px rgb(from var(--ib-color-state-decided) r g b / 35%);
+  }
+}
 .nextReady {
   box-shadow:
     0 0 0 3px rgb(59 130 246 / 18%),
@@ -182,6 +195,10 @@
   [data-completion-cue] .readyButton,
   [data-completion-cue] .avatarCue[data-cue-self] {
     transform: none;
+  }
+  [data-completion-cue="nudge"] .readyButton {
+    animation: none;
+    box-shadow: 0 0 0 4px rgb(from var(--ib-color-state-decided) r g b / 35%);
   }
   [data-completion-cue="check"] .avatarCue[data-cue-self] svg path,
   [data-completion-cue="check"] .avatarCue[data-cue-self] svg polyline {
