@@ -39,7 +39,6 @@ export type PrivateNotesToolbarProps = {
   canEditNote: boolean;
   className?: string;
   toolbarRef?: React.RefObject<HTMLDivElement | null>;
-  isReturnDropTarget?: boolean;
   selectedNoteId: string | null;
   canCreateNote: boolean;
   canDeleteNote: boolean;
@@ -252,7 +251,6 @@ export function PrivateNotesToolbar({
   editingDisabled = false,
   className,
   toolbarRef,
-  isReturnDropTarget = false,
   selectedNoteId,
   canCreateNote,
   canDeleteNote,
@@ -851,7 +849,6 @@ export function PrivateNotesToolbar({
       ref={toolbarRef}
       className={cn(
         "flex max-w-full flex-col overflow-hidden transition-[box-shadow,background-color] duration-150",
-        isReturnDropTarget && "bg-primary/5 ring-2 ring-primary/40",
         isWorkspace
           ? "h-full w-full max-w-7xl rounded-none border-0 bg-transparent shadow-none"
           : displayedExpanded
@@ -868,7 +865,6 @@ export function PrivateNotesToolbar({
       data-testid="private-notes-toolbar"
       data-presentation={presentation}
       data-expanded={String(displayedExpanded)}
-      data-return-drop-target={isReturnDropTarget || undefined}
     >
       <CardHeader
         data-testid="private-notes-header"

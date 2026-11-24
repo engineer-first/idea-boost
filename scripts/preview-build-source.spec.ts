@@ -126,12 +126,13 @@ it("公開するCI buildはPR headをcheckoutし、RoomDO SQLもartifactへ含�
   );
   const steps = workflow.jobs.build.steps;
   expect(
-    steps.find((step: { uses?: string }) => step.uses === "actions/checkout@v4")
-      .with.ref,
+    steps.find((step: { uses?: string }) =>
+      step.uses?.startsWith("actions/checkout@"),
+    ).with.ref,
   ).toBe("$" + "{{ github.event.pull_request.head.sha || github.sha }}");
   expect(
-    steps.find(
-      (step: { uses?: string }) => step.uses === "actions/upload-artifact@v4",
+    steps.find((step: { uses?: string }) =>
+      step.uses?.startsWith("actions/upload-artifact@"),
     ).with.path,
   ).toContain("workers/room-do-migrations/*.sql");
 });

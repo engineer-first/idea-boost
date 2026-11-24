@@ -149,7 +149,6 @@ function buildInteractions(
     notes,
     privateNotes,
     dragGhost: null,
-    isReturnDropTarget: false,
     isNoteDragging: false,
     camera: { x: 0, y: 0, zoom: 1 },
     gridStyle: {
@@ -4596,6 +4595,27 @@ it("AT-002: private press取消後の新native HUD press/upは古pointer抑止�
   );
   fireEvent.click(zoom, { detail: 1 });
   expect(interactions.onZoomOut).toHaveBeenCalledTimes(1);
+});
+
+it("付箋ドラッグ中の pointer capture 引き継ぎによる lostPointerCapture は pointerUp を抑止しない", () => {
+  const note = buildNote({ id: "shared-handoff", authorId: ME });
+  const interactions = {
+    ...buildInteractions([note], []),
+    hasActiveNoteDrag: vi.fn((pointerId: number) => pointerId === 77),
+  };
+  setup({ notes: [note], interactions, phase: buildPhaseStep(2) });
+  const surface = getNoteSurface(screen.getByTestId("note-card"));
+  const root = screen.getByTestId("room-board-view-root");
+  fireEvent.pointerDown(surface, {
+    pointerId: 77,
+    button: 0,
+    buttons: 1,
+    clientX: 100,
+    clientY: 100,
+  });
+  fireEvent.lostPointerCapture(surface, { pointerId: 77 });
+  fireEvent.pointerUp(root, { pointerId: 77, clientX: 220, clientY: 180 });
+  expect(interactions.onPointerEnd).toHaveBeenCalledTimes(1);
 });
 
 describe("AT-002: 第一note所有中の第二palette入力", () => {

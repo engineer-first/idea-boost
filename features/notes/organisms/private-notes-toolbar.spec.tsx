@@ -1662,6 +1662,83 @@ describe("追加執筆のマイ付箋", () => {
     expect(composer).toHaveValue("");
     expect(composer).toHaveFocus();
   });
+  it("縮小一覧のスクロールと同じフレームで、追加付箋の着地点を補正する", () => {
+    const options = props();
+    const view = render(<PrivateNotesToolbar {...options} />);
+    const composer = screen.getByRole("textbox", { name: "付箋を書く" });
+    const list = screen.getByTestId("private-notes-scroll");
+    let scrollTop = 0;
+    Object.defineProperties(list, {
+      clientHeight: { value: 200 },
+      scrollHeight: { value: 400 },
+      scrollTop: { get: () => scrollTop },
+      scrollTo: {
+        // スクロール位置が変わっただけでは、scroll イベントを通知しない。
+        value: ({ top, behavior }: ScrollToOptions) => {
+          if (top !== undefined && behavior === "instant") scrollTop = top;
+        },
+      },
+    });
+    const bounds = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this === list) return new DOMRect(0, 100, 500, 200);
+        if (this.dataset.noteId === "created") {
+          const translateY = Number.parseFloat(
+            this.style.translate.split(" ")[1],
+          );
+          const correction = Number.isNaN(translateY) ? 0 : translateY;
+          return new DOMRect(0, 310 - scrollTop + correction, 200, 150);
+        }
+        return new DOMRect(0, 0, 200, 80);
+      });
+    const frames: FrameRequestCallback[] = [];
+    const requestFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => frames.push(callback));
+    const nextFrame = (time: number) => {
+      const frame = frames.shift();
+      if (!frame) throw new Error("スクロールを更新するフレームがありません");
+      frame(time);
+    };
+
+    try {
+      const content = "次の段に入る本文";
+      composer.focus();
+      fireEvent.change(composer, { target: { value: content } });
+      fireEvent.keyDown(composer, { key: "Enter" });
+      view.rerender(
+        <PrivateNotesToolbar
+          {...options}
+          notes={[
+            ...options.notes,
+            buildNote({ id: "created", visibility: "private", content }),
+          ]}
+          noteCreationReceipt={{ operationId: "addition", noteId: "created" }}
+        />,
+      );
+      const card = screen.getAllByTestId("note-card")[1];
+      const animate = vi.fn(() => ({ cancel: vi.fn() }));
+      Object.defineProperty(card, "animate", { value: animate });
+
+      nextFrame(0);
+      nextFrame(80);
+      expect(scrollTop).toBeGreaterThan(0);
+      expect(animate).toHaveBeenCalledOnce();
+      const landingTop = card.getBoundingClientRect().top;
+      const previousScrollTop = scrollTop;
+      nextFrame(120);
+      expect(scrollTop).toBeGreaterThan(previousScrollTop);
+      expect(card.getBoundingClientRect().top).toBeCloseTo(landingTop);
+      nextFrame(1000);
+      expect(card.style.translate).toBe("");
+      expect(card.getBoundingClientRect().top).toBeCloseTo(landingTop);
+    } finally {
+      view.unmount();
+      requestFrame.mockRestore();
+      bounds.mockRestore();
+    }
+  });
   it("作成待ちの間に書いた次の本文は先の応答で消さない", () => {
     const options = props();
     const onAdd = vi.fn(() => "addition");

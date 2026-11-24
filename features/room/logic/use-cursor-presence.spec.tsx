@@ -47,7 +47,7 @@ describe("useCursorPresence", () => {
     vi.useRealTimers();
   });
 
-  it("位置を即時送信し、短時間の連続更新は末尾へ coalesce する", () => {
+  it("位置を即時送信し、40ms以内の連続更新は末尾の位置を40ms後に送る", () => {
     const send = vi.fn();
     const { result } = renderHook(() =>
       useCursorPresence({
@@ -71,7 +71,9 @@ describe("useCursorPresence", () => {
       draggingNoteId: null,
     });
 
-    act(() => vi.advanceTimersByTime(80));
+    act(() => vi.advanceTimersByTime(39));
+    expect(send).toHaveBeenCalledTimes(1);
+    act(() => vi.advanceTimersByTime(1));
     expect(send).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenLastCalledWith({
       type: "cursor:update",

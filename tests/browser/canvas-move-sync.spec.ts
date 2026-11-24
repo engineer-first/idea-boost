@@ -77,7 +77,7 @@ async function drag(
 // 既存auth-entryと同じ専用dev:verify指定時に、別認証contextで実RoomDOへ接続する。
 // 各caseは新規ルームだけを操作し、通常DBを使わない。
 describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
-  test("3-2の共有付箋をマイ付箋へ戻し、再読込後も非共有を保つ", async () => {
+  test("3-2の共有付箋をマイ付箋欄上へドラッグしても未共有化せず、移動確定し再読込後も共有を保つ", async () => {
     const browser = await chromium.launch();
     try {
       const actor = await browser.newPage({
@@ -138,27 +138,33 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
         { steps: 8 },
       );
       await actor.mouse.up();
-      await expect.poll(() => peerNote.count()).toBe(0);
+      await expect
+        .poll(() => sent.some((message) => message.type === "note:move:commit"))
+        .toBe(true);
       const types = sent.map((message) => message.type);
-      expect(types.indexOf("note:move:cancel")).toBeGreaterThan(-1);
-      expect(types.indexOf("note:move:cancel")).toBeLessThan(
-        types.indexOf("note:unpublish"),
-      );
-      expect(types).not.toContain("note:move:commit");
+      expect(types).not.toContain("note:unpublish");
+      expect(types).not.toContain("note:move:cancel");
+      expect(await peerNote.count()).toBe(1);
       await actor.reload();
       await actor.getByTestId("board-canvas").waitFor();
       await actor.getByTestId("private-notes-scroll").waitFor();
+      expect(
+        await actor
+          .getByTestId("private-notes-toolbar")
+          .locator(`[data-note-id="${id}"]`)
+          .count(),
+      ).toBe(0);
       await expect
         .poll(() =>
           actor
-            .getByTestId("private-notes-toolbar")
+            .getByTestId("board-canvas")
             .locator(`[data-note-id="${id}"]`)
             .count(),
         )
         .toBe(1);
       await peer.reload();
       await peer.getByTestId("board-canvas").waitFor();
-      expect(await peerNote.count()).toBe(0);
+      expect(await peerNote.count()).toBe(1);
     } finally {
       await browser.close();
     }

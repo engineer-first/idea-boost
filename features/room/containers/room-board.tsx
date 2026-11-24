@@ -788,7 +788,6 @@ export function RoomBoard({
     onNoteDragEnd: notes.endNoteDrag,
     onNoteDragCancel: notes.cancelNoteDrag,
     onPrivateNotePublish: handlePrivateNotePublish,
-    onPrivateNoteUnpublish: notes.unpublishNote,
     onCursorMove: cursorPresence.updateCursor,
     onCursorLeave: cursorPresence.leaveCanvas,
     onManualPanStart: () => {

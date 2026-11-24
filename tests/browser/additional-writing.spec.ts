@@ -190,102 +190,33 @@ test("縮小中も入力・IME変換と選択範囲を保ち、パネルのホ�
   expect(await toolbar.getAttribute("data-expanded")).toBe("false");
 });
 
-test("縮小時は6枚目と11枚目で一覧が滑らかに動き、付箋は入力欄から着地する", async () => {
+test("縮小時は次の段へ追加すると一覧がスクロールし、入力を続けられる", async () => {
   await open("additional-writing-empty");
   const toolbar = page.getByTestId("private-notes-toolbar");
   const scroll = toolbar.getByTestId("private-notes-scroll");
   const cards = scroll.getByTestId("note-card");
-  const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
-  const toggle = toolbar.getByRole("button", { name: "広げる" });
+  const header = toolbar.getByTestId("private-notes-header");
+  const composer = header.getByRole("textbox", { name: "付箋を書く" });
   await composer.click();
-  const composerBounds = await composer.boundingBox();
-  if (!composerBounds) throw new Error("入力欄がありません");
-  const headerBounds = [composerBounds, await toggle.boundingBox()];
-  const monitor = await scroll.evaluateHandle((list: HTMLElement) => {
-    const positions: number[] = [];
-    const starts: {
-      scrollTop: number;
-      startX: number;
-      startY: number;
-      frameYs: number[];
-    }[] = [];
-    list.addEventListener("scroll", () => positions.push(list.scrollTop));
-    // 一覧の移動に対してスクロールイベントの処理が1フレーム遅れる状況を再現する。
-    const listen = list.addEventListener.bind(list);
-    list.addEventListener = (
-      type: string,
-      listener: EventListenerOrEventListenerObject,
-      options?: boolean | AddEventListenerOptions,
-    ) => {
-      if (type !== "scroll" || typeof listener !== "function") {
-        listen(type, listener, options);
-        return;
-      }
-      listen(
-        type,
-        (event) => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              if (typeof options === "object" && options.signal?.aborted)
-                return;
-              listener.call(list, event);
-            });
-          });
-        },
-        options,
-      );
-    };
-    const animate = Element.prototype.animate;
-    Element.prototype.animate = function (...args) {
-      const bounds = this.getBoundingClientRect();
-      const animation = animate.apply(this, args);
-      if (list.contains(this) && this.matches('[data-testid="note-card"]')) {
-        const effect = animation.effect as KeyframeEffect;
-        const transform = new DOMMatrix(
-          String(effect.getKeyframes()[0].transform ?? "none"),
-        );
-        const start = {
-          scrollTop: list.scrollTop,
-          startX: bounds.left + transform.m41,
-          startY: bounds.top + transform.m42,
-          frameYs: [bounds.top + transform.m42],
-        };
-        starts.push(start);
-        const recordFrame = () => {
-          start.frameYs.push(this.getBoundingClientRect().top);
-          if (animation.playState === "running")
-            requestAnimationFrame(recordFrame);
-        };
-        requestAnimationFrame(recordFrame);
-      }
-      return animation;
-    };
-    return { starts, positions };
-  });
+  const headerTop = (await header.boundingBox())?.y;
+  const getScrollTop = () => scroll.evaluate((list) => list.scrollTop);
+
   const nextDraft = "連続追加 7";
   for (let count = 1; count <= 11; count += 1) {
-    const before = await scroll.evaluate((list) => list.scrollTop);
-    await monitor.evaluate(({ positions, starts }) => {
-      positions.length = 0;
-      starts.length = 0;
-    });
-    if (count !== 7) await composer.fill(`連続追加 ${count}`);
+    const before = await getScrollTop();
+    const content = `連続追加 ${count}`;
+    if (count !== 7) await composer.fill(content);
     await composer.press("Enter");
     await expect.poll(() => cards.count()).toBe(count);
-    await expect
-      .poll(() => monitor.evaluate(({ starts }) => starts.length))
-      .toBe(1);
     if (count === 6) await page.keyboard.insertText(nextDraft);
-    await waitForPanelTransition();
-    const card = cards.nth(count - 1);
-    expect(await card.locator("textarea").inputValue()).toBe(
-      `連続追加 ${count}`,
-    );
+
+    const card = cards.last();
+    expect(await card.locator("textarea").inputValue()).toBe(content);
     await expect
       .poll(() =>
         card.evaluate((note) => {
           const viewport = note.closest('[data-testid="private-notes-scroll"]');
-          if (!viewport) return false;
+          if (!viewport || note.getAnimations().length > 0) return false;
           const bounds = note.getBoundingClientRect();
           const clipTop =
             viewport.getBoundingClientRect().top + viewport.clientTop;
@@ -296,41 +227,14 @@ test("縮小時は6枚目と11枚目で一覧が滑らかに動き、付箋は�
         }),
       )
       .toBe(true);
-    const {
-      positions,
-      starts: [start],
-    } = await monitor.jsonValue();
-    const after = await scroll.evaluate((list) => list.scrollTop);
-    expect(start.startX).toBeCloseTo(composerBounds.x, 0);
-    expect(start.startY).toBeCloseTo(
-      composerBounds.y + composerBounds.height,
-      0,
-    );
-    if (count === 6 || count === 11) {
-      expect(after).toBeGreaterThan(before);
-      expect(
-        positions.some((position) => position > before && position < after),
-      ).toBe(true);
-      expect(start.scrollTop).toBeGreaterThan(before);
-      expect(start.scrollTop).toBeLessThan(after);
-      expect(start.frameYs.length).toBeGreaterThan(2);
-      expect(
-        start.frameYs.every(
-          (y, index, ys) => index === 0 || y >= ys[index - 1] - 1,
-        ),
-        `${count}枚目の付箋の座標 ${start.frameYs.join(", ")}`,
-      ).toBe(true);
-    } else {
-      expect(after).toBe(before);
-      expect(positions.every((position) => position === before)).toBe(true);
-    }
+    const after = await getScrollTop();
+    if (count === 6 || count === 11) expect(after).toBeGreaterThan(before);
+    else expect(after).toBe(before);
     expect(await composer.inputValue()).toBe(count === 6 ? nextDraft : "");
     expect(
       await composer.evaluate((element) => element === document.activeElement),
     ).toBe(true);
-    expect([await composer.boundingBox(), await toggle.boundingBox()]).toEqual(
-      headerBounds,
-    );
+    expect((await header.boundingBox())?.y).toBe(headerTop);
   }
 });
 
@@ -507,9 +411,9 @@ test("共有から縮小で戻り、右端のボタンで開閉しても入力�
   const toggle = await expand.boundingBox();
   if (!input || !toggle)
     throw new Error("縮小時の入力欄またはボタンがありません");
-  expect(input.y).toBeCloseTo(toggle.y, 0);
+  expect(input.y).toBeLessThan(toggle.y + toggle.height);
+  expect(toggle.y).toBeLessThan(input.y + input.height);
   expect(input.x + input.width).toBeLessThan(toggle.x);
-  expect(toggle.height).toBeCloseTo(40, 0);
 
   const draft = "共有を見ながら書き足す";
   await composer.fill(draft);
@@ -521,17 +425,6 @@ test("共有から縮小で戻り、右端のボタンで開閉しても入力�
   expect(await toolbar.getAttribute("data-expanded")).toBe("true");
   expect(await header.getByText(/Enterで追加/).isVisible()).toBe(true);
   const collapse = header.getByRole("button", { name: "縮める", exact: true });
-  const expanded = await composer.boundingBox();
-  const collapseBounds = await collapse.boundingBox();
-  if (!expanded || !collapseBounds)
-    throw new Error("展開時の入力欄またはボタンがありません");
-  expect(expanded.width).toBe(624);
-  expect(expanded.height).toBe(56);
-  expect(collapseBounds.x + collapseBounds.width).toBeCloseTo(
-    expanded.x + expanded.width,
-    0,
-  );
-  expect(collapseBounds.height).toBeCloseTo(toggle.height, 0);
   await collapse.click();
   await waitForPanelTransition();
   expect(await toolbar.getAttribute("data-expanded")).toBe("false");

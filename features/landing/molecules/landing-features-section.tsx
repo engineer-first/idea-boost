@@ -1,4 +1,6 @@
-import { landingCopy as copy } from "../logic/landing-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import {
   landingHeadingClass,
   landingSectionClass,
@@ -6,7 +8,12 @@ import {
 import styles from "./landing.module.css";
 import { LandingFeatureDemo } from "./landing-feature-demo";
 
-export function LandingFeaturesSection() {
+export function LandingFeaturesSection({
+  locale = "ja",
+}: {
+  locale?: AppLocale;
+}) {
+  const copy = getLandingContent(locale).landingCopy;
   return (
     <section
       className={`${styles.theme} ${landingSectionClass}`}
@@ -19,7 +26,7 @@ export function LandingFeaturesSection() {
         {copy.features.items.map((item, index) => {
           return (
             <article key={item.title}>
-              <LandingFeatureDemo index={index} />
+              <LandingFeatureDemo index={index} locale={locale} />
               <h3 className="mt-5 text-xl font-bold">{item.title}</h3>
               <p className="mt-3 text-base leading-8 sm:text-lg text-[var(--lp-body)]">
                 {item.description}

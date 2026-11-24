@@ -132,14 +132,15 @@ export function useNoteShare({
   );
   const owns = (noteId: string): boolean =>
     [...pendingRef.current.values()].some((item) => item.noteId === noteId);
+  // 応答待ちの共有・戻しは本人の画面だけ行き先へ置く。ドロップした付箋が
+  // 応答までマイ付箋へ戻って見えないようにし、拒否・結果不明では最新の値へ戻す。
+  // 他の参加者へは RoomDO の確定後にだけ配信される。
   const renderNotes = (source: ProtocolNote[]): ProtocolNote[] =>
     source.map((note) => {
       const operation = [...pendingRef.current.values()].find(
         (item) => item.noteId === note.id,
       );
-      return operation &&
-        operation.visibility === "private" &&
-        operation.visibility !== note.visibility
+      return operation && operation.visibility !== note.visibility
         ? {
             ...note,
             visibility: operation.visibility,

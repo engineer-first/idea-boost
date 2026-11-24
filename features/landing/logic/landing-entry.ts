@@ -1,5 +1,6 @@
 import { getLoginPath, sanitizeNextPath } from "@/features/auth";
-import { landingCopy } from "./landing-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "./landing-content";
 
 export type LandingEntry = {
   href: string;
@@ -11,12 +12,15 @@ export type LandingEntry = {
 export function getLandingEntry(
   isLoggedIn: boolean,
   next?: string,
+  locale: AppLocale = "ja",
 ): LandingEntry {
   const safeNext = sanitizeNextPath(next);
   const pathname =
     new URL(safeNext, "https://landing.invalid").pathname.replace(/\/+$/, "") ||
     "/";
-  const destination = ["/", "/login", "/about"].includes(pathname)
+  const destination = ["/", "/login", "/about", "/en", "/en/about"].includes(
+    pathname,
+  )
     ? "/home"
     : safeNext;
   const context =
@@ -31,7 +35,8 @@ export function getLandingEntry(
         ? destination
         : getLoginPath(destination),
     loginHref: getLoginPath(destination),
-    label: landingCopy.cta[context][isLoggedIn ? 1 : 0],
+    label:
+      getLandingContent(locale).landingCopy.cta[context][isLoggedIn ? 1 : 0],
     showStartHelp: context === "normal" && !isLoggedIn,
   };
 }

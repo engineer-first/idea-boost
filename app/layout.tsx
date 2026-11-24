@@ -37,6 +37,8 @@ export default async function RootLayout({
   const displayName = user ? await loadDisplayName(user.sub) : null;
 
   return (
+    // 翻訳済みの LP は本文の要素に自分の言語を付ける。翻訳前の画面を英語として
+    // 読み上げないよう、文書全体は日本語のままにする。
     <html
       lang="ja"
       className={`${notoSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased`}

@@ -6,7 +6,9 @@ import {
   Timer,
   Users,
 } from "lucide-react";
-import { landingBoardCopy, landingMembers } from "../logic/landing-board-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import { landingPaperStyle } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
@@ -14,7 +16,11 @@ export type LandingBoardMockProps = {
   variant: "hero" | "issue" | "private" | "vote";
 };
 
-export function LandingBoardMock({ variant }: LandingBoardMockProps) {
+export function LandingBoardMock({
+  variant,
+  locale = "ja",
+}: LandingBoardMockProps & { locale?: AppLocale }) {
+  const { landingBoardCopy, landingMembers } = getLandingContent(locale);
   return (
     <div
       style={landingPaperStyle}

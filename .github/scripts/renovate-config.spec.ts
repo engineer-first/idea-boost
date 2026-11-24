@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 type PackageRule = {
+  matchPackageNames?: string[];
   matchUpdateTypes?: string[];
   matchDepTypes?: string[];
   dependencyDashboardApproval?: boolean;
@@ -50,15 +51,25 @@ describe("Renovateの更新方針 (#395)", () => {
     expect(config.extends).toContain("security:minimumReleaseAgeNpm");
   });
 
-  it("メジャーはDependency Dashboardで承認した時だけPRにし、自動マージしない", () => {
+  it("メジャーは承認を待たずにPRを作り、自動マージせずエージェントのレビューで取り込む", () => {
     expect(config.dependencyDashboard).toEqual({ enabled: true });
-    expect(config.major?.dependencyDashboardApproval).toBe(true);
+    expect(config.major?.dependencyDashboardApproval).not.toBe(true);
     expect(config.major?.automerge).not.toBe(true);
     for (const rule of rules) {
       if (rule.matchUpdateTypes?.includes("major")) {
         expect(rule.automerge).not.toBe(true);
       }
     }
+  });
+
+  it("TypeScriptのメジャーは移行Issue (#738) の条件を満たすまでDashboardで承認した時だけPRにする", () => {
+    const typescript = rules.find(
+      (rule) =>
+        rule.matchPackageNames?.includes("typescript") &&
+        rule.matchUpdateTypes?.includes("major"),
+    );
+    expect(typescript?.dependencyDashboardApproval).toBe(true);
+    expect(typescript?.automerge).not.toBe(true);
   });
 
   it("1.0以上のパッチを1つのPRにまとめる", () => {

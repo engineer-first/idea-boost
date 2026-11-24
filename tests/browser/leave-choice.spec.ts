@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { byViewport } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -10,11 +11,10 @@ afterAll(async () => {
   await browser?.close();
 });
 
-for (const viewport of [
+for (const viewport of byViewport(
   { width: 1280, height: 800 },
   { width: 390, height: 844 },
-  { width: 320, height: 568 },
-]) {
+)) {
   test(`退出確認をキーボードで確定まで到達できる ${viewport.width}`, async () => {
     const page = await browser.newPage({ viewport });
     try {

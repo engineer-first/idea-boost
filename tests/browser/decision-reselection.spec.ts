@@ -8,6 +8,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/decision-reselection";
@@ -33,7 +34,7 @@ afterAll(async () => {
   await browser?.close();
 });
 
-for (const width of [1280, 375]) {
+for (const width of widths(1280, 375)) {
   for (const { phase, story, label } of cases) {
     test(`${width}px ${phase}: 確定を取り消して別候補を選び直せる`, async () => {
       await page.setViewportSize({ width, height: 720 });

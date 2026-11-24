@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { landingCopy as copy } from "../logic/landing-copy";
+import type { AppLocale } from "@/lib/i18n/locale";
+import { getLandingContent } from "../logic/landing-content";
+
 import type { LandingEntry } from "../logic/landing-entry";
 import {
   landingCtaClass,
@@ -8,7 +10,14 @@ import {
 } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
-export function LandingStartSection({ entry }: { entry: LandingEntry }) {
+export function LandingStartSection({
+  entry,
+  locale = "ja",
+}: {
+  entry: LandingEntry;
+  locale?: AppLocale;
+}) {
+  const copy = getLandingContent(locale).landingCopy;
   return (
     <section
       className={`${styles.theme} ${landingSectionClass}`}

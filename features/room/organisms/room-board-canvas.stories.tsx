@@ -127,7 +127,6 @@ const meta = {
     selectedVoteKind: null,
     pendingVoteOperations: [],
     dragGhost: null,
-    isReturnDropTarget: false,
     camera: { x: 0, y: 0, zoom: 1 },
     gridStyle: {},
     isPanning: false,
@@ -313,8 +312,8 @@ export const WithPrivateNotes: Story = {
   },
 };
 
-// 共有付箋をマイ付箋へ戻す途中。挿入位置と掴んだ付箋を同時に確認する。
-export const ReturningToPrivateNotes: Story = {
+// 個人付箋をボードへドラッグしている途中。元の位置のプレースホルダーと掴んだ付箋を同時に確認する。
+export const DraggingPrivateNote: Story = {
   args: {
     privateNotes: buildNotes(3).map((note) => ({
       ...note,
@@ -327,14 +326,13 @@ export const ReturningToPrivateNotes: Story = {
       note: buildNote({
         id: "note-2",
         visibility: "private",
-        content: "この位置へ戻す付箋",
+        content: "ボードへドラッグ中の個人付箋",
       }),
       left: 920,
       top: 280,
       width: 192,
       height: 144,
     },
-    isReturnDropTarget: true,
   },
 };
 
@@ -1146,14 +1144,6 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
       );
       setDraggingNoteId(null);
     },
-    onPrivateNoteUnpublish: (id) => {
-      setNotes((current) =>
-        current.map((note) =>
-          note.id === id ? { ...note, visibility: "private" } : note,
-        ),
-      );
-      setDraggingNoteId(null);
-    },
     onCursorMove: () => {},
     onCursorLeave: () => {},
   });
@@ -1398,7 +1388,6 @@ function TransactionMovePreview({ args }: { args: RoomBoardCanvasStoryProps }) {
     onNoteDragEnd: roomNotes.endNoteDrag,
     onNoteDragCancel: roomNotes.cancelNoteDrag,
     onPrivateNotePublish: () => {},
-    onPrivateNoteUnpublish: () => {},
     onCursorMove: () => {},
     onCursorLeave: () => {},
   });

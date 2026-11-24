@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout/idea-writing-hints";
@@ -56,7 +57,7 @@ test("3-1の考えるヒントはデスクトップの残りの高さを使い�
   }
 });
 
-for (const width of [390, 1280]) {
+for (const width of widths(390, 1280)) {
   test(`${width}px: 書き出しの補足をキーボードで開閉し、例と操作が画面内に収まる`, async () => {
     const page = await browser.newPage({ viewport: { width, height: 844 } });
     try {

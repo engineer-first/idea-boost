@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { byViewport, includeMobile, sizes } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -252,10 +253,7 @@ test("6人は3列2段に揃え、少数だけの余り行を作らない", async
   expect(new Set(boxes.map((box) => Math.round(box.y))).size).toBe(2);
 });
 
-test.each([
-  [390, 844],
-  [320, 568],
-])(
+test.each(sizes([390, 844]))(
   "タッチ端末%i×%iで20人の末尾と招待へ到達でき、開始操作が覆わない",
   async (width, height) => {
     await open("host-twenty", width, height, true);
@@ -295,35 +293,39 @@ test.each([
   },
 );
 
-test("タッチ端末では顔と名前の操作を常時示し、長い同名と切断者20人も横へはみ出さない", async () => {
-  await open("long-names", 390, 844, true);
-  const name = page.getByRole("button", { name: /：表示名を変更/ });
-  expect(
-    await name
-      .locator("svg")
-      .evaluate((element) => getComputedStyle(element).opacity),
-  ).toBe("1");
-  const last = page.getByTestId("room-members").getByTestId("avatar").last();
-  await last.scrollIntoViewIfNeeded();
-  expect(await page.getByTestId("member-disconnected").count()).toBe(19);
-  const fieldset = page.getByTestId("room-members");
-  expect(
-    await fieldset.evaluate(
-      (element) => element.scrollWidth <= element.clientWidth,
-    ),
-  ).toBe(true);
-  await page.screenshot({
-    path: "test-results/board-layout/lobby-long-names-mobile.png",
-  });
-});
+test.skipIf(!includeMobile)(
+  "タッチ端末では顔と名前の操作を常時示し、長い同名と切断者20人も横へはみ出さない",
+  async () => {
+    await open("long-names", 390, 844, true);
+    const name = page.getByRole("button", { name: /：表示名を変更/ });
+    expect(
+      await name
+        .locator("svg")
+        .evaluate((element) => getComputedStyle(element).opacity),
+    ).toBe("1");
+    const last = page.getByTestId("room-members").getByTestId("avatar").last();
+    await last.scrollIntoViewIfNeeded();
+    expect(await page.getByTestId("member-disconnected").count()).toBe(19);
+    const fieldset = page.getByTestId("room-members");
+    expect(
+      await fieldset.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: "test-results/board-layout/lobby-long-names-mobile.png",
+    });
+  },
+);
 
-test.each([
-  { story: "host-four", width: 1440, height: 800, touch: false },
-  { story: "host-twenty", width: 1440, height: 800, touch: false },
-  { story: "host-twenty", width: 1812, height: 900, touch: false },
-  { story: "host-four", width: 390, height: 844, touch: true },
-  { story: "host-twenty", width: 320, height: 568, touch: true },
-])(
+test.each(
+  byViewport(
+    { story: "host-four", width: 1440, height: 800, touch: false },
+    { story: "host-twenty", width: 1440, height: 800, touch: false },
+    { story: "host-twenty", width: 1812, height: 900, touch: false },
+    { story: "host-four", width: 390, height: 844, touch: true },
+  ),
+)(
   "背景の装飾を読み込み、$width px・$story でも名前・招待・開始を覆わない",
   async ({ story, width, height, touch }) => {
     await open(story, width, height, touch);

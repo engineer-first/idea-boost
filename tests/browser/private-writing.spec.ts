@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { byViewport, includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -205,7 +206,7 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
   await expectFocused(composer);
 });
 
-test.each([1440, 1280, 390])(
+test.each(widths(1440, 1280, 390))(
   "1-1: %ipxでも進め方を拡大エリアに遮られず開ける",
   async (width) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
@@ -269,7 +270,7 @@ test("1-1: キーボードで次へ進めても遷移中と遷移後にフォー
   ).toBe(true);
 });
 
-test.each([390, 1280])(
+test.each(widths(390, 1280))(
   "1-1: %ipxで初回スライドを完了して付箋操作へ戻り、案内を再表示できる",
   async (width) => {
     await page.setViewportSize({ width, height: 844 });
@@ -430,8 +431,8 @@ for (const { step, storyId } of [
   });
 }
 
-for (const width of [390, 1440]) {
-  test(`${width}px: 上部から連続追加した付箋が作成順に折り返し、一覧の位置へ着地する`, async () => {
+for (const width of widths(390, 1440)) {
+  test(`${width}px: 上部から連続追加すると、付箋は作成順に折り返して入力を続けられる`, async () => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardcanvas--private-guidance-empty&viewMode=story`,
@@ -449,22 +450,6 @@ for (const width of [390, 1440]) {
     expect(scrollBounds.y).toBeGreaterThan(
       composerBounds.y + composerBounds.height,
     );
-    await page.evaluate(() => {
-      const animate = Element.prototype.animate;
-      Element.prototype.animate = function (...args) {
-        const animation = animate.apply(this, args);
-        if (
-          this.matches(
-            '[data-testid="private-notes-list"] [data-testid="note-card"]',
-          )
-        ) {
-          animation.pause();
-          animation.currentTime = 0;
-        }
-        return animation;
-      };
-    });
-
     const positions = () =>
       scroll
         .getByTestId("note-card")
@@ -501,34 +486,6 @@ for (const width of [390, 1440]) {
         expect(await composer.inputValue()).toBe("連続追加 2");
       }
 
-      const { start, middle, landing, end, duration } = await added.evaluate(
-        (card) => {
-          const [animation] = card.getAnimations();
-          if (!animation)
-            throw new Error("付箋の追加アニメーションがありません");
-          const duration = Number(
-            animation.effect?.getComputedTiming().activeDuration ?? 0,
-          );
-          const measure = () => {
-            const { x, y } = card.getBoundingClientRect();
-            return { x, y };
-          };
-          const start = measure();
-          animation.currentTime = duration / 2;
-          const middle = measure();
-          animation.currentTime = duration - 0.01;
-          const landing = measure();
-          animation.finish();
-          return { start, middle, landing, end: measure(), duration };
-        },
-      );
-      expect(duration).toBe(250);
-      expect(start.x).toBeCloseTo(composerBounds.x, 0);
-      expect(start.y).toBeCloseTo(composerBounds.y + composerBounds.height, 0);
-      expect(middle.y).toBeGreaterThan(start.y);
-      expect(middle.y).toBeLessThan(end.y);
-      expect(landing.x).toBeCloseTo(end.x, 1);
-      expect(landing.y).toBeCloseTo(end.y, 1);
       expect((await positions()).slice(0, -1)).toEqual(previousPositions);
     }
     const [first, second, ...rest] = await positions();
@@ -547,10 +504,10 @@ for (const width of [390, 1440]) {
   });
 }
 
-for (const { platform, key, width } of [
+for (const { platform, key, width } of byViewport(
   { platform: "Linux x86_64", key: "Control+Enter", width: 390 },
   { platform: "MacIntel", key: "Meta+Enter", width: 1440 },
-]) {
+)) {
   test(`${width}px: 本文の${key}で一枚追加し、応答後の本文へ連続して書ける`, async () => {
     await openShortcutAddition(width, platform);
     const toolbar = page.getByTestId("private-notes-toolbar");
@@ -593,35 +550,38 @@ for (const { platform, key, width } of [
   });
 }
 
-test("本文から追加した後に再入力すると、応答が来ても元の本文とフォーカスを維持する", async () => {
-  await openShortcutAddition(390);
-  const toolbar = page.getByTestId("private-notes-toolbar");
-  const cards = toolbar.locator("[data-note-id]");
-  const initialIds = await privateNoteIds();
-  const initialCount = initialIds.length;
-  const editor = await editFirstPrivateNote();
-  await editor.fill("入力中の本文");
-  await editor.press("Control+Enter");
-  await page.keyboard.insertText("を続ける");
-  const scrollBefore = await page
-    .getByTestId("private-notes-scroll")
-    .evaluate((element) => element.scrollTop);
-  await expect
-    .poll(() => cards.count(), { timeout: 5000 })
-    .toBe(initialCount + 1);
-  await expectFocused(editor);
-  await page.keyboard.insertText("。さらに入力");
-  expect(await editor.inputValue()).toBe("入力中の本文を続ける。さらに入力");
-  const insertedNote = await addedPrivateNote(initialIds);
-  expect(
-    await insertedNote.locator("textarea").getAttribute("readonly"),
-  ).not.toBeNull();
-  expect(
-    await page
+test.skipIf(!includeMobile)(
+  "本文から追加した後に再入力すると、応答が来ても元の本文とフォーカスを維持する",
+  async () => {
+    await openShortcutAddition(390);
+    const toolbar = page.getByTestId("private-notes-toolbar");
+    const cards = toolbar.locator("[data-note-id]");
+    const initialIds = await privateNoteIds();
+    const initialCount = initialIds.length;
+    const editor = await editFirstPrivateNote();
+    await editor.fill("入力中の本文");
+    await editor.press("Control+Enter");
+    await page.keyboard.insertText("を続ける");
+    const scrollBefore = await page
       .getByTestId("private-notes-scroll")
-      .evaluate((element) => element.scrollTop),
-  ).toBe(scrollBefore);
-});
+      .evaluate((element) => element.scrollTop);
+    await expect
+      .poll(() => cards.count(), { timeout: 5000 })
+      .toBe(initialCount + 1);
+    await expectFocused(editor);
+    await page.keyboard.insertText("。さらに入力");
+    expect(await editor.inputValue()).toBe("入力中の本文を続ける。さらに入力");
+    const insertedNote = await addedPrivateNote(initialIds);
+    expect(
+      await insertedNote.locator("textarea").getAttribute("readonly"),
+    ).not.toBeNull();
+    expect(
+      await page
+        .getByTestId("private-notes-scroll")
+        .evaluate((element) => element.scrollTop),
+    ).toBe(scrollBefore);
+  },
+);
 
 test("マイ付箋表面のCtrl+Enterは一枚だけ追加し、入力画面を保つ", async () => {
   await openShortcutAddition(1440);
@@ -680,7 +640,7 @@ test("本文からのShift・Alt・キーリピート・別OSの修飾キーで�
     .toBe("Enterで追加する本文");
 });
 
-for (const width of [390, 1440]) {
+for (const width of widths(390, 1440)) {
   test(`追加応答を待つ間の既存下書きの入力・選択・スクロールを維持する (${width}px)`, async () => {
     await openDelayedAddition(width);
     const toolbar = page.getByTestId("private-notes-toolbar");

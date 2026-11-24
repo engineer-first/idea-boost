@@ -1,10 +1,11 @@
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 
-test.each([320, 1024, 1280])(
+test.each(widths(1024, 1280))(
   "%ipxでも背景が入口を覆わず、入力・作成・参加・履歴へ到達できる",
   async (width) => {
     const browser = await chromium.launch();

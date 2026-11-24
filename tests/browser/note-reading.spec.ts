@@ -8,6 +8,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = process.env.U07_EVIDENCE_DIR ?? "test-results/note-reading";
@@ -72,7 +73,7 @@ test("長文の編集を終えて全体表示しても、フォーカスがカ�
   );
 });
 
-test.each([1280, 390])(
+test.each(widths(1280, 390))(
   "%ipx: 選択付箋からSpace＋dragでパンし、本文や編集状態を変えない",
   async (width) => {
     await page.setViewportSize({ width, height: 844 });
@@ -101,7 +102,7 @@ test.each([1280, 390])(
   },
 );
 
-test.each([1280, 390])(
+test.each(widths(1280, 390))(
   "%ipx: 最大長を12〜24pxで読み、ズーム・キーボードで視野を回復する",
   async (width) => {
     await page.setViewportSize({ width, height: 844 });

@@ -108,13 +108,12 @@ export const Many: Story = {
   args: { notes: manyNotes },
 };
 
-export const ReturningNote: Story = {
+export const DraggingPlaceholder: Story = {
   args: {
     notes: manyNotes.slice(0, 4),
     dropPlaceholder: {
       noteId: "many-note-2",
     },
-    isReturnDropTarget: true,
   },
 };
 

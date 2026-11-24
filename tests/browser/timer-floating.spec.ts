@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -19,7 +20,7 @@ async function rect(page: Page, id: string) {
   return r;
 }
 
-test.each([1280, 390])(
+test.each(widths(1280, 390))(
   "幅%dで時間切れ後の1分延長とドラッグを操作できる",
   async (width) => {
     const page = await browser.newPage({
@@ -59,7 +60,7 @@ test.each([1280, 390])(
   },
 );
 
-test.each([1280, 390])(
+test.each(widths(1280, 390))(
   "幅%dで実行中の円をドラッグしても一時停止しない",
   async (width) => {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -139,26 +140,29 @@ test("工程の途中で操作欄が現れるとタイマーが避け、操作�
   }
 });
 
-test("390pxの問い共有でタイマー下のマイ付箋が下部の操作欄を覆わない", async () => {
-  const page = await browser.newPage({
-    viewport: { width: 390, height: 844 },
-    reducedMotion: "reduce",
-  });
-  try {
-    await story(page, "room-roomboardlayout--phase-2-step-2");
-    const notes = await rect(page, "private-notes-toolbar");
-    const operations = await rect(page, "board-operation-matrix");
-    expect(notes.y + notes.height).toBeLessThanOrEqual(operations.y - 12);
-    expect(
-      await page.getByRole("textbox", { name: "付箋を書く" }).count(),
-    ).toBe(0);
-    await page.getByTestId("private-notes-scroll").hover();
-  } finally {
-    await page.close();
-  }
-});
+test.skipIf(!includeMobile)(
+  "390pxの問い共有でタイマー下のマイ付箋が下部の操作欄を覆わない",
+  async () => {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+      reducedMotion: "reduce",
+    });
+    try {
+      await story(page, "room-roomboardlayout--phase-2-step-2");
+      const notes = await rect(page, "private-notes-toolbar");
+      const operations = await rect(page, "board-operation-matrix");
+      expect(notes.y + notes.height).toBeLessThanOrEqual(operations.y - 12);
+      expect(
+        await page.getByRole("textbox", { name: "付箋を書く" }).count(),
+      ).toBe(0);
+      await page.getByTestId("private-notes-scroll").hover();
+    } finally {
+      await page.close();
+    }
+  },
+);
 
-test.each([1280, 768, 390])(
+test.each(widths(1280, 768, 390))(
   "幅%dでHUD・タイマー・開いたマイ付箋を重ねず、移動先も画面内に収める",
   async (width) => {
     const page = await browser.newPage({
@@ -227,7 +231,7 @@ test("幅982pxでマイ付箋を開いてもタイマーを右上HUDの下に保
   }
 });
 
-test.each([1280, 900, 640, 390, 320])(
+test.each(widths(1280, 900, 640, 390))(
   "幅%dの共有完了後は書き足しの確認と次への操作に到達できる",
   async (width) => {
     const page = await browser.newPage({

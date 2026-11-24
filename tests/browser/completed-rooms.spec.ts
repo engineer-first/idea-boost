@@ -1,8 +1,9 @@
 import { chromium } from "playwright";
 import { expect, it } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
-it.each([375, 1280])(
+it.each(widths(375, 1280))(
   "完了ルームの5場面・全文・再取得と出力へ%ipxで到達できる",
   async (width) => {
     const browser = await chromium.launch();
@@ -80,7 +81,7 @@ it.each([375, 1280])(
   },
 );
 
-it.each([375, 1280])(
+it.each(widths(375, 1280))(
   "空の途中ページから続きの成果へ%ipxで進める",
   async (width) => {
     const browser = await chromium.launch();
@@ -124,7 +125,7 @@ it.each([375, 1280])(
   },
 );
 
-it.each([390, 1280])(
+it.each(widths(390, 1280))(
   "正常空から最新一覧を%ipxで再取得できる",
   async (width) => {
     const browser = await chromium.launch();
@@ -163,7 +164,7 @@ it.each([390, 1280])(
   },
 );
 
-it.each([390, 1280])(
+it.each(widths(390, 1280))(
   "read-only成果の常設感想と500ms一回案内・送信・focusを%ipxで再利用できる",
   async (width) => {
     const browser = await chromium.launch();
@@ -250,7 +251,7 @@ it.each([390, 1280])(
   },
 );
 
-it.each([390, 1280])(
+it.each(widths(390, 1280))(
   "退出後の感想拒否でも入力と成果出力を%ipxで維持する",
   async (width) => {
     const browser = await chromium.launch();
@@ -312,7 +313,7 @@ it.each([390, 1280])(
   },
 );
 
-it.each([375, 1280])(
+it.each(widths(375, 1280))(
   "Owner向け成果も%ipxで分類・採用・票数を読め、内部座標を表示しない",
   async (width) => {
     const browser = await chromium.launch();

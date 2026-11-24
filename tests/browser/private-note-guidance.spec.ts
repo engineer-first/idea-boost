@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout/private-note-guidance";
@@ -49,8 +50,8 @@ async function expectInsideViewport(selector: string) {
   );
 }
 
-for (const width of [390, 1280]) {
-  test(`${width}px: 全付箋を共有して空になった欄へ共有付箋をドラッグで戻せる`, async () => {
+for (const width of widths(390, 1280)) {
+  test(`${width}px: 全付箋を共有した後、共有付箋を空のマイ付箋欄へドラッグしても未共有へ戻らない`, async () => {
     await openStory("sharing", width);
     const toolbar = page.getByTestId("private-notes-toolbar");
     const frame = await page.getByTestId("board-frame").boundingBox();
@@ -76,7 +77,7 @@ for (const width of [390, 1280]) {
     const source = await surface.boundingBox();
     const target = await toolbar.boundingBox();
     if (!source || !target)
-      throw new Error("戻す付箋または空の付箋欄がありません");
+      throw new Error("共有付箋または空の付箋欄がありません");
     await page.mouse.move(source.x + 40, source.y + 40);
     await page.mouse.down();
     await page.mouse.move(source.x + 46, source.y + 46);
@@ -86,8 +87,8 @@ for (const width of [390, 1280]) {
       { steps: 12 },
     );
     await page.mouse.up();
-    await expect.poll(() => toolbar.getByTestId("note-card").count()).toBe(1);
-    expect(await shared.count()).toBe(0);
+    await expect.poll(() => shared.count()).toBe(1);
+    expect(await toolbar.getByTestId("note-card").count()).toBe(0);
   });
 
   test(`${width}px: 入力欄から本文入りの付箋を作成し、入力を続けられる`, async () => {
@@ -163,7 +164,7 @@ for (const width of [390, 1280]) {
     await page.screenshot({ path: `${output}/${width}-personal.png` });
   });
 
-  test(`${width}px: クリックやEnterでは共有せず、ドラッグで一枚を共有して戻す`, async () => {
+  test(`${width}px: クリックやEnterでは共有せず、ドラッグで一枚を共有しマイ付箋欄へドラッグしても戻らない`, async () => {
     await openStory("sharing", width, true);
     const toolbar = page.getByTestId("private-notes-toolbar");
     const firstNote = toolbar.locator('[data-note-id="guidance-first"]');
@@ -200,12 +201,12 @@ for (const width of [390, 1280]) {
       name: "付箋",
       exact: true,
     });
-    // 表示だけでなくhit可能性も確認して、戻しのドラッグを始める。
+    // 表示だけでなくhit可能性も確認し、共有付箋をマイ付箋欄上へドラッグしても未共有化されないことを検証する。
     // カメラがdrop後に付箋をパネル裏へ移す回帰もここで検出する。
     await sharedSurface.hover();
     const back = await sharedSurface.boundingBox();
     const target = await toolbar.boundingBox();
-    if (!back || !target) throw new Error("戻すドラッグ元・先がありません");
+    if (!back || !target) throw new Error("ドラッグ元・先がありません");
     await page.mouse.move(back.x + 40, back.y + 40);
     await page.mouse.down();
     await page.mouse.move(back.x + 46, back.y + 46);
@@ -213,10 +214,14 @@ for (const width of [390, 1280]) {
       steps: 12,
     });
     await page.mouse.up();
-    await expect.poll(() => toolbar.getByTestId("note-card").count()).toBe(2);
-    expect(await page.getByTestId("board-note-guidance-first").count()).toBe(0);
+    await expect
+      .poll(() => page.getByTestId("board-note-guidance-first").count())
+      .toBe(1);
+    expect(await toolbar.getByTestId("note-card").count()).toBe(1);
     expect(await toolbar.getAttribute("data-expanded")).toBe("true");
-    await page.screenshot({ path: `${output}/${width}-returned-by-drag.png` });
+    await page.screenshot({
+      path: `${output}/${width}-stays-shared-over-toolbar.png`,
+    });
   });
 
   test(`${width}px: 共有工程でも最初の付箋をスクロール前にドラッグできる`, async () => {

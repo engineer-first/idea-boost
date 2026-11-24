@@ -74,7 +74,6 @@ const INTERACTIONS: RoomBoardInteractions = {
   notes: buildNotes(3),
   privateNotes: [],
   dragGhost: null,
-  isReturnDropTarget: false,
   isNoteDragging: false,
   camera: { x: 0, y: 0, zoom: 1 },
   gridStyle: {
@@ -298,7 +297,6 @@ export const PrivateNoteAdditionDelayed: Story = {
       onNoteDragEnd: () => undefined,
       onNoteDragCancel: () => undefined,
       onPrivateNotePublish: () => undefined,
-      onPrivateNoteUnpublish: () => undefined,
       onCursorMove: () => undefined,
       onCursorLeave: () => undefined,
     });
@@ -1079,15 +1077,6 @@ export const CanvasInputInteraction: Story = {
           { ...note, visibility: "shared", x, y },
         ]);
       },
-      onPrivateNoteUnpublish: (id) => {
-        const note = notes.find((item) => item.id === id);
-        if (!note) return;
-        setNotes((current) => current.filter((item) => item.id !== id));
-        setPrivateNotes((current) => [
-          ...current,
-          { ...note, visibility: "private" },
-        ]);
-      },
       onCursorMove: () => undefined,
       onCursorLeave: () => undefined,
     });
@@ -1787,7 +1776,6 @@ function AdditionalWritingExperience(args: RoomBoardViewProps) {
     onNoteDragEnd: () => undefined,
     onNoteDragCancel: () => undefined,
     onPrivateNotePublish: () => undefined,
-    onPrivateNoteUnpublish: () => undefined,
     onCursorMove: () => undefined,
     onCursorLeave: () => undefined,
   });

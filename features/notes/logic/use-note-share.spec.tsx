@@ -62,12 +62,22 @@ describe("共有の結果解決", () => {
     });
     expect(result.current.pending).toBe(true);
   });
+  it("共有の応答待ちは本人の画面だけドロップ位置に置き、マイ付箋へ戻さない", () => {
+    const { result, notes } = setup();
+    act(() =>
+      result.current.commit({ type: "note:publish", noteId: ID, x: 30, y: 40 }),
+    );
+    expect(result.current.renderNotes(notes)[0]).toMatchObject({
+      visibility: "shared",
+      x: 30,
+      y: 40,
+    });
+  });
   it("拒否は本人previewを破棄し、他者が確定した最新位置を巻き戻さない", () => {
     const { result, notes } = setup();
     act(() =>
       result.current.commit({ type: "note:publish", noteId: ID, x: 30, y: 40 }),
     );
-    expect(result.current.renderNotes(notes)[0].visibility).toBe("private");
     const latest = [{ ...notes[0], x: 600, y: 700 }];
     act(() =>
       result.current.applyMessage({
