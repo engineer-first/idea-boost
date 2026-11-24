@@ -742,6 +742,14 @@ export function RoomBoardHeader({
                 onSelectMember={canSelectMember ? onSelectMember : undefined}
                 selectionDisabled={memberSelectionDisabled}
                 members={members}
+                onPassPresenter={
+                  canAdvanceSharing && onSharingAdvance
+                    ? () => onSharingAdvance("passed")
+                    : undefined
+                }
+                passDisabled={
+                  isDisconnected || transitioning || isRemovingMember
+                }
               />
             ) : (
               <Popover open={membersOpen} onOpenChange={setMembersOpen}>
@@ -937,34 +945,14 @@ export function RoomBoardHeader({
               </Popover>
             )}
 
-            {activeSharing &&
-            activeSharing.status !== "complete" &&
-            (activeSharing.status === "ready"
-              ? canStartSharing
-              : canAdvanceSharing) ? (
-              activeSharing.status === "ready" ? (
-                <Button
-                  className="text-sm h-10 shrink-0"
-                  disabled={isDisconnected || isRemovingMember}
-                  onClick={() => onSharingStart?.(sharingDuration)}
-                >
-                  最初の人を開始
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="text-sm h-10 shrink-0 px-3"
-                  disabled={
-                    isDisconnected ||
-                    transitioning ||
-                    isRemovingMember ||
-                    timer.status !== "ended"
-                  }
-                  onClick={() => onSharingAdvance?.("passed")}
-                >
-                  今回はパス
-                </Button>
-              )
+            {activeSharing?.status === "ready" && canStartSharing ? (
+              <Button
+                className="text-sm h-10 shrink-0"
+                disabled={isDisconnected || isRemovingMember}
+                onClick={() => onSharingStart?.(sharingDuration)}
+              >
+                最初の人を開始
+              </Button>
             ) : null}
             {isResultStep(phase) && isFinalStep ? (
               outcomePublished && hasFinalDecision ? (
