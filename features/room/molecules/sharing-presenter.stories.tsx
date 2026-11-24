@@ -48,3 +48,18 @@ export const Starting: Story = {
     }),
   },
 };
+
+// 順番メニューの発表中の行にパスを出す。切断中の発表者は確認なしでパスする。
+export const PassAwayPresenter: Story = {
+  args: {
+    sharing: buildSharingState({
+      status: "active",
+      currentIndex: 1,
+      results: ["done"],
+    }),
+    currentUserId: "11111111-1111-4111-8111-111111111111",
+    connectedUserIds: ["11111111-1111-4111-8111-111111111111"],
+    onPassPresenter: () => {},
+    onSelectMember: () => {},
+  },
+};

@@ -1529,7 +1529,9 @@ describe("共有の進行欄", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("timer")).toHaveTextContent("03:00");
     expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "今回はパス" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "今回はパス" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
   });
 });
@@ -1608,21 +1610,35 @@ it("共有完了後は参加者全員が完了から次工程へ進める", () =
     screen.queryByRole("button", { name: "できた！" }),
   ).not.toBeInTheDocument();
 });
-it("発表者以外は完了を押せず、時間切れ後のパスだけ行える", () => {
+it("発表者以外は完了を押せず、計時中でも順番メニューから今の発表者をパスできる", () => {
+  const sharing = buildSharingState({ status: "active", currentIndex: 1 });
+  const onSharingAdvance = vi.fn();
   render(
     <RoomBoardHeader
       {...setupProps({
         phase: buildPhaseStep(2),
-        timer: { status: "ended", durationMs: 180_000 },
+        timer: {
+          status: "running",
+          durationMs: 180_000,
+          endsAt: Date.now() + 60_000,
+        },
       })}
-      sharing={buildSharingState({ status: "active", currentIndex: 1 })}
+      sharing={sharing}
+      onSharingAdvance={onSharingAdvance}
     />,
   );
-  expect(
-    screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
-  ).toBeEnabled();
   expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "今回はパス" })).toBeEnabled();
+  expect(
+    screen.queryByRole("button", { name: "今回はパス" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: `${sharing.order[1].name}をパス` }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "パスする" }));
+  expect(onSharingAdvance).toHaveBeenCalledExactlyOnceWith("passed");
 });
 
 it.each([{ phaseRevision: 2 }, { isDisconnected: true }])(
@@ -1664,7 +1680,9 @@ it("発表者の完了で交代し、交代中・切断中・他人の番では�
   const { rerender } = render(<RoomBoardHeader {...props} />);
   fireEvent.click(screen.getByRole("button", { name: "できた！" }));
   expect(props.onSharingAdvance).toHaveBeenCalledExactlyOnceWith("done");
-  expect(screen.getByRole("button", { name: "今回はパス" })).toBeEnabled();
+  expect(
+    screen.queryByRole("button", { name: "今回はパス" }),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "次のステップへ" }),
   ).not.toBeInTheDocument();

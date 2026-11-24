@@ -84,3 +84,115 @@ it("共有中も在籍者の切断を示し、共有順だけに残る退出者�
   expect(screen.getAllByTestId("member-disconnected")).toHaveLength(2);
   expect(screen.getByText("退出済み")).toBeVisible();
 });
+
+describe("今の発表者のパス", () => {
+  const active = buildSharingState({
+    status: "active",
+    currentIndex: 1,
+    results: ["done"],
+  });
+  const [me, presenter, next] = active.order;
+  function renderPresenter(
+    props: Partial<Parameters<typeof SharingPresenter>[0]> = {},
+  ) {
+    const onPassPresenter = vi.fn();
+    const onSelectMember = vi.fn();
+    const view = render(
+      <TooltipProvider>
+        <SharingPresenter
+          sharing={active}
+          currentUserId={me.userId}
+          members={active.order}
+          connectedUserIds={[me.userId, next.userId]}
+          onPassPresenter={onPassPresenter}
+          onSelectMember={onSelectMember}
+          {...props}
+        />
+      </TooltipProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
+    );
+    return { ...view, onPassPresenter, onSelectMember };
+  }
+
+  it("発表中の行にだけパスを出し、切断中の発表者は確認なしでパスする", () => {
+    const { onPassPresenter } = renderPresenter();
+    const passButtons = screen.getAllByRole("button", { name: /パス$/ });
+    expect(passButtons).toHaveLength(1);
+    expect(passButtons[0]).toHaveAccessibleName(`${presenter.name}をパス`);
+    fireEvent.click(passButtons[0]);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(onPassPresenter).toHaveBeenCalledOnce();
+  });
+
+  it("接続中の発表者は確認してからパスし、キャンセルでは送らない", () => {
+    const { onPassPresenter } = renderPresenter({
+      connectedUserIds: active.order.map((member) => member.userId),
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: `${presenter.name}をパス` }),
+    );
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      `${presenter.name}さんの番をパスしますか？`,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(onPassPresenter).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `${presenter.name}をパス` }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "パスする" }));
+    expect(onPassPresenter).toHaveBeenCalledOnce();
+  });
+
+  it("発表中の行そのものを押すとルームから外す確認へ進む", () => {
+    const { onSelectMember, onPassPresenter } = renderPresenter();
+    fireEvent.click(screen.getByRole("button", { name: presenter.name }));
+    expect(onSelectMember).toHaveBeenCalledExactlyOnceWith(presenter.userId);
+    expect(onPassPresenter).not.toHaveBeenCalled();
+  });
+
+  it("自分が発表者のときはパスを出さない", () => {
+    renderPresenter({ currentUserId: presenter.userId });
+    expect(
+      screen.queryByRole("button", { name: /パス$/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("交代の準備中や操作できない間はパスを押せない", () => {
+    renderPresenter({ passDisabled: true });
+    expect(
+      screen.getByRole("button", { name: `${presenter.name}をパス` }),
+    ).toBeDisabled();
+  });
+
+  it("確認中に発表者が交代したら確認を閉じる", () => {
+    const connectedUserIds = active.order.map((member) => member.userId);
+    const { rerender, onPassPresenter } = renderPresenter({ connectedUserIds });
+    fireEvent.click(
+      screen.getByRole("button", { name: `${presenter.name}をパス` }),
+    );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    rerender(
+      <TooltipProvider>
+        <SharingPresenter
+          sharing={{
+            ...active,
+            revision: "44444444-4444-4444-8444-444444444444",
+            currentIndex: 2,
+            results: ["done", "done"],
+          }}
+          currentUserId={me.userId}
+          members={active.order}
+          connectedUserIds={connectedUserIds}
+          onPassPresenter={onPassPresenter}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(onPassPresenter).not.toHaveBeenCalled();
+  });
+});

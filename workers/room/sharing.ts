@@ -55,17 +55,63 @@ function controllableState(
   return state;
 }
 
+// 記録済みの結果から次の発表者を決めて保存する。退出済みの人の番は
+// 待っても進まないため、パスとして記録して飛ばす。
+function saveNextTurn(sql: SqlStorage, state: SharingState): void {
+  state.revision = crypto.randomUUID();
+  while (
+    state.results.length < state.order.length &&
+    !isMember(sql, state.order[state.results.length].userId)
+  )
+    state.results.push("passed");
+  state.currentIndex =
+    state.results.length < state.order.length ? state.results.length : null;
+  state.status = state.currentIndex === null ? "complete" : "active";
+  state.startsAt = state.currentIndex === null ? null : Date.now() + 2000;
+  saveSharingState(sql, state);
+  const timer = getTimerState(sql);
+  saveTimerState(
+    sql,
+    state.status === "complete"
+      ? {
+          status: "ended",
+          durationMs:
+            timer.status === "idle" ? state.durationMs : timer.durationMs,
+          ...(timer.status !== "idle" && timer.extensionUsed
+            ? { extensionUsed: true }
+            : {}),
+        }
+      : { status: "idle" },
+  );
+}
+
+// 発表中（開始待ちを含む）の参加者が在籍を外れたら、パスとして次へ進める。
+// 在籍削除と同じ同期transactionの中で呼び、アラームと配信は呼び出し側が行う。
+export function passDepartedPresenter(
+  sql: SqlStorage,
+  userId: string,
+): boolean {
+  const state = getSharingState(sql);
+  const phase = getPhase(sql);
+  if (
+    phase.kind !== "step" ||
+    phase.step !== 2 ||
+    state?.status !== "active" ||
+    state.currentIndex === null ||
+    state.order[state.currentIndex]?.userId !== userId
+  )
+    return false;
+  state.results.push("passed");
+  saveNextTurn(sql, state);
+  return true;
+}
+
 async function commitTurn(
   ctx: HandlerCtx,
   state: SharingState,
   outcome?: "done" | "passed",
 ): Promise<boolean> {
   const previousRevision = state.revision;
-  state.revision = crypto.randomUUID();
-  state.currentIndex =
-    state.results.length < state.order.length ? state.results.length : null;
-  state.status = state.currentIndex === null ? "complete" : "active";
-  state.startsAt = state.currentIndex === null ? null : Date.now() + 2000;
   // SQLite-backed DOではSQLとアラームを同じtransactionに含められる。
   // 予約失敗時にも発表者だけが進まないよう、通知はコミット後に限定する。
   const committed = await runAuthorizedMutationTransaction(ctx, async () => {
@@ -83,29 +129,8 @@ async function commitTurn(
       });
       return false;
     }
-    if (outcome === "passed" && getTimerState(ctx.sql).status !== "ended") {
-      ctx.reply({
-        type: "error",
-        code: "forbidden",
-        message: "タイマーが終了するまで発表者を交代できません。",
-      });
-      return false;
-    }
-    saveSharingState(ctx.sql, state);
-    const timer = getTimerState(ctx.sql);
-    saveTimerState(
-      ctx.sql,
-      state.status === "complete"
-        ? {
-            status: "ended",
-            durationMs:
-              timer.status === "idle" ? state.durationMs : timer.durationMs,
-            ...(timer.status !== "idle" && timer.extensionUsed
-              ? { extensionUsed: true }
-              : {}),
-          }
-        : { status: "idle" },
-    );
+    // 今の発表者のパスは、離席に備えて参加者なら計時中でも行える。
+    saveNextTurn(ctx.sql, state);
     await syncRoomAlarm(ctx.storage, ctx.sql);
     return true;
   });

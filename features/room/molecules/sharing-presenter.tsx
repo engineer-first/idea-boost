@@ -5,6 +5,16 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/dialog";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -24,6 +34,9 @@ export type SharingPresenterProps = {
   selectionDisabled?: boolean;
   members?: ProtocolMember[];
   connectedUserIds?: readonly string[];
+  /** 今の発表者をパスする。渡したときだけ発表中の行にパスを出す。 */
+  onPassPresenter?: () => void;
+  passDisabled?: boolean;
 };
 
 export function SharingPresenter({
@@ -34,6 +47,8 @@ export function SharingPresenter({
   selectionDisabled = false,
   members = sharing.order,
   connectedUserIds,
+  onPassPresenter,
+  passDisabled = false,
 }: SharingPresenterProps) {
   const descriptionId = useId();
   const presentIds = new Set(members.map((member) => member.userId));
@@ -44,6 +59,32 @@ export function SharingPresenter({
   const currentStatusLabel =
     sharing.startsAt !== null ? "まもなく発表" : "発表中";
   const currentPresenterId = current?.userId;
+  // 確認中に交代したら別の人をパスしないよう、確認を開いた時点の番と照合する。
+  const [passTarget, setPassTarget] = useState<{
+    userId: string;
+    revision: string;
+  } | null>(null);
+  const passConfirmOpen =
+    isActive &&
+    passTarget !== null &&
+    passTarget.userId === currentPresenterId &&
+    passTarget.revision === sharing.revision;
+  const canPassPresenter =
+    onPassPresenter !== undefined &&
+    isActive &&
+    current !== undefined &&
+    current.userId !== currentUserId;
+  const requestPass = () => {
+    if (!current || !onPassPresenter) return;
+    setOpen(false);
+    // 接続が分からない間は、離席していない人を誤って飛ばさないよう確認する。
+    const connected =
+      connectedUserIds === undefined ||
+      connectedUserIds.includes(current.userId);
+    if (connected)
+      setPassTarget({ userId: current.userId, revision: sharing.revision });
+    else onPassPresenter();
+  };
   useEffect(() => {
     const currentElement = orderRef.current?.querySelector<HTMLElement>(
       `[data-user-id="${currentPresenterId}"]`,
@@ -204,6 +245,18 @@ export function SharingPresenter({
                           : "これから"}
                 </span>
               </MemberSelection>
+              {canPassPresenter && index === sharing.currentIndex ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 shrink-0 px-3 text-sm"
+                  aria-label={`${member.name}をパス`}
+                  disabled={passDisabled}
+                  onClick={requestPass}
+                >
+                  パス
+                </Button>
+              ) : null}
             </li>
           ))}
         </ol>
@@ -253,6 +306,38 @@ export function SharingPresenter({
           </div>
         ) : null}
       </PopoverContent>
+      <AlertDialog
+        open={passConfirmOpen}
+        onOpenChange={(value) => {
+          if (!value) setPassTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {current?.name}さんの番をパスしますか？
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {current?.name}さんは接続中です。次の人の発表に進みます。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="min-h-11">
+              キャンセル
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="min-h-11"
+              disabled={passDisabled}
+              onClick={() => {
+                setPassTarget(null);
+                onPassPresenter?.();
+              }}
+            >
+              パスする
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Popover>
   );
 }
