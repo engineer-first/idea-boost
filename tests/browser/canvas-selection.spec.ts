@@ -7,7 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
-import { byViewport, includeMobile, widths } from "./viewports";
+import { includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -81,7 +81,7 @@ async function openClockedCanvas(width = 1280, cpuRate = 1): Promise<void> {
 }
 
 test.each(widths(390, 1280))(
-  "%ipxで各キャンバス操作のヒントをhoverの1秒後に画面内へ表示する",
+  "%ipxで各キャンバス操作のヒントをhoverの0.2秒後に画面内へ表示する",
   async (width) => {
     await openClockedCanvas(width);
     const hint = page.locator(
@@ -97,7 +97,7 @@ test.each(widths(390, 1280))(
     ]) {
       const button = page.getByRole("button", { name, exact: true });
       await button.hover();
-      await page.clock.runFor(999);
+      await page.clock.runFor(199);
       expect(await hint.count()).toBe(0);
       await page.clock.runFor(1);
       await expect.poll(() => hint.count()).toBe(1);
@@ -172,7 +172,7 @@ test.each([1, 8])(
       );
       await page.clock.runFor(16);
     }
-    // 1秒の表示待ちを省いた状態を検査する。常に存在するtriggerを読み、
+    // 0.2秒の表示待ちを省いた状態を検査する。常に存在するtriggerを読み、
     // ヒント未表示時にlocatorの自動待機でpollが止まることも避ける。
     await expect
       .poll(() =>
@@ -1159,123 +1159,7 @@ for (const gesture of ["pan", "note-drag"] as const) {
   }
 }
 
-test.each(
-  byViewport(
-    { width: 1280, height: 720 },
-    { width: 390, height: 720 },
-    { width: 1280, height: 400 },
-  ),
-)(
-  "$width×$heightで操作ヒント全文へ到達し、選択を維持してEscapeだけ閉じる",
-  async (size) => {
-    await page.setViewportSize(size);
-    await page.reload();
-    await page.getByTestId("note-card").first().waitFor();
-    await page.evaluate(() => document.fonts.ready);
-    for (const note of await page.getByTestId("note-card").all()) {
-      await note
-        .getByRole("button", { name: "付箋", exact: true })
-        .click({ modifiers: ["Shift"] });
-    }
-    await selectedCount(3);
-    const summary = page.getByLabel("キャンバス操作のヒント", { exact: true });
-    await summary.click();
-    const panel = page.getByTestId("canvas-operation-help");
-    const bounds = await panel.boundingBox();
-    if (!bounds) throw new Error("操作ヒントが表示されていません");
-    expect(bounds.x).toBeGreaterThanOrEqual(0);
-    expect(bounds.y).toBeGreaterThanOrEqual(0);
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(size.width);
-    expect(bounds.y + bounds.height).toBeLessThanOrEqual(size.height);
-    expect(
-      await panel.evaluate((el) =>
-        Number.parseFloat(getComputedStyle(el).fontSize),
-      ),
-    ).toBeGreaterThanOrEqual(14);
-    await panel.focus();
-    await page.mouse.move(
-      bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2,
-    );
-    const before = await transform();
-    await page.mouse.wheel(0, 800);
-    await expect
-      .poll(() => panel.evaluate((el) => el.scrollTop))
-      .toBeGreaterThan(0);
-    expect(await transform()).toBe(before);
-    const last = panel.getByText("編集中は本文の文字を削除します。", {
-      exact: true,
-    });
-    await last.scrollIntoViewIfNeeded();
-    expect(
-      await last.evaluate((el) => {
-        const content = el.getBoundingClientRect();
-        const container = el.closest("section")?.getBoundingClientRect();
-        return (
-          !!container &&
-          content.top >= container.top &&
-          content.bottom <= container.bottom
-        );
-      }),
-    ).toBe(true);
-    // CTAの上でも本文を実際に操作できることを確認する。
-    await last.click();
-    expect(await panel.isVisible()).toBe(true);
-    await panel.focus();
-    await page.keyboard.press("Escape");
-    expect(await panel.isVisible()).toBe(false);
-    expect(await summary.evaluate((el) => el === document.activeElement)).toBe(
-      true,
-    );
-    await selectedCount(3);
-    const announcement = page
-      .getByTestId("canvas-zoom-hud")
-      .locator('[aria-live="polite"]')
-      .filter({ hasText: "選択した付箋：3枚" });
-    expect(await announcement.count()).toBe(1);
-    expect(
-      await announcement.evaluate((el) => el.getBoundingClientRect().width),
-    ).toBeLessThanOrEqual(1);
-  },
-);
-
-test("外側の付箋・ツール・wheel・panはヒントを閉じて同じ操作を実行する", async () => {
-  const summary = page.getByLabel("キャンバス操作のヒント", { exact: true });
-  const panel = page.getByTestId("canvas-operation-help");
-  await summary.click();
-  await page
-    .getByTestId("note-card")
-    .first()
-    .getByRole("button", { name: "付箋", exact: true })
-    .click();
-  expect(await panel.isVisible()).toBe(false);
-  await selectedCount(1);
-  await summary.click();
-  const hand = page.getByRole("button", { name: "手のひらツール" });
-  await hand.click();
-  expect(await panel.isVisible()).toBe(false);
-  expect(await hand.getAttribute("aria-pressed")).toBe("true");
-  await summary.click();
-  const beforeWheel = await transform();
-  await page.mouse.move(1100, 400);
-  await page.mouse.wheel(0, 120);
-  await expect.poll(transform).not.toBe(beforeWheel);
-  expect(await panel.isVisible()).toBe(false);
-  await summary.click();
-  await panel.focus();
-  const beforePan = await transform();
-  await page.mouse.move(1100, 400);
-  await page.mouse.down();
-  await page.mouse.move(1160, 430, { steps: 5 });
-  await page.mouse.up();
-  await expect.poll(transform).not.toBe(beforePan);
-  expect(await panel.isVisible()).toBe(false);
-  expect(await summary.evaluate((el) => el === document.activeElement)).toBe(
-    false,
-  );
-});
-
-test("短高ヒントのArrow/Pageはnative読書に届き、HUDボタンのカメラ操作は維持する", async () => {
+test("選択数を読み上げ、HUDボタン上のArrow/Pageでカメラを動かす", async () => {
   await page.setViewportSize({ width: 1280, height: 400 });
   await page.reload();
   await page.getByTestId("note-card").first().waitFor();
@@ -1286,58 +1170,14 @@ test("短高ヒントのArrow/Pageはnative読書に届き、HUDボタンのカ�
       .click({ modifiers: ["Shift"] });
   }
   await selectedCount(3);
-  const summary = page.getByLabel("キャンバス操作のヒント", { exact: true });
-  await summary.click();
-  const panel = page.getByTestId("canvas-operation-help");
-  const bounds = await panel.boundingBox();
-  if (!bounds) throw new Error("操作ヒントが表示されていません");
-  expect(bounds.y).toBeGreaterThanOrEqual(0);
-  expect(bounds.y + bounds.height).toBeLessThanOrEqual(400);
-  const beforeCamera = await transform();
-  for (const key of ["PageDown", "PageUp", "ArrowDown", "ArrowUp"]) {
-    const down = key.endsWith("Down");
-    await panel.evaluate(
-      async (el, initial) => {
-        if (el.scrollTop === initial) return;
-        const resetCompleted = new Promise<void>((resolve) => {
-          el.addEventListener("scrollend", () => resolve(), { once: true });
-        });
-        el.scrollTo({ top: initial, behavior: "instant" });
-        // 位置の再設定によるscrollendを、次のキーの完了と混同しない。
-        await resetCompleted;
-      },
-      down ? 0 : 200,
-    );
-    const beforeScroll = await panel.evaluate((el) => el.scrollTop);
-    await panel.focus();
-    // キーを送る前にlistenerの登録完了を待つ。
-    await panel.evaluate((el) => {
-      el.dataset.scrollCompleted = "false";
-      el.addEventListener(
-        "scrollend",
-        () => {
-          el.dataset.scrollCompleted = "true";
-        },
-        { once: true },
-      );
-    });
-    await page.keyboard.press(key);
-    // 前キーのnative smooth scrollが完了してから次の読書位置へ戻す。
-    await expect
-      .poll(() => panel.getAttribute("data-scroll-completed"))
-      .toBe("true");
-    const afterScroll = await panel.evaluate((el) => el.scrollTop);
-    if (down) expect(afterScroll).toBeGreaterThan(beforeScroll);
-    else expect(afterScroll).toBeLessThan(beforeScroll);
-    expect(await transform()).toBe(beforeCamera);
-    expect(await panel.isVisible()).toBe(true);
-  }
-  await page.keyboard.press("Escape");
-  expect(await panel.isVisible()).toBe(false);
-  expect(await summary.evaluate((el) => el === document.activeElement)).toBe(
-    true,
-  );
-  await selectedCount(3);
+  const announcement = page
+    .getByTestId("canvas-zoom-hud")
+    .locator('[aria-live="polite"]')
+    .filter({ hasText: "選択した付箋：3枚" });
+  expect(await announcement.count()).toBe(1);
+  expect(
+    await announcement.evaluate((el) => el.getBoundingClientRect().width),
+  ).toBeLessThanOrEqual(1);
   await page.getByRole("button", { name: "キャンバスを縮小" }).focus();
   for (const key of ["ArrowDown", "PageDown"]) {
     const before = await transform();

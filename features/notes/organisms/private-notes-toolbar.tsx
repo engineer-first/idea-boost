@@ -765,7 +765,7 @@ export function PrivateNotesToolbar({
               </CardTitle>
             </div>
             <div className="flex w-fit shrink-0 items-center gap-2">
-              <TooltipProvider delayDuration={500}>
+              <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

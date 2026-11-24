@@ -815,6 +815,48 @@ describe("RoomBoardHeader", () => {
       ).toBeInTheDocument();
       expect(screen.queryByText("招待コード")).not.toBeInTheDocument();
     });
+
+    it.each([
+      ["発表者", 0],
+      ["発表待ちの参加者", 1],
+    ])(
+      "共有中も%sはルームメニューから招待URLとコードをコピーできる",
+      (_, currentIndex) => {
+        setup({
+          phase: buildPhaseStep(2),
+          sharing: buildSharingState({ status: "active", currentIndex }),
+          onSharingAdvance: vi.fn(),
+        });
+        openRoomMenu();
+        fireEvent.click(screen.getByRole("button", { name: "招待" }));
+
+        const invite = screen.getByTestId("board-view-invite");
+        expect(
+          within(invite).getByRole("button", { name: "招待URLをコピー" }),
+        ).toBeInTheDocument();
+        expect(
+          within(invite).getByRole("button", { name: "招待コードをコピー" }),
+        ).toHaveTextContent("AB12CD");
+      },
+    );
+
+    it("成果を公開した後は参加できないため招待を出さない", () => {
+      setup({ outcomePublished: true });
+      openRoomMenu();
+      expect(
+        screen.queryByRole("button", { name: "招待" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("共有の準備中もルームメニューから招待できる", () => {
+      setup({
+        phase: buildPhaseStep(2),
+        sharing: buildSharingState({ status: "ready" }),
+        onSharingAdvance: vi.fn(),
+      });
+      openRoomMenu();
+      expect(screen.getByRole("button", { name: "招待" })).toBeVisible();
+    });
   });
 
   it("ルームメニューは招待と退出操作を表示する", () => {

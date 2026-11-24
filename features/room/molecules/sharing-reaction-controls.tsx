@@ -56,7 +56,7 @@ export function SharingReactionControls({
   }, []);
 
   return (
-    <TooltipProvider delayDuration={1000}>
+    <TooltipProvider>
       <Popover
         open={open}
         onOpenChange={(nextOpen) => {
