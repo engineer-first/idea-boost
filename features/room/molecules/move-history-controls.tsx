@@ -34,7 +34,7 @@ export function MoveHistoryControls({
 }: MoveHistoryControlsProps) {
   const id = useId();
   return (
-    <TooltipProvider delayDuration={1000}>
+    <TooltipProvider>
       <fieldset
         className="pointer-events-auto flex min-w-0 shrink-0 items-center gap-1"
         aria-label="付箋の移動履歴"

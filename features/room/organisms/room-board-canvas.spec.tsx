@@ -433,7 +433,6 @@ describe("RoomBoardCanvas", () => {
     expect(
       screen.getByRole("button", { name: "付箋全体を表示" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("キャンバス操作のヒント")).toBeInTheDocument();
 
     const mapViewport = screen.getByTestId("idea-map-viewport");
     const mapPlane = screen.getByTestId("idea-value-feasibility-map-plane");
@@ -481,8 +480,6 @@ describe("RoomBoardCanvas", () => {
       "aria-description",
       "ズームの変更は自分だけの表示です",
     );
-    fireEvent.click(screen.getByLabelText("キャンバス操作のヒント"));
-    expect(screen.queryByText("画面を動かす")).not.toBeInTheDocument();
 
     const mapViewport = screen.getByTestId("idea-map-viewport");
     const initialMapTransform = mapViewport.style.transform;

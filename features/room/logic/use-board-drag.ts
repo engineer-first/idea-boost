@@ -274,7 +274,7 @@ export function useBoardDrag({
       const hud = hit?.closest("[data-board-fit-edge]");
       const toolbar = privateToolbarRef.current;
       if (
-        hit?.closest("[role='dialog'], [data-canvas-help]") ||
+        hit?.closest("[role='dialog']") ||
         (hud && !(toolbar instanceof Element && hud.contains(toolbar)))
       )
         return false;
@@ -298,7 +298,7 @@ export function useBoardDrag({
       const hit = document.elementFromPoint?.(clientX, clientY);
       if (
         hit?.closest(
-          "[data-board-fit-edge], [data-cursor-private='true'], [role='dialog'], [data-canvas-help]",
+          "[data-board-fit-edge], [data-cursor-private='true'], [role='dialog']",
         )
       )
         return null;

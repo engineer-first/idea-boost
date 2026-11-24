@@ -1030,7 +1030,7 @@ export function RoomBoardCanvas({
           {character}
         </div>
         <div
-          className={`pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 ${isAdditionalWritingStep ? styles.additionalWritingTools : ""}`}
+          className={`pointer-events-none absolute bottom-3 left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 ${isAdditionalWritingStep ? styles.additionalWritingTools : ""}`}
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
           hidden={

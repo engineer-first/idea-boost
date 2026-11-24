@@ -582,7 +582,7 @@ export function RoomBoardHeader({
     ) : null;
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider>
       <div
         data-testid="board-header-row"
         data-map-workspace={isIdeaMapWorkspaceStep || undefined}
@@ -1154,7 +1154,8 @@ export function RoomBoardHeader({
                     タイマー通知音
                     <TimerSoundControl {...timerSoundControls} />
                   </div>
-                  {!activeSharing ? (
+                  {/* 成果公開後のルームには参加できないため招待を出さない。 */}
+                  {!outcomePublished ? (
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button

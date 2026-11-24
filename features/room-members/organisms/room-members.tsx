@@ -56,7 +56,7 @@ export function RoomMembers({
   const hidden = overflow.length;
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider>
       <fieldset
         aria-label="参加者"
         data-testid="room-members"

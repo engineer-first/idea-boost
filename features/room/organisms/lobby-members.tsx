@@ -43,7 +43,7 @@ export function LobbyMembers({
         : "compact";
   const size = density === "spacious" ? 192 : density === "medium" ? 112 : 96;
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider>
       <fieldset
         aria-label="参加者"
         data-testid="room-members"
