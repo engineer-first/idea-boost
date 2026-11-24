@@ -143,6 +143,7 @@ import { SharedOutcomeStorage } from "./shared-outcome-storage";
 import { captureSharedOutcome, readOutcomeState } from "./shared-outcomes";
 import {
   broadcastSharing,
+  passDepartedPresenter,
   sharingHandlers,
   startPendingSharingTurn,
 } from "./sharing";
@@ -873,6 +874,7 @@ export class RoomDO extends DurableObject {
     beforeRemove?: () => void,
   ): void {
     if (!isMember(this.sql, userId)) return;
+    let presenterPassed = false;
     this.ctx.storage.transactionSync(() => {
       const completion = readCompletion(this.sql);
       if (outcomeAccess === "discard") this.completed.revokeViewer(userId);
@@ -893,6 +895,8 @@ export class RoomDO extends DurableObject {
         );
       beforeRemove?.();
       removeMember(this.sql, userId);
+      // 発表中の人が抜けても共有が止まらないよう、同じtransactionで交代する。
+      presenterPassed = passDepartedPresenter(this.sql, userId);
     });
     const progressConnectionsChanged = syncProgressConnectedUsers(
       this.sql,
@@ -927,6 +931,9 @@ export class RoomDO extends DurableObject {
       { type: "member_left", userId },
       userId,
     );
+    // 本人の接続を閉じた後に、残った参加者へ交代を知らせる。
+    if (presenterPassed)
+      broadcastSharing({ sql: this.sql, broadcaster: this.broadcaster });
     // 退出によってフォロー接続がなくなった発表者へ状態を再通知する。
     for (const presenterUserId of followedPresenterIds) {
       this.broadcaster.broadcastPresenterFollowStatus(presenterUserId);
