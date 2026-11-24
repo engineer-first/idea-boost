@@ -121,7 +121,7 @@ export function IdeaValueFeasibilityMap({
         className="relative z-10 col-start-2 row-start-2 m-0 h-full min-w-0 border-0 p-0 text-muted-foreground"
       >
         <span className="absolute left-1 top-1 text-xs font-medium">
-          {labels.low}
+          {labels.feasibilityLow}
         </span>
         <div
           aria-hidden="true"
@@ -139,7 +139,7 @@ export function IdeaValueFeasibilityMap({
           {labels.feasibility}
         </span>
         <span className="absolute right-1 top-1 text-xs font-medium">
-          {labels.high}
+          {labels.feasibilityHigh}
         </span>
       </fieldset>
     </section>

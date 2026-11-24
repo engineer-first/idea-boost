@@ -401,48 +401,41 @@ export function IdeaMapViewport({
           aria-label={labels.feasibilityScaleAriaLabel}
           className={`relative m-0 shrink-0 border-0 p-0 text-muted-foreground ${groupHorizontalAxisEndpoint ? styles.workspaceFeasibilityAxis : ""} ${workspace ? "ml-10 h-10 sm:ml-15" : "ml-10 h-14 sm:ml-16"}`}
         >
-          {groupHorizontalAxisEndpoint ? (
-            <div
-              ref={horizontalEndpointRef}
-              className={`${styles.horizontalLowEndpointGroup} absolute flex whitespace-nowrap text-sm font-medium sm:text-base`}
-              data-testid="idea-map-x-low-endpoint"
-            >
-              <span
-                className="shrink-0"
-                data-testid="idea-value-feasibility-map-x-low-label"
-              >
-                {labels.low}
-              </span>
-              <AxisStroke
-                axis="x"
-                className={styles.horizontalLowEndpointTrack}
-              />
-            </div>
-          ) : (
-            <>
-              <span
-                className={`absolute top-0 left-0 flex h-6 items-center text-sm font-medium sm:text-base ${workspace ? styles.workspaceCompactFeasibilityLow : ""}`}
-                data-testid="idea-value-feasibility-map-x-low-label"
-              >
-                {labels.low}
-              </span>
-              <AxisStroke
-                axis="x"
-                className={`${styles.horizontalAxisTrack} ${workspace ? styles.workspaceUngroupedAxisTrack : ""}`}
-              />
-            </>
-          )}
           <span
             className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-background px-3 py-1 font-bold tracking-wide text-foreground ${workspace ? `top-3 text-base sm:text-lg ${groupHorizontalAxisEndpoint ? styles.workspaceInlineFeasibilityLabel : ""}` : "top-7 rounded-full border border-border text-lg sm:text-2xl"}`}
             data-testid="idea-value-feasibility-map-x-axis-label"
           >
             {labels.feasibility}
           </span>
-          <span
-            className={`absolute top-0 right-0 flex h-6 items-center text-sm font-medium sm:text-base ${workspace && !groupHorizontalAxisEndpoint ? styles.workspaceCompactFeasibilityHigh : ""}`}
+          {/* 端の言葉の幅に合わせて軸線を伸縮させるため、両端と軸線を1行に並べる。 */}
+          <div
+            ref={
+              groupHorizontalAxisEndpoint ? horizontalEndpointRef : undefined
+            }
+            className={`${groupHorizontalAxisEndpoint ? styles.horizontalLowEndpointGroup : `${styles.horizontalAxisRow} ${workspace ? styles.workspaceCompactFeasibilityRow : ""}`} absolute flex whitespace-nowrap text-sm font-medium sm:text-base`}
+            data-testid={
+              groupHorizontalAxisEndpoint
+                ? "idea-map-x-low-endpoint"
+                : undefined
+            }
           >
-            {labels.high}
-          </span>
+            <span
+              className="shrink-0"
+              data-testid="idea-value-feasibility-map-x-low-label"
+            >
+              {labels.feasibilityLow}
+            </span>
+            <AxisStroke
+              axis="x"
+              className={styles.horizontalLowEndpointTrack}
+            />
+            <span
+              className="shrink-0"
+              data-testid="idea-value-feasibility-map-x-high-label"
+            >
+              {labels.feasibilityHigh}
+            </span>
+          </div>
         </fieldset>
       </div>
     </section>

@@ -3,6 +3,32 @@ import { describe, expect, it, vi } from "vitest";
 import { IdeaMapViewport } from "./idea-map-viewport";
 
 describe("IdeaMapViewport", () => {
+  it.each([
+    {
+      name: "盤面の配置",
+      props: { workspace: true, groupHorizontalAxisEndpoint: true },
+    },
+    { name: "単体表示", props: {} },
+  ])(
+    "$name: 横軸の両端を「しにくい」「しやすい」で示し、高低の読み替えを求めない",
+    ({ props }) => {
+      render(<IdeaMapViewport {...props} />);
+
+      const feasibilityScale = screen.getByRole("group", {
+        name: "実現のしやすさ: 左ほどしにくく、右ほどしやすい",
+      });
+      // 軸名の後に、左端「しにくい」・右端「しやすい」の順で並べる。
+      expect(feasibilityScale).toHaveTextContent(
+        /^実現のしやすさ[\s\S]*しにくい[\s\S]*しやすい$/,
+      );
+      expect(feasibilityScale).not.toHaveTextContent(/低|高/);
+      // 縦軸の価値は高低のまま。
+      expect(
+        screen.getByRole("group", { name: "価値: 低から高" }),
+      ).toHaveTextContent(/^高[\s\S]*価値[\s\S]*低$/);
+    },
+  );
+
   it("操作UI用の余白を残して表示領域いっぱいにマップを表示する", () => {
     render(<IdeaMapViewport />);
 
