@@ -18,7 +18,7 @@ export type DotVotePaletteProps = {
     kind: DotVoteKind,
     event: React.PointerEvent<HTMLButtonElement>,
   ) => void;
-  onWithdrawAll: (kind: DotVoteKind) => void;
+  onWithdrawOne: (kind: DotVoteKind) => void;
 };
 
 // 表示専用 view へ値を渡すだけの container。選択状態はボード側で持ち、
@@ -33,7 +33,7 @@ export function DotVotePalette({
   isReturnDropTarget = false,
   onStickerSelect,
   onStickerDragStart,
-  onWithdrawAll,
+  onWithdrawOne,
 }: DotVotePaletteProps) {
   return (
     <DotVotePaletteView
@@ -46,7 +46,7 @@ export function DotVotePalette({
       isReturnDropTarget={isReturnDropTarget}
       onStickerSelect={onStickerSelect}
       onStickerDragStart={onStickerDragStart}
-      onWithdrawAll={onWithdrawAll}
+      onWithdrawOne={onWithdrawOne}
     />
   );
 }

@@ -184,7 +184,7 @@ describe("共有成果閲覧", () => {
     expect(screen.getAllByText("待ち時間を減らす").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/受付の改善/).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("tab", { name: "アイデア" }));
-    expect(screen.getAllByText("候補外").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("除外済み").length).toBeGreaterThan(0);
     expect(screen.getByText("未決定")).toBeInTheDocument();
   });
   it("loading中は更新を無効化し、保存なしを空の盤面と区別する", () => {

@@ -85,10 +85,7 @@ export function AdoptNoteControl({
         <MousePointerClick aria-hidden="true" className="size-5 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">
-            採用する{targetLabel}をクリックしてください
-          </p>
-          <p className="text-xs text-muted-foreground">
-            候補のみ選べます。Escape でもキャンセルできます。
+            採用する{targetLabel}をクリック
           </p>
         </div>
         <Button

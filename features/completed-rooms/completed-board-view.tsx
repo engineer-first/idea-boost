@@ -167,7 +167,7 @@ export function CompletedBoardView({ board }: { board: CompletedBoard }) {
                   )}
                   {note.excluded && (
                     <span className="rounded-full border px-2 py-1">
-                      候補外
+                      除外済み
                     </span>
                   )}
                   {board.groups

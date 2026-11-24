@@ -14,7 +14,7 @@ const meta = {
     isReturnDropTarget: false,
     onStickerSelect: fn(),
     onStickerDragStart: fn(),
-    onWithdrawAll: fn(),
+    onWithdrawOne: fn(),
   },
 } satisfies Meta<typeof DotVotePalette>;
 

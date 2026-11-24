@@ -31,9 +31,10 @@ async function openStory(id: string): Promise<void> {
   await page.locator("#storybook-root > *").first().waitFor();
 }
 
-test("重なった付箋から操作帯へ移動しても対象を切り替えず最前面で操作できる", async () => {
+test("重なった付箋の操作帯を最前面で操作でき、別の付箋へ移れば即切り替わる", async () => {
   await openStory("notes-notecard--overlapped-candidate-action");
   const target = page.locator('[data-note-id="target-note"]');
+  const front = page.locator('[data-note-id="front-note"]');
   const targetAction = page.locator(
     '[data-candidate-action-note-id="target-note"]',
   );
@@ -41,10 +42,13 @@ test("重なった付箋から操作帯へ移動しても対象を切り替え�
     '[data-candidate-action-note-id="front-note"]',
   );
   const targetBox = await target.boundingBox();
+  const frontBox = await front.boundingBox();
   expect(targetBox).not.toBeNull();
-  if (!targetBox) return;
+  expect(frontBox).not.toBeNull();
+  if (!targetBox || !frontBox) return;
 
-  const start = { x: targetBox.x + 20, y: targetBox.y + 20 };
+  // 手前の付箋(front-note)に重なっていない左端から操作帯の左端へ移動し、最前面で操作できることを確認する。
+  const start = { x: targetBox.x + 10, y: targetBox.y + 10 };
   await page.mouse.move(start.x, start.y);
   await expect
     .poll(() =>
@@ -55,16 +59,16 @@ test("重なった付箋から操作帯へ移動しても対象を切り替え�
   expect(actionBox).not.toBeNull();
   if (!actionBox) return;
   const end = {
-    x: actionBox.x + actionBox.width / 2,
+    x: actionBox.x + 10,
     y: actionBox.y + actionBox.height / 2,
   };
 
-  for (let step = 1; step <= 20; step += 1) {
+  for (let step = 1; step <= 10; step += 1) {
     await page.mouse.move(
-      start.x + ((end.x - start.x) * step) / 20,
-      start.y + ((end.y - start.y) * step) / 20,
+      start.x + ((end.x - start.x) * step) / 10,
+      start.y + ((end.y - start.y) * step) / 10,
     );
-    await page.waitForTimeout(20);
+    await page.waitForTimeout(10);
   }
 
   expect(
@@ -123,6 +127,21 @@ test("重なった付箋から操作帯へ移動しても対象を切り替え�
       )?.id;
     }),
   ).toBe("test-dialog-layer");
+  await page.evaluate(() =>
+    document.getElementById("test-dialog-layer")?.remove(),
+  );
+
+  await page.mouse.move(frontBox.x + frontBox.width - 16, frontBox.y + 16);
+  await expect
+    .poll(() =>
+      frontAction.evaluate((element) => getComputedStyle(element).opacity),
+    )
+    .toBe("1");
+  await expect
+    .poll(() =>
+      targetAction.evaluate((element) => getComputedStyle(element).opacity),
+    )
+    .toBe("0");
 });
 
 test.skipIf(!includeMobile)(
@@ -189,7 +208,7 @@ test.skipIf(!includeMobile)(
 );
 
 test.skipIf(!includeMobile).each(["host", "participant"])(
-  "候補外の付箋（%s）は実タッチで本文を読みやすくし、復帰可能な場合だけ操作を出す",
+  "除外済みの付箋（%s）は実タッチで本文を読みやすくし、復帰可能な場合だけ操作を出す",
   async (role) => {
     await page.close();
     page = await browser.newPage({
@@ -205,7 +224,7 @@ test.skipIf(!includeMobile).each(["host", "participant"])(
           }
         ).__STORYBOOK_PREVIEW__.currentRender?.phase === "finished",
     );
-    const surface = page.getByRole("button", { name: "候補外の付箋" });
+    const surface = page.getByRole("button", { name: "除外済みの付箋" });
     const card = page.getByTestId("note-card");
     await surface.evaluate((element) => element.blur());
     await expect
@@ -215,7 +234,7 @@ test.skipIf(!includeMobile).each(["host", "participant"])(
     await expect
       .poll(() => card.evaluate((element) => getComputedStyle(element).opacity))
       .toBe("0.9");
-    const restore = page.getByRole("button", { name: "候補に戻す" });
+    const restore = page.getByRole("button", { name: "除外を戻す" });
     if (role === "host") {
       await expect
         .poll(() =>

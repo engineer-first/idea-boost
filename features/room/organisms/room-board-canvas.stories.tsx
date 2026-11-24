@@ -402,7 +402,7 @@ export const ExcludedCandidate: Story = {
     await expect(args.onNoteExclude).not.toHaveBeenCalled();
     await expect(
       within(canvasElement.ownerDocument.body).getByRole("menuitem", {
-        name: "候補から外す",
+        name: "除外する",
       }),
     ).toBeVisible();
   },

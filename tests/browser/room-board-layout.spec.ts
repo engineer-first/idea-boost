@@ -540,7 +540,7 @@ test("長文と結果行を分け、候補操作と決定済み印にも重ね�
   );
 
   for (const [storyId, controlName, objectiveCount] of [
-    ["notes-notecard--result-with-candidate-action", "候補から外す", 8],
+    ["notes-notecard--result-with-candidate-action", "除外する", 8],
     ["notes-notecard--result-with-decision", "取り組む課題に決定済み", 10],
   ] as const) {
     await openStory(storyId);
@@ -548,7 +548,7 @@ test("長文と結果行を分け、候補操作と決定済み印にも重ね�
       .getByRole("img", { name: `「需要ありそう」シール ${objectiveCount}票` })
       .boundingBox();
     const control = await page
-      .getByRole(controlName === "候補から外す" ? "button" : "status", {
+      .getByRole(controlName === "除外する" ? "button" : "status", {
         name: controlName,
       })
       .boundingBox();

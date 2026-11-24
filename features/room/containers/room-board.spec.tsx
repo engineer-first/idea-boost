@@ -1541,7 +1541,7 @@ describe("サーバーメッセージ → 画面反映", () => {
         name: "付箋",
       }),
     );
-    fireEvent.click(screen.getByRole("menuitem", { name: "候補から外す" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "除外する" }));
     const message = socket.sent
       .map((item) => JSON.parse(item))
       .find((item) => item.type === "note:exclude");
@@ -1550,7 +1550,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       "data-excluded",
       "true",
     );
-    expect(screen.getByRole("button", { name: "候補に戻す" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "除外を戻す" })).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
     ).toBeDisabled();
@@ -1582,7 +1582,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
+    fireEvent.click(screen.getByRole("button", { name: "除外する" }));
     const message = socket.sent
       .map((item) => JSON.parse(item))
       .find((item) => item.type === "note:exclude");
@@ -1615,8 +1615,8 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
     });
 
-    expect(screen.getByText("候補外")).toBeVisible();
-    expect(screen.getByRole("button", { name: "候補に戻す" })).toBeVisible();
+    expect(screen.getByText("除外済み")).toBeVisible();
+    expect(screen.getByRole("button", { name: "除外を戻す" })).toBeVisible();
   });
 
   it("一括候補外の通知を受け取り、サーバー確定の実件数とoperation IDでUndoする", () => {
@@ -2700,7 +2700,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     ).toBeDisabled();
   });
 
-  it("使い切った「需要ありそう」のタイルを押すと、自分の票の全取り消しを送り、残票を戻す", () => {
+  it("使い切った「需要ありそう」のタイルを押すと、自分の票を1票だけ取り消し、残票を1つ戻す", () => {
     const { socket } = connectWithSnapshot(
       [
         protocolNote({
@@ -2717,14 +2717,19 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       screen.getByRole("button", { name: "「需要ありそう」シール 残り0票" }),
     );
 
-    const resets = socket.sent
+    const removals = socket.sent
       .map((message) => JSON.parse(message))
-      .filter((message) => message.type === "note:vote-reset");
-    expect(resets).toEqual([
+      .filter((message) => message.type === "note:vote-remove");
+    expect(removals).toEqual([
       expect.objectContaining({ noteId: NOTE_ID, kind: "objective" }),
     ]);
     expect(
-      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
+      socket.sent.some(
+        (message) => JSON.parse(message).type === "note:vote-reset",
+      ),
+    ).toBe(false);
+    expect(
+      screen.getByRole("button", { name: "「需要ありそう」シール 残り1票" }),
     ).toBeEnabled();
     expect(
       screen.getByRole("button", { name: "「イチオシ！」シール 残り0票" }),

@@ -174,7 +174,7 @@ const meta = {
     onNoteVote: fn(),
     onNoteVoteRemove: fn(),
     onNoteVoteStickerRemove: fn(),
-    onVoteWithdrawAll: fn(),
+    onVoteWithdrawOne: fn(),
     onNoteVoteStickerMove: fn(),
     pendingVoteOperations: [],
     voteFeedback: null,
@@ -1002,11 +1002,11 @@ export const ExcludedVoteAttempt: Story = {
       canvas.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
     );
     await userEvent.click(
-      canvas.getByRole("button", { name: /^候補外の付箋$/ }),
+      canvas.getByRole("button", { name: /^除外済みの付箋$/ }),
     );
     const body = within(canvasElement.ownerDocument.body);
     const notice = await body.findByText(
-      "候補外の付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",
+      "除外済みの付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",
       { exact: true },
     );
     await waitFor(() => expect(notice).toBeVisible());

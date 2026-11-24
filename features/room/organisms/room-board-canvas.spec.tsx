@@ -328,7 +328,7 @@ describe("RoomBoardCanvas", () => {
       selectedNoteId: "note-1",
       onNoteExclude: vi.fn(),
     });
-    const action = screen.getAllByRole("button", { name: "候補から外す" })[0];
+    const action = screen.getAllByRole("button", { name: "除外する" })[0];
     expect(action).toHaveClass("opacity-100");
     rerender(<RoomBoardCanvas {...props} localDraggingNoteId="note-1" />);
     expect(action).toHaveClass("opacity-0");
@@ -838,7 +838,7 @@ describe("RoomBoardCanvas", () => {
     });
 
     expect(
-      screen.getByText("候補がありません。候補外の付箋を戻してください。"),
+      screen.getByText("候補がありません。除外済みの付箋を戻してください。"),
     ).toBeInTheDocument();
     expect(screen.getByTestId("board-note-note-1")).toHaveStyle({
       left: "120px",
@@ -881,7 +881,7 @@ describe("RoomBoardCanvas", () => {
 
     fireEvent.keyDown(
       screen.getByRole("button", {
-        name: "候補外の付箋",
+        name: "除外済みの付箋",
       }),
       { key: "Enter" },
     );
