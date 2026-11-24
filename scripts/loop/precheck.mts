@@ -9,7 +9,8 @@
 // 使い方: node scripts/loop/precheck.mts <loop>
 //   automation からは origin/develop の版を一時ファイルへ書き出して実行する（このファイルは他を import しない）。
 import { execFileSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 export type LoopName =
   | "mend"
@@ -306,7 +307,19 @@ const LOOPS: LoopName[] = [
   "replan",
 ];
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+// automation は一時ファイル（macOS では /var → /private/var の symlink の下）から起動するので、実パスで比べる。
+const isMain = (() => {
+  try {
+    return (
+      realpathSync(fileURLToPath(import.meta.url)) ===
+      realpathSync(process.argv[1] ?? "")
+    );
+  } catch {
+    return false;
+  }
+})();
+
+if (isMain) {
   const loop = process.argv[2] as LoopName;
   if (!LOOPS.includes(loop)) {
     console.error(`usage: precheck.mts <${LOOPS.join("|")}>`);

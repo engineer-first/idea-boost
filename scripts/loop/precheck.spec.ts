@@ -1,4 +1,8 @@
 // @vitest-environment node
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   decide,
@@ -218,5 +222,18 @@ describe("rollupHealth: PR の検査結果を1つにまとめる", () => {
         { state: "SUCCESS" },
       ]),
     ).toBe("success");
+  });
+});
+
+describe("CLI: automation が一時ファイルの symlink 経由で起動しても判定する", () => {
+  it("知らないループ名なら使い方を出して exit 2 で終わる（判定せずに exit 0 しない）", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ib-precheck-"));
+    const link = join(dir, "precheck.mts");
+    symlinkSync(resolve("scripts/loop/precheck.mts"), link);
+    const r = spawnSync(process.execPath, ["--no-warnings", link, "unknown"], {
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("usage");
   });
 });
