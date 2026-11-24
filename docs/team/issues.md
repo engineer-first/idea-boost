@@ -268,6 +268,10 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 
 Project の作業・状態を変えるときは、Issue本文と Milestone は保ち、対象の状態フィールドのみを必要に応じて更新する。
 
+## ループのラベル
+
+`loop:*`・`needs-human`・`R2`・`P0` のラベルは、エージェントのループの待ち行列と人の判断待ちを示す。意味と拾われる条件は[ループの仕様](../loop/LOOPS.md#待ち行列は-github-issues-と-pr)を正本とする。Issueをループに任せるときは `loop:finish` を付けて担当者を空け、外すときはラベルを外すか担当者を付ける。ラベルはType・Project状態・Milestoneを変えない。
+
 ## 日常のビュー
 
 | ビュー                                                                       | 読む目的                                                        |

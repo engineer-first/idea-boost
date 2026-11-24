@@ -35,6 +35,7 @@
 | PR 作成・本文更新                                  | [write-pr](.agents/skills/write-pr/SKILL.md)                                     |
 | 重要な設計判断・ADRの追加・変更・レビュー          | [ADR運用](docs/adr/README.md)                                                    |
 | エージェント指示・ハーネスの保守                   | [保守記録](docs/development/agent-maintenance.md)                                |
+| ループの周回（Orca automation で起動された作業）   | [ループ開発](docs/loop/README.md)、自分のループの指示書（`docs/loop/prompts/`）  |
 
 IssueはWhyと提供したい体験を短く伝え、PBI本文冒頭のユーザーストーリーで誰が何をなぜ望むかを示す。解決方法・具体仕様は担当者とAIで詰め、未決定だけで起票・着手を止めない。詳細は[Issue記述ルール](docs/team/issue-writing.md)に従う。
 
