@@ -105,6 +105,24 @@ describe("RoomLobbyView", () => {
     ).toHaveTextContent("4 名");
   });
 
+  it("見出しは語の途中で折り返さず、読点の後だけで改行できる", () => {
+    renderView();
+    const heading = screen.getByRole("heading", {
+      name: "メンバーが揃ったら、はじめよう。",
+    });
+    // 句ごとに折り返さない単位にまとめ、句の間だけに改行位置を置く。
+    const phrases = Array.from(
+      heading.querySelectorAll<HTMLElement>("span.inline-block"),
+    ).map((phrase) => phrase.textContent);
+    expect(phrases).toEqual(["メンバーが揃ったら、", "はじめよう。"]);
+    expect(heading.querySelectorAll("wbr")).toHaveLength(1);
+    // ブラウザは inline-block の句の間に空白を挟んで名前を作るため、名前は一続きで指定する。
+    expect(heading).toHaveAttribute(
+      "aria-label",
+      "メンバーが揃ったら、はじめよう。",
+    );
+  });
+
   it("data-phase と data-host を container がテストから参照できる形で持つ", () => {
     renderView({ phase: buildLobbyPhase() });
     const view = screen.getByTestId("room-lobby-view");
