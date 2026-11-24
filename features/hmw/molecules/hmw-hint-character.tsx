@@ -125,9 +125,9 @@ export function HmwHintCharacter({
             onClick={() => handleOpenChange(true)}
           >
             <span>
-              こんな問い方も
+              困ったらここから
               <br />
-              あるかも...
+              作ってみよう
             </span>
           </button>
           <Button
@@ -308,7 +308,7 @@ export function HmwHintCharacter({
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   className={styles.chooseAgain}
                   onClick={() => setSelection(null)}
                 >
@@ -319,6 +319,7 @@ export function HmwHintCharacter({
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 className={styles.otherWords}
                 onClick={() => {
                   setGroupIndex(

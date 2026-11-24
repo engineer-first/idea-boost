@@ -72,7 +72,6 @@ import type {
 } from "../logic/use-canvas-selection";
 import type { RemotePresenterView } from "../logic/use-presenter-view";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
-import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { IdeaMapViewport } from "../molecules/idea-map-viewport";
@@ -1034,7 +1033,7 @@ export function RoomBoardCanvas({
           {character}
         </div>
         <div
-          className={`pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 ${isAdditionalWritingStep ? styles.additionalWritingTools : ""}`}
+          className={`pointer-events-none absolute bottom-3 left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 ${isAdditionalWritingStep ? styles.additionalWritingTools : ""}`}
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
           hidden={
@@ -1399,14 +1398,6 @@ export function RoomBoardCanvas({
               document.body,
             )
           : null}
-        <div
-          className="pointer-events-auto absolute right-3 bottom-3 z-40 max-[639px]:bottom-[var(--board-operation-bottom,4.5rem)]"
-          data-testid="board-operation-matrix"
-          hidden={isPersonalNoteEntryPhase}
-          data-board-fit-edge="bottom"
-        >
-          <BoardOperationMatrix permissions={permissions} />
-        </div>
         {writingCollapsed &&
         previewNoteId &&
         notes.some((note) => note.id === previewNoteId) ? (
@@ -1454,9 +1445,6 @@ export function RoomBoardCanvas({
                 isPersonalNoteEntryPhase
                   ? "private-notes-workspace"
                   : "private-notes-dock"
-              }
-              data-board-fit-edge={
-                isPersonalNoteEntryPhase ? undefined : "bottom"
               }
             >
               <PrivateNotesToolbar

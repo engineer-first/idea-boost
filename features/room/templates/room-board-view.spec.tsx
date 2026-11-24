@@ -457,10 +457,6 @@ describe("2軸評価画面の周辺操作", () => {
       "data-map-expanded",
       "true",
     );
-    expect(screen.getByTestId("board-operation-matrix")).toHaveClass("right-3");
-    expect(screen.getByTestId("board-operation-matrix")).not.toHaveClass(
-      "max-[639px]:hidden",
-    );
     expect(screen.getByTestId("board-context-column")).toContainElement(
       screen.getByTestId("board-reference-hmw"),
     );
@@ -934,6 +930,10 @@ describe("マイ付箋の追加ショートカット", () => {
         screen.queryByTestId("private-notes-workspace"),
       ).not.toBeInTheDocument();
       expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
+      // 右端の縦長ドックは下端バーではない。fit の下端占有に数えない。
+      expect(screen.getByTestId("private-notes-dock")).not.toHaveAttribute(
+        "data-board-fit-edge",
+      );
 
       rerender(<TestBoardView {...props} />);
       expect(screen.getByTestId("private-notes-workspace")).toBeInTheDocument();
@@ -1602,7 +1602,6 @@ describe("RoomBoardView", () => {
       screen.getByTestId("board-scroller").parentElement,
     ).not.toHaveAttribute("hidden");
     expect(screen.getByTestId("board-scroller")).toHaveAttribute("inert");
-    expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
   });
 
   it("1-1では背景をぼかし、1-2では背景をぼかさない", () => {
@@ -3085,7 +3084,7 @@ describe("RoomBoardView", () => {
       });
 
       expect(screen.getByTestId("note-group-card")).toBeInTheDocument();
-      expect(screen.getByText("グループ")).toBeInTheDocument();
+      expect(screen.getByText("グループ A")).toBeInTheDocument();
     });
 
     it("離れた位置に置かれた複数の付箋がある場合、グループ枠は描画されないこと", () => {
@@ -3128,7 +3127,7 @@ describe("RoomBoardView", () => {
       });
 
       // ラベルをクリックして編集モードにする
-      const label = screen.getByText("グループ");
+      const label = screen.getByText("グループ A");
       fireEvent.click(label);
 
       // input要素が表示されることを確認
@@ -4050,6 +4049,28 @@ describe("fit HUDの可視境界", () => {
   });
 });
 
+describe("fit HUDの占有上限", () => {
+  it("縦長のbottom要素があっても、付箋を置ける高さを必ず残す", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1200, 800);
+    root.append(viewport);
+    const tall = document.createElement("div");
+    tall.dataset.boardFitEdge = "bottom";
+    tall.style.pointerEvents = "auto";
+    tall.getBoundingClientRect = () => new DOMRect(880, 0, 300, 800);
+    root.append(tall);
+    document.body.append(root);
+    try {
+      const insets = getBoardFitInsets(viewport);
+      expect(800 - insets.top - insets.bottom).toBeGreaterThanOrEqual(200);
+    } finally {
+      root.remove();
+    }
+  });
+});
+
 describe("付箋上の投票結果", () => {
   it.each([
     [buildPhaseStep(4), buildPhaseStep(5)],
@@ -4440,30 +4461,18 @@ describe("AT-004: 所有gestureの取消経路", () => {
   );
 });
 
-it.each(["external", "details"])(
-  "AT-004: 所有drag中でも%sのEscapeを奪わない",
-  (surface) => {
-    const interactions = buildInteractions([], []);
-    interactions.isNoteDragging = true;
-    setup({ notes: [], interactions });
-    const external = document.createElement("button");
-    document.body.append(external);
-    const details = screen
-      .getByLabelText("キャンバス操作のヒント")
-      .closest("details");
-    if (!details) throw new Error("操作ヒントdetailsが必要");
-    details.open = true;
-    const summary = details.querySelector("summary");
-    if (!summary) throw new Error("操作ヒントsummaryが必要");
-    const target = surface === "external" ? external : summary;
-    target.focus();
-    vi.mocked(interactions.cancelCurrentNoteDrag).mockClear();
-    fireEvent.keyDown(target, { key: "Escape" });
-    expect(interactions.cancelCurrentNoteDrag).not.toHaveBeenCalled();
-    if (surface === "details") expect(details.open).toBe(false);
-    external.remove();
-  },
-);
+it("AT-004: 所有drag中でも外側のEscapeを奪わない", () => {
+  const interactions = buildInteractions([], []);
+  interactions.isNoteDragging = true;
+  setup({ notes: [], interactions });
+  const external = document.createElement("button");
+  document.body.append(external);
+  external.focus();
+  vi.mocked(interactions.cancelCurrentNoteDrag).mockClear();
+  fireEvent.keyDown(external, { key: "Escape" });
+  expect(interactions.cancelCurrentNoteDrag).not.toHaveBeenCalled();
+  external.remove();
+});
 
 it("AT-004: privateの閾値前pressをEscapeで取消した後move/upしてもdrag/editしない", () => {
   const note = buildNote({
@@ -4700,7 +4709,7 @@ describe("AT-002: 第一note所有中の第二palette入力", () => {
       expect(palette).toHaveAttribute("aria-pressed", "false");
     },
   );
-  it("第一press中はnative palette armingも配送せず、通常HUDのヒント操作は受理する", () => {
+  it("第一press中はnative palette armingも配送せず、通常HUDの操作は受理する", () => {
     setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
     const surface = getNoteSurface(screen.getByTestId("note-card"));
     const palette = screen.getByRole("button", {
@@ -4709,8 +4718,8 @@ describe("AT-002: 第一note所有中の第二palette入力", () => {
     fireEvent.pointerDown(surface, { pointerId: 101, button: 0, buttons: 1 });
     fireEvent.click(palette, { detail: 0 });
     expect(palette).toHaveAttribute("aria-pressed", "false");
-    const summary = screen.getByLabelText("キャンバス操作のヒント");
-    expect(fireEvent.click(summary, { detail: 0 })).toBe(true);
+    const fit = screen.getByRole("button", { name: "付箋全体を表示" });
+    expect(fireEvent.click(fit, { detail: 0 })).toBe(true);
     fireEvent.pointerUp(surface, { pointerId: 101 });
     fireEvent.click(palette, { detail: 0 });
     expect(palette).toHaveAttribute("aria-pressed", "true");

@@ -72,11 +72,11 @@ export const TemporaryGroup: Story = {
     group: {
       ...defaultGroup,
       id: "temp-note-1,note-2",
-      name: "グループ",
+      name: "グループ A",
       isTemp: true,
       representativeNoteId: "preview-note-1",
     },
-    name: "グループ",
+    name: "グループ A",
   },
 };
 

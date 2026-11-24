@@ -61,7 +61,6 @@ async function expectLayout(): Promise<void> {
         '[data-testid="board-help-panel"] > div',
         '[data-testid="private-notes-toolbar"]',
         '[data-testid="board-tools-hud"]',
-        '[data-testid="board-operation-matrix"]',
         '[data-testid="vote-palette-hud"] > *',
       ].join(","),
     )

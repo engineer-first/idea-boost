@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type Stage = "idle" | "button" | "self" | "waiting" | "check" | "others";
+type Stage =
+  | "idle"
+  | "button"
+  | "self"
+  | "waiting"
+  | "check"
+  | "others"
+  | "nudge";
 type Options = {
   scope: string;
   disabled: boolean;
@@ -14,6 +21,8 @@ type CompletionCue = {
   busy: boolean;
   hideSelfCheck: boolean;
   request: (proceed: (() => void) | null) => void;
+  // 全員がそろう前の次へから、完了を送らずに本人か未完了の参加者へ視線を向ける。
+  nudge: () => void;
 };
 
 // 演出はローカル。チェックと進行はサーバーから受けた状態だけで確定する。
@@ -44,6 +53,10 @@ export function useCompletionCue(options: Options): CompletionCue {
   }, [options.scope, options.disabled, reset]);
 
   useEffect(() => {
+    if (stage === "nudge") {
+      const timeout = setTimeout(() => setStage("idle"), 1600);
+      return () => clearTimeout(timeout);
+    }
     if (!active.current || options.disabled || scope.current !== options.scope)
       return;
     const later = (ms: number, action: () => void): void => {
@@ -107,11 +120,24 @@ export function useCompletionCue(options: Options): CompletionCue {
     intent.current = proceed;
     setStage(proceed && !options.ready ? "button" : "self");
   }
+  function nudge(): void {
+    if (active.current || options.disabled) return;
+    if (!options.ready) {
+      // 促している間も「できた！」を押せるよう、操作中にはしない。
+      setStage("nudge");
+      return;
+    }
+    startedReady.current = true;
+    active.current = true;
+    intent.current = null;
+    setStage("others");
+  }
   return {
     stage,
-    busy: stage !== "idle",
+    busy: stage !== "idle" && stage !== "nudge",
     hideSelfCheck:
       !startedReady.current && ["button", "self", "waiting"].includes(stage),
     request,
+    nudge,
   };
 }

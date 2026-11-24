@@ -148,7 +148,7 @@ describe("CanvasZoomControls", () => {
     expect(props.moveHistory.onUndo).not.toHaveBeenCalled();
   });
 
-  it("手のひらのヒントはhoverの1秒後に表示し、離れた場合は表示しない", () => {
+  it("手のひらのヒントはhoverの0.2秒後に表示し、離れた場合は表示しない", () => {
     vi.useFakeTimers();
     try {
       render(
@@ -163,13 +163,13 @@ describe("CanvasZoomControls", () => {
       );
       const hand = screen.getByRole("button", { name: "手のひらツール" });
       fireEvent.pointerMove(hand, { pointerType: "mouse" });
-      act(() => vi.advanceTimersByTime(500));
+      act(() => vi.advanceTimersByTime(100));
       fireEvent.pointerLeave(hand);
       act(() => vi.advanceTimersByTime(2000));
       expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
       fireEvent.pointerMove(hand, { pointerType: "mouse" });
-      act(() => vi.advanceTimersByTime(999));
+      act(() => vi.advanceTimersByTime(199));
       expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
       act(() => vi.advanceTimersByTime(1));
       expect(screen.getByRole("tooltip")).toHaveTextContent("Space＋ドラッグ");
@@ -207,6 +207,47 @@ describe("CanvasZoomControls", () => {
     }
   });
 
+  it("ツールチップは明るい面と枠線で表示する", () => {
+    render(
+      <CanvasZoomControls
+        zoom={1}
+        onToolChange={vi.fn()}
+        onZoomOut={vi.fn()}
+        onResetZoom={vi.fn()}
+        onZoomIn={vi.fn()}
+        onFitToNotes={vi.fn()}
+      />,
+    );
+    fireEvent.focus(screen.getByRole("button", { name: "選択ツール" }));
+    const content = document.querySelector('[data-slot="tooltip-content"]');
+    expect(content).toHaveClass(
+      "border",
+      "border-border",
+      "bg-popover",
+      "text-popover-foreground",
+    );
+    expect(content).not.toHaveClass("bg-foreground", "text-background");
+  });
+
+  it("キャンバス操作の?ヒントは表示しない", () => {
+    render(
+      <CanvasZoomControls
+        zoom={1}
+        onToolChange={vi.fn()}
+        onZoomOut={vi.fn()}
+        onResetZoom={vi.fn()}
+        onZoomIn={vi.fn()}
+        onFitToNotes={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByLabelText("キャンバス操作のヒント"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("canvas-operation-help"),
+    ).not.toBeInTheDocument();
+  });
+
   it("倍率を表示し、各操作を通知する", () => {
     const handlers = {
       onZoomOut: vi.fn(),
@@ -232,97 +273,7 @@ describe("CanvasZoomControls", () => {
   });
 });
 
-describe("操作ヒントのdismissとイベント配送", () => {
-  function setupHelp() {
-    const onOutside = vi.fn();
-    const onToolChange = vi.fn();
-    render(
-      <>
-        <CanvasZoomControls
-          zoom={1}
-          onToolChange={onToolChange}
-          onZoomOut={vi.fn()}
-          onResetZoom={vi.fn()}
-          onZoomIn={vi.fn()}
-          onFitToNotes={vi.fn()}
-        />
-        <button
-          type="button"
-          onPointerDown={onOutside}
-          onClick={onOutside}
-          onWheel={onOutside}
-        >
-          外側の操作
-        </button>
-      </>,
-    );
-    const summary = screen.getByLabelText("キャンバス操作のヒント");
-    const details = summary.closest("details");
-    if (!details) throw new Error("ヒントdetailsが必要");
-    details.open = true;
-    return { summary, details, onOutside, onToolChange };
-  }
-  it("外側pointerdownで閉じ、そのpointer操作を配送する", () => {
-    const { details, onOutside } = setupHelp();
-    expect(
-      fireEvent.pointerDown(screen.getByRole("button", { name: "外側の操作" })),
-    ).toBe(true);
-    expect(details.open).toBe(false);
-    expect(onOutside).toHaveBeenCalledTimes(1);
-  });
-  it("native keyboard由来の外側clickで閉じ、そのclickを配送する", () => {
-    const { details, onOutside } = setupHelp();
-    expect(
-      fireEvent.click(screen.getByRole("button", { name: "外側の操作" }), {
-        detail: 0,
-      }),
-    ).toBe(true);
-    expect(details.open).toBe(false);
-    expect(onOutside).toHaveBeenCalledTimes(1);
-  });
-  it("別ツール操作はヒントを閉じてそのまま切替を配送する", () => {
-    const { details, onToolChange } = setupHelp();
-    fireEvent.click(screen.getByRole("button", { name: "手のひらツール" }), {
-      detail: 0,
-    });
-    expect(details.open).toBe(false);
-    expect(onToolChange).toHaveBeenCalledWith("hand");
-  });
-  it("外側wheelで閉じ、その画面移動操作を配送する", () => {
-    const { details, onOutside } = setupHelp();
-    expect(
-      fireEvent.wheel(screen.getByRole("button", { name: "外側の操作" }), {
-        deltaY: 100,
-      }),
-    ).toBe(true);
-    expect(details.open).toBe(false);
-    expect(onOutside).toHaveBeenCalledTimes(1);
-  });
-  it("外側へfocusを移すと閉じ、そのfocusを奪わない", () => {
-    const { details, summary } = setupHelp();
-    summary.focus();
-    const outside = screen.getByRole("button", { name: "外側の操作" });
-    outside.focus();
-    expect(details.open).toBe(false);
-    expect(document.activeElement).toBe(outside);
-  });
-  it("内側のclick/scroll/selectとIME Escapeは閉じず通常Escapeだけ1段閉じる", () => {
-    const { details, summary } = setupHelp();
-    const panel = details.querySelector("section");
-    if (!panel) throw new Error("ヒント本文が必要");
-    fireEvent.pointerDown(panel);
-    fireEvent.click(panel);
-    fireEvent.scroll(panel);
-    fireEvent.select(panel);
-    fireEvent.keyDown(panel, { key: "Escape", isComposing: true });
-    expect(details.open).toBe(true);
-    expect(fireEvent.keyDown(panel, { key: "Escape" })).toBe(false);
-    expect(details.open).toBe(false);
-    expect(document.activeElement).toBe(summary);
-  });
-});
-
-function HelpReadingCameraHarness() {
+function CameraHarness() {
   const viewportRef = useRef<HTMLDivElement>(null);
   const { camera } = useCanvasCamera({ viewportRef, notes: [] });
   return (
@@ -340,61 +291,9 @@ function HelpReadingCameraHarness() {
   );
 }
 
-describe("ヒント本文のnative読書キーとHUDカメラ操作", () => {
-  it.each([
-    "ArrowDown",
-    "ArrowUp",
-    "ArrowLeft",
-    "ArrowRight",
-    "PageDown",
-    "PageUp",
-  ])("本文の%sはnative既定動作を保ちカメラへ漏れない", async (key) => {
-    render(<HelpReadingCameraHarness />);
-    const summary = screen.getByLabelText("キャンバス操作のヒント");
-    const details = summary.closest("details");
-    if (!details) throw new Error("ヒントdetailsが必要");
-    details.open = true;
-    const panel = screen.getByTestId("canvas-operation-help");
-    panel.focus();
-    const camera = screen.getByTestId("reading-camera");
-    const before = camera.textContent;
-    expect(fireEvent.keyDown(panel, { key })).toBe(true);
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 30));
-    });
-    expect(camera.textContent).toBe(before);
-    expect(details.open).toBe(true);
-  });
-  it("本文のIME・OS modifier・Spaceはnative入力のまま伝播する", () => {
-    render(<HelpReadingCameraHarness />);
-    const details = screen
-      .getByLabelText("キャンバス操作のヒント")
-      .closest("details");
-    if (!details) throw new Error("ヒントdetailsが必要");
-    details.open = true;
-    const panel = screen.getByTestId("canvas-operation-help");
-    const listener = vi.fn();
-    window.addEventListener("keydown", listener);
-    try {
-      for (const options of [
-        { isComposing: true },
-        { keyCode: 229 },
-        { ctrlKey: true },
-        { metaKey: true },
-        { altKey: true },
-      ]) {
-        expect(fireEvent.keyDown(panel, { key: "ArrowDown", ...options })).toBe(
-          true,
-        );
-      }
-      expect(fireEvent.keyDown(panel, { key: " ", code: "Space" })).toBe(true);
-      expect(listener).toHaveBeenCalledTimes(6);
-    } finally {
-      window.removeEventListener("keydown", listener);
-    }
-  });
+describe("HUDのカメラ操作", () => {
   it("通常のHUDボタン上のArrow/Pageは既存カメラ操作を維持する", async () => {
-    render(<HelpReadingCameraHarness />);
+    render(<CameraHarness />);
     const button = screen.getByRole("button", { name: "キャンバスを縮小" });
     const camera = screen.getByTestId("reading-camera");
     for (const key of ["ArrowDown", "PageDown"]) {

@@ -44,7 +44,7 @@ describe("NoteGroupCard", () => {
     {
       label: "仮グループ",
       group: { ...baseGroup, id: "temp-note-1,note-2", isTemp: true },
-      name: "グループ",
+      name: "グループ A",
     },
     {
       label: "保存済みグループ",

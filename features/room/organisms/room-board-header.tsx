@@ -399,6 +399,7 @@ export function RoomBoardHeader({
   const memberSelectionDisabled =
     isDisconnected || isNextPhasePending || isRemovingMember || isLeaving;
   const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const readyButtonRef = useRef<HTMLButtonElement>(null);
   const roomMenuContentRef = useRef<HTMLDivElement>(null);
   const inviteContentRef = useRef<HTMLDivElement>(null);
   const feedbackOpening = useRef(false);
@@ -582,7 +583,7 @@ export function RoomBoardHeader({
     ) : null;
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider>
       <div
         data-testid="board-header-row"
         data-map-workspace={isIdeaMapWorkspaceStep || undefined}
@@ -664,6 +665,7 @@ export function RoomBoardHeader({
               <Button
                 type="button"
                 variant={isCurrentUserReady ? "secondary" : "outline"}
+                ref={readyButtonRef}
                 className={`text-sm h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
                 disabled={
                   isDisconnected ||
@@ -742,6 +744,14 @@ export function RoomBoardHeader({
                 onSelectMember={canSelectMember ? onSelectMember : undefined}
                 selectionDisabled={memberSelectionDisabled}
                 members={members}
+                onPassPresenter={
+                  canAdvanceSharing && onSharingAdvance
+                    ? () => onSharingAdvance("passed")
+                    : undefined
+                }
+                passDisabled={
+                  isDisconnected || transitioning || isRemovingMember
+                }
               />
             ) : (
               <Popover open={membersOpen} onOpenChange={setMembersOpen}>
@@ -937,34 +947,14 @@ export function RoomBoardHeader({
               </Popover>
             )}
 
-            {activeSharing &&
-            activeSharing.status !== "complete" &&
-            (activeSharing.status === "ready"
-              ? canStartSharing
-              : canAdvanceSharing) ? (
-              activeSharing.status === "ready" ? (
-                <Button
-                  className="text-sm h-10 shrink-0"
-                  disabled={isDisconnected || isRemovingMember}
-                  onClick={() => onSharingStart?.(sharingDuration)}
-                >
-                  最初の人を開始
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="text-sm h-10 shrink-0 px-3"
-                  disabled={
-                    isDisconnected ||
-                    transitioning ||
-                    isRemovingMember ||
-                    timer.status !== "ended"
-                  }
-                  onClick={() => onSharingAdvance?.("passed")}
-                >
-                  今回はパス
-                </Button>
-              )
+            {activeSharing?.status === "ready" && canStartSharing ? (
+              <Button
+                className="text-sm h-10 shrink-0"
+                disabled={isDisconnected || isRemovingMember}
+                onClick={() => onSharingStart?.(sharingDuration)}
+              >
+                最初の人を開始
+              </Button>
             ) : null}
             {isResultStep(phase) && isFinalStep ? (
               outcomePublished && hasFinalDecision ? (
@@ -1041,6 +1031,26 @@ export function RoomBoardHeader({
                   !canProceedByTimeOrReady ||
                   isRemovingMember ||
                   (canCompleteSharing && isLeaving)
+                }
+                onPendingPress={
+                  // 人数待ちだけが理由のときに限り、押されたら「できた！」か未完了の人を示す。
+                  isManualProgressStep &&
+                  onToggleReady &&
+                  !canCompleteSharing &&
+                  activeSharing === null &&
+                  !canProceedByTimeOrReady &&
+                  !isDisconnected &&
+                  !isNextPhasePending &&
+                  !isNextPhaseBlocked &&
+                  votingAllComplete &&
+                  !isRemovingMember &&
+                  !isLeaving
+                    ? () => {
+                        if (!isCurrentUserReady)
+                          readyButtonRef.current?.focus();
+                        completionCue.nudge();
+                      }
+                    : undefined
                 }
                 requireConfirmation={
                   canCompleteSharing ? false : requireProgressConfirmation
@@ -1154,7 +1164,8 @@ export function RoomBoardHeader({
                     タイマー通知音
                     <TimerSoundControl {...timerSoundControls} />
                   </div>
-                  {!activeSharing ? (
+                  {/* 成果公開後のルームには参加できないため招待を出さない。 */}
+                  {!outcomePublished ? (
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button

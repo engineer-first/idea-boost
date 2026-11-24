@@ -379,7 +379,7 @@ describe("RoomBoardHeader", () => {
       within(screen.getByTestId("board-control-hud")).getByRole("button", {
         name: "あと1人で次へ",
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
     rerender(
       <RoomBoardHeader {...props} progress={allReadyProgress(members)} />,
     );
@@ -813,6 +813,48 @@ describe("RoomBoardHeader", () => {
         screen.queryByRole("button", { name: "招待" }),
       ).toBeInTheDocument();
       expect(screen.queryByText("招待コード")).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["発表者", 0],
+      ["発表待ちの参加者", 1],
+    ])(
+      "共有中も%sはルームメニューから招待URLとコードをコピーできる",
+      (_, currentIndex) => {
+        setup({
+          phase: buildPhaseStep(2),
+          sharing: buildSharingState({ status: "active", currentIndex }),
+          onSharingAdvance: vi.fn(),
+        });
+        openRoomMenu();
+        fireEvent.click(screen.getByRole("button", { name: "招待" }));
+
+        const invite = screen.getByTestId("board-view-invite");
+        expect(
+          within(invite).getByRole("button", { name: "招待URLをコピー" }),
+        ).toBeInTheDocument();
+        expect(
+          within(invite).getByRole("button", { name: "招待コードをコピー" }),
+        ).toHaveTextContent("AB12CD");
+      },
+    );
+
+    it("成果を公開した後は参加できないため招待を出さない", () => {
+      setup({ outcomePublished: true });
+      openRoomMenu();
+      expect(
+        screen.queryByRole("button", { name: "招待" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("共有の準備中もルームメニューから招待できる", () => {
+      setup({
+        phase: buildPhaseStep(2),
+        sharing: buildSharingState({ status: "ready" }),
+        onSharingAdvance: vi.fn(),
+      });
+      openRoomMenu();
+      expect(screen.getByRole("button", { name: "招待" })).toBeVisible();
     });
   });
 
@@ -1486,7 +1528,9 @@ describe("共有の進行欄", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("timer")).toHaveTextContent("03:00");
     expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "今回はパス" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "今回はパス" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
   });
 });
@@ -1565,21 +1609,35 @@ it("共有完了後は参加者全員が完了から次工程へ進める", () =
     screen.queryByRole("button", { name: "できた！" }),
   ).not.toBeInTheDocument();
 });
-it("発表者以外は完了を押せず、時間切れ後のパスだけ行える", () => {
+it("発表者以外は完了を押せず、計時中でも順番メニューから今の発表者をパスできる", () => {
+  const sharing = buildSharingState({ status: "active", currentIndex: 1 });
+  const onSharingAdvance = vi.fn();
   render(
     <RoomBoardHeader
       {...setupProps({
         phase: buildPhaseStep(2),
-        timer: { status: "ended", durationMs: 180_000 },
+        timer: {
+          status: "running",
+          durationMs: 180_000,
+          endsAt: Date.now() + 60_000,
+        },
       })}
-      sharing={buildSharingState({ status: "active", currentIndex: 1 })}
+      sharing={sharing}
+      onSharingAdvance={onSharingAdvance}
     />,
   );
-  expect(
-    screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
-  ).toBeEnabled();
   expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "今回はパス" })).toBeEnabled();
+  expect(
+    screen.queryByRole("button", { name: "今回はパス" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: `${sharing.order[1].name}をパス` }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "パスする" }));
+  expect(onSharingAdvance).toHaveBeenCalledExactlyOnceWith("passed");
 });
 
 it.each([{ phaseRevision: 2 }, { isDisconnected: true }])(
@@ -1621,7 +1679,9 @@ it("発表者の完了で交代し、交代中・切断中・他人の番では�
   const { rerender } = render(<RoomBoardHeader {...props} />);
   fireEvent.click(screen.getByRole("button", { name: "できた！" }));
   expect(props.onSharingAdvance).toHaveBeenCalledExactlyOnceWith("done");
-  expect(screen.getByRole("button", { name: "今回はパス" })).toBeEnabled();
+  expect(
+    screen.queryByRole("button", { name: "今回はパス" }),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "次のステップへ" }),
   ).not.toBeInTheDocument();
@@ -1788,7 +1848,7 @@ describe("全員のチェック", () => {
       const { rerender } = render(<RoomBoardHeader {...props} />);
       expect(
         screen.getByRole("button", { name: "あと2人で次へ" }),
-      ).toBeDisabled();
+      ).toHaveAttribute("aria-disabled", "true");
       fireEvent.click(screen.getByRole("button", { name: "できた！" }));
       act(() => vi.advanceTimersByTime(440));
       expect(props.onToggleReady).toHaveBeenCalledExactlyOnceWith(true);
@@ -1802,6 +1862,57 @@ describe("全員のチェック", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("全員がそろう前の次へ", () => {
+  const pending = (
+    members: ReturnType<typeof buildMembers>,
+    readyIds: string[],
+  ) => ({
+    ...allReadyProgress(members),
+    readyUserIds: readyIds,
+    notReadyUserIds: members
+      .map((m) => m.userId)
+      .filter((id) => !readyIds.includes(id)),
+    canAdvance: false,
+    allReady: false,
+  });
+  it("本人が未完了なら「あと2人で次へ」を押すと、完了も進行も送らず「できた！」へ移って促す", () => {
+    const members = buildMembers(3, ME);
+    const props = setup({
+      members,
+      onToggleReady: vi.fn(),
+      progress: pending(members, [members[1].userId]),
+    });
+    const next = screen.getByRole("button", { name: "あと2人で次へ" });
+    expect(next).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(next);
+    expect(props.onToggleReady).not.toHaveBeenCalled();
+    expect(props.onNextPhase).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    const ready = screen.getByRole("button", { name: "できた！" });
+    expect(ready).toHaveFocus();
+    expect(ready).toBeEnabled();
+    expect(screen.getByTestId("board-control-hud")).toHaveAttribute(
+      "data-completion-cue",
+      "nudge",
+    );
+  });
+  it("本人が完了済みなら「あと1人で次へ」を押すと、進行を送らず未完了の参加者を示す", () => {
+    const members = buildMembers(2, ME);
+    const props = setup({
+      members,
+      onToggleReady: vi.fn(),
+      progress: pending(members, [ME]),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "あと1人で次へ" }));
+    expect(props.onToggleReady).not.toHaveBeenCalled();
+    expect(props.onNextPhase).not.toHaveBeenCalled();
+    expect(screen.getByTestId("board-control-hud")).toHaveAttribute(
+      "data-completion-cue",
+      "others",
+    );
   });
 });
 

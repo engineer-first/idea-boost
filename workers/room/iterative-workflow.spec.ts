@@ -771,13 +771,13 @@ it.each([
   },
 );
 
-it.each(["グループ", "学び合い"])(
+it.each(["グループ A", "学び合い"])(
   "1-3のまとまり（%s）は1-4への進行と再接続後も所属を保持する",
   async (name) => {
     const current: RoomPhase = { kind: "step", phase: 1, step: 3 };
     const room = await setup(current);
     try {
-      if (name !== "グループ") {
+      if (name !== "グループ A") {
         await runInRoomDO(room.roomId, (_room, state) => {
           state.storage.sql.exec(
             "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES(?,?,?,'now','now')",
@@ -815,7 +815,8 @@ it.each(["グループ", "学び合い"])(
       if (snapshot.type === "snapshot") {
         expect(snapshot.groups?.[0].noteIds).toHaveLength(2);
         expect(snapshot.groups?.[0].noteIds).not.toContain(draftId);
-        if (name !== "グループ") expect(snapshot.groups?.[0].id).toBe(draftId);
+        if (name !== "グループ A")
+          expect(snapshot.groups?.[0].id).toBe(draftId);
       }
       reconnect.close();
     } finally {
@@ -866,7 +867,7 @@ it("1-3の名前未編集のまとまりも追加執筆と再入室で保持し�
     type: "snapshot",
     groups: [
       expect.objectContaining({
-        name: "グループ",
+        name: "グループ A",
         noteIds: expect.arrayContaining([candidateId, excludedId]),
       }),
     ],

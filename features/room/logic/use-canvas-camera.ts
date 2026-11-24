@@ -753,8 +753,7 @@ export function useCanvasCamera({
         (
           viewport?.closest("[data-testid='board-frame']") ??
           viewport?.parentElement
-        )?.contains(target) &&
-        !target.closest("[data-canvas-help]");
+        )?.contains(target);
       // 文字キーで編集できる付箋表面では、本文入力の操作を優先する。
       const isZoomTarget =
         isViewportEnabled &&

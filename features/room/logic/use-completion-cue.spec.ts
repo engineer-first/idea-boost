@@ -153,4 +153,31 @@ describe("完了の視線誘導", () => {
     expect(proceed).not.toHaveBeenCalled();
     expect(result.current.stage).toBe("idle");
   });
+  it("未完了の本人が待ち中の次へを押すと、完了を送らずに「できた！」を促して1.6秒で戻す", () => {
+    const { result, options } = setup();
+    act(() => result.current.nudge());
+    expect(result.current.stage).toBe("nudge");
+    tick(1600);
+    expect(options.onReady).not.toHaveBeenCalled();
+    expect(result.current.stage).toBe("idle");
+  });
+  it("「できた！」を促している間も押せて、押すと完了を送る", () => {
+    const { result, options } = setup();
+    act(() => result.current.nudge());
+    expect(result.current.busy).toBe(false);
+    act(() => result.current.request(null));
+    throughAttention();
+    expect(options.onReady).toHaveBeenCalledExactlyOnceWith(true);
+  });
+  it("完了済みの本人が待ち中の次へを押すと、未完了の参加者を示す", () => {
+    const { result, options } = setup({ ready: true });
+    act(() => result.current.nudge());
+    expect(result.current.stage).toBe("others");
+    expect(options.onReady).not.toHaveBeenCalled();
+  });
+  it("無効の間は待ち中の次へを押しても促さない", () => {
+    const { result } = setup({ disabled: true });
+    act(() => result.current.nudge());
+    expect(result.current.stage).toBe("idle");
+  });
 });

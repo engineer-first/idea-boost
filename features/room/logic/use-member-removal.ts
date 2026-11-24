@@ -40,6 +40,9 @@ export function useMemberRemoval({
   const [selection, setSelection] = useState<{
     userId: string;
   } | null>(null);
+  // 除外の確定後はサーバーが在籍一覧を先に更新し、ダイアログも閉じる途中で
+  // 描画される。その間は選んだ時点の参加者を表示し、退出済みと誤表示しない。
+  const [lastTarget, setLastTarget] = useState<ProtocolMember | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const operationRef = useRef<{ id: string; userId: string } | null>(null);
@@ -64,8 +67,9 @@ export function useMemberRemoval({
       );
   }, [connected, finish]);
   const open = selection !== null;
-  const target =
+  const liveTarget =
     members.find((member) => member.userId === selection?.userId) ?? null;
+  const target = liveTarget ?? (pending || !open ? lastTarget : null);
   const request = useCallback(
     (userId: string) => {
       if (
@@ -78,6 +82,7 @@ export function useMemberRemoval({
         return;
       setError(null);
       setSelection({ userId });
+      setLastTarget(members.find((member) => member.userId === userId) ?? null);
     },
     [currentUserId, connected, blocked, members],
   );
@@ -88,16 +93,16 @@ export function useMemberRemoval({
     }
   }, []);
   const onConfirm = useCallback(() => {
-    if (!open || !target || !connected || blocked || operationRef.current)
+    if (!open || !liveTarget || !connected || blocked || operationRef.current)
       return;
-    const operation = { id: crypto.randomUUID(), userId: target.userId };
+    const operation = { id: crypto.randomUUID(), userId: liveTarget.userId };
     operationRef.current = operation;
     setPending(true);
     setError(null);
     if (
       !send({
         type: "member:remove",
-        targetUserId: target.userId,
+        targetUserId: liveTarget.userId,
         operationId: operation.id,
       })
     ) {
@@ -112,7 +117,7 @@ export function useMemberRemoval({
           ),
         5000,
       );
-  }, [open, target, connected, blocked, send, finish]);
+  }, [open, liveTarget, connected, blocked, send, finish]);
   const applyMessage = useCallback(
     (message: ServerMessage): boolean => {
       if (

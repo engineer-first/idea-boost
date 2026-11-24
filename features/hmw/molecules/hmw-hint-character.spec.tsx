@@ -57,7 +57,7 @@ describe("キャラクターの問いヒント", () => {
     );
     // 呼びかけ条件を待たずに、キャラクターと吹き出しを最初から出す。
     expect(
-      screen.getByRole("button", { name: /こんな問い方も.*あるかも/ }),
+      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "問いのヒントを開く" }),
@@ -67,11 +67,11 @@ describe("キャラクターの問いヒント", () => {
       screen.getByRole("button", { name: "問いのヒントを開く" }),
     );
     expect(
-      screen.queryByRole("button", { name: /こんな問い方も.*あるかも/ }),
+      screen.queryByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).not.toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     expect(
-      screen.getByRole("button", { name: /こんな問い方も.*あるかも/ }),
+      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).toBeInTheDocument();
     rerender(
       <HmwHintCharacter
@@ -82,7 +82,7 @@ describe("キャラクターの問いヒント", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: /こんな問い方も.*あるかも/ }),
+      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).toBeInTheDocument();
     // 閉じたら次の書き出し周期まで消えたままにする。
     await userEvent.click(
@@ -90,7 +90,7 @@ describe("キャラクターの問いヒント", () => {
     );
     expect(onDismissNudge).toHaveBeenCalledOnce();
     expect(
-      screen.queryByRole("button", { name: /こんな問い方も.*あるかも/ }),
+      screen.queryByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "問いのヒントを開く" }),
@@ -128,7 +128,7 @@ describe("キャラクターの問いヒント", () => {
       />,
     );
     await userEvent.click(
-      screen.getByRole("button", { name: /こんな問い方も.*あるかも/ }),
+      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     );
     const dialog = screen.getByRole("dialog", { name: "問いのヒント" });
     expect(onHintOpen).toHaveBeenCalledOnce();
@@ -164,6 +164,26 @@ describe("キャラクターの問いヒント", () => {
       within(dialog).queryByRole("region", { name: "問いの文例" }),
     ).not.toBeInTheDocument();
     expect(onUseQuestion).not.toHaveBeenCalled();
+  });
+
+  it("「別のワードを選択する」「別の3つ」は枠のあるボタンとして見せる", async () => {
+    render(
+      <HmwHintCharacter
+        showNudge
+        decidedIssue="忘れ物が多い"
+        onUseQuestion={vi.fn()}
+      />,
+    );
+    const dialog = await openHints();
+    expect(
+      within(dialog).getByRole("button", { name: "別の3つ" }),
+    ).toHaveAttribute("data-variant", "outline");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "楽しみ" }),
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "別のワードを選択する" }),
+    ).toHaveAttribute("data-variant", "outline");
   });
 
   it("別の3つへ切り替え、選んだ静止文例を決定したときだけ新規付箋へ渡す", async () => {
@@ -316,7 +336,7 @@ describe("キャラクターの問いヒント", () => {
     expect(onDismissNudge).toHaveBeenCalledOnce();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /こんな問い方も.*あるかも/ }),
+      screen.queryByRole("button", { name: /困ったらここから.*作ってみよう/ }),
     ).not.toBeInTheDocument();
   });
 });

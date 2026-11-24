@@ -9,7 +9,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const TooltipProvider = ({
-  delayDuration = 300,
+  delayDuration = 200,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) => (
   <TooltipPrimitive.Provider
@@ -46,7 +46,7 @@ const TooltipContent = React.forwardRef<
       data-slot="tooltip-content"
       sideOffset={sideOffset}
       className={cn(
-        "z-50 overflow-hidden rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow-tool",
+        "z-50 overflow-hidden rounded-lg border border-border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-tool",
         "data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0",
         "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
         className,

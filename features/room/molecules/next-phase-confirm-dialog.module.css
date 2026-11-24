@@ -12,7 +12,8 @@
 }
 
 /* 押せない間も形は残し、完了した人数ぶん面を左から満たして「あと少し」を示す。 */
-.pending:disabled {
+.pending:disabled,
+.pending[aria-disabled="true"] {
   background: linear-gradient(
       to right,
       var(--ib-color-primary-soft) calc(var(--ready-ratio, 0) * 100%),

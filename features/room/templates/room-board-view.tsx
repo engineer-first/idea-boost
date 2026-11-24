@@ -82,6 +82,8 @@ import { RoomBoardHeader } from "../organisms/room-board-header";
 
 // 透過wrapper全体ではなく実際にpointerを受ける表示領域だけを計測する。
 // viewport/mapの物理寸法は変えず、本人fit時の利用可能領域にだけ使う。
+const MIN_FIT_AREA_HEIGHT = 200;
+
 export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
   const root = viewport.closest('[data-testid="room-board-view-root"]');
   const area = viewport.getBoundingClientRect();
@@ -150,6 +152,14 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
       box.bottom > area.top
     )
       bottom = Math.max(bottom, area.bottom - box.top);
+  }
+  // HUDが縦に伸びても、付箋を置ける高さを最低限残す（残さないと全体表示が失敗する）。
+  const maxOccupied = Math.max(0, area.height - MIN_FIT_AREA_HEIGHT);
+  const occupied = top + bottom;
+  if (occupied > maxOccupied && occupied > 0) {
+    const scale = maxOccupied / occupied;
+    top = Math.floor(top * scale);
+    bottom = Math.floor(bottom * scale);
   }
   return { top, right: 0, bottom, left: 0 };
 }
@@ -1498,7 +1508,6 @@ export function RoomBoardView({
     ] as const;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
-      ["board-operation-matrix", "--board-operation-height"],
       ["phase-loop-hud", "--board-phase-hud-height"],
       ["idea-map-size-controls-hud", "--board-map-hud-height"],
       ["vote-palette-hud", "--board-vote-hud-height"],
