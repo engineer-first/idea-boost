@@ -140,9 +140,16 @@ export function RoomLobbyView({
           <div className={styles.stageScroll}>
             <div className={styles.stageHeading}>
               <h2 className={styles.stageTitle} id={membersTitleId}>
-                {members.length <= 4
-                  ? "メンバーが揃ったら、はじめよう。"
-                  : "参加メンバー"}
+                {members.length <= 4 ? (
+                  // 幅が足りないときも「はじめよ／う。」のように語の途中で折り返さない。
+                  <>
+                    <span className="inline-block">メンバーが揃ったら、</span>
+                    <wbr />
+                    <span className="inline-block">はじめよう。</span>
+                  </>
+                ) : (
+                  "参加メンバー"
+                )}
               </h2>
               <div id={avatarDescriptionId} className={styles.avatarMessage}>
                 {avatarChange?.error ? (
