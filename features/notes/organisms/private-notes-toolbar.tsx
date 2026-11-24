@@ -95,15 +95,34 @@ type ComposerNoteScroll = {
   cancel: () => void;
 };
 
-function playComposerNoteEntrance(note: HTMLElement, x: number, y: number) {
+type ComposerNoteMotion = {
+  scroll: ComposerNoteScroll | null;
+  animations: Set<Animation>;
+};
+
+function playComposerNoteEntrance(
+  note: HTMLElement,
+  x: number,
+  y: number,
+  animations?: Set<Animation>,
+) {
   // 実カードを移動させ、最後は一覧上の位置に戻す。
-  return note.animate?.(
+  const animation = note.animate?.(
     [
       { transform: `translate(${x}px, ${y}px)`, opacity: 0.35 },
       { transform: "none", opacity: 1 },
     ],
     { duration: 250, easing: "ease-out" },
   );
+  if (animation && animations) {
+    animations.add(animation);
+    const forgetAnimation = () => {
+      animations.delete(animation);
+    };
+    animation.onfinish = forgetAnimation;
+    animation.oncancel = forgetAnimation;
+  }
+  return animation;
 }
 
 function revealComposerNoteWhileScrolling(
@@ -111,9 +130,9 @@ function revealComposerNoteWhileScrolling(
   composer: HTMLTextAreaElement,
   scrollContainer: HTMLElement,
   targetTop: number,
-  scrollRef: React.RefObject<ComposerNoteScroll | null>,
+  motion: ComposerNoteMotion,
 ) {
-  const active = scrollRef.current;
+  const active = motion.scroll;
   const waitingNotes = active?.waitingNotes ?? new Set<HTMLElement>();
   waitingNotes.add(note);
   if (active?.targetTop === targetTop) return;
@@ -131,11 +150,13 @@ function revealComposerNoteWhileScrolling(
     for (const card of animatingNotes.keys()) {
       card.style.removeProperty("translate");
     }
-    scrollRef.current = null;
+    motion.scroll = null;
   };
   const cancel = () => {
     cancelAnimationFrame(frame);
-    for (const animation of animatingNotes.values()) animation.cancel();
+    for (const animation of animatingNotes.values()) {
+      if (motion.animations.delete(animation)) animation.cancel();
+    }
     finish();
   };
   const animateVisibleNotes = () => {
@@ -159,6 +180,7 @@ function revealComposerNoteWhileScrolling(
         waitingNote,
         origin.left - bounds.left,
         origin.bottom - bounds.top - scrollOffset,
+        motion.animations,
       );
       if (animation) {
         animatingNotes.set(waitingNote, animation);
@@ -182,7 +204,7 @@ function revealComposerNoteWhileScrolling(
     else frame = requestAnimationFrame(scrollFrame);
   };
 
-  scrollRef.current = { targetTop, waitingNotes, cancel };
+  motion.scroll = { targetTop, waitingNotes, cancel };
   scrollContainer.addEventListener("pointerdown", cancel, options);
   scrollContainer.addEventListener("wheel", cancel, {
     ...options,
@@ -195,7 +217,7 @@ function animateNoteFromComposer(
   note: HTMLElement,
   composer: HTMLTextAreaElement,
   scrollContainer: HTMLElement,
-  scrollRef?: React.RefObject<ComposerNoteScroll | null>,
+  motion?: ComposerNoteMotion,
 ) {
   if (scrollContainer.clientHeight === 0) return;
 
@@ -220,13 +242,13 @@ function animateNoteFromComposer(
     "(prefers-reduced-motion: reduce)",
   ).matches;
   if (Math.abs(targetTop - scrollTop) >= 1) {
-    if (scrollRef && !reduceMotion) {
+    if (motion && !reduceMotion) {
       revealComposerNoteWhileScrolling(
         note,
         composer,
         scrollContainer,
         targetTop,
-        scrollRef,
+        motion,
       );
       return;
     }
@@ -240,6 +262,7 @@ function animateNoteFromComposer(
     note,
     origin.left - destination.left,
     origin.bottom - destination.top,
+    motion?.animations,
   );
 }
 
@@ -322,7 +345,10 @@ export function PrivateNotesToolbar({
     surface: Element | null;
   } | null>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
-  const composerNoteScrollRef = useRef<ComposerNoteScroll | null>(null);
+  const composerNoteMotionRef = useRef<ComposerNoteMotion>({
+    scroll: null,
+    animations: new Set(),
+  });
   const listRef = useRef<HTMLDivElement>(null);
   const previousNoteTopsRef = useRef(new Map<string, number>());
   const noteAnimationsRef = useRef(new Map<HTMLElement, Animation>());
@@ -405,6 +431,9 @@ export function PrivateNotesToolbar({
         return;
       event.preventDefault();
       if (
+        event.repeat ||
+        event.altKey ||
+        (event.ctrlKey && event.metaKey) ||
         !composerValue.trim() ||
         disabled ||
         !canCreateNote ||
@@ -726,7 +755,13 @@ export function PrivateNotesToolbar({
 
   useLayoutEffect(() => {
     if (!isWritingCollapsed) return;
-    return () => composerNoteScrollRef.current?.cancel();
+    const motion = composerNoteMotionRef.current;
+    return () => {
+      motion.scroll?.cancel();
+      // 一覧のスクロールより後に終わる付箋の移動も止める。
+      for (const animation of motion.animations) animation.cancel();
+      motion.animations.clear();
+    };
   }, [isWritingCollapsed]);
 
   useLayoutEffect(() => {
@@ -759,7 +794,7 @@ export function PrivateNotesToolbar({
           card,
           composer,
           scrollContainer,
-          isWritingCollapsed ? composerNoteScrollRef : undefined,
+          isWritingCollapsed ? composerNoteMotionRef.current : undefined,
         );
       }
     }

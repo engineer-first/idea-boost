@@ -1662,7 +1662,45 @@ describe("追加執筆のマイ付箋", () => {
     expect(composer).toHaveValue("");
     expect(composer).toHaveFocus();
   });
-  it("縮小一覧のスクロールと同じフレームで、追加付箋の着地点を補正する", () => {
+  it("縮小中に同じ段へ追加した付箋の移動を、展開時に終了する", () => {
+    const options = props();
+    const view = render(<PrivateNotesToolbar {...options} />);
+    const composer = screen.getByRole("textbox", { name: "付箋を書く" });
+    Object.defineProperty(
+      screen.getByTestId("private-notes-scroll"),
+      "clientHeight",
+      {
+        value: 200,
+      },
+    );
+    const content = "同じ段に入る本文";
+    composer.focus();
+    fireEvent.change(composer, { target: { value: content } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    const notes = [
+      ...options.notes,
+      buildNote({ id: "created", visibility: "private", content }),
+    ];
+    view.rerender(<PrivateNotesToolbar {...options} notes={notes} />);
+    const card = screen.getAllByTestId("note-card")[1];
+    const animation = { cancel: vi.fn() };
+    const animate = vi.fn(() => animation);
+    Object.defineProperty(card, "animate", { value: animate });
+
+    const created = {
+      ...options,
+      notes,
+      noteCreationReceipt: { operationId: "addition", noteId: "created" },
+    };
+    view.rerender(<PrivateNotesToolbar {...created} />);
+    expect(animate).toHaveBeenCalledOnce();
+    expect(animation.cancel).not.toHaveBeenCalled();
+
+    view.rerender(<PrivateNotesToolbar {...created} workspaceExpanded />);
+    expect(animation.cancel).toHaveBeenCalledOnce();
+    expect(composer).toHaveFocus();
+  });
+  it("スクロール中は着地点を同じフレームで補正し、スクロール完了後の展開でも移動を終了する", () => {
     const options = props();
     const view = render(<PrivateNotesToolbar {...options} />);
     const composer = screen.getByRole("textbox", { name: "付箋を書く" });
@@ -1707,18 +1745,18 @@ describe("追加執筆のマイ付箋", () => {
       composer.focus();
       fireEvent.change(composer, { target: { value: content } });
       fireEvent.keyDown(composer, { key: "Enter" });
-      view.rerender(
-        <PrivateNotesToolbar
-          {...options}
-          notes={[
-            ...options.notes,
-            buildNote({ id: "created", visibility: "private", content }),
-          ]}
-          noteCreationReceipt={{ operationId: "addition", noteId: "created" }}
-        />,
-      );
+      const created = {
+        ...options,
+        notes: [
+          ...options.notes,
+          buildNote({ id: "created", visibility: "private", content }),
+        ],
+        noteCreationReceipt: { operationId: "addition", noteId: "created" },
+      };
+      view.rerender(<PrivateNotesToolbar {...created} />);
       const card = screen.getAllByTestId("note-card")[1];
-      const animate = vi.fn(() => ({ cancel: vi.fn() }));
+      const animation = { cancel: vi.fn() };
+      const animate = vi.fn(() => animation);
       Object.defineProperty(card, "animate", { value: animate });
 
       nextFrame(0);
@@ -1733,6 +1771,11 @@ describe("追加執筆のマイ付箋", () => {
       nextFrame(1000);
       expect(card.style.translate).toBe("");
       expect(card.getBoundingClientRect().top).toBeCloseTo(landingTop);
+      expect(animation.cancel).not.toHaveBeenCalled();
+
+      view.rerender(<PrivateNotesToolbar {...created} workspaceExpanded />);
+      expect(animation.cancel).toHaveBeenCalledOnce();
+      expect(composer).toHaveFocus();
     } finally {
       view.unmount();
       requestFrame.mockRestore();
@@ -1780,6 +1823,26 @@ describe("追加執筆のマイ付箋", () => {
       fireEvent.keyDown(composer, { key: "Enter" });
 
       expect(onAdd).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    ["Alt＋Enter", { altKey: true }],
+    ["Ctrl＋Meta＋Enter", { ctrlKey: true, metaKey: true }],
+    ["Enterのキーリピート", { repeat: true }],
+  ])(
+    "%sでは追加せず、次に押したEnterで下書きを追加する",
+    (_name, modifiers) => {
+      const options = props();
+      render(<PrivateNotesToolbar {...options} />);
+      const composer = screen.getByRole("textbox", { name: "付箋を書く" });
+      const draft = "次に書いた下書き";
+      fireEvent.change(composer, { target: { value: draft } });
+      fireEvent.keyDown(composer, { key: "Enter", ...modifiers });
+
+      expect(options.onAdd).not.toHaveBeenCalled();
+      expect(composer).toHaveValue(draft);
+      fireEvent.keyDown(composer, { key: "Enter" });
+      expect(options.onAdd).toHaveBeenCalledExactlyOnceWith(draft);
     },
   );
   it("IME変換中のEnterでは追加せず、変換確定後のEnterで本文入り付箋を作る", () => {
