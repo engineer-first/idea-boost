@@ -116,6 +116,11 @@ describe("RoomLobbyView", () => {
     ).map((phrase) => phrase.textContent);
     expect(phrases).toEqual(["メンバーが揃ったら、", "はじめよう。"]);
     expect(heading.querySelectorAll("wbr")).toHaveLength(1);
+    // ブラウザは inline-block の句の間に空白を挟んで名前を作るため、名前は一続きで指定する。
+    expect(heading).toHaveAttribute(
+      "aria-label",
+      "メンバーが揃ったら、はじめよう。",
+    );
   });
 
   it("data-phase と data-host を container がテストから参照できる形で持つ", () => {
