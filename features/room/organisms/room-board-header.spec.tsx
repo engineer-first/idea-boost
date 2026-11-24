@@ -521,12 +521,11 @@ describe("RoomBoardHeader", () => {
     expect(
       screen.getByText(/話題が変わったら、別の付箋に書きましょう/),
     ).toBeVisible();
-    const operationVideo = screen.getByLabelText("付箋を追加して書き出す操作");
-    expect(operationVideo).toHaveAttribute("src", "/onboarding/step-1-1.webm");
-    expect(operationVideo).toHaveProperty("autoplay", true);
-    expect(operationVideo).toHaveProperty("loop", true);
-    expect(operationVideo).toHaveProperty("muted", true);
-    expect(operationVideo).toHaveProperty("playsInline", true);
+    expect(
+      screen.getByRole("img", {
+        name: "付箋を書く欄に本文を入力し、付箋を追加する操作",
+      }),
+    ).toBeVisible();
 
     await advanceOnboardingSlide();
     expect(

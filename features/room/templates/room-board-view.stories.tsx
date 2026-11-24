@@ -265,6 +265,7 @@ export const PrivateNoteAdditionDelayed: Story = {
       { operationId: string; noteId: string } | undefined
     >();
     const pendingRef = useRef<string | null>(null);
+    const pendingContentRef = useRef("");
     useEffect(() => {
       if (!pendingOperationId) return;
       const timer = window.setTimeout(() => {
@@ -275,7 +276,7 @@ export const PrivateNoteAdditionDelayed: Story = {
             id: noteId,
             authorId: ME,
             visibility: "private",
-            content: "",
+            content: pendingContentRef.current,
           }),
         ]);
         setReceipt({ operationId: pendingOperationId, noteId });
@@ -307,10 +308,11 @@ export const PrivateNoteAdditionDelayed: Story = {
         help={help}
         noteCreationPending={pendingOperationId !== null}
         noteCreationReceipt={receipt}
-        onAddPrivateNote={() => {
+        onAddPrivateNote={(content = "") => {
           if (pendingRef.current) return null;
           const operationId = crypto.randomUUID();
           pendingRef.current = operationId;
+          pendingContentRef.current = content;
           setPendingOperationId(operationId);
           return operationId;
         }}
@@ -1803,6 +1805,8 @@ function AdditionalWritingExperience(args: RoomBoardViewProps) {
             authorId: ME,
             visibility: "private",
             content,
+            stackOrder:
+              Math.max(0, ...current.map((note) => note.stackOrder)) + 1,
           }),
         ]);
         setReceipt({ operationId, noteId });

@@ -654,7 +654,7 @@ describe.skipIf(!app || !includeMobile)("移動履歴のmobile HUD配置", () =>
           if (checkpoint === "1-2" && height === 667 && width === 375) {
             await actor.getByTestId("private-notes-scroll").waitFor();
             expect(
-              await actor.getByTestId("private-notes-footer").count(),
+              await actor.getByRole("textbox", { name: "付箋を書く" }).count(),
             ).toBe(0);
             if (evidence)
               await actor.screenshot({

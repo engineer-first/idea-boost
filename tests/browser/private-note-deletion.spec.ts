@@ -62,8 +62,8 @@ test.each(widths(390, 1280))(
     await expect
       .poll(() =>
         page
-          .getByTestId("private-notes-list")
-          .getByRole("button", { name: "付箋を追加" })
+          .getByTestId("private-notes-toolbar")
+          .getByRole("textbox", { name: "付箋を書く" })
           .evaluate((element) => element === document.activeElement),
       )
       .toBe(true);

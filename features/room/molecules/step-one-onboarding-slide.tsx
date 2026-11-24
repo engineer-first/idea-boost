@@ -56,7 +56,6 @@ function StepOneOnboardingIllustrationContent({
   kind: StepGuideSlide["illustration"];
   alt: string;
 }) {
-  if (kind === "operation-video") return null;
   if (kind !== "many-notes" && kind !== "add-note") {
     return <StepGuideIllustration kind={kind} alt={alt} />;
   }
@@ -160,45 +159,40 @@ function StepOneOnboardingIllustrationContent({
 
       {kind === "add-note" ? (
         <>
-          <rect fill="#fff" height="174" rx="16" width="410" x="115" y="68" />
-          <text fill="#526277" fontSize="15" fontWeight="600" x="143" y="103">
-            マイ付箋
+          <rect fill="#fff" height="186" rx="16" width="410" x="115" y="68" />
+          <text fill="#526277" fontSize="14" fontWeight="600" x="143" y="99">
+            自分だけに表示
           </text>
           <rect
             fill="#fff"
-            height="42"
+            height="38"
             rx="10"
             stroke="#b8c3d2"
             strokeWidth="2"
-            width="170"
+            width="354"
             x="143"
-            y="119"
+            y="110"
           />
           <text
             fill="#334155"
             fontSize="14"
             fontWeight="600"
-            textAnchor="middle"
-            x="228"
-            y="146"
+            x="158"
+            y="134"
+            textAnchor="start"
           >
-            ＋ 付箋を追加
+            付箋を書く
           </text>
-          <rect
-            fill="#f9e69b"
-            height="104"
-            rx="10"
-            width="168"
-            x="331"
-            y="119"
-          />
           <path
-            d="M350 151h120M350 168h92"
-            stroke="#c6a94f"
+            d="M225 154v16m-5-5 5 5 5-5"
+            fill="none"
+            stroke="#526277"
             strokeLinecap="round"
-            strokeWidth="5"
+            strokeLinejoin="round"
+            strokeWidth="2"
           />
-          <text fill="#514b38" fontSize="14" fontWeight="600" x="350" y="201">
+          <rect fill="#f9e69b" height="58" rx="2" width="168" x="143" y="178" />
+          <text fill="#514b38" fontSize="14" fontWeight="600" x="155" y="205">
             最近困ったこと…
           </text>
         </>
@@ -231,9 +225,7 @@ function StepOneOnboardingIllustration(props: {
     observer?.observe(canvas);
     return () => observer?.disconnect();
   });
-  const isMedia = ["many-notes", "add-note", "operation-video"].includes(
-    props.kind,
-  );
+  const isMedia = ["many-notes", "add-note"].includes(props.kind);
   return (
     <div ref={frameRef} className={styles.illustrationFrame}>
       <div

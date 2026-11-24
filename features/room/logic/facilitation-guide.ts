@@ -49,7 +49,8 @@ const FACILITATION_GUIDES: Record<
     1: {
       durationMinutes: 5,
       action: "困ったことを書く",
-      firstAction: "「付箋を追加」を押し、最近あった困ったことを1つ書く。",
+      firstAction:
+        "付箋を書く欄に、最近あった困ったことを1つ書いてEnterを押す。",
       visualExample: {
         caption: "例：1枚に1つ",
         items: ["朝、起きられない", "宿題を忘れる"],
@@ -159,7 +160,8 @@ const FACILITATION_GUIDES: Record<
     1: {
       durationMinutes: 3,
       action: "課題を質問に変える",
-      firstAction: "決定した課題を読み、「付箋を追加」を押す。",
+      firstAction:
+        "決定した課題を読み、付箋を書く欄に問いを書いてEnterを押す。",
       visualExample: {
         caption: "課題から質問へ（例）",
         items: ["学校に来られない", "どうすれば、来やすくなる？"],

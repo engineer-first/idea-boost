@@ -444,11 +444,11 @@ export function RoomBoardCanvas({
   const isInitialPersonalEntryPhase = isPhaseStep(phase, 1, 1);
   const privateNotesInteractionBlocked =
     boardInteractionBlocked && !isInitialPersonalEntryPhase;
-  // 1-1・2-1・3-1は同じ上端から書き始められるよう、上部の操作欄の直下に固定する。
+  // 1-1・2-1・3-1の執筆エリアは上部の操作欄の直下に固定する。
   const privateNotesContainerClassName = isAdditionalWritingStep
-    ? `${styles.additionalWritingPanel} ${writingExpanded ? styles.writingExpanded : ""} fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 lg:inset-x-5`
+    ? `${styles.personalWorkspacePanel} ${styles.additionalWritingPanel} ${writingExpanded ? styles.writingExpanded : ""} fixed inset-x-3 bottom-3 z-[39] flex min-h-0 justify-center sm:inset-x-4 lg:inset-x-5`
     : isPersonalNoteEntryPhase
-      ? "fixed inset-x-3 bottom-3 top-[var(--board-private-expanded-top,5rem)] z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 sm:top-[var(--board-private-expanded-top,5rem)] lg:inset-x-5 lg:bottom-5 lg:top-[var(--board-private-expanded-top,5rem)]"
+      ? `${styles.personalWorkspacePanel} fixed inset-x-3 bottom-3 z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 lg:inset-x-5 lg:bottom-5`
       : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[var(--board-timer-row-bottom,4.5rem)] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-start max-[639px]:top-[var(--board-timer-row-bottom,10rem)] max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
@@ -1030,7 +1030,10 @@ export function RoomBoardCanvas({
             style={gridStyle}
           />
         ) : null}
-        <div className="pointer-events-none fixed top-[calc(var(--board-location-bottom,4.25rem)+0.5rem)] left-3 z-[42] sm:top-[var(--board-location-top,0.75rem)] sm:left-[calc(var(--board-location-right,23.25rem)+0.75rem)]">
+        <div
+          data-private-writing-hint={isPersonalNoteEntryPhase || undefined}
+          className={`pointer-events-none fixed top-[calc(var(--board-location-bottom,4.25rem)+0.5rem)] left-3 z-[42] sm:top-[var(--board-location-top,0.75rem)] sm:left-[calc(var(--board-location-right,23.25rem)+0.75rem)] ${isPersonalNoteEntryPhase ? "[--board-character-mobile-inline-space:11.25rem]" : ""}`}
+        >
           {character}
         </div>
         <div
@@ -1506,7 +1509,7 @@ export function RoomBoardCanvas({
                 addActionRef={privateNoteAddRef}
                 className={
                   isPersonalNoteEntryPhase
-                    ? `pointer-events-auto h-full w-full rounded-xl border border-border bg-card shadow-tool ${styles.personalWorkspace}`
+                    ? `pointer-events-auto h-full w-full rounded-xl border border-border/70 bg-canvas shadow-tool ${styles.personalWorkspace}`
                     : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
                 }
                 toolbarRef={privateToolbarRef}

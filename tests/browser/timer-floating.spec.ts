@@ -151,7 +151,9 @@ test.skipIf(!includeMobile)(
       await story(page, "room-roomboardlayout--phase-2-step-2");
       const notes = await rect(page, "private-notes-toolbar");
       expect(notes.y + notes.height).toBeLessThanOrEqual(844);
-      expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+      expect(
+        await page.getByRole("textbox", { name: "付箋を書く" }).count(),
+      ).toBe(0);
       await page.getByTestId("private-notes-scroll").hover();
     } finally {
       await page.close();

@@ -190,26 +190,20 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
   expect(layers.panelTop).toBeGreaterThanOrEqual(layers.headerBottom + 12);
   expect(layers.panelTop).toBeLessThanOrEqual(layers.headerBottom + 50);
 
-  const add = page
-    .getByTestId("private-notes-list")
-    .getByRole("button", { name: "付箋を追加", exact: true });
-  expect(await add.isEnabled()).toBe(true);
+  const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
+  expect(await composer.isEnabled()).toBe(true);
   const previousIds = await privateNoteIds();
-  await add.click();
+  await composer.fill("日本語入力の保存確認");
+  await composer.press("Enter");
   await expect
     .poll(() => privateNoteIds().then((ids) => ids.length), { timeout: 5000 })
     .toBe(previousIds.length + 1);
   const addedNote = await addedPrivateNote(previousIds);
-  const editor = addedNote.locator("textarea:not([readonly])");
-  await expectFocused(editor);
-  await page.keyboard.insertText("日本語入力の保存確認");
-  expect(await editor.inputValue()).toBe("日本語入力の保存確認");
-  await editor.press("Escape");
-  const savedEditor = addedNote.locator("textarea");
-  await expect.poll(() => savedEditor.getAttribute("readonly")).toBe("");
   await expect
-    .poll(() => savedEditor.inputValue())
+    .poll(() => addedNote.locator("textarea").inputValue())
     .toBe("日本語入力の保存確認");
+  await expect.poll(() => composer.inputValue()).toBe("");
+  await expectFocused(composer);
 });
 
 test.each(widths(1440, 1280, 390))(
@@ -240,7 +234,7 @@ test.each(widths(1440, 1280, 390))(
       .toBe("idle");
     await page
       .getByRole("dialog")
-      .getByLabel("付箋を追加して書き出す操作")
+      .getByLabel("付箋を書く欄に本文を入力し、付箋を追加する操作")
       .waitFor();
   },
 );
@@ -297,7 +291,9 @@ test.each(widths(390, 1280))(
     await dialog.getByRole("button", { name: "次へ" }).click();
     await waitForSlide();
     await dialog.getByRole("button", { name: "次へ" }).click();
-    await dialog.getByLabel("付箋を追加して書き出す操作").waitFor();
+    await dialog
+      .getByLabel("付箋を書く欄に本文を入力し、付箋を追加する操作")
+      .waitFor();
     await dialog.getByRole("button", { name: "1枚目に戻る" }).click();
     await page.getByRole("dialog", { name: firstSlide }).waitFor();
     await waitForSlide();
@@ -313,10 +309,10 @@ test.each(widths(390, 1280))(
       )
       .toBe(true);
 
-    await page
-      .getByTestId("private-notes-list")
-      .getByRole("button", { name: "付箋を追加", exact: true })
-      .click({ trial: true });
+    const composer = page
+      .getByTestId("private-notes-toolbar")
+      .getByRole("textbox", { name: "付箋を書く" });
+    await composer.click({ trial: true });
     await guide.click();
     await page.getByRole("dialog", { name: firstSlide }).waitFor();
     await page.keyboard.press("Escape");
@@ -436,66 +432,75 @@ for (const { step, storyId } of [
 }
 
 for (const width of widths(390, 1440)) {
-  test(`${width}px: 個人作業の追加ボタンは空の状態から追加を繰り返しても最後の付箋の直後で押せる`, async () => {
+  test(`${width}px: 上部から連続追加すると、付箋は作成順に折り返して入力を続けられる`, async () => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardcanvas--private-guidance-empty&viewMode=story`,
     );
-    const add = page
-      .getByTestId("private-notes-list")
-      .getByRole("button", { name: "付箋を追加", exact: true });
-    await add.waitFor();
+    const composer = page
+      .getByTestId("private-notes-toolbar")
+      .getByRole("textbox", { name: "付箋を書く" });
+    await composer.waitFor();
     await page.evaluate(() => document.fonts.ready);
-    // 書いた付箋のすぐ後ろにあり、スクロールせずに押せることを確かめる。
-    const placement = () =>
-      add.evaluate((element) => {
-        const bounds = element.getBoundingClientRect();
-        const hit = document
-          .elementFromPoint(
-            bounds.x + bounds.width / 2,
-            bounds.y + bounds.height / 2,
-          )
-          ?.closest('button[aria-label="付箋を追加"]');
-        return {
-          previousNoteId:
-            element.previousElementSibling
-              ?.querySelector("[data-note-id]")
-              ?.getAttribute("data-note-id") ??
-            element.previousElementSibling?.getAttribute("data-note-id") ??
-            null,
-          reachable: hit === element,
-        };
-      });
-    expect(await placement()).toEqual({
-      previousNoteId: null,
-      reachable: true,
-    });
-    // デスクトップでは次の行への折り返しも含める。
-    const count = width === 390 ? 2 : 7;
+    const composerBounds = await composer.boundingBox();
+    if (!composerBounds) throw new Error("入力欄がありません");
+    const scroll = page.getByTestId("private-notes-scroll");
+    const scrollBounds = await scroll.boundingBox();
+    if (!scrollBounds) throw new Error("付箋一覧がありません");
+    expect(scrollBounds.y).toBeGreaterThan(
+      composerBounds.y + composerBounds.height,
+    );
+    const positions = () =>
+      scroll
+        .getByTestId("note-card")
+        .evaluateAll((cards) =>
+          cards.map((card) => [
+            (card as HTMLElement).offsetLeft,
+            (card as HTMLElement).offsetTop,
+          ]),
+        );
+    const count = width === 390 ? 6 : 8;
     for (let index = 0; index < count; index += 1) {
-      await add.click();
+      const previousIds = await privateNoteIds();
+      const previousPositions = await positions();
+      const content = `連続追加 ${index + 1}`;
+      if (index !== 1) await composer.fill(content);
+      await composer.press("Enter");
       await expect
         .poll(() => privateNoteIds().then((ids) => ids.length))
         .toBe(index + 1);
-      const editor = page.locator("textarea:not([readonly])");
-      await expectFocused(editor);
-      await page.keyboard.insertText(`下書き ${index + 1}`);
-      await page.keyboard.press("Escape");
-      const ids = await privateNoteIds();
+      const added = await addedPrivateNote(previousIds);
+      expect(await privateNoteIds()).toEqual([
+        ...previousIds,
+        await added.getAttribute("data-note-id"),
+      ]);
       await expect
-        .poll(placement)
-        .toEqual({ previousNoteId: ids[ids.length - 1], reachable: true });
+        .poll(() => added.locator("textarea").inputValue())
+        .toBe(content);
+      await expect.poll(() => composer.inputValue()).toBe("");
+      await expectFocused(composer);
+      expect(await composer.boundingBox()).toEqual(composerBounds);
+
+      if (index === 0) {
+        await page.keyboard.insertText("連続追加 2");
+        expect(await composer.inputValue()).toBe("連続追加 2");
+      }
+
+      expect((await positions()).slice(0, -1)).toEqual(previousPositions);
     }
-    // 視覚上の末尾とキーボードの順序を揃える。
-    await add.focus();
-    await page.keyboard.press("Shift+Tab");
-    expect(
-      await page.evaluate(() =>
-        document.activeElement
-          ?.closest("[data-note-id]")
-          ?.getAttribute("data-note-id"),
-      ),
-    ).toBe((await privateNoteIds()).at(-1));
+    const [first, second, ...rest] = await positions();
+    const secondRow = [second, ...rest].find(
+      (position) => position[1] > first[1],
+    );
+    expect(secondRow?.[0]).toBe(first[0]);
+    if (width === 1440) {
+      expect(second[0]).toBeGreaterThan(first[0]);
+      expect(second[1]).toBe(first[1]);
+    } else {
+      expect(
+        await scroll.evaluate((element) => element.scrollTop),
+      ).toBeGreaterThan(0);
+    }
   });
 }
 
@@ -517,33 +522,31 @@ for (const { platform, key, width } of byViewport(
       "保存確認を待たない文章\n通常Enterは改行",
     );
     await oldEditor.press(key);
-    const add = page
-      .getByTestId("private-notes-list")
-      .getByRole("button", { name: "付箋を追加", exact: true });
-    await expect.poll(() => add.isDisabled()).toBe(true);
-    // 同じ待ち時間のキー連打と＋操作は作成予約にしない。
+    const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
+    await expect.poll(() => composer.isDisabled()).toBe(false);
+    // 同じ待ち時間のキー連打は作成予約にしない。
     await page.keyboard.press(key);
-    await add.evaluate((element) => (element as HTMLButtonElement).click());
     expect(await cards.count()).toBe(initialCount);
     await expect
       .poll(() => cards.count(), { timeout: 5000 })
       .toBe(initialCount + 1);
-    const newNote = await addedPrivateNote(initialIds);
-    const newEditor = newNote.locator("textarea:not([readonly])");
-    await newEditor.waitFor({ timeout: 5000 });
-    await expectFocused(newEditor);
+    await addedPrivateNote(initialIds);
+    await expect.poll(() => composer.isDisabled()).toBe(false);
     expect(await oldEditor.inputValue()).toBe(
       "保存確認を待たない文章\n通常Enterは改行",
     );
-    await page.keyboard.insertText("次の文章");
-    expect(await newEditor.inputValue()).toBe("次の文章");
     const idsBeforeSecondAdd = await privateNoteIds();
-    await newEditor.press(key);
+    await composer.fill("次の文章");
+    await composer.press("Enter");
     await expect
       .poll(() => cards.count(), { timeout: 5000 })
       .toBe(initialCount + 2);
     const secondAddedNote = await addedPrivateNote(idsBeforeSecondAdd);
-    await expectFocused(secondAddedNote.locator("textarea:not([readonly])"));
+    await expect
+      .poll(() => secondAddedNote.locator("textarea").inputValue())
+      .toBe("次の文章");
+    await expect.poll(() => composer.inputValue()).toBe("");
+    await expectFocused(composer);
   });
 }
 
@@ -599,12 +602,13 @@ test("マイ付箋表面のCtrl+Enterは一枚だけ追加し、入力画面を�
   );
 });
 
-test("Shift・Alt・キーリピート・別OSの修飾キーは追加せず、追加ボタンのCtrl+Enterで一枚追加する", async () => {
+test("本文からのShift・Alt・キーリピート・別OSの修飾キーでは付箋を追加しない", async () => {
   await openShortcutAddition(1440);
   const cards = page
     .getByTestId("private-notes-toolbar")
     .locator("[data-note-id]");
-  const initialCount = await cards.count();
+  const initialIds = await privateNoteIds();
+  const initialCount = initialIds.length;
   const editor = await editFirstPrivateNote();
   await editor.fill("そのまま保持する本文");
   for (const key of [
@@ -622,43 +626,32 @@ test("Shift・Alt・キーリピート・別OSの修飾キーは追加せず、�
     bubbles: true,
   });
   expect(await cards.count()).toBe(initialCount);
-  expect(
-    await page
-      .getByTestId("private-notes-list")
-      .getByRole("button", { name: "付箋を追加", exact: true })
-      .isDisabled(),
-  ).toBe(false);
-  const add = page
-    .getByTestId("private-notes-list")
-    .getByRole("button", { name: "付箋を追加", exact: true });
-  await add.focus();
-  await page.keyboard.press("Control+Enter");
+  const composer = page
+    .getByTestId("private-notes-toolbar")
+    .getByRole("textbox", { name: "付箋を書く" });
+  await composer.fill("Enterで追加する本文");
+  await composer.press("Enter");
   await expect
     .poll(() => cards.count(), { timeout: 5000 })
     .toBe(initialCount + 1);
-  expect(
-    await page
-      .getByTestId("private-notes-toolbar")
-      .getAttribute("data-expanded"),
-  ).toBe("true");
+  const added = await addedPrivateNote(initialIds);
+  await expect
+    .poll(() => added.locator("textarea").inputValue())
+    .toBe("Enterで追加する本文");
 });
 
 for (const width of widths(390, 1440)) {
   test(`追加応答を待つ間の既存下書きの入力・選択・スクロールを維持する (${width}px)`, async () => {
     await openDelayedAddition(width);
+    const toolbar = page.getByTestId("private-notes-toolbar");
+    const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
     const oldNote = page.locator('[data-note-id="single-note"]');
-    await page
-      .getByTestId("private-notes-controls")
-      .getByRole("button", { name: "付箋を追加", exact: true })
-      .click();
-    await oldNote
-      .getByRole("button", { name: "付箋", exact: true })
-      .press("Enter");
+    const initialIds = await privateNoteIds();
+    await composer.fill("応答後に保存される本文");
+    await composer.press("Enter");
+    expect(await composer.isEnabled()).toBe(true);
+    const editor = await editFirstPrivateNote();
     expect(await oldNote.getAttribute("data-selected")).toBe("true");
-    await oldNote
-      .getByRole("button", { name: "付箋", exact: true })
-      .press("Enter");
-    const editor = oldNote.locator("textarea");
     await editor.fill("入力中の下書き");
     const scrollBefore = await page
       .getByTestId("private-notes-scroll")
@@ -676,27 +669,33 @@ for (const width of widths(390, 1440)) {
         .getByTestId("private-notes-scroll")
         .evaluate((element) => element.scrollTop),
     ).toBe(scrollBefore);
-    expect(
-      await page
-        .locator('[data-note-id="delayed-new-note"] textarea')
-        .getAttribute("readonly"),
-    ).not.toBeNull();
+    const added = await addedPrivateNote(initialIds);
+    await expect
+      .poll(() => added.locator("textarea").inputValue())
+      .toBe("応答後に保存される本文");
+    await expect.poll(() => composer.inputValue()).toBe("");
+    await expectFocused(editor);
   });
 
-  test(`既存の入力に戻らなければ新しい付箋ですぐ入力できる (${width}px)`, async () => {
+  test(`追加待ちの間に次の本文を書いても応答で消さない (${width}px)`, async () => {
     await openDelayedAddition(width);
-    await page
-      .getByTestId("private-notes-controls")
-      .getByRole("button", { name: "付箋を追加", exact: true })
-      .click();
-    const editor = page.locator(
-      '[data-note-id="delayed-new-note"] textarea:not([readonly])',
-    );
-    await editor.waitFor();
-    expect(
-      await editor.evaluate((element) => document.activeElement === element),
-    ).toBe(true);
-    await page.keyboard.type("new draft");
-    expect(await editor.inputValue()).toBe("new draft");
+    const toolbar = page.getByTestId("private-notes-toolbar");
+    const composer = toolbar.getByRole("textbox", { name: "付箋を書く" });
+    const initialIds = await privateNoteIds();
+    await composer.fill("最初に送る本文");
+    await composer.press("Enter");
+    await composer.fill("次に書いた本文");
+    await composer.press("Enter");
+    await expect
+      .poll(() => privateNoteIds().then((ids) => ids.length), {
+        timeout: 5000,
+      })
+      .toBe(initialIds.length + 1);
+    const added = await addedPrivateNote(initialIds);
+    await expect
+      .poll(() => added.locator("textarea").inputValue(), { timeout: 5000 })
+      .toBe("最初に送る本文");
+    await expect.poll(() => composer.inputValue()).toBe("次に書いた本文");
+    await expectFocused(composer);
   });
 }

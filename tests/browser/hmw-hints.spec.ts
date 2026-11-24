@@ -22,7 +22,7 @@ async function expectCloudClearOfNotes(cloud: Locator) {
   if (reference) readable.push(reference);
   if (workspace) {
     const text = page
-      .getByTestId("private-notes-list")
+      .getByTestId("private-notes-scroll")
       .locator(
         '[data-testid="note-card"] textarea, [data-testid^="example-note-"] p',
       );
@@ -176,8 +176,8 @@ for (const { width, height } of byViewport(
       .toBe(true);
     await page.screenshot({ path: `${output}/${width}-closed.png` });
     await page
-      .getByTestId("private-notes-list")
-      .getByRole("button", { name: "付箋を追加" })
+      .getByTestId("private-notes-toolbar")
+      .getByRole("textbox", { name: "付箋を書く" })
       .click({ trial: true });
   });
 }

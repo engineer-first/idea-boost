@@ -520,7 +520,9 @@ test("個人付箋をスクロールし、参照情報を開いてもマップ�
     await openWorkspace(page);
     const plane = page.getByTestId("idea-value-feasibility-map-plane");
     const before = await plane.boundingBox();
-    expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+    expect(
+      await page.getByRole("textbox", { name: "付箋を書く" }).count(),
+    ).toBe(0);
     expect(await plane.boundingBox()).toEqual(before);
     const scroll = page.getByTestId("private-notes-scroll");
     await scroll.hover();
@@ -1629,7 +1631,9 @@ test.each(widths(390))(
       expect(before.width).toBeGreaterThan(width * 0.65);
       const slot = await readBounds(page, "idea-value-feasibility-map-slot");
       expect(before.y + before.height).toBeCloseTo(slot.y + slot.height, 1);
-      expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
+      expect(
+        await page.getByRole("textbox", { name: "付箋を書く" }).count(),
+      ).toBe(0);
       expect(await page.getByTestId("private-notes-scroll").isVisible()).toBe(
         true,
       );
