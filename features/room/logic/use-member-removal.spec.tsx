@@ -110,6 +110,37 @@ describe("参加者の退出操作", () => {
     expect(result.current.open).toBe(false);
     expect(result.current.pending).toBe(false);
   });
+  it("除外の実行中と閉じる途中は、外した参加者を対象として保ち退出済みと扱わない", () => {
+    const { result, rerender, props, send } = setup();
+    act(() => result.current.request(TARGET));
+    act(() => result.current.onConfirm());
+    const op = send.mock.calls[0][0] as Extract<
+      ClientMessage,
+      { type: "member:remove" }
+    >;
+    // サーバーは member:removed より先に member_left と在籍一覧の更新を配信する。
+    rerender({ ...props, members: [] });
+    expect(result.current.target?.userId).toBe(TARGET);
+    act(() =>
+      result.current.applyMessage({ type: "member_left", userId: TARGET }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "member:removed",
+        targetUserId: TARGET,
+        operationId: op.operationId,
+      }),
+    );
+    expect(result.current.open).toBe(false);
+    expect(result.current.target?.userId).toBe(TARGET);
+  });
+  it("確認中に対象が他の操作で退出したら対象なしにする", () => {
+    const { result, rerender, props } = setup();
+    act(() => result.current.request(TARGET));
+    rerender({ ...props, members: [] });
+    expect(result.current.open).toBe(true);
+    expect(result.current.target).toBeNull();
+  });
   it("切断・timeout・送信失敗で再試行可能にする", () => {
     vi.useFakeTimers();
     const { result, rerender, props } = setup();
