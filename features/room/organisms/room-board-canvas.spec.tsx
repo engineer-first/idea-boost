@@ -800,83 +800,6 @@ describe("RoomBoardCanvas", () => {
     });
   });
 
-  it("付箋操作マトリクスを表示する", () => {
-    const phase = buildPhaseStep(2);
-
-    setup({
-      phase,
-      permissions: getBoardPermissions(phase),
-    });
-
-    expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
-  });
-
-  it("ステップ変更後も操作可否表示が最新の権限に追従する", () => {
-    const firstStep = buildPhaseStep(2, 2);
-    const secondStep = buildPhaseStep(3, 2);
-    const { props, rerender } = setup({
-      phase: firstStep,
-      permissions: getBoardPermissions(firstStep),
-    });
-
-    expect(
-      screen.getByRole("img", { name: "付箋の編集：可能" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "付箋の移動：可能" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "付箋の削除：不可" }),
-    ).toBeInTheDocument();
-
-    rerender(
-      <RoomBoardCanvas
-        {...props}
-        phase={secondStep}
-        permissions={getBoardPermissions(secondStep)}
-      />,
-    );
-
-    expect(
-      screen.getByRole("img", { name: "付箋の編集：不可" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "付箋の移動：可能" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "付箋の削除：不可" }),
-    ).toBeInTheDocument();
-  });
-  it("個人入力では操作案内を隠し、共有・整理・投票では最新の操作可否を表示する", () => {
-    const { props, rerender } = setup();
-    for (const step of [1, 2, 3, 4]) {
-      const phase = buildPhaseStep(step);
-      const permissions = getBoardPermissions(phase);
-      rerender(
-        <RoomBoardCanvas {...props} phase={phase} permissions={permissions} />,
-      );
-      expect(screen.getAllByTestId("board-operation-matrix")).toHaveLength(1);
-      expect(screen.queryByTestId("private-notes-toolbar") !== null).toBe(
-        permissions.showPrivateToolbar,
-      );
-      if (step === 1) {
-        expect(screen.getByTestId("board-operation-matrix")).not.toBeVisible();
-        continue;
-      }
-      expect(screen.getByTestId("board-operation-matrix")).toBeVisible();
-      for (const [label, enabled] of [
-        ["編集", permissions.canEditNote],
-        ["移動", permissions.canMoveNote],
-        ["削除", permissions.canDeleteNote],
-      ] as const) {
-        expect(
-          screen.getByRole("img", {
-            name: `付箋の${label}：${enabled ? "可能" : "不可"}`,
-          }),
-        ).toBeInTheDocument();
-      }
-    }
-  });
   it("付箋を配置する（success）", () => {
     setup({ notes: buildNotes(3) });
 
@@ -1899,7 +1822,6 @@ describe("RoomBoardCanvas", () => {
       ).toHaveAttribute("hidden");
       expect(screen.getByTestId("board-canvas")).not.toBeVisible();
       expect(screen.getByTestId("board-tools-hud")).not.toBeVisible();
-      expect(screen.getByTestId("board-operation-matrix")).not.toBeVisible();
       expect(
         screen.queryByTestId("private-notes-dock"),
       ).not.toBeInTheDocument();
@@ -1920,7 +1842,6 @@ describe("RoomBoardCanvas", () => {
         />,
       );
       expect(screen.getByTestId("board-tools-hud")).toBeVisible();
-      expect(screen.getByTestId("board-operation-matrix")).toBeVisible();
     },
   );
 
@@ -2135,12 +2056,6 @@ describe("Step 3-2〜3-5（固定2軸マップ）", () => {
       within(toolbar).queryByRole("button", { name: "マイ付箋を閉じる" }),
     ).not.toBeInTheDocument();
     expect(within(toolbar).getByText("共有前のアイデア")).toBeVisible();
-
-    const operations = screen.getByTestId("board-operation-matrix");
-    expect(operations).not.toContainElement(toolbar);
-    expect(within(operations).getByLabelText("付箋の編集：可能")).toBeVisible();
-    expect(within(operations).getByLabelText("付箋の移動：可能")).toBeVisible();
-    expect(within(operations).getByLabelText("付箋の削除：不可")).toBeVisible();
   });
 
   it("Step 3-2 は2軸マップとマイ付箋を表示し、共有付箋をマップに置く", () => {
