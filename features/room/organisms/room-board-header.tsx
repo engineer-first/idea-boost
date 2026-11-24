@@ -399,6 +399,7 @@ export function RoomBoardHeader({
   const memberSelectionDisabled =
     isDisconnected || isNextPhasePending || isRemovingMember || isLeaving;
   const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const readyButtonRef = useRef<HTMLButtonElement>(null);
   const roomMenuContentRef = useRef<HTMLDivElement>(null);
   const inviteContentRef = useRef<HTMLDivElement>(null);
   const feedbackOpening = useRef(false);
@@ -664,6 +665,7 @@ export function RoomBoardHeader({
               <Button
                 type="button"
                 variant={isCurrentUserReady ? "secondary" : "outline"}
+                ref={readyButtonRef}
                 className={`text-sm h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
                 disabled={
                   isDisconnected ||
@@ -1041,6 +1043,26 @@ export function RoomBoardHeader({
                   !canProceedByTimeOrReady ||
                   isRemovingMember ||
                   (canCompleteSharing && isLeaving)
+                }
+                onPendingPress={
+                  // 人数待ちだけが理由のときに限り、押されたら「できた！」か未完了の人を示す。
+                  isManualProgressStep &&
+                  onToggleReady &&
+                  !canCompleteSharing &&
+                  activeSharing === null &&
+                  !canProceedByTimeOrReady &&
+                  !isDisconnected &&
+                  !isNextPhasePending &&
+                  !isNextPhaseBlocked &&
+                  votingAllComplete &&
+                  !isRemovingMember &&
+                  !isLeaving
+                    ? () => {
+                        if (!isCurrentUserReady)
+                          readyButtonRef.current?.focus();
+                        completionCue.nudge();
+                      }
+                    : undefined
                 }
                 requireConfirmation={
                   canCompleteSharing ? false : requireProgressConfirmation

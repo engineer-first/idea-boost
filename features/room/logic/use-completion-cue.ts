@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type Stage = "idle" | "button" | "self" | "waiting" | "check" | "others";
+type Stage =
+  | "idle"
+  | "button"
+  | "self"
+  | "waiting"
+  | "check"
+  | "others"
+  | "nudge";
 type Options = {
   scope: string;
   disabled: boolean;
@@ -14,6 +21,8 @@ type CompletionCue = {
   busy: boolean;
   hideSelfCheck: boolean;
   request: (proceed: (() => void) | null) => void;
+  // 全員がそろう前の次へから、完了を送らずに本人か未完了の参加者へ視線を向ける。
+  nudge: () => void;
 };
 
 // 演出はローカル。チェックと進行はサーバーから受けた状態だけで確定する。
@@ -80,6 +89,7 @@ export function useCompletionCue(options: Options): CompletionCue {
       if (!options.ready) reset();
       else later(400, finish);
     }
+    if (stage === "nudge") later(1600, reset);
     if (stage === "others") {
       if (options.canAdvance) reset();
       else later(800, reset);
@@ -107,11 +117,19 @@ export function useCompletionCue(options: Options): CompletionCue {
     intent.current = proceed;
     setStage(proceed && !options.ready ? "button" : "self");
   }
+  function nudge(): void {
+    if (active.current || options.disabled) return;
+    startedReady.current = options.ready;
+    active.current = true;
+    intent.current = null;
+    setStage(options.ready ? "others" : "nudge");
+  }
   return {
     stage,
     busy: stage !== "idle",
     hideSelfCheck:
       !startedReady.current && ["button", "self", "waiting"].includes(stage),
     request,
+    nudge,
   };
 }

@@ -379,7 +379,7 @@ describe("RoomBoardHeader", () => {
       within(screen.getByTestId("board-control-hud")).getByRole("button", {
         name: "あと1人で次へ",
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
     rerender(
       <RoomBoardHeader {...props} progress={allReadyProgress(members)} />,
     );
@@ -1789,7 +1789,7 @@ describe("全員のチェック", () => {
       const { rerender } = render(<RoomBoardHeader {...props} />);
       expect(
         screen.getByRole("button", { name: "あと2人で次へ" }),
-      ).toBeDisabled();
+      ).toHaveAttribute("aria-disabled", "true");
       fireEvent.click(screen.getByRole("button", { name: "できた！" }));
       act(() => vi.advanceTimersByTime(440));
       expect(props.onToggleReady).toHaveBeenCalledExactlyOnceWith(true);
@@ -1803,6 +1803,55 @@ describe("全員のチェック", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("全員がそろう前の次へ", () => {
+  const pending = (
+    members: ReturnType<typeof buildMembers>,
+    readyIds: string[],
+  ) => ({
+    ...allReadyProgress(members),
+    readyUserIds: readyIds,
+    notReadyUserIds: members
+      .map((m) => m.userId)
+      .filter((id) => !readyIds.includes(id)),
+    canAdvance: false,
+    allReady: false,
+  });
+  it("本人が未完了なら「あと2人で次へ」を押すと、完了も進行も送らず「できた！」へ移って促す", () => {
+    const members = buildMembers(3, ME);
+    const props = setup({
+      members,
+      onToggleReady: vi.fn(),
+      progress: pending(members, [members[1].userId]),
+    });
+    const next = screen.getByRole("button", { name: "あと2人で次へ" });
+    expect(next).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(next);
+    expect(props.onToggleReady).not.toHaveBeenCalled();
+    expect(props.onNextPhase).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "できた！" })).toHaveFocus();
+    expect(screen.getByTestId("board-control-hud")).toHaveAttribute(
+      "data-completion-cue",
+      "nudge",
+    );
+  });
+  it("本人が完了済みなら「あと1人で次へ」を押すと、進行を送らず未完了の参加者を示す", () => {
+    const members = buildMembers(2, ME);
+    const props = setup({
+      members,
+      onToggleReady: vi.fn(),
+      progress: pending(members, [ME]),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "あと1人で次へ" }));
+    expect(props.onToggleReady).not.toHaveBeenCalled();
+    expect(props.onNextPhase).not.toHaveBeenCalled();
+    expect(screen.getByTestId("board-control-hud")).toHaveAttribute(
+      "data-completion-cue",
+      "others",
+    );
   });
 });
 

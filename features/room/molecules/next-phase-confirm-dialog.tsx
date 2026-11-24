@@ -28,12 +28,18 @@ export type NextPhaseConfirmDialogProps = {
   waiting?: NextPhaseWaiting;
   onConfirm: () => void;
   onRequestAdvance?: (proceed: () => void) => void;
+  // 押せない間も押されたことを受け取り、何を待っているかへ視線を導く。
+  onPendingPress?: () => void;
   requireConfirmation?: boolean;
   notReadyNames?: ReadonlyArray<string>;
   notReadyMembers?: ReadonlyArray<
     Pick<Member, "userId" | "name" | "color" | "avatarId">
   >;
 };
+
+// 押下を受け取る待ち状態も、押せないボタンと同じ見た目にする（Button の disabled 表示と揃える）。
+const PENDING_LOOK =
+  "border-dashed border-line-strong bg-background text-muted-foreground shadow-none hover:bg-background";
 
 function waitingLabel(waiting: NextPhaseWaiting | undefined) {
   if (waiting?.kind === "connection") return "再接続中…";
@@ -47,6 +53,7 @@ export function NextPhaseConfirmDialog({
   waiting,
   onConfirm,
   onRequestAdvance,
+  onPendingPress,
   requireConfirmation = true,
   notReadyNames = [],
   notReadyMembers = [],
@@ -59,6 +66,7 @@ export function NextPhaseConfirmDialog({
     else onConfirm();
   };
   const pendingLabel = disabled ? waitingLabel(waiting) : null;
+  const pressableWhilePending = disabled && onPendingPress !== undefined;
   const readyRatio =
     disabled && waiting?.kind === "members" && waiting.total > 0
       ? (waiting.total - waiting.remaining) / waiting.total
@@ -66,15 +74,19 @@ export function NextPhaseConfirmDialog({
   const trigger = (
     <Button
       type="button"
-      className={`text-sm h-10 px-4 max-[900px]:px-2 max-[900px]:text-sm ${disabled ? styles.pending : styles.ready} ${disabled && waiting?.kind === "connection" ? styles.reconnecting : ""}`}
+      className={`text-sm h-10 px-4 max-[900px]:px-2 max-[900px]:text-sm ${disabled ? styles.pending : styles.ready} ${disabled && waiting?.kind === "connection" ? styles.reconnecting : ""} ${pressableWhilePending ? PENDING_LOOK : ""}`}
       style={
         disabled
           ? ({ "--ready-ratio": readyRatio } as CSSProperties)
           : undefined
       }
-      disabled={disabled}
+      disabled={disabled && !pressableWhilePending}
+      aria-disabled={pressableWhilePending || undefined}
       onClick={(event) => {
-        if (onRequestAdvance) {
+        if (pressableWhilePending) {
+          event.preventDefault();
+          onPendingPress?.();
+        } else if (onRequestAdvance) {
           event.preventDefault();
           onRequestAdvance(() => proceed.current());
         } else if (!requireConfirmation) {
