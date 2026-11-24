@@ -131,10 +131,7 @@ test("重なった付箋の操作帯を最前面で操作でき、別の付箋�
     document.getElementById("test-dialog-layer")?.remove(),
   );
 
-  await page.mouse.move(
-    frontBox.x + frontBox.width - 16,
-    frontBox.y + 16,
-  );
+  await page.mouse.move(frontBox.x + frontBox.width - 16, frontBox.y + 16);
   await expect
     .poll(() =>
       frontAction.evaluate((element) => getComputedStyle(element).opacity),
