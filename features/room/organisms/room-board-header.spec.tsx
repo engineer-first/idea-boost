@@ -1832,7 +1832,9 @@ describe("全員がそろう前の次へ", () => {
     expect(props.onToggleReady).not.toHaveBeenCalled();
     expect(props.onNextPhase).not.toHaveBeenCalled();
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "できた！" })).toHaveFocus();
+    const ready = screen.getByRole("button", { name: "できた！" });
+    expect(ready).toHaveFocus();
+    expect(ready).toBeEnabled();
     expect(screen.getByTestId("board-control-hud")).toHaveAttribute(
       "data-completion-cue",
       "nudge",

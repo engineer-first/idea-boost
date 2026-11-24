@@ -53,6 +53,10 @@ export function useCompletionCue(options: Options): CompletionCue {
   }, [options.scope, options.disabled, reset]);
 
   useEffect(() => {
+    if (stage === "nudge") {
+      const timeout = setTimeout(() => setStage("idle"), 1600);
+      return () => clearTimeout(timeout);
+    }
     if (!active.current || options.disabled || scope.current !== options.scope)
       return;
     const later = (ms: number, action: () => void): void => {
@@ -89,7 +93,6 @@ export function useCompletionCue(options: Options): CompletionCue {
       if (!options.ready) reset();
       else later(400, finish);
     }
-    if (stage === "nudge") later(1600, reset);
     if (stage === "others") {
       if (options.canAdvance) reset();
       else later(800, reset);
@@ -119,14 +122,19 @@ export function useCompletionCue(options: Options): CompletionCue {
   }
   function nudge(): void {
     if (active.current || options.disabled) return;
-    startedReady.current = options.ready;
+    if (!options.ready) {
+      // 促している間も「できた！」を押せるよう、操作中にはしない。
+      setStage("nudge");
+      return;
+    }
+    startedReady.current = true;
     active.current = true;
     intent.current = null;
-    setStage(options.ready ? "others" : "nudge");
+    setStage("others");
   }
   return {
     stage,
-    busy: stage !== "idle",
+    busy: stage !== "idle" && stage !== "nudge",
     hideSelfCheck:
       !startedReady.current && ["button", "self", "waiting"].includes(stage),
     request,

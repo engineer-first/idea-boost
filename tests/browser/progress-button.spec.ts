@@ -72,7 +72,8 @@ test.each(widths(1280, 390))(
         name: "できた！",
         exact: true,
       });
-      await next.click();
+      // aria-disabled のボタンは Playwright が押せないと判定するため、実際の押下と同じ座標クリックで確かめる。
+      await next.click({ force: true });
       await expect
         .poll(() => complete.evaluate((el) => el === document.activeElement))
         .toBe(true);
