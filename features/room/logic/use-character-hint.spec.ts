@@ -303,6 +303,57 @@ describe("キャラクターの一言", () => {
       );
     },
   );
+  it.each(["warning", "ended"] as const)(
+    "共有工程で%sの案内中に次の人のタイマーが始まると、前の番の案内をすぐ消す",
+    (kind) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      const { result, rerender } = renderHook(
+        ({ timer }: { timer: TimerState }) =>
+          useCharacterHint({
+            phase: { ...phase, step: 2 },
+            timer,
+            serverOffsetMs: 0,
+            noteCount: 1,
+          }),
+        { initialProps: { timer: running as TimerState } },
+      );
+      act(() => vi.advanceTimersByTime(150_000));
+      expect(result.current.message).toContain("残り30秒");
+      if (kind === "ended") {
+        act(() => vi.advanceTimersByTime(30_000));
+        rerender({ timer: { status: "ended", durationMs: 180_000 } });
+        expect(result.current.message).toBe(
+          "時間になったよ、次の人にバトンを渡そう。",
+        );
+      }
+      act(() => vi.advanceTimersByTime(3_000));
+      rerender({ timer: { ...running, endsAt: Date.now() + 180_000 } });
+      expect(result.current.message).toBeNull();
+    },
+  );
+  it("工程開始の案内は最初のタイマー開始では消さない", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const { result, rerender } = renderHook(
+      ({ timer }: { timer: TimerState }) =>
+        useCharacterHint({
+          phase: { ...phase, step: 2 },
+          timer,
+          serverOffsetMs: 0,
+          noteCount: 1,
+        }),
+      { initialProps: { timer: { status: "idle" } as TimerState } },
+    );
+    expect(result.current.message).toBe(
+      "書いた課題を、順番にみんなへ伝えよう。",
+    );
+    act(() => vi.advanceTimersByTime(3_000));
+    rerender({ timer: { ...running, endsAt: Date.now() + 180_000 } });
+    expect(result.current.message).toBe(
+      "書いた課題を、順番にみんなへ伝えよう。",
+    );
+  });
   it.each([1, 2, 3])("%i-2 の時間切れは次の発表者へ案内する", (phaseNumber) => {
     const { result } = renderHook(() =>
       useCharacterHint({

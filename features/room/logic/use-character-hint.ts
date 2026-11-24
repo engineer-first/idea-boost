@@ -127,7 +127,10 @@ export function useCharacterHint({
   tipsEnabled = true,
 }: CharacterHintOptions): { message: string | null } {
   // 同じ文言の案内でも15秒を数え直すよう、表示ごとに新しいオブジェクトにする。
-  const [hint, setHint] = useState<{ text: string } | null>(null);
+  // timed は残り時間・時間切れの案内。次のタイマーでは古くなるので印を付ける。
+  const [hint, setHint] = useState<{ text: string; timed: boolean } | null>(
+    null,
+  );
   const stepHints =
     tipsEnabled && phase.kind === "step"
       ? STEP_HINTS[phase.phase]?.[phase.step]
@@ -140,8 +143,8 @@ export function useCharacterHint({
     status: TimerState["status"];
     elapsed: number | null;
   } | null>(null);
-  const show = useCallback((text: string) => {
-    setHint({ text });
+  const show = useCallback((text: string, timed = false) => {
+    setHint({ text, timed });
   }, []);
 
   // 非表示タイマーを表示状態に連動させ、StrictModeの再実行でも登録し直す。
@@ -194,6 +197,8 @@ export function useCharacterHint({
         seen.current.delete("warning");
         seen.current.delete("ended");
         shownTips.current = null;
+        // 前の番の残り時間・時間切れの案内を、次の番に持ち越さない。
+        setHint((current) => (current?.timed ? null : current));
       }
       const dueTips =
         elapsed === null
@@ -222,6 +227,7 @@ export function useCharacterHint({
           kind === "ended" && phase.kind === "step" && phase.step === 2
             ? "時間になったよ、次の人にバトンを渡そう。"
             : HINTS[kind],
+          kind !== "empty",
         );
         return;
       }
