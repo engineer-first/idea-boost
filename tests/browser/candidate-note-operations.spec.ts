@@ -137,9 +137,11 @@ test("重なった付箋の操作帯を最前面で操作でき、別の付箋�
       frontAction.evaluate((element) => getComputedStyle(element).opacity),
     )
     .toBe("1");
-  expect(
-    await targetAction.evaluate((element) => getComputedStyle(element).opacity),
-  ).toBe("0");
+  await expect
+    .poll(() =>
+      targetAction.evaluate((element) => getComputedStyle(element).opacity),
+    )
+    .toBe("0");
 });
 
 test.skipIf(!includeMobile)(
