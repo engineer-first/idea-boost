@@ -1812,6 +1812,46 @@ describe("追加執筆のマイ付箋", () => {
     expect(composer).toHaveValue("次に書いた本文");
     expect(composer).toHaveFocus();
   });
+  it("作成待ちに追記した本文から送信済みの部分だけを応答時に除く", () => {
+    const options = props();
+    const onAdd = vi
+      .fn()
+      .mockReturnValueOnce("addition-1")
+      .mockReturnValueOnce("addition-2");
+    const view = render(
+      <PrivateNotesToolbar {...options} notes={[]} onAdd={onAdd} />,
+    );
+    const composer = screen.getByRole("textbox", { name: "付箋を書く" });
+    const sentContent = "先に送る本文";
+    const nextContent = "次に書いた本文";
+    composer.focus();
+    fireEvent.change(composer, { target: { value: sentContent } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    fireEvent.change(composer, {
+      target: { value: `${sentContent}${nextContent}` },
+    });
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...options}
+        notes={[
+          buildNote({
+            id: "created",
+            visibility: "private",
+            content: sentContent,
+          }),
+        ]}
+        onAdd={onAdd}
+        noteCreationReceipt={{ operationId: "addition-1", noteId: "created" }}
+      />,
+    );
+
+    expect(composer).toHaveValue(nextContent);
+    expect(composer).toHaveFocus();
+    expect(composer).toHaveProperty("selectionStart", nextContent.length);
+    fireEvent.keyDown(composer, { key: "Enter" });
+    expect(onAdd).toHaveBeenNthCalledWith(2, nextContent);
+  });
   it.each(["", " \n\t "])(
     "空欄・空白だけの本文では付箋を作らない: %j",
     (content) => {

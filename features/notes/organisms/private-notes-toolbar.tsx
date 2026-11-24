@@ -324,11 +324,9 @@ export function PrivateNotesToolbar({
   const noteListId = useId();
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const composerComposingRef = useRef(false);
-  const composerGenerationRef = useRef(0);
   const pendingComposerCreationRef = useRef<{
     operationId: string;
     content: string;
-    generation: number;
   } | null>(null);
   const pendingCreationFocusRef = useRef<{
     operationId: string;
@@ -446,7 +444,6 @@ export function PrivateNotesToolbar({
       pendingComposerCreationRef.current = {
         operationId,
         content: composerValue,
-        generation: composerGenerationRef.current,
       };
     },
     [
@@ -775,11 +772,8 @@ export function PrivateNotesToolbar({
     pendingComposerCreationRef.current = null;
 
     const composer = composerRef.current;
-    if (
-      pending.generation === composerGenerationRef.current &&
-      composer?.value === pending.content
-    ) {
-      setComposerValue("");
+    if (composer?.value.startsWith(pending.content)) {
+      setComposerValue(composer.value.slice(pending.content.length));
     }
 
     const scrollContainer = scrollContainerRef.current;
@@ -831,7 +825,7 @@ export function PrivateNotesToolbar({
   const composer = canCreateNote ? (
     <div
       className={cn(
-        "grid w-full grid-rows-[minmax(0,1fr)] overflow-hidden rounded-xl bg-muted/60 ring-1 ring-border/80 transition-[background-color,box-shadow] duration-150 focus-within:bg-background focus-within:outline-1 focus-within:outline-primary/70 focus-within:ring-4 focus-within:ring-primary/12 motion-reduce:transition-none",
+        "grid w-full grid-rows-[minmax(0,1fr)] overflow-hidden rounded-md bg-muted/60 ring-1 ring-border/80 transition-[background-color,box-shadow] duration-150 focus-within:bg-background focus-within:outline-1 focus-within:outline-primary/70 focus-within:ring-4 focus-within:ring-primary/12 motion-reduce:transition-none",
         isWritingCollapsed
           ? "col-start-1 row-start-1 h-10 min-w-0"
           : "min-h-14 max-h-32",
@@ -855,15 +849,12 @@ export function PrivateNotesToolbar({
         disabled={disabled || editingDisabled}
         maxLength={NOTE_CONTENT_MAX_LENGTH}
         onChange={(event) => {
-          composerGenerationRef.current += 1;
           setComposerValue(event.currentTarget.value);
         }}
         onCompositionStart={() => {
-          composerGenerationRef.current += 1;
           composerComposingRef.current = true;
         }}
         onCompositionEnd={() => {
-          composerGenerationRef.current += 1;
           composerComposingRef.current = false;
         }}
         onKeyDown={handleComposerKeyDown}
