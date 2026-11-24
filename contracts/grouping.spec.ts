@@ -27,15 +27,65 @@ describe("calculateRenderGroups - 仮グループ（新規）", () => {
     expect(groups).toEqual([]);
   });
 
-  it("2つの付箋が近くにある場合は、仮グループ（名前: グループ）が作成されること", () => {
+  it("2つの付箋が近くにある場合は、仮グループ（名前: グループ A）が作成されること", () => {
     const note1 = buildNote({ id: "note-1", x: 100, y: 100 });
     const note2 = buildNote({ id: "note-2", x: 360, y: 120 }); // 隙間 60px
 
     const groups = calculateRenderGroups([note1, note2], []);
     expect(groups).toHaveLength(1);
-    expect(groups[0].name).toBe("グループ");
+    expect(groups[0].name).toBe("グループ A");
     expect(groups[0].isTemp).toBe(true);
     expect(groups[0].representativeNoteId).toBe("note-1");
+  });
+
+  it("仮グループが複数ある場合、枠の上から下・同じ高さなら左から右の順に グループ A, B, C と命名される", () => {
+    const pair = (prefix: string, x: number, y: number) => [
+      buildNote({ id: `${prefix}-1`, x, y }),
+      buildNote({ id: `${prefix}-2`, x: x + 260, y }),
+    ];
+    const notes = [
+      ...pair("c", 100, 1000),
+      ...pair("b", 1000, 100),
+      ...pair("a", 100, 100),
+    ];
+
+    const groups = calculateRenderGroups(notes, []);
+    const nameOf = (noteId: string) =>
+      groups.find((g) => g.representativeNoteId === noteId)?.name;
+
+    expect(nameOf("a-1")).toBe("グループ A");
+    expect(nameOf("b-1")).toBe("グループ B");
+    expect(nameOf("c-1")).toBe("グループ C");
+  });
+
+  it("仮グループが27個あるとき、27番目は グループ AA と命名される", () => {
+    const notes = Array.from({ length: 27 }, (_, i) => [
+      buildNote({ id: `n${i}-1`, x: 100, y: i * 1000 }),
+      buildNote({ id: `n${i}-2`, x: 360, y: i * 1000 }),
+    ]).flat();
+
+    const names = calculateRenderGroups(notes, []).map((g) => g.name);
+
+    expect(names[25]).toBe("グループ Z");
+    expect(names[26]).toBe("グループ AA");
+  });
+
+  it("保存済みグループが グループ A を名乗っているとき、仮グループは重複を避けて グループ B と命名される", () => {
+    const saved: PersistentGroup = {
+      id: "g1",
+      name: "グループ A",
+      noteIds: ["x-1", "x-2"],
+    };
+    const notes = [
+      buildNote({ id: "x-1", x: 100, y: 100 }),
+      buildNote({ id: "x-2", x: 360, y: 100 }),
+      buildNote({ id: "t-1", x: 100, y: 2000 }),
+      buildNote({ id: "t-2", x: 360, y: 2000 }),
+    ];
+
+    const temp = calculateRenderGroups(notes, [saved]).find((g) => g.isTemp);
+
+    expect(temp?.name).toBe("グループ B");
   });
 
   it("長文付箋の実高を近接判定と外枠へ反映する", () => {

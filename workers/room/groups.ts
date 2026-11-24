@@ -164,6 +164,12 @@ export function finalizeGrouping(storage: DurableObjectStorage): void {
   const currentGroups = listGroups(storage.sql);
   const usedIds = new Set<string>();
   const groups: PersistentGroup[] = [];
+  // 仮グループの連番名（グループ A, B…）は盤面全体の位置関係で決まるため、全付箋で一度だけ計算する。
+  const tempNames = new Map(
+    calculateRenderGroups(notes, currentGroups)
+      .filter((rg) => rg.isTemp && rg.representativeNoteId)
+      .map((rg) => [rg.representativeNoteId, rg.name]),
+  );
   for (const noteIds of calculateClusters(notes)) {
     if (noteIds.length < 2) continue;
     const members = notes.filter((note) => noteIds.includes(note.id));
@@ -173,7 +179,10 @@ export function finalizeGrouping(storage: DurableObjectStorage): void {
     const id =
       existingId && !usedIds.has(existingId) ? existingId : crypto.randomUUID();
     usedIds.add(id);
-    groups.push({ id, name: rendered.name, noteIds });
+    const name =
+      (rendered.isTemp && tempNames.get(rendered.representativeNoteId)) ||
+      rendered.name;
+    groups.push({ id, name, noteIds });
   }
   saveGroups(storage, groups);
 }

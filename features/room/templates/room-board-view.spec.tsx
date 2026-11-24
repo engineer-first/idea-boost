@@ -3076,7 +3076,7 @@ describe("RoomBoardView", () => {
       });
 
       expect(screen.getByTestId("note-group-card")).toBeInTheDocument();
-      expect(screen.getByText("グループ")).toBeInTheDocument();
+      expect(screen.getByText("グループ A")).toBeInTheDocument();
     });
 
     it("離れた位置に置かれた複数の付箋がある場合、グループ枠は描画されないこと", () => {
@@ -3119,7 +3119,7 @@ describe("RoomBoardView", () => {
       });
 
       // ラベルをクリックして編集モードにする
-      const label = screen.getByText("グループ");
+      const label = screen.getByText("グループ A");
       fireEvent.click(label);
 
       // input要素が表示されることを確認

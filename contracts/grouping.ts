@@ -208,6 +208,41 @@ function calculateBoundingBox(notes: Note[]): {
   };
 }
 
+// 0 始まりの連番を A..Z, AA, AB.. へ変換する
+function toAlphaLabel(index: number): string {
+  let n = index + 1;
+  let label = "";
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    label = String.fromCharCode(65 + rem) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+}
+
+// 仮グループを枠の上から下、同じ高さなら左から右の順で「グループ A, B, C…」と命名する。
+// 保存済みグループが同じ名前を使っている場合は、その名前を飛ばして重複を避ける。
+function assignTempGroupNames(
+  renderGroups: RenderGroup[],
+  persistentGroups: PersistentGroup[],
+): void {
+  const used = new Set(persistentGroups.map((g) => g.name));
+  const temps = renderGroups
+    .filter((rg) => rg.isTemp)
+    .sort((a, b) => a.y - b.y || a.x - b.x || a.id.localeCompare(b.id));
+
+  let index = 0;
+  for (const temp of temps) {
+    let name = `グループ ${toAlphaLabel(index)}`;
+    while (used.has(name)) {
+      index += 1;
+      name = `グループ ${toAlphaLabel(index)}`;
+    }
+    temp.name = name;
+    index += 1;
+  }
+}
+
 // 描画用のグループ枠計算
 export function calculateRenderGroups(
   notes: Note[],
@@ -283,7 +318,7 @@ export function calculateRenderGroups(
       const sortedIds = cluster.sort();
       renderGroups.push({
         id: `temp-${sortedIds.join(",")}`,
-        name: "グループ",
+        name: "",
         x: box.x,
         y: box.y,
         width: box.width,
@@ -293,6 +328,8 @@ export function calculateRenderGroups(
       });
     }
   }
+
+  assignTempGroupNames(renderGroups, groups);
 
   // 同時表示されているグループの色被りを防ぐため、ID順でソートして等間隔の色相(hue)を割り当てる
   const count = renderGroups.length;
