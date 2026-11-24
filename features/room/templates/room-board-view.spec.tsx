@@ -451,10 +451,6 @@ describe("2軸評価画面の周辺操作", () => {
       "data-map-expanded",
       "true",
     );
-    expect(screen.getByTestId("board-operation-matrix")).toHaveClass("right-3");
-    expect(screen.getByTestId("board-operation-matrix")).not.toHaveClass(
-      "max-[639px]:hidden",
-    );
     expect(screen.getByTestId("board-context-column")).toContainElement(
       screen.getByTestId("board-reference-hmw"),
     );
@@ -928,6 +924,10 @@ describe("マイ付箋の追加ショートカット", () => {
         screen.queryByTestId("private-notes-workspace"),
       ).not.toBeInTheDocument();
       expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
+      // 右端の縦長ドックは下端バーではない。fit の下端占有に数えない。
+      expect(screen.getByTestId("private-notes-dock")).not.toHaveAttribute(
+        "data-board-fit-edge",
+      );
 
       rerender(<TestBoardView {...props} />);
       expect(screen.getByTestId("private-notes-workspace")).toBeInTheDocument();
@@ -1596,7 +1596,6 @@ describe("RoomBoardView", () => {
       screen.getByTestId("board-scroller").parentElement,
     ).not.toHaveAttribute("hidden");
     expect(screen.getByTestId("board-scroller")).toHaveAttribute("inert");
-    expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
   });
 
   it("1-1では背景をぼかし、1-2では背景をぼかさない", () => {
@@ -4039,6 +4038,28 @@ describe("fit HUDの可視境界", () => {
         bottom: 194,
         left: 0,
       });
+    } finally {
+      root.remove();
+    }
+  });
+});
+
+describe("fit HUDの占有上限", () => {
+  it("縦長のbottom要素があっても、付箋を置ける高さを必ず残す", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1200, 800);
+    root.append(viewport);
+    const tall = document.createElement("div");
+    tall.dataset.boardFitEdge = "bottom";
+    tall.style.pointerEvents = "auto";
+    tall.getBoundingClientRect = () => new DOMRect(880, 0, 300, 800);
+    root.append(tall);
+    document.body.append(root);
+    try {
+      const insets = getBoardFitInsets(viewport);
+      expect(800 - insets.top - insets.bottom).toBeGreaterThanOrEqual(200);
     } finally {
       root.remove();
     }

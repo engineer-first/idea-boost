@@ -322,14 +322,11 @@ test.each([
       const privateNotes = await page
         .getByTestId("private-notes-dock")
         .boundingBox();
-      const operations = await page
-        .getByTestId("board-operation-matrix")
-        .boundingBox();
       const controls = await page
         .getByTestId("board-control-hud")
         .boundingBox();
       const header = await page.getByTestId("board-header-row").boundingBox();
-      if (!plane || !privateNotes || !operations || !controls || !header)
+      if (!plane || !privateNotes || !controls || !header)
         throw new Error("評価画面がありません");
       const valueScale = page.getByRole("group", {
         name: "価値: 低から高",
@@ -362,12 +359,6 @@ test.each([
       expect(privateNotes.x + privateNotes.width).toBeLessThanOrEqual(
         viewport.width,
       );
-      expect(operations.y).toBeGreaterThanOrEqual(
-        privateNotes.y + privateNotes.height + 8,
-      );
-      expect(operations.x + operations.width).toBeLessThanOrEqual(
-        viewport.width,
-      );
       expect(
         await page
           .getByTestId("private-notes-scroll")
@@ -379,7 +370,6 @@ test.each([
           .getAttribute("data-expanded"),
       ).toBe("true");
       expect(await page.getByTestId("idea-map-unplaced-tray").count()).toBe(0);
-      expect(await page.getByTestId("board-operation-matrix").count()).toBe(1);
       expect(
         await page.evaluate(() => ({
           width: document.documentElement.scrollWidth,
@@ -1475,7 +1465,6 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
       location: await readBounds(page, "board-location-card"),
       controls: await readBounds(page, "board-control-hud"),
       tools: await readBounds(page, "board-tools-hud"),
-      operations: await readBounds(page, "board-operation-matrix"),
       privateNotes: await readBounds(page, "private-notes-dock"),
     };
 
@@ -1484,12 +1473,11 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
       location: await readBounds(page, "board-location-card"),
       controls: await readBounds(page, "board-control-hud"),
       tools: await readBounds(page, "board-tools-hud"),
-      operations: await readBounds(page, "board-operation-matrix"),
       privateNotes: await readBounds(page, "private-notes-dock"),
       phaseLoop: await readBounds(page, "phase-loop-hud"),
       mapSize: await readBounds(page, "idea-map-size-controls-hud"),
     };
-    for (const key of ["location", "operations"] as const) {
+    for (const key of ["location"] as const) {
       expect
         .soft(workspaceAnchors[key], `${key}の位置を共通HUDに揃える`)
         .toEqual(sharedAnchors[key]);

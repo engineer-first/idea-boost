@@ -150,8 +150,7 @@ test.skipIf(!includeMobile)(
     try {
       await story(page, "room-roomboardlayout--phase-2-step-2");
       const notes = await rect(page, "private-notes-toolbar");
-      const operations = await rect(page, "board-operation-matrix");
-      expect(notes.y + notes.height).toBeLessThanOrEqual(operations.y - 12);
+      expect(notes.y + notes.height).toBeLessThanOrEqual(844);
       expect(await page.getByTestId("private-notes-footer").count()).toBe(0);
       await page.getByTestId("private-notes-scroll").hover();
     } finally {
