@@ -90,8 +90,11 @@ export const IDEA_VALUE_FEASIBILITY_MAP_LABELS = {
   feasibility: "実現のしやすさ",
   low: "低",
   high: "高",
+  // 横軸は「しやすさ」の高低だと向きを読み替える必要があるため、端を言葉で示す。
+  feasibilityLow: "しにくい",
+  feasibilityHigh: "しやすい",
   valueScaleAriaLabel: "価値: 低から高",
-  feasibilityScaleAriaLabel: "実現のしやすさ: 低から高",
+  feasibilityScaleAriaLabel: "実現のしやすさ: 左ほどしにくく、右ほどしやすい",
 } as const;
 
 export const IDEA_MAP_SIZE_HELP = {

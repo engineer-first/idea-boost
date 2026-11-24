@@ -33,12 +33,12 @@ describe("IdeaValueFeasibilityMap", () => {
       name: "価値: 低から高",
     });
     const feasibilityScale = screen.getByRole("group", {
-      name: "実現のしやすさ: 低から高",
+      name: "実現のしやすさ: 左ほどしにくく、右ほどしやすい",
     });
 
     expect(valueScale).toHaveTextContent(/^高[\s\S]*価値[\s\S]*低$/);
     expect(feasibilityScale).toHaveTextContent(
-      /^低[\s\S]*実現のしやすさ[\s\S]*高$/,
+      /^しにくい[\s\S]*実現のしやすさ[\s\S]*しやすい$/,
     );
     expect(
       screen.getByTestId("idea-value-feasibility-map-y-scale-bar"),

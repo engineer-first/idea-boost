@@ -253,14 +253,19 @@ test.each(
     const page = await browser.newPage({ viewport: { width, height } });
     try {
       await open(page);
-      for (const { axis, name } of [
-        { axis: "x", name: "実現のしやすさ: 低から高" },
-        { axis: "y", name: "価値: 低から高" },
+      for (const { axis, name, low, high } of [
+        {
+          axis: "x",
+          name: "実現のしやすさ: 左ほどしにくく、右ほどしやすい",
+          low: "しにくい",
+          high: "しやすい",
+        },
+        { axis: "y", name: "価値: 低から高", low: "低", high: "高" },
       ]) {
         const scale = page.getByRole("group", { name });
         for (const { endpoint, label } of [
-          { endpoint: "low", label: "低" },
-          { endpoint: "high", label: "高" },
+          { endpoint: "low", label: low },
+          { endpoint: "high", label: high },
         ]) {
           const text = await scale
             .getByText(label, { exact: true })
@@ -287,7 +292,7 @@ test.each(
             if (endpoint === "low") {
               expect(
                 arrow.x - (text.x + text.width),
-                "横軸は「低」、左矢印、軸線の順に並べる",
+                "横軸は「しにくい」、左矢印、軸線の順に並べる",
               ).toBeGreaterThanOrEqual(8);
             }
             expect(
@@ -773,13 +778,13 @@ test.each(
         name: "価値: 低から高",
       });
       const feasibilityScale = page.getByRole("group", {
-        name: "実現のしやすさ: 低から高",
+        name: "実現のしやすさ: 左ほどしにくく、右ほどしやすい",
       });
       const valueLow = await valueScale
         .getByText("低", { exact: true })
         .boundingBox();
       const feasibilityLow = await feasibilityScale
-        .getByText("低", { exact: true })
+        .getByText("しにくい", { exact: true })
         .boundingBox();
       const fontSizeControl = page.getByTestId("note-font-size-controls");
       const fontSizeControls = (await fontSizeControl.count())
@@ -804,7 +809,7 @@ test.each(
         // 3-2は文字サイズUIの右を基準にする。行ボックスの余白ではなく、
         // 文字そのものとズームボタンの操作領域が重ならないことを確認する。
         const textBounds = await feasibilityScale
-          .getByText("低", { exact: true })
+          .getByText("しにくい", { exact: true })
           .evaluate((label) => {
             const range = document.createRange();
             range.selectNodeContents(label);
@@ -821,7 +826,7 @@ test.each(
       } else {
         expect(
           overlaps(feasibilityLow, zoomControls),
-          `${width}×${height}で横軸の「低」とズームUIが重ならない`,
+          `${width}×${height}で横軸の「しにくい」とズームUIが重ならない`,
         ).toBe(false);
       }
       expect(
@@ -835,7 +840,7 @@ test.each(
         ).toBe(false);
         expect(
           overlaps(feasibilityLow, fontSizeControls),
-          `${width}×${height}で横軸の「低」と文字サイズUIが重ならない`,
+          `${width}×${height}で横軸の「しにくい」と文字サイズUIが重ならない`,
         ).toBe(false);
 
         const horizontalGap = Math.max(
@@ -850,7 +855,7 @@ test.each(
         );
         expect(
           Math.hypot(horizontalGap, verticalGap),
-          `${width}×${height}で横軸の「低」と文字サイズUIの間に16px以上の余白を保つ`,
+          `${width}×${height}で横軸の「しにくい」と文字サイズUIの間に16px以上の余白を保つ`,
         ).toBeGreaterThanOrEqual(16);
       }
     } finally {
@@ -886,9 +891,11 @@ test.each(
     try {
       const readEndpoint = async (page: Page) => {
         const scale = page.getByRole("group", {
-          name: "実現のしやすさ: 低から高",
+          name: "実現のしやすさ: 左ほどしにくく、右ほどしやすい",
         });
-        const low = await scale.getByText("低", { exact: true }).boundingBox();
+        const low = await scale
+          .getByText("しにくい", { exact: true })
+          .boundingBox();
         const arrowElement = page.getByTestId(
           "idea-value-feasibility-map-x-low-arrow",
         );
@@ -897,7 +904,9 @@ test.each(
         const axisTitle = await page
           .getByTestId("idea-value-feasibility-map-x-axis-label")
           .boundingBox();
-        const high = await scale.getByText("高", { exact: true }).boundingBox();
+        const high = await scale
+          .getByText("しやすい", { exact: true })
+          .boundingBox();
         const horizontalTrack = await scale
           .getByTestId("idea-value-feasibility-map-x-scale-bar")
           .boundingBox();
