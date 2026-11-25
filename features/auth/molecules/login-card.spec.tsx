@@ -142,7 +142,7 @@ it("LoginCardはshowDevAuthがfalseの場合開発用ログインボタンを表
   ).not.toBeInTheDocument();
 });
 
-it("LoginCardでゲスト開始を押すと名前の入力欄へフォーカスが移り、そのまま入力できる", () => {
+it("LoginCardでゲスト開始を押すと名前の入力欄へフォーカスが移る", () => {
   render(
     <LoginCard
       {...choiceProps}
