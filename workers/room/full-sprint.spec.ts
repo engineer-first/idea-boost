@@ -565,28 +565,18 @@ async function runSharingRound(params: {
     [member.sub, memberClient],
   ]);
 
+  // 共有へ進んだ時点で RoomDO が1人目の発表を予約している（開始操作は不要）。
   const initialSharing = hostClient.sharing;
-  if (initialSharing?.status !== "ready") {
+  if (
+    initialSharing?.status !== "active" ||
+    initialSharing.currentIndex !== 0 ||
+    initialSharing.startsAt === null
+  ) {
     throw new Error(
-      `共有準備状態ではありません: ${JSON.stringify(initialSharing)}`,
+      `1人目の発表が予約されていません: ${JSON.stringify(initialSharing)}`,
     );
   }
-
-  hostClient.send({
-    type: "sharing:start",
-    revision: initialSharing.revision,
-    durationMs: 180_000,
-  });
-  await Promise.all([
-    hostClient.waitFor(
-      "sharing:updated",
-      (m) => m.sharing.status === "active" && m.sharing.startsAt !== null,
-    ),
-    memberClient.waitFor(
-      "sharing:updated",
-      (m) => m.sharing.status === "active" && m.sharing.startsAt !== null,
-    ),
-  ]);
+  expect(memberClient.sharing).toEqual(initialSharing);
 
   let publishedByFirstPresenter: ProtocolNote | null = null;
 

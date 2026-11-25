@@ -7,7 +7,11 @@ import {
 } from "./handler-context";
 import { isMember } from "./members";
 import { getPhase } from "./phase";
-import { getSharingState, saveSharingState } from "./sharing-state";
+import {
+  getSharingState,
+  passDepartedPresenters,
+  saveSharingState,
+} from "./sharing-state";
 import { getTimerState, saveTimerState } from "./timer";
 
 export function broadcastSharing(
@@ -55,15 +59,10 @@ function controllableState(
   return state;
 }
 
-// 記録済みの結果から次の発表者を決めて保存する。退出済みの人の番は
-// 待っても進まないため、パスとして記録して飛ばす。
+// 記録済みの結果から次の発表者を決めて保存する。
 function saveNextTurn(sql: SqlStorage, state: SharingState): void {
   state.revision = crypto.randomUUID();
-  while (
-    state.results.length < state.order.length &&
-    !isMember(sql, state.order[state.results.length].userId)
-  )
-    state.results.push("passed");
+  passDepartedPresenters(sql, state.order, state.results);
   state.currentIndex =
     state.results.length < state.order.length ? state.results.length : null;
   state.status = state.currentIndex === null ? "complete" : "active";

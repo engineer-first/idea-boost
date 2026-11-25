@@ -4,7 +4,7 @@ import {
   type SharingState,
   SharingStateSchema,
 } from "../../contracts/room-protocol";
-import { listMembers } from "./members";
+import { isMember, listMembers } from "./members";
 
 export function getSharingState(sql: SqlStorage): SharingState | null {
   const row = sql
@@ -39,16 +39,34 @@ export function resetSharingForPhase(
       [order[index], order[target]] = [order[target], order[index]];
     }
   }
-  const startsFirstTurn = sharing && startFirstTurn && order.length > 0;
+  const passed: SharingState["results"] = [];
+  if (sharing && startFirstTurn) passDepartedPresenters(sql, order, passed);
+  // 前進は在籍者だけが送れ、在籍者は必ず順番に入るので全員退出済みは起きない。
+  // 万一の空振りは ready に戻し、従来の開始操作で一巡を完了できる。
+  const startsFirstTurn =
+    sharing && startFirstTurn && passed.length < order.length;
   saveSharingState(sql, {
     revision: crypto.randomUUID(),
     order,
     status: startsFirstTurn ? "active" : sharing ? "ready" : "inactive",
-    currentIndex: startsFirstTurn ? 0 : null,
-    results: [],
+    currentIndex: startsFirstTurn ? passed.length : null,
+    results: startsFirstTurn ? passed : [],
     durationMs: previous?.durationMs ?? 180000,
     startsAt: startsFirstTurn ? Date.now() + 2000 : null,
   });
+}
+
+// 退出済みの人の番は待っても始まらないため、パスとして記録して飛ばす。
+export function passDepartedPresenters(
+  sql: SqlStorage,
+  order: SharingState["order"],
+  results: SharingState["results"],
+): void {
+  while (
+    results.length < order.length &&
+    !isMember(sql, order[results.length].userId)
+  )
+    results.push("passed");
 }
 
 export function appendSharingMember(

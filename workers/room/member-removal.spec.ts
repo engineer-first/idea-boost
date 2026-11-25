@@ -331,7 +331,23 @@ describe("参加者によるメンバー除外", () => {
     await receive(a, "phase:updated");
     await receive(b, "snapshot");
     await receive(b, "phase:updated");
-    await removeAccepted(a, B.sub, 0);
+    // 共有は自動で始まり順番は抽選なので、B が1人目なら除外と同時に
+    // パスとして交代する sharing:updated も届く。到着順に依存しない。
+    const operationId = remove(a, B.sub, 0);
+    const seen: string[] = [];
+    for (;;) {
+      const message = await a.next();
+      seen.push(message.type);
+      if (message.type === "member:removed") {
+        expect(message).toEqual({
+          type: "member:removed",
+          targetUserId: B.sub,
+          operationId,
+        });
+        break;
+      }
+    }
+    expect(seen).toContain("member_left");
     expect(await stub.isMember(B.sub)).toBe(false);
   });
 
