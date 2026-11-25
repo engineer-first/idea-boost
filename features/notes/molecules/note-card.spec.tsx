@@ -214,7 +214,7 @@ describe("NoteCard", () => {
     expect(screen.getByRole("textbox")).not.toHaveClass("pt-12");
   });
 
-  it("候補操作を付箋外の最前面レイヤーへ短い表示で出し、付箋色の継ぎ目で対象を示す", () => {
+  it("候補操作を付箋外の最前面レイヤーへ、ほかの道具と同じ形のボタンで短く出す", () => {
     setup({
       note: buildNote({ color: "blue" }),
       canExcludeNote: true,
@@ -228,10 +228,35 @@ describe("NoteCard", () => {
     expect(action.querySelector(".lucide-list-minus")).toBeInTheDocument();
     expect(action).toHaveClass("fixed", "z-40");
     expect(action).toHaveStyle({ width: "80px", height: "44px" });
-    expect(action.querySelector("[data-candidate-action-seam]")).toHaveStyle({
-      backgroundColor: NOTE_COLOR_STYLES.blue.backgroundColor,
-    });
+    // 除外だけの赤いタブ（片側の角丸・切り欠き・付箋色の継ぎ目）をやめ、
+    // 共通の Button と同じ白い面・線・角丸にし、危険の色は文字だけに使う。
+    expect(action).toHaveAttribute("data-slot", "button");
+    expect(action).toHaveClass(
+      "rounded-lg",
+      "border-border",
+      "bg-background",
+      "text-danger-text",
+      "shadow-tool",
+    );
+    expect(action).not.toHaveClass("rounded-l-lg", "bg-danger-soft");
+    expect(action.style.webkitMaskImage).toBe("");
+    expect(
+      action.querySelector("[data-candidate-action-seam]"),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByTestId("candidate-target-corner")).toHaveLength(4);
+  });
+
+  it("除外を戻す操作は危険の色を使わない", () => {
+    setup({
+      note: buildNote({ excluded: true }),
+      canRestoreNote: true,
+    } as never);
+
+    const action = screen.getByRole("button", { name: "除外を戻す" });
+
+    expect(action).toHaveAttribute("data-slot", "button");
+    expect(action).toHaveClass("rounded-lg", "bg-background");
+    expect(action).not.toHaveClass("text-danger-text");
   });
 
   it("候補操作を付箋の左下へ隙間なく置き、画面下端では左上へ逃がす", () => {
@@ -263,11 +288,6 @@ describe("NoteCard", () => {
     fireEvent.focus(surface);
 
     expect(action).toHaveAttribute("data-placement", "bottom");
-    expect(action).toHaveClass("rounded-l-lg");
-    expect(action.style.webkitMaskImage).toContain("right center");
-    expect(action.querySelector("[data-candidate-action-seam]")).toHaveClass(
-      "left-0",
-    );
     expect(action).toHaveStyle({ left: "100px", top: "250px" });
 
     rect.mockReturnValue({

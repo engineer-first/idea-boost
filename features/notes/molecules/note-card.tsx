@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { Button } from "@/components/ui/button";
 import { DRAG_THRESHOLD_PX, getNoteHeight } from "@/contracts/board";
 
 import type { DotVoteKind } from "@/contracts/room-protocol";
@@ -26,7 +27,7 @@ import {
   dotVoteStickerName,
   type VoteDisplayMode,
 } from "@/features/dot-vote";
-import { NOTE_COLOR_STYLES } from "@/features/room-members";
+import { cn } from "@/lib/utils";
 import type { Note } from "../logic/notes-reducer";
 import { StickyNote } from "./sticky-note";
 
@@ -878,9 +879,11 @@ export function NoteCard({
                 className="absolute bottom-0 right-0 size-3 border-state-select border-b-2 border-r-2"
               />
             </div>
-            <button
+            <Button
               ref={candidateActionRef}
               type="button"
+              variant="outline"
+              size="lg"
               aria-label={candidateActionLabel}
               data-candidate-action="true"
               data-candidate-action-note-id={note.id}
@@ -917,41 +920,31 @@ export function NoteCard({
                 event.stopPropagation();
                 performCandidateAction();
               }}
-              className={`fixed z-40 flex items-center justify-center gap-1 rounded-l-lg border border-danger/30 bg-danger-soft text-xs font-bold text-danger-text shadow-tool transition-opacity [mask-image:radial-gradient(circle_at_right_center,transparent_0_6px,#000_7px)] ${
+              // ほかの道具（メニュー・HUD）と同じ白い浮遊ボタンにし、
+              // 除外の意味は文字とアイコンの危険色だけで伝える（DESIGN.md「ボタン」）。
+              className={cn(
+                "fixed z-40 gap-1 text-xs font-bold shadow-tool transition-opacity",
+                note.excluded
+                  ? "text-foreground"
+                  : "text-danger-text hover:bg-danger-soft hover:text-danger-text",
                 isCandidateActionVisible
                   ? "pointer-events-auto opacity-100"
-                  : "pointer-events-none opacity-0"
-              }`}
+                  : "pointer-events-none opacity-0",
+              )}
               style={{
                 height: CANDIDATE_ACTION_HEIGHT_PX,
                 left: candidateOverlayLayout.action.left,
                 top: candidateOverlayLayout.action.top,
-                WebkitMaskImage:
-                  "radial-gradient(circle at right center, transparent 0 6px, black 7px)",
                 width: CANDIDATE_ACTION_WIDTH_PX,
               }}
             >
-              <span
-                aria-hidden="true"
-                data-candidate-action-seam="true"
-                className={`pointer-events-none absolute left-0 h-[3px] w-7 ${
-                  candidateOverlayLayout.action.placement === "bottom"
-                    ? "-top-px"
-                    : "-bottom-px"
-                }`}
-                style={{
-                  backgroundColor:
-                    NOTE_COLOR_STYLES[note.color].backgroundColor,
-                  filter: note.excluded ? "grayscale(1)" : undefined,
-                }}
-              />
               {note.excluded ? (
                 <ListPlus aria-hidden="true" className="size-4" />
               ) : (
                 <ListMinus aria-hidden="true" className="size-4" />
               )}
               {candidatePending ? "処理中…" : candidateActionText}
-            </button>
+            </Button>
             {isActionMenuOpen ? (
               <div
                 role="menu"
