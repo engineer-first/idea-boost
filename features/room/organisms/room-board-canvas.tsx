@@ -168,7 +168,7 @@ export type RoomBoardCanvasProps = {
   onSelect: (noteId: string | null, options?: CanvasSelectionOptions) => void;
   onNoteDragStart: (
     noteId: string,
-    event: ReactPointerEvent<HTMLButtonElement>,
+    event: ReactPointerEvent<HTMLElement>,
     origin?: { clientX: number; clientY: number },
   ) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
@@ -203,7 +203,7 @@ export type RoomBoardCanvasProps = {
   onPrivateNoteDelete: (noteId: string) => void;
   onPrivateNoteDragStart: (
     noteId: string,
-    event: ReactPointerEvent<HTMLButtonElement>,
+    event: ReactPointerEvent<HTMLElement>,
   ) => void;
   remoteCursors: RenderedRemoteCursorPresence[];
   presenterView?: RemotePresenterView | null;

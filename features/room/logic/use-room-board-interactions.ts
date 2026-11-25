@@ -104,7 +104,7 @@ export type RoomBoardInteractions = {
   consumePanClick?: () => boolean;
   onSharedNotesDragIntent?: (
     noteIds: readonly string[],
-    event: ReactPointerEvent<HTMLButtonElement>,
+    event: ReactPointerEvent<HTMLElement>,
     origin?: { clientX: number; clientY: number },
     anchorId?: string,
   ) => void;
@@ -121,12 +121,12 @@ export type RoomBoardInteractions = {
   onPresencePointerLeave: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onNoteDragStart: (
     noteId: string,
-    event: ReactPointerEvent<HTMLButtonElement>,
+    event: ReactPointerEvent<HTMLElement>,
     origin?: { clientX: number; clientY: number },
   ) => void;
   onPrivateNoteDragStart: (
     noteId: string,
-    event: ReactPointerEvent<HTMLButtonElement>,
+    event: ReactPointerEvent<HTMLElement>,
     origin?: { clientX: number; clientY: number },
   ) => void;
 };

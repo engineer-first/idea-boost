@@ -61,7 +61,7 @@ export type NoteCardProps = {
   ) => void;
   onDragStart: (
     noteId: string,
-    event: React.PointerEvent<HTMLButtonElement>,
+    event: React.PointerEvent<HTMLElement>,
     origin?: { clientX: number; clientY: number },
   ) => void;
   onContentChange: (noteId: string, content: string) => void;
@@ -272,6 +272,10 @@ export function NoteCard({
     useState<CandidateOverlayLayout | null>(null);
   const wasEditingRef = useRef(false);
   const pointerOriginRef = useRef<PointerOrigin | null>(null);
+  const editingPressRef = useRef<Pick<
+    PointerOrigin,
+    "pointerId" | "startClientX" | "startClientY"
+  > | null>(null);
   const noteRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLButtonElement>(null);
   const candidateActionRef = useRef<HTMLButtonElement>(null);
@@ -746,6 +750,68 @@ export function NoteCard({
     }
   }
 
+  // 編集中のマイ付箋は本文の上を押しても掴めないため、押したままカードの外へ
+  // 引っ張ったら本文を確定してドラッグへ切り替える。カード内の移動は文字選択のまま。
+  function handleEditingPointerDown(
+    event: React.PointerEvent<HTMLTextAreaElement>,
+  ) {
+    editingPressRef.current = null;
+    if (
+      !isEditing ||
+      note.visibility !== "private" ||
+      disabled ||
+      !canMoveNote ||
+      interactionTool === "hand" ||
+      event.button !== 0
+    )
+      return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    editingPressRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+    };
+  }
+
+  function handleEditingPointerMove(
+    event: React.PointerEvent<HTMLTextAreaElement>,
+  ) {
+    const press = editingPressRef.current;
+    if (!press || press.pointerId !== event.pointerId) return;
+    if ((event.buttons & 1) === 0) {
+      endEditingPress(event);
+      return;
+    }
+    const rect = noteRef.current?.getBoundingClientRect();
+    if (
+      !rect ||
+      compositionActiveRef.current ||
+      (event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom)
+    )
+      return;
+    endEditingPress(event);
+    const textarea = event.currentTarget;
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    textarea.ownerDocument.getSelection()?.removeAllRanges();
+    // blurで本文を確定し、編集を終えてからドラッグを始める。
+    textarea.blur();
+    setIsEditing(false);
+    onDragStart(note.id, event, {
+      clientX: press.startClientX,
+      clientY: press.startClientY,
+    });
+  }
+
+  function endEditingPress(event: React.PointerEvent<HTMLTextAreaElement>) {
+    if (editingPressRef.current?.pointerId !== event.pointerId) return;
+    editingPressRef.current = null;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
   function cancelPointer(event: React.PointerEvent<HTMLButtonElement>) {
     if (pointerOriginRef.current?.pointerId === event.pointerId) {
       pointerOriginRef.current = null;
@@ -1037,6 +1103,13 @@ export function NoteCard({
         // UI 側でも同じコントラクト定数で「そもそも入力できない」形に塞ぐ。
         maxLength={NOTE_CONTENT_MAX_LENGTH}
         tabIndex={isEditing ? 0 : -1}
+        onPointerDown={handleEditingPointerDown}
+        onPointerMove={handleEditingPointerMove}
+        onPointerUp={endEditingPress}
+        onPointerCancel={endEditingPress}
+        onLostPointerCapture={() => {
+          editingPressRef.current = null;
+        }}
         onChange={(event) => {
           if (disabled) return;
           setLocalContent(event.target.value);

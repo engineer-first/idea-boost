@@ -1314,6 +1314,105 @@ describe("NoteCard", () => {
       expect(textarea).toHaveAttribute("readonly");
     });
 
+    describe("編集中のマイ付箋を押したまま動かしたとき", () => {
+      function setupEditingPrivateNote(
+        overrides: Partial<Parameters<typeof NoteCard>[0]> = {},
+      ) {
+        const result = setup({
+          note: buildNote({ visibility: "private" }),
+          isSelected: true,
+          ...overrides,
+        });
+        vi.spyOn(getCard(), "getBoundingClientRect").mockReturnValue(
+          DOMRect.fromRect({ x: 0, y: 0, width: 200, height: 150 }),
+        );
+        clickNote();
+        return { ...result, textarea: screen.getByRole("textbox") };
+      }
+
+      it("カードの外まで引っ張ると本文を確定してドラッグを始める", () => {
+        const { props, textarea } = setupEditingPrivateNote();
+        fireEvent.change(textarea, { target: { value: "直した本文" } });
+
+        fireEvent.pointerDown(textarea, {
+          pointerId: 2,
+          buttons: 1,
+          clientX: 100,
+          clientY: 60,
+        });
+        fireEvent.pointerMove(textarea, {
+          pointerId: 2,
+          buttons: 1,
+          clientX: 260,
+          clientY: 80,
+        });
+
+        expect(props.onContentChange).toHaveBeenCalledWith(
+          "note-1",
+          "直した本文",
+        );
+        expect(props.onDragStart).toHaveBeenCalledExactlyOnceWith(
+          "note-1",
+          expect.objectContaining({ pointerId: 2, clientX: 260 }),
+          { clientX: 100, clientY: 60 },
+        );
+        expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+      });
+
+      it("カードの中で動かしている間は文字選択として扱いドラッグを始めない", () => {
+        const { props, textarea } = setupEditingPrivateNote();
+
+        fireEvent.pointerDown(textarea, {
+          pointerId: 2,
+          buttons: 1,
+          clientX: 20,
+          clientY: 20,
+        });
+        fireEvent.pointerMove(textarea, {
+          pointerId: 2,
+          buttons: 1,
+          clientX: 180,
+          clientY: 120,
+        });
+        fireEvent.pointerUp(textarea, {
+          pointerId: 2,
+          clientX: 180,
+          clientY: 120,
+        });
+        fireEvent.pointerMove(textarea, {
+          pointerId: 2,
+          buttons: 0,
+          clientX: 260,
+          clientY: 80,
+        });
+
+        expect(props.onDragStart).not.toHaveBeenCalled();
+        expect(textarea).not.toHaveAttribute("readonly");
+      });
+
+      it("移動できない工程ではカードの外へ引っ張っても編集を続ける", () => {
+        const { props, textarea } = setupEditingPrivateNote({
+          canMoveNote: false,
+        });
+
+        fireEvent.pointerDown(textarea, {
+          pointerId: 2,
+          buttons: 1,
+          clientX: 100,
+          clientY: 60,
+        });
+        fireEvent.pointerMove(textarea, {
+          pointerId: 2,
+          buttons: 1,
+          clientX: 260,
+          clientY: 80,
+        });
+
+        expect(props.onDragStart).not.toHaveBeenCalled();
+        expect(textarea).not.toHaveAttribute("readonly");
+      });
+    });
+
     it("編集中にEscapeで編集モードを終了しサーフェスへフォーカスを戻す", () => {
       setup({ isSelected: true });
 

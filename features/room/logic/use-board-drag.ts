@@ -513,7 +513,7 @@ export function useBoardDrag({
   const handleSharedNoteDragStart = useCallback(
     (
       noteId: string,
-      event: ReactPointerEvent<HTMLButtonElement>,
+      event: ReactPointerEvent<HTMLElement>,
       origin?: { clientX: number; clientY: number },
       requestedIds?: readonly string[],
     ) => {
@@ -577,7 +577,7 @@ export function useBoardDrag({
   const handlePrivateDragStart = useCallback(
     (
       noteId: string,
-      event: ReactPointerEvent<HTMLButtonElement>,
+      event: ReactPointerEvent<HTMLElement>,
       origin?: { clientX: number; clientY: number },
     ) => {
       if (dragRef.current || !isPrivatePanelExpanded(privateToolbarRef.current))

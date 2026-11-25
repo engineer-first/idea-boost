@@ -1787,7 +1787,8 @@ export function RoomBoardView({
         }
         className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${isAdditionalWriting && phase.kind === "step" && phase.step === 1 ? canvasStyles.additionalWritingCanvas : ""} ${
           isNoteDragging
-            ? "cursor-grabbing"
+            ? // 編集中の本文から始めたドラッグでも、運ぶ間に盤面の文字を選択しない。
+              "cursor-grabbing select-none"
             : isAdoptMode
               ? "cursor-crosshair"
               : selectedVoteKind !== null
