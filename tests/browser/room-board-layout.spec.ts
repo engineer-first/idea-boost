@@ -1193,7 +1193,7 @@ test("U03: 3-3のマップ増減と追加執筆へ通常pointerで到達でき�
   expect(await map.getByRole("status").textContent()).toContain("2段階目");
   expect(
     await page
-      .getByRole("button", { name: "付箋を書き足す", exact: true })
+      .getByRole("button", { name: /^\d-1に戻って書き足す$/ })
       .isVisible(),
   ).toBe(true);
 });

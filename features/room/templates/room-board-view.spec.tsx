@@ -486,7 +486,7 @@ describe("2軸評価画面の周辺操作", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "付箋を書き足す" }),
+      screen.getByRole("button", { name: /^\d-1に戻って書き足す$/ }),
     ).toBeVisible();
     const mapSizeHud = screen.getByTestId("idea-map-size-controls-hud");
     expect(mapSizeHud).toContainElement(
@@ -3779,7 +3779,9 @@ describe("反復ワークフロー", () => {
         onSharingStart: vi.fn(),
       });
       const controls = within(screen.getByTestId("board-control-hud"));
-      const addMore = controls.getByRole("button", { name: /^付箋を書き/ });
+      const addMore = controls.getByRole("button", {
+        name: `${phase}-1に戻って書き足す`,
+      });
       expect(addMore).toBeEnabled();
       fireEvent.click(addMore);
       expect(props.onRestartWriting).not.toHaveBeenCalled();
@@ -3793,7 +3795,7 @@ describe("反復ワークフロー", () => {
       fireEvent.click(addMore);
       fireEvent.click(
         within(screen.getByRole("alertdialog")).getByRole("button", {
-          name: "付箋を書き足す",
+          name: `${phase}-1に戻って書き足す`,
         }),
       );
       expect(props.onRestartWriting).toHaveBeenCalledOnce();
@@ -3815,7 +3817,9 @@ describe("反復ワークフロー", () => {
       sharing: buildSharingState({ status: "active", startsAt: null }),
       onRestartWriting: vi.fn(),
     });
-    expect(screen.queryByRole("button", { name: "付箋を書き足す" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /^\d-1に戻って書き足す$/ }),
+    ).toBeNull();
     rerender(
       <TestBoardView
         {...props}
@@ -3827,7 +3831,7 @@ describe("反復ワークフロー", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: "付箋を書き足す" }),
+      screen.getByRole("button", { name: /^\d-1に戻って書き足す$/ }),
     ).toBeEnabled();
   });
 
@@ -3837,12 +3841,14 @@ describe("反復ワークフロー", () => {
       sharing: buildSharingState({ status: "complete" }),
       onRestartWriting: vi.fn(),
     });
-    fireEvent.click(screen.getByRole("button", { name: /^付箋を書き/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /^\d-1に戻って書き足す$/ }),
+    );
     expect(screen.getByRole("alertdialog")).toBeVisible();
     rerender(<TestBoardView {...props} connectionStatus="reconnecting" />);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(
-      screen.getByRole("button", { name: "付箋を書き足す" }),
+      screen.getByRole("button", { name: /^\d-1に戻って書き足す$/ }),
     ).toBeDisabled();
     expect(props.onRestartWriting).not.toHaveBeenCalled();
   });
@@ -3853,10 +3859,12 @@ describe("反復ワークフロー", () => {
       sharing: buildSharingState({ status: "complete" }),
       onRestartWriting: vi.fn(),
     });
-    fireEvent.click(screen.getByRole("button", { name: /^付箋を書き/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /^\d-1に戻って書き足す$/ }),
+    );
     fireEvent.click(
       within(screen.getByRole("alertdialog")).getByRole("button", {
-        name: "付箋を書き足す",
+        name: /^\d-1に戻って書き足す$/,
       }),
     );
     rerender(<TestBoardView {...props} isNextPhasePending />);
@@ -3866,7 +3874,9 @@ describe("反復ワークフロー", () => {
     ).toBeDisabled();
     expect(props.onRestartWriting).toHaveBeenCalledOnce();
     rerender(<TestBoardView {...props} isNextPhasePending={false} />);
-    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /^\d-1に戻って書き足す$/ }),
+    );
     expect(screen.getByRole("alertdialog")).toBeVisible();
     expect(props.onRestartWriting).toHaveBeenCalledOnce();
   });
@@ -5147,10 +5157,12 @@ it.each([1, 3] as const)(
       onRestartWriting: vi.fn(),
     });
     expect(
-      screen.getAllByRole("button", { name: "付箋を書き足す" }),
+      screen.getAllByRole("button", { name: /^\d-1に戻って書き足す$/ }),
     ).toHaveLength(1);
     const controls = within(screen.getByTestId("board-control-hud"));
-    fireEvent.click(controls.getByRole("button", { name: "付箋を書き足す" }));
+    fireEvent.click(
+      controls.getByRole("button", { name: /^\d-1に戻って書き足す$/ }),
+    );
     const dialog = screen.getByRole("alertdialog", {
       name: `全員で${phaseNumber}-1に戻って、付箋を書き足しますか？`,
     });
@@ -5159,7 +5171,7 @@ it.each([1, 3] as const)(
     );
     fireEvent.click(
       within(dialog).getByRole("button", {
-        name: "付箋を書き足す",
+        name: /^\d-1に戻って書き足す$/,
       }),
     );
     expect(props.onRestartWriting).toHaveBeenCalledOnce();

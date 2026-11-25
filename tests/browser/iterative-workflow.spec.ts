@@ -151,7 +151,7 @@ for (const { phase, count } of phases) {
       // 書き足しは共有ステップと同じ上部の操作欄の1か所から出す。
       const addMore = page
         .getByTestId("board-control-hud")
-        .getByRole("button", { name: "付箋を書き足す" });
+        .getByRole("button", { name: /^\d-1に戻って書き足す$/ });
       expect(await addMore.count()).toBe(canRestartWriting ? 1 : 0);
       if (canRestartWriting) await expectReachable(addMore);
       if (isResult) {
@@ -232,8 +232,7 @@ test("共有一巡後の書き足し操作は上部の操作欄から選べる",
   await openStory("room-roomboardview--floating-timer-sharing-complete");
   const controls = page.getByTestId("board-control-hud");
   const trigger = controls.getByRole("button", {
-    name: "付箋を書き足す",
-    exact: true,
+    name: /^\d-1に戻って書き足す$/,
   });
   await expectReachable(trigger);
   await trigger.press("Enter");
