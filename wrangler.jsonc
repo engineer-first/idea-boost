@@ -9,6 +9,9 @@
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  // エラー・例外・console 出力を Workers Logs に残し、本番の不具合を後から追う（#635）。
+  // 全件収集。保存は7日で、閲覧できるのは Cloudflare アカウントのメンバーだけ。
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
   "vars": {
     "NEXT_PUBLIC_SITE_URL": "https://ideaboost.dev"
   },
