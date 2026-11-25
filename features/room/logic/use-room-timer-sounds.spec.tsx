@@ -830,6 +830,52 @@ describe("useRoomTimerSounds", () => {
       expect(startedTones).toHaveLength(3);
     });
 
+    it("解放後の再生失敗で警告しても、設定はオフに書き換えず次の入室でオンに戻る", async () => {
+      const first = setup({ status: "idle" });
+      await userGesture();
+      audioContexts[0].state = "suspended";
+      rejectResume = true;
+      await rerenderTimer(first.rerender, activeSound(nowMs + 10_000), 1);
+
+      expect(first.result.current.playbackBlocked).toBe(true);
+      expect(first.result.current.enabled).toBe(false);
+      expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBeNull();
+      first.unmount();
+
+      const second = setup({ status: "idle" });
+      expect(second.result.current.enabled).toBe(true);
+    });
+
+    it("入室前の画面操作でブラウザが再生を許可済みなら、ルーム内の操作を待たずに鳴らす", async () => {
+      vi.stubGlobal("navigator", {
+        ...navigator,
+        userActivation: { hasBeenActive: true, isActive: false },
+      });
+      const { result, rerender } = setup({ status: "idle" });
+
+      await rerenderTimer(rerender, activeSound(nowMs + 10_000), 1);
+
+      expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+        523.25, 659.25, 783.99,
+      ]);
+      expect(result.current.playbackBlocked).toBe(false);
+    });
+
+    it("許可済みに見えても再生できなければ警告を出さず、操作を待つ", async () => {
+      vi.stubGlobal("navigator", {
+        ...navigator,
+        userActivation: { hasBeenActive: true, isActive: false },
+      });
+      rejectResume = true;
+      const { result, rerender } = setup({ status: "idle" });
+
+      await rerenderTimer(rerender, activeSound(nowMs + 10_000), 1);
+
+      expect(startedTones).toHaveLength(0);
+      expect(result.current.enabled).toBe(true);
+      expect(result.current.playbackBlocked).toBe(false);
+    });
+
     it("消音した設定は次の入室でも保たれる", async () => {
       const first = setup({ status: "idle" });
       act(() => first.result.current.onMute());

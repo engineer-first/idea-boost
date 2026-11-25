@@ -142,6 +142,11 @@ function createTimerSound(
   }
 }
 
+// 入室前の画面で操作済みなら、ブラウザは AudioContext の開始を許可している。
+function hasBrowserUserActivation(): boolean {
+  return navigator.userActivation?.hasBeenActive === true;
+}
+
 function systemNow(): number {
   return Date.now();
 }
@@ -228,8 +233,13 @@ export function useRoomTimerSounds({
   const playSound = useCallback(
     (pattern: TimerSoundPattern, canPlay: () => boolean = () => true) => {
       if (!enabledRef.current) return;
+      const wasUnlocked = audioUnlockedRef.current;
       // 利用者の操作より前に AudioContext を作ると自動再生制限で止められる。
-      if (!audioUnlockedRef.current && audioContextRef.current === null) {
+      if (
+        !wasUnlocked &&
+        audioContextRef.current === null &&
+        !hasBrowserUserActivation()
+      ) {
         return;
       }
       const generation = playbackGenerationRef.current;
@@ -246,7 +256,7 @@ export function useRoomTimerSounds({
           );
         })
         .catch(() => {
-          if (isCurrent() && audioUnlockedRef.current) blockPlayback();
+          if (isCurrent() && wasUnlocked) blockPlayback();
         });
     },
     [blockPlayback, getReadyAudioContext],
