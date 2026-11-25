@@ -1,6 +1,7 @@
 import {
   ArrowDown,
   ArrowRight,
+  Check,
   Clock3,
   MessageCircle,
   MousePointer2,
@@ -132,8 +133,9 @@ export function StepGuideIllustration({
           <div className="flex items-center justify-center gap-2">
             <MessageCircle aria-hidden />
             <span>{copy.afterExplanation}</span>
-            <span className="rounded-full border bg-background px-3 py-2 text-sm font-semibold">
-              {copy.nextSpeaker}
+            <span className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-semibold">
+              <Check aria-hidden className="size-3.5" strokeWidth={2.5} />
+              {copy.handOffButton}
             </span>
           </div>
         </div>

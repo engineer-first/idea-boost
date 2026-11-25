@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { StrictMode } from "react";
 import { describe, expect, it } from "vitest";
 import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
@@ -92,7 +98,21 @@ describe("StepOneOnboardingSlide", () => {
     expect(dialog).toHaveTextContent("需要ありそう");
     expect(dialog).toHaveTextContent("自分以外の人にも価値がありそう");
   });
-  it.each(["1-2", "1-3", "1-4", "1-5", "3-3"])(
+  it("1-2の操作スライドは古いボタンが映る動画でなく、「できた！」で交代する図を表示する", async () => {
+    render(
+      <StepOneOnboardingSlide phaseKey="1-2" userId="share-diagram" isReady />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+    await screen.findByRole("button", { name: "はじめる" });
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector("video")).toBeNull();
+    expect(
+      within(dialog).getByRole("region", {
+        name: "前の人の発表を待ち、自分の番に付箋を共有して発表し、「できた！」で次の人へ交代する流れ",
+      }),
+    ).toHaveTextContent("できた！");
+  });
+  it.each(["1-3", "1-4", "1-5", "3-3"])(
     "%sの操作スライドは実操作動画を音なしで繰り返し再生する",
     async (phaseKey) => {
       render(
@@ -126,7 +146,7 @@ describe("StepOneOnboardingSlide", () => {
     try {
       render(
         <StepOneOnboardingSlide
-          phaseKey="1-2"
+          phaseKey="1-3"
           userId="reduced-motion-video"
           isReady
         />,
@@ -134,7 +154,7 @@ describe("StepOneOnboardingSlide", () => {
       const next = screen.getByRole("button", { name: "次へ" });
       fireEvent.click(next);
       const video = await screen.findByLabelText(
-        "前の人の発表を待ち、自分の番に付箋を共有して発表し、次の人へ交代する流れ",
+        "離れた付箋を近づけ、似た困りごとをまとめる流れ",
       );
       expect(video).toBeVisible();
       expect(video).not.toHaveAttribute("autoplay");

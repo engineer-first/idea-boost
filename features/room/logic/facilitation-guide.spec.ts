@@ -141,3 +141,12 @@ it.each([1, 2, 3] as const)(
     expect(guide?.steps?.join(" ")).not.toContain("話し合って決める");
   },
 );
+
+it.each([buildPhaseStep(2, 1), buildPhaseStep(2, 2), buildPhaseStep(2, 3)])(
+  "%o の発表の流れは画面のボタン名「できた！」で交代を示す",
+  (phase) => {
+    const items = getFacilitationGuide(phase)?.visualExample?.items ?? [];
+    expect(items).not.toContain("次の人へ");
+    expect(items.join(" ")).toContain("できた！");
+  },
+);
