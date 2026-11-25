@@ -66,6 +66,7 @@ import type { RemotePresenterView } from "../logic/use-presenter-view";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
+import { useTimerAlert } from "../logic/use-timer-alert";
 import { BoardCharacter } from "../molecules/board-character";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -75,6 +76,7 @@ import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
 import { RoomNameDialog } from "../molecules/room-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
+import { TimerAlert } from "../molecules/timer-alert";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import canvasStyles from "../organisms/room-board-canvas.module.css";
@@ -908,6 +910,11 @@ export function RoomBoardView({
     // 2-1の通常の発想支援は問いヒントに任せ、残り時間の通知は維持する。
     tipsEnabled: !isPhaseStep(phase, 2, 1),
     sharingRole: getSharingTimeUpRole(sharing, currentUserId),
+  });
+  const timerAlert = useTimerAlert({
+    timer,
+    serverOffsetMs: timerServerOffsetMs,
+    active: !isDisconnected && phase.kind === "step" && !outcomePublished,
   });
   const voteRemaining = {
     subjective: Math.max(
@@ -2157,6 +2164,7 @@ export function RoomBoardView({
             </div>
           </div>
         ) : null}
+        <TimerAlert kind={timerAlert} />
         {isAdoptMode && interactionTool === "hand" ? (
           <p
             role="status"

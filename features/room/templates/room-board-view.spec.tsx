@@ -62,6 +62,29 @@ function submitPrivateNote(content: string) {
 
 const ME = "11111111-1111-4111-8111-111111111111";
 
+describe("タイマーの画面中央の通知", () => {
+  it("作業中に残り1分と時間切れを画面中央へ一時表示する", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    setup({
+      phase: buildPhaseStep(1, 1),
+      timer: { status: "running", endsAt: 90_000, durationMs: 90_000 },
+    });
+    expect(screen.queryByTestId("timer-alert")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(screen.getByTestId("timer-alert")).toHaveTextContent("あと1分！");
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(screen.queryByTestId("timer-alert")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(55_000));
+    expect(screen.getByTestId("timer-alert")).toHaveTextContent(
+      "時間になりました！",
+    );
+  });
+});
+
 describe("2-1のキャラクターによる問いのヒント", () => {
   it("先生の通常案内を重ねず、問いの呼びかけと残り時間通知を表示する", () => {
     vi.useFakeTimers();
