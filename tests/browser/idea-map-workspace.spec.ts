@@ -236,6 +236,41 @@ test("3-5の固定マップで投票結果を表示し、採用する付箋を�
   }
 });
 
+test.each([
+  "room-roomboardview--idea-map-voting",
+  "room-roomboardview--idea-map-result",
+])(
+  "PC幅の%sで、マップ右端に広がった面の操作を基準幅の帯が奪わない",
+  async (storyId) => {
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 800 },
+    });
+    try {
+      await openStory(page, storyId);
+      const plane = await readBounds(page, "idea-value-feasibility-map-plane");
+      const rail = await readBounds(page, "idea-map-workspace-rail");
+      expect(plane.x + plane.width).toBeGreaterThan(rail.x + rail.width / 2);
+      const hit = await page.evaluate(
+        ({ x, y }) => {
+          const target = document.elementFromPoint(x, y);
+          return {
+            onRail: !!target?.closest(
+              '[data-testid="idea-map-workspace-rail"]',
+            ),
+            inPlane: !!target?.closest(
+              '[data-testid="idea-value-feasibility-map-plane"]',
+            ),
+          };
+        },
+        { x: rail.x + rail.width / 2, y: plane.y + plane.height / 2 },
+      );
+      expect(hit).toEqual({ onRail: false, inPlane: true });
+    } finally {
+      await page.close();
+    }
+  },
+);
+
 test.each(
   byViewport(
     { phase: "3-2", width: 1280, height: 720, open: openWorkspace },

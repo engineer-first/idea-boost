@@ -1375,8 +1375,9 @@ export function RoomBoardCanvas({
           </div>
         </div>
         {usesIdeaMapViewport ? (
+          // マップ面が広がる工程で帯の下の右端の付箋へ操作を通すため、帯は入力を受けない。
           <div
-            className={`${styles.ideaMapRail} relative z-30 shrink-0 -translate-x-3 max-[639px]:hidden`}
+            className={`${styles.ideaMapRail} pointer-events-none relative z-30 shrink-0 -translate-x-3 max-[639px]:hidden`}
             data-testid="idea-map-workspace-rail"
             aria-hidden="true"
           />
