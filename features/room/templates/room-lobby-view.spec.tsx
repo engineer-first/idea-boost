@@ -123,6 +123,31 @@ describe("RoomLobbyView", () => {
     );
   });
 
+  it("進み方の3段階と、3フェーズ全ステップの名前・目安時間を開始前に見せる", () => {
+    renderView();
+    const guide = screen.getByRole("region", { name: "進み方と全体の流れ" });
+    const howTo = within(guide).getByRole("list", { name: "進み方" });
+    expect(within(howTo).getAllByRole("listitem")).toHaveLength(3);
+    expect(howTo).toHaveTextContent("できた！");
+    expect(howTo).toHaveTextContent("次のステップへ");
+    expect(guide).toHaveTextContent("約82分");
+    const flow = within(guide).getByRole("list", { name: "全体の流れ" });
+    const phases = within(flow).getAllByRole("listitem", {
+      name: /^フェーズ/,
+    });
+    expect(phases).toHaveLength(3);
+    const steps = phases.flatMap((phase) =>
+      within(phase).getAllByRole("listitem"),
+    );
+    expect(steps).toHaveLength(14);
+    expect(steps[0]).toHaveTextContent("1-1");
+    expect(steps[0]).toHaveTextContent("自分の課題（個人）");
+    expect(steps[0]).toHaveTextContent("5分");
+    expect(steps[13]).toHaveTextContent("3-5");
+    expect(steps[13]).toHaveTextContent("アイデアを決定");
+    expect(steps[13]).toHaveTextContent("10分");
+  });
+
   it("data-phase と data-host を container がテストから参照できる形で持つ", () => {
     renderView({ phase: buildLobbyPhase() });
     const view = screen.getByTestId("room-lobby-view");

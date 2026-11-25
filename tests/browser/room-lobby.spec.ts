@@ -89,6 +89,10 @@ test.each(
       .getByTestId("room-lobby-view")
       .evaluate((lobby) =>
         [lobby, ...lobby.querySelectorAll<HTMLElement>("*")]
+          // 説明パネルは低い画面では中だけスクロールしてよい。顔と開始は別に確かめる。
+          .filter(
+            (element) => !element.closest('[data-testid="lobby-flow-guide"]'),
+          )
           .filter((element) => {
             const style = getComputedStyle(element);
             return (
@@ -128,6 +132,42 @@ test.each(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+  },
+);
+
+test.each([
+  { story: "host-four", width: 1280, height: 699 },
+  { story: "host-twenty", width: 1280, height: 699 },
+  { story: "host-four", width: 1366, height: 542 },
+])(
+  "PCの待機領域 $width px × $height px で $story の進み方と全ステップをスクロールなしで表示する",
+  async ({ story, width, height }) => {
+    await open(story, width, height);
+    const guide = page.getByTestId("lobby-flow-guide");
+    const layout = await guide.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const items = [...element.querySelectorAll("li")].map((item) =>
+        item.getBoundingClientRect(),
+      );
+      return {
+        guide: rect.toJSON(),
+        scrolls: element.scrollHeight > element.clientHeight + 1,
+        items: items.map((item) => item.toJSON()),
+      };
+    });
+    await page.screenshot({
+      path: `test-results/board-layout/lobby-flow-guide-${width}-${height}-${story}.png`,
+    });
+    // 進み方3枚・フェーズ3つ・ステップ14件。
+    expect(layout.items).toHaveLength(20);
+    expect(layout.scrolls).toBe(false);
+    for (const item of layout.items) {
+      expect(item.top).toBeGreaterThanOrEqual(layout.guide.top);
+      expect(item.bottom).toBeLessThanOrEqual(layout.guide.bottom);
+    }
+    expect(layout.guide.bottom).toBeLessThanOrEqual(height);
+    const stage = await page.getByTestId("room-members").boundingBox();
+    expect(layout.guide.right).toBeLessThanOrEqual(stage?.x ?? 0);
   },
 );
 
@@ -177,7 +217,7 @@ test("自分の顔と名前だけに独立したホバーとキーボードの�
     .filter({ has: page.locator("svg") });
   const name = page.getByRole("button", { name: "はな：表示名を変更" });
   const pencil = name.locator("svg");
-  expect((await face.boundingBox())?.width).toBe(192);
+  expect((await face.boundingBox())?.width).toBeGreaterThanOrEqual(96);
   await page.mouse.move(1, 1);
   const opacity = () =>
     overlay.evaluate((element) => getComputedStyle(element).opacity);

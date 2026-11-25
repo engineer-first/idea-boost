@@ -15,6 +15,7 @@ import type { RoomAvatarControls } from "../logic/use-room-avatar";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
+import { LobbyFlowGuide } from "../molecules/lobby-flow-guide";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
@@ -86,6 +87,7 @@ export function RoomLobbyView({
       data-phase={
         isLobby(phase) ? "lobby" : `phase${phase.phase}-step${phase.step}`
       }
+      data-member-density={members.length <= 10 ? "few" : "many"}
     >
       <div className={styles.content}>
         <header className={styles.header}>
@@ -232,6 +234,9 @@ export function RoomLobbyView({
             {isStarting ? "開始中…" : "セッションを開始"}
           </Button>
         </section>
+
+        {/* PC では左の列に置く。操作を持たないので、読み上げ・Tab の順は開始の後でよい。 */}
+        <LobbyFlowGuide className={styles.guide} />
 
         <footer className={styles.footer}>
           <details className={styles.privacy}>
