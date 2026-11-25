@@ -7,6 +7,10 @@ import { LANDING_CONTACT_URL } from "../logic/landing-copy";
 import type { LandingEntry } from "../logic/landing-entry";
 import { LANDING_PATHS } from "../logic/landing-metadata";
 import {
+  getLandingStructuredData,
+  serializeStructuredData,
+} from "../logic/landing-structured-data";
+import {
   landingCtaClass,
   landingHeadingClass,
   landingLinkClass,
@@ -49,6 +53,14 @@ export function LandingView({
       className={`${styles.theme} min-h-0 flex-1 overflow-y-auto bg-[var(--lp-surface)] text-[var(--lp-ink)] selection:bg-[var(--lp-tint)] [color-scheme:light]`}
       data-testid="landing-scroll"
     >
+      <script
+        type="application/ld+json"
+        // 自前の固定文言だけを、< を逃がした JSON で埋め込む（Next.js の JSON-LD ガイドの形）。
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: 構造化データは実行しない JSON
+        dangerouslySetInnerHTML={{
+          __html: serializeStructuredData(getLandingStructuredData(locale)),
+        }}
+      />
       {!isLoggedIn && (
         <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-2 sm:px-10">
           <p className="flex items-center gap-2 text-lg font-bold tracking-tight text-[var(--lp-accent)]">
