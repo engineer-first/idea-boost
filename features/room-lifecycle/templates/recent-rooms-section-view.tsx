@@ -14,7 +14,16 @@ export type RecentRoomsSectionViewProps = {
 };
 
 const rowClass =
-  "flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-left text-base hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50";
+  "flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-left text-base hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:border-dashed disabled:border-line-strong disabled:bg-background disabled:text-muted-foreground";
+
+function formatCompletedDate(value: number): string {
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Tokyo",
+  }).format(value);
+}
 
 function RoomRow({ room }: { room: RecentRoom }) {
   return (
@@ -25,7 +34,7 @@ function RoomRow({ room }: { room: RecentRoom }) {
       <span className="shrink-0 text-sm text-muted-foreground">
         {room.status === "active"
           ? "進行中"
-          : `終了${room.completedAt ? `・${new Date(room.completedAt).toLocaleDateString("ja-JP")}` : ""}`}
+          : `完了${room.completedAt ? `・${formatCompletedDate(room.completedAt)}` : ""}`}
       </span>
       <ArrowRight className="size-4 shrink-0" aria-hidden />
     </>
@@ -33,6 +42,7 @@ function RoomRow({ room }: { room: RecentRoom }) {
 }
 
 // 本人が最近参加したルームの一覧。進行中を先に、完了は成果の閲覧へ進む。
+// 完了ルームの全件はホームの「過去の成果を見る」から開くので、ここに同じ行き先のリンクを重ねない。
 export function RecentRoomsSectionView({
   rooms,
   opening = false,
@@ -46,17 +56,9 @@ export function RecentRoomsSectionView({
       aria-labelledby="recent-rooms-heading"
       className="rounded-lg border border-border bg-card p-4 sm:p-5"
     >
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="recent-rooms-heading" className="text-base font-semibold">
-          最近のルーム
-        </h2>
-        <Link
-          href="/completed-rooms"
-          className="inline-flex min-h-11 items-center px-2 text-base font-medium underline underline-offset-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          すべて見る
-        </Link>
-      </div>
+      <h2 id="recent-rooms-heading" className="text-base font-semibold">
+        最近のルーム
+      </h2>
       {loadFailed ? (
         <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p role="status" className="text-base text-muted-foreground">

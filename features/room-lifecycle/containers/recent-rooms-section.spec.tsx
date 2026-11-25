@@ -39,11 +39,7 @@ it("参加したルームを状態つきで並べ、進行中はルームへ戻�
   expect(resume).toHaveTextContent("進行中");
   const outcome = screen.getByRole("link", { name: /通学路の見守りアプリ/ });
   expect(outcome).toHaveAttribute("href", `/completed-rooms/${done}`);
-  expect(outcome).toHaveTextContent("終了");
-  expect(screen.getByRole("link", { name: "すべて見る" })).toHaveAttribute(
-    "href",
-    "/completed-rooms",
-  );
+  expect(outcome).toHaveTextContent("完了・2026/11/20");
   expect(fetch).toHaveBeenCalledWith("/api/recent-rooms", {
     cache: "no-store",
   });
@@ -62,12 +58,29 @@ it("参加したルームが無ければ何も出さない", async () => {
   expect(container).toBeEmptyDOMElement();
 });
 
-it("取得に失敗したら0件と区別して再試行できる", async () => {
+it("取得に失敗したら0件と区別して再試行でき、成功したら一覧に戻る", async () => {
   respond({ error: "unavailable" }, 503);
   render(<RecentRoomsSection currentUserId={userId} />);
+  const retry = await screen.findByRole("button", { name: "もう一度読み込む" });
+  respond({ rooms: [{ roomId: active, label: "チームA", status: "active" }] });
+  fireEvent.click(retry);
   expect(
-    await screen.findByRole("button", { name: "もう一度読み込む" }),
-  ).toBeEnabled();
+    await screen.findByRole("button", { name: /チームA/ }),
+  ).toBeInTheDocument();
+});
+
+it("開いている途中は同じ行をもう一度押せない", async () => {
+  respond({ rooms: [{ roomId: active, label: "チームA", status: "active" }] });
+  let finish: (value: unknown) => void = () => {};
+  mocks.confirm.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+  render(<RecentRoomsSection currentUserId={userId} />);
+  const row = await screen.findByRole("button", { name: /チームA/ });
+  fireEvent.click(row);
+  await waitFor(() => expect(row).toBeDisabled());
+  fireEvent.click(row);
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  finish({ kind: "retry" });
+  await waitFor(() => expect(row).toBeEnabled());
 });
 
 it("戻れなくなったルームは理由を示し、移動しない", async () => {
