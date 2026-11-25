@@ -305,6 +305,24 @@ describe("useRoomConnection", () => {
     expect(navigationMocks.replace).toHaveBeenCalledWith("/home");
   });
 
+  it("自分の退出処理中に外された close が届いても、外された通知は出さない", () => {
+    notifyMocks.removedFromRoom.mockClear();
+    renderHook(() =>
+      useRoomConnection({
+        roomId: ROOM_ID,
+        onMessage: vi.fn(),
+        webSocketFactory: factory,
+        isLeavingRef: { current: true },
+      }),
+    );
+
+    act(() => lastSocket().simulateOpen());
+    act(() => lastSocket().simulateRemovedClose());
+
+    expect(notifyMocks.removedFromRoom).not.toHaveBeenCalled();
+    expect(navigationMocks.replace).toHaveBeenCalledWith("/home");
+  });
+
   it("アンマウントで WebSocket を close する", () => {
     const { unmount } = renderHook(() =>
       useRoomConnection({

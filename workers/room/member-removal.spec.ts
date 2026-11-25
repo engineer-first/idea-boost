@@ -149,6 +149,12 @@ describe("参加者によるメンバー除外", () => {
         resolve({ code: event.code, reason: event.reason }),
       ),
     );
+    const receivedByRemoved: ServerMessage["type"][] = [];
+    b.ws.addEventListener("message", (event) => {
+      receivedByRemoved.push(
+        (JSON.parse(String(event.data)) as ServerMessage).type,
+      );
+    });
     const operationId = remove(a);
     expect(await receive(a, "member_left")).toEqual({
       type: "member_left",
@@ -160,6 +166,8 @@ describe("参加者によるメンバー除外", () => {
       code: WS_CLOSE_LEFT_ROOM,
       reason: WS_CLOSE_REMOVED_FROM_ROOM_REASON,
     });
+    // 外された本人には、誰に外されたかを含む member_left を届けない。
+    expect(receivedByRemoved).not.toContain("member_left");
   });
 
   it("自分で退出した人の member_left には外した人を含めない", async () => {
