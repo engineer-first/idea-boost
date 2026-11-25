@@ -238,12 +238,27 @@ describe("NoteCard", () => {
       "text-danger-text",
       "shadow-tool",
     );
-    expect(action).not.toHaveClass("rounded-l-lg", "bg-danger-soft");
+    expect(action).not.toHaveClass("rounded-l-lg");
+    expect(action).not.toHaveClass("bg-danger-soft");
     expect(action.style.webkitMaskImage).toBe("");
     expect(
       action.querySelector("[data-candidate-action-seam]"),
     ).not.toBeInTheDocument();
     expect(screen.getAllByTestId("candidate-target-corner")).toHaveLength(4);
+  });
+
+  it("処理中も候補操作が当たり判定を保ち、文字を80pxの枠に収める", () => {
+    setup({ canExcludeNote: true, candidatePending: true } as never);
+
+    const action = screen.getByRole("button", { name: "除外する" });
+
+    expect(action).toBeDisabled();
+    expect(action).toHaveTextContent("処理中…");
+    // 共通 Button の押せない間の pointer-events-none だと、ポインターが
+    // ボードへ抜けて処理中に操作が消えるため、当たり判定は残す。
+    expect(action).toHaveClass("disabled:pointer-events-auto");
+    // アイコン・間隔・「処理中…」の4字が 80px に収まるよう左右の余白を詰める。
+    expect(action).toHaveClass("px-1");
   });
 
   it("除外を戻す操作は危険の色を使わない", () => {
