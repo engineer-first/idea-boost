@@ -440,10 +440,16 @@
   }
 }
 
-/* 狭い PC で「共有」も並ぶと1行に収まらないので、スタートを次の行の右端へ送る。 */
+/* 狭い PC で「共有」も並ぶときは、間隔とスタートの最小幅を詰めて1行に収める。
+   次の行へ送ると、低い画面で顔の領域が削られる。 */
 @media (min-width: 1024px) and (max-width: 1179px) {
+  .inviteShelf:has([data-share-state]) {
+    grid-template-columns: max-content max-content minmax(max-content, 1fr);
+    column-gap: 8px;
+  }
   .inviteShelf:has([data-share-state]) .start {
-    grid-column: 1 / -1;
+    min-width: 0;
+    padding-inline: 20px;
   }
 }
 

@@ -53,16 +53,24 @@ test.each(
     [1366, 542],
     [1440, 699],
     [1920, 979],
-  ].flatMap(([width, height]) =>
+    // 共有に対応した端末（iPad・Safari）では「共有」も並ぶ。
+    [1024, 499, "share"],
+    [1100, 531, "share"],
+  ].flatMap(([width, height, share]) =>
     ["host-solo", "host-four", "host-six", "host-twenty", "long-names"].map(
-      (story) => ({ width, height, story }),
+      (story) => ({
+        width: Number(width),
+        height: Number(height),
+        story,
+        share: share === "share",
+      }),
     ),
   ),
 )(
-  "PCの待機領域 $width px × $height px で $story の全員と開始をスクロールなしで表示する",
-  async ({ width, height, story }) => {
+  "PCの待機領域 $width px × $height px（共有: $share）で $story の全員と開始をスクロールなしで表示する",
+  async ({ width, height, story, share }) => {
     // 共通ヘッダー69pxとルートの上下余白32pxを除いた実ページの待機領域。
-    await open(story, width, height);
+    await open(story, width, height, false, share);
     const start = page.getByTestId("start-phase-button");
     const initial = await start.evaluate((element) => {
       const rect = element.getBoundingClientRect();
