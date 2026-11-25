@@ -26,7 +26,9 @@ const meta = {
   ],
   args: {
     value: "https://idea-flow.example/invite/ABC234",
-    itemLabel: "招待URL",
+    // 製品では招待URLの全文を出さず、「リンクをコピー」と見せる。
+    itemLabel: "招待リンク",
+    label: "リンクをコピー",
   },
 } satisfies Meta<typeof CopyInviteButton>;
 export default meta;
@@ -34,17 +36,17 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 export const InviteCode: Story = {
-  args: { value: "ABC234", itemLabel: "招待コード" },
+  args: { value: "ABC234", itemLabel: "招待コード", label: undefined },
 };
 export const Copying: Story = {
   beforeEach: () => mockClipboard(() => new Promise<void>(() => undefined)),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "招待URLをコピー" }),
+      canvas.getByRole("button", { name: "招待リンクをコピー" }),
     );
     await expect(
-      canvas.getByRole("button", { name: "招待URLをコピー" }),
+      canvas.getByRole("button", { name: "招待リンクをコピー" }),
     ).toBeDisabled();
   },
 };
@@ -53,10 +55,10 @@ export const Copied: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "招待URLをコピー" }),
+      canvas.getByRole("button", { name: "招待リンクをコピー" }),
     );
     await expect(canvas.getByRole("status")).toHaveTextContent(
-      "招待URLをコピーしました",
+      "招待リンクをコピーしました",
     );
   },
 };
@@ -68,10 +70,10 @@ export const Failed: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "招待URLをコピー" }),
+      canvas.getByRole("button", { name: "招待リンクをコピー" }),
     );
     await expect(canvas.getByRole("status")).toHaveTextContent(
-      "招待URLをコピーできませんでした",
+      "招待リンクをコピーできませんでした",
     );
   },
 };

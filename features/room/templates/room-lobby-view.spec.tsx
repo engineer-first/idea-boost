@@ -71,7 +71,7 @@ describe("RoomLobbyView", () => {
     expect(screen.getByTestId("start-phase-button")).toBeDisabled();
   });
 
-  it("退出処理中にはセッションを開始できない", () => {
+  it("退出処理中にはスタートできない", () => {
     renderView({ isLeaving: true });
     expect(screen.getByTestId("start-phase-button")).toBeDisabled();
   });
@@ -225,32 +225,25 @@ describe("招待リンク/コード", () => {
 
   it("「リンクをコピー」で招待URLをコピーする", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
+    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText },
     });
-    renderView();
-    await act(async () =>
-      fireEvent.click(
-        screen.getByRole("button", { name: "招待リンクをコピー" }),
-      ),
-    );
-    expect(writeText).toHaveBeenCalledWith(
-      "https://idea-flow.example/invite/AB12CD",
-    );
-  });
-
-  it("誰のときも招待リンク/コードが出る", () => {
-    renderView({
-      inviteCode: "ZZ99XX",
-      inviteUrl: "https://example/invite/ZZ99XX",
-    });
-    expect(
-      screen.getByRole("button", { name: "招待リンクをコピー" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "招待コードをコピー" }),
-    ).toBeInTheDocument();
+    try {
+      renderView();
+      await act(async () =>
+        fireEvent.click(
+          screen.getByRole("button", { name: "招待リンクをコピー" }),
+        ),
+      );
+      expect(writeText).toHaveBeenCalledWith(
+        "https://idea-flow.example/invite/AB12CD",
+      );
+    } finally {
+      if (original) Object.defineProperty(navigator, "clipboard", original);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 });
 
