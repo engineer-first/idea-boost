@@ -122,8 +122,9 @@ export type UseBoardDragArgs = {
   // フェーズごとの既存付箋の移動権限を指定する。
   canMoveSharedNotes?: boolean;
   keepPrivateDragInList?: boolean;
+  // false の間、マイ付箋は一覧の外へ出さない。一覧の外を指している間は
+  // publishBlocked を返し、呼び出し側が付箋の近くで理由を示す。
   canPublish?: boolean;
-  onPublishBlocked?: () => void;
   onNoteDragStart: (
     noteId: string,
     selectedNoteIds?: readonly string[],
@@ -206,7 +207,6 @@ export function useBoardDrag({
   canMoveSharedNotes = true,
   keepPrivateDragInList = false,
   canPublish = true,
-  onPublishBlocked,
   onNoteDragStart,
   onNoteDragMove,
   onNoteDragEnd,
@@ -218,7 +218,8 @@ export function useBoardDrag({
   // pointermove は React の再レンダーより速く連続発火するため、最新状態は
   // ref で参照する（state はレンダー反映用）。
   const dragRef = useRef<BoardDrag | null>(null);
-  const hasNotifiedBlockedRef = useRef(false);
+  const [publishBlocked, setPublishBlockedState] = useState(false);
+  const publishBlockedRef = useRef(false);
   const privateListScrollFrameRef = useRef<number | null>(null);
   const privateListScrollPointerRef = useRef<{
     pointerId: number;
@@ -234,6 +235,13 @@ export function useBoardDrag({
   const updateDrag = useCallback((next: BoardDrag | null) => {
     dragRef.current = next;
     setDrag(next);
+  }, []);
+
+  // pointermove ごとに再レンダーしないよう、値が変わるときだけ state を更新する。
+  const setPublishBlocked = useCallback((next: boolean) => {
+    if (publishBlockedRef.current === next) return;
+    publishBlockedRef.current = next;
+    setPublishBlockedState(next);
   }, []);
 
   const stopPrivateListAutoScroll = useCallback(() => {
@@ -513,7 +521,7 @@ export function useBoardDrag({
       if (dragRef.current || !canMoveSharedNotes) return;
       const note = notes.find((n) => n.id === noteId);
       if (!note) return;
-      hasNotifiedBlockedRef.current = false;
+      setPublishBlocked(false);
       if (event.type !== "pointerup") {
         capturePointerSafely(boardScrollerRef.current, event.pointerId);
       }
@@ -562,6 +570,7 @@ export function useBoardDrag({
       canMoveSharedNotes,
       onNoteDragStart,
       updateDrag,
+      setPublishBlocked,
     ],
   );
 
@@ -576,7 +585,7 @@ export function useBoardDrag({
       // RoomDO の応答前でも、楽観表示中の付箋をそのまま掴み直せるようにする。
       const note = renderedPrivateNotes.find((n) => n.id === noteId);
       if (!note || note.excluded) return;
-      hasNotifiedBlockedRef.current = false;
+      setPublishBlocked(false);
       if (event.type !== "pointerup") {
         capturePointerSafely(boardScrollerRef.current, event.pointerId);
       }
@@ -622,6 +631,7 @@ export function useBoardDrag({
       privateToolbarRef,
       updateDrag,
       canPublish,
+      setPublishBlocked,
     ],
   );
 
@@ -655,6 +665,7 @@ export function useBoardDrag({
       }
 
       if (isPointerInPrivateDropArea(event.clientX, event.clientY)) {
+        setPublishBlocked(false);
         updateDrag({
           ...currentAtPointer,
           privateDropIndex: privateDropIndexFromPointer(
@@ -673,6 +684,11 @@ export function useBoardDrag({
 
       stopPrivateListAutoScroll();
       if (keepPrivateDragInList) return;
+      if (!canPublish) {
+        // 共有できない付箋はボードへ運ばせず、一覧の端で止めて理由を示す。
+        setPublishBlocked(true);
+        return;
+      }
       const mappedPosition = notePositionFromClient?.(
         event.clientX,
         event.clientY,
@@ -693,10 +709,6 @@ export function useBoardDrag({
           preservePrivateGrabOffset,
           clampCoordinate,
         });
-      if (!canPublish && !hasNotifiedBlockedRef.current) {
-        onPublishBlocked?.();
-        hasNotifiedBlockedRef.current = true;
-      }
       updateDrag({
         ...currentAtPointer,
         ...nextPosition,
@@ -715,7 +727,7 @@ export function useBoardDrag({
       stopPrivateListAutoScroll,
       trackPrivateListAutoScroll,
       onNoteDragMove,
-      onPublishBlocked,
+      setPublishBlocked,
       notePositionFromClient,
       preservePrivateGrabOffset,
       updateDrag,
@@ -729,7 +741,7 @@ export function useBoardDrag({
 
       if (current.status === "shared") {
         stopPrivateListAutoScroll();
-        hasNotifiedBlockedRef.current = false;
+        setPublishBlocked(false);
         if (!canMoveSharedNotes) {
           onNoteDragCancel(current.note.id);
         } else {
@@ -760,7 +772,7 @@ export function useBoardDrag({
       current = dragRef.current;
       if (!current) return;
       stopPrivateListAutoScroll();
-      hasNotifiedBlockedRef.current = false;
+      setPublishBlocked(false);
       if (!isPointerInPrivateDropArea(event.clientX, event.clientY)) {
         const point = boardPublishPositionFromPointer(
           event.clientX,
@@ -814,6 +826,7 @@ export function useBoardDrag({
       sharedNotePositionFromClient,
       stopPrivateListAutoScroll,
       updateDrag,
+      setPublishBlocked,
     ],
   );
 
@@ -822,12 +835,18 @@ export function useBoardDrag({
       const current = dragRef.current;
       if (!current || current.pointerId !== event.pointerId) return;
       stopPrivateListAutoScroll();
-      hasNotifiedBlockedRef.current = false;
+      setPublishBlocked(false);
       if (current.status !== "private") onNoteDragCancel(current.note.id);
       updateDrag(null);
       releasePointerSafely(boardScrollerRef.current, event.pointerId);
     },
-    [boardScrollerRef, onNoteDragCancel, stopPrivateListAutoScroll, updateDrag],
+    [
+      boardScrollerRef,
+      onNoteDragCancel,
+      stopPrivateListAutoScroll,
+      updateDrag,
+      setPublishBlocked,
+    ],
   );
 
   const cancelCurrentNoteDrag = useCallback(
@@ -835,12 +854,18 @@ export function useBoardDrag({
       const current = dragRef.current;
       stopPrivateListAutoScroll();
       if (!current || (!includePrivate && current.status === "private")) return;
-      hasNotifiedBlockedRef.current = false;
+      setPublishBlocked(false);
       if (current.status !== "private") onNoteDragCancel(current.note.id);
       updateDrag(null);
       releasePointerSafely(boardScrollerRef.current, current.pointerId);
     },
-    [boardScrollerRef, onNoteDragCancel, stopPrivateListAutoScroll, updateDrag],
+    [
+      boardScrollerRef,
+      onNoteDragCancel,
+      stopPrivateListAutoScroll,
+      updateDrag,
+      setPublishBlocked,
+    ],
   );
 
   const hasPrivatePreview = drag?.status === "private";
@@ -882,6 +907,7 @@ export function useBoardDrag({
 
   return {
     drag,
+    publishBlocked,
     renderedNotes,
     renderedPrivateNotes,
     handleSharedNoteDragStart,

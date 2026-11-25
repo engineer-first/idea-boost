@@ -1078,9 +1078,8 @@ describe("useBoardDrag", () => {
     });
   });
 
-  it("canPublish が false の場合、マイ付箋をボードへ運ぶと onPublishBlocked を1回だけ呼び通信を遮断する", () => {
-    const onPublishBlocked = vi.fn();
-    const { args, result } = setup({ canPublish: false, onPublishBlocked });
+  it("canPublish が false の場合、マイ付箋はボードへ出ずに一覧で止まり、ボード側にいる間だけ publishBlocked を立てる", () => {
+    const { args, result } = setup({ canPublish: false });
 
     act(() => {
       result.current.handlePrivateDragStart(
@@ -1088,21 +1087,38 @@ describe("useBoardDrag", () => {
         pointerEvent(1, 400, 560),
       );
     });
+    expect(result.current.publishBlocked).toBe(false);
 
     act(() => {
       result.current.handlePointerMove(pointerEvent(1, 300, 200));
     });
 
-    expect(onPublishBlocked).toHaveBeenCalledTimes(1);
-    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+    // プレビューはボードへ追従せず、掴んだ位置に留まる。
+    expect(result.current.drag).toMatchObject({
+      status: "private",
+      clientX: 400,
+      clientY: 560,
+    });
+    expect(result.current.publishBlocked).toBe(true);
+    expect(args.onNoteDragMove).not.toHaveBeenCalled();
 
-    // 2回目 pointerMove
+    // 一覧へ戻せば案内は消える。
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(1, 400, 560));
+    });
+    expect(result.current.publishBlocked).toBe(false);
+
     act(() => {
       result.current.handlePointerMove(pointerEvent(1, 310, 210));
     });
+    expect(result.current.publishBlocked).toBe(true);
 
-    expect(onPublishBlocked).toHaveBeenCalledTimes(1);
-    expect(args.onNoteDragMove).not.toHaveBeenCalled();
+    act(() => {
+      result.current.handlePointerEnd(pointerEvent(1, 310, 210));
+    });
+    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+    expect(result.current.drag).toBeNull();
+    expect(result.current.publishBlocked).toBe(false);
   });
 
   it("ドラッグ開始時に付箋内の掴んだ位置（オフセット）を保持し、相対位置を考慮して移動座標を計算する", () => {

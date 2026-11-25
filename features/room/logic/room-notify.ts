@@ -41,9 +41,6 @@ export const roomNotify = {
   roomLeft(): void {
     toast("ルームから退出しました");
   },
-  cannotPublishNote() {
-    toast.error("まだ共有できません");
-  },
   noteExcluded(onUndo: () => void): string | number {
     return toast("付箋を候補から外しました", {
       action: { label: "元に戻す", onClick: onUndo },

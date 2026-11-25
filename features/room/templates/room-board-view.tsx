@@ -1443,6 +1443,7 @@ export function RoomBoardView({
     dragGhost,
     dragPreview,
     privateDropPlaceholder,
+    privateNotePublishBlocked,
     isNoteDragging,
     camera,
     gridStyle,
@@ -2184,6 +2185,7 @@ export function RoomBoardView({
             !boardInteractionBlocked &&
             canPublishNoteInTurn(phase, sharing, currentUserId)
           }
+          privateNotePublishBlocked={privateNotePublishBlocked}
           expandPrivateNotesRequest={expandPrivateNotesRequest}
           privateNoteAddRef={privateNoteAddRef}
           noteCreationPending={noteCreationPending}

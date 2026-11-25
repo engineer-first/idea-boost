@@ -83,6 +83,9 @@ import { SharedNotePreview } from "../molecules/shared-note-preview";
 import styles from "./room-board-canvas.module.css";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
+// 自分の番でない人がマイ付箋を一覧の外へ運ぼうとしたとき、一覧の近くに出す案内。
+// 幅の狭いパネルでも1行に収め、一覧の位置を動かさない。
+const PUBLISH_BLOCKED_HINT = "自分の番になったら出せます";
 const ADOPTION_TARGET_CLASS_NAME =
   "absolute inset-0 z-20 cursor-pointer rounded-[inherit] border-4 border-transparent bg-transparent outline-none";
 
@@ -101,6 +104,8 @@ export type RoomBoardCanvasProps = {
   onDecisionClear?: () => void;
   privateNotes: Note[];
   canPublishPrivateNote?: boolean;
+  /** 自分の番でない人がマイ付箋を一覧の外へ運ぼうとしている間 true。 */
+  privateNotePublishBlocked?: boolean;
   isSavingBeforeShare?: boolean;
   selectedNoteId: string | null;
   selectedNoteIds?: string[];
@@ -225,6 +230,7 @@ export function RoomBoardCanvas({
   privateNotes,
   exampleNotes = [],
   canPublishPrivateNote = false,
+  privateNotePublishBlocked = false,
   isSavingBeforeShare = false,
   selectedNoteId,
   selectedNoteIds,
@@ -1480,12 +1486,19 @@ export function RoomBoardCanvas({
                     : isPhaseStep(phase, 3, 2)
                       ? canPublishPrivateNote
                         ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
-                        : "自分の番で発表できます"
+                        : privateNotePublishBlocked
+                          ? PUBLISH_BLOCKED_HINT
+                          : "自分の番で発表できます"
                       : phase.kind === "step" && phase.step === 2
                         ? canPublishPrivateNote
                           ? "あなたの番です。付箋をボードへドラッグして共有できます。"
-                          : "自分の番で発表できます"
+                          : privateNotePublishBlocked
+                            ? PUBLISH_BLOCKED_HINT
+                            : "自分の番で発表できます"
                         : undefined
+                }
+                sharingHintEmphasized={
+                  !canPublishPrivateNote && privateNotePublishBlocked
                 }
                 presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
                 workspaceCollapsible={isAdditionalWritingStep}
