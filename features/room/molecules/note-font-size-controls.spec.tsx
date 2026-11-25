@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { NoteFontSizeControls } from "./note-font-size-controls";
 
@@ -57,5 +57,48 @@ describe("NoteFontSizeControls", () => {
         .getAllByRole("button")
         .every((button) => button.hasAttribute("disabled")),
     ).toBe(true);
+  });
+
+  it("ボタンにホバー・フォーカスすると何が変わるかを示す", () => {
+    render(
+      <NoteFontSizeControls
+        fontSize={14}
+        disabled={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    act(() =>
+      screen.getByRole("button", { name: "付箋の文字を大きく" }).focus(),
+    );
+    expect(screen.getByRole("tooltip")).toHaveTextContent(
+      "選択した付箋の文字を大きく",
+    );
+  });
+
+  it("押せないボタンもホバーで説明を出す", () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <NoteFontSizeControls
+          fontSize={24}
+          disabled={false}
+          onChange={vi.fn()}
+        />,
+      );
+      const increase = screen.getByRole("button", {
+        name: "付箋の文字を大きく",
+      });
+      expect(increase).toBeDisabled();
+      const trigger = increase.parentElement;
+      if (!trigger) throw new Error("押せないボタンを包むtriggerが必要");
+      fireEvent.pointerMove(trigger, { pointerType: "mouse" });
+      act(() => vi.advanceTimersByTime(2000));
+      expect(screen.getByRole("tooltip")).toHaveTextContent(
+        "選択した付箋の文字を大きく",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

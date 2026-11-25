@@ -20,7 +20,6 @@ import { createPortal } from "react-dom";
 import {
   DRAG_THRESHOLD_PX,
   getNoteHeight,
-  NOTE_DEFAULT_FONT_SIZE,
   NOTE_WIDTH,
 } from "@/contracts/board";
 import type { PersistentGroup } from "@/contracts/grouping";
@@ -1070,13 +1069,15 @@ export function RoomBoardCanvas({
             data-testid={
               usesIdeaMapViewport ? "idea-map-axis-low-anchor" : undefined
             }
+            // 対象の付箋を選ぶまでは押せない操作を見せない。場所は保ち、
+            // 選んだときに横軸の端やズーム操作が動かないようにする。
+            style={
+              selectedNote === undefined ? { visibility: "hidden" } : undefined
+            }
           >
             {permissions.canEditNote ? (
               <NoteFontSizeControls
-                fontSize={
-                  selectedNote?.fontSize ??
-                  (isIdeaMapWorkspaceStep ? NOTE_DEFAULT_FONT_SIZE : null)
-                }
+                fontSize={selectedNote?.fontSize ?? null}
                 disabled={
                   isDisconnected ||
                   selectedNote === undefined ||

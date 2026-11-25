@@ -789,8 +789,11 @@ test.each(
         .getByText("しにくい", { exact: true })
         .boundingBox();
       const fontSizeControl = page.getByTestId("note-font-size-controls");
+      // 付箋を選ぶまでは非表示だが、場所は保つので配置を測る。
       const fontSizeControls = (await fontSizeControl.count())
-        ? await fontSizeControl.boundingBox()
+        ? await fontSizeControl.evaluate((element) =>
+            element.getBoundingClientRect().toJSON(),
+          )
         : null;
       const zoomControls = await page
         .getByTestId("canvas-zoom-hud")
@@ -936,8 +939,11 @@ test.each(
           low.y + low.height / 2 - (arrow.y + arrow.height / 2),
         );
         const controlsLocator = page.getByTestId("note-font-size-controls");
+        // 付箋を選ぶまでは非表示だが、場所は保つので配置を測る。
         const controls = (await controlsLocator.count())
-          ? await controlsLocator.boundingBox()
+          ? await controlsLocator.evaluate((element) =>
+              element.getBoundingClientRect().toJSON(),
+            )
           : null;
         const zoomControls = await page
           .getByTestId("canvas-zoom-hud")
@@ -1131,7 +1137,12 @@ test.each([{ width: 1440, height: 900 }])(
               const element = document.querySelector(
                 `[data-testid="${testId}"]`,
               );
-              if (!element?.checkVisibility({ checkVisibilityCSS: true }))
+              // 文字サイズUIは付箋を選ぶまで visibility:hidden で場所だけ保つ。
+              if (
+                !element?.checkVisibility({
+                  checkVisibilityCSS: testId !== "note-font-size-controls",
+                })
+              )
                 throw new Error(`${testId} が表示されていません`);
               const { x, y, width, height } = element.getBoundingClientRect();
               layout[testId] = { x, y, width, height };

@@ -380,15 +380,22 @@ describe("RoomBoardCanvas", () => {
     expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-1", 15);
   });
 
-  it("未選択・切断中・候補外では文字サイズ操作を無効にする", () => {
+  it("付箋を選ぶまで文字サイズ操作を見せず、切断中は無効にする", () => {
     const phase = buildPhaseStep(2);
     const { props, rerender } = setup({
       phase,
       permissions: getBoardPermissions(phase),
     });
+    expect(screen.getByTestId("note-font-size-controls")).not.toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "付箋の文字を大きく" }),
+    ).not.toBeInTheDocument();
+
+    rerender(<RoomBoardCanvas {...props} selectedNoteId="note-1" />);
+    expect(screen.getByTestId("note-font-size-controls")).toBeVisible();
     expect(
       screen.getByRole("button", { name: "付箋の文字を大きく" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
 
     rerender(
       <RoomBoardCanvas {...props} selectedNoteId="note-1" isDisconnected />,
@@ -419,7 +426,7 @@ describe("RoomBoardCanvas", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("3-2の左下に共通操作を表示し、初期文字サイズとズームを操作できる", () => {
+  it("3-2の左下に共通操作を表示し、ズームを操作できる", () => {
     const phase = buildPhaseStep(2, 3);
     const moveHistory = {
       undo: { label: "付箋の移動", reason: null, disabled: false },
@@ -440,7 +447,8 @@ describe("RoomBoardCanvas", () => {
       screen.getByTestId("note-font-size-controls"),
     );
     expect(tools).toContainElement(screen.getByTestId("canvas-zoom-controls"));
-    expect(screen.getByText("16px")).toBeInTheDocument();
+    // 選ぶ前は見せないが、横軸の端が避ける場所は保つ。
+    expect(screen.getByTestId("note-font-size-controls")).not.toBeVisible();
     expect(
       screen.getByRole("button", { name: "移動を元に戻す" }),
     ).toBeInTheDocument();
