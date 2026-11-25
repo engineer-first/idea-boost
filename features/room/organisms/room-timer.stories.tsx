@@ -63,7 +63,7 @@ export const ThirtySecondsLeft: Story = {
     docs: {
       description: {
         story:
-          "残り30秒。外枠を危険の色にし、入ったときにベルのように3回揺れる。",
+          "残り30秒。外枠を危険の色で少し太くし、入ったときにベルのように3回揺れる。",
       },
     },
   },

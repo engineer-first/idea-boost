@@ -121,7 +121,6 @@ export function RoomTimer({
         <span
           data-testid="room-timer-duration"
           className={styles.duration}
-          title={`このステップの時間は${display.durationLabel}`}
           aria-hidden="true"
         >
           {display.durationLabel}
