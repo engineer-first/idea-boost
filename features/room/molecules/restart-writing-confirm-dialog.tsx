@@ -21,6 +21,8 @@ export type RestartWritingConfirmDialogProps = {
   phaseNumber: RoomStepPhase["phase"];
   disabled: boolean;
   pending?: boolean;
+  /** 狭い画面（900px 以下）で文字を隠し、アイコンだけのボタンにする。ほかの操作と1段に並べるときに使う。 */
+  compactOnNarrow?: boolean;
   onConfirm: () => void;
 };
 
@@ -28,6 +30,7 @@ export function RestartWritingConfirmDialog({
   phaseNumber,
   disabled,
   pending = false,
+  compactOnNarrow = false,
   onConfirm,
 }: RestartWritingConfirmDialogProps) {
   const [open, setOpen] = useState(false);
@@ -47,14 +50,15 @@ export function RestartWritingConfirmDialog({
         <Button
           type="button"
           variant="outline"
-          className={`h-10 shrink-0 text-sm ${styles.trigger}`}
+          className={`h-10 shrink-0 text-sm ${styles.trigger} ${compactOnNarrow ? styles.compactOnNarrow : ""}`}
+          title={compactOnNarrow ? label : undefined}
           disabled={disabled || pending}
           aria-busy={waiting || undefined}
         >
           <SquarePen aria-hidden="true" className={styles.icon} />
           <span
             key={label}
-            className="inline-block transition-[opacity,translate] duration-[140ms] starting:translate-y-0.5 starting:opacity-0 motion-reduce:transition-none"
+            className={`${styles.label} inline-block transition-[opacity,translate] duration-[140ms] starting:translate-y-0.5 starting:opacity-0 motion-reduce:transition-none`}
           >
             {label}
           </span>
@@ -73,8 +77,7 @@ export function RestartWritingConfirmDialog({
             <span className="inline-block">付箋を書き足しますか？</span>
           </AlertDialogTitle>
           <AlertDialogDescription>
-            全員が書く時間（{phaseNumber}
-            -1）に戻ります。共有済みの付箋と下書きは残ります。
+            共有済みの付箋と下書きは残ります。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

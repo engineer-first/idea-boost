@@ -690,6 +690,7 @@ export function RoomBoardHeader({
                 phaseNumber={phase.phase}
                 disabled={isDisconnected || isRemovingMember || isLeaving}
                 pending={isNextPhasePending}
+                compactOnNarrow={!canCompleteSharing}
                 onConfirm={onRestartWriting}
               />
             ) : null}

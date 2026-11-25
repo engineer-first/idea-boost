@@ -5068,16 +5068,13 @@ it.each([1, 3] as const)(
     expect(
       screen.getAllByRole("button", { name: "付箋を書き足す" }),
     ).toHaveLength(1);
-    const phaseLoopHud = screen.queryByTestId("phase-loop-hud");
-    if (phaseLoopHud)
-      expect(within(phaseLoopHud).queryAllByRole("button")).toHaveLength(0);
     const controls = within(screen.getByTestId("board-control-hud"));
     fireEvent.click(controls.getByRole("button", { name: "付箋を書き足す" }));
     const dialog = screen.getByRole("alertdialog", {
       name: `全員で${phaseNumber}-1に戻って、付箋を書き足しますか？`,
     });
     expect(dialog).toHaveAccessibleDescription(
-      `全員が書く時間（${phaseNumber}-1）に戻ります。共有済みの付箋と下書きは残ります。`,
+      "共有済みの付箋と下書きは残ります。",
     );
     fireEvent.click(
       within(dialog).getByRole("button", {

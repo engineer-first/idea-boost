@@ -244,7 +244,7 @@ test("共有一巡後の書き足し操作は上部の操作欄から選べる",
   await expectReadable(dialog);
   // 押した結果（全員が戻ること、残るもの）は確認の中で示す。
   expect(await dialog.textContent()).toContain(
-    "全員が書く時間（1-1）に戻ります。共有済みの付箋と下書きは残ります。",
+    "共有済みの付箋と下書きは残ります。",
   );
   await dialog.getByRole("button", { name: "キャンセル" }).click();
   await dialog.waitFor({ state: "hidden" });
