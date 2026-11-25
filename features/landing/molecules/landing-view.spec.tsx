@@ -1,5 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { getLandingContent } from "../logic/landing-content";
 import { landingCopy as copy } from "../logic/landing-copy";
 import { getLandingEntry } from "../logic/landing-entry";
 import { LandingView } from "./landing-view";
@@ -50,4 +51,70 @@ it("検索エンジンと AI 向けに LP の構造化データを埋め込む",
   expect(
     data["@graph"].map((node: { "@type": string }) => node["@type"]),
   ).toEqual(expect.arrayContaining(["WebSite", "WebApplication", "FAQPage"]));
+});
+
+// 手法の名前ではなく、使う前と後の変化で LP を説明する（#1128）。
+describe.each([
+  ["ja", "デザインスプリント"],
+  ["en", "Design Sprint"],
+] as const)("%s の LP の説明", (locale, methodName) => {
+  const content = getLandingContent(locale).landingCopy;
+  const renderLanding = () =>
+    render(
+      <LandingView
+        locale={locale}
+        isLoggedIn={false}
+        entry={getLandingEntry(false)}
+      />,
+    );
+
+  it("ファーストビューに使ったあとの変化の見出しと3つの約束を出す", () => {
+    renderLanding();
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toHaveTextContent(
+      content.heading.join(locale === "en" ? " " : ""),
+    );
+    const promises = within(
+      screen.getByRole("list", { name: content.promisesLabel }),
+    ).getAllByRole("listitem");
+    expect(promises.map((item) => item.textContent)).toEqual(content.promises);
+  });
+
+  it("「使うと、こんな時間になります」の節に6つの場面を順に並べる", () => {
+    renderLanding();
+    const section = screen.getByRole("region", {
+      name: content.scenes.heading.join(locale === "en" ? " " : ""),
+    });
+    const scenes = within(section).getAllByRole("listitem");
+    expect(scenes).toHaveLength(6);
+    expect(
+      scenes.map((scene) => scene.querySelector("h3")?.textContent),
+    ).toEqual(content.scenes.items.map((item) => item.title));
+  });
+
+  it("手法の名前は考え方の背景とよくある質問にだけ出す", () => {
+    const { container } = renderLanding();
+    const background = screen.getByRole("region", {
+      name: content.background.heading,
+    });
+    expect(background).toHaveTextContent(methodName);
+    const faq = container.querySelector('[aria-labelledby="landing-faq"]');
+    const rest = container.cloneNode(true) as HTMLElement;
+    for (const id of [
+      background.getAttribute("aria-labelledby"),
+      "landing-faq",
+    ]) {
+      rest.querySelector(`[aria-labelledby="${id}"]`)?.remove();
+    }
+    rest.querySelector("script")?.remove();
+    expect(faq).not.toBeNull();
+    expect(rest.textContent).not.toContain(methodName);
+  });
+
+  it("メタの description はサブの見出しと同じ文にし、タイトルにも手法の名前を使わない", () => {
+    expect(content.description).toBe(
+      content.subheading.join(locale === "en" ? " " : ""),
+    );
+    expect(content.title).not.toContain(methodName);
+  });
 });

@@ -2,25 +2,24 @@
   "LANDING_CONTACT_URL": "https://forms.gle/Adq3ZMyEVGEnxb169",
   "landingCopy": {
     "brand": "Idea Boost",
-    "title": "Idea Boost | デザインスプリントの考え方で、チームの一案を",
-    "description": "Idea Boostは、デザインスプリントの考え方を取り入れ、課題整理からアイデア決定までをチームで進めるWebアプリです。",
-    "heading": ["アイデア出しに", "困ったら、ここから。"],
-    "subheading": ["Googleで生まれた", "デザインスプリントを、", "アプリで。"],
-    "comparison": {
-      "heading": ["進行役がいなくても、", "約2時間で一案まで。"],
-      "subject": "デザインスプリント",
-      "timeLabel": "で一案を決めるまで",
-      "afterLabel": "Idea Boostなら",
-      "timeBefore": "通常 3日",
-      "timeAfter": "約2時間",
-      "guideLabel": "の進め方",
-      "guideBefore": "専任の進行役が必要",
-      "guideAfter": "アプリが案内",
-      "timeNote": [
-        "※ 約2時間は、",
-        "実際に一案まで進めたチームの",
-        "所要時間の中央値。"
-      ]
+    "title": "Idea Boost | 「何つくる？」を、「これでいこう」に。",
+    "description": "進行役がいなくても、全員が意見を出して、納得して一案を選べる。チームのアイデア出しのためのWebアプリです。",
+    "heading": ["「何つくる？」を、", "「これでいこう」に。"],
+    "subheading": [
+      "進行役がいなくても、",
+      "全員が意見を出して、",
+      "納得して一案を選べる。",
+      "チームのアイデア出しのためのWebアプリです。"
+    ],
+    "promisesLabel": "Idea Boostの約束",
+    "promises": [
+      "次にやることが、いつも画面に出ている",
+      "全員が、まず自分のペースで書ける",
+      "まわりの票を気にせず選んで、話して決める"
+    ],
+    "heroNote": {
+      "text": "無料・ブラウザだけ・一案まで約2時間",
+      "median": "（実際に進めたチームの中央値）"
     },
     "introduction": "ハッカソン・ビジコン・チーム制作の最初に。",
     "login": "ログイン",
@@ -85,7 +84,7 @@
       }
     ],
     "moodSlogan": ["ひとりで考える。", "持ち寄る。", "話して決める。"],
-    "headingAccent": "困ったら",
+    "headingAccent": "「これでいこう」",
     "closing": ["アイデア出しに困ったときは、", "これ。"],
     "examples": {
       "heading": "実際に使ったチームが決めた内容",
@@ -132,8 +131,7 @@
         },
         {
           "title": "他人の票を見ずに選ぶ",
-          "description": "イチオシ！1票・需要ありそう3票で投票。",
-          "note": "デザインスプリントの主観・客観の投票を参考にしています。"
+          "description": "イチオシ！1票・需要ありそう3票で投票。"
         },
         {
           "title": "詰まったらヒント",
@@ -145,45 +143,67 @@
         }
       ]
     },
-    "method": {
-      "heading": ["なぜ、良いアイデアが", "出るのか。"],
-      "introduction": "あのGoogleが生み出した方法を、チームの力に。",
-      "description": "GoogleでJake Knappが始め、GVで体系化されたデザインスプリント。その考え方を、Idea Boostの進め方に取り入れています。",
-      "scope": "Idea Boostの範囲は一案の決定まで。試作とユーザー検証はその先です。",
-      "source": "デザインスプリントについて（GV・英語）",
-      "sourceUrl": "https://www.gv.com/sprint/",
-      "cases": "GoogleのDesign Sprint Kitには、3M × Bontouch、H&M、Headspaceの実施事例も。",
-      "casesLabel": "Design Sprint Kitの事例を見る（英語）",
-      "casesUrl": "https://designsprintkit.withgoogle.com/case-studies",
-      "principles": [
+    "scenes": {
+      "heading": ["使うと、", "こんな時間になります。"],
+      "items": [
         {
-          "title": "解くべき",
-          "accent": "課題から始める。",
-          "label": "課題を見つける",
-          "description": "案を出す前に、誰のどんな困りごとを解くか。チームで取り組む課題を選びます。",
-          "evidence": "市場との不適合は、スタートアップの失敗理由のひとつ。",
-          "source": "出典: CB Insights",
-          "url": "https://www.cbinsights.com/research/report/startup-failure-reasons-top/"
+          "title": "集まる",
+          "description": "「誰か仕切って」はいりません。ルームに集まったら、画面がやることを一つずつ出してくれます。"
         },
         {
-          "title": "一人で考えて、",
-          "accent": "みんなで広げる。",
-          "label": "個人ワークから共有へ",
-          "description": "話す順番を待たず、全員が先に書き出す。自分だけに見える付箋で、一人ひとりの考えを残します。",
+          "title": "書く",
+          "description": "まずは自分だけで。共有するまで付箋は自分にしか見えないので、まとまっていない考えも気にせず書けます。",
           "evidence": "話しながらのブレストでは、発言の順番待ちがアイデア数を減らす主な原因に。",
           "source": "出典: Diehl & Stroebe (1987)",
           "url": "https://doi.org/10.1037/0022-3514.53.3.497"
         },
         {
-          "title": "まわりに流されず、",
-          "accent": "自分の視点で選ぶ。",
-          "label": "ステルス投票",
-          "description": "声の大きさや先に入った票に引きずられず、自分の視点で選ぶ。そのために、投票中は他の人の票を隠します。",
-          "evidence": "デザインスプリントの「無言の投票」と同じ考え方を、ステルス投票に。",
-          "source": "出典: GV The Design Sprint",
-          "url": "https://www.gv.com/sprint/#wednesday"
+          "title": "持ち寄る",
+          "description": "一人ずつ順番に、自分の付箋を出しながら話します。話すのが苦手な人の考えも、同じだけ場に出ます。"
+        },
+        {
+          "title": "広げる",
+          "description": "いきなり案を出さず、困りごとを「どうしたら〜できる？」という問いに変えてから考えます。詰まったら、答えではなく切り口のヒントが出ます。",
+          "evidence": "市場との不適合は、スタートアップの失敗理由のひとつ。案より先に、解く困りごとを確かめます。",
+          "source": "出典: CB Insights",
+          "url": "https://www.cbinsights.com/research/report/startup-failure-reasons-top/"
+        },
+        {
+          "title": "選ぶ",
+          "description": "ほかの人の票は見えないまま、「イチオシ！」（自分がやりたい）と「需要ありそう」（誰かに必要そう）の2種類のシールを貼ります。最後は票を見ながら話して、チームで一つに決めます。"
+        },
+        {
+          "title": "持ち帰る",
+          "description": "決めた課題・問い・アイデアは、コピーやテキストで持ち帰れます。"
         }
       ]
+    },
+    "background": {
+      "heading": "考え方の背景",
+      "description": "Idea Boostの進め方は、GoogleでJake Knappが始め、GVで体系化されたデザインスプリントの考え方を取り入れています。黙って票を貼ってから話す進め方や、「イチオシ！」と「需要ありそう」の2種類の票も、デザインスプリントの投票を参考にしています。",
+      "source": "デザインスプリントについて（GV・英語）",
+      "sourceUrl": "https://www.gv.com/sprint/",
+      "voteSource": "出典: GV The Design Sprint",
+      "voteUrl": "https://www.gv.com/sprint/#wednesday",
+      "comparison": {
+        "subject": "デザインスプリント",
+        "timeLabel": "で一案を決めるまで",
+        "afterLabel": "Idea Boostなら",
+        "timeBefore": "通常 3日",
+        "timeAfter": "約2時間",
+        "guideLabel": "の進め方",
+        "guideBefore": "専任の進行役が必要",
+        "guideAfter": "アプリが案内",
+        "timeNote": [
+          "※ 約2時間は、",
+          "実際に一案まで進めたチームの",
+          "所要時間の中央値。"
+        ]
+      },
+      "scope": "Idea Boostの範囲は一案の決定まで。試作とユーザー検証はその先です。",
+      "cases": "GoogleのDesign Sprint Kitには、3M × Bontouch、H&M、Headspaceの実施事例も。",
+      "casesLabel": "Design Sprint Kitの事例を見る（英語）",
+      "casesUrl": "https://designsprintkit.withgoogle.com/case-studies"
     },
     "gettingStarted": {
       "heading": "仲間を招待したら、始められます。",
@@ -258,7 +278,6 @@
     "timer": "03:00",
     "subjective": "イチオシ！",
     "objective": "需要ありそう",
-    "issueLabel": "まずは、身近な困りごとから",
     "hero": [
       {
         "text": "寝る準備を始める時刻に知らせる",
@@ -276,23 +295,6 @@
         "text": "夜の予定を見える化する",
         "member": 2
       }
-    ],
-    "issue": [
-      "寝る時間が日によって違う",
-      "作業に集中して時間を忘れる",
-      "朝の準備が間に合わない"
-    ],
-    "private": [
-      "自分だけのスペース",
-      "共有スペース",
-      "作業に集中して時間を忘れる",
-      "寝る時間が日によって違う"
-    ],
-    "vote": [
-      "自分の投票",
-      "他の人の票は非表示",
-      "寝る準備を始める時刻に知らせる",
-      "作業中、時刻を知らせる"
     ]
   },
   "landingMembers": [

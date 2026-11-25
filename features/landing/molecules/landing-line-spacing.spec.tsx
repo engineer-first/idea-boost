@@ -15,9 +15,8 @@ function lineGroups(locale: AppLocale): string[][] {
     copy.subheading,
     ...content.landingMoodCharacters.map((character) => character.text),
     copy.moodSlogan,
-    copy.comparison.heading,
-    copy.comparison.timeNote,
-    copy.method.heading,
+    copy.background.comparison.timeNote,
+    copy.scenes.heading,
     copy.stepsHeading,
     ...copy.flow.prompts.map((prompt) => prompt.detail),
     copy.flow.question,
@@ -61,11 +60,11 @@ describe("LP の比較の見出し", () => {
         entry={getLandingEntry(false)}
       />,
     );
-    const en = getLandingContent("en").landingCopy.comparison;
+    const en = getLandingContent("en").landingCopy.background.comparison;
     const text = () => container.textContent ?? "";
     expect(text()).toContain(`${en.subject} ${en.timeLabel}`);
     expect(text()).toContain(`${en.subject} ${en.guideLabel}`);
-    const ja = getLandingContent("ja").landingCopy.comparison;
+    const ja = getLandingContent("ja").landingCopy.background.comparison;
     rerender(
       <LandingView
         locale="ja"

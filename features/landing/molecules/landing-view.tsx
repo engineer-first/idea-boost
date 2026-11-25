@@ -16,13 +16,13 @@ import {
   landingLinkClass,
 } from "../logic/landing-styles";
 import styles from "./landing.module.css";
+import { LandingBackgroundSection } from "./landing-background-section";
 import { LandingFaqSection } from "./landing-faq-section";
 import { LandingFeaturesSection } from "./landing-features-section";
 import { LandingFlowSection } from "./landing-flow-section";
 import { LandingHeroSection } from "./landing-hero-section";
-import { LandingMethodSection } from "./landing-method-section";
+import { LandingScenesSection } from "./landing-scenes-section";
 import { LandingStartSection } from "./landing-start-section";
-import { LandingStrengthsSection } from "./landing-strengths-section";
 
 export type LandingViewProps = {
   isLoggedIn: boolean;
@@ -104,11 +104,11 @@ export function LandingView({
         </p>
       </div>
       <div className="mx-auto max-w-6xl px-6 sm:px-10">
-        <LandingStrengthsSection locale={locale} />
-        <LandingMethodSection locale={locale} />
+        <LandingScenesSection locale={locale} />
         <LandingFeaturesSection locale={locale} />
         <LandingFlowSection locale={locale} />
         <LandingStartSection locale={locale} entry={entry} />
+        <LandingBackgroundSection locale={locale} />
         <LandingFaqSection locale={locale} />
       </div>
       <footer>

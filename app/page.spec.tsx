@@ -24,7 +24,7 @@ it("英語を優先するブラウザでも / は日本語のまま表示し、�
   );
   render(await RootPage());
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-    "アイデア出しに",
+    "「何つくる？」を、",
   );
   const english = within(screen.getByRole("banner")).getByRole("link", {
     name: "English",

@@ -2,25 +2,24 @@
   "LANDING_CONTACT_URL": "https://forms.gle/Adq3ZMyEVGEnxb169",
   "landingCopy": {
     "brand": "Idea Boost",
-    "title": "Idea Boost | Bring your team to one idea with Design Sprint thinking",
-    "description": "Idea Boost is a web app that brings Design Sprint thinking to teams, guiding them from defining a problem to choosing an idea.",
-    "heading": ["Stuck for ideas?", "Start here."],
-    "subheading": ["The Design Sprint", "born at Google,", "now in an app."],
-    "comparison": {
-      "heading": ["No facilitator needed.", "One idea in about two hours."],
-      "subject": "Design Sprint",
-      "timeLabel": "to choose one idea",
-      "afterLabel": "With Idea Boost",
-      "timeBefore": "Usually 3 days",
-      "timeAfter": "About 2 hours",
-      "guideLabel": "How it works",
-      "guideBefore": "A dedicated facilitator is needed",
-      "guideAfter": "The app guides you",
-      "timeNote": [
-        "* About two hours is",
-        "the median time for teams",
-        "that reached one idea."
-      ]
+    "title": "Idea Boost | From “What should we make?” to “Let's go with this.”",
+    "description": "No facilitator needed. Everyone shares their thinking and agrees on one idea. A web app for team ideation.",
+    "heading": ["From “What should we make?”", "to “Let's go with this.”"],
+    "subheading": [
+      "No facilitator needed.",
+      "Everyone shares their thinking",
+      "and agrees on one idea.",
+      "A web app for team ideation."
+    ],
+    "promisesLabel": "What Idea Boost promises",
+    "promises": [
+      "Your next step is always on screen",
+      "Everyone writes first, at their own pace",
+      "Choose without being swayed by others' votes, then talk and decide"
+    ],
+    "heroNote": {
+      "text": "Free · Just a browser · About 2 hours to one idea",
+      "median": "(median for teams that reached one idea)"
     },
     "introduction": "Start your hackathon, pitch competition, or team project here.",
     "login": "Log in",
@@ -84,7 +83,7 @@
       "Bring ideas together.",
       "Talk and decide."
     ],
-    "headingAccent": "Stuck",
+    "headingAccent": "to “Let's go with this.”",
     "closing": ["When you're stuck for ideas,", "start here."],
     "examples": {
       "heading": "What teams decided using Idea Boost",
@@ -131,8 +130,7 @@
         },
         {
           "title": "Choose without seeing others' votes",
-          "description": "Cast one favorite vote and three “likely needed” votes.",
-          "note": "Inspired by subjective and objective voting in Design Sprints."
+          "description": "Cast one favorite vote and three “likely needed” votes."
         },
         {
           "title": "Find a new angle",
@@ -144,45 +142,67 @@
         }
       ]
     },
-    "method": {
-      "heading": ["Why do good ideas", "emerge?"],
-      "introduction": "Put a method born at Google to work for your team.",
-      "description": "Jake Knapp started the Design Sprint at Google, and GV developed the method. Idea Boost draws on its approach.",
-      "scope": "Idea Boost helps you decide on one idea. Prototyping and user testing come next.",
-      "source": "About Design Sprints (GV)",
-      "sourceUrl": "https://www.gv.com/sprint/",
-      "cases": "Google's Design Sprint Kit includes case studies from 3M × Bontouch, H&M, and Headspace.",
-      "casesLabel": "View Design Sprint Kit case studies",
-      "casesUrl": "https://designsprintkit.withgoogle.com/case-studies",
-      "principles": [
+    "scenes": {
+      "heading": ["What your time", "will look like."],
+      "items": [
         {
-          "title": "Start with a",
-          "accent": "problem worth solving.",
-          "label": "Find the problem",
-          "description": "Before proposing ideas, decide whose problem you want to solve and choose it together.",
-          "evidence": "Lack of market fit is one reason startups fail.",
-          "source": "Source: CB Insights",
-          "url": "https://www.cbinsights.com/research/report/startup-failure-reasons-top/"
+          "title": "Gather",
+          "description": "No one has to run the meeting. Once you join a room, the screen shows you what to do, one step at a time."
         },
         {
-          "title": "Think alone,",
-          "accent": "then build together.",
-          "label": "From individual work to sharing",
-          "description": "Everyone writes first, without waiting for a turn to speak. Private notes capture each person's thinking.",
+          "title": "Write",
+          "description": "Start on your own. Your notes stay visible only to you until you share them, so you can write down rough thoughts freely.",
           "evidence": "In spoken brainstorming, waiting to speak can reduce the number of ideas generated.",
           "source": "Source: Diehl & Stroebe (1987)",
           "url": "https://doi.org/10.1037/0022-3514.53.3.497"
         },
         {
-          "title": "Choose without being swayed,",
-          "accent": "from your own perspective.",
-          "label": "Private voting",
-          "description": "Choose from your own perspective, without seeing others' votes while voting.",
-          "evidence": "Inspired by the silent voting used in Design Sprints.",
-          "source": "Source: GV The Design Sprint",
-          "url": "https://www.gv.com/sprint/#wednesday"
+          "title": "Share",
+          "description": "Take turns talking through your notes. Ideas from people who find it hard to speak up get the same space."
+        },
+        {
+          "title": "Explore",
+          "description": "Before jumping to ideas, turn a problem into a “How might we…?” question. When you get stuck, you get a new angle, not an answer.",
+          "evidence": "Lack of market fit is one reason startups fail. Check the problem before the ideas.",
+          "source": "Source: CB Insights",
+          "url": "https://www.cbinsights.com/research/report/startup-failure-reasons-top/"
+        },
+        {
+          "title": "Choose",
+          "description": "Without seeing others' votes, place two kinds of stickers: a favorite (what you want to do) and “likely needed” (what others may need). Then talk through the votes and decide on one as a team."
+        },
+        {
+          "title": "Take it home",
+          "description": "Copy the problem, question, and idea you chose, or save them as text."
         }
       ]
+    },
+    "background": {
+      "heading": "Where the approach comes from",
+      "description": "Idea Boost draws on the Design Sprint, which Jake Knapp started at Google and GV developed into a method. Voting silently before discussing, and the two kinds of votes (favorite and “likely needed”), are also inspired by Design Sprint voting.",
+      "source": "About Design Sprints (GV)",
+      "sourceUrl": "https://www.gv.com/sprint/",
+      "voteSource": "Source: GV The Design Sprint",
+      "voteUrl": "https://www.gv.com/sprint/#wednesday",
+      "comparison": {
+        "subject": "Design Sprint",
+        "timeLabel": "to choose one idea",
+        "afterLabel": "With Idea Boost",
+        "timeBefore": "Usually 3 days",
+        "timeAfter": "About 2 hours",
+        "guideLabel": "How it works",
+        "guideBefore": "A dedicated facilitator is needed",
+        "guideAfter": "The app guides you",
+        "timeNote": [
+          "* About two hours is",
+          "the median time for teams",
+          "that reached one idea."
+        ]
+      },
+      "scope": "Idea Boost helps you decide on one idea. Prototyping and user testing come next.",
+      "cases": "Google's Design Sprint Kit includes case studies from 3M × Bontouch, H&M, and Headspace.",
+      "casesLabel": "View Design Sprint Kit case studies",
+      "casesUrl": "https://designsprintkit.withgoogle.com/case-studies"
     },
     "gettingStarted": {
       "heading": "Invite your team and get started.",
@@ -263,7 +283,6 @@
     "timer": "03:00",
     "subjective": "Favorite!",
     "objective": "Likely needed",
-    "issueLabel": "Start with an everyday problem",
     "hero": [
       {
         "text": "Remind me when it's time to get ready for bed",
@@ -281,23 +300,6 @@
         "text": "Make evening plans visible",
         "member": 2
       }
-    ],
-    "issue": [
-      "Bedtime varies from day to day",
-      "I lose track of time while working",
-      "I don't have enough time to get ready in the morning"
-    ],
-    "private": [
-      "My private space",
-      "Shared space",
-      "I lose track of time while working",
-      "Bedtime varies from day to day"
-    ],
-    "vote": [
-      "My votes",
-      "Others' votes are hidden",
-      "Remind me when it's time to get ready for bed",
-      "Remind me of the time while working"
     ]
   },
   "landingMembers": [
