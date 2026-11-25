@@ -16,11 +16,12 @@ import {
   VOTING_STEP_BY_PHASE,
 } from "../../contracts/phase";
 import type { ClientMessage } from "../../contracts/room-protocol";
+import { computeRevoteLayout } from "../../contracts/revote-layout";
 import { syncRoomAlarm } from "./alarms";
 import { isRoomClosed } from "./completed-rooms";
 import { getDecision } from "./decisions";
 import { clearUsedNoteDragIds } from "./drag-operations";
-import { finalizeGrouping } from "./groups";
+import { finalizeGrouping, listGroups } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
@@ -32,6 +33,7 @@ import {
   excludeNotesForBulkOperation,
   hasCandidateNotes,
   listAutomaticExclusionCandidates,
+  listSharedNotes,
   type NoteRow,
 } from "./notes";
 import {
@@ -849,6 +851,44 @@ export const phaseHandlers: MessageHandlers<
   "phase:revote": (ctx, message) => restartPhase(ctx, message, true),
 };
 
+/** 1-5→1-4再投票時に、グループ所属を変えず枠の重なりと非所属付箋の侵入だけを最小移動で解消する。 */
+function applyRevoteGroupLayout(sql: SqlStorage): void {
+  const groups = listGroups(sql);
+  if (groups.length === 0) return;
+
+  const phase1SharedNotes = listSharedNotes(sql, 1);
+  if (phase1SharedNotes.length === 0) return;
+
+  const moves = computeRevoteLayout(
+    phase1SharedNotes.map((n) => ({
+      id: n.id,
+      x: n.x,
+      y: n.y,
+      content: n.content,
+      fontSize: n.fontSize,
+    })),
+    groups,
+  );
+  if (moves.length === 0) return;
+
+  const now = new Date().toISOString();
+  for (const move of moves) {
+    sql.exec(
+      "UPDATE notes SET x = ?2, y = ?3, updated_at = ?4 WHERE id = ?1",
+      move.noteId,
+      move.x,
+      move.y,
+      now,
+    );
+    sql.exec(
+      `INSERT INTO note_move_versions(note_id, position_revision, visibility_revision)
+       VALUES (?1, 1, 0)
+       ON CONFLICT(note_id) DO UPDATE SET position_revision = position_revision + 1`,
+      move.noteId,
+    );
+  }
+}
+
 // 両ループも通常の前進と同じ権威状態・競合チェックで確定する。
 async function restartPhase(
   ctx: HandlerCtx,
@@ -897,6 +937,9 @@ async function restartPhase(
         "DELETE FROM note_votes WHERE note_id IN (SELECT id FROM notes WHERE phase = ?1)",
         current.phase,
       );
+      if (current.phase === 1) {
+        applyRevoteGroupLayout(ctx.sql);
+      }
     }
     savePhase(ctx.sql, next);
     ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
