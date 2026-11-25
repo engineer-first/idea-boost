@@ -94,6 +94,7 @@ export type RoomBoardHeaderProps = {
   rollbackTarget?: RoomPhase | null;
   onRollbackPhase?: () => void;
   sharing?: SharingState | null;
+  hasNoUnsharedNotes?: boolean;
   onSharingStart?: (durationMs: number) => void;
   onSharingAdvance?: (outcome: "done" | "passed") => void;
   onRestartWriting?: () => void;
@@ -153,6 +154,7 @@ export function RoomBoardHeader({
   rollbackTarget = null,
   onRollbackPhase,
   sharing = null,
+  hasNoUnsharedNotes = false,
   onSharingStart,
   onSharingAdvance,
   onRestartWriting,
@@ -396,7 +398,7 @@ export function RoomBoardHeader({
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const canSelectMember = !outcomePublished && onSelectMember;
-  const memberSelectionDisabled =
+  const roomActionDisabled =
     isDisconnected || isNextPhasePending || isRemovingMember || isLeaving;
   const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const readyButtonRef = useRef<HTMLButtonElement>(null);
@@ -463,6 +465,31 @@ export function RoomBoardHeader({
     canAdvance: progress.canAdvance,
     onReady: onToggleReady,
   });
+  const readyButtonDisabled =
+    roomActionDisabled ||
+    sharingCompletionDisabled ||
+    (isCurrentVotingStep &&
+      !isCurrentUserReady &&
+      !completedVoterIds.includes(currentUserId)) ||
+    completionCue.busy;
+  const sharingTurnKey =
+    activeSharing?.status === "active"
+      ? `${inviteCode}:${currentUserId}:${phaseRevision}:${activeSharing.revision}`
+      : null;
+  const [dismissedSharingTurnKey, setDismissedSharingTurnKey] = useState<
+    string | null
+  >(null);
+  if (
+    dismissedSharingTurnKey !== null &&
+    (!hasNoUnsharedNotes || dismissedSharingTurnKey !== sharingTurnKey)
+  ) {
+    setDismissedSharingTurnKey(null);
+  }
+  const showSharingCompletionCue =
+    hasNoUnsharedNotes &&
+    sharingTurnKey !== null &&
+    !readyButtonDisabled &&
+    dismissedSharingTurnKey !== sharingTurnKey;
   // 狭幅でも本人を省略しない。順番は操作中の状態で変えない。
   const hudMembers = isManualProgressStep
     ? [...members].sort(
@@ -667,17 +694,10 @@ export function RoomBoardHeader({
                 variant={isCurrentUserReady ? "secondary" : "outline"}
                 ref={readyButtonRef}
                 className={`text-sm h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
-                disabled={
-                  isDisconnected ||
-                  isNextPhasePending ||
-                  isRemovingMember ||
-                  isLeaving ||
-                  sharingCompletionDisabled ||
-                  (isCurrentVotingStep &&
-                    !isCurrentUserReady &&
-                    !completedVoterIds.includes(currentUserId)) ||
-                  completionCue.busy
+                data-sharing-completion-cue={
+                  showSharingCompletionCue || undefined
                 }
+                disabled={readyButtonDisabled}
                 aria-busy={completionCue.stage === "waiting"}
                 aria-pressed={activeSharing ? undefined : isCurrentUserReady}
                 aria-label={
@@ -697,8 +717,11 @@ export function RoomBoardHeader({
                       : "次へ進む準備ができたことをみんなに伝えます"
                 }
                 onClick={() => {
-                  if (activeSharing) onSharingAdvance?.("done");
-                  else if (isCurrentUserReady) onToggleReady?.(false);
+                  if (activeSharing) {
+                    if (showSharingCompletionCue)
+                      setDismissedSharingTurnKey(sharingTurnKey);
+                    onSharingAdvance?.("done");
+                  } else if (isCurrentUserReady) onToggleReady?.(false);
                   else completionCue.request(null);
                 }}
               >
@@ -742,7 +765,7 @@ export function RoomBoardHeader({
                 sharing={activeSharing}
                 currentUserId={currentUserId}
                 onSelectMember={canSelectMember ? onSelectMember : undefined}
-                selectionDisabled={memberSelectionDisabled}
+                selectionDisabled={roomActionDisabled}
                 members={members}
                 onPassPresenter={
                   canAdvanceSharing && onSharingAdvance
@@ -881,7 +904,7 @@ export function RoomBoardHeader({
                               : member.name
                           }
                           className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
-                          disabled={memberSelectionDisabled}
+                          disabled={roomActionDisabled}
                           onSelect={
                             member.userId === currentUserId &&
                             onEditSelf &&

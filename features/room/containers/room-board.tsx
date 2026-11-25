@@ -1005,6 +1005,10 @@ export function RoomBoard({
         onToggleReady={handleToggleReady}
         completionResetVersion={completionResetVersion}
         isNextPhasePending={isNextPhasePending}
+        // ドラッグ表示を適用する前の付箋を使い、共有の確定を待ってから案内する。
+        hasNoUnsharedNotes={
+          boardPrivateNotes.length === 0 && !notes.sharePending
+        }
         isSavingBeforeShare={drafts.sharingSavePending}
         signOutAction={signOutAction}
         sessionKind={sessionKind}

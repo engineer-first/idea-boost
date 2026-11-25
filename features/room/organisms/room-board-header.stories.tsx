@@ -347,6 +347,20 @@ export const PresentingMember: Story = {
   },
 };
 
+export const SharingCompletionCue: Story = {
+  args: {
+    phase: buildPhaseStep(2, 1),
+    sharing: buildSharingState({
+      order: SHARING_MEMBERS,
+      status: "active",
+      currentIndex: 0,
+      startsAt: null,
+    }),
+    hasNoUnsharedNotes: true,
+    onSharingAdvance: fn(),
+  },
+};
+
 export const SharingCompletion: Story = {
   args: { ...PresentingMember.args, members: buildMembers(2, ME) },
   render: function Render(args) {
