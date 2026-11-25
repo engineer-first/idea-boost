@@ -95,7 +95,9 @@ describe("StepOneOnboardingSlide", () => {
     });
     expect(dialog).toHaveTextContent("イチオシ！");
     expect(dialog).toHaveTextContent("激しく共感する、取り組みたい");
-    expect(dialog).toHaveTextContent("需要ありそう");
+    // 課題フェーズでは「需要ありそう」の枠を「いいね」と呼ぶ。
+    expect(dialog).toHaveTextContent("いいね");
+    expect(dialog).not.toHaveTextContent("需要ありそう");
     expect(dialog).toHaveTextContent("自分以外の人にも価値がありそう");
   });
   it("1-2の操作スライドは古いボタンが映る動画でなく、「できた！」で交代する図を表示する", async () => {
@@ -226,7 +228,7 @@ describe("StepOneOnboardingSlide", () => {
       }
       if (phaseKey === "1-4") {
         expect(screen.getByRole("dialog")).toHaveTextContent(
-          "イチオシ！1票・需要ありそう3票",
+          "イチオシ！1票・いいね3票",
         );
         expect(screen.getByRole("dialog")).toHaveTextContent(
           "投票中は他の人の票は見えません。",

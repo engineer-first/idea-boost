@@ -13,9 +13,42 @@ function paletteRegion(): HTMLElement {
 }
 
 describe("DotVotePalette", () => {
+  it.each([
+    [1, "いいね"],
+    [2, "いいね"],
+    [3, "需要ありそう"],
+  ] as const)(
+    "フェーズ %i では3票のシールを「%s」と表示する",
+    (phase, objectiveLabel) => {
+      render(
+        <DotVotePalette
+          phase={phase}
+          voteRemaining={{ subjective: 1, objective: 3 }}
+          pendingOperationCount={0}
+          feedback={null}
+          disabled={false}
+          selectedKind={null}
+          onStickerSelect={vi.fn()}
+          onStickerDragStart={vi.fn()}
+          onWithdrawOne={vi.fn()}
+        />,
+      );
+
+      const objective = screen.getByRole("button", {
+        name: `「${objectiveLabel}」シール 残り3票`,
+      });
+      expect(within(objective).getByText(objectiveLabel)).toBeVisible();
+      expect(within(objective).getByText("客観")).toBeVisible();
+      expect(
+        screen.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
+      ).toBeVisible();
+    },
+  );
+
   it("票種と残数を表示し、投票基準と操作手順はパレットに出さない", () => {
     render(
       <DotVotePalette
+        phase={3}
         voteRemaining={{ subjective: 1, objective: 2 }}
         pendingOperationCount={0}
         feedback={null}
@@ -93,6 +126,7 @@ describe("DotVotePalette", () => {
     ({ props, name, hidden, description = hidden }) => {
       render(
         <DotVotePalette
+          phase={3}
           pendingOperationCount={0}
           feedback={null}
           disabled={false}
@@ -117,6 +151,7 @@ describe("DotVotePalette", () => {
     (remaining) => {
       render(
         <DotVotePalette
+          phase={3}
           voteRemaining={remaining}
           pendingOperationCount={0}
           feedback={null}
@@ -156,6 +191,7 @@ describe("DotVotePalette", () => {
     ({ pendingOperationCount, disabled }) => {
       render(
         <DotVotePalette
+          phase={3}
           voteRemaining={{ subjective: 0, objective: 0 }}
           pendingOperationCount={pendingOperationCount}
           feedback={null}
@@ -180,6 +216,7 @@ describe("DotVotePalette", () => {
     const onStickerSelect = vi.fn();
     render(
       <DotVotePalette
+        phase={3}
         voteRemaining={{ subjective: 0, objective: 2 }}
         pendingOperationCount={0}
         feedback={null}
@@ -207,6 +244,7 @@ describe("DotVotePalette", () => {
       const otherKind = kind === "subjective" ? "objective" : "subjective";
       render(
         <DotVotePalette
+          phase={3}
           voteRemaining={remaining}
           pendingOperationCount={0}
           feedback={null}
@@ -258,6 +296,7 @@ describe("DotVotePalette", () => {
       const onWithdrawOne = vi.fn();
       render(
         <DotVotePalette
+          phase={3}
           voteRemaining={{ subjective: 0, objective: 3 }}
           pendingOperationCount={pending}
           feedback={null}
@@ -280,6 +319,7 @@ describe("DotVotePalette", () => {
   it("シールを戻す操作中も取り消しの案内は画面に出さず、読み上げでだけ伝える", () => {
     render(
       <DotVotePalette
+        phase={3}
         voteRemaining={{ subjective: 1, objective: 2 }}
         pendingOperationCount={0}
         feedback={null}
@@ -303,6 +343,7 @@ describe("DotVotePalette", () => {
   it("投票の失敗を表示して読み上げる", () => {
     render(
       <DotVotePalette
+        phase={3}
         voteRemaining={{ subjective: 1, objective: 2 }}
         pendingOperationCount={0}
         feedback={{ state: "failed", message: "投票上限を超えています。" }}
@@ -325,6 +366,7 @@ describe("DotVotePalette", () => {
 
     render(
       <DotVotePalette
+        phase={3}
         voteRemaining={{ subjective: 1, objective: 2 }}
         pendingOperationCount={0}
         feedback={null}
@@ -361,6 +403,7 @@ describe("DotVotePalette", () => {
   it("選択中のシールは押下状態で示し、案内文は出さない", () => {
     render(
       <DotVotePalette
+        phase={3}
         voteRemaining={{ subjective: 1, objective: 2 }}
         pendingOperationCount={0}
         feedback={null}
@@ -381,6 +424,7 @@ describe("DotVotePalette", () => {
   it("選択中・ドラッグ中・残票ゼロの状態をライト配色で示す", () => {
     const { rerender } = render(
       <DotVotePalette
+        phase={3}
         voteRemaining={{ subjective: 0, objective: 2 }}
         pendingOperationCount={0}
         feedback={null}
@@ -420,6 +464,7 @@ describe("DotVotePalette", () => {
 
     rerender(
       <DotVotePalette
+        phase={3}
         voteRemaining={{ subjective: 1, objective: 2 }}
         pendingOperationCount={0}
         feedback={null}
@@ -445,6 +490,7 @@ describe("DotVotePalette", () => {
 
   it("送信中の0票を使い切りと断定せず、受理後に表示を切り替える", () => {
     const props: DotVotePaletteProps = {
+      phase: 3,
       voteRemaining: { subjective: 0, objective: 0 },
       pendingOperationCount: 4,
       feedback: null,
@@ -483,6 +529,7 @@ describe("DotVotePalette", () => {
     { state: "confirmed" as const, message: "投票を1票取り消しました。" },
   ])("$state 後は返された残票を再び選べる", (feedback) => {
     const props: DotVotePaletteProps = {
+      phase: 3,
       voteRemaining: { subjective: 0, objective: 0 },
       pendingOperationCount: 0,
       feedback: null,
@@ -515,6 +562,7 @@ describe("DotVotePalette", () => {
 
   it("投票の失敗は画面に表示し、成功の結果は表示しない", () => {
     const props: DotVotePaletteProps = {
+      phase: 3,
       voteRemaining: { subjective: 0, objective: 1 },
       pendingOperationCount: 0,
       feedback: { state: "failed", message: "投票を送信できませんでした。" },
@@ -545,6 +593,7 @@ describe("DotVotePalette", () => {
 
   it("タイマー停止中はクリックとドラッグを通知せず、再開後に選べる", () => {
     const props: DotVotePaletteProps = {
+      phase: 3,
       voteRemaining: { subjective: 1, objective: 3 },
       pendingOperationCount: 0,
       feedback: null,
@@ -579,6 +628,7 @@ describe("DotVotePalette", () => {
     (interactionBlocked) => {
       render(
         <DotVotePalette
+          phase={3}
           voteRemaining={{ subjective: 0, objective: 3 }}
           pendingOperationCount={1}
           feedback={{ state: "confirmed", message: "投票を反映しました。" }}
@@ -599,6 +649,7 @@ describe("DotVotePalette", () => {
 
   it("タイマー停止中も残票ゼロの種類は使い切りを示し、再開後は選ばずに1票取り消しだけを通知する", () => {
     const props: DotVotePaletteProps = {
+      phase: 3,
       voteRemaining: { subjective: 0, objective: 3 },
       pendingOperationCount: 0,
       feedback: null,

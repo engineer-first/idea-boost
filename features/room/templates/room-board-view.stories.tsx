@@ -1016,7 +1016,7 @@ export const ExcludedVoteAttempt: Story = {
       canvas.getByRole("button", { name: "「イチオシ！」シール 残り1票" }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
+      canvas.getByRole("button", { name: "「いいね」シール 残り3票" }),
     ).toBeVisible();
   },
 };
@@ -1502,7 +1502,7 @@ export const QuestionVotingStickerSelected: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(
       within(canvasElement).getByRole("button", {
-        name: "「需要ありそう」シール 残り2票",
+        name: "「いいね」シール 残り2票",
       }),
     );
     await expect(

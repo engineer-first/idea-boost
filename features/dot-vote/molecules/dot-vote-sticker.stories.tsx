@@ -6,6 +6,7 @@ const meta = {
   title: "DotVote/DotVoteSticker",
   component: DotVoteSticker,
   args: {
+    phase: 3,
     kind: "objective",
     count: 2,
     state: "confirmed",

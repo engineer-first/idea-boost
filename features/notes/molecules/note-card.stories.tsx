@@ -28,6 +28,7 @@ const meta = {
     onContentChange: fn(),
     onDelete: fn(),
     vote: {
+      phase: 3,
       displayMode: "hidden",
       selectedKind: null,
       voteRemaining: { subjective: 1, objective: 3 },
@@ -156,6 +157,7 @@ export const Voted: Story = {
       },
     }),
     vote: {
+      phase: 3,
       displayMode: "voting",
       selectedKind: null,
       voteRemaining: { subjective: 0, objective: 1 },
@@ -170,6 +172,7 @@ export const Voted: Story = {
 export const VotePreview: Story = {
   args: {
     vote: {
+      phase: 3,
       displayMode: "voting",
       selectedKind: "subjective",
       voteRemaining: { subjective: 1, objective: 3 },
@@ -363,6 +366,7 @@ export const ResultStep: Story = {
       },
     }),
     vote: {
+      phase: 3,
       displayMode: "result",
       selectedKind: null,
       voteRemaining: { subjective: 0, objective: 0 },
@@ -385,6 +389,7 @@ export const ResultWithFewVotes: Story = {
       },
     }),
     vote: {
+      phase: 3,
       displayMode: "result",
       selectedKind: null,
       voteRemaining: { subjective: 0, objective: 0 },
@@ -408,6 +413,7 @@ export const ResultWithLongContent: Story = {
       },
     }),
     vote: {
+      phase: 3,
       displayMode: "result",
       selectedKind: null,
       voteRemaining: { subjective: 0, objective: 0 },
@@ -430,6 +436,7 @@ export const ResultWithManyVotes: Story = {
       },
     }),
     vote: {
+      phase: 3,
       displayMode: "result",
       selectedKind: null,
       voteRemaining: { subjective: 0, objective: 0 },
@@ -457,6 +464,7 @@ export const ResultWithCandidateAction: Story = {
       },
     }),
     vote: {
+      phase: 3,
       displayMode: "result",
       selectedKind: null,
       voteRemaining: { subjective: 0, objective: 0 },
@@ -496,6 +504,7 @@ export const ResultExcludedForHost: Story = {
       },
     }),
     vote: {
+      phase: 3,
       displayMode: "result",
       selectedKind: null,
       voteRemaining: { subjective: 0, objective: 0 },
@@ -532,6 +541,7 @@ export const ResultWithDecision: Story = {
       },
     }),
     vote: {
+      phase: 3,
       displayMode: "result",
       selectedKind: null,
       voteRemaining: { subjective: 0, objective: 0 },

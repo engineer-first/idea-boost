@@ -64,12 +64,14 @@ export function BoardContext({
     {
       id: "hmw",
       label: "決定した問い",
+      votePhase: 2 as const,
       content: decidedHmw,
       reference: hmwReference,
     },
     {
       id: "issue",
       label: "決定した課題",
+      votePhase: 1 as const,
       content: hmwDecidedIssue,
       reference: issueReference,
     },
@@ -133,11 +135,13 @@ export function BoardContext({
                     <>
                       <DotVoteSticker
                         kind="subjective"
+                        phase={disclosure.votePhase}
                         state="result"
                         count={disclosure.reference.dotVotes.subjective}
                       />
                       <DotVoteSticker
                         kind="objective"
+                        phase={disclosure.votePhase}
                         state="result"
                         count={disclosure.reference.dotVotes.objective}
                       />

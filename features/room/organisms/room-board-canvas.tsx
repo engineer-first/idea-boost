@@ -34,7 +34,7 @@ import type {
   NoteColor,
   PresenterView,
 } from "@/contracts/room-protocol";
-import type { DotVoteRemaining } from "@/features/dot-vote";
+import { type DotVoteRemaining, dotVotePhaseOf } from "@/features/dot-vote";
 import {
   type Note,
   NoteCard,
@@ -727,6 +727,7 @@ export function RoomBoardCanvas({
         onExclude={onNoteExclude}
         onRestore={onNoteRestore}
         vote={{
+          phase: dotVotePhaseOf(phase),
           displayMode: voteDisplayMode,
           selectedKind: selectedVoteKind,
           voteRemaining,

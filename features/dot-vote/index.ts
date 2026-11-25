@@ -2,13 +2,15 @@
 export { DotVotePalette } from "./containers/dot-vote-palette";
 export type {
   DotVoteFeedback,
+  DotVotePhase,
   DotVoteRemaining,
   VoteDisplayMode,
 } from "./logic/dot-vote";
 export {
   DOT_VOTE_CRITERIA,
-  DOT_VOTE_GUIDANCE,
-  DOT_VOTE_LABELS,
+  dotVoteGuidance,
+  dotVoteLabels,
+  dotVotePhaseOf,
   dotVoteStickerName,
 } from "./logic/dot-vote";
 export {

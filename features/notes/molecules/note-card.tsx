@@ -22,6 +22,7 @@ import { DRAG_THRESHOLD_PX, getNoteHeight } from "@/contracts/board";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import {
+  type DotVotePhase,
   type DotVoteRemaining,
   DotVoteSticker,
   dotVoteStickerName,
@@ -73,6 +74,8 @@ export type NoteCardProps = {
   onExclude?: (noteId: string) => void;
   onRestore?: (noteId: string) => void;
   vote: {
+    // シールの名前はフェーズで変わる（課題・問いは「いいね」、アイデアは「需要ありそう」）。
+    phase: DotVotePhase;
     displayMode: VoteDisplayMode;
     selectedKind: DotVoteKind | null;
     voteRemaining: DotVoteRemaining;
@@ -1197,11 +1200,13 @@ export function NoteCard({
             kind="subjective"
             count={note.dotVotes.subjective.count ?? 0}
             state="result"
+            phase={vote.phase}
           />
           <DotVoteSticker
             kind="objective"
             count={note.dotVotes.objective.count ?? 0}
             state="result"
+            phase={vote.phase}
           />
         </div>
       ) : null}
@@ -1234,6 +1239,7 @@ export function NoteCard({
             >
               <DotVoteSticker
                 kind={sticker.kind}
+                phase={vote.phase}
                 count={sticker.count}
                 state={
                   pendingVoteStickerIds.has(sticker.id) ||
@@ -1288,7 +1294,7 @@ export function NoteCard({
               ? note.excluded
                 ? "除外済みの付箋"
                 : "付箋"
-              : `付箋（${dotVoteStickerName(selectedStampKind)}を貼る）`
+              : `付箋（${dotVoteStickerName(selectedStampKind, vote.phase)}を貼る）`
           }
           aria-pressed={isSelected}
           aria-disabled={disabled || undefined}
