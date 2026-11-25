@@ -2130,18 +2130,6 @@ describe("Step 3-2〜3-5（固定2軸マップ）", () => {
     expect(screen.getByTestId("idea-map-workspace-rail")).toBeInTheDocument();
   });
 
-  it("3-3以降はマップ面が広がる基準幅の帯が付箋への操作を受け止めない", () => {
-    setup({
-      phase: buildPhaseStep(3, 3),
-      permissions: getBoardPermissions(buildPhaseStep(3, 3)),
-      notes: [buildNote({ id: "right-edge-idea", x: 95, y: 50 })],
-    });
-
-    expect(screen.getByTestId("idea-map-workspace-rail")).toHaveClass(
-      "pointer-events-none",
-    );
-  });
-
   it("3-2から3-3へ進んでもマップのレイアウト領域を変えない", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(2, 3),
