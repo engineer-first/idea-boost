@@ -352,22 +352,57 @@
   .stage[data-density="compact"] {
     padding-block: 0;
   }
+  /* 左に進み方と全体の流れ、右に部屋の名前・メンバー・招待・開始を置く。 */
+  .content {
+    --lobby-guide-width: clamp(340px, 42%, 560px);
+    display: grid;
+    max-width: 1380px;
+    grid-template-columns: minmax(0, var(--lobby-guide-width)) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "guide header"
+      "guide connection"
+      "guide stage"
+      "guide invite"
+      "footer footer";
+    column-gap: 24px;
+  }
+  .header {
+    grid-area: header;
+  }
+  .connectionSlot {
+    grid-area: connection;
+  }
+  .stage {
+    grid-area: stage;
+  }
   .inviteShelf {
-    grid-template-columns: minmax(170px, 0.8fr) minmax(220px, 1.4fr) 140px auto;
-    gap: 20px;
-    padding-top: 16px;
+    grid-area: invite;
+  }
+  .footer {
+    grid-area: footer;
+  }
+  .content > .guide {
+    grid-area: guide;
+    container-type: size;
+    overflow: auto;
+  }
+  /* 左の飾りは説明パネルと重なるので、右の飾りだけ残す。 */
+  .stage::before {
+    display: none;
+  }
+  .inviteShelf {
+    grid-template-columns: minmax(0, 1fr) 128px auto;
+    gap: 8px 16px;
+    padding-top: 12px;
   }
   .inviteHeading {
-    grid-column: auto;
     align-self: center;
-  }
-  .inviteHeading p {
-    max-width: 24ch;
   }
   .start {
     position: static;
     width: auto;
-    min-width: 200px;
+    min-width: 180px;
     height: 48px;
     border-radius: var(--ib-rounded-full);
     padding-inline: 24px;
@@ -382,10 +417,48 @@
     padding-top: 12px;
   }
   .content {
-    gap: 4px;
+    row-gap: 4px;
   }
   .avatarMessage:empty {
     display: none;
+  }
+  /* 低い画面では見出しを畳み、招待URL・コードの見出しだけで伝える。 */
+  .inviteHeading {
+    display: none;
+  }
+}
+
+/* 右の列に余裕があり見出しを出す高さなら、招待の見出しも URL・コード・開始と同じ行に並べる。 */
+@media (min-width: 1400px) and (min-height: 761px) {
+  .inviteShelf {
+    grid-template-columns: minmax(150px, 0.8fr) minmax(0, 1.4fr) 128px auto;
+  }
+  .inviteHeading {
+    grid-column: auto;
+  }
+}
+
+/* 参加者が多いと顔を優先し、説明パネルを細くする。幅が足りない PC では隠す。 */
+@media (min-width: 1024px) and (max-width: 1179px) {
+  .lobby[data-member-density="many"] .content {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "header"
+      "connection"
+      "stage"
+      "invite"
+      "footer";
+  }
+  .lobby[data-member-density="many"] .content > .guide {
+    display: none;
+  }
+  .lobby[data-member-density="many"] .stage::before {
+    display: block;
+  }
+}
+@media (min-width: 1180px) {
+  .lobby[data-member-density="many"] .content {
+    --lobby-guide-width: min(420px, 34%);
   }
 }
 

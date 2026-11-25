@@ -278,6 +278,30 @@ button.peer:hover {
   .members[data-density="spacious"] {
     --lobby-avatar-size: max(32px, min(192px, 16vw, calc(100cqh - 184px)));
   }
+  /* 横に並ぶ数で待機領域の幅を割り、顔が列からはみ出さないようにする。 */
+  .members {
+    --lobby-fit-columns: 5;
+    --lobby-avatar-fit: calc(
+      (100cqw - (var(--lobby-fit-columns) - 1) * 20px) /
+      var(--lobby-fit-columns) -
+      8px
+    );
+  }
+  .members[data-count="1"] {
+    --lobby-fit-columns: 1;
+  }
+  .members[data-count="2"] {
+    --lobby-fit-columns: 2;
+  }
+  .members[data-count="3"],
+  .members[data-count="6"] {
+    --lobby-fit-columns: 3;
+  }
+  .members[data-count="4"],
+  .members[data-count="7"],
+  .members[data-count="8"] {
+    --lobby-fit-columns: 4;
+  }
   .nameText,
   .status {
     max-width: 100%;

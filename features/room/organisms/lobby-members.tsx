@@ -24,6 +24,10 @@ export type LobbyMembersProps = {
   avatarDescriptionId?: string;
 };
 
+// PC では待機領域の幅からも上限を決め、列に収まらない大きさにしない。
+const AVATAR_SIZE =
+  "min(var(--lobby-avatar-size), var(--lobby-avatar-fit, var(--lobby-avatar-size)))";
+
 export function LobbyMembers({
   members,
   currentUserId,
@@ -64,8 +68,8 @@ export function LobbyMembers({
               isMe={isMe}
               size={size}
               style={{
-                width: "var(--lobby-avatar-size)",
-                height: "var(--lobby-avatar-size)",
+                width: AVATAR_SIZE,
+                height: AVATAR_SIZE,
               }}
             />
           );

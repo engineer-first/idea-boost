@@ -8,7 +8,8 @@ import {
 export type FacilitationGuideContent = {
   durationMinutes: number;
   intro: string;
-  action?: string;
+  // そのステップでやることを14字以内で。開始待ちの「全体の流れ」に出す。
+  action: string;
   firstAction?: string;
   visualExample?: {
     caption: string;
@@ -139,6 +140,7 @@ const FACILITATION_GUIDES: Record<
     },
     5: {
       durationMinutes: 10,
+      action: "課題を1つに決める",
       intro: "投票結果を見て、取り組む課題を1つ話し合おう。",
       message: "投票結果を参考に、取り組む課題をみんなで1つ決めよう。",
       hostMessage:
@@ -234,6 +236,7 @@ const FACILITATION_GUIDES: Record<
     },
     4: {
       durationMinutes: 10,
+      action: "問いを1つに決める",
       intro: "投票結果を見て、アイデアが広がる問いを1つ話し合おう。",
       message: "投票結果を参考に、問いをみんなで1つ決めよう。",
       hostMessage:
@@ -254,6 +257,7 @@ const FACILITATION_GUIDES: Record<
   3: {
     1: {
       durationMinutes: 5,
+      action: "解決策を書き出す",
       intro: "決めた問いに対する解決策を付箋に。実現方法を気にしすぎず書こう。",
       message:
         "決定した問いをもとに、解決策を付箋に書き出そう。時間になったらみんなと次の進め方を選ぼう。",
@@ -349,6 +353,7 @@ const FACILITATION_GUIDES: Record<
     },
     5: {
       durationMinutes: 10,
+      action: "解決策を1つに決める",
       intro: "投票結果とマップを見て、取り組む解決策を1つ話し合おう。",
       message: "投票結果を参考に、採用する解決策をみんなで1つ決めよう。",
       hostMessage:
