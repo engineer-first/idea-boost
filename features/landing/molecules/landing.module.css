@@ -1347,7 +1347,7 @@
   line-height: 1.6;
   color: var(--lp-accent);
 }
-.strengths {
+.background {
   padding-block: 64px;
 }
 .afterWords > span {
@@ -1462,7 +1462,7 @@
   }
 }
 @media (min-width: 640px) {
-  .strengths {
+  .background {
     padding-block: 96px;
   }
 }
@@ -1723,15 +1723,15 @@
   }
 }
 
-.method {
+.scenes {
   position: relative;
   isolation: isolate;
   margin-inline: -24px;
   padding: 40px 24px;
   background: var(--lp-mood-lavender);
 }
-.method::before,
-.method::after {
+.scenes::before,
+.scenes::after {
   content: "";
   position: absolute;
   left: 0;
@@ -1740,31 +1740,31 @@
   background: var(--lp-surface);
   border-radius: 0 0 50% 50%;
 }
-.method::before {
+.scenes::before {
   top: 0;
 }
-.method::after {
+.scenes::after {
   bottom: 0;
   transform: rotate(180deg);
 }
-.methodShapes {
+.sceneShapes {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
-.methodShapes i {
+.sceneShapes i {
   position: absolute;
   width: 20px;
   height: 20px;
 }
-.methodShapes i:nth-child(1) {
+.sceneShapes i:nth-child(1) {
   right: 5%;
   top: 60px;
   background: var(--lp-brand-yellow);
   clip-path: polygon(0 100%, 60% 0, 100% 100%);
   transform: rotate(15deg);
 }
-.methodShapes i:nth-child(2) {
+.sceneShapes i:nth-child(2) {
   left: 10px;
   top: 48%;
   border: 5px solid var(--lp-brand-purple);
@@ -1772,7 +1772,7 @@
   border-bottom-color: transparent;
   transform: rotate(30deg);
 }
-.methodShapes i:nth-child(3) {
+.sceneShapes i:nth-child(3) {
   right: 12px;
   bottom: 30px;
   background: var(--lp-brand-red);
@@ -1860,7 +1860,7 @@
   color: var(--lp-ink);
 }
 @media (min-width: 640px) {
-  .method {
+  .scenes {
     margin-inline: -40px;
     padding-inline: 40px;
   }

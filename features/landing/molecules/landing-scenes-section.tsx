@@ -30,10 +30,10 @@ export function LandingScenesSection({
   return (
     <section
       style={landingPaperStyle}
-      className={`${styles.theme} ${styles.method}`}
+      className={`${styles.theme} ${styles.scenes}`}
       aria-labelledby="landing-scenes"
     >
-      <div className={styles.methodShapes} aria-hidden="true">
+      <div className={styles.sceneShapes} aria-hidden="true">
         <i />
         <i />
         <i />

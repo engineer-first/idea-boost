@@ -17,7 +17,7 @@ export function LandingBackgroundSection({
   const comparison = background.comparison;
   return (
     <section
-      className={`${styles.theme} ${styles.strengths}`}
+      className={`${styles.theme} ${styles.background}`}
       aria-labelledby="landing-background"
     >
       <h2 id="landing-background" className={landingHeadingClass}>
