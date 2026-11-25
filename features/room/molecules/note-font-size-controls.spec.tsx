@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { NoteFontSizeControls } from "./note-font-size-controls";
 
@@ -57,5 +57,25 @@ describe("NoteFontSizeControls", () => {
         .getAllByRole("button")
         .every((button) => button.hasAttribute("disabled")),
     ).toBe(true);
+  });
+
+  it("ボタンにホバー・フォーカスすると何が変わるかを示す", () => {
+    render(
+      <NoteFontSizeControls
+        fontSize={14}
+        disabled={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    act(() =>
+      screen.getByRole("button", { name: "付箋の文字を大きく" }).focus(),
+    );
+    expect(screen.getByRole("tooltip")).toHaveTextContent(
+      "選んだ付箋の文字を大きく",
+    );
+    expect(
+      screen.getByRole("group", { name: "選択した付箋の文字サイズ" }),
+    ).toHaveAccessibleDescription("共有した付箋は全員の表示に反映されます");
   });
 });
