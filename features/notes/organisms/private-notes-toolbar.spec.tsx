@@ -169,6 +169,35 @@ describe("PrivateNotesToolbar", () => {
     ).not.toBeInTheDocument();
   });
 
+  it.each(["dock", "workspace"] as const)(
+    "%s でも「自分だけに表示」を鍵のアイコンと一緒に示し、読み上げは文言だけにする",
+    (presentation) => {
+      render(
+        <PrivateNotesToolbar
+          notes={[buildNote({ visibility: "private", content: "考え" })]}
+          disabled={false}
+          selectedNoteId={null}
+          canCreateNote
+          canDeleteNote
+          canMoveNote
+          canEditNote
+          defaultExpanded
+          onSelect={vi.fn()}
+          onAdd={vi.fn()}
+          onContentChange={vi.fn()}
+          onDelete={vi.fn()}
+          onDragStart={vi.fn()}
+          presentation={presentation}
+        />,
+      );
+      const privacy = screen.getByText("自分だけに表示", { exact: true });
+      const lock = privacy.querySelector("svg");
+      expect(lock).not.toBeNull();
+      expect(lock).toHaveAttribute("aria-hidden", "true");
+      expect(privacy).toHaveTextContent(/^自分だけに表示$/);
+    },
+  );
+
   it("問いの例があっても書いた付箋だけが自分の一覧を先頭から埋める", () => {
     render(
       <PrivateNotesToolbar

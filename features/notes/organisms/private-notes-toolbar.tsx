@@ -808,10 +808,9 @@ export function PrivateNotesToolbar({
             マイ付箋
           </CardTitle>
         ) : null}
-        <p className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-          {isWorkspace ? (
-            <LockKeyhole aria-hidden="true" className="size-3.5 shrink-0" />
-          ) : null}
+        {/* 共有前の付箋がほかの人に見えないことを、鍵の形と札で示す（#1085）。 */}
+        <p className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 text-xs text-muted-foreground">
+          <LockKeyhole aria-hidden="true" className="size-3.5 shrink-0" />
           自分だけに表示
         </p>
       </div>
@@ -829,6 +828,8 @@ export function PrivateNotesToolbar({
     <div
       className={cn(
         "grid w-full grid-rows-[minmax(0,1fr)] overflow-hidden rounded-md bg-muted/60 ring-1 ring-border/80 transition-[background-color,box-shadow] duration-150 focus-within:bg-background focus-within:outline-1 focus-within:outline-primary/70 focus-within:ring-4 focus-within:ring-primary/12 motion-reduce:transition-none",
+        // 自分だけの欄は淡い面なので、入力欄は白で書く場所として浮かせる。
+        isWorkspace && "bg-card",
         isWritingCollapsed
           ? "col-start-1 row-start-1 h-10 min-w-0"
           : "min-h-14 max-h-32",
@@ -923,7 +924,8 @@ export function PrivateNotesToolbar({
               aria-controls={noteListId}
               className={cn(
                 toolMotion.button,
-                "col-start-2 row-start-1 h-10 w-24 text-sm",
+                // 欄が淡い操作面なので、ボタンは白のまま枠の色で押せることを示す。
+                "col-start-2 row-start-1 h-10 w-24 text-sm hover:border-primary/50 hover:bg-card aria-expanded:bg-card",
               )}
               onPointerDown={(event) => {
                 const editor = document.activeElement;

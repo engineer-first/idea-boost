@@ -1521,7 +1521,7 @@ export function RoomBoardCanvas({
                 addActionRef={privateNoteAddRef}
                 className={
                   isPersonalNoteEntryPhase
-                    ? `pointer-events-auto h-full w-full rounded-xl border border-border/70 bg-canvas shadow-tool ${styles.personalWorkspace}`
+                    ? `pointer-events-auto h-full w-full rounded-xl border border-border bg-muted shadow-tool ${styles.personalWorkspace}`
                     : `pointer-events-auto max-h-full ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`
                 }
                 toolbarRef={privateToolbarRef}
