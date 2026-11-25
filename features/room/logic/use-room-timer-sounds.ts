@@ -8,7 +8,27 @@ export const ROOM_TIMER_SOUND_STORAGE_KEY =
 
 const WARNING_SECONDS = [5, 4, 3, 2, 1] as const;
 // ブラウザの自動再生制限を解く操作（HTML の activation-triggering events）。
-const AUDIO_UNLOCK_EVENTS = ["pointerdown", "keydown", "touchend"] as const;
+const AUDIO_UNLOCK_EVENTS = [
+  "pointerdown",
+  "pointerup",
+  "keydown",
+  "touchend",
+] as const;
+
+// Escape、タッチの押し始め、マウスの離しは再生許可にならないため、
+// その時点で AudioContext を作らない。
+function isActivationTriggeringEvent(event: Event): boolean {
+  if (event.type === "keydown") {
+    return (event as KeyboardEvent).key !== "Escape";
+  }
+  if (event.type === "pointerdown") {
+    return (event as PointerEvent).pointerType === "mouse";
+  }
+  if (event.type === "pointerup") {
+    return (event as PointerEvent).pointerType !== "mouse";
+  }
+  return true;
+}
 const WARNING_LATE_TOLERANCE_MS = 250;
 const END_LATE_TOLERANCE_MS = 2_000;
 const TIMER_SOUND_PEAK_GAIN = 0.04;
@@ -289,7 +309,8 @@ export function useRoomTimerSounds({
         window.removeEventListener(type, unlock, true);
       }
     };
-    function unlock() {
+    function unlock(event: Event) {
+      if (!isActivationTriggeringEvent(event)) return;
       void getReadyAudioContext()
         .then(() => {
           if (active) removeListeners();

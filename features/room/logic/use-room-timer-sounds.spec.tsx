@@ -777,9 +777,14 @@ describe("useRoomTimerSounds", () => {
       localStorage.removeItem(ROOM_TIMER_SOUND_STORAGE_KEY);
     });
 
-    async function userGesture(type = "pointerdown"): Promise<void> {
+    type Gesture = { type: string; pointerType?: string; key?: string };
+
+    async function userGesture(
+      gesture: Gesture = { type: "pointerdown", pointerType: "mouse" },
+    ): Promise<void> {
       await act(async () => {
-        window.dispatchEvent(new Event(type));
+        const { type, ...init } = gesture;
+        window.dispatchEvent(Object.assign(new Event(type), init));
         await Promise.resolve();
         await Promise.resolve();
       });
@@ -797,11 +802,16 @@ describe("useRoomTimerSounds", () => {
       expect(result.current.playbackBlocked).toBe(false);
     });
 
-    it.each(["pointerdown", "keydown", "touchend"])(
-      "最初の操作(%s)で音を出せる状態にし、以降のタイマー音を鳴らす",
-      async (type) => {
+    it.each<Gesture>([
+      { type: "pointerdown", pointerType: "mouse" },
+      { type: "pointerup", pointerType: "pen" },
+      { type: "keydown", key: "Enter" },
+      { type: "touchend" },
+    ])(
+      "最初の操作($type)で音を出せる状態にし、以降のタイマー音を鳴らす",
+      async (gesture) => {
         const { result, rerender } = setup({ status: "idle" });
-        await userGesture(type);
+        await userGesture(gesture);
         expect(audioContexts[0]?.state).toBe("running");
 
         await rerenderTimer(rerender, activeSound(nowMs + 10_000), 1);
@@ -810,6 +820,19 @@ describe("useRoomTimerSounds", () => {
           523.25, 659.25, 783.99,
         ]);
         expect(result.current.playbackBlocked).toBe(false);
+      },
+    );
+
+    it.each<Gesture>([
+      { type: "keydown", key: "Escape" },
+      { type: "pointerdown", pointerType: "touch" },
+      { type: "pointerup", pointerType: "mouse" },
+    ])(
+      "再生許可にならない操作(%o)では AudioContext を作らない",
+      async (gesture) => {
+        setup({ status: "idle" });
+        await userGesture(gesture);
+        expect(audioContexts).toHaveLength(0);
       },
     );
 
