@@ -433,7 +433,10 @@ export function useRoomBoardInteractions({
     drag?.status === "private"
       ? (() => {
           const preview: NonNullable<RoomBoardInteractions["dragPreview"]> = {
-            note: drag.note,
+            // 掴んだ後に保存が確定した本文も、運んでいる途中で反映する。
+            note:
+              privateNotes.find((note) => note.id === drag.note.id) ??
+              drag.note,
             left: drag.clientX - drag.previewOffsetX,
             top: drag.clientY - drag.previewOffsetY,
             width: drag.previewWidth,

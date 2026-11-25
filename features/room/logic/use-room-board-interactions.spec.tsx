@@ -168,6 +168,56 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(result.current.dragPreview).toMatchObject({ left: 420, top: 100 });
   });
 
+  it("運んでいる間に本文の保存が確定したら、previewに確定後の本文を出す", () => {
+    const before = buildNote({
+      id: "private-1",
+      visibility: "private",
+      content: "直す前の本文",
+    });
+    const { result, rerender } = renderHook(
+      ({ privateNotes }: { privateNotes: ReturnType<typeof buildNote>[] }) =>
+        useRoomBoardInteractions({
+          notes: [],
+          movePending: false,
+          moveBlocked: false,
+          privateNotes,
+          currentUserId: "11111111-1111-4111-8111-111111111111",
+          draggingNoteId: null,
+          phase: buildPhaseStep(2),
+          isDecided: false,
+          isAdditionalWriting: false,
+          ideaMapSizeLevel: 0,
+          ideaMapSizeInitialized: true,
+          onNoteDragStart: vi.fn(),
+          onNoteDragMove: vi.fn(),
+          onNoteDragEnd: vi.fn(),
+          onNoteDragCancel: vi.fn(),
+          onPrivateNotePublish: vi.fn(),
+          onCursorMove: vi.fn(),
+          onCursorLeave: vi.fn(),
+        }),
+      { initialProps: { privateNotes: [before] } },
+    );
+    const toolbar = document.createElement("div");
+    toolbar.dataset.expanded = "true";
+    toolbar.getBoundingClientRect = () => new DOMRect(600, 100, 200, 500);
+    result.current.privateToolbarRef.current = toolbar;
+    act(() =>
+      result.current.onPrivateNoteDragStart("private-1", {
+        pointerId: 1,
+        clientX: 650,
+        clientY: 180,
+        currentTarget: {
+          getBoundingClientRect: () => new DOMRect(600, 100, 200, 150),
+        },
+      } as unknown as PointerEvent<HTMLButtonElement>),
+    );
+
+    rerender({ privateNotes: [{ ...before, content: "直した本文" }] });
+
+    expect(result.current.dragPreview?.note.content).toBe("直した本文");
+  });
+
   it("空のボードへ最初のマイ付箋をdropした後も本人のカメラを保つ", () => {
     const note = buildNote({ id: "private-first", visibility: "private" });
     const viewport = document.createElement("div");
