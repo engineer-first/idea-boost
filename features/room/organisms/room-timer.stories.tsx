@@ -42,9 +42,43 @@ export const HalfTime: Story = {
     timer: buildRunningTimer({ durationMs: 300_000, remainingMs: 150_000 }),
   },
 };
-export const NearlyEnded: Story = {
+export const OneMinuteLeft: Story = {
+  args: {
+    timer: buildRunningTimer({ durationMs: 300_000, remainingMs: 60_000 }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "残り1分。外枠と時間の札を注意の色にし、入ったときに2回だけ小さく膨らむ。",
+      },
+    },
+  },
+};
+export const ThirtySecondsLeft: Story = {
   args: {
     timer: buildRunningTimer({ durationMs: 300_000, remainingMs: 30_000 }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "残り30秒。外枠を危険の色で少し太くし、入ったときにベルのように3回揺れる。",
+      },
+    },
+  },
+};
+export const TenSecondsLeft: Story = {
+  args: {
+    timer: buildRunningTimer({ durationMs: 300_000, remainingMs: 10_000 }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "残り10秒。外枠を太くし、終わるまで1秒ごとに脈打つ。動きを減らす設定では色と太さだけで伝える。",
+      },
+    },
   },
 };
 export const RunningMember: Story = RunningHost;
