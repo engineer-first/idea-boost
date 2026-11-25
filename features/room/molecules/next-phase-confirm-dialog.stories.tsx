@@ -61,6 +61,14 @@ export const WaitingConnection: Story = {
   },
 };
 
+// 決定ステップで採用前は、採用が要ることを示す。
+export const WaitingDecision: Story = {
+  args: {
+    disabled: true,
+    waiting: { kind: "decision" },
+  },
+};
+
 // 押下後、確認ダイアログが開いた状態。
 export const Opened: Story = {
   play: async ({ canvasElement }) => {
