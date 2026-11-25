@@ -24,6 +24,45 @@ function props() {
 }
 
 describe("RoomTimer", () => {
+  it("閉じた円の下にそのステップの設定時間を出す", () => {
+    render(
+      <RoomTimer
+        {...props()}
+        timer={buildRunningTimer({ remainingMs: 150_000, durationMs: 300_000 })}
+      />,
+    );
+    expect(screen.getByTestId("room-timer-duration")).toHaveTextContent("5分");
+  });
+  it("残り1分・30秒・10秒で段階を切り替え、一時停止中は段階を出さない", () => {
+    const { rerender } = render(
+      <RoomTimer
+        {...props()}
+        timer={buildRunningTimer({ remainingMs: 61_000, durationMs: 300_000 })}
+      />,
+    );
+    const floating = screen.getByTestId("timer-floating");
+    expect(floating).toHaveAttribute("data-urgency", "none");
+    for (const [remainingMs, urgency] of [
+      [60_000, "minute"],
+      [30_000, "half"],
+      [10_000, "final"],
+    ] as const) {
+      rerender(
+        <RoomTimer
+          {...props()}
+          timer={buildRunningTimer({ remainingMs, durationMs: 300_000 })}
+        />,
+      );
+      expect(floating).toHaveAttribute("data-urgency", urgency);
+    }
+    rerender(
+      <RoomTimer
+        {...props()}
+        timer={buildPausedTimer({ remainingMs: 10_000 })}
+      />,
+    );
+    expect(floating).toHaveAttribute("data-urgency", "none");
+  });
   it("稼働中は経過に合わせて時計の針を回し、未開始と時間切れでは出さない", () => {
     const { rerender } = render(
       <RoomTimer

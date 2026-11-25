@@ -76,7 +76,7 @@ export function RoomTimer({
     }
   }, [expanded]);
 
-  const label = `タイマー ${ended ? "終了" : timer.status === "idle" ? "未開始" : timer.status === "paused" ? "一時停止中" : "残り"} ${display.label}`;
+  const label = `タイマー（${display.durationLabel}） ${ended ? "終了" : timer.status === "idle" ? "未開始" : timer.status === "paused" ? "一時停止中" : "残り"} ${display.label}`;
 
   return (
     <fieldset
@@ -85,6 +85,7 @@ export function RoomTimer({
       hidden={ended && extensionUsed}
       data-testid="timer-floating"
       data-timer-expanded={expanded}
+      data-urgency={display.urgency}
       data-dragging={dragging}
       data-board-native-control
       aria-label="タイマー。Altと矢印キーで移動できます"
@@ -115,6 +116,16 @@ export function RoomTimer({
           className={styles.crown}
           aria-hidden="true"
         />
+      ) : null}
+      {!expanded ? (
+        <span
+          data-testid="room-timer-duration"
+          className={styles.duration}
+          title={`このステップの時間は${display.durationLabel}`}
+          aria-hidden="true"
+        >
+          {display.durationLabel}
+        </span>
       ) : null}
       <div className={styles.surface}>
         {!expanded ? (

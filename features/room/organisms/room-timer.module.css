@@ -225,3 +225,92 @@
     border: 2px solid var(--foreground);
   }
 }
+/* そのステップの設定時間。円の下端にまたがる札にし、配置の余白（12px）からはみ出さない */
+.duration {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  z-index: 1;
+  min-width: 32px;
+  padding: 0 6px;
+  transform: translateX(-50%);
+  border: 1px solid var(--ib-color-ink);
+  border-radius: var(--ib-rounded-full);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+/* 残り1分・30秒・10秒。外枠の色と太さを段階ごとに強め、入った瞬間だけ短く動かす。
+   動きは段階に入ったときに数回で止め、作業の邪魔をしない（10秒前だけ終了まで脈打つ） */
+.floating:not([data-timer-expanded="true"])[data-urgency="minute"] {
+  box-shadow:
+    0 0 0 3px var(--ib-color-warning),
+    var(--elevation-tool);
+}
+.floating:not([data-timer-expanded="true"])[data-urgency="half"] {
+  box-shadow:
+    0 0 0 3px var(--ib-color-danger),
+    var(--elevation-tool);
+}
+.floating:not([data-timer-expanded="true"])[data-urgency="final"] {
+  box-shadow:
+    0 0 0 5px var(--ib-color-danger),
+    var(--elevation-tool);
+}
+.floating[data-urgency="minute"] .duration {
+  border-color: var(--ib-color-warning);
+  background: var(--ib-color-warning-soft);
+  color: var(--ib-color-warning);
+}
+.floating[data-urgency="half"] .duration,
+.floating[data-urgency="final"] .duration {
+  border-color: var(--ib-color-danger);
+  background: var(--ib-color-danger-soft);
+  color: var(--ib-color-danger-text);
+}
+/* 位置は left/top で決まるため、動きは transform と重ならない scale / rotate で付ける */
+@keyframes timer-nudge {
+  50% {
+    scale: 1.08;
+  }
+}
+@keyframes timer-ring {
+  20% {
+    rotate: -10deg;
+  }
+  40% {
+    rotate: 8deg;
+  }
+  60% {
+    rotate: -6deg;
+  }
+  80% {
+    rotate: 4deg;
+  }
+}
+@keyframes timer-pulse {
+  15% {
+    scale: 1.1;
+  }
+  40% {
+    scale: 1;
+  }
+}
+/* 動きを減らす設定では動かさず、外枠と札の色・太さだけで伝える */
+@media (prefers-reduced-motion: no-preference) {
+  .floating:not([data-timer-expanded="true"])[data-urgency="minute"] {
+    animation: timer-nudge 600ms ease-in-out 2;
+  }
+  .floating:not([data-timer-expanded="true"])[data-urgency="half"] {
+    animation: timer-ring 480ms ease-in-out 3;
+  }
+  .floating:not([data-timer-expanded="true"])[data-urgency="final"] {
+    animation: timer-pulse 1s ease-in-out 10;
+  }
+}
