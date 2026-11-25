@@ -3197,8 +3197,12 @@ describe("RoomBoardView", () => {
 
           decision: null,
         });
-        const actionName =
-          phase === 3 ? "完了して成果を表示" : "次のステップへ";
+        const actionName = (decided: boolean) =>
+          phase === 3
+            ? "完了して成果を表示"
+            : decided
+              ? "次のステップへ"
+              : "採用すると次へ";
         const assertCompletion = (complete: boolean, decided: boolean) => {
           expect(
             within(
@@ -3214,11 +3218,11 @@ describe("RoomBoardView", () => {
           }
           if (decided)
             expect(
-              screen.getByRole("button", { name: actionName }),
+              screen.getByRole("button", { name: actionName(true) }),
             ).toBeEnabled();
           else
             expect(
-              screen.getByRole("button", { name: actionName }),
+              screen.getByRole("button", { name: actionName(false) }),
             ).toBeDisabled();
         };
         fireEvent.click(screen.getByRole("button", { name: "参加者 3人" }));
@@ -3262,7 +3266,7 @@ describe("RoomBoardView", () => {
       });
 
       expect(
-        screen.getByRole("button", { name: "次のステップへ" }),
+        screen.getByRole("button", { name: "採用すると次へ" }),
       ).toBeDisabled();
     });
 
@@ -3827,7 +3831,7 @@ describe("反復ワークフロー", () => {
       timer: { status: "ended", durationMs: 300_000 },
     });
     expect(
-      screen.getByRole("button", { name: "次のステップへ" }),
+      screen.getByRole("button", { name: "採用すると次へ" }),
     ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "もう一度投票する" }));
     expect(screen.getByRole("alertdialog")).toHaveTextContent(

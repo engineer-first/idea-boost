@@ -346,6 +346,31 @@ describe("RoomBoardHeader", () => {
     });
     expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
   });
+  it("投票工程で票が残っている間の「できた！」は、押せる条件を伝える", () => {
+    const members = buildMembers(2, ME);
+    const props = setupProps({
+      phase: buildPhaseStep(4),
+      members,
+      progress: {
+        ...allReadyProgress(members),
+        readyUserIds: [],
+        notReadyUserIds: members.map(({ userId }) => userId),
+        allReady: false,
+      },
+      completedVoterIds: [],
+      onToggleReady: vi.fn(),
+    });
+    const { rerender } = render(<RoomBoardHeader {...props} />);
+    const done = screen.getByRole("button", { name: "できた！" });
+    expect(done).toBeDisabled();
+    expect(done).toHaveAttribute("title", "票をすべて使うと押せます");
+
+    rerender(<RoomBoardHeader {...props} completedVoterIds={[ME]} />);
+    expect(screen.getByRole("button", { name: "できた！" })).toHaveAttribute(
+      "title",
+      "次へ進む準備ができたことをみんなに伝えます",
+    );
+  });
   it("投票工程では時間切れでも投票が未完了なら次に進めない", () => {
     const members = buildMembers(2, ME);
     const props = setupProps({
@@ -1411,6 +1436,29 @@ describe("RoomBoardHeader", () => {
       expect(screen.getByRole("button", { name: "再接続中…" })).toBeDisabled();
     });
 
+    it.each([
+      ["課題決定", buildPhaseStep(5, 1)],
+      ["問い決定", buildPhaseStep(4, 2)],
+    ])("%sで採用前は、人数より先に採用が要ることを出す", (_label, phase) => {
+      const members = buildMembers(3, ME);
+      setup({
+        phase,
+        members,
+        isNextPhaseBlocked: true,
+        progress: {
+          ...allReadyProgress(members),
+          readyUserIds: [members[0].userId],
+          notReadyUserIds: [members[1].userId, members[2].userId],
+          canAdvance: false,
+          allReady: false,
+        },
+      });
+
+      expect(
+        screen.getByRole("button", { name: "採用すると次へ" }),
+      ).toBeDisabled();
+    });
+
     it("最終ステップではホストにも「次のステップへ」を表示しない", () => {
       setup({ phase: buildPhaseStep(5, 3) });
 
@@ -1469,7 +1517,7 @@ describe("RoomBoardHeader", () => {
       (phase) => {
         const onNextPhase = vi.fn();
         setup({ phase, isNextPhaseBlocked: true, onNextPhase });
-        const next = screen.getByRole("button", { name: "次のステップへ" });
+        const next = screen.getByRole("button", { name: "採用すると次へ" });
         expect(next).toBeDisabled();
         fireEvent.click(next);
         expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();

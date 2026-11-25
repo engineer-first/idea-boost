@@ -472,12 +472,14 @@ export function RoomBoardHeader({
     canAdvance: progress.canAdvance,
     onReady: onToggleReady,
   });
+  const votesRemaining =
+    isCurrentVotingStep &&
+    !isCurrentUserReady &&
+    !completedVoterIds.includes(currentUserId);
   const readyButtonDisabled =
     roomActionDisabled ||
     sharingCompletionDisabled ||
-    (isCurrentVotingStep &&
-      !isCurrentUserReady &&
-      !completedVoterIds.includes(currentUserId)) ||
+    votesRemaining ||
     completionCue.busy;
   const sharingTurnKey =
     activeSharing?.status === "active"
@@ -722,7 +724,9 @@ export function RoomBoardHeader({
                       : "次の人の発表へバトンタッチします"
                     : isCurrentUserReady
                       ? "クリックして作業中に戻す"
-                      : "次へ進む準備ができたことをみんなに伝えます"
+                      : votesRemaining
+                        ? "票をすべて使うと押せます"
+                        : "次へ進む準備ができたことをみんなに伝えます"
                 }
                 onClick={() => {
                   if (activeSharing) {
@@ -1045,13 +1049,15 @@ export function RoomBoardHeader({
                 waiting={
                   isDisconnected
                     ? { kind: "connection" }
-                    : !canProceedByTimeOrReady
-                      ? {
-                          kind: "members",
-                          remaining: progress.notReadyUserIds.length,
-                          total: progress.connectedUserIds.length,
-                        }
-                      : undefined
+                    : isNextPhaseBlocked && isResultStep(phase)
+                      ? { kind: "decision" }
+                      : !canProceedByTimeOrReady
+                        ? {
+                            kind: "members",
+                            remaining: progress.notReadyUserIds.length,
+                            total: progress.connectedUserIds.length,
+                          }
+                        : undefined
                 }
                 disabled={
                   isDisconnected ||
