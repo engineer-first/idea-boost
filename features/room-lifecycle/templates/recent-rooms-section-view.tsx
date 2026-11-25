@@ -28,13 +28,16 @@ function formatCompletedDate(value: number): string {
 function RoomRow({ room }: { room: RecentRoom }) {
   return (
     <>
-      <span className="line-clamp-2 min-w-0 flex-1 break-words font-medium">
-        {room.label}
-      </span>
-      <span className="shrink-0 text-sm text-muted-foreground">
-        {room.status === "active"
-          ? "進行中"
-          : `完了${room.completedAt ? `・${formatCompletedDate(room.completedAt)}` : ""}`}
+      {/* 状態は名前の下に置き、列が狭くても名前の幅を残す。 */}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="line-clamp-1 break-all font-medium" title={room.label}>
+          {room.label}
+        </span>
+        <span className="text-sm text-muted-foreground">
+          {room.status === "active"
+            ? "進行中"
+            : `完了${room.completedAt ? `・${formatCompletedDate(room.completedAt)}` : ""}`}
+        </span>
       </span>
       <ArrowRight className="size-4 shrink-0" aria-hidden />
     </>
@@ -73,7 +76,7 @@ export function RecentRoomsSectionView({
           </Button>
         </div>
       ) : (
-        <ul className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]">
+        <ul className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(14rem,1fr))]">
           {rooms.map((room) => (
             <li key={room.roomId} className="flex">
               {room.status === "active" ? (

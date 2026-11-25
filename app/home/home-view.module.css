@@ -46,7 +46,8 @@
   margin: auto;
 }
 .content > [role="alert"],
-.content > section[aria-label="前のルーム"] {
+.content > section[aria-label="前のルーム"],
+.content > section[aria-labelledby="recent-rooms-heading"] {
   margin-bottom: 32px;
 }
 .hero {
@@ -111,7 +112,8 @@
   .home {
     padding-top: 16px;
   }
-  .content > section[aria-label="前のルーム"] {
+  .content > section[aria-label="前のルーム"],
+  .content > section[aria-labelledby="recent-rooms-heading"] {
     margin-bottom: 16px;
   }
 }
