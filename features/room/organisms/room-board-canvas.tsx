@@ -1418,7 +1418,10 @@ export function RoomBoardCanvas({
                         }
                   }
                 >
-                  {dragPreview.note.content || "メモを入力..."}
+                  {/* 編集を確定した直後に運ぶと、保存の応答前は下書きだけが新しい。 */}
+                  {(draftValue?.(dragPreview.note.id) ??
+                    dragPreview.note.content) ||
+                    "メモを入力..."}
                 </p>
               </StickyNote>,
               document.body,

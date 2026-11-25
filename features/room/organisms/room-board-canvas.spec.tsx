@@ -1067,6 +1067,19 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
+  it("保存待ちの下書きがある付箋のドラッグプレビューには下書きの本文を出す", () => {
+    const note = buildNote({ id: "edited-note", content: "直す前の本文" });
+    setup({
+      draftValue: (noteId) =>
+        noteId === "edited-note" ? "直した本文" : undefined,
+      dragPreview: { note, left: 640, top: 180, width: 192, height: 144 },
+    });
+
+    const preview = screen.getByTestId("private-note-drag-preview");
+    expect(preview).toHaveTextContent("直した本文");
+    expect(preview).not.toHaveTextContent("直す前の本文");
+  });
+
   it("3-2のマイ付箋ドラッグプレビューを現在のマップ付箋サイズで描画する", () => {
     const note = buildNote({
       id: "map-private-preview",
