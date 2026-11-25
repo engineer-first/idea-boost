@@ -4,7 +4,7 @@
 
 ## 0. 準備
 
-- `git fetch origin`。[loop: polish log](https://github.com/engineer-first/idea-boost/issues?q=label%3Aloop%3Alog+%22loop%3A+polish+log%22) の最新の記録を読み、前回歩いた旅を確かめる
+- `git fetch origin`。[loop: polish log](https://github.com/engineer-first/idea-boost/issues/1108) の最新の記録を読み、前回歩いた旅を確かめる
 - [ux-rubric.md](../ux-rubric.md) を全部読む。前回の次の旅を1本選ぶ（J0→J6 の順に持ち回り）
 - `verify` skill どおりにローカルで起動する（PC 1280×800。共有・投票の旅は3人）
 

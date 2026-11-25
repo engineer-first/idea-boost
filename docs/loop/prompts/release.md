@@ -15,4 +15,5 @@
 6. status を数分おきに取り直し、Promote → Deploy の run を見届ける。成功は新しい GitHub Release（`gh release view <tag>`）と、release-history に記録された health の成功で確かめる
 7. 失敗したら 2 に戻る。同じ原因で3回落ちたら直し方を変える。止まってよいのは成功・差分なし・P0 による見送り・権限が無くて進めない（`needs-human` に場所を書く）ときだけ
 8. しないこと：release ブランチ・タグの直接更新、品質ゲート・health の省略、ruleset・environment・secret の変更
-9. 最後に `orca worktree set --worktree active --comment "<タグと結果1行>"`
+9. [loop: release log](https://github.com/engineer-first/idea-boost/issues/1110) にコメント：日時、状態、タグ（公開したとき）、含む PR、見送り・失敗の理由
+10. 最後に `orca worktree set --worktree active --comment "<タグと結果1行>"`
