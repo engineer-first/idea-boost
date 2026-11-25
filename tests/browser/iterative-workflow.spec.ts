@@ -133,7 +133,8 @@ for (const { phase, count } of phases) {
       expect(await context.textContent()).not.toContain("次の作業");
       await location.click();
 
-      const expected = isResult ? 2 : 0;
+      // 決定ステップは最初から採用モードなので、進める操作は再投票だけが残る。
+      const expected = isResult ? 1 : 0;
       const actions = page
         .getByRole("button", { name: progression })
         .and(page.locator("button:enabled"));
@@ -155,9 +156,12 @@ for (const { phase, count } of phases) {
       expect(await addMore.count()).toBe(canRestartWriting ? 1 : 0);
       if (canRestartWriting) await expectReachable(addMore);
       if (isResult) {
-        const boxes = await loopButtons.evaluateAll((elements) =>
-          elements.map((element) => element.getBoundingClientRect().toJSON()),
-        );
+        // 採用モードの段は文言とボタンを1本の帯に並べるので、帯全体の位置を測る。
+        const boxes = await loopButtons
+          .or(loop.getByRole("status"))
+          .evaluateAll((elements) =>
+            elements.map((element) => element.getBoundingClientRect().toJSON()),
+          );
         const left = Math.min(...boxes.map((box) => box.left));
         const right = Math.max(...boxes.map((box) => box.right));
         const hudCenter = (left + right) / 2;
@@ -285,15 +289,13 @@ test.each(phases)(
         .getByRole("button", { name: progression })
         .and(page.locator("button:enabled"))
         .count(),
-    ).toBe(2);
+    ).toBe(1);
   },
 );
 
 test("採用はキーボードで候補を選ぶと確認ダイアログなしで選択を終える", async () => {
   await openStory("room-roomboardview--ready-to-decide");
-  await page
-    .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
-    .press("Enter");
+  // 決定ステップは最初から採用モードで、再投票も同じ段から選べる。
   const cancel = page.getByRole("button", {
     name: "選択をキャンセル",
     exact: true,
@@ -301,11 +303,9 @@ test("採用はキーボードで候補を選ぶと確認ダイアログなし�
   await cancel.waitFor();
   await expectReachable(cancel);
   expect((await cancel.boundingBox())?.y).toBeGreaterThan(600);
-  expect(
-    await page
-      .getByRole("button", { name: "もう一度投票する", exact: true })
-      .count(),
-  ).toBe(0);
+  await expectReachable(
+    page.getByRole("button", { name: "もう一度投票する", exact: true }),
+  );
   const candidate = page.getByRole("button", { name: /採用する付箋:/ }).first();
   await candidate.press("Enter");
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });

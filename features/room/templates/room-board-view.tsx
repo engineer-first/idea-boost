@@ -546,8 +546,7 @@ export function RoomBoardView({
       press.owner.releasePointerCapture(press.pointerId);
     return true;
   }, []);
-  const [isAdoptRequested, setIsAdoptMode] = useState(false);
-  const isAdoptMode = isAdoptRequested;
+  const [isAdoptDismissed, setIsAdoptDismissed] = useState(false);
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
   const privateNoteAddRef = useRef<((content?: string) => void) | null>(null);
   const composingRef = useRef(false);
@@ -596,6 +595,23 @@ export function RoomBoardView({
   };
   const boardInteractionBlocked =
     timer.status === "idle" || timer.status === "paused";
+  // 決定ステップの主目的は採用なので、未確定の間は最初から採用モードにする。
+  // キャンセル・Escape・採用で外したときだけ、ステップか確定が変わるまで外す。
+  const decidedNoteId = decision?.noteId ?? null;
+  const [previousDecidedNoteId, setPreviousDecidedNoteId] =
+    useState(decidedNoteId);
+  if (previousDecidedNoteId !== decidedNoteId) {
+    setPreviousDecidedNoteId(decidedNoteId);
+    setIsAdoptDismissed(false);
+  }
+  const isAdoptMode =
+    !isAdoptDismissed &&
+    phasePermissions.canDecide &&
+    !boardInteractionBlocked &&
+    connectionStatus === "open" &&
+    confirmedNotes.some(
+      (note) => note.visibility === "shared" && !note.excluded,
+    );
 
   const cancelVoteDrag = useCallback((): boolean => {
     const current = voteStickerDragRef.current;
@@ -663,7 +679,7 @@ export function RoomBoardView({
       selected?.visibility === "private" &&
       selected.authorId === currentUserId &&
       !selected.excluded;
-    setIsAdoptMode(false);
+    setIsAdoptDismissed(false);
     cancelRootPress();
     selection.cancel();
     interactions.cancelCurrentNoteDrag(true);
@@ -691,14 +707,6 @@ export function RoomBoardView({
     cancelVoteDrag,
     setSelectedNoteId,
   ]);
-
-  useEffect(() => {
-    if (boardInteractionBlocked) {
-      setIsAdoptMode(false);
-    }
-    if (connectionStatus === "open" && decision === null) return;
-    setIsAdoptMode(false);
-  }, [boardInteractionBlocked, connectionStatus, decision]);
 
   useEffect(() => {
     if (connectionStatus !== "open") {
@@ -828,7 +836,7 @@ export function RoomBoardView({
           return;
         }
         if (isAdoptMode) {
-          setIsAdoptMode(false);
+          setIsAdoptDismissed(true);
           event.preventDefault();
           return;
         }
@@ -997,9 +1005,9 @@ export function RoomBoardView({
       onRevote={onRevote}
       onStartSelection={() => {
         setSelectedNoteId(null);
-        setIsAdoptMode(true);
+        setIsAdoptDismissed(false);
       }}
-      onCancelSelection={() => setIsAdoptMode(false)}
+      onCancelSelection={() => setIsAdoptDismissed(true)}
       onClearDecision={outcomePublished ? undefined : onDecisionClear}
     />
   ) : null;
@@ -1025,7 +1033,7 @@ export function RoomBoardView({
     )
       return;
     handleAdoptionFocusChange(null);
-    setIsAdoptMode(false);
+    setIsAdoptDismissed(true);
     onNoteDecide(noteId);
   }
 

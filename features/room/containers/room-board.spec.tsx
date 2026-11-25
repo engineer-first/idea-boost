@@ -1429,7 +1429,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     fireEvent.click(
       screen.getByRole("button", { name: "採用する付箋: 最初の付箋" }),
     );
@@ -1476,7 +1475,6 @@ describe("サーバーメッセージ → 画面反映", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
     });
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     const target = screen.getByRole("button", {
       name: "採用する付箋: 最初の付箋",
     });
@@ -1527,7 +1525,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       JSON.stringify({ type: "decision:clear", noteId: NOTE_ID }),
     );
     expect(
-      screen.queryByRole("button", { name: "採用する付箋を選ぶ" }),
+      screen.queryByRole("button", { name: /採用する付箋:/ }),
     ).not.toBeInTheDocument();
     act(() =>
       socket.simulateServerMessage({
@@ -1535,7 +1533,7 @@ describe("サーバーメッセージ → 画面反映", () => {
         decision: null,
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    // 取消後は採用モードのまま、開始ボタンを押さずに選び直せる。
     fireEvent.click(screen.getByRole("button", { name: /採用する付箋:/ }));
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
@@ -1563,8 +1561,8 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
     expect(screen.getByRole("button", { name: "除外を戻す" })).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /採用する付箋:/ }),
+    ).not.toBeInTheDocument();
     expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
     act(() =>
       socket.simulateServerMessage({
