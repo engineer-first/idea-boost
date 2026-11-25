@@ -72,6 +72,7 @@ import {
 import { cleanupRoomCreations } from "./lib/room-creation-cleanup";
 import { getSessionFromRequest } from "./lib/session";
 import { requireSessionSecret } from "./lib/session-secret";
+import { handleRecentRooms } from "./recent-rooms-api";
 import {
   HOST_ID_HEADER,
   RoomDO,
@@ -706,6 +707,9 @@ export function createApiWorker(
         pathname.startsWith("/api/completed-rooms/")
       )
         return handleCompletedRooms(request, env, session.sub);
+
+      if (pathname === "/api/recent-rooms")
+        return handleRecentRooms(request, env, session.sub);
 
       if (
         pathname === "/api/shared-outcomes" ||

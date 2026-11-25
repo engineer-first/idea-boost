@@ -22,6 +22,49 @@ export function completedJson(body: unknown, status = 200): Response {
 function notFound(): Response {
   return completedJson({ error: "ルームが見つかりませんでした。" }, 404);
 }
+/** 本人が閲覧できる完了ルームを新しい順に読む。認可・期限で除外した行も rows に残す。 */
+export async function listCompletedRooms(
+  env: ApiWorkerEnv,
+  userId: string,
+  cursor: { completedAt: number; roomId: string } | null,
+  limit: number,
+): Promise<{
+  rows: { room_id: string; completed_at: number }[];
+  rooms: CompletedRoomsResponse["rooms"];
+}> {
+  const rows = await env.DB.prepare(
+    `SELECT room_id,completed_at FROM completed_room_viewers WHERE user_id=? AND expires_at>? AND (EXISTS(SELECT 1 FROM shared_outcomes s WHERE s.room_id=completed_room_viewers.room_id AND s.creation_visibility IN ('published','legacy')) OR EXISTS(SELECT 1 FROM rooms r WHERE r.id=completed_room_viewers.room_id AND r.creation_visibility='legacy')) ${cursor ? "AND (completed_at<? OR (completed_at=? AND room_id<?))" : ""} ORDER BY completed_at DESC,room_id DESC LIMIT ?`,
+  )
+    .bind(
+      userId,
+      Date.now(),
+      ...(cursor
+        ? [cursor.completedAt, cursor.completedAt, cursor.roomId]
+        : []),
+      limit + 1,
+    )
+    .all<{ room_id: string; completed_at: number }>();
+  const results = await Promise.all(
+    rows.results
+      .slice(0, limit)
+      .map((row) =>
+        env.ROOM_DO.get(env.ROOM_DO.idFromName(row.room_id)).getCompletedRoom(
+          userId,
+        ),
+      ),
+  );
+  const rooms: CompletedRoomsResponse["rooms"] = [];
+  for (const completed of results) {
+    if (completed)
+      rooms.push({
+        roomId: completed.roomId,
+        idea: completed.idea,
+        completedAt: completed.completedAt,
+        expiresAt: completed.expiresAt,
+      });
+  }
+  return { rows: rows.results, rooms };
+}
 export async function handleCompletedRooms(
   request: Request,
   env: ApiWorkerEnv,
@@ -97,41 +140,14 @@ export async function handleCompletedRooms(
         return completedJson({ error: "取得位置が不正です。" }, 400);
       }
     }
-    const rows = await env.DB.prepare(
-      `SELECT room_id,completed_at FROM completed_room_viewers WHERE user_id=? AND expires_at>? AND (EXISTS(SELECT 1 FROM shared_outcomes s WHERE s.room_id=completed_room_viewers.room_id AND s.creation_visibility IN ('published','legacy')) OR EXISTS(SELECT 1 FROM rooms r WHERE r.id=completed_room_viewers.room_id AND r.creation_visibility='legacy')) ${cursor ? "AND (completed_at<? OR (completed_at=? AND room_id<?))" : ""} ORDER BY completed_at DESC,room_id DESC LIMIT 21`,
-    )
-      .bind(
-        userId,
-        Date.now(),
-        ...(cursor
-          ? [cursor.completedAt, cursor.completedAt, cursor.roomId]
-          : []),
-      )
-      .all<{ room_id: string; completed_at: number }>();
-    const page = rows.results.slice(0, 20);
-    const results = await Promise.all(
-      page.map((row) =>
-        env.ROOM_DO.get(env.ROOM_DO.idFromName(row.room_id)).getCompletedRoom(
-          userId,
-        ),
-      ),
-    );
-    const rooms: CompletedRoomsResponse["rooms"] = [];
-    for (const completed of results) {
-      if (completed)
-        rooms.push({
-          roomId: completed.roomId,
-          idea: completed.idea,
-          completedAt: completed.completedAt,
-          expiresAt: completed.expiresAt,
-        });
-    }
+    const { rows, rooms } = await listCompletedRooms(env, userId, cursor, 20);
+    const page = rows.slice(0, 20);
     const last = page.at(-1);
     // 認可・期限で除外した索引行も消費する。返却件数ではなく走査位置を継続する。
     return completedJson({
       rooms,
       nextCursor:
-        rows.results.length > 20 && last
+        rows.length > 20 && last
           ? btoa(
               JSON.stringify({
                 completedAt: last.completed_at,

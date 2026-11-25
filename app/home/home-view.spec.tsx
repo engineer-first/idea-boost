@@ -93,3 +93,35 @@ it("ゲストの連携入口より前に作成・参加の主操作と成果の�
     ).toBeTruthy();
   }
 });
+
+it("Googleでログインした本人には、アカウントの記録から最近のルームを出す", async () => {
+  const roomId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      Response.json({
+        rooms: [{ roomId, label: "チームA", status: "active" }],
+      }),
+    ),
+  );
+  renderView({ accountLinkStatus: "linked" });
+  expect(
+    await screen.findByRole("region", { name: "最近のルーム" }),
+  ).toHaveTextContent("チームA");
+  expect(fetch).toHaveBeenCalledWith("/api/recent-rooms", {
+    cache: "no-store",
+  });
+});
+
+it("ゲストにはアカウントの記録を読みに行かない", async () => {
+  renderView({ accountLinkStatus: "guest" });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "新しいルームを作成" }),
+    ).toBeEnabled(),
+  );
+  expect(fetch).not.toHaveBeenCalledWith(
+    "/api/recent-rooms",
+    expect.anything(),
+  );
+});
