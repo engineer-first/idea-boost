@@ -392,6 +392,40 @@ export class AccountDO extends DurableObject<Env> {
       }
     });
   }
+  /**
+   * ホームに出す、本人が在籍中の未完了ルーム。候補索引をRoomDOで再照合し、
+   * 表示のための読み取りでは索引を書き換えない（参加操作の照合に任せる）。
+   */
+  async currentRooms(userId: string): Promise<ParticipationSource[] | null> {
+    if (!(await this.ensureIndex(userId))) return null;
+    try {
+      const rooms = await this.indexedRooms();
+      const found = await Promise.all(
+        rooms.map((room) =>
+          this.stub(room.roomId).participationPreview(
+            userId,
+            room.roomId,
+            room.inviteCode,
+            room.hostId,
+          ),
+        ),
+      );
+      return found.flatMap((room): ParticipationSource[] =>
+        room
+          ? [
+              {
+                roomId: room.roomId,
+                name: room.name,
+                inviteCode: room.inviteCode,
+                action: room.action,
+              },
+            ]
+          : [],
+      );
+    } catch {
+      return null;
+    }
+  }
   async inspect(
     userId: string,
     roomId: string,

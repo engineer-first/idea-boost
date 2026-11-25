@@ -10,6 +10,7 @@ import { type AccountLinkResult, AccountLinkSection } from "@/features/auth";
 import {
   CreateRoomSection,
   JoinRoomSection,
+  RecentRoomsSection,
   ReturnRoomSection,
 } from "@/features/room-lifecycle";
 import { HomeErrorAlert } from "./home-error-alert";
@@ -33,7 +34,12 @@ export function HomeView({
       <div aria-hidden className={styles.art} />
       <div className={styles.content}>
         {error ? <HomeErrorAlert message={error} /> : null}
-        <ReturnRoomSection currentUserId={currentUserId} />
+        {accountLinkStatus === "linked" ? (
+          // アカウントの参加の記録から出す。端末の「直前のルーム」はこの一覧の先頭と重なるので出さない。
+          <RecentRoomsSection currentUserId={currentUserId} />
+        ) : (
+          <ReturnRoomSection currentUserId={currentUserId} />
+        )}
         <div className={styles.hero}>
           <header className={styles.intro}>
             <h1>
