@@ -157,31 +157,39 @@ test.each([
   { story: "host-twenty", width: 1280, height: 699 },
   { story: "host-four", width: 1366, height: 542 },
 ])(
-  "PCの待機領域 $width px × $height px で $story の進み方と全ステップをスクロールなしで表示する",
+  "PCの待機領域 $width px × $height px で $story の進み方と全ステップを、パネルにキーボードで入ってスクロールして読める",
   async ({ story, width, height }) => {
     await open(story, width, height);
     const guide = page.getByTestId("lobby-flow-guide");
-    const layout = await guide.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const items = [...element.querySelectorAll("li")].map((item) =>
-        item.getBoundingClientRect(),
-      );
-      return {
-        guide: rect.toJSON(),
-        scrolls: element.scrollHeight > element.clientHeight + 1,
-        items: items.map((item) => item.toJSON()),
-      };
-    });
     await page.screenshot({
       path: `test-results/board-layout/lobby-flow-guide-${width}-${height}-${story}.png`,
     });
+    // 中に押せる部品が無いので、パネル自体に Tab で入り、キーで最後まで送れること。
+    await guide.focus();
+    expect(await guide.evaluate((el) => el === document.activeElement)).toBe(
+      true,
+    );
+    await page.keyboard.press("End");
+    await expect
+      .poll(() =>
+        guide.evaluate((el) => {
+          const last = [...el.querySelectorAll("li")]
+            .at(-1)
+            ?.getBoundingClientRect();
+          return (
+            (last?.bottom ?? Infinity) <= el.getBoundingClientRect().bottom + 1
+          );
+        }),
+      )
+      .toBe(true);
+    const layout = await guide.evaluate((element) => ({
+      guide: element.getBoundingClientRect().toJSON(),
+      count: element.querySelectorAll("li").length,
+      overflowX: element.scrollWidth > element.clientWidth + 1,
+    }));
     // 進み方3枚・フェーズ3つ・ステップ14件。
-    expect(layout.items).toHaveLength(20);
-    expect(layout.scrolls).toBe(false);
-    for (const item of layout.items) {
-      expect(item.top).toBeGreaterThanOrEqual(layout.guide.top);
-      expect(item.bottom).toBeLessThanOrEqual(layout.guide.bottom);
-    }
+    expect(layout.count).toBe(20);
+    expect(layout.overflowX).toBe(false);
     expect(layout.guide.bottom).toBeLessThanOrEqual(height);
     const stage = await page.getByTestId("room-members").boundingBox();
     expect((stage?.x ?? 0) - layout.guide.right).toBeGreaterThanOrEqual(16);
