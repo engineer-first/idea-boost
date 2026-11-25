@@ -62,6 +62,53 @@ function submitPrivateNote(content: string) {
 
 const ME = "11111111-1111-4111-8111-111111111111";
 
+describe("タイマーの画面中央の通知", () => {
+  it("作業中に残り1分と時間切れを画面中央へ一時表示する", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    setup({
+      phase: buildPhaseStep(1, 1),
+      timer: { status: "running", endsAt: 90_000, durationMs: 90_000 },
+    });
+    expect(screen.queryByTestId("timer-alert")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(screen.getByTestId("timer-alert")).toHaveTextContent("あと1分！");
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(screen.queryByTestId("timer-alert")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(55_000));
+    expect(screen.getByTestId("timer-alert")).toHaveTextContent(
+      "時間になりました！",
+    );
+  });
+});
+
+describe("時間切れの通知と未開始の案内", () => {
+  it("延長後の自動進行で未開始に戻っても、時間切れの通知が消えるまで未開始の案内を重ねない", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const { rerender, props } = setup({
+      phase: buildPhaseStep(1, 1),
+      timer: { status: "running", endsAt: 60_000, durationMs: 60_000 },
+    });
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(screen.getByTestId("timer-alert")).toBeInTheDocument();
+    rerender(<TestBoardView {...props} timer={{ status: "idle" }} />);
+    expect(screen.getByTestId("timer-alert")).toHaveTextContent(
+      "時間になりました！",
+    );
+    expect(screen.queryByTestId("timer-work-hint")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(3_000));
+    expect(screen.queryByTestId("timer-alert")).not.toBeInTheDocument();
+    expect(screen.getByTestId("timer-work-hint")).toBeInTheDocument();
+  });
+});
+
 describe("2-1のキャラクターによる問いのヒント", () => {
   it("先生の通常案内を重ねず、問いの呼びかけと残り時間通知を表示する", () => {
     vi.useFakeTimers();
