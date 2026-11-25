@@ -49,6 +49,7 @@ export default async function LoginPage({
           ? "/about"
           : `/about?next=${encodeURIComponent(safeNext)}`
       }
+      invited={safeNext.startsWith("/invite/")}
       error={error}
       isConfigured={isAuthConfigured()}
       showDevAuth={isDevAuthEnabled()}

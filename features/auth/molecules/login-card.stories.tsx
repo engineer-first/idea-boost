@@ -90,7 +90,12 @@ export const PendingDevAuth: Story = {
 };
 
 export const FromInvite: Story = {
-  args: { aboutHref: "/about?next=%2Finvite%2FABC123" },
+  args: {
+    isConfigured: true,
+    showDevAuth: false,
+    aboutHref: "/about?next=%2Finvite%2FABC123",
+    invited: true,
+  },
 };
 
 export const GuestName: Story = {

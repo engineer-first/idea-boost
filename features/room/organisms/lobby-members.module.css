@@ -72,24 +72,39 @@ button.peer:hover {
   outline-offset: 5px;
 }
 
+/* 顔を変えられることを、押す前から角の小さな印で伝える。 */
 .avatarOverlay {
   position: absolute;
-  inset: 0;
+  inset: auto -3px -3px auto;
   display: flex;
+  width: 28px;
+  height: 28px;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgb(255 255 255 / 55%);
+  background: var(--ib-color-surface);
+  box-shadow: 0 1px 4px rgb(from var(--ib-color-ink) r g b / 13%);
   color: var(--ib-color-ink);
-  opacity: 0;
-  transition: opacity 120ms ease-out;
   pointer-events: none;
+  --avatar-overlay-icon: 18px;
+}
+.avatarOverlay svg {
+  width: var(--avatar-overlay-icon);
+  height: var(--avatar-overlay-icon);
 }
 
-.avatarButton:hover .avatarOverlay,
-.avatarButton:focus-visible .avatarOverlay,
-.avatarOverlay[data-pending] {
-  opacity: 1;
+/* ポインターで触れたときとキーボードで選んだときは、顔全体を操作面にする。 */
+@media (hover: hover) {
+  .avatarButton:hover .avatarOverlay,
+  .avatarButton:focus-visible .avatarOverlay,
+  .avatarOverlay[data-pending] {
+    inset: 0;
+    width: auto;
+    height: auto;
+    background: rgb(255 255 255 / 55%);
+    box-shadow: none;
+    --avatar-overlay-icon: 28px;
+  }
 }
 .avatarButton:disabled .avatarOverlay,
 .avatarButton[aria-disabled="true"] .avatarOverlay {
@@ -159,18 +174,6 @@ button.peer:hover {
 }
 
 @media (hover: none) {
-  .avatarOverlay {
-    inset: auto -3px -3px auto;
-    width: 28px;
-    height: 28px;
-    background: var(--ib-color-surface);
-    opacity: 1;
-    box-shadow: 0 1px 4px rgb(from var(--ib-color-ink) r g b / 13%);
-  }
-  .avatarOverlay svg {
-    width: 18px;
-    height: 18px;
-  }
   .pencil {
     opacity: 1;
   }
@@ -364,7 +367,6 @@ button.peer:hover {
     animation: none;
   }
   .avatarButton,
-  .avatarOverlay,
   .pencil {
     transition: none;
   }

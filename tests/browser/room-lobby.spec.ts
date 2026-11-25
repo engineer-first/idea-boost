@@ -209,7 +209,7 @@ test("20人を5列4段で省略せず表示し、ヘッダーを除く1440×960�
   });
 });
 
-test("自分の顔と名前だけに独立したホバーとキーボードの操作表示を出す", async () => {
+test("自分の顔は変えられる印を常に角に出し、顔と名前に独立したホバーとキーボードの操作表示を出す", async () => {
   await open("host-four", 1280, 800);
   const face = page.getByRole("button", { name: "自分のアイコンを変更" });
   const overlay = face
@@ -221,7 +221,9 @@ test("自分の顔と名前だけに独立したホバーとキーボードの�
   await page.mouse.move(1, 1);
   const opacity = () =>
     overlay.evaluate((element) => getComputedStyle(element).opacity);
-  expect(await opacity()).toBe("0");
+  // ホバーしなくても、印で顔を変えられると分かる（大きさは stories で確かめる）。
+  expect(await overlay.isVisible()).toBe(true);
+  expect(await opacity()).toBe("1");
   expect(
     await pencil.evaluate((element) => getComputedStyle(element).opacity),
   ).toBe("0");
@@ -234,7 +236,7 @@ test("自分の顔と名前だけに独立したホバーとキーボードの�
     path: "test-results/board-layout/lobby-avatar-hover.png",
   });
   await name.hover();
-  expect(await opacity()).toBe("0");
+  expect(await opacity()).toBe("1");
   expect(
     await pencil.evaluate((element) => getComputedStyle(element).opacity),
   ).toBe("1");

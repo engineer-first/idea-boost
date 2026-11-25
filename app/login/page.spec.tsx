@@ -115,3 +115,19 @@ it.each([
     );
   },
 );
+
+it.each([
+  { next: "/invite/ABC123", invited: true },
+  { next: "/home", invited: false },
+  { next: undefined, invited: false },
+])(
+  "招待URLから来たとき($next)だけ、ルームに招待されていることを示す",
+  async ({ next, invited }) => {
+    render(await LoginPage({ searchParams: Promise.resolve({ next }) }));
+    const notice = screen.queryByText(
+      "ルームに招待されています。はじめると、そのまま参加できます。",
+    );
+    if (invited) expect(notice).toBeInTheDocument();
+    else expect(notice).not.toBeInTheDocument();
+  },
+);
