@@ -35,6 +35,7 @@ function StickerLabel({
 
 type StepGuideIllustrationProps = { kind: StepGuideDiagramKind; alt: string };
 
+// 狭い列でも「だろ／う？」のように語の途中で折り返さない（Chromium 系で有効）。
 function Note({
   children,
   blue = false,
@@ -43,7 +44,6 @@ function Note({
   blue?: boolean;
 }) {
   return (
-    // 狭い列でも「だろ／う？」のように語の途中で折り返さない。
     <div
       className={`min-w-0 rounded-lg border p-3 text-sm leading-6 shadow-sm [word-break:auto-phrase] ${blue ? "border-sky-200 bg-sky-100 text-slate-800" : "border-amber-200 bg-amber-100 text-slate-800"}`}
     >

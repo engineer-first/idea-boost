@@ -65,7 +65,7 @@ describe("問いのヒント", () => {
     });
   });
 
-  it("差し込んだ課題は鉤括弧で囲み、「〜ないを楽しめる」のように文と混ざらない", () => {
+  it("差し込んだ課題は鉤括弧で囲む", () => {
     const issue = "空きコマに一緒に勉強する仲間が見つからない";
     const withIssue = HMW_HINT_GROUPS.flat().filter((hint) =>
       hint.template.includes("{issue}"),
