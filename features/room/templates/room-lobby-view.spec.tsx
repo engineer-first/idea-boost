@@ -139,7 +139,7 @@ describe("RoomLobbyView", () => {
     expect(within(howTo).getAllByRole("listitem")).toHaveLength(3);
     expect(howTo).toHaveTextContent("できた！");
     expect(howTo).toHaveTextContent("次のステップへ");
-    expect(guide).toHaveTextContent("約82分");
+    expect(guide).toHaveTextContent("約80分");
     const flow = within(guide).getByRole("list", { name: "全体の流れ" });
     const phases = within(flow).getAllByRole("listitem", {
       name: /^[①②③]/,
@@ -151,7 +151,7 @@ describe("RoomLobbyView", () => {
     expect(steps).toHaveLength(14);
     expect(steps[0]).toHaveTextContent("1-1");
     expect(steps[0]).toHaveTextContent("自分の課題（個人）");
-    expect(steps[0]).toHaveTextContent("5分");
+    expect(steps[0]).toHaveTextContent("3分");
     expect(steps[13]).toHaveTextContent("3-5");
     expect(steps[13]).toHaveTextContent("アイデアを決定");
     expect(steps[13]).toHaveTextContent("10分");

@@ -48,7 +48,7 @@ const FACILITATION_GUIDES: Record<
 > = {
   1: {
     1: {
-      durationMinutes: 5,
+      durationMinutes: 3,
       action: "困ったことを書く",
       firstAction:
         "付箋を書く欄に、最近あった困ったことを1つ書いてEnterを押す。",

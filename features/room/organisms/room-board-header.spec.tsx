@@ -680,7 +680,7 @@ describe("RoomBoardHeader", () => {
     expect(dialog.style.getPropertyValue("--guide-target-y")).toBe("-296px");
     expect(dialog).toBeVisible();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(props.onTimerStart).toHaveBeenCalledWith(300000);
+    expect(props.onTimerStart).toHaveBeenCalledWith(180000);
     rerender(<RoomBoardHeader {...props} phase={buildPhaseStep(1, 1)} />);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -1166,7 +1166,7 @@ describe("RoomBoardHeader", () => {
 
   describe("タイマー推奨時間", () => {
     it.each([
-      [buildPhaseStep(1), "05"],
+      [buildPhaseStep(1), "03"],
       [buildPhaseStep(3), "04"],
       [buildPhaseStep(2), "06"],
       [buildPhaseStep(1, 3), "05"],
