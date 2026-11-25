@@ -13,7 +13,7 @@ export const HMW_HINT_GROUPS = [
       id: "enjoy",
       word: "楽しみ",
       perspective: "どう",
-      template: "どうやったら{issue}を楽しめるだろう？",
+      template: "どうやったら「{issue}」を楽しめるだろう？",
     },
     {
       id: "prevent",
@@ -40,13 +40,14 @@ export const HMW_HINT_GROUPS = [
       id: "motivation",
       word: "やる気",
       perspective: "どこ",
-      template: "{issue}という困りごとに対してモチベーションを上げる方法は？",
+      template:
+        "「{issue}」という困りごとに対してモチベーションを上げる方法は？",
     },
     {
       id: "reason",
       word: "理由",
       perspective: "なぜ",
-      template: "そもそもなぜ{issue}に困っているの？",
+      template: "そもそもなぜ「{issue}」に困っているの？",
     },
   ],
   [
@@ -54,7 +55,7 @@ export const HMW_HINT_GROUPS = [
       id: "avoid",
       word: "回避",
       perspective: "どう",
-      template: "{issue}という困りごとをしなくても済む方法は？",
+      template: "「{issue}」という困りごとをしなくても済む方法は？",
     },
     {
       id: "time",

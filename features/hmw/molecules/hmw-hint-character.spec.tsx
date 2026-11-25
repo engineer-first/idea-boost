@@ -42,7 +42,7 @@ describe("キャラクターの問いヒント", () => {
     // フェードアウトは廃止済み。書き出し後も2-1の間は表示を続ける。
     expect(screen.getByTestId("hmw-hint-character")).toBeInTheDocument();
     expect(onUseQuestion).toHaveBeenCalledExactlyOnceWith(
-      "どうやったら忘れ物が多いを楽しめるだろう？",
+      "どうやったら「忘れ物が多い」を楽しめるだろう？",
     );
   });
 
@@ -109,7 +109,7 @@ describe("キャラクターの問いヒント", () => {
     await userEvent.click(
       within(dialog).getByRole("button", { name: "楽しみ" }),
     );
-    const question = "どうやったら忘れ物が多いを楽しめるだろう？";
+    const question = "どうやったら「忘れ物が多い」を楽しめるだろう？";
     const expected = getNoteHeight(question, NOTE_DEFAULT_FONT_SIZE);
     expect(
       within(dialog).getByRole("region", { name: "問いの文例" }),
