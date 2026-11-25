@@ -521,6 +521,8 @@ export function NoteCard({
 
   useEffect(() => {
     if (canCandidateAction) return;
+    // ボタンごと外れると pointerleave が届かないので、ボタン上の印もここで外す。
+    isPointerOverCandidateActionRef.current = false;
     cancelPointerActionHide();
     setIsPointerActionVisible(false);
     releasePointerAction();

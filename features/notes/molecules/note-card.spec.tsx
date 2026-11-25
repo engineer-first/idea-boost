@@ -96,6 +96,27 @@ describe("NoteCard", () => {
     }
   });
 
+  it("除外ボタンの上で除外できなくなっても、採用の当たり判定から離れたら除外ボタンを消す", () => {
+    vi.useFakeTimers();
+    try {
+      const { props, view } = setup({ canExcludeNote: true });
+      const exclude = () => screen.getByRole("button", { name: "除外する" });
+      view.rerender(<NoteCard {...props} isAdoptionTargetHovered />);
+      fireEvent.pointerEnter(exclude());
+      // ボタンの上にいる間に除外できなくなる（タイマー停止・他者の確定など）。
+      view.rerender(
+        <NoteCard {...props} canExcludeNote={false} isAdoptionTargetHovered />,
+      );
+      view.rerender(<NoteCard {...props} isAdoptionTargetHovered={false} />);
+      view.rerender(<NoteCard {...props} isAdoptionTargetHovered />);
+      view.rerender(<NoteCard {...props} isAdoptionTargetHovered={false} />);
+      act(() => vi.advanceTimersByTime(500));
+      expect(exclude()).toHaveClass("opacity-0");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("DOM移動でblurが届かなくても別付箋へのfocusで古い一時表示を残さない", () => {
     const { props, view } = setup({ isSelected: true, canExcludeNote: true });
     const action = screen.getByRole("button", { name: "除外する" });
