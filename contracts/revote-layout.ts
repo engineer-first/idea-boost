@@ -131,7 +131,8 @@ function clusterMemberNotes(members: readonly MutableNote[]): MutableNote[][] {
     const cluster: MutableNote[] = [start];
     const queue: MutableNote[] = [start];
     while (queue.length > 0) {
-      const curr = queue.shift()!;
+      const curr = queue.shift();
+      if (!curr) continue;
       for (const other of members) {
         if (visited.has(other.id)) continue;
         if (areNotesClose(curr, other)) {
@@ -207,7 +208,8 @@ function findNearestFreeSlot(
   };
 
   for (let ring = 1; ring <= 6; ring++) {
-    const gap = MIN_GAP * ring + (ring - 1) * Math.max(NOTE_WIDTH, target.height);
+    const gap =
+      MIN_GAP * ring + (ring - 1) * Math.max(NOTE_WIDTH, target.height);
     const leftX = anchorBox.x - target.width - gap;
     const rightX = anchorBox.x + anchorBox.width + gap;
     const topY = anchorBox.y - target.height - gap;
@@ -286,9 +288,7 @@ function pullBackOutlierNotes(
       );
 
     for (const outlier of outliers) {
-      const currentClusterMembers = members.filter((m) =>
-        primaryIds.has(m.id),
-      );
+      const currentClusterMembers = members.filter((m) => primaryIds.has(m.id));
       const left = Math.min(...currentClusterMembers.map((m) => m.x));
       const top = Math.min(...currentClusterMembers.map((m) => m.y));
       const right = Math.max(

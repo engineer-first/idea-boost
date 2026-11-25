@@ -12,7 +12,10 @@ function noteRect(note: RevoteLayoutNote): Rect {
     x: note.x,
     y: note.y,
     width: NOTE_WIDTH,
-    height: getNoteHeight(note.content, note.fontSize ?? NOTE_DEFAULT_FONT_SIZE),
+    height: getNoteHeight(
+      note.content,
+      note.fontSize ?? NOTE_DEFAULT_FONT_SIZE,
+    ),
   };
 }
 
@@ -29,7 +32,8 @@ function groupRect(
   const right = Math.max(...members.map((n) => n.x + NOTE_WIDTH));
   const bottom = Math.max(
     ...members.map(
-      (n) => n.y + getNoteHeight(n.content, n.fontSize ?? NOTE_DEFAULT_FONT_SIZE),
+      (n) =>
+        n.y + getNoteHeight(n.content, n.fontSize ?? NOTE_DEFAULT_FONT_SIZE),
     ),
   );
   return {
@@ -159,10 +163,11 @@ describe("computeRevoteLayout（再投票移行時の自動レイアウト調整
 
     // グループ内の相対位置が維持されていること
     const byId = new Map(updated.map((n) => [n.id, n]));
-    const a1 = byId.get("a1")!;
-    const a2 = byId.get("a2")!;
-    const b1 = byId.get("b1")!;
-    const b2 = byId.get("b2")!;
+    const a1 = byId.get("a1");
+    const a2 = byId.get("a2");
+    const b1 = byId.get("b1");
+    const b2 = byId.get("b2");
+    if (!a1 || !a2 || !b1 || !b2) throw new Error("expected all notes");
     expect(a2.x - a1.x).toBe(220);
     expect(a2.y - a1.y).toBe(0);
     expect(b2.x - b1.x).toBe(220);

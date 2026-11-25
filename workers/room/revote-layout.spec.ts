@@ -4,11 +4,9 @@ import {
   connectRoomAs,
   createRoomAs,
   currentPhaseExpectation,
-  endTimerForTest,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
-  startTimerForTest,
 } from "../test-helpers";
 
 const host = {
@@ -140,17 +138,19 @@ describe("1-5→1-4 再投票時のグループレイアウト自動調整", () 
     const noteA1 = snapshotA.notes.find((n) => n.id === ids.a1);
     const remainingVotes = await runInRoomDO(roomId, (_room, state) => {
       return Number(
-        state.storage.sql
-          .exec("SELECT COUNT(*) AS count FROM note_votes")
-          .one().count,
+        state.storage.sql.exec("SELECT COUNT(*) AS count FROM note_votes").one()
+          .count,
       );
     });
     expect(remainingVotes).toBe(0);
 
     // a3 と solo が調整され、a1, a2, b1, b2 は動いていない & 両者に同じ座標が同期されている
-    const noteA3A = snapshotA.notes.find((n) => n.id === ids.a3)!;
-    const noteA3B = snapshotB.notes.find((n) => n.id === ids.a3)!;
-    const noteSoloA = snapshotA.notes.find((n) => n.id === ids.solo)!;
+    const noteA3A = snapshotA.notes.find((n) => n.id === ids.a3);
+    const noteA3B = snapshotB.notes.find((n) => n.id === ids.a3);
+    const noteSoloA = snapshotA.notes.find((n) => n.id === ids.solo);
+    if (!noteA3A || !noteA3B || !noteSoloA) {
+      throw new Error("expected synced notes");
+    }
     expect(noteA3A.x).not.toBe(1000);
     expect(noteA3A.x).toBe(noteA3B.x);
     expect(noteA3A.y).toBe(noteA3B.y);

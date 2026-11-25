@@ -15,8 +15,8 @@ import {
   RoomPhaseSchema,
   VOTING_STEP_BY_PHASE,
 } from "../../contracts/phase";
-import type { ClientMessage } from "../../contracts/room-protocol";
 import { computeRevoteLayout } from "../../contracts/revote-layout";
+import type { ClientMessage } from "../../contracts/room-protocol";
 import { syncRoomAlarm } from "./alarms";
 import { isRoomClosed } from "./completed-rooms";
 import { getDecision } from "./decisions";
