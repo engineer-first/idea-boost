@@ -1,6 +1,6 @@
 "use client";
 
-import { SquarePen } from "lucide-react";
+import { CornerUpLeft } from "lucide-react";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -36,7 +36,9 @@ export function RestartWritingConfirmDialog({
   const [open, setOpen] = useState(false);
   const [requested, setRequested] = useState(false);
   const waiting = requested && pending;
-  const label = waiting ? "切り替え中…" : "付箋を書き足す";
+  // 押す前に「全員で書くステップへ戻る」ことが分かるよう、戻り先の番号を操作名に含め、確認の決定ボタンと同じ言葉にする。
+  const actionLabel = `${phaseNumber}-1に戻って書き足す`;
+  const label = waiting ? "切り替え中…" : actionLabel;
 
   return (
     <AlertDialog
@@ -55,7 +57,7 @@ export function RestartWritingConfirmDialog({
           disabled={disabled || pending}
           aria-busy={waiting || undefined}
         >
-          <SquarePen aria-hidden="true" className={styles.icon} />
+          <CornerUpLeft aria-hidden="true" className={styles.icon} />
           <span
             key={label}
             className={`${styles.label} inline-block transition-[opacity,translate] duration-[140ms] starting:translate-y-0.5 starting:opacity-0 motion-reduce:transition-none`}
@@ -93,7 +95,7 @@ export function RestartWritingConfirmDialog({
               onConfirm();
             }}
           >
-            付箋を書き足す
+            {actionLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

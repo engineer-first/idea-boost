@@ -1,5 +1,5 @@
 .trigger {
-  width: 132px;
+  width: 184px;
   gap: 4px;
   padding-inline: 6px;
   font-weight: 700;
@@ -33,7 +33,7 @@
 }
 
 .trigger:enabled:is(:hover, :focus-visible) .icon {
-  transform: translateY(-1px) rotate(-6deg);
+  transform: translateX(-1px);
 }
 
 .trigger:enabled:active .icon {

@@ -108,6 +108,14 @@ describe("getFacilitationGuide", () => {
   ] as const)("%oの詳細には実際の次へ進む目安を含める", (phase, criterion) => {
     expect(getFacilitationGuide(phase)?.completion).toContain(criterion);
   });
+  it.each([1, 2] as const)(
+    "フェーズ%dの共有の詳細では、書き足しの操作名を戻り先つきで示す",
+    (phaseNumber) => {
+      expect(
+        getFacilitationGuide(buildPhaseStep(2, phaseNumber))?.completion,
+      ).toContain(`「${phaseNumber}-1に戻って書き足す」`);
+    },
+  );
   it("ロビーではガイドを返さない", () => {
     expect(getFacilitationGuide(buildLobbyPhase())).toBeNull();
   });

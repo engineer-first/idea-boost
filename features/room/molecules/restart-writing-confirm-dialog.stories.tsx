@@ -30,7 +30,9 @@ export const Disconnected: Story = { args: { disabled: true } };
 export const Open: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: "付箋を書き足す" }),
+      within(canvasElement).getByRole("button", {
+        name: /^\d-1に戻って書き足す$/,
+      }),
     );
   },
 };
@@ -50,13 +52,15 @@ export const Pending: Story = {
   },
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: "付箋を書き足す" }),
+      within(canvasElement).getByRole("button", {
+        name: /^\d-1に戻って書き足す$/,
+      }),
     );
     const dialog = within(canvasElement.ownerDocument.body).getByRole(
       "alertdialog",
     );
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "付箋を書き足す" }),
+      within(dialog).getByRole("button", { name: /^\d-1に戻って書き足す$/ }),
     );
   },
 };

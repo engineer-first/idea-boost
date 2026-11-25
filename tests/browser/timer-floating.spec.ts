@@ -244,7 +244,7 @@ test.each(widths(1280, 900, 640, 390))(
       const controls = page.getByTestId("board-control-hud");
       await controls.waitFor();
       expect(await page.getByTestId("timer-floating").count()).toBe(0);
-      for (const name of ["付箋を書き足す", "次のステップへ"]) {
+      for (const name of ["1-1に戻って書き足す", "次のステップへ"]) {
         const b = controls.getByRole("button", { name, exact: true });
         expect(await b.isVisible()).toBe(true);
         const r = await b.boundingBox();
@@ -269,7 +269,7 @@ test.each(widths(1280, 900, 640, 390))(
           .count(),
       ).toBe(0);
       await controls
-        .getByRole("button", { name: "付箋を書き足す", exact: true })
+        .getByRole("button", { name: /^\d-1に戻って書き足す$/ })
         .click();
       const dialog = page.getByRole("alertdialog", {
         name: "全員で1-1に戻って、付箋を書き足しますか？",
@@ -280,7 +280,7 @@ test.each(widths(1280, 900, 640, 390))(
       expect(bounds ? bounds.x + bounds.width : Infinity).toBeLessThanOrEqual(
         width,
       );
-      for (const name of ["キャンセル", "付箋を書き足す"]) {
+      for (const name of ["キャンセル", "1-1に戻って書き足す"]) {
         const action = dialog.getByRole("button", { name, exact: true });
         expect(await action.isVisible()).toBe(true);
         expect(
@@ -295,7 +295,7 @@ test.each(widths(1280, 900, 640, 390))(
       await expect
         .poll(() =>
           controls
-            .getByRole("button", { name: "付箋を書き足す", exact: true })
+            .getByRole("button", { name: /^\d-1に戻って書き足す$/ })
             .evaluate((element) => document.activeElement === element),
         )
         .toBe(true);
@@ -314,7 +314,7 @@ test("最後の発表者のできた後に上部から次の操作を選べる",
     await page.getByRole("button", { name: "できた！", exact: true }).click();
     const controls = page.getByTestId("board-control-hud");
     await controls
-      .getByRole("button", { name: "付箋を書き足す", exact: true })
+      .getByRole("button", { name: /^\d-1に戻って書き足す$/ })
       .waitFor();
     expect(
       await controls
