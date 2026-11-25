@@ -44,15 +44,16 @@ describe("問いのヒント", () => {
     const find = (id: string) => all.find((hint) => hint.id === id);
     expect(find("enjoy")).toMatchObject({
       word: "楽しみ",
-      template: "どうやったら{issue}を楽しめるだろう？",
+      template: "どうやったら「{issue}」を楽しめるだろう？",
     });
     expect(find("motivation")).toMatchObject({
       word: "やる気",
-      template: "{issue}という困りごとに対してモチベーションを上げる方法は？",
+      template:
+        "「{issue}」という困りごとに対してモチベーションを上げる方法は？",
     });
     expect(find("reason")).toMatchObject({
       word: "理由",
-      template: "そもそもなぜ{issue}に困っているの？",
+      template: "そもそもなぜ「{issue}」に困っているの？",
     });
     expect(find("standpoint")).toMatchObject({
       word: "立場",
@@ -60,8 +61,19 @@ describe("問いのヒント", () => {
     });
     expect(find("avoid")).toMatchObject({
       word: "回避",
-      template: "{issue}という困りごとをしなくても済む方法は？",
+      template: "「{issue}」という困りごとをしなくても済む方法は？",
     });
+  });
+
+  it("差し込んだ課題は鉤括弧で囲む", () => {
+    const issue = "空きコマに一緒に勉強する仲間が見つからない";
+    const withIssue = HMW_HINT_GROUPS.flat().filter((hint) =>
+      hint.template.includes("{issue}"),
+    );
+    expect(withIssue.length).toBeGreaterThan(0);
+    for (const hint of withIssue) {
+      expect(buildHmwHintQuestion(issue, hint)).toContain(`「${issue}」`);
+    }
   });
 
   it("差し込みを含まない問いかけは、決定課題がなくてもそのまま返す", () => {
