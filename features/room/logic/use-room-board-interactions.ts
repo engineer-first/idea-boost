@@ -26,7 +26,6 @@ import {
   getIdeaValueFeasibilityMapPointFromClientPosition,
   isIdeaMapViewportStep,
 } from "./idea-value-feasibility-map";
-import { roomNotify } from "./room-notify";
 import { type BoardDrag, useBoardDrag } from "./use-board-drag";
 import { useCanvasCamera } from "./use-canvas-camera";
 import { useIdeaValueFeasibilityMapInput } from "./use-idea-value-feasibility-map-input";
@@ -85,6 +84,8 @@ export type RoomBoardInteractions = {
     clipPath?: string;
   } | null;
   privateDropPlaceholder?: { noteId: string };
+  /** 自分の番でない人がマイ付箋を一覧の外へ運ぼうとしている間 true。 */
+  privateNotePublishBlocked?: boolean;
   isNoteDragging: boolean;
   hasActiveNoteDrag?: (pointerId: number) => boolean;
   localDraggingNoteId?: string | null;
@@ -367,6 +368,7 @@ export function useRoomBoardInteractions({
 
   const {
     drag,
+    publishBlocked,
     renderedNotes,
     renderedPrivateNotes,
     handleSharedNoteDragStart,
@@ -394,7 +396,6 @@ export function useRoomBoardInteractions({
     canMoveSharedNotes,
     keepPrivateDragInList: phase.kind === "step" && phase.step === 1,
     canPublish,
-    onPublishBlocked: roomNotify.cannotPublishNote,
     onNoteDragStart,
     onNoteDragMove,
     onNoteDragEnd,
@@ -649,6 +650,7 @@ export function useRoomBoardInteractions({
       drag?.status === "private" && drag.privateDropIndex !== null
         ? { noteId: drag.note.id }
         : undefined,
+    privateNotePublishBlocked: publishBlocked,
     isNoteDragging: drag !== null,
     hasActiveNoteDrag: hasActiveDragPointer,
     localDraggingNoteId: drag?.note.id ?? null,

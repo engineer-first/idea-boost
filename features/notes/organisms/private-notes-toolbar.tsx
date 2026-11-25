@@ -44,6 +44,8 @@ export type PrivateNotesToolbarProps = {
   canDeleteNote: boolean;
   canMoveNote: boolean;
   sharingHint?: string;
+  /** 共有できない操作を試している間、sharingHint を注意の面で強調する。 */
+  sharingHintEmphasized?: boolean;
   presentation?: "dock" | "workspace";
   workspaceCollapsible?: boolean;
   workspaceExpanded?: boolean;
@@ -279,6 +281,7 @@ export function PrivateNotesToolbar({
   canDeleteNote,
   canMoveNote,
   sharingHint,
+  sharingHintEmphasized = false,
   presentation = "dock",
   workspaceCollapsible = false,
   workspaceExpanded = false,
@@ -975,7 +978,16 @@ export function PrivateNotesToolbar({
           </>
         )}
         {!isWorkspace && sharingHint ? (
-          <p role="status" className="text-xs text-muted-foreground">
+          <p
+            role="status"
+            // 強調の有無で高さを変えず、ドラッグ中の一覧の位置を保つ。
+            className={cn(
+              "-mx-2 rounded-md px-2 py-1 text-xs",
+              sharingHintEmphasized
+                ? "bg-warning-soft font-bold text-warning"
+                : "text-muted-foreground",
+            )}
+          >
             {sharingHint}
           </p>
         ) : null}

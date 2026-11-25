@@ -56,7 +56,21 @@ type Story = StoryObj<typeof meta>;
 export const Populated: Story = {};
 
 export const SharingStep: Story = {
-  args: { canCreateNote: false, canDeleteNote: false },
+  args: {
+    canCreateNote: false,
+    canDeleteNote: false,
+    sharingHint: "自分の番で発表できます",
+  },
+};
+
+/** 自分の番でない人が付箋を一覧の外へ運ぼうとしている間。高さは SharingStep と同じ。 */
+export const SharingStepPublishBlocked: Story = {
+  args: {
+    canCreateNote: false,
+    canDeleteNote: false,
+    sharingHint: "自分の番になったら出せます",
+    sharingHintEmphasized: true,
+  },
 };
 
 export const Collapsed: Story = {

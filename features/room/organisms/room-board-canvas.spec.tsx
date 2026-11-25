@@ -320,6 +320,26 @@ describe("RoomBoardCanvas", () => {
     expect(onPrivateNoteDragStart).toHaveBeenCalledOnce();
   });
 
+  it("自分の番でない人がマイ付箋を一覧の外へ運ぶと、一覧の近くでまだ共有できないと示す", () => {
+    const props = {
+      phase: buildPhaseStep(2),
+      permissions: getBoardPermissions(buildPhaseStep(2)),
+      privateNotes: [buildNote({ id: "private-1", visibility: "private" })],
+      canPublishPrivateNote: false,
+    };
+    const { props: rendered, rerender } = setup(props);
+    const toolbar = openPrivateNotesToolbar();
+    expect(within(toolbar).getByRole("status")).toHaveTextContent(
+      "自分の番で発表できます",
+    );
+
+    rerender(<RoomBoardCanvas {...rendered} privateNotePublishBlocked />);
+
+    expect(within(toolbar).getByRole("status")).toHaveTextContent(
+      "自分の番になったら出せます",
+    );
+  });
+
   it("ドラッグ権利の応答前もドラッグ中の候補操作を隠し、終了後に選択表示へ戻す", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
