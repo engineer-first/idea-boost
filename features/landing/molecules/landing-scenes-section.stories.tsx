@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import styles from "./landing.module.css";
-import { LandingStrengthsSection } from "./landing-strengths-section";
+import { LandingScenesSection } from "./landing-scenes-section";
 
 const meta = {
-  title: "Landing/LandingStrengthsSection",
-  component: LandingStrengthsSection,
+  title: "Landing/LandingScenesSection",
+  component: LandingScenesSection,
   decorators: [
     (Story) => (
       <div
@@ -14,7 +14,7 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof LandingStrengthsSection>;
+} satisfies Meta<typeof LandingScenesSection>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};

@@ -21,7 +21,7 @@ export function getLandingLlmsText(): string {
     `# ${ja.brand}`,
     `> ${ja.description}`,
     ja.introduction,
-    `${ja.method.description}${ja.method.scope}`,
+    `${ja.background.description}${ja.background.scope}`,
     ja.disclaimer,
     `**進め方**\n\n${list(ja.steps)}`,
     `**機能**\n\n${list(ja.features.items)}`,
@@ -36,7 +36,7 @@ export function getLandingLlmsText(): string {
       `- [Idea Boost（日本語）](${landingUrl("ja")}): 紹介ページ。ここから無料で始められる`,
       `- [Idea Boost (English)](${landingUrl("en")}): 英語の紹介ページ`,
       `- [${ja.privacy}](${SITE_ORIGIN}/privacy): 保存期間と扱う情報`,
-      `- [${ja.method.source}](${ja.method.sourceUrl}): デザインスプリントの出典`,
+      `- [${ja.background.source}](${ja.background.sourceUrl}): デザインスプリントの出典`,
     ].join("\n"),
   ];
   return `${sections.join("\n\n")}\n`;

@@ -3,37 +3,59 @@ import { Fragment } from "react";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 
-import { landingHeadingClass } from "../logic/landing-styles";
+import { landingHeadingClass, landingLinkClass } from "../logic/landing-styles";
 import styles from "./landing.module.css";
 
-export function LandingStrengthsSection({
+/** 手法の名前と出典は、裏づけとしてここ（とよくある質問）にだけ置く（#1128）。 */
+export function LandingBackgroundSection({
   locale = "ja",
 }: {
   locale?: AppLocale;
 }) {
-  const copy = getLandingContent(locale).landingCopy;
-  const { landingBoardCopy } = getLandingContent(locale);
+  const { landingBoardCopy, landingCopy } = getLandingContent(locale);
+  const background = landingCopy.background;
+  const comparison = background.comparison;
   return (
     <section
-      className={`${styles.theme} ${styles.strengths}`}
-      aria-labelledby="landing-strengths"
+      className={`${styles.theme} ${styles.background}`}
+      aria-labelledby="landing-background"
     >
-      <h2 id="landing-strengths" className={landingHeadingClass}>
-        {copy.comparison.heading.map((phrase, index) => (
-          <Fragment key={phrase}>
-            {locale === "en" && index > 0 ? " " : null}
-            <span className={`inline-block ${styles.marker}`}>{phrase}</span>
-          </Fragment>
-        ))}
+      <h2 id="landing-background" className={landingHeadingClass}>
+        <span className={styles.marker}>{background.heading}</span>
       </h2>
+      <p className="mt-6 max-w-3xl text-base leading-8 sm:text-lg text-[var(--lp-body)]">
+        {background.description}
+      </p>
+      <ul className="mt-2 flex flex-wrap gap-x-8">
+        <li>
+          <a
+            href={background.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={landingLinkClass}
+          >
+            {background.source}
+          </a>
+        </li>
+        <li>
+          <a
+            href={background.voteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={landingLinkClass}
+          >
+            {background.voteSource}
+          </a>
+        </li>
+      </ul>
       <div className={styles.comparisons}>
         <div className={styles.comparison}>
           <p className={styles.comparisonLabel}>
             <span className={styles.comparisonSubject}>
-              {copy.comparison.subject}
+              {comparison.subject}
             </span>
             {locale === "en" ? " " : null}
-            {copy.comparison.timeLabel}
+            {comparison.timeLabel}
           </p>
           <div className={styles.comparisonContent}>
             <div className={styles.comparisonBefore}>
@@ -46,7 +68,7 @@ export function LandingStrengthsSection({
                 aria-hidden="true"
                 unoptimized
               />
-              <span>{copy.comparison.timeBefore}</span>
+              <span>{comparison.timeBefore}</span>
             </div>
             <span className={styles.comparisonArrow} aria-hidden="true">
               →
@@ -59,14 +81,14 @@ export function LandingStrengthsSection({
                 <span />
               </div>
               <div className={styles.afterWords}>
-                <span>{copy.comparison.afterLabel}</span>
-                <strong>{copy.comparison.timeAfter}</strong>
+                <span>{comparison.afterLabel}</span>
+                <strong>{comparison.timeAfter}</strong>
               </div>
             </div>
           </div>
           <p className={styles.comparisonNote}>
             <a href="#landing-duration">
-              {copy.comparison.timeNote.map((phrase, index) => (
+              {comparison.timeNote.map((phrase, index) => (
                 <Fragment key={phrase}>
                   {locale === "en" && index > 0 ? " " : null}
                   <span className="inline-block">{phrase}</span>
@@ -78,10 +100,10 @@ export function LandingStrengthsSection({
         <div className={styles.comparison}>
           <p className={styles.comparisonLabel}>
             <span className={styles.comparisonSubject}>
-              {copy.comparison.subject}
+              {comparison.subject}
             </span>
             {locale === "en" ? " " : null}
-            {copy.comparison.guideLabel}
+            {comparison.guideLabel}
           </p>
           <div className={styles.comparisonContent}>
             <div className={styles.comparisonBefore}>
@@ -94,7 +116,7 @@ export function LandingStrengthsSection({
                 aria-hidden="true"
                 unoptimized
               />
-              <span>{copy.comparison.guideBefore}</span>
+              <span>{comparison.guideBefore}</span>
             </div>
             <span className={styles.comparisonArrow} aria-hidden="true">
               →
@@ -105,13 +127,27 @@ export function LandingStrengthsSection({
                 <i />
               </div>
               <div className={styles.afterWords}>
-                <span>{copy.comparison.afterLabel}</span>
-                <strong>{copy.comparison.guideAfter}</strong>
+                <span>{comparison.afterLabel}</span>
+                <strong>{comparison.guideAfter}</strong>
               </div>
             </div>
           </div>
         </div>
       </div>
+      <p className="mt-8 max-w-3xl text-base font-semibold leading-8 sm:text-lg">
+        {background.scope}
+      </p>
+      <p className="mt-4 max-w-3xl text-base leading-8 sm:text-lg text-[var(--lp-body)]">
+        {background.cases}
+      </p>
+      <a
+        href={background.casesUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={landingLinkClass}
+      >
+        {background.casesLabel}
+      </a>
     </section>
   );
 }

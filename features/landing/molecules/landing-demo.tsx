@@ -21,7 +21,7 @@ export function LandingDemo({ locale = "ja" }: { locale?: AppLocale }) {
       className={`${styles.theme} ${styles.demo}`}
     >
       <div className={styles.board}>
-        <LandingBoardMock variant="hero" locale={locale} />
+        <LandingBoardMock locale={locale} />
         <div
           data-testid="landing-demo-decoration"
           aria-hidden="true"

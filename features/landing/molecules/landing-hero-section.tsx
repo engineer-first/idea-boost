@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Fragment } from "react";
@@ -82,6 +83,14 @@ export function LandingHeroSection({
             </Fragment>
           ))}
         </p>
+        <ul className={styles.heroPromises} aria-label={copy.promisesLabel}>
+          {copy.promises.map((promise) => (
+            <li key={promise}>
+              <Check size={18} aria-hidden="true" />
+              {promise}
+            </li>
+          ))}
+        </ul>
         <div className="mt-6">
           <Link
             href={entry.href}
@@ -90,6 +99,11 @@ export function LandingHeroSection({
             {entry.label}
           </Link>
         </div>
+        <p className={styles.heroNote}>
+          {copy.heroNote.text}
+          {locale === "en" ? " " : null}
+          <a href="#landing-duration">{copy.heroNote.median}</a>
+        </p>
         {entry.showStartHelp && (
           <div className={styles.heroHelp}>
             <Link href={entry.href} className={landingLinkClass}>
