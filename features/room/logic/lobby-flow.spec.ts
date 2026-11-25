@@ -43,8 +43,8 @@ describe("getLobbyFlowOverview", () => {
   });
 
   it("フェーズと全体の目安時間はステップの所要時間の合計にする", () => {
-    expect(overview.phases.map((phase) => phase.minutes)).toEqual([28, 23, 31]);
-    expect(overview.totalMinutes).toBe(82);
+    expect(overview.phases.map((phase) => phase.minutes)).toEqual([26, 23, 31]);
+    expect(overview.totalMinutes).toBe(80);
   });
 
   it("全ステップに14字以内のやることを1つ持たせる", () => {

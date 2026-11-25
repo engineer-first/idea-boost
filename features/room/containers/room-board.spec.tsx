@@ -1170,7 +1170,7 @@ describe("サーバーメッセージ → 画面反映", () => {
   it("実行中の円では停止せず、保存された停止状態は残り時間から再開できる", () => {
     const { socket } = connectWithSnapshot([], { timer: { status: "idle" } });
     fireEvent.click(screen.getByTestId("room-timer"));
-    expectSent(socket, { type: "timer:start", durationMs: 300000 });
+    expectSent(socket, { type: "timer:start", durationMs: 180000 });
     act(() =>
       socket.simulateServerMessage({
         type: "timer:updated",
@@ -1205,7 +1205,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     });
     const controls = screen.getByRole("group", { name: "ルームの操作" });
     expect(controls).not.toContainElement(screen.getByTestId("room-timer"));
-    expect(screen.getByRole("timer")).toHaveTextContent("05:00");
+    expect(screen.getByRole("timer")).toHaveTextContent("03:00");
     act(() =>
       socket.simulateServerMessage({
         type: "phase:updated",
