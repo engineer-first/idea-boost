@@ -296,6 +296,7 @@ function connectWithSnapshot(
     ideaMapDragging?: boolean;
     moveProtocolVersion?: 1 | null;
     noteCreateProtocolVersion?: 1 | null;
+    shareProtocolVersion?: 1;
     sharing?: SharingState | null;
     members?: Array<{ userId: string; name: string; color: "yellow" | "blue" }>;
     progress?: PhaseProgress;
@@ -315,6 +316,7 @@ function connectWithSnapshot(
         options?.moveProtocolVersion === null ? undefined : 1,
       noteCreateProtocolVersion:
         options?.noteCreateProtocolVersion === null ? undefined : 1,
+      shareProtocolVersion: options?.shareProtocolVersion,
       phaseRevision: 0,
       notes,
       members: options?.members ?? [],
@@ -1885,14 +1887,17 @@ describe("サーバーメッセージ → 画面反映", () => {
     ).toHaveStyle({ zIndex: "10" });
   });
 
-  it("個人付箋をボードへドラッグすると侵入時はpreviewだけ、有効dropの位置で公開する", () => {
+  it("最後のマイ付箋を置く位置で共有し、確定応答後にできた！を強調する", () => {
     const privateNote = protocolNote({
       visibility: "private",
       content: "公開前のメモ",
     });
     const { socket } = connectWithSnapshot([privateNote], {
       phase: buildPhaseStep(2, 1),
+      shareProtocolVersion: 1,
     });
+    const done = screen.getByRole("button", { name: "できた！" });
+    expect(done).not.toHaveAttribute("data-sharing-completion-cue");
     const canvas = screen.getByTestId("board-canvas");
     const scroller = canvas.parentElement;
     if (!scroller) throw new Error("ボードスクローラーがありません");
@@ -1924,12 +1929,35 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 140,
     });
     expect(within(toolbar).queryByRole("button", { name: "付箋" })).toBeNull();
+    expect(done).not.toHaveAttribute("data-sharing-completion-cue");
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
     expect(root).not.toHaveClass("cursor-grabbing");
 
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:publish", noteId: NOTE_ID, x: 140, y: 160 }),
+    const publish = socket.sent
+      .map((payload) => JSON.parse(payload))
+      .find((message) => message.type === "note:publish");
+    expect(publish).toMatchObject({
+      noteId: NOTE_ID,
+      x: 140,
+      y: 160,
+      operationId: expect.any(String),
+    });
+    expect(done).not.toHaveAttribute("data-sharing-completion-cue");
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:inserted",
+        note: { ...privateNote, visibility: "shared", x: 140, y: 160 },
+      }),
     );
+    expect(done).not.toHaveAttribute("data-sharing-completion-cue");
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:share:result",
+        status: "committed",
+        operationId: publish.operationId,
+      }),
+    );
+    expect(done).toHaveAttribute("data-sharing-completion-cue");
     expect(
       socket.sent.some(
         (message) => JSON.parse(message).type === "note:drag:end",

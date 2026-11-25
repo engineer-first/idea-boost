@@ -219,6 +219,7 @@ export type RoomBoardViewProps = {
   completionResetVersion?: number;
   isNextPhasePending: boolean;
   isPrivateNotesHandoffPending?: boolean;
+  hasNoUnsharedNotes?: boolean;
   isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
@@ -365,6 +366,7 @@ export function RoomBoardView({
   completionResetVersion = 0,
   isNextPhasePending,
   isPrivateNotesHandoffPending = false,
+  hasNoUnsharedNotes,
   isSavingBeforeShare = false,
   interactions,
   help,
@@ -2078,6 +2080,7 @@ export function RoomBoardView({
           rollbackTarget={rollbackTarget}
           onRollbackPhase={onRollbackPhase}
           sharing={sharing}
+          hasNoUnsharedNotes={hasNoUnsharedNotes}
           onSharingStart={onSharingStart}
           onRestartWriting={onRestartWriting}
           onSharingAdvance={onSharingAdvance}

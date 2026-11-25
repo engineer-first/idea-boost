@@ -232,6 +232,110 @@ describe("RoomBoardHeader", () => {
       }),
     ).not.toBeInTheDocument();
   });
+  describe("共有付箋を出し切った後の完了操作への誘導", () => {
+    it.each([1, 2, 3] as const)(
+      "%i-2では付箋を出し切った発表者を誘導し、押下で誘導を止める",
+      (phase) => {
+        const onSharingAdvance = vi.fn();
+        const props = setupProps({
+          phase: buildPhaseStep(2, phase),
+          sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+          onSharingAdvance,
+        });
+        const { rerender } = render(<RoomBoardHeader {...props} />);
+        const button = screen.getByRole("button", { name: "できた！" });
+
+        expect(button).not.toHaveAttribute("data-sharing-completion-cue");
+        rerender(<RoomBoardHeader {...props} hasNoUnsharedNotes />);
+
+        expect(button).toHaveAttribute("data-sharing-completion-cue");
+        expect(button).toBeEnabled();
+        fireEvent.click(button);
+        expect(onSharingAdvance).toHaveBeenCalledExactlyOnceWith("done");
+        expect(button).not.toHaveAttribute("data-sharing-completion-cue");
+      },
+    );
+
+    it("初めから付箋がないときは発表開始後に誘導し、付箋を戻すか発表者が替わると止める", () => {
+      const sharing = buildSharingState({
+        status: "active",
+        currentIndex: 0,
+      });
+      const props = setupProps({
+        phase: buildPhaseStep(2),
+        sharing,
+        onSharingAdvance: vi.fn(),
+        hasNoUnsharedNotes: true,
+      });
+      const { rerender } = render(
+        <RoomBoardHeader
+          {...props}
+          sharing={{ ...sharing, startsAt: Date.now() + 1000 }}
+        />,
+      );
+      const button = screen.getByRole("button", { name: "できた！" });
+      expect(button).not.toHaveAttribute("data-sharing-completion-cue");
+      expect(button).toBeDisabled();
+
+      rerender(<RoomBoardHeader {...props} />);
+      expect(button).toHaveAttribute("data-sharing-completion-cue");
+
+      rerender(<RoomBoardHeader {...props} hasNoUnsharedNotes={false} />);
+      expect(button).not.toHaveAttribute("data-sharing-completion-cue");
+      rerender(<RoomBoardHeader {...props} />);
+      expect(button).toHaveAttribute("data-sharing-completion-cue");
+
+      rerender(
+        <RoomBoardHeader
+          {...props}
+          sharing={{ ...sharing, currentIndex: 1 }}
+        />,
+      );
+      expect(button).not.toHaveAttribute("data-sharing-completion-cue");
+      expect(button).toBeDisabled();
+    });
+
+    it("できた！を押した後は、同じ発表中に一時切断から復帰しても誘導を出し直さない", () => {
+      const props = setupProps({
+        phase: buildPhaseStep(2),
+        sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+        onSharingAdvance: vi.fn(),
+        hasNoUnsharedNotes: true,
+      });
+      const { rerender } = render(<RoomBoardHeader {...props} />);
+      const button = screen.getByRole("button", { name: "できた！" });
+      expect(button).toHaveAttribute("data-sharing-completion-cue");
+      fireEvent.click(button);
+
+      rerender(<RoomBoardHeader {...props} isDisconnected />);
+      rerender(<RoomBoardHeader {...props} />);
+
+      expect(button).toBeEnabled();
+      expect(button).not.toHaveAttribute("data-sharing-completion-cue");
+
+      rerender(<RoomBoardHeader {...props} hasNoUnsharedNotes={false} />);
+      rerender(<RoomBoardHeader {...props} />);
+      expect(button).toHaveAttribute("data-sharing-completion-cue");
+    });
+
+    it.each([
+      ["個人作業中", { phase: buildPhaseStep(1) }],
+      ["切断中", { isDisconnected: true }],
+      ["完了操作を受け付けない状態", { onSharingAdvance: undefined }],
+    ] as const)("%sでは付箋がなくても誘導しない", (_, overrides) => {
+      setup({
+        phase: buildPhaseStep(2),
+        sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+        onSharingAdvance: vi.fn(),
+        onToggleReady: vi.fn(),
+        hasNoUnsharedNotes: true,
+        ...overrides,
+      });
+      expect(
+        screen.getByRole("button", { name: "できた！" }),
+      ).not.toHaveAttribute("data-sharing-completion-cue");
+    });
+  });
   it("発表待ちの参加者は共有の完了を押せない", () => {
     setup({
       phase: buildPhaseStep(2),
