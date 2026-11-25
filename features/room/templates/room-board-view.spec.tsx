@@ -1319,6 +1319,44 @@ describe("決定ステップの採用モードの既定", () => {
     expect(onNoteExclude).toHaveBeenCalledWith("note-1");
   });
 
+  it("採用の当たり判定から除外ボタンへポインターを移しても、除外ボタンを消さない", () => {
+    vi.useFakeTimers();
+    try {
+      setup({
+        phase: buildPhaseStep(5),
+        notes: [buildNote({ id: "note-1", content: "候補A" })],
+      });
+      const target = screen.getByRole("button", {
+        name: "採用する付箋: 候補A",
+      });
+      fireEvent.pointerEnter(target);
+      const exclude = screen.getByRole("button", { name: "除外する" });
+      // 実ブラウザでは離脱と進入が同じイベント処理の中で続き、描画はその後になる。
+      act(() => {
+        fireEvent.pointerOut(target, { relatedTarget: exclude });
+        fireEvent.pointerOver(exclude, { relatedTarget: target });
+      });
+      act(() => vi.advanceTimersByTime(500));
+      expect(exclude).not.toHaveClass("opacity-0");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("確定済みで開くと採用モードにせず、付箋を選べる", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      notes: [buildNote({ id: "note-1", content: "候補A" })],
+      decision: buildDecision({ noteId: "note-1" }),
+    });
+    expect(
+      screen.queryByText("採用する付箋をクリック"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-scroller")).not.toHaveAttribute(
+      "data-adopt-mode",
+    );
+  });
+
   it("キャンセルした後は入口から採用モードに戻れる", () => {
     setup({
       phase: buildPhaseStep(5),

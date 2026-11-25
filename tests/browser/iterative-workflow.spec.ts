@@ -293,6 +293,30 @@ test.each(phases)(
   },
 );
 
+test("採用モード中も付箋から除外ボタンへポインターを移して押せる", async () => {
+  await openStory("room-roomboardview--ready-to-decide");
+  const target = page.locator("[data-adopt-target]").first();
+  await target.hover();
+  const exclude = page.locator(
+    'button[data-candidate-action="true"]:not(.opacity-0)',
+  );
+  await exclude.waitFor();
+  const box = await exclude.boundingBox();
+  if (!box) throw new Error("除外ボタンが見つかりません");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
+    steps: 5,
+  });
+  await page.waitForTimeout(400);
+  expect(await exclude.count()).toBe(1);
+  await expectReachable(exclude);
+  await exclude.click();
+  expect(
+    await page
+      .getByRole("button", { name: "確定を取り消す", exact: true })
+      .count(),
+  ).toBe(0);
+});
+
 test("採用はキーボードで候補を選ぶと確認ダイアログなしで選択を終える", async () => {
   await openStory("room-roomboardview--ready-to-decide");
   // 決定ステップは最初から採用モードで、再投票も同じ段から選べる。

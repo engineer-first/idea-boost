@@ -433,11 +433,14 @@ export function NoteCard({
   }, [cancelPointerActionHide, releasePointerAction]);
 
   const wasAdoptionTargetHoveredRef = useRef(false);
+  const isPointerOverCandidateActionRef = useRef(false);
   useEffect(() => {
     const wasHovered = wasAdoptionTargetHoveredRef.current;
     wasAdoptionTargetHoveredRef.current = isAdoptionTargetHovered;
     if (isAdoptionTargetHovered) schedulePointerActionShow();
-    else if (wasHovered) schedulePointerActionHide();
+    // 当たり判定から除外ボタンへ移ったときは、ボタン側の hover を優先して消さない。
+    else if (wasHovered && !isPointerOverCandidateActionRef.current)
+      schedulePointerActionHide();
   }, [
     isAdoptionTargetHovered,
     schedulePointerActionShow,
@@ -976,11 +979,15 @@ export function NoteCard({
               aria-busy={candidatePending}
               tabIndex={isCandidateActionVisible ? 0 : -1}
               onPointerEnter={() => {
+                isPointerOverCandidateActionRef.current = true;
                 cancelPointerActionHide();
                 claimPointerAction();
                 setIsPointerActionVisible(true);
               }}
-              onPointerLeave={schedulePointerActionHide}
+              onPointerLeave={() => {
+                isPointerOverCandidateActionRef.current = false;
+                schedulePointerActionHide();
+              }}
               onFocus={() => {
                 cancelFocusActionHide();
                 setIsFocusActionVisible(true);
