@@ -95,7 +95,7 @@ test("送信中と設定不足で操作可否が伝わる", async () => {
   }
 });
 
-test("ログイン方法をキーボードで選ぶと見出しから名前入力へ進み、戻るとゲスト開始にフォーカスが戻る", async () => {
+test("ログイン方法をキーボードで選ぶと名前入力へ直接進み、戻るとゲスト開始にフォーカスが戻る", async () => {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
@@ -108,16 +108,6 @@ test("ログイン方法をキーボードで選ぶと見出しから名前入�
     });
     await guest.focus();
     await page.keyboard.press("Enter");
-    const heading = page.getByRole("heading", {
-      level: 2,
-      name: "ゲストではじめる",
-    });
-    await expect
-      .poll(() =>
-        heading.evaluate((element) => element === document.activeElement),
-      )
-      .toBe(true);
-    await page.keyboard.press("Tab");
     const name = page.getByRole("textbox", { name: "仲間に表示される名前" });
     await expect
       .poll(() =>

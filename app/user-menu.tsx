@@ -63,7 +63,7 @@ export function UserMenu({
         </PopoverTrigger>
         <PopoverContent
           align="end"
-          className="w-72 max-w-[calc(100vw-2rem)] p-1"
+          className="w-80 max-w-[calc(100vw-2rem)] p-1"
         >
           {isHome && (
             <>
