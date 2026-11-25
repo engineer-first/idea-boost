@@ -135,27 +135,35 @@ describe("共有する人の表示", () => {
       await order.waitFor();
       // Web フォントの読込で名前の幅が変わった後も枠内に残ることを確かめる。
       await page.evaluate(() => document.fonts.ready);
-      await page.waitForTimeout(100);
-      const result = await order.evaluate((element) => {
-        const style = getComputedStyle(element);
-        const box = element.getBoundingClientRect();
-        const current = element.querySelector('[data-current="true"]');
-        if (!current) throw new Error("今の発表者がない");
-        // アバターだけでなく「発表中」と名前のラベルまで枠内に入れる。
-        const target = (
-          current.parentElement ?? current
-        ).getBoundingClientRect();
-        return {
-          // ボタンの中ではフォーカスを置けないため、axe の scrollable-region-focusable に当たる auto / scroll にしない。
-          overflowX: style.overflowX,
-          overflows: element.scrollWidth > element.clientWidth,
-          currentInside:
-            target.left >= box.left - 1 && target.right <= box.right + 1,
-        };
-      });
+      const measure = () =>
+        order.evaluate((element) => {
+          const style = getComputedStyle(element);
+          const box = element.getBoundingClientRect();
+          const current = element.querySelector('[data-current="true"]');
+          if (!current) throw new Error("今の発表者がない");
+          // アバターだけでなく「発表中」と名前のラベルまで枠内に入れる。
+          const target = (
+            current.parentElement ?? current
+          ).getBoundingClientRect();
+          return {
+            // ボタンの中ではフォーカスを置けないため、axe の scrollable-region-focusable に当たる auto / scroll にしない。
+            overflowX: style.overflowX,
+            overflows: element.scrollWidth > element.clientWidth,
+            currentInside:
+              target.left >= box.left - 1 && target.right <= box.right + 1,
+          };
+        });
+      const result = await measure();
       expect(result.overflows).toBe(true);
       expect(["auto", "scroll"]).not.toContain(result.overflowX);
-      expect(result.currentInside).toBe(true);
+      await expect.poll(async () => (await measure()).currentInside).toBe(true);
+      // 画面の回転や縮小で枠が狭くなっても、手で送れない分を寄せ直して見せる。
+      await page
+        .getByRole("button", { name: "発表者と全体の順番を確認" })
+        .evaluate((element) => {
+          (element as HTMLElement).style.width = "180px";
+        });
+      await expect.poll(async () => (await measure()).currentInside).toBe(true);
     } finally {
       await page.close();
     }

@@ -94,14 +94,14 @@ export function SharingPresenter({
     const reveal = () =>
       target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     reveal();
-    // Web フォントの読込で名前の幅が変わると端が切れるため、読込後に寄せ直す。
-    let active = true;
-    void document.fonts?.ready.then(() => {
-      if (active) reveal();
-    });
-    return () => {
-      active = false;
-    };
+    // 並びは手で送れないため、Web フォントの読込で名前の幅が変わったときや、
+    // 画面の回転・縮小で枠が狭くなったときにも寄せ直す。
+    const container = orderRef.current;
+    if (!target || !container || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(reveal);
+    observer.observe(container);
+    observer.observe(target);
+    return () => observer.disconnect();
   }, [currentPresenterId]);
   const otherMembers = members.filter(
     (member) => !sharing.order.some((entry) => entry.userId === member.userId),
