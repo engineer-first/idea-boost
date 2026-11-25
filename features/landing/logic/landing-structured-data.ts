@@ -1,4 +1,5 @@
 import type { AppLocale } from "@/lib/i18n/locale";
+import { SHARE_IMAGE } from "@/lib/share-image";
 import { getLandingContent } from "./landing-content";
 import { landingUrl, SITE_ORIGIN } from "./landing-metadata";
 
@@ -32,7 +33,7 @@ export function getLandingStructuredData(locale: AppLocale): StructuredData {
         inLanguage: locale,
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
-        image: `${SITE_ORIGIN}/brand/ogp.png`,
+        image: `${SITE_ORIGIN}${SHARE_IMAGE.url}`,
         // FAQ の「現在は無料で使えます」と同じ事実。
         offers: { "@type": "Offer", price: "0", priceCurrency: "JPY" },
         featureList: copy.features.items.map((item) => item.title),
