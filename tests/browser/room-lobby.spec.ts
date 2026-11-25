@@ -293,11 +293,11 @@ test.each([768, 1024, 1280])(
 );
 
 test.each(
-  [1024, 1050, 1090, 1180, 1280, 1440].flatMap((width) =>
+  [1024, 1050, 1090, 1180, 1280, 1440, 1920].flatMap((width) =>
     ["host-solo", "host-six"].map((story) => ({ width, story })),
   ),
 )(
-  "共有に対応した端末の幅 $width px・$story でも、招待コード・リンクをコピー・共有・スタートが重ならない",
+  "共有に対応した端末の幅 $width px・$story でも、招待コード・リンクをコピー・共有・スタートが重ならず、文言を省略しない",
   async ({ width, story }) => {
     await open(story, width, 800, false, true);
     const controls = [
@@ -323,6 +323,13 @@ test.each(
           b.y < a.y + a.height;
         expect(overlap, `${i} と ${j} が重なる`).toBe(false);
       }
+    // 文言を「リン…」のように省略しない。
+    expect(
+      await controls[1]
+        .locator("span")
+        .first()
+        .evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
   },
 );
 

@@ -440,6 +440,13 @@
   }
 }
 
+/* 狭い PC で「共有」も並ぶと1行に収まらないので、スタートを次の行の右端へ送る。 */
+@media (min-width: 1024px) and (max-width: 1179px) {
+  .inviteShelf:has([data-share-state]) .start {
+    grid-column: 1 / -1;
+  }
+}
+
 /* 参加者が多いと顔を優先し、説明パネルを細くする。幅が足りない PC では隠す。 */
 @media (min-width: 1024px) and (max-width: 1179px) {
   .lobby[data-member-density="many"] .content {
