@@ -125,12 +125,14 @@ export function StickyNote({
         data-slot="sticky-note-stamp-layer"
         className="sticky-note-stamp-layer pointer-events-none absolute inset-0 z-30"
       >
-        {isDecided && onStampClick && decisionPresentation === "board" ? (
+        {onStampClick && decisionPresentation === "board" ? (
           <button
             type="button"
-            title="確定を取り消す"
+            title={isDecided ? "確定を取り消す" : undefined}
             aria-label="決定のはんこ（確定を取り消す）"
-            disabled={stampDisabled}
+            aria-hidden={!isDecided || undefined}
+            tabIndex={isDecided ? 0 : -1}
+            disabled={stampDisabled || !isDecided}
             className="sticky-note-stamp sticky-note-stamp-action"
             // 盤面のパン・範囲選択へ押下が渡らないようにする。
             onPointerDown={(event) => event.stopPropagation()}

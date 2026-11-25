@@ -59,7 +59,7 @@ describe("NoteFontSizeControls", () => {
     ).toBe(true);
   });
 
-  it("ボタンにホバー・フォーカスすると何が変わるかを示す", () => {
+  it("ボタンにホバー・フォーカスすると何が変わるかを簡潔に示す", () => {
     render(
       <NoteFontSizeControls
         fontSize={14}
@@ -71,12 +71,13 @@ describe("NoteFontSizeControls", () => {
     act(() =>
       screen.getByRole("button", { name: "付箋の文字を大きく" }).focus(),
     );
-    expect(screen.getByRole("tooltip")).toHaveTextContent(
-      "選択した付箋の文字を大きく",
+    expect(screen.getByRole("tooltip")).toHaveTextContent("文字を大きく");
+    expect(screen.getByRole("tooltip")).not.toHaveTextContent(
+      "共有後は全員に反映",
     );
   });
 
-  it("押せないボタンもホバーで説明を出す", () => {
+  it("押せないボタンもホバーで簡潔な説明を出す", () => {
     vi.useFakeTimers();
     try {
       render(
@@ -94,11 +95,32 @@ describe("NoteFontSizeControls", () => {
       if (!trigger) throw new Error("押せないボタンを包むtriggerが必要");
       fireEvent.pointerMove(trigger, { pointerType: "mouse" });
       act(() => vi.advanceTimersByTime(2000));
-      expect(screen.getByRole("tooltip")).toHaveTextContent(
-        "選択した付箋の文字を大きく",
-      );
+      expect(screen.getByRole("tooltip")).toHaveTextContent("文字を大きく");
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("混在サイズの一括操作では --px 表示のまま増減を通知できる", () => {
+    const onStep = vi.fn();
+    render(
+      <NoteFontSizeControls
+        fontSize={null}
+        hasSelection
+        canDecrease
+        canIncrease
+        disabled={false}
+        onChange={vi.fn()}
+        onStep={onStep}
+      />,
+    );
+
+    expect(
+      screen.getByRole("group", { name: "選択した付箋の文字サイズ" }),
+    ).toHaveTextContent("--px");
+    fireEvent.click(screen.getByRole("button", { name: "付箋の文字を小さく" }));
+    fireEvent.click(screen.getByRole("button", { name: "付箋の文字を大きく" }));
+    expect(onStep).toHaveBeenNthCalledWith(1, -1);
+    expect(onStep).toHaveBeenNthCalledWith(2, 1);
   });
 });

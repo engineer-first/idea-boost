@@ -2224,20 +2224,29 @@ it("復元可能な戻り先がある参加者に戻る操作を提供する", (
 
 it("参加者はルームメニューで現在名と変更入口を確認でき、完了後は変更できない", () => {
   const onRenameRoom = vi.fn();
-  const props = setupProps({ roomName: "J05", onRenameRoom });
+  const props = setupProps({
+    roomName: "J05",
+    onRenameRoom,
+    onEditSelf: vi.fn(),
+  });
   const { rerender } = render(<RoomBoardHeader {...props} />);
   openRoomMenu();
-  expect(
-    within(screen.getByRole("dialog", { name: "ルームメニュー" })).getByText(
-      "J05",
-    ),
-  ).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "テーマを変更" }));
+  const roomNameText = within(
+    screen.getByRole("dialog", { name: "ルームメニュー" }),
+  ).getByText("J05");
+  expect(roomNameText).toBeInTheDocument();
+  // テーマのテキスト自体をクリックしても変更モーダルを開ける。
+  fireEvent.click(roomNameText);
   expect(onRenameRoom).toHaveBeenCalledOnce();
+  openRoomMenu();
+  const selfButton = screen.getByRole("button", { name: /表示名を変更/ });
+  expect(selfButton).toHaveClass("py-2");
+  expect(selfButton).not.toHaveClass("border-b");
+  expect(selfButton).not.toHaveClass("pb-3");
   rerender(<RoomBoardHeader {...props} outcomePublished />);
   openRoomMenu();
   expect(
-    screen.queryByRole("button", { name: "テーマを変更" }),
+    screen.queryByRole("button", { name: /テーマを変更/ }),
   ).not.toBeInTheDocument();
 });
 

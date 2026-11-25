@@ -1018,13 +1018,13 @@ export function NoteCard({
               }}
               // ほかの道具（メニュー・HUD）と同じ白い浮遊ボタンにし、
               // 除外の意味は文字とアイコンの危険色だけで伝える（DESIGN.md「ボタン」）。
-              // 見えている間は処理中も当たり判定を残し、ポインターがボードへ抜けて消えないようにする。
-              // 左右の余白は「処理中…」が 80px に収まるよう詰める。
+              // 送信中も文言・透明度をチラつかせず、当たり判定を保ったまま二重押下だけ防ぐ。
               className={cn(
                 "fixed z-40 gap-1 px-1 text-xs font-bold shadow-tool transition-opacity",
                 note.excluded
                   ? "text-foreground"
                   : "text-danger-text hover:bg-danger-soft hover:text-danger-text",
+                candidatePending ? "disabled:opacity-100" : "",
                 isCandidateActionVisible
                   ? "pointer-events-auto opacity-100 disabled:pointer-events-auto"
                   : "pointer-events-none opacity-0",
@@ -1041,7 +1041,7 @@ export function NoteCard({
               ) : (
                 <ListMinus aria-hidden="true" className="size-4" />
               )}
-              {candidatePending ? "処理中…" : candidateActionText}
+              {candidateActionText}
             </Button>
             {isActionMenuOpen ? (
               <div

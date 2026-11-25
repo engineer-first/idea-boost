@@ -269,7 +269,7 @@ describe("NoteCard", () => {
     expect(screen.getAllByTestId("candidate-target-corner")).toHaveLength(4);
   });
 
-  it("処理中も候補操作が当たり判定を保ち、文字を80pxの枠に収める", () => {
+  it("処理中も候補操作が当たり判定を保ち、元の文言のままチラつかせない", () => {
     setup({
       canExcludeNote: true,
       candidatePending: true,
@@ -279,12 +279,13 @@ describe("NoteCard", () => {
     const action = screen.getByRole("button", { name: "除外する" });
 
     expect(action).toBeDisabled();
-    expect(action).toHaveTextContent("処理中…");
+    expect(action).toHaveAttribute("aria-busy", "true");
+    expect(action).toHaveTextContent("除外");
+    expect(action).not.toHaveTextContent("処理中");
     // 共通 Button の押せない間の pointer-events-none だと、ポインターが
     // ボードへ抜けて処理中に操作が消えるため、当たり判定は残す。
     expect(action).toHaveClass("disabled:pointer-events-auto");
-    // アイコン・間隔・「処理中…」の4字が 80px に収まるよう左右の余白を詰める。
-    expect(action).toHaveClass("px-1");
+    expect(action).toHaveClass("disabled:opacity-100");
   });
 
   it("隠れている処理中の候補操作は、見えないままクリックを奪わない", () => {
