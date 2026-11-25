@@ -42,6 +42,10 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
   return (
     <section
       aria-label="進み方と全体の流れ"
+      // 収まらないときは中をスクロールして読む。中に押せる部品が無いので、
+      // Safari でもキーボードで届くようパネル自体を Tab で選べるようにする。
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: スクロールする説明をキーボードでも読めるようにする。
+      tabIndex={0}
       className={className ? `${styles.guide} ${className}` : styles.guide}
       data-testid="lobby-flow-guide"
     >
@@ -67,7 +71,9 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                 <span aria-hidden="true" className={styles.readyMark}>
                   <Check className="size-3.5" strokeWidth={2.5} />
                 </span>
+                <span className="sr-only">「</span>
                 できた！
+                <span className="sr-only">」</span>
               </span>
               を押す
             </span>
@@ -78,7 +84,11 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
             </span>
             <span className={styles.howToText}>
               全員そろったら
-              <span className={styles.nextSample}>次のステップへ</span>
+              <span className={styles.nextSample}>
+                <span className="sr-only">「</span>
+                次のステップへ
+                <span className="sr-only">」</span>
+              </span>
             </span>
           </li>
         </ol>

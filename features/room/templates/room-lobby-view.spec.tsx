@@ -124,6 +124,14 @@ describe("RoomLobbyView", () => {
     );
   });
 
+  it("進み方と全体の流れのパネルは中に押せる部品が無いので、パネル自体を Tab で選んでスクロールできる", () => {
+    renderView();
+    // Chromium はスクロール領域を自動で選べるが、Safari では tabindex が無いと届かない。
+    expect(
+      screen.getByRole("region", { name: "進み方と全体の流れ" }),
+    ).toHaveAttribute("tabindex", "0");
+  });
+
   it("進み方の3段階と、3フェーズ全ステップの名前・目安時間を開始前に見せる", () => {
     renderView();
     const guide = screen.getByRole("region", { name: "進み方と全体の流れ" });

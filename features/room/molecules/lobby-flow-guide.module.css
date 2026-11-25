@@ -7,6 +7,10 @@
   background: var(--ib-color-surface);
   color: var(--ib-color-ink);
 }
+.guide:focus-visible {
+  outline: 2px solid var(--ib-color-primary);
+  outline-offset: 2px;
+}
 .inner {
   display: flex;
   flex-direction: column;
@@ -56,7 +60,8 @@
   align-items: center;
   gap: 4px 8px;
 }
-/* 実際のボタンに近い形の見本。押せないので影や手の形は付けない。 */
+/* 実際のボタンに近い形の見本。押せないので影や手の形は付けず、
+   塗りの主ボタンは画面に「スタート」1つだけにするため、淡い面で示す。 */
 .readySample,
 .nextSample {
   display: inline-flex;
@@ -67,8 +72,10 @@
   padding-inline: 14px;
   border-radius: var(--ib-rounded-lg);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
+  cursor: default;
+  user-select: none;
 }
 .readySample {
   border: 1px solid var(--ib-color-line-strong);
@@ -85,8 +92,10 @@
   background: var(--ib-color-surface-muted);
 }
 .nextSample {
-  background: var(--ib-color-primary);
-  color: var(--ib-color-on-primary);
+  border: 1px solid
+    color-mix(in oklab, var(--ib-color-primary) 30%, transparent);
+  background: var(--ib-color-primary-soft);
+  color: var(--ib-color-primary-strong);
 }
 
 .flowHeading {
@@ -178,6 +187,14 @@
 }
 .step > .minutes {
   grid-area: minutes;
+}
+
+/* 幅があれば1ステップを1行にし、名前・やること・時間を横に並べる。 */
+@container lobby-guide (min-width: 500px) {
+  .step {
+    grid-template-columns: 28px minmax(0, 15.5em) minmax(0, 1fr) auto;
+    grid-template-areas: "icon name action minutes";
+  }
 }
 
 /* 狭い幅では余白を詰める。見本のボタンは収まらなければ次の行へ送る。 */
