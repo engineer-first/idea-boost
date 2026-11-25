@@ -182,6 +182,8 @@ beforeEach(() => {
   startedTones.length = 0;
   audioContexts.length = 0;
   localStorage.clear();
+  // 既存の検証は、利用者が明示的に消音した状態から始める。
+  localStorage.setItem(ROOM_TIMER_SOUND_STORAGE_KEY, "false");
   vi.stubGlobal("AudioContext", FakeAudioContext);
   Object.defineProperty(window, "AudioContext", {
     configurable: true,
@@ -443,7 +445,7 @@ describe("useRoomTimerSounds", () => {
         await enable;
       });
       expect(startedTones).toHaveLength(0);
-      expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBeNull();
+      expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBe("false");
       if (operation === "mute") expect(result.current.enabled).toBe(false);
     },
   );
@@ -749,7 +751,7 @@ describe("useRoomTimerSounds", () => {
 
     expect(result.current.enabled).toBe(false);
     expect(result.current.playbackBlocked).toBe(true);
-    expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBe("false");
   });
 
   it("有効化時だけ確認音を鳴らし、消音では音を鳴らさない", async () => {
@@ -766,7 +768,77 @@ describe("useRoomTimerSounds", () => {
     const toneCount = startedTones.length;
     act(() => result.current.onMute());
     expect(result.current.enabled).toBe(false);
-    expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBe("false");
     expect(startedTones).toHaveLength(toneCount);
+  });
+
+  describe("設定が無い初回は通知音をオンにする", () => {
+    beforeEach(() => {
+      localStorage.removeItem(ROOM_TIMER_SOUND_STORAGE_KEY);
+    });
+
+    async function userGesture(type = "pointerdown"): Promise<void> {
+      await act(async () => {
+        window.dispatchEvent(new Event(type));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    }
+
+    it("初回はオンで、操作前は AudioContext を作らず警告も出さない", async () => {
+      const { result, rerender } = setup({ status: "idle" });
+      expect(result.current.enabled).toBe(true);
+
+      await rerenderTimer(rerender, activeSound(nowMs + 10_000), 1);
+
+      expect(audioContexts).toHaveLength(0);
+      expect(startedTones).toHaveLength(0);
+      expect(result.current.enabled).toBe(true);
+      expect(result.current.playbackBlocked).toBe(false);
+    });
+
+    it.each(["pointerdown", "keydown", "touchend"])(
+      "最初の操作(%s)で音を出せる状態にし、以降のタイマー音を鳴らす",
+      async (type) => {
+        const { result, rerender } = setup({ status: "idle" });
+        await userGesture(type);
+        expect(audioContexts[0]?.state).toBe("running");
+
+        await rerenderTimer(rerender, activeSound(nowMs + 10_000), 1);
+
+        expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+          523.25, 659.25, 783.99,
+        ]);
+        expect(result.current.playbackBlocked).toBe(false);
+      },
+    );
+
+    it("操作時に再生を許可されなくても警告を出さず、次の操作で再試行する", async () => {
+      rejectResume = true;
+      const { result, rerender } = setup({ status: "idle" });
+      await userGesture();
+      await rerenderTimer(rerender, activeSound(nowMs + 10_000), 1);
+
+      expect(startedTones).toHaveLength(0);
+      expect(result.current.enabled).toBe(true);
+      expect(result.current.playbackBlocked).toBe(false);
+
+      await rerenderTimer(rerender, { status: "idle" }, 2);
+      rejectResume = false;
+      await userGesture();
+      await rerenderTimer(rerender, activeSound(nowMs + 20_000), 3);
+      expect(startedTones).toHaveLength(3);
+    });
+
+    it("消音した設定は次の入室でも保たれる", async () => {
+      const first = setup({ status: "idle" });
+      act(() => first.result.current.onMute());
+      first.unmount();
+
+      const second = setup({ status: "idle" });
+      expect(second.result.current.enabled).toBe(false);
+      await userGesture();
+      expect(audioContexts).toHaveLength(0);
+    });
   });
 });

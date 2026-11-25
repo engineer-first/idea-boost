@@ -105,6 +105,16 @@ function installAudioProbe(rejectPlayback: boolean): void {
   } as typeof AudioContext;
 }
 
+const soundStorageKey = "idea-boost.timer-sounds.enabled.v1";
+
+// 既定はオン。明示的に消音した利用者の状態から始める検証で使う。
+function startMuted(key: string): void {
+  if (!sessionStorage.getItem("timer-sounds-test-muted")) {
+    localStorage.setItem(key, "false");
+    sessionStorage.setItem("timer-sounds-test-muted", "1");
+  }
+}
+
 async function openStory(page: Page): Promise<void> {
   await page.goto(storyUrl);
   await page.getByTestId("room-timer").waitFor();
@@ -144,6 +154,7 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       reducedMotion: "reduce",
     });
     const page = await context.newPage();
+    await page.addInitScript(startMuted, soundStorageKey);
     try {
       await openStory(page);
       const toggle = page.getByTestId("timer-sound-toggle");
@@ -160,12 +171,47 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
     }
   });
 
+  it("設定が無い初回は通知音がオンで、最初の操作から警告なしに開始音を鳴らす", async () => {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 720 },
+    });
+    const page = await context.newPage();
+    await page.addInitScript(installAudioProbe, false);
+    try {
+      await openStory(page);
+      const soundToggle = page.getByTestId("timer-sound-toggle");
+      expect(await soundToggle.getAttribute("aria-pressed")).toBe("true");
+      expect((await readAudioProbe(page)).contextStates).toHaveLength(0);
+
+      await page.getByTestId("room-timer").click();
+      await page.waitForFunction(
+        () => (window.__timerAudioProbe?.starts.length ?? 0) >= 3,
+        undefined,
+        { timeout: 5_000 },
+      );
+      const playback = await readAudioProbe(page);
+      expect(
+        playback.starts.slice(0, 3).map(({ frequencyHz }) => frequencyHz),
+      ).toEqual([523.25, 659.25, 783.99]);
+      expect(await soundToggle.getAttribute("aria-pressed")).toBe("true");
+      expect(
+        await page.getByRole("group", { name: "通知音の再生エラー" }).count(),
+      ).toBe(0);
+      expect(await soundToggle.getAttribute("title")).not.toContain(
+        "再生できません",
+      );
+    } finally {
+      await context.close();
+    }
+  });
+
   it("アイコンで有効化すると確認音を鳴らし、開始・5秒予告・時間切れを再生する", async () => {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
     const page = await context.newPage();
     await page.addInitScript(installAudioProbe, false);
+    await page.addInitScript(startMuted, soundStorageKey);
     try {
       await openStory(page);
       const soundToggle = page.getByTestId("timer-sound-toggle");
@@ -260,6 +306,7 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       });
       const page = await context.newPage();
       await page.addInitScript(installAudioProbe, true);
+      await page.addInitScript(startMuted, soundStorageKey);
       try {
         await openStory(page);
         const soundToggle = page.getByTestId("timer-sound-toggle");
@@ -273,10 +320,11 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
         expect(await page.getByRole("dialog").count()).toBe(0);
         expect((await readAudioProbe(page)).resumeAttempts).toBe(1);
         expect(
-          await page.evaluate(() =>
-            localStorage.getItem("idea-boost.timer-sounds.enabled.v1"),
+          await page.evaluate(
+            (key) => localStorage.getItem(key),
+            soundStorageKey,
           ),
-        ).toBeNull();
+        ).toBe("false");
         const status = page.getByRole("group", { name: "通知音の再生エラー" });
         await status.waitFor();
         expect(await status.textContent()).toContain("再試行");
