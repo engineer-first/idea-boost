@@ -11,7 +11,7 @@ describe("buildInviteMessage", () => {
       }),
     ).toBe(
       [
-        "IdeaBoost のルーム「J05」に招待します。",
+        "Idea Boost のルーム「J05」に招待します。",
         "参加リンク: https://idea-flow.example/invite/AB12CD",
         "招待コード: AB12CD",
       ].join("\n"),
@@ -27,7 +27,7 @@ describe("buildInviteMessage", () => {
           inviteCode: "AB12CD",
           inviteUrl: "https://idea-flow.example/invite/AB12CD",
         }).split("\n")[0],
-      ).toBe("IdeaBoost のルームに招待します。");
+      ).toBe("Idea Boost のルームに招待します。");
     },
   );
 
@@ -38,6 +38,6 @@ describe("buildInviteMessage", () => {
         inviteCode: "AB12CD",
         inviteUrl: "https://idea-flow.example/invite/AB12CD",
       }).split("\n")[0],
-    ).toBe("IdeaBoost のルーム「J05」に招待します。");
+    ).toBe("Idea Boost のルーム「J05」に招待します。");
   });
 });

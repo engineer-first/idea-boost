@@ -936,7 +936,7 @@ describe("RoomBoardHeader", () => {
         );
         expect(writeText).toHaveBeenCalledExactlyOnceWith(
           [
-            "IdeaBoost のルーム「J05」に招待します。",
+            "Idea Boost のルーム「J05」に招待します。",
             "参加リンク: https://idea-flow.example/invite/AB12CD",
             "招待コード: AB12CD",
           ].join("\n"),

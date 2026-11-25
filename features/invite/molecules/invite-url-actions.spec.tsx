@@ -186,7 +186,7 @@ describe("InviteUrlActions", () => {
       screen.queryByRole("button", { name: "招待文をコピー" }),
     ).not.toBeInTheDocument();
 
-    const message = `IdeaBoost のルームに招待します。\n参加リンク: ${url}\n招待コード: ABC234`;
+    const message = `Idea Boost のルームに招待します。\n参加リンク: ${url}\n招待コード: ABC234`;
     rerender(<InviteUrlActions value={url} message={message} />);
     const button = screen.getByRole("button", { name: "招待文をコピー" });
     expect(button).toHaveTextContent("招待文をコピー");

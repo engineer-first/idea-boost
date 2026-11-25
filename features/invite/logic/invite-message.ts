@@ -14,8 +14,8 @@ export function buildInviteMessage({
   const name = roomName?.trim();
   return [
     name
-      ? `IdeaBoost のルーム「${name}」に招待します。`
-      : "IdeaBoost のルームに招待します。",
+      ? `Idea Boost のルーム「${name}」に招待します。`
+      : "Idea Boost のルームに招待します。",
     `参加リンク: ${inviteUrl}`,
     `招待コード: ${inviteCode}`,
   ].join("\n");
