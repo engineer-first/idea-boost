@@ -54,7 +54,9 @@ it("nextが複数指定された場合は通常開始に戻す", async () => {
       searchParams: Promise.resolve({ next: ["/invite/ABC123", "/about"] }),
     }),
   );
+  for (const link of screen.getAllByRole("link", { name: "無料で始める" }))
+    expect(link).toHaveAttribute("href", "/login?next=%2Fhome");
   expect(
-    screen.getByRole("link", { name: "招待コードをお持ちの方" }),
-  ).toHaveAttribute("href", "/login?next=%2Fhome");
+    screen.getByRole("textbox", { name: "招待コードをお持ちの方" }),
+  ).toBeInTheDocument();
 });

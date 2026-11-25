@@ -7,6 +7,8 @@ export type LandingEntry = {
   loginHref: string;
   label: string;
   showStartHelp: boolean;
+  // ヒーローで招待コードを入力して参加できるか。招待・戻り先の文脈では行き先が決まっているので出さない。
+  showCodeEntry: boolean;
 };
 
 export function getLandingEntry(
@@ -38,5 +40,6 @@ export function getLandingEntry(
     label:
       getLandingContent(locale).landingCopy.cta[context][isLoggedIn ? 1 : 0],
     showStartHelp: context === "normal" && !isLoggedIn,
+    showCodeEntry: context === "normal",
   };
 }

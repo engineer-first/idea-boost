@@ -26,6 +26,12 @@
     "home": "Home",
     "languageVersion": "English",
     "join": "Have an invitation code?",
+    "codeEntry": {
+      "placeholder": "AB12CD",
+      "submit": "Join",
+      "moving": "Opening…",
+      "error": "Enter the six-character code (letters and numbers)."
+    },
     "stepsHeading": ["Don't rush to ideas.", "Start with a question."],
     "flow": {
       "intro": "Turn a problem into a question before exploring ideas, so everyone thinks in the same direction.",
@@ -225,7 +231,7 @@
           "description": "Copy the problem, question, and idea or save them as a text file."
         }
       ],
-      "codeHelp": "Have an invitation code? Choose how to start, then enter it on the home page."
+      "codeHelp": "Have an invitation code? Enter it in the field at the top of this page to join."
     },
     "faq": {
       "heading": ["Before you start,", "here's what to know."],

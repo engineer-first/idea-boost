@@ -18,12 +18,14 @@ it.each([
     href: "/login?next=%2Fhome",
     label: "無料で始める",
     showStartHelp: true,
+    showCodeEntry: true,
     loginHref: "/login?next=%2Fhome",
   });
   expect(getLandingEntry(true, next)).toEqual({
     href: "/home",
     label: "ホームへ進む",
     showStartHelp: false,
+    showCodeEntry: true,
     loginHref: "/login?next=%2Fhome",
   });
 });
@@ -40,12 +42,14 @@ it.each([
     href: `/login?next=${encodeURIComponent(next)}`,
     label: guestLabel,
     showStartHelp: false,
+    showCodeEntry: false,
     loginHref: `/login?next=${encodeURIComponent(next)}`,
   });
   expect(getLandingEntry(true, next)).toEqual({
     href: next,
     label: memberLabel,
     showStartHelp: false,
+    showCodeEntry: false,
     loginHref: `/login?next=${encodeURIComponent(next)}`,
   });
 });
@@ -58,12 +62,14 @@ it("未ログインでも招待の参加確認へ直接進み、ログイン導�
     href: "/invite/ABC123",
     label: "招待の参加確認へ進む",
     showStartHelp: false,
+    showCodeEntry: false,
     loginHref: "/login?next=%2Finvite%2FABC123",
   });
   expect(getLandingEntry(true, "/invite/ABC123")).toEqual({
     href: "/invite/ABC123",
     label: "招待の参加確認へ進む",
     showStartHelp: false,
+    showCodeEntry: false,
     loginHref: "/login?next=%2Finvite%2FABC123",
   });
 });

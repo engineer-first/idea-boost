@@ -1487,11 +1487,27 @@
   min-height: 48px;
   padding-block: 10px;
 }
-.heroHelp {
-  margin-top: 2px;
+/* ヒーローの招待コード入力（#1180）。主CTAより控えめに、すぐ下へ置く */
+.heroCodeEntry {
+  margin-top: 20px;
 }
-.heroHelp a {
-  min-height: 30px;
+.heroCodeLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lp-body);
+}
+.heroCodeRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.heroCodeError {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--ib-color-danger-text);
 }
 .comparisonBefore > span {
   white-space: nowrap;
