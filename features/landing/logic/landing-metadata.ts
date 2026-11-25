@@ -5,6 +5,11 @@ import { getLandingContent } from "./landing-content";
 
 /** LP の言語ごとの URL。日本語の / を言語が分からないときの版（x-default）にする。 */
 export const LANDING_PATHS: Record<AppLocale, string> = { ja: "/", en: "/en" };
+/** ログイン中も開ける説明ページ。ログイン中の LANDING_PATHS はホームへ転送される。 */
+export const ABOUT_PATHS: Record<AppLocale, string> = {
+  ja: "/about",
+  en: "/en/about",
+};
 
 /** 本番の origin。検索エンジン・SNS・AI へ渡す絶対 URL の基準にする。 */
 export const SITE_ORIGIN = "https://ideaboost.dev";

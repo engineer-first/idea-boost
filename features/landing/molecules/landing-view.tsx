@@ -5,7 +5,7 @@ import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 import { LANDING_CONTACT_URL } from "../logic/landing-copy";
 import type { LandingEntry } from "../logic/landing-entry";
-import { LANDING_PATHS } from "../logic/landing-metadata";
+import { ABOUT_PATHS, LANDING_PATHS } from "../logic/landing-metadata";
 import {
   getLandingStructuredData,
   serializeStructuredData,
@@ -44,7 +44,7 @@ export function LandingView({
       ? null
       : {
           locale: browserLocale,
-          href: LANDING_PATHS[browserLocale],
+          href: (isLoggedIn ? ABOUT_PATHS : LANDING_PATHS)[browserLocale],
           label: getLandingContent(browserLocale).landingCopy.languageVersion,
         };
   return (
@@ -61,35 +61,40 @@ export function LandingView({
           __html: serializeStructuredData(getLandingStructuredData(locale)),
         }}
       />
-      {!isLoggedIn && (
-        <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-2 sm:px-10">
-          <p className="flex items-center gap-2 text-lg font-bold tracking-tight text-[var(--lp-accent)]">
-            <Image
-              src="/brand/ideaboost-icon-96.png"
-              width={32}
-              height={32}
-              alt=""
-              unoptimized
-            />
-            {copy.brand}
-          </p>
-          <div className="flex shrink-0 items-center gap-4 whitespace-nowrap sm:gap-6">
-            {otherLanguage && (
-              <Link
-                href={otherLanguage.href}
-                hrefLang={otherLanguage.locale}
-                lang={otherLanguage.locale}
-                className={landingLinkClass}
-              >
-                {otherLanguage.label}
-              </Link>
-            )}
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-2 sm:px-10">
+        <p className="flex items-center gap-2 text-lg font-bold tracking-tight text-[var(--lp-accent)]">
+          <Image
+            src="/brand/ideaboost-icon-96.png"
+            width={32}
+            height={32}
+            alt=""
+            unoptimized
+          />
+          {copy.brand}
+        </p>
+        <div className="flex shrink-0 items-center gap-4 whitespace-nowrap sm:gap-6">
+          {otherLanguage && (
+            <Link
+              href={otherLanguage.href}
+              hrefLang={otherLanguage.locale}
+              lang={otherLanguage.locale}
+              className={landingLinkClass}
+            >
+              {otherLanguage.label}
+            </Link>
+          )}
+          {/* ログイン中は共通ヘッダーを出さないので、ここからホームへ戻れるようにする。 */}
+          {isLoggedIn ? (
+            <Link href="/home" className={landingLinkClass}>
+              {copy.home}
+            </Link>
+          ) : (
             <Link href={entry.loginHref} className={landingLinkClass}>
               {copy.login}
             </Link>
-          </div>
-        </header>
-      )}
+          )}
+        </div>
+      </header>
       <div className="mx-auto max-w-6xl px-6 sm:px-10">
         <LandingHeroSection locale={locale} entry={entry} />
       </div>

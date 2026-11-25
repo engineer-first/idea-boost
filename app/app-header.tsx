@@ -37,6 +37,8 @@ export function AppHeader({
   // スプリント開始後のボードだけは、進行レールへ統合してキャンバスを広く保つ。
   // /start のロビーなど、前後の画面では共通ヘッダーを維持する。
   if (/^\/rooms\/[^/]+$/.test(pathname)) return null;
+  // LP は独自の配色を持つため、ログイン中も LP 自身のヘッダーを使う。
+  if (pathname === "/about" || pathname === "/en/about") return null;
 
   return (
     <header
