@@ -18,6 +18,9 @@
 //      「止まった run」とみなし、5・6 の確認に進む（API エラーなどで止まった Claude は working のまま残り、Orca も 6 時間で見るのをやめるため）。
 //      5・6 で残ったものは「要確認」と表示する
 //   5. 未 commit の変更が無い（untracked も含む。.gitignore 済みのものは数えない）
+//      .gitignore 済みでも .env*・.dev.vars* は残す。ただし setup-worktree.sh が example から作ったまま
+//      （SESSION_SECRET 行以外が example と同じ）のものは作り直せるので数えない。
+//      これを数えると setup を走らせる run の worktree がすべて残り、1個 1.7GB ずつたまる
 //   6. HEAD の commit がすべて origin/develop に入っている（git cherry で patch 単位に確かめる）。
 //      複数 commit の squash マージは patch が一致しないので、HEAD を head とする PR がマージ済みなら入ったとみなす
 // 1回に消すのは IB_PRUNE_MAX 個（既定 20）まで、持ち時間 IB_PRUNE_BUDGET_SECONDS（既定 420 秒）まで。
@@ -25,7 +28,8 @@
 // ブランチの削除は Orca が「入っていると証明できたもの」だけに行い、それ以外は残る。
 // このファイルは precheck と同じく origin/develop から一時ファイルへ書き出して実行されるので、相対 import をしない。
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const REPO_NAME = process.env.IB_REPO_NAME || "idea-boost";
 const GH_REPO = process.env.IB_LOOP_REPO || "engineer-first/idea-boost";
@@ -77,6 +81,33 @@ const tryRun = (cmd, argv, timeout) => {
 const orcaJson = (...argv) =>
   JSON.parse(run(ORCA, [...argv, "--json"], 120_000)).result;
 const git = (dir, ...argv) => tryRun("git", ["-C", dir, ...argv], 60_000);
+
+// scripts/setup-worktree.sh が example から作った設定ファイルか。
+// setup は example の SESSION_SECRET 行だけを乱数に差し替えて書くので、その行を除いて
+// この worktree の HEAD の example と一致すれば、消しても setup で同じものが作り直せる。
+// 1行でも手で足した・変えたものは「その worktree にしか無い設定」として残す。
+const GENERATED_FROM = {
+  ".env.local": ".env.example",
+  "workers/.dev.vars": "workers/.dev.vars.example",
+};
+const withoutSecret = (text) =>
+  text
+    .split("\n")
+    .filter((line) => !line.startsWith("SESSION_SECRET="))
+    .join("\n");
+const isGeneratedConfig = (dir, path) => {
+  const example = GENERATED_FROM[path];
+  if (!example) return false;
+  const original = git(dir, "show", `HEAD:${example}`);
+  if (!original.ok) return false;
+  let current;
+  try {
+    current = readFileSync(join(dir, path), "utf8");
+  } catch {
+    return false;
+  }
+  return withoutSecret(current).trim() === withoutSecret(original.out).trim();
+};
 
 // squash マージ済みの PR の head が、この worktree の HEAD と同じか
 const mergedByPr = (dir) => {
@@ -216,7 +247,8 @@ for (const w of worktrees) {
     .filter(
       (p) =>
         /(^|\/)(\.env[^/]*|\.dev\.vars[^/]*)$/.test(p) &&
-        !p.includes("node_modules/"),
+        !p.includes("node_modules/") &&
+        !isGeneratedConfig(w.path, p),
     );
   if (localConfig.length > 0) {
     keep(`ローカル設定ファイルがある (${localConfig.slice(0, 3).join(", ")})`);
