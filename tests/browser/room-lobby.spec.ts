@@ -209,7 +209,7 @@ test("20人を5列4段で省略せず表示し、ヘッダーを除く1440×960�
   });
 });
 
-test("自分の顔と名前だけに独立したホバーとキーボードの操作表示を出す", async () => {
+test("自分の顔は変えられる印を常に角に出し、顔と名前に独立したホバーとキーボードの操作表示を出す", async () => {
   await open("host-four", 1280, 800);
   const face = page.getByRole("button", { name: "自分のアイコンを変更" });
   const overlay = face
@@ -217,16 +217,21 @@ test("自分の顔と名前だけに独立したホバーとキーボードの�
     .filter({ has: page.locator("svg") });
   const name = page.getByRole("button", { name: "はな：表示名を変更" });
   const pencil = name.locator("svg");
-  expect((await face.boundingBox())?.width).toBeGreaterThanOrEqual(96);
+  const faceWidth = (await face.boundingBox())?.width ?? 0;
+  expect(faceWidth).toBeGreaterThanOrEqual(96);
   await page.mouse.move(1, 1);
   const opacity = () =>
     overlay.evaluate((element) => getComputedStyle(element).opacity);
-  expect(await opacity()).toBe("0");
+  const overlayWidth = async () => (await overlay.boundingBox())?.width ?? 0;
+  // ホバーしなくても、角の小さな印で顔を変えられると分かる。
+  expect(await opacity()).toBe("1");
+  expect(await overlayWidth()).toBeLessThan(faceWidth / 3);
   expect(
     await pencil.evaluate((element) => getComputedStyle(element).opacity),
   ).toBe("0");
   await face.hover();
   expect(await opacity()).toBe("1");
+  expect(await overlayWidth()).toBeGreaterThan(faceWidth * 0.9);
   expect(
     await pencil.evaluate((element) => getComputedStyle(element).opacity),
   ).toBe("0");
@@ -234,13 +239,13 @@ test("自分の顔と名前だけに独立したホバーとキーボードの�
     path: "test-results/board-layout/lobby-avatar-hover.png",
   });
   await name.hover();
-  expect(await opacity()).toBe("0");
+  expect(await overlayWidth()).toBeLessThan(faceWidth / 3);
   expect(
     await pencil.evaluate((element) => getComputedStyle(element).opacity),
   ).toBe("1");
   await page.mouse.move(1, 1);
   await face.focus();
-  expect(await opacity()).toBe("1");
+  expect(await overlayWidth()).toBeGreaterThan(faceWidth * 0.9);
   await name.focus();
   expect(
     await pencil.evaluate((element) => getComputedStyle(element).opacity),

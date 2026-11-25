@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowLeft, KeyRound, ShieldAlert, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  DoorOpen,
+  KeyRound,
+  ShieldAlert,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 import {
   type ReactNode,
@@ -21,6 +27,7 @@ import {
   loginAboutLabel,
   loginBackLabel,
   loginChoiceDivider,
+  loginInvitedNotice,
   loginRetryLabel,
 } from "../logic/login-copy";
 
@@ -29,6 +36,8 @@ export type LoginCardProps = {
   guestPending?: boolean;
   error?: string;
   aboutHref?: string;
+  // 招待URLから来た人に、ログインの先でルームへ参加することを示す。
+  invited?: boolean;
   isConfigured: boolean;
   showDevAuth: boolean;
   googleAction: (formData: FormData) => void | Promise<void>;
@@ -46,6 +55,7 @@ export function LoginCard({
   guestPending = false,
   error,
   aboutHref = "/about",
+  invited = false,
   isConfigured,
   showDevAuth,
   googleAction,
@@ -86,6 +96,15 @@ export function LoginCard({
             <span className="inline-block">スムーズに。</span>
           </p>
         </div>
+
+        {invited && (
+          <p className="flex items-start gap-2 rounded-lg bg-primary-soft p-3 text-base text-primary-strong">
+            <DoorOpen aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
+            <span className="[word-break:auto-phrase]">
+              {loginInvitedNotice}
+            </span>
+          </p>
+        )}
 
         <Link
           href={aboutHref}
