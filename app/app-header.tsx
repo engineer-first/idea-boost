@@ -3,6 +3,7 @@
 // ログイン後画面共通のヘッダー。
 // login など未ログイン画面では root layout が描画しない。
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/features/auth";
 
@@ -45,10 +46,18 @@ export function AppHeader({
       className="sticky top-0 z-50 flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       data-testid="app-header"
     >
+      {/* LP のヘッダーと同じアイコン＋主色の字でブランドをそろえる。 */}
       <p
-        className="shrink-0 whitespace-nowrap text-base font-semibold tracking-tight"
+        className="flex shrink-0 items-center gap-2 whitespace-nowrap text-base font-bold tracking-tight text-primary"
         data-testid="app-header-brand"
       >
+        <Image
+          src="/brand/ideaboost-icon-96.png"
+          width={28}
+          height={28}
+          alt=""
+          unoptimized
+        />
         Idea Boost
       </p>
       <div className="flex min-w-0 items-center gap-3">

@@ -66,6 +66,16 @@ describe("AppHeader", () => {
     );
   });
 
+  it("ブランド名の前に LP と同じアイコンを添える", async () => {
+    await renderHeader(<AppHeader userName="田中太郎" />);
+    const icon = screen
+      .getByTestId("app-header-brand")
+      .querySelector("img[src='/brand/ideaboost-icon-96.png']");
+    expect(icon).not.toBeNull();
+    // 名前はテキストで読めるので、アイコンは読み上げない。
+    expect(icon).toHaveAttribute("alt", "");
+  });
+
   it("ユーザー名をメニューのボタン内に表示する", async () => {
     await renderHeader(<AppHeader userName="田中太郎" />);
     expect(screen.getByTestId("app-header-user-name")).toHaveTextContent(
