@@ -7,13 +7,12 @@ const meta = {
   title: "Room/PhaseLoopControls",
   component: PhaseLoopControls,
   args: {
-    phase: buildPhaseStep(2),
+    phase: buildPhaseStep(5),
 
     isSelecting: false,
     decisionContent: null,
     candidateCount: 3,
     disabled: false,
-    onRestartWriting: fn(),
     onRevote: fn(),
     onStartSelection: fn(),
     onCancelSelection: fn(),
@@ -29,8 +28,7 @@ const meta = {
 } satisfies Meta<typeof PhaseLoopControls>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Shared: Story = {};
-export const Result: Story = { args: { phase: buildPhaseStep(5) } };
+export const Result: Story = {};
 export const NoCandidates: Story = {
   args: { phase: buildPhaseStep(5), candidateCount: 0 },
 };

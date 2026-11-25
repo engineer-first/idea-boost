@@ -7,6 +7,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -49,7 +50,6 @@ export function RestartWritingConfirmDialog({
           className={`h-10 shrink-0 text-sm ${styles.trigger}`}
           disabled={disabled || pending}
           aria-busy={waiting || undefined}
-          title="全員で個人作業へ戻ります。共有済み付箋と下書きは残ります。"
         >
           <SquarePen aria-hidden="true" className={styles.icon} />
           <span
@@ -60,7 +60,7 @@ export function RestartWritingConfirmDialog({
           </span>
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent aria-describedby={undefined}>
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle
             className="text-balance"
@@ -72,6 +72,10 @@ export function RestartWritingConfirmDialog({
             <wbr />
             <span className="inline-block">付箋を書き足しますか？</span>
           </AlertDialogTitle>
+          <AlertDialogDescription>
+            全員が書く時間（{phaseNumber}
+            -1）に戻ります。共有済みの付箋と下書きは残ります。
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="max-[400px]:px-1 max-[400px]:text-sm">

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
@@ -14,7 +14,6 @@ function setup(overrides: Partial<PhaseLoopControlsProps> = {}) {
     decisionContent: null,
     candidateCount: 2,
     disabled: false,
-    onRestartWriting: vi.fn(),
     onRevote: vi.fn(),
     onStartSelection: vi.fn(),
     onCancelSelection: vi.fn(),
@@ -63,15 +62,5 @@ describe("PhaseLoopControls", () => {
       screen.queryByRole("button", { name: "もう一度投票する" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("確定した課題")).toBeVisible();
-  });
-  it("共有の追加作業は確認で通知する", () => {
-    const { props } = setup({ phase: buildPhaseStep(2) });
-    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
-    fireEvent.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", {
-        name: "付箋を書き足す",
-      }),
-    );
-    expect(props.onRestartWriting).toHaveBeenCalledOnce();
   });
 });
