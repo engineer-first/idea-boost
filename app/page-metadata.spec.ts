@@ -150,6 +150,23 @@ describe("招待URLのプレビュー", () => {
     expect(metadata.openGraph?.description).toBe(metadata.description);
   });
 
+  it("/invite/[inviteCode] は LP と同じ画像の大きいカードを出し、ルーム名や人名を出さない", async () => {
+    const top = await import("./page");
+    const { metadata } = await import("./invite/[inviteCode]/page");
+    expect(metadata.openGraph).toMatchObject({
+      title: metadata.title,
+      description: metadata.description,
+      images: top.metadata.openGraph?.images,
+    });
+    expect(metadata.twitter).toEqual({
+      card: "summary_large_image",
+      title: metadata.title,
+      description: metadata.description,
+      images: top.metadata.twitter?.images,
+    });
+    expect(isIndexed(resolve(metadata))).toBe(false);
+  });
+
   it("未ログインで招待URLから転送された /login は招待の説明を出す", async () => {
     const login = await import("./login/page");
     const invite = await import("./invite/[inviteCode]/page");
