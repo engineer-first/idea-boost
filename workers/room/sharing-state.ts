@@ -4,7 +4,7 @@ import {
   type SharingState,
   SharingStateSchema,
 } from "../../contracts/room-protocol";
-import { listMembers } from "./members";
+import { isMember, listMembers } from "./members";
 
 export function getSharingState(sql: SqlStorage): SharingState | null {
   const row = sql
@@ -39,13 +39,23 @@ export function resetSharingForPhase(
       [order[index], order[target]] = [order[target], order[index]];
     }
   }
-  const startsFirstTurn = sharing && startFirstTurn && order.length > 0;
+  // 退出済みの人の番は待っても始まらないため、パスとして記録して飛ばす。
+  const passed: SharingState["results"] = [];
+  while (
+    sharing &&
+    startFirstTurn &&
+    passed.length < order.length &&
+    !isMember(sql, order[passed.length].userId)
+  )
+    passed.push("passed");
+  const startsFirstTurn =
+    sharing && startFirstTurn && passed.length < order.length;
   saveSharingState(sql, {
     revision: crypto.randomUUID(),
     order,
     status: startsFirstTurn ? "active" : sharing ? "ready" : "inactive",
-    currentIndex: startsFirstTurn ? 0 : null,
-    results: [],
+    currentIndex: startsFirstTurn ? passed.length : null,
+    results: startsFirstTurn ? passed : [],
     durationMs: previous?.durationMs ?? 180000,
     startsAt: startsFirstTurn ? Date.now() + 2000 : null,
   });

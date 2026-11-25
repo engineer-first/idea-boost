@@ -789,7 +789,8 @@ export const phaseHandlers: MessageHandlers<
       }
       savePhase(ctx.sql, next);
       ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
-      resetSharingForPhase(ctx.sql, next);
+      // 共有へ進んだら誰かの開始操作を待たず、1人目の発表を予約する。
+      resetSharingForPhase(ctx.sql, next, true);
       if (crossesPhaseBoundary) {
         clearUsedNoteDragIds(ctx.sql);
       }
