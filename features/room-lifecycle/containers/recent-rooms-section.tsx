@@ -52,6 +52,7 @@ export function RecentRoomsSection({
   }, []);
   useEffect(() => {
     setMessage(undefined);
+    setOpening(false);
     void fetchRooms(currentUserId);
   }, [currentUserId, fetchRooms]);
 
