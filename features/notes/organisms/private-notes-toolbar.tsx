@@ -924,7 +924,8 @@ export function PrivateNotesToolbar({
               aria-controls={noteListId}
               className={cn(
                 toolMotion.button,
-                "col-start-2 row-start-1 h-10 w-24 text-sm",
+                // 欄が淡い操作面なので、ボタンは白のまま枠の色で押せることを示す。
+                "col-start-2 row-start-1 h-10 w-24 text-sm hover:border-primary/50 hover:bg-card aria-expanded:bg-card",
               )}
               onPointerDown={(event) => {
                 const editor = document.activeElement;
