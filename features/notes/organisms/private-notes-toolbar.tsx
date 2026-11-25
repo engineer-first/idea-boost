@@ -980,7 +980,6 @@ export function PrivateNotesToolbar({
         {!isWorkspace && sharingHint ? (
           <p
             role="status"
-            data-emphasized={sharingHintEmphasized || undefined}
             // 強調の有無で高さを変えず、ドラッグ中の一覧の位置を保つ。
             className={cn(
               "-mx-2 rounded-md px-2 py-1 text-xs",

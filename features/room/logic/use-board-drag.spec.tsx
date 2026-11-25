@@ -1121,6 +1121,29 @@ describe("useBoardDrag", () => {
     expect(result.current.publishBlocked).toBe(false);
   });
 
+  it("ドラッグ中に自分の番になったら、ボードへ運ぶ間は publishBlocked を下ろす", () => {
+    const { args, result, rerender } = setup({ canPublish: false });
+    act(() => {
+      result.current.handlePrivateDragStart(
+        "private-1",
+        pointerEvent(1, 400, 560),
+      );
+    });
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(1, 300, 200));
+    });
+    expect(result.current.publishBlocked).toBe(true);
+
+    args.canPublish = true;
+    rerender();
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(1, 320, 220));
+    });
+
+    expect(result.current.drag).toMatchObject({ clientX: 320, clientY: 220 });
+    expect(result.current.publishBlocked).toBe(false);
+  });
+
   it("ドラッグ開始時に付箋内の掴んだ位置（オフセット）を保持し、相対位置を考慮して移動座標を計算する", () => {
     const { args, result } = setup();
     const event = pointerEvent(1, 120, 130);

@@ -482,6 +482,20 @@ export function RoomBoardCanvas({
       presenterViewName !== null) ||
     (isPresenterViewOwner && isPresenterViewFollowedByOthers);
 
+  const waitingTurnHint = privateNotePublishBlocked
+    ? PUBLISH_BLOCKED_HINT
+    : "自分の番で発表できます";
+  const privateNotesSharingHint = isSavingBeforeShare
+    ? "本文の保存を確認してから共有します…"
+    : isPhaseStep(phase, 3, 2)
+      ? canPublishPrivateNote
+        ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
+        : waitingTurnHint
+      : phase.kind === "step" && phase.step === 2
+        ? canPublishPrivateNote
+          ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+          : waitingTurnHint
+        : undefined;
   const presenterFrameColor =
     presenterViewColor !== null
       ? NOTE_COLOR_STYLES[presenterViewColor].backgroundColor
@@ -1480,25 +1494,9 @@ export function RoomBoardCanvas({
                   !privateNotesInteractionBlocked &&
                   (isAdditionalWritingStep || permissions.canMoveNote)
                 }
-                sharingHint={
-                  isSavingBeforeShare
-                    ? "本文の保存を確認してから共有します…"
-                    : isPhaseStep(phase, 3, 2)
-                      ? canPublishPrivateNote
-                        ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
-                        : privateNotePublishBlocked
-                          ? PUBLISH_BLOCKED_HINT
-                          : "自分の番で発表できます"
-                      : phase.kind === "step" && phase.step === 2
-                        ? canPublishPrivateNote
-                          ? "あなたの番です。付箋をボードへドラッグして共有できます。"
-                          : privateNotePublishBlocked
-                            ? PUBLISH_BLOCKED_HINT
-                            : "自分の番で発表できます"
-                        : undefined
-                }
+                sharingHint={privateNotesSharingHint}
                 sharingHintEmphasized={
-                  !canPublishPrivateNote && privateNotePublishBlocked
+                  privateNotesSharingHint === PUBLISH_BLOCKED_HINT
                 }
                 presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
                 workspaceCollapsible={isAdditionalWritingStep}

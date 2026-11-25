@@ -689,6 +689,8 @@ export function useBoardDrag({
         setPublishBlocked(true);
         return;
       }
+      // ドラッグ中に自分の番になったら、そのままボードへ運べる。
+      setPublishBlocked(false);
       const mappedPosition = notePositionFromClient?.(
         event.clientX,
         event.clientY,
