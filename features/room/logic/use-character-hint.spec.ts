@@ -367,6 +367,60 @@ describe("キャラクターの一言", () => {
       "時間になったよ、次の人にバトンを渡そう。",
     );
   });
+  it.each([1, 2, 3])(
+    "%i-2 の時間切れは発表者以外にバトンを渡す案内を出さず、聞く側の一言を出す",
+    (phaseNumber) => {
+      const { result } = renderHook(() =>
+        useCharacterHint({
+          phase: { kind: "step", phase: phaseNumber, step: 2 } as RoomPhase,
+          timer: { status: "ended", durationMs: 180_000 },
+          serverOffsetMs: 0,
+          noteCount: 1,
+          isPresenter: false,
+        }),
+      );
+      expect(result.current.message).toBe(
+        "時間になったよ、発表を最後まで聞こう。",
+      );
+    },
+  );
+  it("発表者以外の時間切れの一言も、次の人のタイマーが始まるとすぐ消える", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const { result, rerender } = renderHook(
+      ({ timer }: { timer: TimerState }) =>
+        useCharacterHint({
+          phase: { ...phase, step: 2 },
+          timer,
+          serverOffsetMs: 0,
+          noteCount: 1,
+          isPresenter: false,
+        }),
+      { initialProps: { timer: running as TimerState } },
+    );
+    act(() => vi.advanceTimersByTime(180_000));
+    rerender({ timer: { status: "ended", durationMs: 180_000 } });
+    expect(result.current.message).toBe(
+      "時間になったよ、発表を最後まで聞こう。",
+    );
+    act(() => vi.advanceTimersByTime(3_000));
+    rerender({ timer: { ...running, endsAt: Date.now() + 180_000 } });
+    expect(result.current.message).toBeNull();
+  });
+  it("個人作業の時間切れは発表者かどうかで変えない", () => {
+    const { result } = renderHook(() =>
+      useCharacterHint({
+        phase,
+        timer: { status: "ended", durationMs: 180_000 },
+        serverOffsetMs: 0,
+        noteCount: 1,
+        isPresenter: false,
+      }),
+    );
+    expect(result.current.message).toBe(
+      "時間になったよ、次の工程をみんなで確認しよう。",
+    );
+  });
   it("タイマーを張り直しても0枚の案内は工程で1回に保つ", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);

@@ -11,12 +11,16 @@ type CharacterHintOptions = {
   noteCount: number;
   active?: boolean;
   tipsEnabled?: boolean;
+  // 共有工程で今の発表者か。時間切れの一言を発表者と聞く側で言い分ける。
+  isPresenter?: boolean;
 };
 
 const HINTS = {
   empty: "思いついたことを、まず1枚書いてみよう。",
   warning: "残り30秒、今の考えをまとめよう。",
   ended: "時間になったよ、次の工程をみんなで確認しよう。",
+  sharingEndedPresenter: "時間になったよ、次の人にバトンを渡そう。",
+  sharingEndedListener: "時間になったよ、発表を最後まで聞こう。",
 } as const;
 
 // タイマー開始からの経過時間。この時刻にコツを1つずつ出す。
@@ -125,6 +129,7 @@ export function useCharacterHint({
   noteCount,
   active = true,
   tipsEnabled = true,
+  isPresenter = true,
 }: CharacterHintOptions): { message: string | null } {
   // 同じ文言の案内でも15秒を数え直すよう、表示ごとに新しいオブジェクトにする。
   // timed は残り時間・時間切れの案内。次のタイマーでは古くなるので印を付ける。
@@ -225,7 +230,9 @@ export function useCharacterHint({
         shownTips.current = dueTips;
         show(
           kind === "ended" && phase.kind === "step" && phase.step === 2
-            ? "時間になったよ、次の人にバトンを渡そう。"
+            ? isPresenter
+              ? HINTS.sharingEndedPresenter
+              : HINTS.sharingEndedListener
             : HINTS[kind],
           kind !== "empty",
         );
@@ -254,6 +261,7 @@ export function useCharacterHint({
     show,
     stepHints,
     tipsEnabled,
+    isPresenter,
   ]);
 
   return { message: hint?.text ?? null };

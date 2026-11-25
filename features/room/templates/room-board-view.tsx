@@ -903,6 +903,10 @@ export function RoomBoardView({
     active: !isDisconnected,
     // 2-1の通常の発想支援は問いヒントに任せ、残り時間の通知は維持する。
     tipsEnabled: !isPhaseStep(phase, 2, 1),
+    // 発表者が分からないときは、従来どおり発表者向けの一言にする。
+    isPresenter:
+      sharing?.currentIndex == null ||
+      sharing.order[sharing.currentIndex]?.userId === currentUserId,
   });
   const voteRemaining = {
     subjective: Math.max(
