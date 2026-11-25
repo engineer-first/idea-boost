@@ -133,7 +133,7 @@ describe("RoomLobbyView", () => {
     expect(guide).toHaveTextContent("約82分");
     const flow = within(guide).getByRole("list", { name: "全体の流れ" });
     const phases = within(flow).getAllByRole("listitem", {
-      name: /^フェーズ/,
+      name: /^[①②③]/,
     });
     expect(phases).toHaveLength(3);
     const steps = phases.flatMap((phase) =>

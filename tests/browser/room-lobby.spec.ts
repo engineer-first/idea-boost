@@ -167,7 +167,7 @@ test.each([
     }
     expect(layout.guide.bottom).toBeLessThanOrEqual(height);
     const stage = await page.getByTestId("room-members").boundingBox();
-    expect(layout.guide.right).toBeLessThanOrEqual(stage?.x ?? 0);
+    expect((stage?.x ?? 0) - layout.guide.right).toBeGreaterThanOrEqual(16);
   },
 );
 

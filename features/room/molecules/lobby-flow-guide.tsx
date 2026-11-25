@@ -85,15 +85,18 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
           {overview.phases.map((phase) => (
             <li
               key={phase.phase}
-              aria-label={`フェーズ${phase.phase} ${phase.title}・${phase.minutes}分`}
+              aria-labelledby={`${flowTitleId}-phase${phase.phase}`}
               className={styles.phase}
             >
-              <div aria-hidden="true" className={styles.phaseHeading}>
+              <h3
+                id={`${flowTitleId}-phase${phase.phase}`}
+                className={styles.phaseHeading}
+              >
                 <span>
                   {PHASE_MARKERS[phase.phase]} {phase.title}
                 </span>
                 <span className={styles.minutes}>{phase.minutes}分</span>
-              </div>
+              </h3>
               <ol className={styles.steps}>
                 {phase.steps.map((step) => {
                   const Icon = KIND_ICONS[step.kind];

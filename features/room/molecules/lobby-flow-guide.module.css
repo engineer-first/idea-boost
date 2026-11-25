@@ -97,6 +97,7 @@
   padding: 4px 12px 6px;
 }
 .phaseHeading {
+  margin: 0;
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -121,24 +122,6 @@
   font-size: 12px;
   line-height: 18px;
 }
-.step[data-kind="write"] {
-  --kind-color: var(--ib-color-primary);
-}
-.step[data-kind="share"] {
-  --kind-color: var(--ib-color-state-select);
-}
-.step[data-kind="group"] {
-  --kind-color: var(--ib-color-warning);
-}
-.step[data-kind="vote"] {
-  --kind-color: var(--ib-color-vote-subjective);
-}
-.step[data-kind="decide"] {
-  --kind-color: var(--ib-color-state-decided);
-}
-.step[data-kind="map"] {
-  --kind-color: var(--ib-color-vote-objective);
-}
 .icon {
   grid-area: icon;
   display: inline-flex;
@@ -147,8 +130,8 @@
   width: 20px;
   height: 20px;
   border-radius: var(--ib-rounded-full);
-  background: color-mix(in oklab, var(--kind-color) 14%, transparent);
-  color: var(--kind-color);
+  background: var(--ib-color-surface-muted);
+  color: var(--ib-color-muted);
 }
 .name {
   grid-area: name;
@@ -217,4 +200,14 @@
   .action {
     display: none;
   }
+}
+
+/* 種類はアイコンの形で見分ける。色は意味が一致する「決定」だけに付ける。 */
+.step[data-kind="decide"] .icon {
+  background: color-mix(
+    in oklab,
+    var(--ib-color-state-decided) 14%,
+    transparent
+  );
+  color: var(--ib-color-state-decided);
 }
