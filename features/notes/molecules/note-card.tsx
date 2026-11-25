@@ -842,6 +842,7 @@ export function NoteCard({
     setIsActionMenuOpen(true);
   }
 
+  const isPrivateReading = note.visibility === "private" && !isEditing;
   const candidateOverlay =
     canCandidateAction &&
     candidateOverlayLayout &&
@@ -1114,11 +1115,10 @@ export function NoteCard({
           fontSize: `${note.fontSize}px`,
           lineHeight: `${Math.ceil(note.fontSize * 1.5)}px`,
         }}
-        placeholder={
-          note.visibility === "private" && !isEditing
-            ? undefined
-            : "メモを入力..."
-        }
+        placeholder={isPrivateReading ? undefined : "メモを入力..."}
+        // マイ付箋の読み取り中は placeholder を出さないので、名前が無い欄に
+        // ならないよう付箋の本文と分かる名前を付ける。ボード上は従来どおり。
+        aria-label={isPrivateReading ? "付箋の本文" : undefined}
       />
       {vote.displayMode === "result" ? (
         <div

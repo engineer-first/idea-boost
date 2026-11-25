@@ -651,6 +651,22 @@ describe("NoteCard", () => {
     expect(screen.getByDisplayValue("こんにちは")).toBeInTheDocument();
   });
 
+  it("マイ付箋の読み取り中の本文欄にも付箋の本文と分かる名前を付ける", () => {
+    setup({ note: buildNote({ content: "朝が弱い", visibility: "private" }) });
+
+    expect(screen.getByRole("textbox", { name: "付箋の本文" })).toHaveValue(
+      "朝が弱い",
+    );
+  });
+
+  it("ボード上の付箋の本文欄は入力の案内を名前のまま保つ", () => {
+    setup({ note: buildNote({ content: "共有した", visibility: "shared" }) });
+
+    const textbox = screen.getByRole("textbox");
+    expect(textbox).toHaveAttribute("placeholder", "メモを入力...");
+    expect(textbox).not.toHaveAttribute("aria-label");
+  });
+
   it("追加直後の付箋は本文を入力できる状態でフォーカスする", () => {
     setup({
       note: buildNote({ content: "" }),
