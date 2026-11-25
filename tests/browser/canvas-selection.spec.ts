@@ -575,14 +575,14 @@ for (const source of ["palette", "sticker"] as const) {
       `${origin}/iframe.html?id=room-roomboardview--canvas-input-voting&viewMode=story`,
     );
     const palette = page.getByRole("button", {
-      name: /「需要ありそう」シール 残り/,
+      name: /「いいね」シール 残り/,
     });
     await palette.waitFor();
     const sticker = page
-      .getByRole("button", { name: "「需要ありそう」シール 1票を1票取り消す" })
+      .getByRole("button", { name: "「いいね」シール 1票を1票取り消す" })
       .first();
     const countBefore = await page
-      .getByRole("button", { name: "「需要ありそう」シール 1票を1票取り消す" })
+      .getByRole("button", { name: "「いいね」シール 1票を1票取り消す" })
       .count();
     const owner = source === "palette" ? palette : sticker;
     await owner.evaluate((el) => {
@@ -638,7 +638,7 @@ for (const source of ["palette", "sticker"] as const) {
     expect(
       await page
         .getByRole("button", {
-          name: "「需要ありそう」シール 1票を1票取り消す",
+          name: "「いいね」シール 1票を1票取り消す",
         })
         .count(),
     ).toBe(countBefore);
@@ -769,7 +769,7 @@ for (const tool of ["選択ツール", "手のひらツール"] as const) {
       `${origin}/iframe.html?id=room-roomboardview--canvas-input-voting&viewMode=story`,
     );
     const sticker = page.getByRole("button", {
-      name: "「需要ありそう」シール 1票を1票取り消す",
+      name: "「いいね」シール 1票を1票取り消す",
     });
     await sticker.waitFor();
     await sticker.evaluate((el) => {
@@ -789,7 +789,7 @@ for (const tool of ["選択ツール", "手のひらツール"] as const) {
     );
     expect(
       await page
-        .getByRole("button", { name: "「需要ありそう」シール 残り3票" })
+        .getByRole("button", { name: "「いいね」シール 残り3票" })
         .count(),
     ).toBe(1);
     expect(await transform()).toBe(camera);
@@ -806,7 +806,7 @@ for (const releaseFirst of ["first", "second"] as const) {
       .nth(1)
       .getByRole("button", { name: "付箋", exact: true });
     const palette = page.getByRole("button", {
-      name: "「需要ありそう」シール 残り2票",
+      name: "「いいね」シール 残り2票",
     });
     await palette.waitFor();
     const a = await surface.boundingBox();
@@ -960,7 +960,7 @@ for (const releaseFirst of ["first", "second"] as const) {
         .toBe(1);
       expect(
         await page
-          .getByRole("button", { name: "「需要ありそう」シール 残り1票" })
+          .getByRole("button", { name: "「いいね」シール 残り1票" })
           .count(),
       ).toBe(1);
       expect(
@@ -978,11 +978,11 @@ for (const key of ["Enter", "Space"] as const) {
       `${origin}/iframe.html?id=room-roomboardview--canvas-input-voting&viewMode=story`,
     );
     const palette = page.getByRole("button", {
-      name: "「需要ありそう」シール 残り2票",
+      name: "「いいね」シール 残り2票",
     });
     await palette.click();
     const owner = page.getByRole("button", {
-      name: "「需要ありそう」シール 1票を1票取り消す",
+      name: "「いいね」シール 1票を1票取り消す",
     });
     const cards = page.getByTestId("note-card");
     const surface = cards.nth(2).getByRole("button", { name: /付箋/ });
@@ -1061,7 +1061,7 @@ for (const key of ["Enter", "Space"] as const) {
       .toBe(2);
     expect(
       await page
-        .getByRole("button", { name: "「需要ありそう」シール 残り1票" })
+        .getByRole("button", { name: "「いいね」シール 残り1票" })
         .count(),
     ).toBe(1);
   });

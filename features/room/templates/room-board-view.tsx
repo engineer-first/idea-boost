@@ -38,7 +38,11 @@ import {
 } from "@/contracts/room-protocol";
 import { canPublishNoteInTurn } from "@/contracts/sharing";
 import { canSendSharingReaction } from "@/contracts/sharing-reactions";
-import { DotVotePalette, DotVoteSticker } from "@/features/dot-vote";
+import {
+  DotVotePalette,
+  DotVoteSticker,
+  dotVotePhaseOf,
+} from "@/features/dot-vote";
 import {
   type FeedbackControls,
   FeedbackPanel,
@@ -2396,6 +2400,7 @@ export function RoomBoardView({
             data-board-fit-edge="bottom"
           >
             <DotVotePalette
+              phase={dotVotePhaseOf(phase)}
               voteRemaining={voteRemaining}
               pendingOperationCount={pendingVoteOperations.length}
               feedback={voteFeedback}
@@ -2436,6 +2441,7 @@ export function RoomBoardView({
           >
             <DotVoteSticker
               kind={voteStickerDrag.kind}
+              phase={dotVotePhaseOf(phase)}
               count={1}
               state="preview"
             />
@@ -2454,7 +2460,12 @@ export function RoomBoardView({
               top: voteStampPointer.clientY,
             }}
           >
-            <DotVoteSticker kind={selectedVoteKind} count={1} state="preview" />
+            <DotVoteSticker
+              kind={selectedVoteKind}
+              phase={dotVotePhaseOf(phase)}
+              count={1}
+              state="preview"
+            />
           </div>
         ) : null}
         {roomName ? <RoomNameDialog controls={roomName} /> : null}

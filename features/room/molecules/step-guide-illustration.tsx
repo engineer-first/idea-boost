@@ -9,11 +9,12 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { DotVoteKind } from "@/contracts/room-protocol";
-import { DotVoteStickerImage } from "@/features/dot-vote";
+import { type DotVotePhase, DotVoteStickerImage } from "@/features/dot-vote";
 import {
   STEP_GUIDE_DIAGRAM_COPY as copy,
   SCAMPER_QUESTION_EXAMPLES,
   type StepGuideDiagramKind,
+  stepGuideVoteDiagramCopy,
 } from "../logic/step-guide-copy";
 
 // 記号の文字でなく、ボードと同じシールの絵を添えて種類を示す。
@@ -34,7 +35,12 @@ function StickerLabel({
   );
 }
 
-type StepGuideIllustrationProps = { kind: StepGuideDiagramKind; alt: string };
+type StepGuideIllustrationProps = {
+  kind: StepGuideDiagramKind;
+  alt: string;
+  // 図に出すシールの名前のフェーズ。課題・問いは「いいね」、アイデアは「需要ありそう」。
+  votePhase?: DotVotePhase;
+};
 
 // 狭い列でも「だろ／う？」のように語の途中で折り返さない（Chromium 系で有効）。
 function Note({
@@ -80,7 +86,9 @@ function Arrow() {
 export function StepGuideIllustration({
   kind,
   alt,
+  votePhase = 1,
 }: StepGuideIllustrationProps) {
+  const voteCopy = stepGuideVoteDiagramCopy(votePhase);
   let content: ReactNode;
   switch (kind) {
     case "timer":
@@ -169,13 +177,13 @@ export function StepGuideIllustration({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border bg-background p-4">
             <StickerLabel kind="subjective" className="mb-3 font-semibold">
-              {copy.subjective}
+              {voteCopy.subjective}
             </StickerLabel>
             <Note>{copy.subjectiveCriterion}</Note>
           </div>
           <div className="rounded-xl border bg-background p-4">
             <StickerLabel kind="objective" className="mb-3 font-semibold">
-              {copy.objective}
+              {voteCopy.objective}
             </StickerLabel>
             <Note blue>{copy.objectiveCriterion}</Note>
           </div>
@@ -189,10 +197,10 @@ export function StepGuideIllustration({
             <div className="space-y-3 rounded-xl border bg-background p-4">
               <p className="font-semibold">{copy.palette}</p>
               <StickerLabel kind="subjective" className="text-sm">
-                {copy.subjectiveRemaining}
+                {voteCopy.subjectiveRemaining}
               </StickerLabel>
               <StickerLabel kind="objective" className="text-sm">
-                {copy.objectiveRemaining}
+                {voteCopy.objectiveRemaining}
               </StickerLabel>
             </div>
             <div className="text-center text-sm">
@@ -219,11 +227,11 @@ export function StepGuideIllustration({
           <div className="grid gap-4 sm:grid-cols-2">
             <Note>
               {copy.forgotten}
-              <span className="mt-3 block text-xs">{copy.firstVotes}</span>
+              <span className="mt-3 block text-xs">{voteCopy.firstVotes}</span>
             </Note>
             <Note blue>
               {copy.morning}
-              <span className="mt-3 block text-xs">{copy.secondVotes}</span>
+              <span className="mt-3 block text-xs">{voteCopy.secondVotes}</span>
             </Note>
           </div>
           {kind === "decision" ? (

@@ -1,8 +1,13 @@
 import type { DotVoteKind } from "@/contracts/room-protocol";
-import type { DotVoteFeedback, DotVoteRemaining } from "../logic/dot-vote";
+import type {
+  DotVoteFeedback,
+  DotVotePhase,
+  DotVoteRemaining,
+} from "../logic/dot-vote";
 import { DotVotePaletteView } from "../molecules/dot-vote-palette-view";
 
 export type DotVotePaletteProps = {
+  phase: DotVotePhase;
   voteRemaining: DotVoteRemaining;
   pendingOperationCount: number;
   feedback: DotVoteFeedback | null;
@@ -24,6 +29,7 @@ export type DotVotePaletteProps = {
 // 表示専用 view へ値を渡すだけの container。選択状態はボード側で持ち、
 // クリックによる連続スタンプとドラッグ＆ドロップの両方を通知する。
 export function DotVotePalette({
+  phase,
   voteRemaining,
   pendingOperationCount,
   feedback,
@@ -37,6 +43,7 @@ export function DotVotePalette({
 }: DotVotePaletteProps) {
   return (
     <DotVotePaletteView
+      phase={phase}
       voteRemaining={voteRemaining}
       pendingOperationCount={pendingOperationCount}
       feedback={feedback}

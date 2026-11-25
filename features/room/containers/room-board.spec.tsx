@@ -603,7 +603,7 @@ describe("問いの投票中の付箋移動", () => {
     }
     drag(
       within(palette).getByRole("button", {
-        name: "「需要ありそう」シール 残り3票",
+        name: "「いいね」シール 残り3票",
       }),
       150,
       175,
@@ -634,7 +634,7 @@ describe("問いの投票中の付箋移動", () => {
     dropTarget = cards[1];
     drag(
       within(cards[0]).getByRole("button", {
-        name: "「需要ありそう」シール 1票を1票取り消す",
+        name: "「いいね」シール 1票を1票取り消す",
       }),
       450,
       175,
@@ -664,7 +664,7 @@ describe("問いの投票中の付箋移動", () => {
     dropTarget = palette;
     drag(
       within(cards[1]).getByRole("button", {
-        name: "「需要ありそう」シール 1票を1票取り消す",
+        name: "「いいね」シール 1票を1票取り消す",
       }),
       320,
       700,
@@ -696,7 +696,7 @@ describe("問いの投票中の付箋移動", () => {
       { phase: buildPhaseStep(3, 2), moveProtocolVersion: 1 },
     );
     const palette = screen.getByRole("button", {
-      name: "「需要ありそう」シール 残り3票",
+      name: "「いいね」シール 残り3票",
     });
     const surface = screen.getByRole("button", { name: "付箋" });
     const viewport = screen.getByTestId("board-scroller");
@@ -982,7 +982,7 @@ function dropPaletteSticker(kind: "subjective" | "objective"): void {
   const label =
     kind === "subjective"
       ? /「イチオシ！」シール 残り/
-      : /「需要ありそう」シール 残り/;
+      : /「いいね」シール 残り/;
   fireEvent.pointerDown(screen.getByRole("button", { name: label }), {
     pointerId: 8,
     clientX: 320,
@@ -2762,7 +2762,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
   });
 
-  it("「需要ありそう」シールを付箋へドロップすると、操作IDつき座標投票が送信される", () => {
+  it("「いいね」シールを付箋へドロップすると、操作IDつき座標投票が送信される", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
@@ -2782,7 +2782,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
   });
 
-  it("「需要ありそう」シールはサーバー応答前でも残数までしか送信しない", () => {
+  it("「いいね」シールはサーバー応答前でも残数までしか送信しない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
@@ -2797,7 +2797,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       ),
     ).toHaveLength(3);
     expect(
-      screen.getByRole("button", { name: "「需要ありそう」シール 残り0票" }),
+      screen.getByRole("button", { name: "「いいね」シール 残り0票" }),
     ).toBeDisabled();
   });
 
@@ -2815,7 +2815,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "「需要ありそう」シール 残り0票" }),
+      screen.getByRole("button", { name: "「いいね」シール 残り0票" }),
     );
 
     const removals = socket.sent
@@ -2830,14 +2830,14 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       ),
     ).toBe(false);
     expect(
-      screen.getByRole("button", { name: "「需要ありそう」シール 残り1票" }),
+      screen.getByRole("button", { name: "「いいね」シール 残り1票" }),
     ).toBeEnabled();
     expect(
       screen.getByRole("button", { name: "「イチオシ！」シール 残り0票" }),
     ).toBeInTheDocument();
   });
 
-  it("「需要ありそう」シール更新のサーバー反映で、保留中の自分の「イチオシ！」シールを外さない", () => {
+  it("「いいね」シール更新のサーバー反映で、保留中の自分の「イチオシ！」シールを外さない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
@@ -2862,7 +2862,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     ).toHaveAttribute("data-state", "pending");
   });
 
-  it("自分の「需要ありそう」シールを1票取り消すと note:vote-remove が送信される", () => {
+  it("自分の「いいね」シールを1票取り消すと note:vote-remove が送信される", () => {
     const { socket } = connectWithSnapshot(
       [
         protocolNote({
@@ -2879,7 +2879,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "「需要ありそう」シール 2票を1票取り消す",
+        name: "「いいね」シール 2票を1票取り消す",
       }),
     );
 
@@ -2911,7 +2911,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "「需要ありそう」シール 1票を1票取り消す",
+        name: "「いいね」シール 1票を1票取り消す",
       }),
     );
 
@@ -2940,7 +2940,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       { phase: buildPhaseStep(4) },
     );
     const sticker = screen.getByRole("button", {
-      name: "「需要ありそう」シール 1票を1票取り消す",
+      name: "「いいね」シール 1票を1票取り消す",
     });
     const palette = screen.getByRole("region", { name: "投票パレット" });
     const root = screen.getByTestId("room-board-view-root");
@@ -2975,7 +2975,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       }),
     );
     expect(
-      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
+      screen.getByRole("button", { name: "「いいね」シール 残り3票" }),
     ).toBeEnabled();
 
     act(() =>
@@ -2994,11 +2994,11 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     expect(
       screen.queryByRole("button", {
-        name: "「需要ありそう」シール 1票を1票取り消す",
+        name: "「いいね」シール 1票を1票取り消す",
       }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "「需要ありそう」シール 残り3票" }),
+      screen.getByRole("button", { name: "「いいね」シール 残り3票" }),
     ).toBeEnabled();
   });
 
@@ -3043,7 +3043,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "「需要ありそう」シール 1票を1票取り消す",
+        name: "「いいね」シール 1票を1票取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );

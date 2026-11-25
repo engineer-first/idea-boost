@@ -1,8 +1,9 @@
 import type { RoomPhase } from "@/contracts/phase";
 import {
   DOT_VOTE_CRITERIA,
-  DOT_VOTE_GUIDANCE,
-  DOT_VOTE_LABELS,
+  type DotVotePhase,
+  dotVoteGuidance,
+  dotVoteLabels,
 } from "@/features/dot-vote";
 
 export type FacilitationGuideContent = {
@@ -34,13 +35,18 @@ const DEFAULT_DETAILS = {
   example: null,
 } as const;
 
-const DOT_VOTE_GUIDE_STEPS = [
-  DOT_VOTE_GUIDANCE.target,
-  `${DOT_VOTE_LABELS.subjective}は「${DOT_VOTE_CRITERIA.subjective}」。`,
-  `${DOT_VOTE_LABELS.objective}は「${DOT_VOTE_CRITERIA.objective}」。`,
-  DOT_VOTE_GUIDANCE.operation,
-  DOT_VOTE_GUIDANCE.withdrawal,
-] as const;
+// シールの名前はフェーズで変わる（課題・問いは「いいね」、アイデアは「需要ありそう」）。
+function dotVoteGuideSteps(phase: DotVotePhase): readonly string[] {
+  const labels = dotVoteLabels(phase);
+  const guidance = dotVoteGuidance(phase);
+  return [
+    guidance.target,
+    `${labels.subjective}は「${DOT_VOTE_CRITERIA.subjective}」。`,
+    `${labels.objective}は「${DOT_VOTE_CRITERIA.objective}」。`,
+    guidance.operation,
+    guidance.withdrawal,
+  ];
+}
 
 const FACILITATION_GUIDES: Record<
   1 | 2 | 3,
@@ -124,19 +130,19 @@ const FACILITATION_GUIDES: Record<
       firstAction: "画面下のシールを選び、投票したい付箋を押す。",
       visualExample: {
         caption: "使える票",
-        items: ["イチオシ！ 1票", "需要ありそう 3票"],
+        items: ["イチオシ！ 1票", "いいね 3票"],
       },
       intro:
-        "付箋にイチオシ！1票・需要ありそう3票を貼ろう。シールを押すと取り消せます。",
-      message: DOT_VOTE_GUIDANCE.summary,
+        "付箋にイチオシ！1票・いいね3票を貼ろう。シールを押すと取り消せます。",
+      message: dotVoteGuidance(1).summary,
       hostMessage:
-        "イチオシ！1票・需要ありそう3票を使い切ったら「できた！」を押します。全員の投票が終わり、全員が準備OKになるか時間になったら、画面上の「次のステップへ」で結果を見られます。",
+        "イチオシ！1票・いいね3票を使い切ったら「できた！」を押します。全員の投票が終わり、全員が準備OKになるか時間になったら、画面上の「次のステップへ」で結果を見られます。",
       purpose: "自分が取り組みたい案と、ほかの人にも役立つ案を選びます。",
       completion:
         "自分が強く共感し取り組みたい付箋への1票と、自分以外にも価値がありそうな付箋への3票を使い切ると完了です。票を取り消すと未完了に戻ります。",
       modalTitle: "解決したい課題に投票しよう！",
       modalPurpose: null,
-      steps: DOT_VOTE_GUIDE_STEPS,
+      steps: dotVoteGuideSteps(1),
     },
     5: {
       durationMinutes: 10,
@@ -220,11 +226,11 @@ const FACILITATION_GUIDES: Record<
       firstAction: "画面下のシールを選び、投票したい付箋を押す。",
       visualExample: {
         caption: "使える票",
-        items: ["イチオシ！ 1票", "需要ありそう 3票"],
+        items: ["イチオシ！ 1票", "いいね 3票"],
       },
       intro:
-        "付箋にイチオシ！1票・需要ありそう3票を貼ろう。シールを押すと取り消せます。",
-      message: DOT_VOTE_GUIDANCE.summary,
+        "付箋にイチオシ！1票・いいね3票を貼ろう。シールを押すと取り消せます。",
+      message: dotVoteGuidance(2).summary,
       hostMessage:
         "全員が投票を使い切り、全員が準備OKになるか時間になったら、画面上の「次のステップへ」で結果を見られます。時間切れ後は1回だけ1分延長できます。",
       purpose: "自分が取り組みたい案と、ほかの人にも役立つ案を選びます。",
@@ -232,7 +238,7 @@ const FACILITATION_GUIDES: Record<
         "自分が強く共感し取り組みたい付箋への1票と、自分以外にも価値がありそうな付箋への3票を使い切ると完了を伝えられます。「できた！」を押し、全員の投票が終わってから結果へ進みます。",
       modalTitle: "アイデアが広がりそうな問いに投票しよう！",
       modalPurpose: null,
-      steps: DOT_VOTE_GUIDE_STEPS,
+      steps: dotVoteGuideSteps(2),
     },
     4: {
       durationMinutes: 10,
@@ -338,7 +344,7 @@ const FACILITATION_GUIDES: Record<
       },
       intro:
         "付箋にイチオシ！1票・需要ありそう3票を貼ろう。シールを押すと取り消せます。",
-      message: DOT_VOTE_GUIDANCE.summary,
+      message: dotVoteGuidance(3).summary,
       hostMessage:
         "全員が投票を使い切り、全員が準備OKになるか時間になったら、画面上の「次のステップへ」で結果を見られます。時間切れ後は1回だけ1分延長できます。",
       purpose: "自分が取り組みたい案と、ほかの人にも役立つ案を選びます。",
@@ -348,7 +354,7 @@ const FACILITATION_GUIDES: Record<
       modalPurpose: null,
       steps: [
         "上ほど価値が高く、右ほど実現しやすいことを確認する",
-        ...DOT_VOTE_GUIDE_STEPS,
+        ...dotVoteGuideSteps(3),
       ],
     },
     5: {

@@ -3,16 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { DOT_VOTE_LIMITS, type DotVoteKind } from "@/contracts/room-protocol";
 import {
-  DOT_VOTE_GUIDANCE,
   DOT_VOTE_KIND_TAGS,
-  DOT_VOTE_LABELS,
   type DotVoteFeedback,
+  type DotVotePhase,
   type DotVoteRemaining,
+  dotVoteGuidance,
+  dotVoteLabels,
   dotVoteRemainingLabel,
 } from "../logic/dot-vote";
 import { DotVoteStickerImage } from "./dot-vote-sticker";
 
 type DotVotePaletteViewProps = {
+  // シールの名前はフェーズで変わる（課題・問いは「いいね」、アイデアは「需要ありそう」）。
+  phase: DotVotePhase;
   voteRemaining: DotVoteRemaining;
   pendingOperationCount: number;
   feedback: DotVoteFeedback | null;
@@ -111,6 +114,7 @@ function DotVoteRemainingPips({
 }
 
 export function DotVotePaletteView({
+  phase,
   voteRemaining,
   pendingOperationCount,
   feedback,
@@ -147,7 +151,7 @@ export function DotVotePaletteView({
     >
       <div id={`${paletteId}-help`} className="sr-only">
         <p className="sr-only">投票対象は現在のフェーズの個々の付箋です。</p>
-        <p className="sr-only">{DOT_VOTE_GUIDANCE.withdrawal}</p>
+        <p className="sr-only">{dotVoteGuidance(phase).withdrawal}</p>
         <p className="sr-only">
           付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
         </p>
@@ -179,7 +183,11 @@ export function DotVotePaletteView({
             <Button
               key={kind}
               type="button"
-              aria-label={dotVoteRemainingLabel(kind, voteRemaining[kind])}
+              aria-label={dotVoteRemainingLabel(
+                kind,
+                voteRemaining[kind],
+                phase,
+              )}
               aria-pressed={isSelected}
               aria-describedby={
                 canWithdrawOne
@@ -215,7 +223,7 @@ export function DotVotePaletteView({
               {/* 名前の下に、種類のタグと残票を1行で並べ、ボタンの高さを操作欄にそろえる。 */}
               <span className="flex min-w-0 flex-col items-start gap-1">
                 <span className="text-sm leading-none font-bold">
-                  {DOT_VOTE_LABELS[kind]}
+                  {dotVoteLabels(phase)[kind]}
                 </span>
                 <span className="flex h-4 items-center gap-1.5">
                   <span

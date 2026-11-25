@@ -1,7 +1,8 @@
 import {
   DOT_VOTE_CRITERIA,
-  DOT_VOTE_GUIDANCE,
-  DOT_VOTE_LABELS,
+  type DotVotePhase,
+  dotVoteGuidance,
+  dotVoteLabels,
 } from "@/features/dot-vote";
 import { STEP_ONE_ONBOARDING_SLIDES } from "./step-one-onboarding-copy";
 
@@ -28,6 +29,8 @@ export type StepGuideSlide = {
   illustration: StepGuideDiagramKind | "many-notes" | "add-note";
   illustrationAlt: string;
   videoSrc?: string;
+  // 図に出すシールの名前のフェーズ。課題・問いは「いいね」、アイデアは「需要ありそう」。
+  votePhase?: DotVotePhase;
 };
 
 // 共有・投票・決定は3フェーズで同じ操作のため、案内を使い回す。
@@ -51,22 +54,32 @@ const SHARE_SLIDES: readonly StepGuideSlide[] = [
   },
 ];
 
-const VOTE_SLIDES: readonly StepGuideSlide[] = [
-  {
-    title: "取り組みたい付箋に投票しよう。",
-    description: "2種類のシールを、それぞれの基準に合う付箋へ貼ります。",
-    illustration: "vote-purpose",
-    illustrationAlt: `${DOT_VOTE_LABELS.subjective}は「${DOT_VOTE_CRITERIA.subjective}」、${DOT_VOTE_LABELS.objective}は「${DOT_VOTE_CRITERIA.objective}」という基準`,
-  },
-  {
-    title: `${DOT_VOTE_GUIDANCE.allowance}を、付箋に貼ろう。`,
-    description:
-      "シールを付箋へドラッグします。自分のシールは押すかパレットへ戻すと取り消せます。投票中は他の人の票は見えません。",
-    illustration: "vote",
-    videoSrc: "/onboarding/step-1-4.webm",
-    illustrationAlt: `${DOT_VOTE_GUIDANCE.allowance}のパレットから付箋にシールを貼り、取り消すと残票が戻る`,
-  },
-];
+function voteSlides(phase: DotVotePhase): readonly StepGuideSlide[] {
+  const labels = dotVoteLabels(phase);
+  const { allowance } = dotVoteGuidance(phase);
+  return [
+    {
+      title: "取り組みたい付箋に投票しよう。",
+      description: "2種類のシールを、それぞれの基準に合う付箋へ貼ります。",
+      illustration: "vote-purpose",
+      illustrationAlt: `${labels.subjective}は「${DOT_VOTE_CRITERIA.subjective}」、${labels.objective}は「${DOT_VOTE_CRITERIA.objective}」という基準`,
+      votePhase: phase,
+    },
+    {
+      title: `${allowance}を、付箋に貼ろう。`,
+      description:
+        "シールを付箋へドラッグします。自分のシールは押すかパレットへ戻すと取り消せます。投票中は他の人の票は見えません。",
+      illustration: "vote",
+      videoSrc: "/onboarding/step-1-4.webm",
+      illustrationAlt: `${allowance}のパレットから付箋にシールを貼り、取り消すと残票が戻る`,
+      votePhase: phase,
+    },
+  ];
+}
+
+function decisionSlides(phase: DotVotePhase): readonly StepGuideSlide[] {
+  return DECISION_SLIDES.map((slide) => ({ ...slide, votePhase: phase }));
+}
 
 const DECISION_SLIDES: readonly StepGuideSlide[] = [
   {
@@ -106,8 +119,8 @@ const STEP_GUIDES = {
       illustrationAlt: "離れた付箋を近づけ、似た困りごとをまとめる流れ",
     },
   ],
-  "1-4": VOTE_SLIDES,
-  "1-5": DECISION_SLIDES,
+  "1-4": voteSlides(1),
+  "1-5": decisionSlides(1),
   "2-1": [
     {
       title: "困りごとを、改善方法を考える問いに変えよう。",
@@ -187,11 +200,11 @@ const REFERENCE_STEP_GUIDES: Readonly<
   Record<string, readonly StepGuideSlide[]>
 > = {
   "2-2": SHARE_SLIDES,
-  "2-3": VOTE_SLIDES,
-  "2-4": DECISION_SLIDES,
+  "2-3": voteSlides(2),
+  "2-4": decisionSlides(2),
   "3-2": SHARE_SLIDES,
-  "3-4": VOTE_SLIDES,
-  "3-5": DECISION_SLIDES,
+  "3-4": voteSlides(3),
+  "3-5": decisionSlides(3),
 };
 
 export function getStepGuideSlides(
@@ -239,18 +252,12 @@ export const STEP_GUIDE_DIAGRAM_COPY = {
   share: "② ボードへ出して説明",
   afterExplanation: "③ 説明が終わったら",
   handOffButton: "できた！",
-  subjective: DOT_VOTE_LABELS.subjective,
-  objective: DOT_VOTE_LABELS.objective,
   subjectiveCriterion: DOT_VOTE_CRITERIA.subjective,
   objectiveCriterion: DOT_VOTE_CRITERIA.objective,
   palette: "パレット（シールの置き場）",
-  subjectiveRemaining: `${DOT_VOTE_LABELS.subjective} 残り1票 → 0票`,
-  objectiveRemaining: `${DOT_VOTE_LABELS.objective} 残り3票 → 2票`,
   attach: "貼る →",
   returnSticker: "← 戻す",
   cancelVote: "自分のシールを押す／戻す → 取り消した分の残票が戻る",
-  firstVotes: `${DOT_VOTE_LABELS.subjective} 2票 ・ ${DOT_VOTE_LABELS.objective} 1票`,
-  secondVotes: `${DOT_VOTE_LABELS.subjective} 1票 ・ ${DOT_VOTE_LABELS.objective} 2票`,
   startDecision: "① 採用する付箋を選ぶ",
   selectNote: "② 付箋を選ぶ",
   discuss: "票を参考に、話し合って1つ決める",
@@ -272,3 +279,27 @@ export const STEP_GUIDE_DIAGRAM_COPY = {
   reposition: "↗ 位置を見直す",
   feasibilityAxis: "実現しやすい →",
 } as const;
+
+// 図に出すシールの名前と票の例。シールの名前はフェーズで変わる。
+export type StepGuideVoteDiagramCopy = {
+  subjective: string;
+  objective: string;
+  subjectiveRemaining: string;
+  objectiveRemaining: string;
+  firstVotes: string;
+  secondVotes: string;
+};
+
+export function stepGuideVoteDiagramCopy(
+  phase: DotVotePhase,
+): StepGuideVoteDiagramCopy {
+  const labels = dotVoteLabels(phase);
+  return {
+    subjective: labels.subjective,
+    objective: labels.objective,
+    subjectiveRemaining: `${labels.subjective} 残り1票 → 0票`,
+    objectiveRemaining: `${labels.objective} 残り3票 → 2票`,
+    firstVotes: `${labels.subjective} 2票 ・ ${labels.objective} 1票`,
+    secondVotes: `${labels.subjective} 1票 ・ ${labels.objective} 2票`,
+  };
+}

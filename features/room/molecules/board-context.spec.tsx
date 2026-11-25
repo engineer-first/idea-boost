@@ -476,7 +476,7 @@ it("採用時の本文・文字サイズと集計票を表示し、参照から�
   expect(body).toHaveTextContent(reference.content);
   expect(body).toHaveStyle({ fontSize: "20px" });
   expect(screen.getByRole("img", { name: /イチオシ！.*7票/ })).toBeVisible();
-  expect(screen.getByRole("img", { name: /需要ありそう.*3票/ })).toBeVisible();
+  expect(screen.getByRole("img", { name: /いいね.*3票/ })).toBeVisible();
   expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   expect(screen.getAllByRole("button")).toHaveLength(2);
   fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));

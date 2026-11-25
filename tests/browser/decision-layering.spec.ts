@@ -123,7 +123,7 @@ test("候補外への拒否Storyは説明通知を表示し、2種類のシー�
     ).toBe(true);
     expect(
       await page
-        .getByRole("button", { name: "「需要ありそう」シール 残り3票" })
+        .getByRole("button", { name: "「いいね」シール 残り3票" })
         .isVisible(),
     ).toBe(true);
   } finally {

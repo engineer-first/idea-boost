@@ -1139,6 +1139,8 @@ export function PrivateNotesToolbar({
                     // 付箋の x/y はホワイトボード上の座標なので、一覧内では常に原点に置く。
                     style={{ left: 0, top: 0 }}
                     vote={{
+                      // 一覧では投票を出さないので、シールの名前も表示されない。
+                      phase: 1,
                       displayMode: "hidden",
                       selectedKind: null,
                       voteRemaining: { subjective: 0, objective: 0 },

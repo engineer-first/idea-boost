@@ -21,6 +21,7 @@ function setup(overrides: Partial<Parameters<typeof NoteCard>[0]> = {}) {
     onContentChange: vi.fn(),
     onDelete: vi.fn(),
     vote: {
+      phase: 3 as const,
       displayMode: "hidden" as const,
       selectedKind: null,
       voteRemaining: { subjective: 1, objective: 3 },
@@ -777,6 +778,7 @@ describe("NoteCard", () => {
           },
         }),
         vote: {
+          phase: 3,
           displayMode: "voting",
           selectedKind: null,
           voteRemaining: { subjective: 1, objective: 1 },
@@ -817,6 +819,7 @@ describe("NoteCard", () => {
           ],
         }),
         vote: {
+          phase: 3,
           displayMode: "voting",
           selectedKind: null,
           voteRemaining: { subjective: 1, objective: 2 },
@@ -839,6 +842,7 @@ describe("NoteCard", () => {
         isSelected: true,
         canEditNote: false,
         vote: {
+          phase: 3,
           displayMode: "voting",
           selectedKind: "subjective",
           voteRemaining: { subjective: 1, objective: 3 },
@@ -863,6 +867,7 @@ describe("NoteCard", () => {
           isSelected: true,
           canEditNote: false,
           vote: {
+            phase: 3,
             displayMode: "voting",
             selectedKind: "subjective",
             voteRemaining: { subjective: 1, objective: 3 },
@@ -883,6 +888,7 @@ describe("NoteCard", () => {
     it("付箋のホバーでは投票用プレビューを出さない", () => {
       setup({
         vote: {
+          phase: 3,
           displayMode: "voting",
           selectedKind: "subjective",
           voteRemaining: { subjective: 1, objective: 3 },
@@ -904,6 +910,7 @@ describe("NoteCard", () => {
       const onVote = vi.fn();
       setup({
         vote: {
+          phase: 3,
           displayMode: "voting",
           selectedKind: "objective",
           voteRemaining: { subjective: 1, objective: 3 },
@@ -945,6 +952,7 @@ describe("NoteCard", () => {
           },
         }),
         vote: {
+          phase: 3,
           displayMode: "result",
           selectedKind: null,
           voteRemaining: { subjective: 0, objective: 0 },
@@ -984,6 +992,7 @@ describe("NoteCard", () => {
         }),
         canExcludeNote: true,
         vote: {
+          phase: 3,
           displayMode: "result",
           selectedKind: null,
           voteRemaining: { subjective: 0, objective: 0 },
@@ -1011,6 +1020,7 @@ describe("NoteCard", () => {
       setup({
         isDecided: true,
         vote: {
+          phase: 3,
           displayMode: "result",
           selectedKind: null,
           voteRemaining: { subjective: 0, objective: 0 },
@@ -1034,6 +1044,7 @@ describe("NoteCard", () => {
           },
         }),
         vote: {
+          phase: 3,
           displayMode: "voting",
           selectedKind: null,
           voteRemaining: { subjective: 1, objective: 1 },
@@ -1062,6 +1073,7 @@ describe("NoteCard", () => {
           },
         }),
         vote: {
+          phase: 3,
           displayMode: "voting",
           selectedKind: null,
           voteRemaining: { subjective: 0, objective: 1 },
@@ -1098,6 +1110,7 @@ describe("NoteCard", () => {
           ],
         }),
         vote: {
+          phase: 3,
           displayMode: "voting",
           selectedKind: null,
           voteRemaining: { subjective: 1, objective: 2 },
@@ -1441,6 +1454,7 @@ describe("NoteCard", () => {
     it("親が本文を同期更新してもEscapeで確定した入力を空に戻さない", () => {
       const initialNote = buildNote({ content: "" });
       const vote = {
+        phase: 3 as const,
         displayMode: "hidden" as const,
         selectedKind: null,
         voteRemaining: { subjective: 1, objective: 3 },

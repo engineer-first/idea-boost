@@ -20,19 +20,20 @@ describe("getFacilitationGuide", () => {
   });
 
   it.each([buildPhaseStep(4), buildPhaseStep(3, 2), buildPhaseStep(4, 3)])(
-    "%o は個々の付箋と共通の投票基準を案内する",
+    "%o は個々の付箋と共通の投票基準を案内し、課題・問いでは「いいね」、アイデアでは「需要ありそう」と呼ぶ",
     (phase) => {
+      const objective =
+        phase.kind === "step" && phase.phase === 3 ? "需要ありそう" : "いいね";
       expect(getFacilitationGuide(phase)).toMatchObject({
-        message:
-          "イチオシ！1票・需要ありそう3票を使い、現在のフェーズの個々の付箋へ投票します。",
+        message: `イチオシ！1票・${objective}3票を使い、現在のフェーズの個々の付箋へ投票します。`,
         steps: [
           ...(phase.kind === "step" && phase.phase === 3
             ? ["上ほど価値が高く、右ほど実現しやすいことを確認する"]
             : []),
           "投票対象は現在のフェーズの個々の付箋です。",
           "イチオシ！は「激しく共感する、取り組みたい」。",
-          "需要ありそうは「自分以外の人にも価値がありそう」。",
-          "イチオシ！1票・需要ありそう3票を、シールをドラッグするか選択して投票対象の付箋へ貼ります。",
+          `${objective}は「自分以外の人にも価値がありそう」。`,
+          `イチオシ！1票・${objective}3票を、シールをドラッグするか選択して投票対象の付箋へ貼ります。`,
           "貼ったシールを押すと、投票を1票取り消せます。",
         ],
       });
@@ -46,7 +47,7 @@ describe("getFacilitationGuide", () => {
       "イチオシ！は「激しく共感する、取り組みたい」。",
     );
     expect(guide?.steps).not.toContain(
-      "需要ありそうは「自分以外の人にも価値がありそう」。",
+      "いいねは「自分以外の人にも価値がありそう」。",
     );
   });
 

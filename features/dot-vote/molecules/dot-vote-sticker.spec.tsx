@@ -7,6 +7,7 @@ describe("DotVoteSticker", () => {
     const onRemove = vi.fn();
     render(
       <DotVoteSticker
+        phase={3}
         kind="objective"
         count={2}
         state="confirmed"
@@ -43,6 +44,7 @@ describe("DotVoteSticker", () => {
     async ({ kind, label, tooltip }) => {
       render(
         <DotVoteSticker
+          phase={3}
           kind={kind}
           count={1}
           state="confirmed"
@@ -65,7 +67,9 @@ describe("DotVoteSticker", () => {
   );
 
   it("プレビューは操作対象にせず、票を貼る位置として示す", () => {
-    render(<DotVoteSticker kind="subjective" count={1} state="preview" />);
+    render(
+      <DotVoteSticker phase={3} kind="subjective" count={1} state="preview" />,
+    );
 
     expect(
       screen.getByLabelText("「イチオシ！」シールを貼る位置"),
@@ -75,7 +79,14 @@ describe("DotVoteSticker", () => {
   it.each([1, 12])(
     "投票結果では集計した%d票を同数のシールと独立した票数で表示する",
     (count) => {
-      render(<DotVoteSticker kind="subjective" count={count} state="result" />);
+      render(
+        <DotVoteSticker
+          phase={3}
+          kind="subjective"
+          count={count}
+          state="result"
+        />,
+      );
 
       const result = screen.getByRole("img", {
         name: `「イチオシ！」シール ${count}票`,
@@ -91,7 +102,9 @@ describe("DotVoteSticker", () => {
   );
 
   it("投票結果が0票ならシールも票数も表示しない", () => {
-    render(<DotVoteSticker kind="subjective" count={0} state="result" />);
+    render(
+      <DotVoteSticker phase={3} kind="subjective" count={0} state="result" />,
+    );
 
     expect(
       screen.queryByRole("img", { name: "「イチオシ！」シール 0票" }),
@@ -102,7 +115,9 @@ describe("DotVoteSticker", () => {
   });
 
   it("結果シールは22pxを維持し、票数との間を15px空ける", () => {
-    render(<DotVoteSticker kind="objective" count={2} state="result" />);
+    render(
+      <DotVoteSticker phase={3} kind="objective" count={2} state="result" />,
+    );
 
     const result = screen.getByRole("img", {
       name: "「需要ありそう」シール 2票",
@@ -118,7 +133,14 @@ describe("DotVoteSticker", () => {
   });
 
   it("投票中の個別シールには×1を表示しない", () => {
-    render(<DotVoteSticker kind="subjective" count={1} state="confirmed" />);
+    render(
+      <DotVoteSticker
+        phase={3}
+        kind="subjective"
+        count={1}
+        state="confirmed"
+      />,
+    );
 
     expect(screen.queryByText("×1")).not.toBeInTheDocument();
   });
@@ -127,6 +149,7 @@ describe("DotVoteSticker", () => {
     const onDragStart = vi.fn();
     render(
       <DotVoteSticker
+        phase={3}
         kind="objective"
         count={1}
         state="confirmed"
@@ -151,6 +174,7 @@ describe("DotVoteSticker", () => {
     const onRemove = vi.fn();
     render(
       <DotVoteSticker
+        phase={3}
         kind="objective"
         count={1}
         state="confirmed"

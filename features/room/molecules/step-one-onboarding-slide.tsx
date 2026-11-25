@@ -52,12 +52,16 @@ function useReducedMotion() {
 function StepOneOnboardingIllustrationContent({
   kind,
   alt,
+  votePhase,
 }: {
   kind: StepGuideSlide["illustration"];
   alt: string;
+  votePhase?: StepGuideSlide["votePhase"];
 }) {
   if (kind !== "many-notes" && kind !== "add-note") {
-    return <StepGuideIllustration kind={kind} alt={alt} />;
+    return (
+      <StepGuideIllustration kind={kind} alt={alt} votePhase={votePhase} />
+    );
   }
 
   return (
@@ -204,6 +208,7 @@ function StepOneOnboardingIllustrationContent({
 function StepOneOnboardingIllustration(props: {
   kind: StepGuideSlide["illustration"];
   alt: string;
+  votePhase?: StepGuideSlide["votePhase"];
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -412,6 +417,7 @@ export function StepOneOnboardingSlide({
           <StepOneOnboardingIllustration
             kind={item.illustration}
             alt={item.illustrationAlt}
+            votePhase={item.votePhase}
           />
         )}
       </figure>

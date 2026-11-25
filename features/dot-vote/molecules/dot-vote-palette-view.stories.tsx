@@ -6,6 +6,7 @@ const meta = {
   title: "DotVote/DotVotePaletteView",
   component: DotVotePaletteView,
   args: {
+    phase: 3,
     voteRemaining: { subjective: 1, objective: 3 },
     pendingOperationCount: 0,
     feedback: null,

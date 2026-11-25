@@ -330,7 +330,7 @@ it.each(widths(375, 1280))(
       );
       expect(
         await list
-          .getByText("イチオシ！ 2票 / 需要ありそう 3票 / 合計 5票")
+          .getByText("イチオシ！ 2票 / いいね 3票 / 合計 5票")
           .isVisible(),
       ).toBe(true);
       expect(await list.getByText(/配置 \(/).count()).toBe(0);

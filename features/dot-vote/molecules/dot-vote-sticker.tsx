@@ -9,7 +9,11 @@ import {
 } from "@/components/ui/tooltip";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { DotVoteKind } from "@/contracts/room-protocol";
-import { dotVoteStickerName, dotVoteStickerTooltip } from "../logic/dot-vote";
+import {
+  type DotVotePhase,
+  dotVoteStickerName,
+  dotVoteStickerTooltip,
+} from "../logic/dot-vote";
 
 export type DotVoteStickerState =
   | "preview"
@@ -19,6 +23,8 @@ export type DotVoteStickerState =
 
 type DotVoteStickerProps = {
   kind: DotVoteKind;
+  // シールの名前はフェーズで変わる（課題・問いは「いいね」、アイデアは「需要ありそう」）。
+  phase: DotVotePhase;
   count: number;
   state: DotVoteStickerState;
   onRemove?: () => void;
@@ -60,8 +66,12 @@ const DOT_VOTE_ICON_SIZE = {
   result: "size-3.5",
 } satisfies Record<DotVoteStickerImageSize, string>;
 
-function stickerLabel(kind: DotVoteKind, count: number): string {
-  return `${dotVoteStickerName(kind)} ${count}票`;
+function stickerLabel(
+  kind: DotVoteKind,
+  phase: DotVotePhase,
+  count: number,
+): string {
+  return `${dotVoteStickerName(kind, phase)} ${count}票`;
 }
 
 function displayCount(count: number): string {
@@ -97,16 +107,18 @@ export function DotVoteStickerImage({
 // 付箋の上のシールはアイコンだけなので、合わせたときに名前と種類を1行で示す。
 function WithStickerTooltip({
   kind,
+  phase,
   children,
 }: {
   kind: DotVoteKind;
+  phase: DotVotePhase;
   children: ReactElement;
 }) {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent>{dotVoteStickerTooltip(kind)}</TooltipContent>
+        <TooltipContent>{dotVoteStickerTooltip(kind, phase)}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -114,12 +126,13 @@ function WithStickerTooltip({
 
 export function DotVoteSticker({
   kind,
+  phase,
   count,
   state,
   onRemove,
   onDragStart,
 }: DotVoteStickerProps) {
-  const label = stickerLabel(kind, count);
+  const label = stickerLabel(kind, phase, count);
   const isPreview = state === "preview";
   const pointerOriginRef = useRef<{
     pointerId: number;
@@ -195,7 +208,7 @@ export function DotVoteSticker({
 
   if (onRemove) {
     return (
-      <WithStickerTooltip kind={kind}>
+      <WithStickerTooltip kind={kind} phase={phase}>
         <button
           type="button"
           data-state={state}
@@ -251,7 +264,9 @@ export function DotVoteSticker({
     <span
       role="img"
       data-state={state}
-      aria-label={isPreview ? `${dotVoteStickerName(kind)}を貼る位置` : label}
+      aria-label={
+        isPreview ? `${dotVoteStickerName(kind, phase)}を貼る位置` : label
+      }
       className={`inline-flex ${DOT_VOTE_SHAPE[kind]} ${
         isPreview ? "pointer-events-none opacity-50" : ""
       } ${state === "pending" ? "animate-pulse" : ""}`}
@@ -264,6 +279,8 @@ export function DotVoteSticker({
   return isPreview ? (
     sticker
   ) : (
-    <WithStickerTooltip kind={kind}>{sticker}</WithStickerTooltip>
+    <WithStickerTooltip kind={kind} phase={phase}>
+      {sticker}
+    </WithStickerTooltip>
   );
 }

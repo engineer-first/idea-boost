@@ -64,6 +64,27 @@ describe("StepOneOnboardingSlide", () => {
       expect(await screen.findByRole("dialog", { name: title })).toBeVisible();
     },
   );
+  it.each([
+    ["2-3", "いいね", "需要ありそう"],
+    ["3-4", "需要ありそう", "いいね"],
+  ])(
+    "%sの投票の案内は、図の中のシールも「%s」と呼ぶ",
+    async (phaseKey, label, otherLabel) => {
+      render(
+        <StepOneOnboardingSlide
+          phaseKey={phaseKey}
+          userId={`vote-label-${phaseKey}`}
+          isReady
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+      const dialog = await screen.findByRole("dialog", {
+        name: "取り組みたい付箋に投票しよう。",
+      });
+      expect(dialog).toHaveTextContent(label);
+      expect(dialog).not.toHaveTextContent(otherLabel);
+    },
+  );
   it.each(["1-5", "2-4", "3-5"])(
     "%sの決定の案内は、最後の3-5でも当てはまる言い方で次へ進むよう促す",
     async (phaseKey) => {
@@ -95,7 +116,9 @@ describe("StepOneOnboardingSlide", () => {
     });
     expect(dialog).toHaveTextContent("イチオシ！");
     expect(dialog).toHaveTextContent("激しく共感する、取り組みたい");
-    expect(dialog).toHaveTextContent("需要ありそう");
+    // 課題フェーズでは「需要ありそう」の枠を「いいね」と呼ぶ。
+    expect(dialog).toHaveTextContent("いいね");
+    expect(dialog).not.toHaveTextContent("需要ありそう");
     expect(dialog).toHaveTextContent("自分以外の人にも価値がありそう");
   });
   it("1-2の操作スライドは古いボタンが映る動画でなく、「できた！」で交代する図を表示する", async () => {
@@ -226,7 +249,7 @@ describe("StepOneOnboardingSlide", () => {
       }
       if (phaseKey === "1-4") {
         expect(screen.getByRole("dialog")).toHaveTextContent(
-          "イチオシ！1票・需要ありそう3票",
+          "イチオシ！1票・いいね3票",
         );
         expect(screen.getByRole("dialog")).toHaveTextContent(
           "投票中は他の人の票は見えません。",
