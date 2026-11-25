@@ -48,18 +48,16 @@ const DOT_VOTE_SHAPE = {
   objective: "rounded-md",
 } satisfies Record<DotVoteKind, string>;
 
-type DotVoteStickerImageSize = "default" | "result" | "palette";
+type DotVoteStickerImageSize = "default" | "result";
 
 const DOT_VOTE_IMAGE_SIZE = {
   default: "size-7",
   result: "size-[22px]",
-  palette: "size-13",
 } satisfies Record<DotVoteStickerImageSize, string>;
 
 const DOT_VOTE_ICON_SIZE = {
   default: "size-4",
   result: "size-3.5",
-  palette: "size-8",
 } satisfies Record<DotVoteStickerImageSize, string>;
 
 function stickerLabel(kind: DotVoteKind, count: number): string {

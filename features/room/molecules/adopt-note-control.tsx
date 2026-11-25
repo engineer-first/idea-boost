@@ -43,7 +43,7 @@ export function AdoptNoteControl({
     return (
       <section
         aria-label={`採用する${targetLabel}の確定状態`}
-        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-xl border border-state-decided/40 bg-background px-4 py-3 shadow-tool"
+        className="pointer-events-auto flex h-14 max-w-xl items-center gap-3 rounded-xl border border-state-decided/40 bg-background p-1.5 pl-4 shadow-tool"
       >
         <CheckCircle2
           aria-hidden="true"
@@ -61,7 +61,7 @@ export function AdoptNoteControl({
           <Button
             type="button"
             variant="outline"
-            className="shrink-0"
+            className="h-10 shrink-0 px-3 text-sm"
             disabled={disabled}
             onClick={onClearDecision}
           >
@@ -80,7 +80,7 @@ export function AdoptNoteControl({
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-xl border-2 border-primary bg-background px-4 py-3 shadow-tool"
+        className="pointer-events-auto flex h-14 max-w-xl items-center gap-3 rounded-xl border-2 border-primary bg-background p-1.5 pl-4 shadow-tool"
       >
         <MousePointerClick aria-hidden="true" className="size-5 shrink-0" />
         <div className="min-w-0 flex-1">
@@ -91,6 +91,7 @@ export function AdoptNoteControl({
         <Button
           type="button"
           variant="outline"
+          className="h-10 px-3 text-sm"
           aria-label="選択をキャンセル"
           onClick={onCancelSelection}
         >
@@ -103,7 +104,7 @@ export function AdoptNoteControl({
 
   return (
     <Button
-      className="pointer-events-auto"
+      className="pointer-events-auto h-10 px-3 text-sm"
       type="button"
       disabled={disabled}
       onClick={onStartSelection}
