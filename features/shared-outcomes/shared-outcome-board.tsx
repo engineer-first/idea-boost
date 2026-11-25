@@ -9,11 +9,14 @@ import { NOTE_COLOR_STYLES } from "@/features/room-members";
 // 投票シールの画面の名前。正本は docs/glossary.md。shared-outcomes は
 // dot-vote に依存しないため、LP と同じく名前だけをここに持つ。
 // 「需要ありそう」はアイデアには合うが課題・問いには合わないため、そこでは「いいね」と呼ぶ。
-function dotVoteLabels(phase: number) {
+function outcomeVoteLabels(phase: number): {
+  subjective: string;
+  objective: string;
+} {
   return {
     subjective: "イチオシ！",
     objective: phase === 3 ? "需要ありそう" : "いいね",
-  } as const;
+  };
 }
 export type SharedOutcomeBoardProps = {
   label: string;
@@ -25,7 +28,7 @@ export function SharedOutcomeBoard({
   phase,
   snapshot,
 }: SharedOutcomeBoardProps) {
-  const voteLabels = dotVoteLabels(phase);
+  const voteLabels = outcomeVoteLabels(phase);
   const notes = snapshot.notes
     .filter((note) => note.phase === phase)
     .sort((a, b) => a.stackOrder - b.stackOrder);

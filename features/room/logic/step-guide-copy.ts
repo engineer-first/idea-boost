@@ -281,7 +281,18 @@ export const STEP_GUIDE_DIAGRAM_COPY = {
 } as const;
 
 // 図に出すシールの名前と票の例。シールの名前はフェーズで変わる。
-export function stepGuideVoteDiagramCopy(phase: DotVotePhase) {
+export type StepGuideVoteDiagramCopy = {
+  subjective: string;
+  objective: string;
+  subjectiveRemaining: string;
+  objectiveRemaining: string;
+  firstVotes: string;
+  secondVotes: string;
+};
+
+export function stepGuideVoteDiagramCopy(
+  phase: DotVotePhase,
+): StepGuideVoteDiagramCopy {
   const labels = dotVoteLabels(phase);
   return {
     subjective: labels.subjective,
@@ -290,5 +301,5 @@ export function stepGuideVoteDiagramCopy(phase: DotVotePhase) {
     objectiveRemaining: `${labels.objective} 残り3票 → 2票`,
     firstVotes: `${labels.subjective} 2票 ・ ${labels.objective} 1票`,
     secondVotes: `${labels.subjective} 1票 ・ ${labels.objective} 2票`,
-  } as const;
+  };
 }
