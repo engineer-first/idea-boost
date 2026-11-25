@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   user: vi.fn(),
@@ -27,6 +27,16 @@ import HomePage from "./page";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.user.mockResolvedValue(null);
+  // 前のルーム一覧の取得を実通信させない。失敗がテスト環境の破棄後に届くと
+  // setState が window の無い状態で走り、CI が未処理エラーで落ちる。
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(Response.json({ rooms: [] })),
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 it("認証設定があり本人がいない場合は始め方の選択画面へリダイレクトする", async () => {
