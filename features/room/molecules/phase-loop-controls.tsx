@@ -43,12 +43,13 @@ export function PhaseLoopControls({
 }: PhaseLoopControlsProps) {
   const [revoteOpen, setRevoteOpen] = useState(false);
   if (phase.kind !== "step" || !isResultStep(phase)) return null;
-  if (decisionContent !== null)
+  // 確定済みと選択中は、それぞれ自分の段を持つので外枠で包まない。
+  if (decisionContent !== null || isSelecting)
     return (
       <AdoptNoteControl
         phaseNumber={phase.phase}
         canSelect
-        isSelecting={false}
+        isSelecting={isSelecting}
         decisionContent={decisionContent}
         disabled={disabled || selectionDisabled}
         onStartSelection={onStartSelection}
@@ -66,43 +67,43 @@ export function PhaseLoopControls({
           候補がありません。薄く表示された付箋のメニューから「除外を戻す」を選んでください。
         </p>
       ) : null}
-      <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl border border-border bg-background p-2 shadow-tool">
-        {!isSelecting ? (
-          <AlertDialog open={revoteOpen} onOpenChange={setRevoteOpen}>
-            <AlertDialogTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
+      {/* 上部の操作欄（board HUD）と同じ高さ・角丸・影・ボタンの高さにそろえる。 */}
+      <div className="pointer-events-auto flex min-h-14 max-w-full flex-wrap items-center justify-center gap-1.5 rounded-xl border border-border bg-background p-1.5 shadow-tool">
+        <AlertDialog open={revoteOpen} onOpenChange={setRevoteOpen}>
+          <AlertDialogTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 px-3 text-sm"
+              disabled={disabled || candidateCount === 0}
+            >
+              もう一度投票する
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent aria-describedby="revote-description">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                候補{candidateCount}件に投票し直しますか？
+              </AlertDialogTitle>
+              <AlertDialogDescription id="revote-description">
+                付箋は消えません。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>キャンセル</AlertDialogCancel>
+              <AlertDialogAction
                 disabled={disabled || candidateCount === 0}
+                onClick={onRevote}
               >
-                もう一度投票する
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent aria-describedby="revote-description">
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  候補{candidateCount}件に投票し直しますか？
-                </AlertDialogTitle>
-                <AlertDialogDescription id="revote-description">
-                  付箋は消えません。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                <AlertDialogAction
-                  disabled={disabled || candidateCount === 0}
-                  onClick={onRevote}
-                >
-                  前回の票を消して始める
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        ) : null}
+                前回の票を消して始める
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <AdoptNoteControl
           phaseNumber={phase.phase}
           canSelect
-          isSelecting={isSelecting}
+          isSelecting={false}
           decisionContent={null}
           disabled={disabled || selectionDisabled || candidateCount === 0}
           onStartSelection={onStartSelection}

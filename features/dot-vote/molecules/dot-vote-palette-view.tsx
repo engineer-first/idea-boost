@@ -138,10 +138,11 @@ export function DotVotePaletteView({
       aria-describedby={`${paletteId}-help`}
       data-vote-palette="true"
       data-return-drop-target={isReturnDropTarget ? "true" : undefined}
-      className={`pointer-events-auto relative flex w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-lg border border-border p-2 shadow-tool ${
+      // 上部の操作欄（board HUD）と同じ高さ・角丸・影の段にそろえる。
+      className={`pointer-events-auto relative flex h-14 w-max max-w-[calc(100vw-1.5rem)] items-center rounded-xl border border-border p-1.5 shadow-tool ${
         isReturnDropTarget
           ? "bg-primary/5 ring-2 ring-primary/40 ring-offset-2 ring-offset-background"
-          : "bg-white"
+          : "bg-background"
       }`}
     >
       <div id={`${paletteId}-help`} className="sr-only">
@@ -151,7 +152,7 @@ export function DotVotePaletteView({
           付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
         </p>
       </div>
-      <fieldset className="grid w-full min-w-0 grid-cols-2 gap-2">
+      <fieldset className="grid w-full min-w-0 grid-cols-2 gap-1.5">
         <legend className="sr-only">使用するシールの種類</legend>
         {DOT_VOTE_KINDS.map((kind) => {
           const isEmpty = voteRemaining[kind] <= 0;
@@ -188,7 +189,7 @@ export function DotVotePaletteView({
               disabled={!canPlace && !canWithdrawOne}
               size="sm"
               variant="outline"
-              className={`relative h-auto min-w-0 touch-none cursor-grab select-none flex-col items-center gap-1.5 whitespace-normal rounded-xl border-2 px-2 pt-3.5 pb-3 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "cursor-pointer border-dashed active:cursor-pointer" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
+              className={`h-10 min-w-36 touch-none cursor-grab select-none justify-start gap-2 rounded-lg border-2 px-2.5 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "cursor-pointer border-dashed active:cursor-pointer" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${isEmpty || disabled ? DOT_VOTE_UNAVAILABLE_TONE : ""} ${
                 isSelected ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
@@ -205,35 +206,40 @@ export function DotVotePaletteView({
               }}
             >
               <span
-                className={`absolute top-1.5 left-1.5 rounded-md px-1.5 py-1 text-xs leading-none font-bold text-white ${
-                  isEmpty || disabled
-                    ? "bg-muted-foreground"
-                    : DOT_VOTE_TAG_TONE[kind]
-                }`}
-              >
-                {DOT_VOTE_KIND_TAGS[kind]}
-              </span>
-              <span
                 className={
                   isEmpty || disabled ? "opacity-45 grayscale" : undefined
                 }
               >
-                <DotVoteStickerImage kind={kind} size="palette" />
+                <DotVoteStickerImage kind={kind} />
               </span>
-              <span className="text-center text-sm leading-snug font-bold">
-                {DOT_VOTE_LABELS[kind]}
-              </span>
-              {showsSpinner ? (
-                <span aria-hidden="true" className="flex h-4 items-center">
-                  <Spinner />
+              {/* 名前の下に、種類のタグと残票を1行で並べ、ボタンの高さを操作欄にそろえる。 */}
+              <span className="flex min-w-0 flex-col items-start gap-1">
+                <span className="text-sm leading-none font-bold">
+                  {DOT_VOTE_LABELS[kind]}
                 </span>
-              ) : (
-                <DotVoteRemainingPips
-                  kind={kind}
-                  remaining={voteRemaining[kind]}
-                  muted={isEmpty}
-                />
-              )}
+                <span className="flex h-4 items-center gap-1.5">
+                  <span
+                    className={`rounded px-1 py-0.5 text-xs leading-none font-bold text-white ${
+                      isEmpty || disabled
+                        ? "bg-muted-foreground"
+                        : DOT_VOTE_TAG_TONE[kind]
+                    }`}
+                  >
+                    {DOT_VOTE_KIND_TAGS[kind]}
+                  </span>
+                  {showsSpinner ? (
+                    <span aria-hidden="true" className="flex h-4 items-center">
+                      <Spinner />
+                    </span>
+                  ) : (
+                    <DotVoteRemainingPips
+                      kind={kind}
+                      remaining={voteRemaining[kind]}
+                      muted={isEmpty}
+                    />
+                  )}
+                </span>
+              </span>
               <span id={`${paletteId}-${kind}-state`} className="sr-only">
                 {stateLabel}
               </span>
@@ -248,10 +254,11 @@ export function DotVotePaletteView({
       </fieldset>
       {/* 失敗だけを表示する。空でも読み上げ領域は残し、失敗を確実に読み上げる。 */}
       <p
+        // 失敗の文は段の高さを変えないよう、段の上に浮かべる。
         className={
           failureMessage === null
             ? "sr-only"
-            : "w-full text-xs leading-snug text-foreground"
+            : "pointer-events-none absolute inset-x-0 bottom-full mb-2 rounded-lg border border-border bg-background px-3 py-2 text-xs leading-snug text-foreground shadow-tool"
         }
         role="status"
         aria-live="polite"
