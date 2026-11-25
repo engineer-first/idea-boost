@@ -21,6 +21,7 @@
 | 現在の構成とデータ責務を知りたい           | [構成概要](architecture/overview.md)                                                                        |
 | なぜこの設計を選んだか                     | [ADR](adr/README.md)                                                                                        |
 | Issue・チームの仕事を進めたい              | [Issue運用](team/issues.md)、[Issue記述ルール](team/issue-writing.md)、[ホワイトボード](team/whiteboard.md) |
+| エージェントのループで開発を進めたい       | [ループ開発](loop/README.md)、[完成台帳](loop/completion.json)                                              |
 | CodeRabbitのレビューを進めたい             | [レビュー運用](team/code-review.md)                                                                         |
 | 指示・skill・hookを保守したい              | [エージェント指示の保守](development/agent-maintenance.md)                                                  |
 | 開発サーバーの期限と常駐を選びたい         | [開発サーバーの起動と停止](development/dev-server-lifecycle.md)                                             |

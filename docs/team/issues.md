@@ -268,6 +268,10 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 
 Project の作業・状態を変えるときは、Issue本文と Milestone は保ち、対象の状態フィールドのみを必要に応じて更新する。
 
+## ループのラベル
+
+エージェントのループは、`loop:ready` の付いたIssueを1件ずつ直してPRをマージし、毎日昼と夜に本番へ公開する。`loop:ready` は再計画ループか人が付け、ループが付けたときはIssueにコメントを残す。ループに拾わせたくないIssueには `loop:skip` を付ける。担当者がオーナー以外のIssueはループが拾わない。`loop:ux` は巡回が画面を歩いて見つけた所見。ループ全体を止めたいときは、open のIssueかPRに `loop:stop` を付ける。意味の正本は[ループ開発](../loop/README.md#ラベル)とする。
+
 ## 日常のビュー
 
 | ビュー                                                                       | 読む目的                                                        |
