@@ -86,4 +86,28 @@ describe("ホームの最近参加したルーム", () => {
     expect(body.rooms[1].label).toBe("決定3");
     expect(JSON.stringify(body)).not.toMatch(/User4|inviteCode|authorId/);
   });
+
+  it("退出したルームは参加候補に残っていても出さない", async () => {
+    const me = user(7);
+    const other = user(8);
+    const room = await createRoomAs(other);
+    await joinRoomAs(me, room.inviteCode);
+    expect(
+      RecentRoomsResponseSchema.parse(await (await recentRooms(me)).json())
+        .rooms,
+    ).toHaveLength(1);
+    const left = await worker.fetch(
+      new Request(`https://api.test/api/rooms/${room.roomId}/leave`, {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookieFor(me),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ intent: "self" }),
+      }),
+      env,
+    );
+    expect(left.status).toBe(204);
+    expect(await (await recentRooms(me)).json()).toEqual({ rooms: [] });
+  });
 });
