@@ -1,5 +1,0 @@
-/* 開始待ちの PC と同じく、パネルの高さで表示を切り替える。 */
-.fixedHeight.fixedHeight {
-  container-type: size;
-  overflow: auto;
-}
