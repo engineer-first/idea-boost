@@ -27,19 +27,24 @@ describe("llms.txt", () => {
       expect(text).toContain(`${step.title}：${step.description}`);
     }
     for (const item of ja.faq.items) {
-      expect(text).toContain(`### ${item.question}\n\n${item.answer}`);
+      expect(text).toContain(`- ${item.question} ${item.answer}`);
     }
   });
 
   it("日本語と英語の LP、保存とプライバシーへのリンクを示す", () => {
-    expect(text).toContain("](https://ideaboost.dev/)");
-    expect(text).toContain("](https://ideaboost.dev/en)");
-    expect(text).toContain("](https://ideaboost.dev/privacy)");
+    expect(text).toContain("](https://ideaboost.dev/): ");
+    expect(text).toContain("](https://ideaboost.dev/en): ");
+    expect(text).toContain("](https://ideaboost.dev/privacy): ");
   });
 
   it("英語で読む AI のために英語の要約も載せる", () => {
-    expect(text).toContain("## English");
+    expect(text).toContain("**English**");
     expect(text).toContain(en.description);
+  });
+
+  it("H2 はリンク一覧だけに使い、説明の中に見出しを置かない", () => {
+    const headings = text.split("\n").filter((line) => line.startsWith("#"));
+    expect(headings).toEqual(["# Idea Boost", "## リンク"]);
   });
 
   it("Google の製品ではないことを明記する", () => {
