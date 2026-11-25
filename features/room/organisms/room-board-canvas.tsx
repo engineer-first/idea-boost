@@ -1375,8 +1375,9 @@ export function RoomBoardCanvas({
           </div>
         </div>
         {usesIdeaMapViewport ? (
+          // 3-3以降はマップ面がこの帯の下まで広がるので、右端の付箋への操作を通す。
           <div
-            className={`${styles.ideaMapRail} relative z-30 shrink-0 -translate-x-3 max-[639px]:hidden`}
+            className={`${styles.ideaMapRail} pointer-events-none relative z-30 shrink-0 -translate-x-3 max-[639px]:hidden`}
             data-testid="idea-map-workspace-rail"
             aria-hidden="true"
           />
