@@ -89,7 +89,19 @@ export function SharingPresenter({
     const currentElement = orderRef.current?.querySelector<HTMLElement>(
       `[data-user-id="${currentPresenterId}"]`,
     );
-    currentElement?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    // アバターの隣の「発表中」と名前まで見えるよう、ラベルを含む塊ごと寄せる。
+    const target = currentElement?.parentElement ?? currentElement;
+    const reveal = () =>
+      target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    reveal();
+    // Web フォントの読込で名前の幅が変わると端が切れるため、読込後に寄せ直す。
+    let active = true;
+    void document.fonts?.ready.then(() => {
+      if (active) reveal();
+    });
+    return () => {
+      active = false;
+    };
   }, [currentPresenterId]);
   const otherMembers = members.filter(
     (member) => !sharing.order.some((entry) => entry.userId === member.userId),
@@ -104,8 +116,10 @@ export function SharingPresenter({
           aria-describedby={descriptionId}
           className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-lg border-border bg-primary-soft px-2 text-left hover:bg-muted max-[900px]:min-w-[220px] max-[900px]:flex-1"
         >
+          {/* ボタンの中はフォーカスを置けないので、手で送るスクロール領域にしない。
+              はみ出す分は隠し、今の発表者へは scrollIntoView で寄せる。全員は押して開く一覧で見る。 */}
           <span
-            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
             data-testid="sharing-order"
             ref={orderRef}
           >

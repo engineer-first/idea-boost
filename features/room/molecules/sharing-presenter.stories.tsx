@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { buildSharingState } from "@/contracts/room-protocol.fixture";
+import {
+  buildMembers,
+  buildSharingState,
+} from "@/contracts/room-protocol.fixture";
 import { SharingPresenter } from "./sharing-presenter";
 
 const meta = {
@@ -26,6 +29,26 @@ export const Active: Story = {
       status: "active",
       currentIndex: 1,
       results: ["done"],
+    }),
+  },
+};
+// 人数が多く、並びが枠に収まらない。今の発表者（後ろのほう）へ寄せて見せる。
+export const ManyPresenters: Story = {
+  args: {
+    sharing: buildSharingState({
+      order: buildMembers(10, "11111111-1111-4111-8111-111111111111"),
+      status: "active",
+      currentIndex: 8,
+      results: [
+        "done",
+        "done",
+        "passed",
+        "done",
+        "done",
+        "done",
+        "done",
+        "done",
+      ],
     }),
   },
 };

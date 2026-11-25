@@ -123,6 +123,44 @@ describe("共有する人の表示", () => {
     },
   );
 
+  it("人数が多くても今の発表者を枠内に見せ、並びを手で送るスクロール領域にしない", async () => {
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+    });
+    try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-sharingpresenter--many-presenters&viewMode=story`,
+      );
+      const order = page.getByTestId("sharing-order");
+      await order.waitFor();
+      // Web フォントの読込で名前の幅が変わった後も枠内に残ることを確かめる。
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(100);
+      const result = await order.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        const current = element.querySelector('[data-current="true"]');
+        if (!current) throw new Error("今の発表者がない");
+        // アバターだけでなく「発表中」と名前のラベルまで枠内に入れる。
+        const target = (
+          current.parentElement ?? current
+        ).getBoundingClientRect();
+        return {
+          // ボタンの中ではフォーカスを置けないため、axe の scrollable-region-focusable に当たる auto / scroll にしない。
+          overflowX: style.overflowX,
+          overflows: element.scrollWidth > element.clientWidth,
+          currentInside:
+            target.left >= box.left - 1 && target.right <= box.right + 1,
+        };
+      });
+      expect(result.overflows).toBe(true);
+      expect(["auto", "scroll"]).not.toContain(result.overflowX);
+      expect(result.currentInside).toBe(true);
+    } finally {
+      await page.close();
+    }
+  });
+
   it.each([
     "room-sharingpresenter--ready",
     "room-sharingpresenter--active",
