@@ -1,3 +1,5 @@
+import { startAnalytics } from "./lib/analytics/start-analytics";
+
 async function enableMocking() {
   if (process.env.NODE_ENV !== "development") return;
   if (process.env.NEXT_PUBLIC_USE_MSW !== "true") return;
@@ -13,3 +15,5 @@ async function enableMocking() {
 }
 
 void enableMocking();
+
+void startAnalytics();
