@@ -96,6 +96,17 @@ describe("AppHeader", () => {
     expect(screen.queryByTestId("app-header")).not.toBeInTheDocument();
   });
 
+  it.each(["/about", "/en/about"])(
+    "LP（%s）では LP 自身のヘッダーを使うため共通ヘッダーを表示しない",
+    async (pathname) => {
+      navigationMocks.pathname = pathname;
+
+      await renderHeader(<AppHeader userName="田中太郎" />);
+
+      expect(screen.queryByTestId("app-header")).not.toBeInTheDocument();
+    },
+  );
+
   it("スプリント開始前のロビーでは共通ヘッダーを表示する", async () => {
     navigationMocks.pathname =
       "/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/start";
@@ -136,9 +147,9 @@ it("控えめなユーザーメニューから表示名の変更を開ける", a
   ).toBeInTheDocument();
 });
 
+// 共通ヘッダーを出す画面。LP（/about）は LP 自身のヘッダーを使うので含めない。
 const headerPaths = [
   "/home",
-  "/about",
   "/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/start",
   "/invite/ABC123",
   "/shared-outcomes",
