@@ -1,5 +1,6 @@
 import {
   ChartScatter,
+  Check,
   Group,
   type LucideIcon,
   Megaphone,
@@ -53,24 +54,31 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
             <span aria-hidden="true" className={styles.howToNumber}>
               1
             </span>
-            <span>
-              <strong>各ステップで</strong>やることをやる
-            </span>
+            <span className={styles.howToText}>各ステップのやることをやる</span>
           </li>
           <li>
             <span aria-hidden="true" className={styles.howToNumber}>
               2
             </span>
-            <span>
-              <strong>「できた！」</strong>を押す
+            <span className={styles.howToText}>
+              終わったら
+              {/* 押せない見本。実際のボタンと同じ形で、どれを押すかを伝える。 */}
+              <span className={styles.readySample}>
+                <span aria-hidden="true" className={styles.readyMark}>
+                  <Check className="size-3.5" strokeWidth={2.5} />
+                </span>
+                できた！
+              </span>
+              を押す
             </span>
           </li>
           <li>
             <span aria-hidden="true" className={styles.howToNumber}>
               3
             </span>
-            <span>
-              全員そろったら<strong>「次のステップへ」</strong>
+            <span className={styles.howToText}>
+              全員そろったら
+              <span className={styles.nextSample}>次のステップへ</span>
             </span>
           </li>
         </ol>
@@ -109,7 +117,7 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                       data-kind={step.kind}
                     >
                       <span aria-hidden="true" className={styles.icon}>
-                        <Icon className="size-3.5" />
+                        <Icon className="size-4" />
                       </span>
                       <span className={styles.name}>
                         <span className={styles.number}>{step.number}</span>{" "}

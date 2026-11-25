@@ -1,71 +1,92 @@
+/* 白地に置き、文字の大きさと太さで強弱を付ける。収まらなければパネルの中をスクロールして読む。 */
 .guide {
   container: lobby-guide / inline-size;
   min-width: 0;
+  border: 1px solid var(--ib-color-line);
   border-radius: var(--ib-rounded-lg);
-  background: var(--ib-color-surface-muted);
+  background: var(--ib-color-surface);
   color: var(--ib-color-ink);
 }
 .inner {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px;
+  gap: 12px;
+  padding: 20px;
 }
 .title {
   margin: 0;
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 20px;
+  line-height: 28px;
   font-weight: 700;
 }
 
 .howTo {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-  margin: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 12px;
   padding: 0;
   list-style: none;
 }
 .howTo li {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
-  border-radius: var(--ib-rounded-lg);
-  background: var(--ib-color-surface);
-  padding: 8px 10px;
-  font-size: 12px;
-  line-height: 18px;
-}
-/* ボタンの名前は途中で折り返さない。 */
-.howTo li strong {
-  display: inline-block;
-  font-weight: 700;
-}
-/* カードの間の矢印。読み上げには順序付きリストの順番で伝わる。 */
-.howTo li + li::before {
-  position: absolute;
-  top: 50%;
-  left: -16px;
-  width: 12px;
-  color: var(--ib-color-muted);
-  font-size: 12px;
-  line-height: 1;
-  text-align: center;
-  translate: 0 -50%;
-  content: "→";
+  font-size: 16px;
+  line-height: 24px;
 }
 .howToNumber {
   display: inline-flex;
-  float: left;
-  margin-right: 6px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ib-rounded-full);
+  background: var(--ib-color-primary-soft);
+  color: var(--ib-color-primary-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+.howToText {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+/* 実際のボタンに近い形の見本。押せないので影や手の形は付けない。 */
+.readySample,
+.nextSample {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--ib-rounded-lg);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.readySample {
+  border: 1px solid var(--ib-color-line-strong);
+  background: var(--ib-color-surface);
+  color: var(--ib-color-ink);
+}
+.readyMark {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 20px;
   height: 20px;
   border-radius: var(--ib-rounded-full);
-  background: var(--ib-color-primary-soft);
-  color: var(--ib-color-primary-strong);
-  font-size: 12px;
-  font-weight: 700;
+  background: var(--ib-color-surface-muted);
+}
+.nextSample {
+  background: var(--ib-color-primary);
+  color: var(--ib-color-on-primary);
 }
 
 .flowHeading {
@@ -73,11 +94,14 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
+  border-top: 1px solid var(--ib-color-line);
+  padding-top: 16px;
 }
 .total {
   color: var(--ib-color-muted);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
 }
 .phases,
 .steps {
@@ -88,50 +112,46 @@
 .phases {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
 }
 .phase {
   min-width: 0;
-  border-radius: var(--ib-rounded-lg);
-  background: var(--ib-color-surface);
-  padding: 4px 12px 6px;
 }
 .phaseHeading {
-  margin: 0;
+  margin: 0 0 6px;
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  padding-bottom: 2px;
-  font-size: 12px;
-  line-height: 20px;
+  font-size: 18px;
+  line-height: 28px;
   font-weight: 700;
 }
 .steps {
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 .step {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   grid-template-areas:
     "icon name minutes"
     ". action action";
   align-items: center;
-  column-gap: 8px;
-  padding-block: 1px;
-  font-size: 12px;
-  line-height: 18px;
+  column-gap: 10px;
+  font-size: 16px;
+  line-height: 24px;
 }
 .icon {
   grid-area: icon;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--ib-rounded-full);
   background: var(--ib-color-surface-muted);
-  color: var(--ib-color-muted);
+  color: var(--ib-color-ink);
 }
 .name {
   grid-area: name;
@@ -147,9 +167,12 @@
   grid-area: action;
   min-width: 0;
   color: var(--ib-color-muted);
+  font-size: 14px;
+  line-height: 20px;
 }
 .minutes {
   color: var(--ib-color-muted);
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -157,48 +180,10 @@
   grid-area: minutes;
 }
 
-/* 幅があれば1ステップを1行にし、名前・やること・時間を横に並べる。 */
-@container lobby-guide (min-width: 500px) {
-  .step {
-    grid-template-columns: 20px minmax(0, 18.5em) minmax(0, 1fr) auto;
-    grid-template-areas: "icon name action minutes";
-  }
-}
-
-/* 狭い幅ではカードを縦に積み、矢印を下向きにする。 */
+/* 狭い幅では余白を詰める。見本のボタンは収まらなければ次の行へ送る。 */
 @container lobby-guide (max-width: 359px) {
-  .howTo {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-  }
-  .howTo li + li::before {
-    top: -14px;
-    left: 50%;
-    translate: -50% 0;
-    content: "↓";
-  }
-}
-
-/* PC の低い画面や細いパネルでは、フェーズを横に3列並べ、やることを畳んで名前と時間だけ見せる。 */
-@container lobby-guide (max-height: 599px) or (
-  (max-width: 499px) and (max-height: 869px)
-) {
-  .phases {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: start;
-  }
-  .phase {
-    padding-inline: 8px;
-  }
-  .step {
-    grid-template-columns: 20px minmax(0, 1fr) auto;
-    grid-template-areas: "icon name minutes";
-    align-items: start;
-    column-gap: 4px;
-  }
-  .action {
-    display: none;
+  .inner {
+    padding: 16px;
   }
 }
 

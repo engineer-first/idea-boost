@@ -157,31 +157,39 @@ test.each([
   { story: "host-twenty", width: 1280, height: 699 },
   { story: "host-four", width: 1366, height: 542 },
 ])(
-  "PCの待機領域 $width px × $height px で $story の進み方と全ステップをスクロールなしで表示する",
+  "PCの待機領域 $width px × $height px で $story の進み方と全ステップを14px以上の文字でパネル内のスクロールで読める",
   async ({ story, width, height }) => {
     await open(story, width, height);
     const guide = page.getByTestId("lobby-flow-guide");
-    const layout = await guide.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const items = [...element.querySelectorAll("li")].map((item) =>
-        item.getBoundingClientRect(),
-      );
-      return {
-        guide: rect.toJSON(),
-        scrolls: element.scrollHeight > element.clientHeight + 1,
-        items: items.map((item) => item.toJSON()),
-      };
-    });
     await page.screenshot({
       path: `test-results/board-layout/lobby-flow-guide-${width}-${height}-${story}.png`,
     });
+    const layout = await guide.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const items = [...element.querySelectorAll("li")];
+      const fontSizes = [...element.querySelectorAll("li, li *")]
+        .filter((node) =>
+          [...node.childNodes].some(
+            (child) =>
+              child.nodeType === Node.TEXT_NODE &&
+              child.textContent?.trim() !== "",
+          ),
+        )
+        .map((node) => Number.parseFloat(getComputedStyle(node).fontSize));
+      // 最後のステップまでパネルの中で送れること。
+      items.at(-1)?.scrollIntoView({ block: "end" });
+      const last = items.at(-1)?.getBoundingClientRect();
+      return {
+        guide: rect.toJSON(),
+        count: items.length,
+        minFontSize: Math.min(...fontSizes),
+        last: last?.toJSON(),
+      };
+    });
     // 進み方3枚・フェーズ3つ・ステップ14件。
-    expect(layout.items).toHaveLength(20);
-    expect(layout.scrolls).toBe(false);
-    for (const item of layout.items) {
-      expect(item.top).toBeGreaterThanOrEqual(layout.guide.top);
-      expect(item.bottom).toBeLessThanOrEqual(layout.guide.bottom);
-    }
+    expect(layout.count).toBe(20);
+    expect(layout.minFontSize).toBeGreaterThanOrEqual(14);
+    expect(layout.last?.bottom).toBeLessThanOrEqual(layout.guide.bottom + 1);
     expect(layout.guide.bottom).toBeLessThanOrEqual(height);
     const stage = await page.getByTestId("room-members").boundingBox();
     expect((stage?.x ?? 0) - layout.guide.right).toBeGreaterThanOrEqual(16);
