@@ -5059,15 +5059,25 @@ it("追加執筆中は停止中タイマーの中央案内で付箋エリアを�
 });
 
 it.each([1, 3] as const)(
-  "フェーズ%dの整理・評価から追加執筆へ戻る操作を表示する",
+  "フェーズ%dの整理・評価では、共有と同じ上部の操作欄から追加執筆へ戻る",
   (phaseNumber) => {
     const { props } = setup({
       phase: buildPhaseStep(3, phaseNumber),
       onRestartWriting: vi.fn(),
     });
-    fireEvent.click(screen.getByRole("button", { name: "付箋を書き足す" }));
+    expect(
+      screen.getAllByRole("button", { name: "付箋を書き足す" }),
+    ).toHaveLength(1);
+    const controls = within(screen.getByTestId("board-control-hud"));
+    fireEvent.click(controls.getByRole("button", { name: "付箋を書き足す" }));
+    const dialog = screen.getByRole("alertdialog", {
+      name: `全員で${phaseNumber}-1に戻って、付箋を書き足しますか？`,
+    });
+    expect(dialog).toHaveAccessibleDescription(
+      "共有済みの付箋と下書きは残ります。",
+    );
     fireEvent.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", {
+      within(dialog).getByRole("button", {
         name: "付箋を書き足す",
       }),
     );

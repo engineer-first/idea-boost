@@ -7,6 +7,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -20,6 +21,8 @@ export type RestartWritingConfirmDialogProps = {
   phaseNumber: RoomStepPhase["phase"];
   disabled: boolean;
   pending?: boolean;
+  /** 狭い画面（900px 以下）で文字を隠し、アイコンだけのボタンにする。ほかの操作と1段に並べるときに使う。 */
+  compactOnNarrow?: boolean;
   onConfirm: () => void;
 };
 
@@ -27,6 +30,7 @@ export function RestartWritingConfirmDialog({
   phaseNumber,
   disabled,
   pending = false,
+  compactOnNarrow = false,
   onConfirm,
 }: RestartWritingConfirmDialogProps) {
   const [open, setOpen] = useState(false);
@@ -46,21 +50,21 @@ export function RestartWritingConfirmDialog({
         <Button
           type="button"
           variant="outline"
-          className={`h-10 shrink-0 text-sm ${styles.trigger}`}
+          className={`h-10 shrink-0 text-sm ${styles.trigger} ${compactOnNarrow ? styles.compactOnNarrow : ""}`}
+          title={compactOnNarrow ? label : undefined}
           disabled={disabled || pending}
           aria-busy={waiting || undefined}
-          title="全員で個人作業へ戻ります。共有済み付箋と下書きは残ります。"
         >
           <SquarePen aria-hidden="true" className={styles.icon} />
           <span
             key={label}
-            className="inline-block transition-[opacity,translate] duration-[140ms] starting:translate-y-0.5 starting:opacity-0 motion-reduce:transition-none"
+            className={`${styles.label} inline-block transition-[opacity,translate] duration-[140ms] starting:translate-y-0.5 starting:opacity-0 motion-reduce:transition-none`}
           >
             {label}
           </span>
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent aria-describedby={undefined}>
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle
             className="text-balance"
@@ -72,6 +76,9 @@ export function RestartWritingConfirmDialog({
             <wbr />
             <span className="inline-block">付箋を書き足しますか？</span>
           </AlertDialogTitle>
+          <AlertDialogDescription>
+            共有済みの付箋と下書きは残ります。
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="max-[400px]:px-1 max-[400px]:text-sm">

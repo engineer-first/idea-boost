@@ -49,3 +49,20 @@
     transform: none;
   }
 }
+
+/* 狭い画面で「できた！」などと1段に並べるため、文字を読み上げ用に残してアイコンだけにする。 */
+@media (max-width: 900px) {
+  .compactOnNarrow {
+    width: 40px;
+    padding-inline: 0;
+  }
+
+  .compactOnNarrow .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

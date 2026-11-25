@@ -26,6 +26,14 @@ export const Issue: Story = {};
 export const Question: Story = { args: { phaseNumber: 2 } };
 export const Idea: Story = { args: { phaseNumber: 3 } };
 export const Disconnected: Story = { args: { disabled: true } };
+/** 確認を開いたまま止め、戻り先と残るものの説明を目で確かめる。 */
+export const Open: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "付箋を書き足す" }),
+    );
+  },
+};
 export const Pending: Story = {
   render: function PendingRestart(args) {
     const [pending, setPending] = useState(false);

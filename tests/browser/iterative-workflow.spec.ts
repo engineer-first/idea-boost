@@ -147,13 +147,13 @@ for (const { phase, count } of phases) {
       const loop = page.getByTestId("phase-loop-hud");
       const loopButtons = loop.getByRole("button");
       const canRestartWriting = step === 3 && (phase === 1 || phase === 3);
-      expect(await loopButtons.count()).toBe(
-        isResult ? 2 : canRestartWriting ? 1 : 0,
-      );
-      if (canRestartWriting)
-        await expectReachable(
-          loop.getByRole("button", { name: "付箋を書き足す" }),
-        );
+      expect(await loopButtons.count()).toBe(isResult ? 2 : 0);
+      // 書き足しは共有ステップと同じ上部の操作欄の1か所から出す。
+      const addMore = page
+        .getByTestId("board-control-hud")
+        .getByRole("button", { name: "付箋を書き足す" });
+      expect(await addMore.count()).toBe(canRestartWriting ? 1 : 0);
+      if (canRestartWriting) await expectReachable(addMore);
       if (isResult) {
         const boxes = await loopButtons.evaluateAll((elements) =>
           elements.map((element) => element.getBoundingClientRect().toJSON()),
@@ -236,15 +236,16 @@ test("共有一巡後の書き足し操作は上部の操作欄から選べる",
     exact: true,
   });
   await expectReachable(trigger);
-  expect(await trigger.getAttribute("title")).toContain(
-    "共有済み付箋と下書きは残",
-  );
   await trigger.press("Enter");
   const dialog = page.getByRole("alertdialog", {
     name: "全員で1-1に戻って、付箋を書き足しますか？",
   });
   await dialog.waitFor();
   await expectReadable(dialog);
+  // 押した結果（全員が戻ること、残るもの）は確認の中で示す。
+  expect(await dialog.textContent()).toContain(
+    "共有済みの付箋と下書きは残ります。",
+  );
   await dialog.getByRole("button", { name: "キャンセル" }).click();
   await dialog.waitFor({ state: "hidden" });
   expect(await trigger.isVisible()).toBe(true);

@@ -13,13 +13,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  isRestartWritingAllowedStep,
-  isResultStep,
-  type RoomPhase,
-} from "@/contracts/phase";
+import { isResultStep, type RoomPhase } from "@/contracts/phase";
 import { AdoptNoteControl } from "./adopt-note-control";
-import { RestartWritingConfirmDialog } from "./restart-writing-confirm-dialog";
 
 export type PhaseLoopControlsProps = {
   phase: RoomPhase;
@@ -28,8 +23,6 @@ export type PhaseLoopControlsProps = {
   candidateCount: number;
   disabled: boolean;
   selectionDisabled?: boolean;
-  pending?: boolean;
-  onRestartWriting: () => void;
   onRevote: () => void;
   onStartSelection: () => void;
   onCancelSelection: () => void;
@@ -43,18 +36,13 @@ export function PhaseLoopControls({
   candidateCount,
   disabled,
   selectionDisabled = false,
-  pending = false,
-  onRestartWriting,
   onRevote,
   onStartSelection,
   onCancelSelection,
   onClearDecision,
 }: PhaseLoopControlsProps) {
   const [revoteOpen, setRevoteOpen] = useState(false);
-  if (phase.kind !== "step") return null;
-  const isResult = isResultStep(phase);
-  const canRestart = isRestartWritingAllowedStep(phase);
-  if (!isResult && !canRestart) return null;
+  if (phase.kind !== "step" || !isResultStep(phase)) return null;
   if (decisionContent !== null)
     return (
       <AdoptNoteControl
@@ -65,12 +53,12 @@ export function PhaseLoopControls({
         disabled={disabled || selectionDisabled}
         onStartSelection={onStartSelection}
         onCancelSelection={onCancelSelection}
-        onClearDecision={isResult ? onClearDecision : undefined}
+        onClearDecision={onClearDecision}
       />
     );
   return (
     <div className="flex max-w-full flex-col items-center gap-2">
-      {isResult && candidateCount === 0 ? (
+      {candidateCount === 0 ? (
         <p
           role="status"
           className="rounded-lg border bg-background px-4 py-2 text-sm"
@@ -79,14 +67,7 @@ export function PhaseLoopControls({
         </p>
       ) : null}
       <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl border border-border bg-background p-2 shadow-tool">
-        {!isSelecting && canRestart ? (
-          <RestartWritingConfirmDialog
-            phaseNumber={phase.phase}
-            disabled={disabled}
-            pending={pending}
-            onConfirm={onRestartWriting}
-          />
-        ) : !isSelecting ? (
+        {!isSelecting ? (
           <AlertDialog open={revoteOpen} onOpenChange={setRevoteOpen}>
             <AlertDialogTrigger asChild>
               <Button
@@ -118,17 +99,15 @@ export function PhaseLoopControls({
             </AlertDialogContent>
           </AlertDialog>
         ) : null}
-        {isResult ? (
-          <AdoptNoteControl
-            phaseNumber={phase.phase}
-            canSelect={isResult}
-            isSelecting={isSelecting}
-            decisionContent={null}
-            disabled={disabled || selectionDisabled || candidateCount === 0}
-            onStartSelection={onStartSelection}
-            onCancelSelection={onCancelSelection}
-          />
-        ) : null}
+        <AdoptNoteControl
+          phaseNumber={phase.phase}
+          canSelect
+          isSelecting={isSelecting}
+          decisionContent={null}
+          disabled={disabled || selectionDisabled || candidateCount === 0}
+          onStartSelection={onStartSelection}
+          onCancelSelection={onCancelSelection}
+        />
       </div>
     </div>
   );

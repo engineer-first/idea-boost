@@ -38,6 +38,7 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   isPhaseStep,
+  isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
   type RoomPhase,
@@ -394,6 +395,12 @@ export function RoomBoardHeader({
     activeSharing.currentIndex !== null &&
     activeSharing.currentIndex === activeSharing.order.length - 1;
   const canCompleteSharing = activeSharing?.status === "complete";
+  // 書き足しは共有の一巡後と、その後の投票前のステップで、同じ上部の操作欄から出す。
+  const canRestartWriting =
+    canCompleteSharing ||
+    (isRestartWritingAllowedStep(phase) &&
+      phase.kind === "step" &&
+      phase.step > 2);
   const sharingDuration = activeSharing?.durationMs ?? 180000;
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
@@ -677,12 +684,13 @@ export function RoomBoardHeader({
                     : "あなたは作業中です"}
               </span>
             ) : null}
-            {canCompleteSharing && onRestartWriting && phase.kind === "step" ? (
+            {canRestartWriting && onRestartWriting && phase.kind === "step" ? (
               <RestartWritingConfirmDialog
                 key={`${phase.phase}:${phaseRevision}:${connectionStatus}`}
                 phaseNumber={phase.phase}
                 disabled={isDisconnected || isRemovingMember || isLeaving}
                 pending={isNextPhasePending}
+                compactOnNarrow={!canCompleteSharing}
                 onConfirm={onRestartWriting}
               />
             ) : null}

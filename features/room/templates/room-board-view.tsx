@@ -21,7 +21,6 @@ import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
   isPhaseStep,
-  isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
   type RoomPhase,
@@ -965,35 +964,29 @@ export function RoomBoardView({
       ? null
       : (notes.find((note) => note.id === decision.noteId)?.content ??
         "確定した内容");
-  const phaseLoopControls =
-    isResultStep(phase) ||
-    (isRestartWritingAllowedStep(phase) &&
-      phase.kind === "step" &&
-      phase.step !== 2) ? (
-      <PhaseLoopControls
-        key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
-        phase={phase}
-        isSelecting={isAdoptMode}
-        decisionContent={decisionContent}
-        candidateCount={candidateNotes.length}
-        disabled={
-          isDisconnected ||
-          isNextPhasePending ||
-          isCandidatePending ||
-          isRemovingMember
-        }
-        selectionDisabled={boardInteractionBlocked}
-        pending={isNextPhasePending}
-        onRestartWriting={onRestartWriting}
-        onRevote={onRevote}
-        onStartSelection={() => {
-          setSelectedNoteId(null);
-          setIsAdoptMode(true);
-        }}
-        onCancelSelection={() => setIsAdoptMode(false)}
-        onClearDecision={outcomePublished ? undefined : onDecisionClear}
-      />
-    ) : null;
+  const phaseLoopControls = isResultStep(phase) ? (
+    <PhaseLoopControls
+      key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
+      phase={phase}
+      isSelecting={isAdoptMode}
+      decisionContent={decisionContent}
+      candidateCount={candidateNotes.length}
+      disabled={
+        isDisconnected ||
+        isNextPhasePending ||
+        isCandidatePending ||
+        isRemovingMember
+      }
+      selectionDisabled={boardInteractionBlocked}
+      onRevote={onRevote}
+      onStartSelection={() => {
+        setSelectedNoteId(null);
+        setIsAdoptMode(true);
+      }}
+      onCancelSelection={() => setIsAdoptMode(false)}
+      onClearDecision={outcomePublished ? undefined : onDecisionClear}
+    />
+  ) : null;
 
   function hasActiveCanvasGesture(): boolean {
     return Boolean(
