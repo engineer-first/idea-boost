@@ -76,9 +76,9 @@ for (const width of widths(390, 1280)) {
             });
           await page.getByRole("button", { name: "招待", exact: true }).click();
         }
-        const copy = page.getByRole("button", { name: "招待URLをコピー" });
+        const copy = page.getByRole("button", { name: "招待リンクをコピー" });
         const code = page.getByRole("button", { name: "招待コードをコピー" });
-        const share = page.getByRole("button", { name: "招待URLを共有" });
+        const share = page.getByRole("button", { name: "招待リンクを共有" });
         await copy.waitFor();
         if (surface === "lobby") {
           await page
@@ -124,7 +124,8 @@ for (const width of widths(390, 1280)) {
             () => document.documentElement.dataset.copiedValue,
           ),
         ).toBe(inviteUrl);
-        expect(await copy.textContent()).toBe(inviteUrl);
+        // 画面にはURLの全文を出さない。
+        expect(await copy.textContent()).toBe("リンクをコピー");
         expect(
           await copy
             .locator("svg")
@@ -193,7 +194,7 @@ for (const width of widths(390, 1280)) {
         expect(
           await page
             .getByText(
-              "共有できませんでした。URLをコピーして送ってください。",
+              "共有できませんでした。リンクをコピーして送ってください。",
               { exact: true },
             )
             .count(),
@@ -215,7 +216,10 @@ for (const width of widths(390, 1280)) {
         await expect
           .poll(() => share.getAttribute("data-share-state"), { timeout: 3000 })
           .toBe("idle");
-        await page.keyboard.press("Tab");
+        // 招待コード → リンクをコピー → 共有の順に並ぶ。
+        await share.focus();
+        await page.keyboard.press("Shift+Tab");
+        await page.keyboard.press("Shift+Tab");
         expect(await code.evaluate((el) => el === document.activeElement)).toBe(
           true,
         );

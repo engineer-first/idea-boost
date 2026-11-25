@@ -39,10 +39,10 @@ export const Sharing: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      await canvas.findByRole("button", { name: "招待URLを共有" }),
+      await canvas.findByRole("button", { name: "招待リンクを共有" }),
     );
     await expect(
-      canvas.getByRole("button", { name: "招待URLを共有" }),
+      canvas.getByRole("button", { name: "招待リンクを共有" }),
     ).toBeDisabled();
   },
 };
@@ -54,10 +54,12 @@ export const Failed: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      await canvas.findByRole("button", { name: "招待URLを共有" }),
+      await canvas.findByRole("button", { name: "招待リンクを共有" }),
     );
     await expect(
-      canvas.getByText("共有できませんでした。URLをコピーして送ってください。"),
+      canvas.getByText(
+        "共有できませんでした。リンクをコピーして送ってください。",
+      ),
     ).toBeInTheDocument();
   },
 };

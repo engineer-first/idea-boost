@@ -73,7 +73,12 @@ function InviteUrlActionsContent({
           : "flex w-full min-w-0 flex-col items-end gap-1"
       }
     >
-      <CopyInviteButton value={value} itemLabel="招待URL" />
+      {/* URLの全文は見せず、押すとリンクをコピーする。 */}
+      <CopyInviteButton
+        value={value}
+        itemLabel="招待リンク"
+        label="リンクをコピー"
+      />
       {supported ? (
         <>
           <Button
@@ -83,10 +88,10 @@ function InviteUrlActionsContent({
             onClick={handleShare}
             disabled={pending}
             aria-busy={pending}
-            aria-label="招待URLを共有"
+            aria-label="招待リンクを共有"
             title={
               failed
-                ? "共有できませんでした。URLをコピーして送ってください。"
+                ? "共有できませんでした。リンクをコピーして送ってください。"
                 : "端末の共有メニューを開く"
             }
             data-share-state={failed ? "error" : "idle"}
@@ -104,7 +109,7 @@ function InviteUrlActionsContent({
             className="sr-only"
           >
             {failed
-              ? "共有できませんでした。URLをコピーして送ってください。"
+              ? "共有できませんでした。リンクをコピーして送ってください。"
               : ""}
           </span>
         </>

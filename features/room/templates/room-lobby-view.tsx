@@ -214,13 +214,12 @@ export function RoomLobbyView({
               <p>リンクやコードを送って、仲間を呼ぼう。</p>
             </div>
           </div>
-          <div className={styles.inviteUrl}>
-            <span>招待URL</span>
-            <InviteUrlActions value={inviteUrl} layout="inline" />
-          </div>
           <div className={styles.inviteCode}>
             <span>招待コード</span>
             <CopyInviteButton value={inviteCode} itemLabel="招待コード" />
+          </div>
+          <div className={styles.inviteUrl}>
+            <InviteUrlActions value={inviteUrl} layout="inline" />
           </div>
           <Button
             type="button"
@@ -230,8 +229,8 @@ export function RoomLobbyView({
             size="lg"
             className={styles.start}
           >
-            <Play size={20} aria-hidden="true" />
-            {isStarting ? "開始中…" : "セッションを開始"}
+            <Play size={20} aria-hidden="true" className="fill-current" />
+            {isStarting ? "開始中…" : "スタート"}
           </Button>
         </section>
 

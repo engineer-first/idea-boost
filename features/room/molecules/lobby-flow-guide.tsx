@@ -1,11 +1,11 @@
 import {
   ChartScatter,
-  Layers,
+  Group,
   type LucideIcon,
   Megaphone,
-  PenLine,
+  Pencil,
   Stamp,
-  Vote,
+  Sticker,
 } from "lucide-react";
 import { useId } from "react";
 import {
@@ -17,11 +17,13 @@ import styles from "./lobby-flow-guide.module.css";
 // 開始待ちの画面で、始める前に「進み方」と「全体の流れ」を見せる説明パネル。
 // 操作は持たない。ステップ名・目安時間・やることは進行の定義から出す。
 
+// 画面でやることそのものの絵にする。鉛筆で書く・メガホンで発表する・仲間分けする・
+// シールを貼る・はんこで決める・縦横の軸に置く。
 const KIND_ICONS: Record<LobbyFlowStepKind, LucideIcon> = {
-  write: PenLine,
+  write: Pencil,
   share: Megaphone,
-  group: Layers,
-  vote: Vote,
+  group: Group,
+  vote: Sticker,
   decide: Stamp,
   map: ChartScatter,
 };

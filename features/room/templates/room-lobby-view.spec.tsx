@@ -1,6 +1,7 @@
 // スタート画面のプレゼンテーション層の単体テスト。
 
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -38,11 +39,11 @@ function renderView(
 }
 
 describe("RoomLobbyView", () => {
-  it("ホストのとき「開始する」ボタンが表示される", () => {
+  it("開始ボタンは「▶ スタート」と示す", () => {
     renderView();
-    expect(screen.getByTestId("start-phase-button")).toHaveTextContent(
-      "セッションを開始",
-    );
+    const start = screen.getByTestId("start-phase-button");
+    expect(start).toHaveAccessibleName("スタート");
+    expect(start.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
   });
 
   it("非ホストのときも開始ボタンが表示される", () => {
@@ -205,14 +206,47 @@ describe("退出ボタン", () => {
   });
 });
 
-describe("招待URL/コード（host 限定表示）", () => {
-  it("非 host のときも招待URL/コードが出る", () => {
+describe("招待リンク/コード", () => {
+  it("招待コードと「リンクをコピー」を出し、URLの全文は出さない", () => {
+    renderView({
+      inviteCode: "ZZ99XX",
+      inviteUrl: "https://example/invite/ZZ99XX",
+    });
+    const invite = screen.getByTestId("room-lobby-view-invite");
+    expect(
+      within(invite).getByRole("button", { name: "招待リンクをコピー" }),
+    ).toHaveTextContent("リンクをコピー");
+    expect(
+      within(invite).getByRole("button", { name: "招待コードをコピー" }),
+    ).toHaveTextContent("ZZ99XX");
+    expect(invite).not.toHaveTextContent("https://example/invite/ZZ99XX");
+    expect(invite.innerHTML).not.toContain("https://example/invite/ZZ99XX");
+  });
+
+  it("「リンクをコピー」で招待URLをコピーする", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    renderView();
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "招待リンクをコピー" }),
+      ),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      "https://idea-flow.example/invite/AB12CD",
+    );
+  });
+
+  it("誰のときも招待リンク/コードが出る", () => {
     renderView({
       inviteCode: "ZZ99XX",
       inviteUrl: "https://example/invite/ZZ99XX",
     });
     expect(
-      screen.getByRole("button", { name: "招待URLをコピー" }),
+      screen.getByRole("button", { name: "招待リンクをコピー" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "招待コードをコピー" }),
@@ -231,7 +265,7 @@ it("招待URLの共有は明示操作からURLだけを送る", async () => {
     expect(share).not.toHaveBeenCalled();
     await userEvent
       .setup()
-      .click(screen.getByRole("button", { name: "招待URLを共有" }));
+      .click(screen.getByRole("button", { name: "招待リンクを共有" }));
     expect(share).toHaveBeenCalledExactlyOnceWith({
       url: "https://idea-flow.example/invite/AB12CD",
     });

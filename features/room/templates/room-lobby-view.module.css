@@ -289,7 +289,7 @@
 
 @media (min-width: 640px) {
   .inviteShelf {
-    grid-template-columns: minmax(0, 1fr) 130px;
+    grid-template-columns: 130px max-content;
   }
   .lobby {
     --lobby-gutter: 32px;
@@ -392,7 +392,8 @@
     display: none;
   }
   .inviteShelf {
-    grid-template-columns: minmax(0, 1fr) 128px auto;
+    /* コード・リンクのコピーは中身の幅にし、スタートを右端へ寄せる。 */
+    grid-template-columns: 128px max-content minmax(0, 1fr);
     gap: 8px 16px;
     padding-top: 12px;
   }
@@ -401,6 +402,7 @@
   }
   .start {
     position: static;
+    justify-self: end;
     width: auto;
     min-width: 180px;
     height: 48px;
@@ -431,7 +433,7 @@
 /* 右の列に余裕があり見出しを出す高さなら、招待の見出しも URL・コード・開始と同じ行に並べる。 */
 @media (min-width: 1400px) and (min-height: 761px) {
   .inviteShelf {
-    grid-template-columns: minmax(150px, 0.8fr) minmax(0, 1.4fr) 128px auto;
+    grid-template-columns: minmax(150px, 1fr) 128px max-content auto;
   }
   .inviteHeading {
     grid-column: auto;
