@@ -142,7 +142,20 @@ it("LoginCardはshowDevAuthがfalseの場合開発用ログインボタンを表
   ).not.toBeInTheDocument();
 });
 
-it("LoginCardでゲスト開始を押すとゲスト段階の見出しへフォーカスが移る", () => {
+it("LoginCardでゲスト開始を押すと名前の入力欄へフォーカスが移る", () => {
+  render(
+    <LoginCard
+      {...choiceProps}
+      guestForm={<input aria-label="仲間に表示される名前" />}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "ゲストではじめる" }));
+  expect(
+    screen.getByRole("textbox", { name: "仲間に表示される名前" }),
+  ).toHaveFocus();
+});
+
+it("LoginCardでゲスト開始を押し、入力欄が無い場合はゲスト段階の見出しへフォーカスが移る", () => {
   render(<LoginCard {...choiceProps} />);
   fireEvent.click(screen.getByRole("button", { name: "ゲストではじめる" }));
   expect(

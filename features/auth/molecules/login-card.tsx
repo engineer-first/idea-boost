@@ -55,13 +55,17 @@ export function LoginCard({
   const previousStep = useRef(step);
   const guestHeadingId = useId();
   const guestHeadingRef = useRef<HTMLHeadingElement>(null);
+  const guestSectionRef = useRef<HTMLElement>(null);
   const guestButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (previousStep.current === step) return;
     previousStep.current = step;
     if (step === "guest") {
-      guestHeadingRef.current?.focus();
+      // ゲスト段階でやることは名前の入力だけなので、入力欄へ直接フォーカスする。
+      const input = guestSectionRef.current?.querySelector("input");
+      if (input) input.focus();
+      else guestHeadingRef.current?.focus();
     } else {
       guestButtonRef.current?.focus();
     }
@@ -146,7 +150,11 @@ export function LoginCard({
             </button>
           </div>
         ) : (
-          <section className="space-y-4" aria-labelledby={guestHeadingId}>
+          <section
+            ref={guestSectionRef}
+            className="space-y-4"
+            aria-labelledby={guestHeadingId}
+          >
             <h2
               id={guestHeadingId}
               ref={guestHeadingRef}
