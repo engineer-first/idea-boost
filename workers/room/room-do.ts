@@ -61,6 +61,7 @@ import {
   WS_CLOSE_AUTH_REQUIRED_REASON,
   WS_CLOSE_LEFT_ROOM,
   WS_CLOSE_LEFT_ROOM_REASON,
+  WS_CLOSE_REMOVED_FROM_ROOM_REASON,
   WS_CLOSE_ROOM_DISBANDED,
   WS_CLOSE_ROOM_DISBANDED_REASON,
 } from "../../contracts/room-protocol";
@@ -872,6 +873,7 @@ export class RoomDO extends DurableObject {
     userId: string,
     outcomeAccess: LeaveOutcomeAccess,
     beforeRemove?: () => void,
+    removedByUserId?: string,
   ): void {
     if (!isMember(this.sql, userId)) return;
     let presenterPassed = false;
@@ -922,13 +924,20 @@ export class RoomDO extends DurableObject {
       // closeイベントの到着・同じIDの再参加を待たずに旧タブを無効にする。
       socket.serializeAttachment(null);
       try {
-        socket.close(WS_CLOSE_LEFT_ROOM, WS_CLOSE_LEFT_ROOM_REASON);
+        socket.close(
+          WS_CLOSE_LEFT_ROOM,
+          removedByUserId
+            ? WS_CLOSE_REMOVED_FROM_ROOM_REASON
+            : WS_CLOSE_LEFT_ROOM_REASON,
+        );
       } catch {
         // 既に閉じている接続も会員削除を妨げない。
       }
     }
     this.broadcaster.broadcastToAllExcept(
-      { type: "member_left", userId },
+      removedByUserId
+        ? { type: "member_left", userId, removedByUserId }
+        : { type: "member_left", userId },
       userId,
     );
     // 本人の接続を閉じた後に、残った参加者へ交代を知らせる。
@@ -1969,8 +1978,8 @@ export class RoomDO extends DurableObject {
       authorizeMutation: () =>
         this.broadcaster.isAuthorized(ws) && isMember(this.sql, userId),
       refreshSnapshots: () => this.refreshSnapshots(),
-      leaveMember: (targetUserId) => {
-        this.leaveMember(targetUserId, "discard");
+      leaveMember: (targetUserId, removedByUserId) => {
+        this.leaveMember(targetUserId, "discard", undefined, removedByUserId);
         this.ctx.waitUntil(this.flushLeave());
       },
     };

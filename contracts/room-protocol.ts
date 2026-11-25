@@ -720,6 +720,9 @@ export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
 export const WS_CLOSE_LEFT_ROOM = 4000;
 export const WS_CLOSE_LEFT_ROOM_REASON = "left the room";
+// ほかの参加者に外されたときも code は個人退出と同じにし、旧クライアントでも
+// 再接続せずホームへ戻す。reason だけで本人への案内を出し分ける。
+export const WS_CLOSE_REMOVED_FROM_ROOM_REASON = "removed from the room";
 export const WS_CLOSE_ROOM_DISBANDED = 4001;
 export const WS_CLOSE_ROOM_DISBANDED_REASON = "room disbanded";
 
@@ -944,6 +947,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("member_left"),
     userId: z.guid(),
+    // ほかの参加者に外された場合だけ、外した人を載せる。自分で退出した場合は無い。
+    removedByUserId: z.guid().optional(),
   }),
   z.strictObject({
     type: z.literal("member_vote_status"),

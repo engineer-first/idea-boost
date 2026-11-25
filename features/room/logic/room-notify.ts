@@ -37,6 +37,18 @@ export const roomNotify = {
   memberLeft(name: string): void {
     toast(`${name} さんが退出しました`);
   },
+  // ほかの参加者がルームから外されたとき。外した本人には操作の結果として伝える。
+  memberRemoved(name: string, removedByMe: boolean): void {
+    toast(
+      removedByMe
+        ? `${name} さんをルームから外しました`
+        : `${name} さんがルームから外されました`,
+    );
+  },
+  // 自分がほかの参加者にルームから外されたとき。
+  removedFromRoom(): void {
+    toast("ほかの参加者にルームから外されました");
+  },
   // 自分からルームを退出したとき。
   roomLeft(): void {
     toast("ルームから退出しました");

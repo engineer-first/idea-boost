@@ -738,6 +738,19 @@ describe("ServerMessageSchema", () => {
     });
   });
 
+  it("member_left は外した人を任意で受け入れ、UUID 以外は拒否する", () => {
+    const removed = {
+      type: "member_left",
+      userId: "11111111-1111-4111-8111-111111111111",
+      removedByUserId: "22222222-2222-4222-8222-222222222222",
+    };
+    expect(ServerMessageSchema.parse(removed)).toEqual(removed);
+    expect(
+      ServerMessageSchema.safeParse({ ...removed, removedByUserId: "x" })
+        .success,
+    ).toBe(false);
+  });
+
   it("member_left は userId が必要", () => {
     expect(ServerMessageSchema.safeParse({ type: "member_left" }).success).toBe(
       false,

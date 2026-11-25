@@ -21,7 +21,7 @@ export const memberRemovalHandlers: MessageHandlers<"member:remove"> = {
     }
     // ここまでの認可と会員削除は、同じDOイベント内で同期的に完結する。
     // 未接続のメンバーも対象とし、付箋・票・色の履歴は通常退出と同様に保持する。
-    ctx.leaveMember(message.targetUserId);
+    ctx.leaveMember(message.targetUserId, ctx.userId);
     ctx.reply({
       type: "member:removed",
       targetUserId: message.targetUserId,

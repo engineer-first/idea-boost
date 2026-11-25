@@ -127,7 +127,11 @@ export function RoomBoard({
   const bulkUndoIdsRef = useRef(new Set<string>());
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
-  const roomState = useRoomState({ initialMembers, initialPhase });
+  const roomState = useRoomState({
+    initialMembers,
+    initialPhase,
+    currentUserId,
+  });
   // ルーム完了後は、既存の成果詳細画面へ移動する。
   useEffect(() => {
     if (!roomState.outcomePublished) return;

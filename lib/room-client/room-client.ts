@@ -12,6 +12,7 @@ import {
   WS_CLOSE_AUTH_REQUIRED_REASON,
   WS_CLOSE_LEFT_ROOM,
   WS_CLOSE_LEFT_ROOM_REASON,
+  WS_CLOSE_REMOVED_FROM_ROOM_REASON,
   WS_CLOSE_ROOM_DISBANDED,
   WS_CLOSE_ROOM_DISBANDED_REASON,
 } from "@/contracts/room-protocol";
@@ -28,13 +29,15 @@ export type RoomSocketFactory = (url: string) => WebSocket;
 // - closed: 予期しない切断（再接続待ち）
 // - auth-required: 認証期限切れ（再接続しない・同じタブで下書きを保護）
 // - ended: 個人の退出など（再接続しない・ホームへ）
+// - removed: ほかの参加者に外された（再接続しない・ホームへ）
 // close() によるクライアント主導の終了では通知しない。
 export type RoomConnectionStatus =
   | "auth-required"
   | "connecting"
   | "open"
   | "closed"
-  | "ended";
+  | "ended"
+  | "removed";
 
 export type RoomClientOptions = {
   url: string;
@@ -151,10 +154,14 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
         options.onStatusChange?.("ended");
         return;
       }
-      // 個人退出: 再接続せず ended
+      // 個人退出: 再接続せず ended。ほかの参加者に外されたときは removed。
       if (isLeftRoomClose(event)) {
         stop();
-        options.onStatusChange?.("ended");
+        options.onStatusChange?.(
+          event.reason === WS_CLOSE_REMOVED_FROM_ROOM_REASON
+            ? "removed"
+            : "ended",
+        );
         return;
       }
       options.onStatusChange?.("closed");

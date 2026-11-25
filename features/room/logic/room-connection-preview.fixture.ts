@@ -178,7 +178,11 @@ export function createRoomConnectionPreview(
             active.disconnect();
             return;
           }
-          active.message({ type: "member_left", userId: message.targetUserId });
+          active.message({
+            type: "member_left",
+            userId: message.targetUserId,
+            removedByUserId: options.currentUserId ?? PREVIEW_SELF,
+          });
           active.message({
             type: "member:removed",
             targetUserId: message.targetUserId,

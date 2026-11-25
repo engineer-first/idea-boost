@@ -69,7 +69,11 @@ export function RoomLobby({
     request: Promise<string | null>;
   } | null>(null);
   const [isStarting, setIsStarting] = useState(false);
-  const roomState = useRoomState({ initialMembers, initialPhase });
+  const roomState = useRoomState({
+    initialMembers,
+    initialPhase,
+    currentUserId,
+  });
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearStartTimeout = useCallback(() => {
