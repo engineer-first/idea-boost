@@ -6,8 +6,9 @@ import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingContent } from "../logic/landing-content";
 
 import type { LandingEntry } from "../logic/landing-entry";
-import { landingCtaClass, landingLinkClass } from "../logic/landing-styles";
+import { landingCtaClass } from "../logic/landing-styles";
 import styles from "./landing.module.css";
+import { LandingCodeEntry } from "./landing-code-entry";
 import { LandingDemo } from "./landing-demo";
 
 export function LandingHeroSection({
@@ -104,13 +105,7 @@ export function LandingHeroSection({
           {locale === "en" ? " " : null}
           <a href="#landing-duration">{copy.heroNote.median}</a>
         </p>
-        {entry.showStartHelp && (
-          <div className={styles.heroHelp}>
-            <Link href={entry.href} className={landingLinkClass}>
-              {copy.join}
-            </Link>
-          </div>
-        )}
+        {entry.showCodeEntry && <LandingCodeEntry locale={locale} />}
       </div>
       <LandingDemo locale={locale} />
     </section>

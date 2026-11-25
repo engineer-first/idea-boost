@@ -35,6 +35,30 @@ it("通常開始の未ログインでは使い始め方に招待コードの入�
   expect(screen.getByText(copy.gettingStarted.codeHelp)).toBeInTheDocument();
 });
 
+it("通常開始のヒーローでは、その場で招待コードを入力して参加できる", () => {
+  const { rerender } = render(
+    <LandingView
+      locale="ja"
+      isLoggedIn={false}
+      entry={getLandingEntry(false)}
+    />,
+  );
+  expect(
+    screen.getByRole("textbox", { name: "招待コードをお持ちの方" }),
+  ).toBeInTheDocument();
+
+  rerender(
+    <LandingView
+      locale="ja"
+      isLoggedIn={false}
+      entry={getLandingEntry(false, "/invite/ABC123")}
+    />,
+  );
+  expect(
+    screen.queryByRole("textbox", { name: "招待コードをお持ちの方" }),
+  ).toBeNull();
+});
+
 it("検索エンジンと AI 向けに LP の構造化データを埋め込む", () => {
   const { container } = render(
     <LandingView
