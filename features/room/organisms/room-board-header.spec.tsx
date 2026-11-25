@@ -1672,14 +1672,14 @@ describe("共有の進行欄", () => {
           phase: buildPhaseStep(2),
         })}
         {...{
-          sharing: { ...sharing, startsAt: Date.now() + 2000 },
+          sharing: { ...sharing, currentIndex: 1, startsAt: Date.now() + 2000 },
           onSharingStart: vi.fn(),
           onSharingAdvance: vi.fn(),
         }}
       />,
     );
     expect(
-      screen.getByText(`${sharing.order[0].name}さんのターンです`),
+      screen.getByText(`${sharing.order[1].name}さんのターンです`),
     ).toBeInTheDocument();
     expect(screen.getByRole("timer")).toHaveTextContent("03:00");
     expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
@@ -1687,6 +1687,61 @@ describe("共有の進行欄", () => {
       screen.queryByRole("button", { name: "今回はパス" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId("step-guide")).not.toBeInTheDocument();
+  });
+  it("交代が終わって発表中になっても、ボード上部に発表者の名前を出し続ける", () => {
+    const active = { ...sharing, status: "active" as const, currentIndex: 1 };
+    render(
+      <RoomBoardHeader
+        {...setupProps({ phase: buildPhaseStep(2) })}
+        {...{
+          sharing: active,
+          onSharingStart: vi.fn(),
+          onSharingAdvance: vi.fn(),
+        }}
+      />,
+    );
+    expect(screen.getByTestId("sharing-current-presenter")).toHaveTextContent(
+      `${active.order[1].name}さんのターンです`,
+    );
+  });
+  it("自分の番なら発表者の表示を「あなたのターンです」にする", () => {
+    const active = { ...sharing, status: "active" as const, currentIndex: 0 };
+    render(
+      <RoomBoardHeader
+        {...setupProps({
+          phase: buildPhaseStep(2),
+          currentUserId: active.order[0].userId,
+        })}
+        {...{
+          sharing: active,
+          onSharingStart: vi.fn(),
+          onSharingAdvance: vi.fn(),
+        }}
+      />,
+    );
+    const banner = screen.getByTestId("sharing-current-presenter");
+    expect(banner).toHaveTextContent("あなたのターンです");
+    expect(banner).toHaveAttribute("data-self", "true");
+  });
+  it("共有が終わったら発表者の表示を消す", () => {
+    render(
+      <RoomBoardHeader
+        {...setupProps({ phase: buildPhaseStep(2) })}
+        {...{
+          sharing: {
+            ...sharing,
+            status: "complete" as const,
+            currentIndex: null,
+            results: sharing.order.map(() => "done" as const),
+          },
+          onSharingStart: vi.fn(),
+          onSharingAdvance: vi.fn(),
+        }}
+      />,
+    );
+    expect(
+      screen.queryByTestId("sharing-current-presenter"),
+    ).not.toBeInTheDocument();
   });
 });
 
