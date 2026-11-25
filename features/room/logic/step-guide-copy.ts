@@ -43,11 +43,11 @@ const SHARE_SLIDES: readonly StepGuideSlide[] = [
   {
     title: "自分の番が来たら発表して、次の人へ交代しよう。",
     description:
-      "発表する順番は画面上部で確認できます。自分の番が来たら、マイ付箋をボードへドラッグして内容を説明しましょう。発表が終わったら「次の人へ」を押して交代します。",
+      "発表する順番は画面上部で確認できます。自分の番が来たら、マイ付箋をボードへドラッグして内容を説明しましょう。発表が終わったら「できた！」を押して次の人へ交代します。",
     illustration: "share",
     videoSrc: "/onboarding/step-1-2.webm",
     illustrationAlt:
-      "前の人の発表を待ち、自分の番に付箋を共有して発表し、次の人へ交代する流れ",
+      "前の人の発表を待ち、自分の番に付箋を共有して発表し、「できた！」で次の人へ交代する流れ",
   },
 ];
 
@@ -238,7 +238,7 @@ export const STEP_GUIDE_DIAGRAM_COPY = {
   drag: "ドラッグ →",
   share: "② ボードへ出して説明",
   afterExplanation: "③ 説明が終わったら",
-  nextSpeaker: "次の人へ",
+  handOffButton: "できた！",
   subjective: DOT_VOTE_LABELS.subjective,
   objective: DOT_VOTE_LABELS.objective,
   subjectiveCriterion: DOT_VOTE_CRITERIA.subjective,

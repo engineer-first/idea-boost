@@ -134,7 +134,7 @@ describe("StepOneOnboardingSlide", () => {
       const next = screen.getByRole("button", { name: "次へ" });
       fireEvent.click(next);
       const video = await screen.findByLabelText(
-        "前の人の発表を待ち、自分の番に付箋を共有して発表し、次の人へ交代する流れ",
+        "前の人の発表を待ち、自分の番に付箋を共有して発表し、「できた！」で次の人へ交代する流れ",
       );
       expect(video).toBeVisible();
       expect(video).not.toHaveAttribute("autoplay");

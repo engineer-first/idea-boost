@@ -76,7 +76,7 @@ const FACILITATION_GUIDES: Record<
       firstAction: "画面上の「発表中」の名前を確認する。",
       visualExample: {
         caption: "発表の流れ（例）",
-        items: ["1人目が話す", "次の人へ", "2人目が話す"],
+        items: ["1人目が話す", "「できた！」で交代", "2人目が話す"],
         flow: true,
       },
       intro: "画面上の名前を見て、一人ずつ付箋を説明して共有しよう。",
@@ -196,7 +196,7 @@ const FACILITATION_GUIDES: Record<
       firstAction: "画面上の「発表中」の名前を確認する。",
       visualExample: {
         caption: "発表の流れ（例）",
-        items: ["1人目が話す", "次の人へ", "2人目が話す"],
+        items: ["1人目が話す", "「できた！」で交代", "2人目が話す"],
         flow: true,
       },
       intro: "決めた順番に、問いを1つずつ説明しながら共有しよう。",
@@ -285,7 +285,7 @@ const FACILITATION_GUIDES: Record<
       firstAction: "画面上の「発表中」の名前を確認する。",
       visualExample: {
         caption: "発表の流れ（例）",
-        items: ["1人目が話す", "次の人へ", "2人目が話す"],
+        items: ["1人目が話す", "「できた！」で交代", "2人目が話す"],
         flow: true,
       },
       intro: "一人ずつ解決策を説明し、2軸マップへ仮置きしよう。",

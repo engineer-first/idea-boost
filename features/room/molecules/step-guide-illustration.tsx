@@ -133,7 +133,7 @@ export function StepGuideIllustration({
             <MessageCircle aria-hidden />
             <span>{copy.afterExplanation}</span>
             <span className="rounded-full border bg-background px-3 py-2 text-sm font-semibold">
-              {copy.nextSpeaker}
+              {copy.handOffButton}
             </span>
           </div>
         </div>
