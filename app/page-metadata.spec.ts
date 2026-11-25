@@ -150,13 +150,31 @@ describe("招待URLのプレビュー", () => {
     expect(metadata.openGraph?.description).toBe(metadata.description);
   });
 
+  it("/invite/[inviteCode] は LP と同じ画像の大きいカードを出し、noindex のまま", async () => {
+    const top = await import("./page");
+    const { metadata } = await import("./invite/[inviteCode]/page");
+    expect(metadata.openGraph).toMatchObject({
+      title: metadata.title,
+      description: metadata.description,
+      images: top.metadata.openGraph?.images,
+    });
+    expect(metadata.twitter).toEqual({
+      card: "summary_large_image",
+      title: metadata.title,
+      description: metadata.description,
+      images: top.metadata.twitter?.images,
+    });
+    expect(isIndexed(resolve(metadata))).toBe(false);
+  });
+
   it("未ログインで招待URLから転送された /login は招待の説明を出す", async () => {
     const login = await import("./login/page");
     const invite = await import("./invite/[inviteCode]/page");
     const metadata = await login.generateMetadata({
       searchParams: Promise.resolve({ next: "/invite/ABC234" }),
     });
-    expect(metadata.description).toBe(invite.metadata.description);
+    // 未ログインのクローラーは転送先の /login を読むため、招待と同じカードを出す。
+    expect(metadata).toEqual(invite.metadata);
     expect(isIndexed(resolve(metadata))).toBe(false);
   });
 

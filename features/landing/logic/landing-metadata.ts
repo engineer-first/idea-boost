@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { AppLocale } from "@/lib/i18n/locale";
+import { SHARE_IMAGE } from "@/lib/share-image";
 import { getLandingContent } from "./landing-content";
 
 /** LP の言語ごとの URL。日本語の / を言語が分からないときの版（x-default）にする。 */
@@ -37,13 +38,13 @@ export function getLandingMetadata(locale: AppLocale): Metadata {
       locale: OG_LOCALES[locale],
       alternateLocale: [OG_LOCALES[other]],
       type: "website",
-      images: [{ url: "/brand/ogp.png", width: 1200, height: 630 }],
+      images: [SHARE_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: ["/brand/ogp.png"],
+      images: [SHARE_IMAGE.url],
     },
     // 同じ内容の /about も各言語の LP を正とし、互いの言語版を hreflang で示す。
     alternates: {
