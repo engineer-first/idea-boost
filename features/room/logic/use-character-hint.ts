@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isPersonalWritingStep, type RoomPhase } from "@/contracts/phase";
 import type { TimerState } from "@/contracts/room-protocol";
+import type { SharingTimeUpRole } from "./sharing-time-up-role";
 
 type CharacterHintOptions = {
   phase: RoomPhase;
@@ -11,12 +12,16 @@ type CharacterHintOptions = {
   noteCount: number;
   active?: boolean;
   tipsEnabled?: boolean;
+  // 共有工程の時間切れの一言を、発表者・聞く側・共有の終了で言い分ける。
+  sharingRole?: SharingTimeUpRole;
 };
 
 const HINTS = {
   empty: "思いついたことを、まず1枚書いてみよう。",
   warning: "残り30秒、今の考えをまとめよう。",
   ended: "時間になったよ、次の工程をみんなで確認しよう。",
+  sharingEndedPresenter: "時間になったよ、次の人にバトンを渡そう。",
+  sharingEndedListener: "時間になったよ、発表を最後まで聞こう。",
 } as const;
 
 // タイマー開始からの経過時間。この時刻にコツを1つずつ出す。
@@ -125,6 +130,7 @@ export function useCharacterHint({
   noteCount,
   active = true,
   tipsEnabled = true,
+  sharingRole = "presenter",
 }: CharacterHintOptions): { message: string | null } {
   // 同じ文言の案内でも15秒を数え直すよう、表示ごとに新しいオブジェクトにする。
   // timed は残り時間・時間切れの案内。次のタイマーでは古くなるので印を付ける。
@@ -224,8 +230,13 @@ export function useCharacterHint({
         // 同じ時刻のコツは、優先の一言で置き換える。
         shownTips.current = dueTips;
         show(
-          kind === "ended" && phase.kind === "step" && phase.step === 2
-            ? "時間になったよ、次の人にバトンを渡そう。"
+          kind === "ended" &&
+            phase.kind === "step" &&
+            phase.step === 2 &&
+            sharingRole !== "finished"
+            ? sharingRole === "presenter"
+              ? HINTS.sharingEndedPresenter
+              : HINTS.sharingEndedListener
             : HINTS[kind],
           kind !== "empty",
         );
@@ -254,6 +265,7 @@ export function useCharacterHint({
     show,
     stepHints,
     tipsEnabled,
+    sharingRole,
   ]);
 
   return { message: hint?.text ?? null };

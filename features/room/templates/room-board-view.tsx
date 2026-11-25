@@ -53,6 +53,7 @@ import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import { roomNotify } from "../logic/room-notify";
 import type { Decision, Member } from "../logic/room-reducer";
+import { getSharingTimeUpRole } from "../logic/sharing-time-up-role";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import {
   type CanvasSelectionOptions,
@@ -903,6 +904,7 @@ export function RoomBoardView({
     active: !isDisconnected,
     // 2-1の通常の発想支援は問いヒントに任せ、残り時間の通知は維持する。
     tipsEnabled: !isPhaseStep(phase, 2, 1),
+    sharingRole: getSharingTimeUpRole(sharing, currentUserId),
   });
   const voteRemaining = {
     subjective: Math.max(
