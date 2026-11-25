@@ -96,9 +96,12 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
       group,
       ...group.querySelectorAll<HTMLElement>("*"),
     ]) {
+      // 押せない表示でも、付箋を隠す案内（今の発表者など）は data-board-fit-occupy で占有に数える。
+      // pointer-events は none のままにし、下へのドロップを妨げない。
       if (
         !(element instanceof HTMLElement) ||
-        getComputedStyle(element).pointerEvents === "none"
+        (getComputedStyle(element).pointerEvents === "none" &&
+          element.dataset.boardFitOccupy !== "true")
       )
         continue;
       // 最外の対話領域が占有を代表する。スクロール内容の自然rectを足さない。

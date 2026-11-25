@@ -49,10 +49,12 @@ describe("共有HUD", () => {
       .filter({ hasText: "さんのターンです" });
     await notice.waitFor();
     expect(
-      await notice.evaluate(
-        (element) => getComputedStyle(element).animationName,
+      await notice.evaluate((element) =>
+        [element, ...element.querySelectorAll("*")].map(
+          (node) => getComputedStyle(node).animationName,
+        ),
       ),
-    ).toBe("none");
+    ).toSatisfy((names: string[]) => names.every((name) => name === "none"));
     expect(await page.getByRole("timer").textContent()).toBe("03:00");
     expect(
       await page
@@ -87,23 +89,27 @@ describe("共有する人の表示", () => {
     }
   });
 
-  it.each(widths(1440, 900, 390))(
-    "%ipxで交代案内が現在地と発表者カードを覆わない",
-    async (width) => {
+  it.each(
+    widths(1440, 900, 390).flatMap((width) =>
+      ["sharing-transition", "sharing-active", "my-sharing-turn"].map(
+        (story) => [width, story] as const,
+      ),
+    ),
+  )(
+    "%ipxの%sで発表者の案内が現在地と発表者カードを覆わない",
+    async (width, story) => {
       const page = await browser.newPage({
         viewport: { width, height: 900 },
         reducedMotion: "reduce",
       });
       try {
         await page.goto(
-          `${origin}/iframe.html?id=room-roomboardlayout--sharing-transition&viewMode=story`,
+          `${origin}/iframe.html?id=room-roomboardlayout--${story}&viewMode=story`,
         );
-        const notice = page
-          .getByRole("status")
-          .filter({ hasText: "さんのターンです" });
+        const notice = page.getByTestId("sharing-current-presenter");
         await notice.waitFor();
         const box = await notice.boundingBox();
-        if (!box) throw new Error("交代案内がない");
+        if (!box) throw new Error("発表者の案内がない");
         for (const target of [
           page.getByTestId("board-context-hud"),
           page.getByTestId("board-control-hud"),

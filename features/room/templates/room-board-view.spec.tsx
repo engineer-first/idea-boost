@@ -4055,6 +4055,34 @@ describe("fit HUDの可視境界", () => {
   });
 });
 
+describe("fit HUDの押せない表示", () => {
+  it("押せない表示でも占有を示した要素は、付箋が下に入らないよう上の占有に数える", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1440, 900);
+    root.append(viewport);
+    const wrapper = document.createElement("div");
+    wrapper.dataset.boardFitEdge = "top";
+    wrapper.style.pointerEvents = "none";
+    const banner = document.createElement("div");
+    banner.dataset.boardFitOccupy = "true";
+    banner.style.pointerEvents = "none";
+    banner.getBoundingClientRect = () => new DOMRect(560, 96, 320, 56);
+    const decoration = document.createElement("div");
+    decoration.style.pointerEvents = "none";
+    decoration.getBoundingClientRect = () => new DOMRect(0, 0, 100, 400);
+    wrapper.append(banner, decoration);
+    root.append(wrapper);
+    document.body.append(root);
+    try {
+      expect(getBoardFitInsets(viewport).top).toBe(152);
+    } finally {
+      root.remove();
+    }
+  });
+});
+
 describe("fit HUDの占有上限", () => {
   it("縦長のbottom要素があっても、付箋を置ける高さを必ず残す", () => {
     const root = document.createElement("div");
