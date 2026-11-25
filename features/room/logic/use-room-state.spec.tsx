@@ -7,11 +7,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const notifyMocks = vi.hoisted(() => ({
   memberJoined: vi.fn(),
   memberLeft: vi.fn(),
+  memberRemoved: vi.fn(),
 }));
 vi.mock("./room-notify", () => ({
   roomNotify: {
     memberJoined: notifyMocks.memberJoined,
     memberLeft: notifyMocks.memberLeft,
+    memberRemoved: notifyMocks.memberRemoved,
     roomLeft: vi.fn(),
     roomDisbanded: vi.fn(),
     roomDisbandedBySelf: vi.fn(),
@@ -30,6 +32,7 @@ describe("useRoomState", () => {
   beforeEach(() => {
     notifyMocks.memberJoined.mockReset();
     notifyMocks.memberLeft.mockReset();
+    notifyMocks.memberRemoved.mockReset();
   });
 
   function setup() {
@@ -263,6 +266,39 @@ describe("useRoomState", () => {
 
     expect(result.current.members).toHaveLength(0);
     expect(notifyMocks.memberLeft).toHaveBeenCalledWith("Taro");
+  });
+
+  it("外された member_left は、外した本人とそれ以外で言い分け、退出とは区別する", () => {
+    const { result } = renderHook(() =>
+      useRoomState({
+        initialMembers: [
+          { userId: "me", name: "Ken", color: "yellow" },
+          { userId: "u1", name: "Taro", color: "blue" },
+          { userId: "u2", name: "Hana", color: "pink" },
+        ],
+        initialPhase: buildLobbyPhase(),
+        currentUserId: "me",
+      }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "member_left",
+        userId: "u1",
+        removedByUserId: "me",
+      }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "member_left",
+        userId: "u2",
+        removedByUserId: "someone",
+      }),
+    );
+
+    expect(result.current.members.map((m) => m.userId)).toEqual(["me"]);
+    expect(notifyMocks.memberRemoved).toHaveBeenNthCalledWith(1, "Taro", true);
+    expect(notifyMocks.memberRemoved).toHaveBeenNthCalledWith(2, "Hana", false);
+    expect(notifyMocks.memberLeft).not.toHaveBeenCalled();
   });
 
   it("連続メッセージでも ref 同期により最新の members から名前を引ける", () => {

@@ -18,6 +18,7 @@ import {
 } from "@/lib/room-client/room-client";
 import { roomWebSocketUrl } from "@/lib/room-client/ws-url";
 import type { RoomScreenConnectionStatus } from "./connection-status";
+import { roomNotify } from "./room-notify";
 
 const COMPLETION_REQUEST_TIMEOUT_MS = 10_000;
 
@@ -184,17 +185,20 @@ export function useRoomConnection({
           setConnectionStatus("auth-required");
           return;
         }
-        if (status === "ended") {
+        if (status === "ended" || status === "removed") {
           terminal = true;
           generation += 1;
           cancelCompletionRequest();
         }
         // 完了時に切断中だった在籍者にも、通知の受信に依存しない復帰経路を持つ。
         if (status === "closed") void recoverCompletedRoom();
-        if (status === "ended") {
+        if (status === "ended" || status === "removed") {
           synchronizedRef.current = false;
           clearLastRoom(roomId);
           // 自分の操作による通知は useLeaveRoom 成功時に出す（二重 toast 防止）。
+          // ほかの参加者に外されたときは本人の操作が無いので、ここで伝える。
+          if (status === "removed" && !isLeavingRef?.current)
+            roomNotify.removedFromRoom();
           router.replace("/home");
           return;
         }

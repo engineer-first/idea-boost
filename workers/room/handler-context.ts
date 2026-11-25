@@ -29,7 +29,8 @@ export type HandlerCtx = {
   // 再送する。RoomDO が snapshot 構築を一元管理するためのコールバック。
   refreshSnapshots: () => void;
   // メンバー除外と通常退出が同じ同期処理を共有する。
-  leaveMember?: (userId: string) => void;
+  // 外した人（removedByUserId）は残った参加者と外された本人への案内に使う。
+  leaveMember?: (userId: string, removedByUserId: string) => void;
 };
 
 // 各ドメインモジュールが担当メッセージのハンドラ表を export し、

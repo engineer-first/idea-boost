@@ -13,10 +13,12 @@ vi.mock("next/navigation", () => ({
 
 const notifyMocks = vi.hoisted(() => ({
   roomDisbanded: vi.fn(),
+  removedFromRoom: vi.fn(),
 }));
 vi.mock("./room-notify", () => ({
   roomNotify: {
     roomDisbanded: notifyMocks.roomDisbanded,
+    removedFromRoom: notifyMocks.removedFromRoom,
     roomLeft: vi.fn(),
     roomDisbandedBySelf: vi.fn(),
     memberJoined: vi.fn(),
@@ -96,6 +98,11 @@ class FakeWebSocket {
   simulateLeftRoomClose(): void {
     this.readyState = 3;
     this.emit("close", { code: 4000, reason: "left the room" });
+  }
+
+  simulateRemovedClose(): void {
+    this.readyState = 3;
+    this.emit("close", { code: 4000, reason: "removed from the room" });
   }
 
   simulateServerMessage(message: unknown): void {
@@ -277,6 +284,42 @@ describe("useRoomConnection", () => {
     act(() => lastSocket().simulateLeftRoomClose());
 
     expect(notifyMocks.roomDisbanded).not.toHaveBeenCalled();
+    expect(notifyMocks.removedFromRoom).not.toHaveBeenCalled();
+    expect(navigationMocks.replace).toHaveBeenCalledWith("/home");
+  });
+
+  it("ほかの参加者に外されたら、外されたことを伝えてホームへ戻す", () => {
+    notifyMocks.removedFromRoom.mockClear();
+    renderHook(() =>
+      useRoomConnection({
+        roomId: ROOM_ID,
+        onMessage: vi.fn(),
+        webSocketFactory: factory,
+      }),
+    );
+
+    act(() => lastSocket().simulateOpen());
+    act(() => lastSocket().simulateRemovedClose());
+
+    expect(notifyMocks.removedFromRoom).toHaveBeenCalledTimes(1);
+    expect(navigationMocks.replace).toHaveBeenCalledWith("/home");
+  });
+
+  it("自分の退出処理中に外された close が届いても、外された通知は出さない", () => {
+    notifyMocks.removedFromRoom.mockClear();
+    renderHook(() =>
+      useRoomConnection({
+        roomId: ROOM_ID,
+        onMessage: vi.fn(),
+        webSocketFactory: factory,
+        isLeavingRef: { current: true },
+      }),
+    );
+
+    act(() => lastSocket().simulateOpen());
+    act(() => lastSocket().simulateRemovedClose());
+
+    expect(notifyMocks.removedFromRoom).not.toHaveBeenCalled();
     expect(navigationMocks.replace).toHaveBeenCalledWith("/home");
   });
 

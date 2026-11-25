@@ -39,6 +39,26 @@ describe("roomNotify", () => {
     expect(mocks.toast).toHaveBeenCalledWith("Taro さんが退出しました");
   });
 
+  it("memberRemoved は外した本人とほかの人で文言を言い分ける", () => {
+    roomNotify.memberRemoved("Taro", true);
+    roomNotify.memberRemoved("Taro", false);
+    expect(mocks.toast).toHaveBeenNthCalledWith(
+      1,
+      "Taro さんをルームから外しました",
+    );
+    expect(mocks.toast).toHaveBeenNthCalledWith(
+      2,
+      "Taro さんがルームから外されました",
+    );
+  });
+
+  it("removedFromRoom は外された本人に外されたことを伝える", () => {
+    roomNotify.removedFromRoom();
+    expect(mocks.toast).toHaveBeenCalledWith(
+      "ほかの参加者にルームから外されました",
+    );
+  });
+
   it("roomLeft は toast を「ルームから退出しました」で呼ぶ", () => {
     roomNotify.roomLeft();
     expect(mocks.toast).toHaveBeenCalledTimes(1);

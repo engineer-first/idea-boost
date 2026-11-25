@@ -70,6 +70,11 @@ class FakeWebSocket {
     this.emit("close", { code: 4000, reason: "left the room" });
   }
 
+  simulateRemovedClose(): void {
+    this.readyState = 3;
+    this.emit("close", { code: 4000, reason: "removed from the room" });
+  }
+
   simulateDisbandedClose(): void {
     this.readyState = 3;
     this.emit("close", { code: 4001, reason: "room disbanded" });
@@ -268,6 +273,25 @@ describe("createRoomClient", () => {
 
     expect(FakeWebSocket.instances).toHaveLength(1);
     expect(statuses).toContain("ended");
+    expect(statuses).not.toContain("closed");
+    client.close();
+  });
+
+  it("ほかの参加者に外された close では再接続せず removed を通知する", () => {
+    const statuses: string[] = [];
+    const client = createRoomClient({
+      url: "ws://test",
+      onMessage: () => {},
+      onStatusChange: (s) => statuses.push(s),
+      webSocketFactory: factory,
+    });
+    latestSocket().simulateOpen();
+    latestSocket().simulateRemovedClose();
+    vi.advanceTimersByTime(10_000);
+
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(statuses).toContain("removed");
+    expect(statuses).not.toContain("ended");
     expect(statuses).not.toContain("closed");
     client.close();
   });

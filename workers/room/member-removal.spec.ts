@@ -1,6 +1,10 @@
 import { env, exports } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ServerMessage } from "../../contracts/room-protocol";
+import {
+  type ServerMessage,
+  WS_CLOSE_LEFT_ROOM,
+  WS_CLOSE_REMOVED_FROM_ROOM_REASON,
+} from "../../contracts/room-protocol";
 import worker from "../api-worker";
 import {
   arrangeMembersReady,
@@ -138,6 +142,43 @@ async function expectNoOutcomeAccess(roomId: string) {
 }
 
 describe("参加者によるメンバー除外", () => {
+  it("外された本人へは除外の理由で接続を閉じ、残った人へは外した人を伝える", async () => {
+    const { a, b } = await setup();
+    const closed = new Promise<{ code: number; reason: string }>((resolve) =>
+      b.ws.addEventListener("close", (event) =>
+        resolve({ code: event.code, reason: event.reason }),
+      ),
+    );
+    const receivedByRemoved: ServerMessage["type"][] = [];
+    b.ws.addEventListener("message", (event) => {
+      receivedByRemoved.push(
+        (JSON.parse(String(event.data)) as ServerMessage).type,
+      );
+    });
+    const operationId = remove(a);
+    expect(await receive(a, "member_left")).toEqual({
+      type: "member_left",
+      userId: B.sub,
+      removedByUserId: A.sub,
+    });
+    expect(await receive(a, "member:removed")).toMatchObject({ operationId });
+    expect(await closed).toEqual({
+      code: WS_CLOSE_LEFT_ROOM,
+      reason: WS_CLOSE_REMOVED_FROM_ROOM_REASON,
+    });
+    // 外された本人には、誰に外されたかを含む member_left を届けない。
+    expect(receivedByRemoved).not.toContain("member_left");
+  });
+
+  it("自分で退出した人の member_left には外した人を含めない", async () => {
+    const { a, stub } = await setup();
+    await stub.leave(C.sub, "retain");
+    expect(await receive(a, "member_left")).toEqual({
+      type: "member_left",
+      userId: C.sub,
+    });
+  });
+
   it("除外は成果を残さない退出として一覧・成果・経緯を拒否し、他者の保持退出の権利は残す", async () => {
     const { roomId, a, b, stub } = await setup();
     await stub.leave(C.sub, "retain");

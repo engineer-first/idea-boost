@@ -61,6 +61,8 @@ export function useRoomState(options: {
   // SSR 時にサーバーから取得した初期状態。再接続時の flicker を抑える。
   initialMembers: Member[];
   initialPhase: RoomPhase;
+  // 外した本人かどうかで退出 toast の文言を言い分ける。
+  currentUserId?: string;
 }): UseRoomStateResult {
   const [sharing, setSharing] = useState<SharingState | null>(null);
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
@@ -93,6 +95,7 @@ export function useRoomState(options: {
   // ref を同期更新して、連続メッセージ（再レンダー前）でも最新 members を
   // 引けるようにする（member_left の名前解決に必要）。
   const membersRef = useRef<Member[]>(options.initialMembers);
+  const { currentUserId } = options;
 
   const applyMessage = useCallback(
     (message: ServerMessage, receivedAt = Date.now()) => {
@@ -106,7 +109,12 @@ export function useRoomState(options: {
         const left = membersRef.current.find(
           (m) => m.userId === message.userId,
         );
-        if (left) {
+        if (left && message.removedByUserId) {
+          roomNotify.memberRemoved(
+            left.name,
+            message.removedByUserId === currentUserId,
+          );
+        } else if (left) {
           roomNotify.memberLeft(left.name);
         }
       }
@@ -148,7 +156,7 @@ export function useRoomState(options: {
         applyTimerServerMessage(current, message, receivedAt),
       );
     },
-    [],
+    [currentUserId],
   );
 
   return {
