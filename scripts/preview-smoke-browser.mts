@@ -284,10 +284,24 @@ export async function smokePreviewBrowserCollaboration(
     );
     await owner.getByRole("button", { name: "ルームメニューを開く" }).click();
     await owner.getByRole("button", { name: "招待", exact: true }).click();
-    const inviteUrl = await owner
-      .getByRole("button", { name: "招待URLをコピー" })
-      .textContent();
-    assert.ok(inviteUrl, "招待URLが表示されていません。");
+    // 画面にはURLの全文を出さないので、「リンクをコピー」で書き込まれる値を受け取る。
+    type InviteCopyWindow = { navigator: object; copiedInviteUrl?: string };
+    await owner.evaluate(() => {
+      const view = globalThis as unknown as InviteCopyWindow;
+      Object.defineProperty(view.navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            view.copiedInviteUrl = value;
+          },
+        },
+      });
+    });
+    await owner.getByRole("button", { name: "招待リンクをコピー" }).click();
+    const inviteUrl = await owner.evaluate(
+      () => (globalThis as unknown as InviteCopyWindow).copiedInviteUrl,
+    );
+    assert.ok(inviteUrl, "招待リンクをコピーできませんでした。");
     assert.equal(new URL(inviteUrl).origin, input.origin);
     await owner.keyboard.press("Escape");
     await owner.keyboard.press("Escape");

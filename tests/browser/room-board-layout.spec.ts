@@ -1075,7 +1075,9 @@ test.each([1280, 1024, 768])(
     const panel = page.getByRole("dialog", { name: "ルームに招待" });
     await panel.waitFor();
     expect(
-      await panel.getByRole("button", { name: "招待URLをコピー" }).isVisible(),
+      await panel
+        .getByRole("button", { name: "招待リンクをコピー" })
+        .isVisible(),
     ).toBe(true);
     const bounds = await panel.boundingBox();
     expect(bounds?.x).toBeGreaterThanOrEqual(0);

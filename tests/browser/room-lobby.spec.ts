@@ -22,6 +22,7 @@ async function open(
   width: number,
   height: number,
   touch = false,
+  share = false,
 ): Promise<void> {
   page = await browser.newPage({
     viewport: { width, height },
@@ -30,6 +31,14 @@ async function open(
     reducedMotion: "reduce",
   });
   page.setDefaultTimeout(5000);
+  // 共有メニューに対応する端末では「共有」も並ぶ。
+  if (share)
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "share", {
+        configurable: true,
+        value: async () => undefined,
+      });
+    });
   await page.goto(
     `${origin}/iframe.html?id=room-roomlobbyview--${story}&viewMode=story`,
   );
@@ -44,16 +53,24 @@ test.each(
     [1366, 542],
     [1440, 699],
     [1920, 979],
-  ].flatMap(([width, height]) =>
+    // 共有に対応した端末（iPad・Safari）では「共有」も並ぶ。
+    [1024, 499, "share"],
+    [1100, 531, "share"],
+  ].flatMap(([width, height, share]) =>
     ["host-solo", "host-four", "host-six", "host-twenty", "long-names"].map(
-      (story) => ({ width, height, story }),
+      (story) => ({
+        width: Number(width),
+        height: Number(height),
+        story,
+        share: share === "share",
+      }),
     ),
   ),
 )(
-  "PCの待機領域 $width px × $height px で $story の全員と開始をスクロールなしで表示する",
-  async ({ width, height, story }) => {
+  "PCの待機領域 $width px × $height px（共有: $share）で $story の全員と開始をスクロールなしで表示する",
+  async ({ width, height, story, share }) => {
     // 共通ヘッダー69pxとルートの上下余白32pxを除いた実ページの待機領域。
-    await open(story, width, height);
+    await open(story, width, height, false, share);
     const start = page.getByTestId("start-phase-button");
     const initial = await start.evaluate((element) => {
       const rect = element.getBoundingClientRect();
@@ -280,6 +297,47 @@ test.each([768, 1024, 1280])(
       );
     for (let i = 1; i < boxes.length; i++)
       expect(boxes[i].left).toBeGreaterThanOrEqual(boxes[i - 1].right);
+  },
+);
+
+test.each(
+  [1024, 1050, 1090, 1180, 1280, 1440, 1920].flatMap((width) =>
+    ["host-solo", "host-six"].map((story) => ({ width, story })),
+  ),
+)(
+  "共有に対応した端末の幅 $width px・$story でも、招待コード・リンクをコピー・共有・スタートが重ならず、文言を省略しない",
+  async ({ width, story }) => {
+    await open(story, width, 800, false, true);
+    const controls = [
+      page.getByRole("button", { name: "招待コードをコピー" }),
+      page.getByRole("button", { name: "招待リンクをコピー" }),
+      page.getByRole("button", { name: "招待リンクを共有" }),
+      page.getByTestId("start-phase-button"),
+    ];
+    await controls[2].waitFor();
+    const boxes = [];
+    for (const control of controls) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      if (box) boxes.push(box);
+    }
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const [a, b] = [boxes[i], boxes[j]];
+        const overlap =
+          a.x < b.x + b.width &&
+          b.x < a.x + a.width &&
+          a.y < b.y + b.height &&
+          b.y < a.y + a.height;
+        expect(overlap, `${i} と ${j} が重なる`).toBe(false);
+      }
+    // 文言を「リン…」のように省略しない。
+    expect(
+      await controls[1]
+        .locator("span")
+        .first()
+        .evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
   },
 );
 

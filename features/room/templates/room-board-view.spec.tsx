@@ -2034,23 +2034,25 @@ describe("RoomBoardView", () => {
     expect(onNoteDecide).not.toHaveBeenCalled();
   });
 
-  it("host の招待URLと招待コードはルームメニューの招待から表示する", () => {
+  it("招待コードと「リンクをコピー」はルームメニューの招待から表示し、URLの全文は出さない", () => {
     setup({
       inviteCode: "ZZ99XX",
       inviteUrl: "https://idea-flow.example/invite/ZZ99XX",
     });
 
-    expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
+    expect(screen.queryByText("招待コード")).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "ルームメニューを開く" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
-    expect(screen.getByText("招待URL")).toBeInTheDocument();
     expect(screen.getByText("招待コード")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "招待URLをコピー" }),
-    ).toHaveTextContent("https://idea-flow.example/invite/ZZ99XX");
+      screen.getByRole("button", { name: "招待リンクをコピー" }),
+    ).toHaveTextContent("リンクをコピー");
+    expect(screen.getByTestId("board-view-invite").innerHTML).not.toContain(
+      "https://idea-flow.example/invite/ZZ99XX",
+    );
     expect(
       screen.getByRole("button", { name: "招待コードをコピー" }),
     ).toHaveTextContent("ZZ99XX");
@@ -3560,7 +3562,7 @@ describe("招待URL/コード（host 限定表示）", () => {
     });
     expect(screen.queryByText("ZZ99XX")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "招待URLをコピー" }),
+      screen.queryByRole("button", { name: "招待リンクをコピー" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "招待コードをコピー" }),

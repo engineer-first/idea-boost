@@ -42,7 +42,9 @@ for (const width of widths(390, 1280)) {
       const invite = page.getByRole("dialog", { name: "ルームに招待" });
       await invite.waitFor();
       expect(
-        await page.getByRole("button", { name: "招待URLをコピー" }).isVisible(),
+        await page
+          .getByRole("button", { name: "招待リンクをコピー" })
+          .isVisible(),
       ).toBe(true);
       await page.keyboard.press("Escape");
       await invite.waitFor({ state: "detached" });

@@ -9,6 +9,8 @@ export type CopyInviteButtonProps = {
   value: string;
   // aria-label 用の対象名。既定は「招待URL」。
   itemLabel?: string;
+  // 値の代わりに見せる文言（例:「リンクをコピー」）。長いURLを画面に出さないときに使う。
+  label?: string;
   className?: string;
 };
 
@@ -22,6 +24,7 @@ export function CopyInviteButton(props: CopyInviteButtonProps) {
 function CopyInviteButtonContent({
   value,
   itemLabel = "招待URL",
+  label,
   className,
 }: CopyInviteButtonProps) {
   const [state, setState] = useState<CopyState>("idle");
@@ -78,16 +81,26 @@ function CopyInviteButtonContent({
         disabled={pending}
         aria-busy={pending}
         aria-label={`${itemLabel}をコピー`}
-        title={resultMessage || `${itemLabel}をコピー: ${value}`}
+        title={
+          resultMessage ||
+          (label ? `${itemLabel}をコピー` : `${itemLabel}をコピー: ${value}`)
+        }
         data-copy-state={state}
         className={cn(
           "inline-flex h-10 w-full min-w-0 max-w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-background px-3 text-left text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-muted disabled:cursor-wait",
+          label && "justify-center gap-2",
           className,
         )}
       >
-        <span className="min-w-0 flex-1 truncate font-mono text-base font-semibold tracking-wider">
-          {value}
-        </span>
+        {label ? (
+          <span className="min-w-0 truncate text-base font-semibold">
+            {label}
+          </span>
+        ) : (
+          <span className="min-w-0 flex-1 truncate font-mono text-base font-semibold tracking-wider">
+            {value}
+          </span>
+        )}
         <Icon
           aria-hidden="true"
           className={cn(

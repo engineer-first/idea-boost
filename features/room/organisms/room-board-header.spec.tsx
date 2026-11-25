@@ -873,10 +873,10 @@ describe("RoomBoardHeader", () => {
   });
 
   describe("招待情報（host 限定）", () => {
-    it("host はルームメニューの招待からURLとコードを開く", () => {
+    it("host はルームメニューの招待からリンクとコードを開く", () => {
       setup({});
 
-      expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
+      expect(screen.queryByText("招待コード")).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "招待" }),
       ).not.toBeInTheDocument();
@@ -884,7 +884,9 @@ describe("RoomBoardHeader", () => {
       openRoomMenu();
       fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
-      expect(screen.getByText("招待URL")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "招待リンクをコピー" }),
+      ).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "招待コードをコピー" }),
       ).toHaveTextContent("AB12CD");
@@ -896,10 +898,11 @@ describe("RoomBoardHeader", () => {
       fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
       const invite = screen.getByTestId("board-view-invite");
-      expect(within(invite).getByText("招待URL")).toHaveClass("block");
+      // URLの全文は出さず、「リンクをコピー」のボタンだけを置く。
+      expect(within(invite).queryByText("招待URL")).not.toBeInTheDocument();
       expect(
-        within(invite).getByRole("button", { name: "招待URLをコピー" }),
-      ).toHaveClass("w-full", "text-left");
+        within(invite).getByRole("button", { name: "招待リンクをコピー" }),
+      ).toHaveTextContent("リンクをコピー");
       expect(within(invite).getByText("招待コード")).toHaveClass("block");
       expect(
         within(invite).getByRole("button", { name: "招待コードをコピー" }),
@@ -935,7 +938,7 @@ describe("RoomBoardHeader", () => {
 
         const invite = screen.getByTestId("board-view-invite");
         expect(
-          within(invite).getByRole("button", { name: "招待URLをコピー" }),
+          within(invite).getByRole("button", { name: "招待リンクをコピー" }),
         ).toBeInTheDocument();
         expect(
           within(invite).getByRole("button", { name: "招待コードをコピー" }),
@@ -1852,7 +1855,7 @@ it("招待PopoverからURLのみを共有する", async () => {
     fireEvent.click(screen.getByRole("button", { name: "招待" }));
     expect(share).not.toHaveBeenCalled();
     fireEvent.click(
-      await screen.findByRole("button", { name: "招待URLを共有" }),
+      await screen.findByRole("button", { name: "招待リンクを共有" }),
     );
     expect(share).toHaveBeenCalledExactlyOnceWith({
       url: "https://idea-flow.example/invite/AB12CD",

@@ -1229,12 +1229,6 @@ export function RoomBoardHeader({
                         >
                           <div className="min-w-0">
                             <span className="block text-xs text-muted-foreground">
-                              招待URL
-                            </span>
-                            <InviteUrlActions value={inviteUrl} />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="block text-xs text-muted-foreground">
                               招待コード
                             </span>
                             <CopyInviteButton
@@ -1242,6 +1236,9 @@ export function RoomBoardHeader({
                               itemLabel="招待コード"
                               className="mt-1"
                             />
+                          </div>
+                          <div className="min-w-0">
+                            <InviteUrlActions value={inviteUrl} />
                           </div>
                         </div>
                       </PopoverContent>

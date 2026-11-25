@@ -215,7 +215,6 @@
   flex-direction: column;
   gap: 6px;
 }
-.inviteUrl > span,
 .inviteCode > span {
   color: var(--ib-color-muted);
   font-size: 12px;
@@ -289,7 +288,7 @@
 
 @media (min-width: 640px) {
   .inviteShelf {
-    grid-template-columns: minmax(0, 1fr) 130px;
+    grid-template-columns: 130px max-content;
   }
   .lobby {
     --lobby-gutter: 32px;
@@ -392,7 +391,9 @@
     display: none;
   }
   .inviteShelf {
-    grid-template-columns: minmax(0, 1fr) 128px auto;
+    /* コード・リンクのコピーは中身の幅にし、スタートを右端へ寄せる。
+       狭いときはスタートの幅を確保し、リンクの列のほうを縮める。 */
+    grid-template-columns: 128px minmax(0, max-content) minmax(max-content, 1fr);
     gap: 8px 16px;
     padding-top: 12px;
   }
@@ -401,6 +402,7 @@
   }
   .start {
     position: static;
+    justify-self: end;
     width: auto;
     min-width: 180px;
     height: 48px;
@@ -422,19 +424,32 @@
   .avatarMessage:empty {
     display: none;
   }
-  /* 低い画面では見出しを畳み、招待URL・コードの見出しだけで伝える。 */
+  /* 低い画面では見出しを畳み、招待コードの見出しと「リンクをコピー」の文言で伝える。 */
   .inviteHeading {
     display: none;
   }
 }
 
-/* 右の列に余裕があり見出しを出す高さなら、招待の見出しも URL・コード・開始と同じ行に並べる。 */
+/* 右の列に余裕があり見出しを出す高さなら、招待の見出しもコード・リンク・スタートと同じ行に並べる。 */
 @media (min-width: 1400px) and (min-height: 761px) {
   .inviteShelf {
-    grid-template-columns: minmax(150px, 0.8fr) minmax(0, 1.4fr) 128px auto;
+    grid-template-columns: minmax(150px, 1fr) 128px minmax(0, max-content) auto;
   }
   .inviteHeading {
     grid-column: auto;
+  }
+}
+
+/* 狭い PC で「共有」も並ぶときは、間隔とスタートの最小幅を詰めて1行に収める。
+   次の行へ送ると、低い画面で顔の領域が削られる。 */
+@media (min-width: 1024px) and (max-width: 1179px) {
+  .inviteShelf:has([data-share-state]) {
+    grid-template-columns: max-content max-content minmax(max-content, 1fr);
+    column-gap: 8px;
+  }
+  .inviteShelf:has([data-share-state]) .start {
+    min-width: 0;
+    padding-inline: 20px;
   }
 }
 

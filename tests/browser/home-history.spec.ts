@@ -698,7 +698,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       await expect
         .poll(() =>
           page
-            .getByRole("button", { name: "セッションを開始", exact: true })
+            .getByRole("button", { name: "スタート", exact: true })
             .isEnabled(),
         )
         .toBe(true);
@@ -749,13 +749,26 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .click();
       await inviter.waitForURL(/\/rooms\/[^/]+\/start/);
       const inviteButton = inviter.getByRole("button", {
-        name: "招待URLをコピー",
+        name: "招待リンクをコピー",
         exact: true,
       });
       await inviteButton.waitFor();
-      const title = await inviteButton.getAttribute("title");
-      if (!title) throw new Error("招待URLなし");
-      const inviteUrl = title.slice(title.indexOf("http"));
+      // 画面にはURLの全文を出さないので、コピーで書き込まれる値を受け取る。
+      await inviter.evaluate(() => {
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: {
+            writeText: async (value: string) => {
+              document.documentElement.dataset.copiedInviteUrl = value;
+            },
+          },
+        });
+      });
+      await inviteButton.click();
+      const inviteUrl = await inviter.evaluate(
+        () => document.documentElement.dataset.copiedInviteUrl,
+      );
+      if (!inviteUrl) throw new Error("招待URLなし");
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.goto(inviteUrl);
       await page
@@ -774,7 +787,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       await expect
         .poll(() =>
           page
-            .getByRole("button", { name: "セッションを開始", exact: true })
+            .getByRole("button", { name: "スタート", exact: true })
             .isEnabled(),
         )
         .toBe(true);
@@ -792,7 +805,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       await expect
         .poll(() =>
           page
-            .getByRole("button", { name: "セッションを開始", exact: true })
+            .getByRole("button", { name: "スタート", exact: true })
             .isEnabled(),
         )
         .toBe(true);

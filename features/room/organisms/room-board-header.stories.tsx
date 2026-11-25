@@ -446,7 +446,7 @@ export const ShareInvite: Story = {
       within(document.body).getByRole("button", { name: "招待" }),
     );
     await expect(
-      within(document.body).getByRole("button", { name: "招待URLをコピー" }),
+      within(document.body).getByRole("button", { name: "招待リンクをコピー" }),
     ).toBeVisible();
   },
 };
