@@ -70,7 +70,7 @@ export type PrivateNotesToolbarProps = {
   onDelete: (noteId: string) => void;
   onDragStart: (
     noteId: string,
-    event: React.PointerEvent<HTMLButtonElement>,
+    event: React.PointerEvent<HTMLElement>,
     origin?: { clientX: number; clientY: number },
   ) => void;
 };
