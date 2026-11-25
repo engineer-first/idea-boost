@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -34,10 +35,12 @@ it.each(["ABC234", " abc234 "])(
   },
 );
 
-it("形式が違う招待コードでは進まず、直し方を示す", () => {
+it("6桁そろうまで参加は押せず、形式が違えば入力欄を離れたときに直し方を示す", () => {
   render(<LandingCodeEntry navigate={push} />);
-  submitCode("AB!2");
-  expect(push).not.toHaveBeenCalled();
+  const input = screen.getByRole("textbox", { name: "招待コードをお持ちの方" });
+  fireEvent.change(input, { target: { value: "AB!2" } });
+  expect(screen.getByRole("button", { name: "参加する" })).toBeDisabled();
+  fireEvent.blur(input);
   expect(screen.getByRole("alert")).toHaveTextContent(
     "英数字6桁で入力してください。",
   );
@@ -49,4 +52,25 @@ it("英語の LP では英語で案内する", () => {
     screen.getByRole("textbox", { name: "Have an invitation code?" }),
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Join" })).toBeInTheDocument();
+});
+
+it("戻るでページが復元されたら、もう一度コードを送れる", () => {
+  render(<LandingCodeEntry navigate={push} />);
+  submitCode("ABC234");
+  expect(screen.getByRole("button", { name: "移動中…" })).toBeDisabled();
+
+  const restored = Object.assign(new Event("pageshow"), { persisted: true });
+  act(() => {
+    window.dispatchEvent(restored);
+  });
+  expect(screen.getByRole("button", { name: "参加する" })).toBeEnabled();
+});
+
+it("空のまま入力欄を離れても、直し方は出さない", () => {
+  render(<LandingCodeEntry navigate={push} />);
+  fireEvent.blur(
+    screen.getByRole("textbox", { name: "招待コードをお持ちの方" }),
+  );
+  expect(screen.getByRole("button", { name: "参加する" })).toBeDisabled();
+  expect(screen.queryByRole("alert")).toBeNull();
 });

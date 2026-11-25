@@ -29,7 +29,23 @@ export const InvalidCode: Story = {
       canvas.getByRole("textbox", { name: "招待コードをお持ちの方" }),
       "AB1",
     );
-    await userEvent.click(canvas.getByRole("button", { name: "参加する" }));
+    await userEvent.tab();
     await expect(canvas.getByRole("alert")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "参加する" }),
+    ).toBeDisabled();
+  },
+};
+export const Moving: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(
+      canvas.getByRole("textbox", { name: "招待コードをお持ちの方" }),
+      "AB12CD",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "参加する" }));
+    await expect(
+      canvas.getByRole("button", { name: "移動中…" }),
+    ).toBeDisabled();
   },
 };

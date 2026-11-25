@@ -32,7 +32,7 @@ it.each([false, true])(
       }),
     ).toHaveAttribute("href", href);
     expect(
-      screen.queryByRole("link", { name: "招待コードをお持ちの方" }),
+      screen.queryByRole("textbox", { name: "招待コードをお持ちの方" }),
     ).not.toBeInTheDocument();
     // ログイン状態に関わらず、LP 自身のヘッダーにアイコン付きのサービス名を出す。
     const header = screen.getByRole("banner");

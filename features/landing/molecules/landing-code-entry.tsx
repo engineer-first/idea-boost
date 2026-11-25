@@ -4,7 +4,7 @@
 // 未ログインなら招待ページが戻り先つきでログインへ案内する（ログイン導線は持たない）。
 // LP は App Router の外（テスト・Storybook）でも描画されるため router に依存せず、
 // 招待ページへは通常の画面遷移で進む。
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -38,12 +38,18 @@ export function LandingCodeEntry({
   const isValid = isValidInviteCode(normalized);
   const errorId = `${id}-error`;
 
+  // 戻るでページが bfcache から復元されると「移動中…」のまま残るため、押せる状態へ戻す。
+  useEffect(() => {
+    function resetOnRestore(event: PageTransitionEvent): void {
+      if (event.persisted) setMoving(false);
+    }
+    window.addEventListener("pageshow", resetOnRestore);
+    return () => window.removeEventListener("pageshow", resetOnRestore);
+  }, []);
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (!isValid) {
-      setShowError(true);
-      return;
-    }
+    if (!isValid) return;
     setMoving(true);
     navigate(`/invite/${normalized}`);
   }
@@ -71,6 +77,8 @@ export function LandingCodeEntry({
           autoComplete="off"
           spellCheck={false}
           maxLength={12}
+          // 空のときは直し方を出さない（ホームの参加欄と同じ）。
+          onBlur={() => setShowError(code.trim().length > 0 && !isValid)}
           aria-invalid={showError ? true : undefined}
           aria-describedby={showError ? errorId : undefined}
           className="h-11 w-36 bg-[var(--lp-paper)] text-center font-mono text-base tracking-[0.3em] uppercase"
@@ -79,7 +87,7 @@ export function LandingCodeEntry({
           type="submit"
           variant="outline"
           size="lg"
-          disabled={moving}
+          disabled={!isValid || moving}
           className="h-11"
         >
           {moving ? copy.codeEntry.moving : copy.codeEntry.submit}
