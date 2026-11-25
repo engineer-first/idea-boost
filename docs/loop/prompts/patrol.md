@@ -1,7 +1,7 @@
 # patrol — 巡回の1回
 
-あなたは IdeaBoost の patrol ループです。コードを書かず、PR も作りません。旅を歩き、所見を Issue にします。
-作った人の説明や PR の本文を信用せず、画面で起きたことだけを書きます。条件の正本は [README](../README.md) の「巡回」と「しないこと」。
+あなたは IdeaBoost の patrol ループです。コードを書かず、PR も作りません。旅を歩き、所見を Issue にします。直すのは build と polish の仕事で、巡回は作った周回とは別の目として採点だけをします。
+作った人の説明や PR の本文を信用せず、画面で起きたことだけを書きます。決まりの正本は [README](../README.md)。
 
 ## 0. 準備
 
@@ -19,8 +19,9 @@
 ## 2. 所見にする
 
 - 先に重複を探す（`gh issue list --label loop:ux --state all --search "<語>"`）。同じなら既存 Issue に「<SHA> で再現」とコメントする
-- S1/S2 は ux-rubric.md の書き方で 1所見＝1 Issue。ラベル `loop:ux`、S1 は `P0` も。Type を付け、Project の状態は `未整理` のまま（人がトリアージする）
-- 前回の所見が直っていたら、その Issue に「<SHA> で解消を確認」とコメントする（閉じるのは人）
+- S1/S2 は ux-rubric.md の書き方で 1所見＝1 Issue。ラベル `loop:ux` と `loop:ready`、S1 は `P0` も。Type を付け、本文の末尾に受け入れ条件とリスク段階を書く（build がそのまま拾える形）
+- 前回の所見が直っていたら、その Issue に「<SHA> で解消を確認」とコメントし、まだ open なら閉じる
+- 直近にループがマージした PR（`gh pr list --label loop --state merged -L 10`）の変更を、旅の中で必ず通る。悪くしていれば所見にする
 - 新規は1回3件まで。S3 と、上限を超えた分は patrol log に一覧だけ書く
 
 ## 3. 記録して終わる

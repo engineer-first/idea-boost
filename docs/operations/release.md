@@ -56,6 +56,12 @@ dispatch受付は公開成功ではありません。SkillはActionsとGitHub Re
 公開前にdevelop・本番比較元・release先端が変われば停止し、新しい内容を提示し直します。
 チャットを閉じても次回の `$release` はGitHubから状態を復元します。ローカルの `.release-history/` は下書きであり正本ではありません。
 
+## エージェントのループからの公開
+
+Orca automation の `ib release` が、毎日 12:40 と 20:40（JST）に `release:operator` で公開します。手順と止める条件は[ループ開発](../loop/README.md#列車の決まり)と[指示書](../loop/prompts/release.md)が正本です。
+オーナーが2026-11-25にループからの公開を常時の公開意思として認めたため（[ADR 0031](../adr/0031-loop-development.md)）、ループは内容の提示と `release` の返答を待たずに `release --confirm` へ進みます。
+説明の書き方・依存更新の読み方・二重起動しないこと・品質ゲートとhealthは、`$release` と同じです。人の `$release` と重なったときは、statusが `running` を返すので後から来た側が待ちます。
+
 ## 失敗時の判断
 
 | 状態                                     | 次の操作                                                                                                                                    |
