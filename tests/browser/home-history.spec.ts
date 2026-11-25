@@ -680,7 +680,8 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       const first = new URL(page.url());
       await page.goto(`${app}/home`);
       await page
-        .getByRole("button", { name: "前のルームに戻る", exact: true })
+        .getByRole("region", { name: "最近のルーム" })
+        .getByRole("button", { name: /^前の会/ })
         .waitFor();
       await page
         .getByRole("textbox", { name: "ルーム名（任意）" })
@@ -709,12 +710,13 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       const second = new URL(page.url());
       expect(second.pathname).not.toBe(first.pathname);
       await page.goto(`${app}/home`);
-      await page
-        .getByRole("button", { name: "前のルームに戻る", exact: true })
-        .waitFor();
-      await page
-        .getByRole("button", { name: "前のルームに戻る", exact: true })
-        .click();
+      // 前の会からは退出済みなので、最近のルームには今のルームだけが残る。
+      const recent = page.getByRole("region", { name: "最近のルーム" });
+      await recent.getByRole("button", { name: /^ルームA/ }).waitFor();
+      expect(
+        await recent.getByRole("button", { name: /^前の会/ }).count(),
+      ).toBe(0);
+      await recent.getByRole("button", { name: /^ルームA/ }).click();
       await page.waitForURL(
         (url) =>
           url.origin === second.origin && url.pathname === second.pathname,
@@ -927,7 +929,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
     },
     90_000,
   );
-  it("1280×632で再訪欄と閉じた履歴があっても作成・参加を初期画面に表示する", async () => {
+  it("1280×632で最近のルームがあっても作成・参加を初期画面に表示する", async () => {
     const browser = await chromium.launch();
     try {
       const page = await browser.newPage({
@@ -976,48 +978,10 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       await page.getByRole("main").getByTestId("room-lobby-view").waitFor();
       await page.goto(`${app}/home`);
       await page
-        .getByRole("button", { name: "前のルームに戻る", exact: true })
+        .getByRole("region", { name: "最近のルーム" })
+        .getByRole("button", { name: /^高さ確認の会/ })
         .waitFor();
-      await checkEntry("with-return");
-      // 作成済みの控えを複製し、過去のルームがある表示条件だけを再現する。
-      await page.evaluate(
-        () =>
-          new Promise<void>((resolve, reject) => {
-            const request = indexedDB.open("idea-boost-room-creations", 1);
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => {
-              const db = request.result;
-              const tx = db.transaction("intents", "readwrite");
-              const store = tx.objectStore("intents");
-              const records = store.getAll();
-              records.onsuccess = () => {
-                const record = records.result[0];
-                const requestId = crypto.randomUUID();
-                store.put(
-                  {
-                    ...record,
-                    requestId,
-                    roomId: crypto.randomUUID(),
-                    name: "過去の相談",
-                  },
-                  `${record.expectedPrincipal}:${requestId}`,
-                );
-              };
-              tx.onerror = () => reject(tx.error);
-              tx.oncomplete = () => {
-                db.close();
-                window.dispatchEvent(new Event("idea-boost-room-creations"));
-                resolve();
-              };
-            };
-          }),
-      );
-      const history = page.getByText("以前のルーム", { exact: true });
-      await history.waitFor();
-      expect(await history.evaluate((el) => el.closest("details")?.open)).toBe(
-        false,
-      );
-      await checkEntry("with-history");
+      await checkEntry("with-recent-rooms");
     } finally {
       await browser.close();
     }
