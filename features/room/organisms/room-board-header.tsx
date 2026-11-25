@@ -614,11 +614,9 @@ export function RoomBoardHeader({
   const leaveLabel = isLeaving ? "退出中…" : "退出する";
 
   // 交代の瞬間だけでなく発表中ずっと出し、誰の番かをボードを見たまま分かるようにする。
-  // 発表者が替わったら key で出し直し、登場の動きで交代に気づけるようにする。
   const sharingAnnouncement =
     activeSharing?.status === "active" && presenter ? (
       <SharingAnnouncement
-        key={presenter.userId}
         member={presenter}
         isSelf={presenter.userId === currentUserId}
       />

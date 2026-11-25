@@ -49,10 +49,12 @@ describe("共有HUD", () => {
       .filter({ hasText: "さんのターンです" });
     await notice.waitFor();
     expect(
-      await notice.evaluate(
-        (element) => getComputedStyle(element).animationName,
+      await notice.evaluate((element) =>
+        [element, ...element.querySelectorAll("*")].map(
+          (node) => getComputedStyle(node).animationName,
+        ),
       ),
-    ).toBe("none");
+    ).toSatisfy((names: string[]) => names.every((name) => name === "none"));
     expect(await page.getByRole("timer").textContent()).toBe("03:00");
     expect(
       await page
@@ -89,7 +91,7 @@ describe("共有する人の表示", () => {
 
   it.each(
     widths(1440, 900, 390).flatMap((width) =>
-      ["sharing-transition", "sharing-active"].map(
+      ["sharing-transition", "sharing-active", "my-sharing-turn"].map(
         (story) => [width, story] as const,
       ),
     ),
@@ -104,9 +106,7 @@ describe("共有する人の表示", () => {
         await page.goto(
           `${origin}/iframe.html?id=room-roomboardlayout--${story}&viewMode=story`,
         );
-        const notice = page
-          .getByRole("status")
-          .filter({ hasText: "さんのターンです" });
+        const notice = page.getByTestId("sharing-current-presenter");
         await notice.waitFor();
         const box = await notice.boundingBox();
         if (!box) throw new Error("発表者の案内がない");
