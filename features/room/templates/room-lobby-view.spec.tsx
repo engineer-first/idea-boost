@@ -255,6 +255,36 @@ describe("招待リンク/コード", () => {
   });
 });
 
+describe("招待文", () => {
+  it("開始待ちの招待から、ルーム名・参加リンク・招待コードを含む招待文をコピーできる", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    try {
+      renderView({ roomName: buildRoomNameControls({ name: "J05" }) });
+      const invite = screen.getByTestId("room-lobby-view-invite");
+      await act(async () =>
+        fireEvent.click(
+          within(invite).getByRole("button", { name: "招待文をコピー" }),
+        ),
+      );
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(
+        [
+          "Idea Boost のルーム「J05」に招待します。",
+          "参加リンク: https://idea-flow.example/invite/AB12CD",
+          "招待コード: AB12CD",
+        ].join("\n"),
+      );
+    } finally {
+      if (original) Object.defineProperty(navigator, "clipboard", original);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+});
+
 it("招待URLの共有は明示操作からURLだけを送る", async () => {
   const share = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "share", {

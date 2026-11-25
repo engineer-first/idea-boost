@@ -11,6 +11,8 @@ export type CopyInviteButtonProps = {
   itemLabel?: string;
   // 値の代わりに見せる文言（例:「リンクをコピー」）。長いURLを画面に出さないときに使う。
   label?: string;
+  // field: 入力欄のような枠付き（既定）。text: 見出しの行に置く小さな文字ボタン。
+  appearance?: "field" | "text";
   className?: string;
 };
 
@@ -25,6 +27,7 @@ function CopyInviteButtonContent({
   value,
   itemLabel = "招待URL",
   label,
+  appearance = "field",
   className,
 }: CopyInviteButtonProps) {
   const [state, setState] = useState<CopyState>("idle");
@@ -87,13 +90,22 @@ function CopyInviteButtonContent({
         }
         data-copy-state={state}
         className={cn(
-          "inline-flex h-10 w-full min-w-0 max-w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-background px-3 text-left text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-muted disabled:cursor-wait",
-          label && "justify-center gap-2",
+          appearance === "text"
+            ? "-ml-1 inline-flex h-6 max-w-full cursor-pointer items-center gap-1 rounded-md px-1 text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-wait"
+            : "inline-flex h-10 w-full min-w-0 max-w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-background px-3 text-left text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-muted disabled:cursor-wait",
+          appearance === "field" && label && "justify-center gap-2",
           className,
         )}
       >
         {label ? (
-          <span className="min-w-0 truncate text-base font-semibold">
+          <span
+            className={cn(
+              "min-w-0 truncate",
+              appearance === "text"
+                ? "text-sm font-medium"
+                : "text-base font-semibold",
+            )}
+          >
             {label}
           </span>
         ) : (
@@ -104,7 +116,7 @@ function CopyInviteButtonContent({
         <Icon
           aria-hidden="true"
           className={cn(
-            "size-4 shrink-0",
+            appearance === "text" ? "size-3.5 shrink-0" : "size-4 shrink-0",
             state === "error" && "text-destructive",
           )}
         />

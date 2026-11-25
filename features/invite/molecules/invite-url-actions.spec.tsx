@@ -173,4 +173,24 @@ describe("InviteUrlActions", () => {
       vi.useRealTimers();
     }
   });
+
+  it("招待文を渡したときだけ「招待文をコピー」を出し、押すと招待文をそのままコピーする", async () => {
+    stubShare(undefined);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const { rerender } = render(<InviteUrlActions value={url} />);
+    expect(
+      screen.queryByRole("button", { name: "招待文をコピー" }),
+    ).not.toBeInTheDocument();
+
+    const message = `Idea Boost のルームに招待します。\n参加リンク: ${url}\n招待コード: ABC234`;
+    rerender(<InviteUrlActions value={url} message={message} />);
+    const button = screen.getByRole("button", { name: "招待文をコピー" });
+    expect(button).toHaveTextContent("招待文をコピー");
+    await act(async () => fireEvent.click(button));
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(message);
+  });
 });
