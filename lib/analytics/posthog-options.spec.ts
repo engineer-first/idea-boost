@@ -10,6 +10,9 @@ it("画面の閲覧と離脱だけを送り、クリックの自動収集・録�
     autocapture: false,
     capture_dead_clicks: false,
     capture_heatmaps: false,
+    capture_performance: false,
+    capture_exceptions: false,
+    persistence: "localStorage",
     disable_session_recording: true,
     disable_surveys: true,
     mask_all_text: true,
@@ -29,5 +32,28 @@ it("送る前に URL から ID と戻り先を落とす", () => {
   } as never);
   expect(event).toMatchObject({
     properties: { $current_url: "https://ideaboost.dev/rooms/:id" },
+  });
+});
+
+it("イベント直下の $set / $set_once の URL も整え、参照元の検索語を落とす", () => {
+  const event = sanitizeBeforeSend({
+    event: "$pageview",
+    properties: {
+      $current_url: "https://ideaboost.dev/",
+      ph_keyword: "アイデア出し",
+      $session_entry_ph_keyword: "アイデア出し",
+    },
+    $set: { $current_url: "https://ideaboost.dev/invite/ABC123" },
+    $set_once: {
+      $initial_current_url: "https://ideaboost.dev/login?next=/invite/ABC123",
+      $initial_ph_keyword: "アイデア出し",
+    },
+  } as never);
+  expect(event?.properties).toEqual({ $current_url: "https://ideaboost.dev/" });
+  expect(event?.$set).toEqual({
+    $current_url: "https://ideaboost.dev/invite/:code",
+  });
+  expect(event?.$set_once).toEqual({
+    $initial_current_url: "https://ideaboost.dev/login",
   });
 });

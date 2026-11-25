@@ -16,6 +16,9 @@ const SITE_HOSTS = new Set(["ideaboost.dev", "localhost"]);
 /** 値に URL を持つプロパティのキー（$current_url・$initial_pathname・$referrer など）。 */
 const URL_KEY = /(url|pathname|referrer)$/i;
 
+/** 参照元の検索語（ph_keyword・$initial_ph_keyword など）。送らない。 */
+const DROPPED_KEY = /ph_keyword$/i;
+
 function sanitizePath(pathname: string): string {
   const parts = pathname.split("/");
   for (let index = 1; index < parts.length - 1; index++) {
@@ -55,12 +58,13 @@ function keptQuery(url: URL): string {
 
 type Properties = Record<string, unknown>;
 
-/** イベントのプロパティ（$set / $set_once の中も含む）の URL を整える。 */
+/** イベントのプロパティ（$set / $set_once の中も含む）の URL を整え、検索語を落とす。 */
 export function sanitizeAnalyticsProperties(
   properties: Properties,
 ): Properties {
   const result: Properties = {};
   for (const [key, value] of Object.entries(properties)) {
+    if (DROPPED_KEY.test(key)) continue;
     if (typeof value === "string" && URL_KEY.test(key)) {
       result[key] = sanitizeAnalyticsUrl(value);
     } else if ((key === "$set" || key === "$set_once") && isRecord(value)) {

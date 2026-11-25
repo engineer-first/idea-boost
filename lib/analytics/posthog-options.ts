@@ -13,19 +13,31 @@ export function getPosthogOptions(host: string): Partial<PostHogConfig> {
     autocapture: false,
     capture_dead_clicks: false,
     capture_heatmaps: false,
+    // 管理画面から有効にされても、入れ子に生の URL を持つイベントを送らない。
+    capture_performance: false,
+    capture_exceptions: false,
     disable_session_recording: true,
     disable_surveys: true,
     mask_all_text: true,
     mask_all_element_attributes: true,
     person_profiles: "identified_only",
     respect_dnt: true,
+    // cookie にすると、入口の生の URL が自サイトへのリクエストに毎回付くため。
+    persistence: "localStorage",
     before_send: sanitizeBeforeSend,
   };
 }
 
-/** 送る直前に、イベントのプロパティの URL から ID と戻り先を落とす。 */
+/**
+ * 送る直前に、URL から ID と戻り先を、参照元から検索語を落とす。
+ * posthog-js は $set / $set_once をイベント直下に置くため、そちらも整える。
+ */
 export const sanitizeBeforeSend: BeforeSendFn = (event) => {
   if (!event) return null;
   event.properties = sanitizeAnalyticsProperties(event.properties ?? {});
+  if (event.$set) event.$set = sanitizeAnalyticsProperties(event.$set);
+  if (event.$set_once) {
+    event.$set_once = sanitizeAnalyticsProperties(event.$set_once);
+  }
   return event;
 };
