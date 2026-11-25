@@ -104,6 +104,20 @@ describe("タイマーの画面中央の通知", () => {
     expect(result.current).toBeNull();
   });
 
+  it("終了の1〜2秒前に手動で次へ進めたときは、時間切れを出さない", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const { result, rerender } = render({
+      timer: running(30_000),
+      serverOffsetMs: 0,
+    });
+    act(() => vi.advanceTimersByTime(28_500));
+    rerender({ timer: { status: "idle" }, serverOffsetMs: 0 });
+    expect(result.current).toBeNull();
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(result.current).toBeNull();
+  });
+
   it("途中から見始めたときは、過ぎた残り1分を後から出さない", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);

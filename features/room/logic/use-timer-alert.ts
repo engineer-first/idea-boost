@@ -11,6 +11,9 @@ export const TIMER_ALERT_VISIBLE_MS = 2_500;
 const ONE_MINUTE_MS = 60_000;
 // 裏のタブなどで遅れて届いた通知は、古い知らせになるので出さない。
 const LATE_TOLERANCE_MS = 2_000;
+// サーバーの終了が手元の予定より先に届く幅（時刻のずれの計測に混ざる遅延の揺れ）。
+// これより前に終わったのは手動で進めた場合なので、時間切れとして出さない。
+const EARLY_TOLERANCE_MS = 500;
 
 export type UseTimerAlertOptions = {
   timer: TimerState;
@@ -61,7 +64,8 @@ export function useTimerAlert({
       // サーバーの終了が手元の予定より先に届いたときは、ここで出す。
       if (
         armed &&
-        Math.abs(now() - armed.clientEndsAt) <= LATE_TOLERANCE_MS &&
+        now() - armed.clientEndsAt >= -EARLY_TOLERANCE_MS &&
+        now() - armed.clientEndsAt <= LATE_TOLERANCE_MS &&
         !firedKeys.current.has(`timeUp:${armed.endsAt}`)
       ) {
         firedKeys.current.add(`timeUp:${armed.endsAt}`);
