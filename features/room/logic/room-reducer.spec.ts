@@ -12,6 +12,7 @@ import {
   applyDecisionServerMessage,
   applyIdeaMapServerMessage,
   applyMemberServerMessage,
+  applyPhaseProgressServerMessage,
   applyPhaseServerMessage,
   applyTimerServerMessage,
   applyVotingCompletionServerMessage,
@@ -316,6 +317,46 @@ describe("applyPhaseServerMessage", () => {
     expect(applyPhaseServerMessage(LOBBY as RoomPhase, message)).toEqual(
       buildPhaseStep(1),
     );
+  });
+});
+
+describe("applyPhaseProgressServerMessage", () => {
+  const readyInStep = {
+    phaseRevision: 3,
+    progressRevision: 7,
+    connectedUserIds: [A.userId, B.userId],
+    readyUserIds: [A.userId, B.userId],
+    notReadyUserIds: [],
+    canAdvance: true,
+    allReady: true,
+  };
+
+  it("ステップが進んだら、接続中の全員を未完了として待ち人数を出せる状態にする", () => {
+    expect(
+      applyPhaseProgressServerMessage(readyInStep, {
+        type: "phase:updated",
+        phaseRevision: 4,
+        phase: buildPhaseStep(2, 1),
+      }),
+    ).toEqual({
+      phaseRevision: 4,
+      progressRevision: 7,
+      connectedUserIds: [A.userId, B.userId],
+      readyUserIds: [],
+      notReadyUserIds: [A.userId, B.userId],
+      canAdvance: false,
+      allReady: false,
+    });
+  });
+
+  it("phase:progress はサーバーの進み具合へ置き換える", () => {
+    const progress = { ...readyInStep, phaseRevision: 4, progressRevision: 8 };
+    expect(
+      applyPhaseProgressServerMessage(readyInStep, {
+        type: "phase:progress",
+        progress,
+      }),
+    ).toEqual(progress);
   });
 });
 

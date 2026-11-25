@@ -37,8 +37,18 @@ export function applyPhaseProgressServerMessage(
 ): PhaseProgressState {
   if (message.type === "snapshot") return message.progress ?? state;
   if (message.type === "phase:progress") return message.progress;
+  // 進んだ直後はサーバーが進み具合を配り直さない。新しいステップでは
+  // まだ誰も「できた！」を押していないので、接続中の全員を未完了として
+  // 次へボタンに待ち人数を出す（#1152）。
   if (message.type === "phase:updated")
-    return { ...INITIAL_PHASE_PROGRESS, phaseRevision: message.phaseRevision };
+    return {
+      ...state,
+      phaseRevision: message.phaseRevision,
+      readyUserIds: [],
+      notReadyUserIds: state.connectedUserIds,
+      canAdvance: false,
+      allReady: false,
+    };
   return state;
 }
 export type Decision = ProtocolDecision;
