@@ -7,6 +7,28 @@ export const ROOM_TIMER_SOUND_STORAGE_KEY =
   "idea-boost.timer-sounds.enabled.v1";
 
 const WARNING_SECONDS = [5, 4, 3, 2, 1] as const;
+// ブラウザの自動再生制限を解く操作（HTML の activation-triggering events）。
+const AUDIO_UNLOCK_EVENTS = [
+  "pointerdown",
+  "pointerup",
+  "keydown",
+  "touchend",
+] as const;
+
+// Escape、タッチの押し始め、マウスの離しは再生許可にならないため、
+// その時点で AudioContext を作らない。
+function isActivationTriggeringEvent(event: Event): boolean {
+  if (event.type === "keydown") {
+    return (event as KeyboardEvent).key !== "Escape";
+  }
+  if (event.type === "pointerdown") {
+    return (event as PointerEvent).pointerType === "mouse";
+  }
+  if (event.type === "pointerup") {
+    return (event as PointerEvent).pointerType !== "mouse";
+  }
+  return true;
+}
 const WARNING_LATE_TOLERANCE_MS = 250;
 const END_LATE_TOLERANCE_MS = 2_000;
 const TIMER_SOUND_PEAK_GAIN = 0.04;
@@ -86,21 +108,23 @@ function getTimerRunKey(timerUpdateVersion: number, endsAt: number): string {
   return `${timerUpdateVersion}:${endsAt}`;
 }
 
+// 既定はオン。利用者が明示的に消音したときだけ "false" を保存してオフにする。
 function readSoundPreference(): boolean {
   try {
-    return window.localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY) === "true";
+    return (
+      window.localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY) !== "false"
+    );
   } catch {
-    return false;
+    return true;
   }
 }
 
 function writeSoundPreference(enabled: boolean): void {
   try {
-    if (enabled) {
-      window.localStorage.setItem(ROOM_TIMER_SOUND_STORAGE_KEY, "true");
-    } else {
-      window.localStorage.removeItem(ROOM_TIMER_SOUND_STORAGE_KEY);
-    }
+    window.localStorage.setItem(
+      ROOM_TIMER_SOUND_STORAGE_KEY,
+      enabled ? "true" : "false",
+    );
   } catch {
     // 音声設定はこのタブで利用できればよく、保存できない環境でも操作を続ける。
   }
@@ -138,6 +162,11 @@ function createTimerSound(
   }
 }
 
+// 入室前の画面で操作済みなら、ブラウザは AudioContext の開始を許可している。
+function hasBrowserUserActivation(): boolean {
+  return navigator.userActivation?.hasBeenActive === true;
+}
+
 function systemNow(): number {
   return Date.now();
 }
@@ -158,6 +187,9 @@ export function useRoomTimerSounds({
   const enabledRef = useRef(false);
   const playbackBlockedRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  // この画面で一度でも AudioContext を再生状態にできたか。できる前の失敗は
+  // 自動再生制限によるものなので、警告を出さずに利用者の操作を待つ。
+  const audioUnlockedRef = useRef(false);
   const playbackGenerationRef = useRef(0);
   const timerCueGenerationRef = useRef(0);
   const activeOscillatorsRef = useRef(new Set<OscillatorNode>());
@@ -198,7 +230,6 @@ export function useRoomTimerSounds({
     playbackBlockedRef.current = true;
     setEnabledState(false);
     setPlaybackBlocked(true);
-    writeSoundPreference(false);
     stopActiveSounds();
   }, [setEnabledState, stopActiveSounds]);
 
@@ -215,12 +246,22 @@ export function useRoomTimerSounds({
     if (context.state !== "running") {
       throw new Error("AudioContext did not start");
     }
+    audioUnlockedRef.current = true;
     return context;
   }, []);
 
   const playSound = useCallback(
     (pattern: TimerSoundPattern, canPlay: () => boolean = () => true) => {
       if (!enabledRef.current) return;
+      const wasUnlocked = audioUnlockedRef.current;
+      // 利用者の操作より前に AudioContext を作ると自動再生制限で止められる。
+      if (
+        !wasUnlocked &&
+        audioContextRef.current === null &&
+        !hasBrowserUserActivation()
+      ) {
+        return;
+      }
       const generation = playbackGenerationRef.current;
       const isCurrent = () =>
         generation === playbackGenerationRef.current && canPlay();
@@ -235,7 +276,7 @@ export function useRoomTimerSounds({
           );
         })
         .catch(() => {
-          if (isCurrent()) blockPlayback();
+          if (isCurrent() && wasUnlocked) blockPlayback();
         });
     },
     [blockPlayback, getReadyAudioContext],
@@ -259,6 +300,33 @@ export function useRoomTimerSounds({
   useEffect(() => {
     if (readSoundPreference()) setEnabledState(true);
   }, [setEnabledState]);
+
+  useEffect(() => {
+    if (!enabled || audioUnlockedRef.current) return;
+    let active = true;
+    const removeListeners = () => {
+      for (const type of AUDIO_UNLOCK_EVENTS) {
+        window.removeEventListener(type, unlock, true);
+      }
+    };
+    function unlock(event: Event) {
+      if (!isActivationTriggeringEvent(event)) return;
+      void getReadyAudioContext()
+        .then(() => {
+          if (active) removeListeners();
+        })
+        .catch(() => {
+          // 許可されなければ次の操作で再試行する。
+        });
+    }
+    for (const type of AUDIO_UNLOCK_EVENTS) {
+      window.addEventListener(type, unlock, true);
+    }
+    return () => {
+      active = false;
+      removeListeners();
+    };
+  }, [enabled, getReadyAudioContext]);
 
   useEffect(() => {
     const previous = previousTimerEventRef.current;
