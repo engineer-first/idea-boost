@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isPersonalWritingStep, type RoomPhase } from "@/contracts/phase";
 import type { TimerState } from "@/contracts/room-protocol";
+import type { SharingTimeUpRole } from "./sharing-time-up-role";
 
 type CharacterHintOptions = {
   phase: RoomPhase;
@@ -11,8 +12,8 @@ type CharacterHintOptions = {
   noteCount: number;
   active?: boolean;
   tipsEnabled?: boolean;
-  // 共有工程で今の発表者か。時間切れの一言を発表者と聞く側で言い分ける。
-  isPresenter?: boolean;
+  // 共有工程の時間切れの一言を、発表者・聞く側・共有の終了で言い分ける。
+  sharingRole?: SharingTimeUpRole;
 };
 
 const HINTS = {
@@ -129,7 +130,7 @@ export function useCharacterHint({
   noteCount,
   active = true,
   tipsEnabled = true,
-  isPresenter = true,
+  sharingRole = "presenter",
 }: CharacterHintOptions): { message: string | null } {
   // 同じ文言の案内でも15秒を数え直すよう、表示ごとに新しいオブジェクトにする。
   // timed は残り時間・時間切れの案内。次のタイマーでは古くなるので印を付ける。
@@ -229,8 +230,11 @@ export function useCharacterHint({
         // 同じ時刻のコツは、優先の一言で置き換える。
         shownTips.current = dueTips;
         show(
-          kind === "ended" && phase.kind === "step" && phase.step === 2
-            ? isPresenter
+          kind === "ended" &&
+            phase.kind === "step" &&
+            phase.step === 2 &&
+            sharingRole !== "finished"
+            ? sharingRole === "presenter"
               ? HINTS.sharingEndedPresenter
               : HINTS.sharingEndedListener
             : HINTS[kind],
@@ -261,7 +265,7 @@ export function useCharacterHint({
     show,
     stepHints,
     tipsEnabled,
-    isPresenter,
+    sharingRole,
   ]);
 
   return { message: hint?.text ?? null };

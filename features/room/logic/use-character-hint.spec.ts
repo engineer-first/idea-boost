@@ -376,7 +376,7 @@ describe("キャラクターの一言", () => {
           timer: { status: "ended", durationMs: 180_000 },
           serverOffsetMs: 0,
           noteCount: 1,
-          isPresenter: false,
+          sharingRole: "listener",
         }),
       );
       expect(result.current.message).toBe(
@@ -394,7 +394,7 @@ describe("キャラクターの一言", () => {
           timer,
           serverOffsetMs: 0,
           noteCount: 1,
-          isPresenter: false,
+          sharingRole: "listener",
         }),
       { initialProps: { timer: running as TimerState } },
     );
@@ -407,6 +407,20 @@ describe("キャラクターの一言", () => {
     rerender({ timer: { ...running, endsAt: Date.now() + 180_000 } });
     expect(result.current.message).toBeNull();
   });
+  it("共有が終わった時間切れは、全員に次の工程の確認を案内する", () => {
+    const { result } = renderHook(() =>
+      useCharacterHint({
+        phase: { ...phase, step: 2 },
+        timer: { status: "ended", durationMs: 180_000 },
+        serverOffsetMs: 0,
+        noteCount: 1,
+        sharingRole: "finished",
+      }),
+    );
+    expect(result.current.message).toBe(
+      "時間になったよ、次の工程をみんなで確認しよう。",
+    );
+  });
   it("個人作業の時間切れは発表者かどうかで変えない", () => {
     const { result } = renderHook(() =>
       useCharacterHint({
@@ -414,7 +428,7 @@ describe("キャラクターの一言", () => {
         timer: { status: "ended", durationMs: 180_000 },
         serverOffsetMs: 0,
         noteCount: 1,
-        isPresenter: false,
+        sharingRole: "listener",
       }),
     );
     expect(result.current.message).toBe(
