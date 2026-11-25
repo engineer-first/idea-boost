@@ -34,11 +34,11 @@ describe.each<[AppLocale, string]>([
     });
   });
 
-  it("サイト名を WebSite として示す", () => {
+  it("サイト名を、言語によらずドメインのトップの WebSite 1つで示す", () => {
     expect(nodeOf(locale, "WebSite")).toMatchObject({
+      "@id": "https://ideaboost.dev/#website",
       name: "Idea Boost",
-      url,
-      inLanguage: locale,
+      url: "https://ideaboost.dev/",
     });
   });
 

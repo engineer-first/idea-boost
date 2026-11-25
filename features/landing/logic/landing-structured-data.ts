@@ -15,15 +15,17 @@ export function getLandingStructuredData(locale: AppLocale): StructuredData {
     "@context": "https://schema.org",
     "@graph": [
       {
+        // サイト名は言語によらず1つ。Google のサイト名はドメインのトップの WebSite から読む。
         "@type": "WebSite",
-        "@id": `${url}#website`,
+        "@id": `${SITE_ORIGIN}/#website`,
         name: copy.brand,
-        url,
-        inLanguage: locale,
+        url: `${SITE_ORIGIN}/`,
+        inLanguage: ["ja", "en"],
       },
       {
         "@type": "WebApplication",
         "@id": `${url}#app`,
+        isPartOf: { "@id": `${SITE_ORIGIN}/#website` },
         name: copy.brand,
         url,
         description: copy.description,
