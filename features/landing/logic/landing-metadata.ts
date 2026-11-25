@@ -5,11 +5,22 @@ import { getLandingContent } from "./landing-content";
 /** LP の言語ごとの URL。日本語の / を言語が分からないときの版（x-default）にする。 */
 export const LANDING_PATHS: Record<AppLocale, string> = { ja: "/", en: "/en" };
 
-const ORIGIN = "https://ideaboost.dev";
+/** 本番の origin。検索エンジン・SNS・AI へ渡す絶対 URL の基準にする。 */
+export const SITE_ORIGIN = "https://ideaboost.dev";
 const OG_LOCALES: Record<AppLocale, string> = { ja: "ja_JP", en: "en_US" };
 
-function landingUrl(locale: AppLocale): string {
-  return `${ORIGIN}${LANDING_PATHS[locale]}`;
+/** 言語ごとの LP の絶対 URL。 */
+export function landingUrl(locale: AppLocale): string {
+  return `${SITE_ORIGIN}${LANDING_PATHS[locale]}`;
+}
+
+/** 各言語の LP と、言語が分からないときの版（hreflang）。 */
+export function landingLanguageAlternates(): Record<string, string> {
+  return {
+    ja: landingUrl("ja"),
+    en: landingUrl("en"),
+    "x-default": landingUrl("ja"),
+  };
 }
 
 export function getLandingMetadata(locale: AppLocale): Metadata {
@@ -37,11 +48,7 @@ export function getLandingMetadata(locale: AppLocale): Metadata {
     // 同じ内容の /about も各言語の LP を正とし、互いの言語版を hreflang で示す。
     alternates: {
       canonical: landingUrl(locale),
-      languages: {
-        ja: landingUrl("ja"),
-        en: landingUrl("en"),
-        "x-default": landingUrl("ja"),
-      },
+      languages: landingLanguageAlternates(),
     },
     // 共通レイアウトの既定 noindex を上書きし、LP だけを検索に出す。
     robots: { index: true, follow: true },

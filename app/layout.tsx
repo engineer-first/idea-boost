@@ -3,6 +3,7 @@ import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import { AppHeader } from "@/app/app-header";
 import { Toaster } from "@/components/ui/sonner";
 import { loadDisplayName } from "@/features/auth";
+import { SITE_ORIGIN } from "@/features/landing";
 import { getCurrentUser } from "@/lib/session/current-user";
 import "./globals.css";
 
@@ -21,7 +22,7 @@ const geistMono = Geist_Mono({
 // 検索に出すのは LP だけ。LP 以外の画面は既定で noindex にし、
 // LP の説明文も引き継がない（#993）。LP は landingMetadata で index を許可する。
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ideaboost.dev"),
+  metadataBase: new URL(SITE_ORIGIN),
   applicationName: "Idea Boost",
   title: "Idea Boost",
   robots: { index: false, follow: true },

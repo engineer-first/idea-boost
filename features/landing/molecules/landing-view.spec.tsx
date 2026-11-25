@@ -34,3 +34,20 @@ it("通常開始の未ログインでは使い始め方に招待コードの入�
   );
   expect(screen.getByText(copy.gettingStarted.codeHelp)).toBeInTheDocument();
 });
+
+it("検索エンジンと AI 向けに LP の構造化データを埋め込む", () => {
+  const { container } = render(
+    <LandingView
+      locale="ja"
+      isLoggedIn={false}
+      entry={getLandingEntry(false)}
+    />,
+  );
+  const script = container.querySelector('script[type="application/ld+json"]');
+  expect(script).not.toBeNull();
+  const data = JSON.parse(script?.textContent ?? "{}");
+  expect(data["@context"]).toBe("https://schema.org");
+  expect(
+    data["@graph"].map((node: { "@type": string }) => node["@type"]),
+  ).toEqual(expect.arrayContaining(["WebSite", "WebApplication", "FAQPage"]));
+});
