@@ -72,10 +72,33 @@ describe("NoteFontSizeControls", () => {
       screen.getByRole("button", { name: "付箋の文字を大きく" }).focus(),
     );
     expect(screen.getByRole("tooltip")).toHaveTextContent(
-      "選んだ付箋の文字を大きく",
+      "選択した付箋の文字を大きく",
     );
-    expect(
-      screen.getByRole("group", { name: "選択した付箋の文字サイズ" }),
-    ).toHaveAccessibleDescription("共有した付箋は全員の表示に反映されます");
+  });
+
+  it("押せないボタンもホバーで説明を出す", () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <NoteFontSizeControls
+          fontSize={24}
+          disabled={false}
+          onChange={vi.fn()}
+        />,
+      );
+      const increase = screen.getByRole("button", {
+        name: "付箋の文字を大きく",
+      });
+      expect(increase).toBeDisabled();
+      const trigger = increase.parentElement;
+      if (!trigger) throw new Error("押せないボタンを包むtriggerが必要");
+      fireEvent.pointerMove(trigger, { pointerType: "mouse" });
+      act(() => vi.advanceTimersByTime(2000));
+      expect(screen.getByRole("tooltip")).toHaveTextContent(
+        "選択した付箋の文字を大きく",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
