@@ -922,15 +922,15 @@ export function NoteCard({
               }}
               // ほかの道具（メニュー・HUD）と同じ白い浮遊ボタンにし、
               // 除外の意味は文字とアイコンの危険色だけで伝える（DESIGN.md「ボタン」）。
-              // 処理中も当たり判定を残し、ポインターがボードへ抜けて消えないようにする。
+              // 見えている間は処理中も当たり判定を残し、ポインターがボードへ抜けて消えないようにする。
               // 左右の余白は「処理中…」が 80px に収まるよう詰める。
               className={cn(
-                "fixed z-40 gap-1 px-1 text-xs font-bold shadow-tool transition-opacity disabled:pointer-events-auto",
+                "fixed z-40 gap-1 px-1 text-xs font-bold shadow-tool transition-opacity",
                 note.excluded
                   ? "text-foreground"
                   : "text-danger-text hover:bg-danger-soft hover:text-danger-text",
                 isCandidateActionVisible
-                  ? "pointer-events-auto opacity-100"
+                  ? "pointer-events-auto opacity-100 disabled:pointer-events-auto"
                   : "pointer-events-none opacity-0",
               )}
               style={{

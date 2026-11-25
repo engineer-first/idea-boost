@@ -248,7 +248,11 @@ describe("NoteCard", () => {
   });
 
   it("処理中も候補操作が当たり判定を保ち、文字を80pxの枠に収める", () => {
-    setup({ canExcludeNote: true, candidatePending: true } as never);
+    setup({
+      canExcludeNote: true,
+      candidatePending: true,
+      isSelected: true,
+    } as never);
 
     const action = screen.getByRole("button", { name: "除外する" });
 
@@ -259,6 +263,15 @@ describe("NoteCard", () => {
     expect(action).toHaveClass("disabled:pointer-events-auto");
     // アイコン・間隔・「処理中…」の4字が 80px に収まるよう左右の余白を詰める。
     expect(action).toHaveClass("px-1");
+  });
+
+  it("隠れている処理中の候補操作は、見えないままクリックを奪わない", () => {
+    setup({ canExcludeNote: true, candidatePending: true } as never);
+
+    const action = screen.getByRole("button", { name: "除外する" });
+
+    expect(action).toHaveClass("pointer-events-none");
+    expect(action).not.toHaveClass("disabled:pointer-events-auto");
   });
 
   it("除外を戻す操作は危険の色を使わない", () => {
