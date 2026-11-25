@@ -35,18 +35,38 @@ export function useTimerAlert({
 }: UseTimerAlertOptions): TimerAlertKind | null {
   const [shown, setShown] = useState<ShownAlert | null>(null);
   const firedKeys = useRef(new Set<string>());
+  // 時間切れを予約した回。終了の受信が予約より先に届いたときに使う。
+  const armedRun = useRef<{ endsAt: number; clientEndsAt: number } | null>(
+    null,
+  );
   const status = timer.status;
   const endsAt = timer.status === "running" ? timer.endsAt : null;
   const durationMs = timer.status === "running" ? timer.durationMs : 0;
 
   useEffect(() => {
     if (!active) {
+      armedRun.current = null;
       setShown(null);
       return;
     }
     if (endsAt === null) {
-      // 時間切れの通知はサーバーの終了を受けても出し切る。
-      if (status !== "ended") setShown(null);
+      const armed = armedRun.current;
+      armedRun.current = null;
+      if (status === "paused") {
+        setShown(null);
+        return;
+      }
+      // 時間切れの通知は、終了や延長後の自動進行で未開始に戻っても出し切る。
+      setShown((current) => (current?.kind === "timeUp" ? current : null));
+      // サーバーの終了が手元の予定より先に届いたときは、ここで出す。
+      if (
+        armed &&
+        Math.abs(now() - armed.clientEndsAt) <= LATE_TOLERANCE_MS &&
+        !firedKeys.current.has(`timeUp:${armed.endsAt}`)
+      ) {
+        firedKeys.current.add(`timeUp:${armed.endsAt}`);
+        setShown({ kind: "timeUp", runKey: armed.endsAt });
+      }
       return;
     }
     setShown((current) =>
@@ -55,6 +75,8 @@ export function useTimerAlert({
 
     const clientEndsAt = endsAt - serverOffsetMs;
     const scheduledAt = now();
+    if (clientEndsAt > scheduledAt) armedRun.current = { endsAt, clientEndsAt };
+    else if (armedRun.current?.endsAt !== endsAt) armedRun.current = null;
     const milestones: { kind: TimerAlertKind; dueAt: number }[] = [
       { kind: "timeUp", dueAt: clientEndsAt },
     ];

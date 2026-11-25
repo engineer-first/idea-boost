@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { TimerAlert } from "./timer-alert";
 
 describe("タイマーの画面中央の通知", () => {
-  it("通知の間だけ中央に出して読み上げ、操作は下の付箋へ通す", () => {
+  it("通知の間だけ中央に出し、残り1分だけ読み上げ、操作は下の付箋へ通す", () => {
     const { rerender } = render(<TimerAlert kind={null} />);
     const status = screen.getByRole("status");
     expect(status).toBeEmptyDOMElement();
@@ -15,8 +15,12 @@ describe("タイマーの画面中央の通知", () => {
       "pointer-events-none",
     );
 
+    // 時間切れはタイマー本体とキャラクターが読み上げるので重ねない。
     rerender(<TimerAlert kind="timeUp" />);
-    expect(status).toHaveTextContent("時間になりました！");
+    expect(screen.getByTestId("timer-alert")).toHaveTextContent(
+      "時間になりました！",
+    );
+    expect(status).toBeEmptyDOMElement();
 
     rerender(<TimerAlert kind={null} />);
     expect(screen.queryByTestId("timer-alert")).not.toBeInTheDocument();

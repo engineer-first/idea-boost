@@ -58,6 +58,52 @@ describe("タイマーの画面中央の通知", () => {
     expect(result.current).toBeNull();
   });
 
+  it("サーバーの時間切れが手元の予定より先に届いても、時間切れを出す", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const { result, rerender } = render({
+      timer: running(30_000),
+      serverOffsetMs: -200,
+    });
+    act(() => vi.advanceTimersByTime(30_100));
+    expect(result.current).toBeNull();
+    rerender({
+      timer: { status: "ended", durationMs: 180_000 },
+      serverOffsetMs: -200,
+    });
+    expect(result.current).toBe("timeUp");
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(result.current).toBe("timeUp");
+  });
+
+  it("延長した回の時間切れ直後に次へ進んでタイマーが未開始に戻っても、時間切れを出し切る", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const { result, rerender } = render({
+      timer: running(60_000, 60_000),
+      serverOffsetMs: 0,
+    });
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(result.current).toBe("timeUp");
+    rerender({ timer: { status: "idle" }, serverOffsetMs: 0 });
+    act(() => vi.advanceTimersByTime(TIMER_ALERT_VISIBLE_MS - 100));
+    expect(result.current).toBe("timeUp");
+    act(() => vi.advanceTimersByTime(100));
+    expect(result.current).toBeNull();
+  });
+
+  it("終了予定よりずっと前に止められたときは、時間切れを出さない", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const { result, rerender } = render({
+      timer: running(120_000),
+      serverOffsetMs: 0,
+    });
+    act(() => vi.advanceTimersByTime(10_000));
+    rerender({ timer: { status: "idle" }, serverOffsetMs: 0 });
+    expect(result.current).toBeNull();
+  });
+
   it("途中から見始めたときは、過ぎた残り1分を後から出さない", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);

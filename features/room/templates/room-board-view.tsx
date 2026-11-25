@@ -2140,7 +2140,9 @@ export function RoomBoardView({
         {canSendSharingReaction(phase) && !outcomePublished
           ? sharingReactionDisplay
           : null}
+        {/* 時間切れの通知を出し切るまで、同じ中央に未開始の案内を重ねない。 */}
         {timer.status === "idle" &&
+        timerAlert === null &&
         !isAdditionalWriting &&
         sharing?.status !== "complete" &&
         !sharing?.startsAt &&
