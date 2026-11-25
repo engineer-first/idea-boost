@@ -49,7 +49,11 @@ import type {
   TimerState,
 } from "@/contracts/room-protocol";
 import { SignOutControl } from "@/features/auth";
-import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
+import {
+  buildInviteMessage,
+  CopyInviteButton,
+  InviteUrlActions,
+} from "@/features/invite";
 import {
   MemberAvatar,
   MemberSelection,
@@ -1248,7 +1252,14 @@ export function RoomBoardHeader({
                             />
                           </div>
                           <div className="min-w-0">
-                            <InviteUrlActions value={inviteUrl} />
+                            <InviteUrlActions
+                              value={inviteUrl}
+                              message={buildInviteMessage({
+                                roomName,
+                                inviteCode,
+                                inviteUrl,
+                              })}
+                            />
                           </div>
                         </div>
                       </PopoverContent>

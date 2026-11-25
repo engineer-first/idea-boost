@@ -7,16 +7,30 @@ import { CopyInviteButton } from "./copy-invite-button";
 
 export type InviteUrlActionsProps = {
   value: string;
+  // チャットへそのまま貼れる招待文。渡したときだけ「招待文をコピー」を出す。
+  message?: string;
   layout?: "stacked" | "inline";
 };
 
-export function InviteUrlActions({ value, layout }: InviteUrlActionsProps) {
+export function InviteUrlActions({
+  value,
+  message,
+  layout,
+}: InviteUrlActionsProps) {
   // ルーム切替で前の共有・コピー結果を次の招待に持ち越さない。
-  return <InviteUrlActionsContent key={value} value={value} layout={layout} />;
+  return (
+    <InviteUrlActionsContent
+      key={value}
+      value={value}
+      message={message}
+      layout={layout}
+    />
+  );
 }
 
 function InviteUrlActionsContent({
   value,
+  message,
   layout = "stacked",
 }: InviteUrlActionsProps) {
   const [supported, setSupported] = useState(false);
@@ -73,12 +87,22 @@ function InviteUrlActionsContent({
           : "flex w-full min-w-0 flex-col items-end gap-1"
       }
     >
-      {/* URLの全文は見せず、押すとリンクをコピーする。 */}
-      <CopyInviteButton
-        value={value}
-        itemLabel="招待リンク"
-        label="リンクをコピー"
-      />
+      {/* コピーの2つは縦に積み、横並びの狭い列でも文言を省略させない。 */}
+      <div className="flex w-full min-w-0 flex-1 flex-col gap-2">
+        {/* URLの全文は見せず、押すとリンクをコピーする。 */}
+        <CopyInviteButton
+          value={value}
+          itemLabel="招待リンク"
+          label="リンクをコピー"
+        />
+        {message ? (
+          <CopyInviteButton
+            value={message}
+            itemLabel="招待文"
+            label="招待文をコピー"
+          />
+        ) : null}
+      </div>
       {supported ? (
         <>
           <Button

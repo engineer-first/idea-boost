@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 
 import { isLobby, type RoomPhase } from "@/contracts/phase";
 // WebSocket接続と操作の確定はroom-lobby.tsxが持ち、ここでは待機画面を組み立てる。
-import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
+import {
+  buildInviteMessage,
+  CopyInviteButton,
+  InviteUrlActions,
+} from "@/features/invite";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
@@ -208,8 +212,16 @@ export function RoomLobbyView({
               <Link2 size={24} aria-hidden="true" />
             </span>
             <div>
-              <h2 className={styles.inviteTitle} id={inviteTitleId}>
-                メンバーを招待
+              <h2
+                className={styles.inviteTitle}
+                id={inviteTitleId}
+                // <wbr> の前後に空白を挟まないよう、名前は一続きで渡す。
+                aria-label="メンバーを招待"
+              >
+                {/* 狭い列でも「招／待」と語の途中で折り返さない。 */}
+                メンバーを
+                <wbr />
+                招待
               </h2>
               <p>リンクやコードを送って、仲間を呼ぼう。</p>
             </div>
@@ -219,7 +231,15 @@ export function RoomLobbyView({
             <CopyInviteButton value={inviteCode} itemLabel="招待コード" />
           </div>
           <div className={styles.inviteUrl}>
-            <InviteUrlActions value={inviteUrl} layout="inline" />
+            <InviteUrlActions
+              value={inviteUrl}
+              message={buildInviteMessage({
+                roomName: roomName?.name,
+                inviteCode,
+                inviteUrl,
+              })}
+              layout="inline"
+            />
           </div>
           <Button
             type="button"

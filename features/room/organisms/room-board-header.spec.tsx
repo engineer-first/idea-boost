@@ -917,6 +917,36 @@ describe("RoomBoardHeader", () => {
       ).toHaveTextContent("AB12CD");
     });
 
+    it("ルームメニューの招待から、ルーム名・参加リンク・招待コードを含む招待文をコピーできる", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      try {
+        setup({ roomName: "J05" });
+        openRoomMenu();
+        fireEvent.click(screen.getByRole("button", { name: "招待" }));
+        const invite = screen.getByTestId("board-view-invite");
+        await act(async () =>
+          fireEvent.click(
+            within(invite).getByRole("button", { name: "招待文をコピー" }),
+          ),
+        );
+        expect(writeText).toHaveBeenCalledExactlyOnceWith(
+          [
+            "IdeaBoost のルーム「J05」に招待します。",
+            "参加リンク: https://idea-flow.example/invite/AB12CD",
+            "招待コード: AB12CD",
+          ].join("\n"),
+        );
+      } finally {
+        if (original) Object.defineProperty(navigator, "clipboard", original);
+        else Reflect.deleteProperty(navigator, "clipboard");
+      }
+    });
+
     it("招待ラベルの下に値を配置する", () => {
       setup({});
       openRoomMenu();

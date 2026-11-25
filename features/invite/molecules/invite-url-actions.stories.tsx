@@ -34,6 +34,13 @@ export const Supported: Story = {
 export const Unsupported: Story = {
   beforeEach: () => mockShare(undefined),
 };
+export const WithMessage: Story = {
+  args: {
+    message:
+      "IdeaBoost のルーム「J05」に招待します。\n参加リンク: https://idea-flow.example/invite/ABC234\n招待コード: ABC234",
+  },
+  beforeEach: () => mockShare(async () => undefined),
+};
 export const Sharing: Story = {
   beforeEach: () => mockShare(() => new Promise<void>(() => undefined)),
   play: async ({ canvasElement }) => {
