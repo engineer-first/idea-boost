@@ -216,14 +216,19 @@ for (const width of widths(390, 1280)) {
         await expect
           .poll(() => share.getAttribute("data-share-state"), { timeout: 3000 })
           .toBe("idle");
-        // 招待コード → リンクをコピー → 共有の順に並ぶ。
+        // 招待コード → 招待文をコピー → リンクをコピー → 共有の順に並ぶ。
+        const message = page.getByRole("button", { name: "招待文をコピー" });
         await share.focus();
         await page.keyboard.press("Shift+Tab");
+        await page.keyboard.press("Shift+Tab");
+        expect(
+          await message.evaluate((el) => el === document.activeElement),
+        ).toBe(true);
         await page.keyboard.press("Shift+Tab");
         expect(await code.evaluate((el) => el === document.activeElement)).toBe(
           true,
         );
-        for (const control of [copy, code, share]) {
+        for (const control of [copy, code, message, share]) {
           const box = await control.boundingBox();
           expect(box).not.toBeNull();
           expect(box?.x).toBeGreaterThanOrEqual(0);
