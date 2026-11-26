@@ -9,14 +9,23 @@ import {
 import { NOTE_HEIGHT } from "@/contracts/board";
 import {
   placeRoomTimer,
+  snapRoomTimer,
   type TimerPosition,
   type TimerRect,
 } from "./timer-position";
 
 const OBSTACLES =
   '[data-testid="step-one-onboarding-trigger"], [data-testid="board-control-hud"], [data-testid="board-context-hud"], [data-testid="board-location-card"], [data-testid="private-notes-toolbar"], [data-testid="canvas-zoom-hud"], [data-testid="board-tools-hud"], [data-testid="idea-map-size-controls-hud"], [data-testid="board-connection-status"], [data-private-writing-hint] [data-testid="board-character-bubble"]';
+/**
+ * 端へ寄せるときだけ避ける、画面の上下中央の案内。
+ * 初期配置（右上）とマイ付箋の段組みには関わらないので、通常の配置計算には含めない。
+ */
+const SNAP_OBSTACLES =
+  '[data-testid="phase-step-trail"], [data-testid="board-character"], [data-testid="board-character-bubble"], [data-testid="sharing-current-presenter"], [data-testid="phase-loop-hud"] > *';
 const MIN_PRIVATE_COMPOSER_WIDTH = 192;
 const PRIVATE_WRITING_HEADER_SPACE = 136;
+/** 端へ寄る動き（CSS の transition）が終わるまでの時間 */
+const SNAP_SETTLE_MS = 240;
 
 export function useFloatingTimer(
   ref: RefObject<HTMLElement | null>,
@@ -42,7 +51,9 @@ export function useFloatingTimer(
   const targetRef = useRef(targetWidth);
   const velocity = useRef(0);
 
-  const layout = (width = targetRef.current, settle = true) => {
+  const snapTimeout = useRef(0);
+
+  const layout = (width = targetRef.current, settle = true, snap = false) => {
     const element = ref.current;
     if (!element) return;
     const root = element.closest<HTMLElement>(
@@ -117,14 +128,27 @@ export function useFloatingTimer(
           moved.current || node.dataset.testid !== "private-notes-toolbar",
       )
       .map((node) => node.getBoundingClientRect());
+    if (snap)
+      for (const node of root?.querySelectorAll<HTMLElement>(SNAP_OBSTACLES) ??
+        [])
+        if (node.offsetWidth > 0 && node.offsetHeight > 0)
+          obstacles.push(node.getBoundingClientRect());
     if (!position.current || !moved.current) position.current = initial;
     if (settle)
-      position.current = placeRoomTimer(
+      position.current = (snap ? snapRoomTimer : placeRoomTimer)(
         position.current,
         width,
         bounds,
         obstacles,
       );
+    if (snap) {
+      // 離した位置から端までを滑らかに移す。動きを減らす設定では CSS 側で即座に移る。
+      element.dataset.snapping = "true";
+      window.clearTimeout(snapTimeout.current);
+      snapTimeout.current = window.setTimeout(() => {
+        delete element.dataset.snapping;
+      }, SNAP_SETTLE_MS);
+    }
     element.style.left = `${position.current.right - width}px`;
     element.style.top = `${position.current.top}px`;
   };
@@ -192,6 +216,7 @@ export function useFloatingTimer(
     if (root) mutations?.observe(root, { childList: true, subtree: true });
     window.addEventListener("resize", update);
     return () => {
+      window.clearTimeout(snapTimeout.current);
       observer?.disconnect();
       mutations?.disconnect();
       window.removeEventListener("resize", update);
@@ -234,9 +259,11 @@ export function useFloatingTimer(
   };
   const onPointerEnd = (event: PointerEvent<HTMLElement>) => {
     if (drag.current?.pointerId !== event.pointerId) return;
+    const dropped = drag.current.active;
     drag.current = null;
     setDragging(false);
-    layoutRef.current();
+    // ドラッグして離したときだけ、作業領域の最寄りの端へ寄せる
+    layoutRef.current(undefined, true, dropped);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (
