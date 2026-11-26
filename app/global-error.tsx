@@ -1,6 +1,8 @@
 "use client";
 
 import "./globals.css";
+import { NextIntlClientProvider } from "next-intl";
+import appMessages from "@/messages/ja/app.json";
 import { routeStatusCopy } from "./route-status-copy";
 import { RouteStatusView } from "./route-status-view";
 
@@ -11,7 +13,9 @@ export default function GlobalError() {
       <body className="flex h-full flex-col overflow-hidden">
         <title>{routeStatusCopy.error.title}</title>
         <meta name="robots" content="noindex" />
-        <RouteStatusView kind="error" />
+        <NextIntlClientProvider locale="ja" messages={{ app: appMessages }}>
+          <RouteStatusView kind="error" />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

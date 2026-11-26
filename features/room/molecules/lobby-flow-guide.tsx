@@ -119,7 +119,7 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                 <span>
                   {PHASE_MARKERS[phase.phase]} {phase.title}
                 </span>
-                <span className={styles.minutes}>{phase.minutes}分</span>
+                <span className={styles.minutes}>{phase.minutes}{t("minuteSuffix")}</span>
               </h3>
               <ol className={styles.steps}>
                 {phase.steps.map((step) => {

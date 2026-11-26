@@ -204,6 +204,7 @@
         "action": "Choose one solution"
       }
     },
-    "flowTitle": "Overall flow"
+    "flowTitle": "Overall flow",
+    "minuteSuffix": " min"
   }
 }

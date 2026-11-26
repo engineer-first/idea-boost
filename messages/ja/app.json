@@ -204,6 +204,7 @@
         "action": "解決策を1つに決める"
       }
     },
-    "flowTitle": "全体の流れ"
+    "flowTitle": "全体の流れ",
+    "minuteSuffix": "分"
   }
 }
