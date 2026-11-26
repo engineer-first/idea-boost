@@ -341,10 +341,10 @@
     width: clamp(160px, 18vw, 280px);
     opacity: 1;
   }
+  /* 顔が多いと飾りが顔と名前に重なるので、PC では顔の色に任せて飾りを出さない。 */
   .stage[data-density="compact"]::before,
   .stage[data-density="compact"]::after {
-    width: clamp(80px, 12vw, 200px);
-    opacity: 0.65;
+    display: none;
   }
   .lobby {
     padding-bottom: 8px;
@@ -387,9 +387,12 @@
     container-type: size;
     overflow: auto;
   }
-  /* 左の飾りは説明パネルと重なるので、右の飾りだけ残す。 */
+  /* 左の飾りは説明パネルに重ねず、右の列の左端に置いて見出しと顔を左右から挟む。
+     列の端で図形が切れて見えないよう、左端はぼかして消す。 */
   .stage::before {
-    display: none;
+    left: 0;
+    width: clamp(120px, 14vw, 220px);
+    mask-image: linear-gradient(to right, transparent, black 40%);
   }
   .inviteShelf {
     /* コード・リンクのコピーは中身の幅にし、スタートを右端へ寄せる。
@@ -468,9 +471,6 @@
   }
   .lobby[data-member-density="many"] .content > .guide {
     display: none;
-  }
-  .lobby[data-member-density="many"] .stage::before {
-    display: block;
   }
 }
 @media (min-width: 1180px) {
