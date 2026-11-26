@@ -154,7 +154,7 @@ export const ProgressControls: Story = {
   },
 };
 
-// 本人が「できた！」を押した後。呼び方は変えず、緑の塗りとチェックで押し済みを示す。
+// 本人が「できた！」を押した後。呼び方は変えず、淡い緑の面と緑で塗ったチェックの丸で押し済みを示す。
 export const ReadyChecked: Story = {
   args: {
     phase: buildPhaseStep(3),
