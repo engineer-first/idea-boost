@@ -1597,9 +1597,54 @@ export function RoomBoardView({
         "--board-character-bubble-max-width",
         `${22 * rem}px`,
       );
-      root.style.setProperty("--board-character-bubble-top", "0.25rem");
-      root.style.setProperty("--board-character-bubble-left", "100%");
-      root.style.setProperty("--board-character-bubble-gap", "0.375rem");
+      // 広い画面で右隣に右上の操作群までの余地が無いときは、吹き出しを先生の真下へ出し、
+      // 「◯-1に戻って書き足す」などの操作名を隠さない。操作群の位置は動かさない。
+      // 個人で書く工程は真下に書き込み欄があるため、欄を動かさないよう右隣のままにする。
+      const characterBounds =
+        window.innerWidth >= 640 &&
+        !isPersonalNoteEntryPhase &&
+        characterHint.message
+          ? root
+              .querySelector<HTMLElement>(characterSelector)
+              ?.getBoundingClientRect()
+          : undefined;
+      const characterBubble = characterBounds
+        ? root.querySelector<HTMLElement>(characterBubbleSelector)
+        : null;
+      const controlBounds = root
+        .querySelector<HTMLElement>('[data-testid="board-control-hud"]')
+        ?.getBoundingClientRect();
+      const besideGap = 0.375 * rem;
+      const besideRight =
+        controlBounds && characterBounds
+          ? controlBounds.top < characterBounds.bottom &&
+            controlBounds.right > characterBounds.right
+            ? controlBounds.left - 0.5 * rem
+            : window.innerWidth - 0.75 * rem
+          : Number.POSITIVE_INFINITY;
+      const placesBubbleBelow =
+        characterBounds !== undefined &&
+        characterBubble !== null &&
+        characterBounds.right + besideGap + characterBubble.offsetWidth >
+          besideRight;
+      if (placesBubbleBelow && characterBounds) {
+        const controlBottom =
+          controlBounds &&
+          controlBounds.top < characterBounds.bottom &&
+          controlBounds.right > characterBounds.left
+            ? controlBounds.bottom - characterBounds.top
+            : 0;
+        root.style.setProperty(
+          "--board-character-bubble-top",
+          `${Math.ceil(Math.max(characterBounds.height, controlBottom) + 0.25 * rem)}px`,
+        );
+        root.style.setProperty("--board-character-bubble-left", "0px");
+        root.style.setProperty("--board-character-bubble-gap", "0px");
+      } else {
+        root.style.setProperty("--board-character-bubble-top", "0.25rem");
+        root.style.setProperty("--board-character-bubble-left", "100%");
+        root.style.setProperty("--board-character-bubble-gap", "0.375rem");
+      }
       if (isPersonalNoteEntryPhase) {
         const frame = root.querySelector<HTMLElement>(
           '[data-testid="board-frame"]',
