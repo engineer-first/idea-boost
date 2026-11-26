@@ -18,7 +18,7 @@ export function formatOutcomeText(
   }).format(exportedAt);
   return [
     locale === "en" ? "Team results" : "チームで決めた成果",
-    `出力日: ${date}`,
+    locale === "en" ? `Exported: ${date}` : `出力日: ${date}`,
     "",
     `${locale === "en" ? "1. Selected challenge" : "1. 決定した課題"}\n${outcome.issue}`,
     "",

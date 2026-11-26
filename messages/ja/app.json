@@ -387,7 +387,19 @@
     "stampAria": "決定のはんこ（確定を取り消す）",
     "decision": "決定",
     "adopted": "採用済み",
-    "issueDecision": "取り組む課題に決定済み"
+    "issueDecision": "取り組む課題に決定済み",
+    "restoreAction": "除外を戻す",
+    "excludeAction": "除外する",
+    "restore": "戻す",
+    "exclude": "除外",
+    "processing": "処理中…",
+    "candidateActions": "付箋の候補操作",
+    "excluded": "除外済み",
+    "placeholder": "メモを入力...",
+    "body": "付箋の本文",
+    "excludedNote": "除外済みの付箋",
+    "note": "付箋",
+    "voteOnNote": "付箋（{sticker}を貼る）"
   },
   "boardVote": {
     "palette": "投票パレット",
@@ -430,7 +442,8 @@
     "phaseConfirmationRequired": "次のステップへ進む前に、全員の完了状態を確認してください。",
     "roomOperationFailed": "ルームの操作を完了できませんでした。もう一度お試しください。",
     "leaveFailed": "ルームからの退出に失敗しました。",
-    "noteCreationFailed": "付箋を追加できませんでした。もう一度お試しください。"
+    "noteCreationFailed": "付箋を追加できませんでした。もう一度お試しください。",
+    "recheckingRoomEntry": "入室を確認し直しています。"
   },
   "stepGuide": {
     "slides": {},
@@ -752,7 +765,10 @@
     "genericError": "参加者をルームから外せませんでした。もう一度お試しください。",
     "cancel": "キャンセル",
     "removing": "退出処理中…",
-    "remove": "ルームから外す"
+    "remove": "ルームから外す",
+    "connectionLost": "接続が切れました。再接続後に参加者を確認して操作し直してください。",
+    "sendFailed": "送信できませんでした。接続を確認してから操作し直してください。",
+    "resultUnknown": "結果を確認できませんでした。参加者一覧を確認してから操作し直してください。"
   },
   "boardDisplayName": {
     "tooLong": "表示名は{max}文字以内で入力してください。",
@@ -773,7 +789,11 @@
     "disabled": "接続・ルームの状態を確認してから保存してください。",
     "cancel": "キャンセル",
     "saving": "保存中…",
-    "save": "保存する"
+    "save": "保存する",
+    "empty": "テーマを入力してください。",
+    "connectionLost": "接続が切れました。再接続後にテーマを確認し、もう一度保存してください。",
+    "sendFailed": "送信できませんでした。接続を確認して、もう一度保存してください。",
+    "resultUnknown": "結果を確認できませんでした。現在のテーマを確認して、もう一度保存してください。"
   },
   "boardDecide": {
     "selectChallenge": "この付箋を取り組む課題に決定"
@@ -821,5 +841,192 @@
       "insight": "なるほどを送る",
       "question": "どうして？のリアクションを送る"
     }
+  },
+  "boardCanvas": {
+    "canvasControls": "キャンバス表示操作",
+    "moveHistoryControls": "付箋の移動履歴",
+    "navigationDescription": "方向キーで視野を移動、PageUp・PageDownで上下に読む。視野とズームの変更は自分だけの表示です",
+    "zoomDescription": "ズームの変更は自分だけの表示です",
+    "selectTool": "選択ツール",
+    "selectToolHint": "選択（背景でV）",
+    "handTool": "手のひらツール",
+    "handToolHint": "手のひら（背景でH）。Space＋ドラッグで一時的に画面移動",
+    "zoomOut": "キャンバスを縮小",
+    "zoomOutHint": "キャンバスを縮小（自分だけの表示）",
+    "resetZoom": "ズームを100%に戻す",
+    "resetZoomHint": "ズームを100%に戻す（自分だけの表示）",
+    "zoomIn": "キャンバスを拡大",
+    "zoomInHint": "キャンバスを拡大（自分だけの表示）",
+    "fitToNotes": "付箋全体を表示",
+    "fitToNotesHint": "付箋全体を表示（自分だけの表示）",
+    "publishBlocked": "自分の番になったら出せます",
+    "waitingYourTurn": "自分の番で発表できます",
+    "savingBeforeShare": "本文の保存を確認してから共有します…",
+    "shareOnMap": "あなたの番です。付箋を2軸マップへドラッグして共有できます。",
+    "shareOnBoard": "あなたの番です。付箋をボードへドラッグして共有できます。",
+    "adoptNoteLabel": "採用する{target}: {content}",
+    "noContent": "内容なし",
+    "notePlaceholder": "メモを入力...",
+    "selectedNotes": "選択した付箋：{count}枚",
+    "canvasAriaLabel": "共有キャンバス",
+    "additionalWritingAriaDescription": "背景のドラッグやホイールで共有ボードを移動し、共有付箋のクリックで全文を確認できます。表示の移動と拡大縮小は自分だけに反映されます。",
+    "mapWorkspaceAriaDescription": "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。",
+    "mapReadOnlyAriaDescription": "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。",
+    "navigationAriaDescription": "背景でVは選択、Hは手のひら。Spaceとドラッグで画面移動",
+    "canvasBackgroundAriaLabel": "共有キャンバスの背景",
+    "noCandidates": "候補がありません。除外済みの付箋を戻してください。",
+    "noSharedNotes": "共有された付箋はまだありません",
+    "unnamedParticipant": "名前未設定",
+    "sharedNoteContentAria": "共有付箋の全文",
+    "sharedNoteReadOnly": "共有付箋・閲覧のみ",
+    "closeSharedNoteContent": "共有付箋の全文を閉じる",
+    "noSharedNoteBody": "本文はありません"
+  },
+  "boardMapSize": {
+    "ariaLabel": "2軸マップの広さ操作",
+    "disabledPreparing": "初期サイズを準備しています。",
+    "disabledDisconnected": "接続が回復すると変更できます。",
+    "disabledDragging": "付箋のドラッグ中は変更できません。",
+    "sizeDescription": "現在の広さは{level}段階目です（全{total}段階）。",
+    "limitNarrow": "これ以上狭くできません。",
+    "limitWide": "これ以上広くできません。",
+    "helpLabel": "マップの広さについて",
+    "label": "マップの広さ",
+    "shared": "全員に反映",
+    "helpTitle": "マップの広さについて",
+    "scope": "表示範囲は全員に反映されますが、付箋の配置位置と評価値は変わりません。",
+    "camera": "個人用ズームは表示範囲と独立しており、自分だけの見え方を調整します。",
+    "direction": "＋で表示範囲を広げると付箋は小さく、－で狭めると大きく見えます。付箋の中心位置は変わりません。上ほど価値が高く、右ほど実現しやすいアイデアです。",
+    "decreaseLabel": "マップを狭くする",
+    "decreaseTitle": "マップを狭くする（全員に反映）",
+    "increaseLabel": "マップを広くする",
+    "increaseTitle": "マップを広くする（全員に反映）",
+    "currentSize": "現在の広さは{level}段階目です。"
+  },
+  "boardNoteFontSize": {
+    "ariaLabel": "選択した付箋の文字サイズ",
+    "ariaDescription": "共有した付箋は全員の表示に反映されます",
+    "decreaseLabel": "付箋の文字を小さく",
+    "decreaseHint": "選択した付箋の文字を小さく（共有後は全員に反映）",
+    "increaseLabel": "付箋の文字を大きく",
+    "increaseHint": "選択した付箋の文字を大きく（共有後は全員に反映）"
+  },
+  "boardContext": {
+    "decidedQuestion": "決定した問い",
+    "decidedChallenge": "決定した課題",
+    "contentLabel": "{label}の本文"
+  },
+  "boardMap": {
+    "ariaLabel": "価値と実現のしやすさの2軸マップ",
+    "title": "解決策の位置付け",
+    "value": "価値",
+    "feasibility": "実現のしやすさ",
+    "low": "低",
+    "high": "高",
+    "feasibilityLow": "しにくい",
+    "feasibilityHigh": "しやすい",
+    "valueScaleAriaLabel": "価値: 低から高",
+    "feasibilityScaleAriaLabel": "実現のしやすさ: 左ほどしにくく、右ほどしやすい"
+  },
+  "ideaSupportPanel": {
+    "loading": "発想支援を読み込んでいます",
+    "empty": "発想支援コンテンツはありません",
+    "error": "発想支援コンテンツを表示できません",
+    "tabAria": "発想法",
+    "collapseQuestions": "ほかの問いを閉じる",
+    "showQuestions": "ほかの問いを見る（{count}）",
+    "description": "気になる問いを1つ、決定した問いに当てはめよう。浮かんだ方法は付箋に書こう。",
+    "close": "発想支援を閉じる",
+    "open": "発想支援を開く",
+    "methods": {
+      "osborn": {
+        "label": "オズボーン",
+        "title": "オズボーンのチェックリスト",
+        "prompts": {
+          "p1": "別の目的や用途で使えないか？",
+          "p2": "似たものから応用できないか？",
+          "p3": "形・仕組み・方法を変更できないか？",
+          "p4": "大きくしたら新しい価値が生まれないか？",
+          "p5": "小さくしたら使いやすくならないか？",
+          "p6": "別のものに置き換えられないか？",
+          "p7": "反対にしたら新しい発想にならないか？",
+          "p8": "複数のアイデアを組み合わせられないか？"
+        }
+      },
+      "scamper": {
+        "label": "SCAMPER",
+        "title": "SCAMPER法",
+        "prompts": {
+          "p1": "Substitute（置き換える）：別のものに変えられないか？",
+          "p2": "Combine（組み合わせる）：他の要素と組み合わせられないか？",
+          "p3": "Adapt（応用する）：別の場面の方法を使えないか？",
+          "p4": "Modify（変更する）：形や仕組みを変えられないか？",
+          "p5": "Put to another use（別用途）：違う目的で使えないか？",
+          "p6": "Eliminate（削除する）：なくしても成立しないか？",
+          "p7": "Reverse（逆転する）：順番や役割を逆にできないか？"
+        }
+      },
+      "reverse": {
+        "label": "逆転発想",
+        "title": "逆転発想で考える",
+        "prompts": {
+          "p1": "理想とは反対の悪い状態をあえて考えてみる",
+          "p2": "普通とは逆の方法にするとどうなるか考える",
+          "p3": "利用する人と提供する人の役割を逆にしてみる"
+        }
+      },
+      "industry": {
+        "label": "他業界事例",
+        "title": "他業界からヒントを探す",
+        "prompts": {
+          "p1": "飲食業界では同じ課題をどう解決しているか？",
+          "p2": "ゲーム業界では楽しく続ける工夫をどうしているか？",
+          "p3": "ホテル業界では快適な体験をどう作っているか？",
+          "p4": "教育業界では学びや理解をどう支援しているか？"
+        }
+      }
+    }
+  },
+  "boardDraftRecovery": {
+    "ariaLabel": "未反映の文章",
+    "expandedTitle": "反映を確認できていない文章があります",
+    "collapsedTitle": "未反映の文章",
+    "close": "閉じる",
+    "reviewAndCopy": "確認・コピー",
+    "description": "閉じても文章はこの画面に残ります。現在の付箋と見比べて、必要な部分をコピーして使ってください。",
+    "itemHeading": "文章 {index}: {reason}",
+    "textareaLabel": "未反映の文章 {index}",
+    "copy": "コピー",
+    "copyResult": "コピー結果",
+    "copied": "コピーしました",
+    "copyFailed": "コピーできませんでした。文章を選択して手動でコピーしてください。",
+    "reasons": {
+      "conflict": "他の編集と競合しました。",
+      "notEditable": "現在は編集できません。",
+      "missing": "付箋が見つかりません。",
+      "interruptedComposition": "変換中に中断されました。",
+      "sendFailed": "送信できませんでした。接続が戻ると安全を確認して再送します。",
+      "resultUnknown": "保存結果を確認できていません。再認証後に結果を確認します。",
+      "storageFailure": "このタブの再読込に備えて保存できません。"
+    },
+    "storageReadFailed": "保存領域を読み取れませんでした。",
+    "storageWriteFailed": "このタブの再読込に備えて文章を残せません。必要ならコピーしてください。"
+  },
+  "lobbyMembers": {
+    "participants": "参加者",
+    "you": "あなた",
+    "youDisconnected": "・接続切れ",
+    "disconnected": "接続切れ",
+    "avatarChanging": "アイコンを変更中…",
+    "changeMyAvatar": "自分のアイコンを変更",
+    "changeDisplayName": "{name}：表示名を変更",
+    "avatarConnectionLost": "接続が切れました。再接続後にアイコンを確認してください。",
+    "avatarSendFailed": "送信できませんでした。接続を確認して、もう一度お試しください。",
+    "avatarResultUnknown": "結果を確認できませんでした。現在のアイコンを確認して、もう一度お試しください。",
+    "avatarGenericError": "アイコンを変更できませんでした。もう一度お試しください。"
+  },
+  "roomEntryPreview": {
+    "participantCount": "参加者 {count}人",
+    "loadingNotes": "入室を確認してから、このルームの付箋を読み込みます。"
   }
 }

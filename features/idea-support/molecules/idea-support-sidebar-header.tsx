@@ -1,6 +1,7 @@
 "use client";
 
 import { Lightbulb, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ export function IdeaSupportSidebarHeader({
   canClose = true,
   onToggle,
 }: IdeaSupportSidebarHeaderProps) {
+  const t = useTranslations("app.ideaSupportPanel");
   return (
     <div
       className={cn(
@@ -36,7 +38,7 @@ export function IdeaSupportSidebarHeader({
               variant="ghost"
               size="icon"
               onClick={onToggle}
-              aria-label="発想支援を閉じる"
+              aria-label={t("close")}
             >
               <X aria-hidden="true" />
             </Button>
@@ -48,7 +50,7 @@ export function IdeaSupportSidebarHeader({
           size="icon"
           className="size-10 rounded-lg p-0"
           onClick={onToggle}
-          aria-label="発想支援を開く"
+          aria-label={t("open")}
         >
           <Lightbulb className="size-5" aria-hidden="true" />
         </Button>

@@ -1,4 +1,7 @@
+"use client";
+
 import { ArrowDown, ArrowUp } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   type CSSProperties,
   type ReactNode,
@@ -7,7 +10,6 @@ import {
   useLayoutEffect,
   useRef,
 } from "react";
-import { IDEA_VALUE_FEASIBILITY_MAP_LABELS } from "../logic/idea-value-feasibility-map";
 import styles from "./idea-map-viewport.module.css";
 
 const GRID_STYLE = {
@@ -138,7 +140,19 @@ export function IdeaMapViewport({
   const horizontalAxisRef = useRef<HTMLFieldSetElement>(null);
   const horizontalEndpointRef = useRef<HTMLDivElement>(null);
   const updateHorizontalOffsetRef = useRef<(() => void) | null>(null);
-  const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
+  const t = useTranslations("app.boardMap");
+  const labels = {
+    ariaLabel: t("ariaLabel"),
+    title: t("title"),
+    value: t("value"),
+    feasibility: t("feasibility"),
+    low: t("low"),
+    high: t("high"),
+    feasibilityLow: t("feasibilityLow"),
+    feasibilityHigh: t("feasibilityHigh"),
+    valueScaleAriaLabel: t("valueScaleAriaLabel"),
+    feasibilityScaleAriaLabel: t("feasibilityScaleAriaLabel"),
+  };
   const transforms = [
     pan ? `translate(${pan.x}px, ${pan.y}px)` : null,
     workspace ? "translateY(var(--board-map-shift-y, 0px))" : null,

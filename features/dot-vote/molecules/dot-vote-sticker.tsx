@@ -74,7 +74,7 @@ function stickerLabel(
   locale: "ja" | "en",
 ): string {
   return locale === "en"
-    ? `${dotVoteStickerName(kind, phase, locale)} · ${count} votes`
+    ? `${dotVoteStickerName(kind, phase, locale)} · ${count} ${count === 1 ? "vote" : "votes"}`
     : `${dotVoteStickerName(kind, phase, locale)} ${count}票`;
 }
 

@@ -14,4 +14,20 @@ describe("formatOutcomeText", () => {
     expect(result).toContain("次に試すこと\n");
     expect(result).not.toContain("決定日時");
   });
+
+  it("英語では出力日ラベルも英語で出力する", () => {
+    const result = formatOutcomeText(
+      { issue: "Challenge", hmw: "Question", idea: "Idea" },
+      new Date("2026-10-01T03:00:00+09:00"),
+      "en",
+    );
+    expect(result).toContain("Team results");
+    expect(result).toContain("Exported:");
+    expect(result).toContain("1. Selected challenge\nChallenge");
+    expect(result).toContain("2. Selected question\nQuestion");
+    expect(result).toContain("3. Selected idea\nIdea");
+    expect(result).toContain("What to try next");
+    expect(result).not.toContain("出力日:");
+    expect(result).not.toContain("チームで決めた成果");
+  });
 });

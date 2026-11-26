@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ClientMessage,
@@ -37,6 +38,8 @@ export function useMemberRemoval({
   applyMessage: (message: ServerMessage) => boolean;
   isPending: () => boolean;
 } {
+  const locale = useLocale();
+  const t = useTranslations("app.boardMemberRemoval");
   const [selection, setSelection] = useState<{
     userId: string;
   } | null>(null);
@@ -53,7 +56,7 @@ export function useMemberRemoval({
     timeoutRef.current = null;
     setPending(false);
     setError(message);
-  }, []);
+  }, [t]);
   useEffect(
     () => () => {
       if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
@@ -62,10 +65,8 @@ export function useMemberRemoval({
   );
   useEffect(() => {
     if (!connected && operationRef.current)
-      finish(
-        "接続が切れました。再接続後に参加者を確認して操作し直してください。",
-      );
-  }, [connected, finish]);
+      finish(t("connectionLost"));
+  }, [connected, finish, t]);
   const open = selection !== null;
   const liveTarget =
     members.find((member) => member.userId === selection?.userId) ?? null;
@@ -106,18 +107,16 @@ export function useMemberRemoval({
         operationId: operation.id,
       })
     ) {
-      finish("送信できませんでした。接続を確認してから操作し直してください。");
+      finish(t("sendFailed"));
       return;
     }
     if (operationRef.current === operation)
       timeoutRef.current = setTimeout(
         () =>
-          finish(
-            "結果を確認できませんでした。参加者一覧を確認してから操作し直してください。",
-          ),
+          finish(t("resultUnknown")),
         5000,
       );
-  }, [open, liveTarget, connected, blocked, send, finish]);
+  }, [open, liveTarget, connected, blocked, send, finish, t]);
   const applyMessage = useCallback(
     (message: ServerMessage): boolean => {
       if (
@@ -134,7 +133,7 @@ export function useMemberRemoval({
         operationRef.current &&
         message.operationId === operationRef.current.id
       ) {
-        finish(message.message);
+        finish(locale === "en" ? t("genericError") : message.message);
         return true;
       }
       if (
@@ -158,7 +157,7 @@ export function useMemberRemoval({
       }
       return false;
     },
-    [selection, finish],
+    [selection, finish, locale, t],
   );
   const isPending = useCallback(() => operationRef.current !== null, []);
   return {

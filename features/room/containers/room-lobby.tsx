@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
 import { isLobby, type RoomPhase } from "@/contracts/phase";
@@ -62,6 +63,8 @@ export function RoomLobby({
   saveDisplayNameAction,
 }: RoomLobbyProps) {
   const router = useRouter();
+  const notifications = useTranslations("app.notifications");
+  const recheckingRoomEntryMessage = notifications("recheckingRoomEntry");
   const inheritedAdmission = useContext(RoomAdmissionContext);
   const admission = entryAdmission ?? inheritedAdmission;
   const boardEntryRequest = useRef<{
@@ -156,13 +159,13 @@ export function RoomLobby({
               `${href}${href.includes("?") ? "&" : "?"}entry=${encodeURIComponent(token)}`,
             );
           } else {
-            notify.error("入室を確認し直しています。");
+            notify.error(recheckingRoomEntryMessage);
             router.replace(href);
           }
         })
         .catch(() => {
           if (active) {
-            notify.error("入室を確認し直しています。");
+            notify.error(recheckingRoomEntryMessage);
             router.replace(href);
           }
         });
@@ -170,7 +173,14 @@ export function RoomLobby({
     return () => {
       active = false;
     };
-  }, [roomState.phase, roomId, boardHref, admission, router]);
+  }, [
+    roomState.phase,
+    roomId,
+    boardHref,
+    admission,
+    router,
+    recheckingRoomEntryMessage,
+  ]);
 
   function handleServerMessage(message: ServerMessage) {
     if (avatarChange.applyMessage(message)) return;

@@ -1,6 +1,7 @@
 "use client";
 
 import { ListMinus, ListPlus } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 
 // 付箋1枚の表示用コンポーネント。データ層には一切依存せず、位置(x, y)や
 // 本文はすべてpropsで受け取り、変化はコールバックpropsで親へ通知するだけの
@@ -268,6 +269,8 @@ export function NoteCard({
   autoFocusEditor = false,
   onAutoFocusEditorComplete,
 }: NoteCardProps) {
+  const locale = useLocale();
+  const t = useTranslations("app.boardStickyNote");
   const [localContent, setLocalContent] = useState(draftValue ?? note.content);
   const [isEditing, setIsEditing] = useState(false);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -308,8 +311,8 @@ export function NoteCard({
   const focusHideTimeoutRef = useRef<number | null>(null);
   const canCandidateAction =
     !isMultiSelected && (note.excluded ? canRestoreNote : canExcludeNote);
-  const candidateActionLabel = note.excluded ? "除外を戻す" : "除外する";
-  const candidateActionText = note.excluded ? "戻す" : "除外";
+  const candidateActionLabel = t(note.excluded ? "restoreAction" : "excludeAction");
+  const candidateActionText = t(note.excluded ? "restore" : "exclude");
   const isCandidateActionVisible =
     !isOwnDrag &&
     (isSelected ||
@@ -1038,12 +1041,12 @@ export function NoteCard({
               ) : (
                 <ListMinus aria-hidden="true" className="size-4" />
               )}
-              {candidatePending ? "処理中…" : candidateActionText}
+              {candidatePending ? t("processing") : candidateActionText}
             </Button>
             {isActionMenuOpen ? (
               <div
                 role="menu"
-                aria-label="付箋の候補操作"
+                aria-label={t("candidateActions")}
                 className="fixed z-[41] min-w-36 rounded-lg border border-border bg-popover p-1 shadow-tool"
                 style={{
                   left: candidateOverlayLayout.menu.left,
@@ -1119,7 +1122,7 @@ export function NoteCard({
       {candidateOverlay}
       {note.excluded ? (
         <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-full bg-background/90 px-1 py-0.5 text-xs font-semibold text-muted-foreground">
-          除外済み
+          {t("excluded")}
         </span>
       ) : null}
       <textarea
@@ -1210,10 +1213,10 @@ export function NoteCard({
           fontSize: `${note.fontSize}px`,
           lineHeight: `${Math.ceil(note.fontSize * 1.5)}px`,
         }}
-        placeholder={isPrivateReading ? undefined : "メモを入力..."}
+        placeholder={isPrivateReading ? undefined : t("placeholder")}
         // マイ付箋の読み取り中は placeholder を出さないので、名前が無い欄に
         // ならないよう付箋の本文と分かる名前を付ける。ボード上は従来どおり。
-        aria-label={isPrivateReading ? "付箋の本文" : undefined}
+        aria-label={isPrivateReading ? t("body") : undefined}
       />
       {vote.displayMode === "result" ? (
         <div
@@ -1316,9 +1319,15 @@ export function NoteCard({
           aria-label={
             selectedStampKind === null
               ? note.excluded
-                ? "除外済みの付箋"
-                : "付箋"
-              : `付箋（${dotVoteStickerName(selectedStampKind, vote.phase)}を貼る）`
+                ? t("excludedNote")
+                : t("note")
+              : t("voteOnNote", {
+                  sticker: dotVoteStickerName(
+                    selectedStampKind,
+                    vote.phase,
+                    locale === "en" ? "en" : "ja",
+                  ),
+                })
           }
           aria-pressed={isSelected}
           aria-disabled={disabled || undefined}

@@ -1,4 +1,7 @@
+"use client";
+
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -25,6 +28,7 @@ export function SharedNotePreview({
   layoutKey,
   onClose,
 }: SharedNotePreviewProps) {
+  const t = useTranslations("app.boardCanvas");
   const [placement, setPlacement] = useState<SharedNotePreviewPlacement | null>(
     null,
   );
@@ -114,7 +118,7 @@ export function SharedNotePreview({
   return createPortal(
     <section
       ref={popupRef}
-      aria-label="共有付箋の全文"
+      aria-label={t("sharedNoteContentAria")}
       data-cursor-private="true"
       className="fixed z-[41] flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-tool"
       style={{
@@ -125,19 +129,19 @@ export function SharedNotePreview({
       }}
     >
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-2">
-        <p className="text-sm font-semibold">共有付箋・閲覧のみ</p>
+        <p className="text-sm font-semibold">{t("sharedNoteReadOnly")}</p>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="共有付箋の全文を閉じる"
+          aria-label={t("closeSharedNoteContent")}
           onClick={onClose}
         >
           <X aria-hidden="true" />
         </Button>
       </div>
       <p className="min-h-0 overflow-y-auto overscroll-contain whitespace-pre-wrap break-words p-3 text-base">
-        {note.content || "本文はありません"}
+        {note.content || t("noSharedNoteBody")}
       </p>
     </section>,
     document.body,

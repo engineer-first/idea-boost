@@ -387,7 +387,19 @@
     "stampAria": "Decision stamp (undo decision)",
     "decision": "Selected",
     "adopted": "Adopted",
-    "issueDecision": "Selected challenge"
+    "issueDecision": "Selected challenge",
+    "restoreAction": "Restore candidate",
+    "excludeAction": "Exclude from voting",
+    "restore": "Restore",
+    "exclude": "Exclude",
+    "processing": "Processing…",
+    "candidateActions": "Sticky note candidate actions",
+    "excluded": "Excluded",
+    "placeholder": "Write a note...",
+    "body": "Sticky note content",
+    "excludedNote": "Excluded sticky note",
+    "note": "Sticky note",
+    "voteOnNote": "Sticky note (place {sticker})"
   },
   "boardVote": {
     "palette": "Voting palette",
@@ -430,7 +442,8 @@
     "phaseConfirmationRequired": "Check that everyone has completed the current step before continuing.",
     "roomOperationFailed": "The room action could not be completed. Please try again.",
     "leaveFailed": "Could not leave the room. Please try again.",
-    "noteCreationFailed": "Could not add the note. Please try again."
+    "noteCreationFailed": "Could not add the note. Please try again.",
+    "recheckingRoomEntry": "Rechecking room entry…"
   },
   "stepGuide": {
     "slides": {
@@ -986,7 +999,10 @@
     "genericError": "Could not remove the participant. Please try again.",
     "cancel": "Cancel",
     "removing": "Removing…",
-    "remove": "Remove from room"
+    "remove": "Remove from room",
+    "connectionLost": "Connection lost. Check the participant list after reconnecting, then try again.",
+    "sendFailed": "Could not send the request. Check your connection and try again.",
+    "resultUnknown": "The result could not be confirmed. Check the participant list before trying again."
   },
   "boardDisplayName": {
     "tooLong": "Display name must be {max} characters or fewer.",
@@ -1007,7 +1023,11 @@
     "disabled": "Check the connection and room status before saving.",
     "cancel": "Cancel",
     "saving": "Saving…",
-    "save": "Save"
+    "save": "Save",
+    "empty": "Enter a topic.",
+    "connectionLost": "Connection lost. Check the topic after reconnecting, then save again.",
+    "sendFailed": "Could not send the change. Check your connection and try saving again.",
+    "resultUnknown": "The result could not be confirmed. Check the current topic and try saving again."
   },
   "boardDecide": {
     "selectChallenge": "Select this note as the challenge"
@@ -1055,5 +1075,192 @@
       "insight": "Send a got-it reaction",
       "question": "Send a why reaction"
     }
+  },
+  "boardCanvas": {
+    "canvasControls": "Canvas view controls",
+    "moveHistoryControls": "Sticky note move history",
+    "navigationDescription": "Use the arrow keys to pan the canvas and Page Up/Page Down to scroll vertically. Canvas position and zoom are visible only to you.",
+    "zoomDescription": "Zoom changes are visible only to you.",
+    "selectTool": "Select tool",
+    "selectToolHint": "Select (V on the background)",
+    "handTool": "Hand tool",
+    "handToolHint": "Hand (H on the background). Hold Space and drag to pan temporarily.",
+    "zoomOut": "Zoom out",
+    "zoomOutHint": "Zoom out (your view only)",
+    "resetZoom": "Reset zoom to 100%",
+    "resetZoomHint": "Reset zoom to 100% (your view only)",
+    "zoomIn": "Zoom in",
+    "zoomInHint": "Zoom in (your view only)",
+    "fitToNotes": "Fit all sticky notes",
+    "fitToNotesHint": "Show all sticky notes (your view only)",
+    "publishBlocked": "You can share your notes when it is your turn.",
+    "waitingYourTurn": "You can present when it is your turn.",
+    "savingBeforeShare": "Confirming that the note text has been saved before sharing…",
+    "shareOnMap": "It is your turn. Drag a sticky note onto the value and feasibility map to share it.",
+    "shareOnBoard": "It is your turn. Drag a sticky note onto the board to share it.",
+    "adoptNoteLabel": "Select {target} to adopt: {content}",
+    "noContent": "No content",
+    "notePlaceholder": "Write a note…",
+    "selectedNotes": "{count} sticky notes selected",
+    "canvasAriaLabel": "Shared canvas",
+    "additionalWritingAriaDescription": "Drag or scroll the background to move the shared board. Select a shared sticky note to read its full text. Panning and zooming affect only your view.",
+    "mapWorkspaceAriaDescription": "Drag sticky notes within the value and feasibility map to position them. The map position and size are fixed.",
+    "mapReadOnlyAriaDescription": "The map position and size are fixed. The hand tool cannot move the map.",
+    "navigationAriaDescription": "Press V on the background to select or H to use the hand tool. Hold Space and drag to pan.",
+    "canvasBackgroundAriaLabel": "Shared canvas background",
+    "noCandidates": "There are no eligible notes. Restore excluded notes to continue.",
+    "noSharedNotes": "No sticky notes have been shared yet.",
+    "unnamedParticipant": "Name not set",
+    "sharedNoteContentAria": "Full text of shared sticky note",
+    "sharedNoteReadOnly": "Shared sticky note · Read only",
+    "closeSharedNoteContent": "Close shared sticky note text",
+    "noSharedNoteBody": "No text"
+  },
+  "boardMapSize": {
+    "ariaLabel": "Idea map size controls",
+    "disabledPreparing": "Preparing the initial map size.",
+    "disabledDisconnected": "You can change the map size when the connection is restored.",
+    "disabledDragging": "You cannot change the map size while dragging a sticky note.",
+    "sizeDescription": "Current range: level {level} of {total}.",
+    "limitNarrow": "The map cannot be made any smaller.",
+    "limitWide": "The map cannot be made any larger.",
+    "helpLabel": "About map size",
+    "label": "Map size",
+    "shared": "Applies to everyone",
+    "helpTitle": "About map size",
+    "scope": "The visible range applies to everyone, but sticky note positions and their evaluation values do not change.",
+    "camera": "Your personal zoom is independent of the visible range and changes only how the map looks to you.",
+    "direction": "Use + to widen the visible range and make sticky notes appear smaller, or − to narrow it and make them appear larger. Their center positions do not change. Ideas higher up have greater value, and ideas farther right are easier to realize.",
+    "decreaseLabel": "Narrow the map",
+    "decreaseTitle": "Narrow the map (applies to everyone)",
+    "increaseLabel": "Widen the map",
+    "increaseTitle": "Widen the map (applies to everyone)",
+    "currentSize": "Current map size: level {level}."
+  },
+  "boardNoteFontSize": {
+    "ariaLabel": "Font size of the selected sticky note",
+    "ariaDescription": "Shared sticky notes use this font size for everyone.",
+    "decreaseLabel": "Decrease sticky note text size",
+    "decreaseHint": "Make the selected sticky note text smaller (applies to everyone after sharing)",
+    "increaseLabel": "Increase sticky note text size",
+    "increaseHint": "Make the selected sticky note text larger (applies to everyone after sharing)"
+  },
+  "boardContext": {
+    "decidedQuestion": "Selected question",
+    "decidedChallenge": "Selected challenge",
+    "contentLabel": "{label} content"
+  },
+  "boardMap": {
+    "ariaLabel": "Value and feasibility map",
+    "title": "Solution positioning",
+    "value": "Value",
+    "feasibility": "Feasibility",
+    "low": "Low",
+    "high": "High",
+    "feasibilityLow": "Harder",
+    "feasibilityHigh": "Easier",
+    "valueScaleAriaLabel": "Value: low to high",
+    "feasibilityScaleAriaLabel": "Feasibility: harder on the left, easier on the right"
+  },
+  "ideaSupportPanel": {
+    "loading": "Loading inspiration tools",
+    "empty": "No inspiration content is available",
+    "error": "Could not display inspiration content",
+    "tabAria": "Idea generation methods",
+    "collapseQuestions": "Hide additional prompts",
+    "showQuestions": "Show more prompts ({count})",
+    "description": "Choose one prompt that catches your interest and adapt it to the selected question. Write any ideas that come to mind on sticky notes.",
+    "close": "Close inspiration tools",
+    "open": "Open inspiration tools",
+    "methods": {
+      "osborn": {
+        "label": "Osborn",
+        "title": "Osborn checklist",
+        "prompts": {
+          "p1": "Could it be used for another purpose?",
+          "p2": "Could we adapt something similar?",
+          "p3": "Could we change its shape, structure, or method?",
+          "p4": "Could making it bigger create new value?",
+          "p5": "Could making it smaller make it easier to use?",
+          "p6": "Could we substitute something else?",
+          "p7": "Could reversing it lead to a new idea?",
+          "p8": "Could we combine multiple ideas?"
+        }
+      },
+      "scamper": {
+        "label": "SCAMPER",
+        "title": "SCAMPER method",
+        "prompts": {
+          "p1": "Substitute: Can we replace it with something else?",
+          "p2": "Combine: Can we combine it with other elements?",
+          "p3": "Adapt: Can we borrow an approach from another context?",
+          "p4": "Modify: Can we change its form or structure?",
+          "p5": "Put to another use: Can we use it for a different purpose?",
+          "p6": "Eliminate: Could it work without something?",
+          "p7": "Reverse: Could we reverse the order or roles?"
+        }
+      },
+      "reverse": {
+        "label": "Reverse thinking",
+        "title": "Think by reversing assumptions",
+        "prompts": {
+          "p1": "Try imagining the opposite of the ideal state—a deliberately bad outcome.",
+          "p2": "What would happen if we did the opposite of the usual approach?",
+          "p3": "What if we reversed the roles of the people using and providing it?"
+        }
+      },
+      "industry": {
+        "label": "Cross-industry examples",
+        "title": "Find ideas from other industries",
+        "prompts": {
+          "p1": "How does the food service industry solve similar challenges?",
+          "p2": "How does the game industry make experiences fun and engaging?",
+          "p3": "How does the hotel industry create comfortable experiences?",
+          "p4": "How does the education industry support learning and understanding?"
+        }
+      }
+    }
+  },
+  "boardDraftRecovery": {
+    "ariaLabel": "Unreconciled text",
+    "expandedTitle": "Some text changes could not be confirmed",
+    "collapsedTitle": "Unreconciled text",
+    "close": "Close",
+    "reviewAndCopy": "Review & copy",
+    "description": "Your text will remain on this screen even when this panel is closed. Compare it with the current sticky notes and copy any parts you still need.",
+    "itemHeading": "Text {index}: {reason}",
+    "textareaLabel": "Unreconciled text {index}",
+    "copy": "Copy",
+    "copyResult": "Copy result",
+    "copied": "Copied",
+    "copyFailed": "Could not copy. Select the text and copy it manually.",
+    "reasons": {
+      "conflict": "This text conflicts with another edit.",
+      "notEditable": "This note can no longer be edited in the current step.",
+      "missing": "The sticky note could not be found.",
+      "interruptedComposition": "Text input was interrupted before composition finished.",
+      "sendFailed": "The text could not be sent. It will be checked and resent safely when the connection returns.",
+      "resultUnknown": "The save result could not be confirmed. It will be checked after reauthentication.",
+      "storageFailure": "The text could not be saved for recovery if this tab reloads."
+    },
+    "storageReadFailed": "Could not read the local recovery storage.",
+    "storageWriteFailed": "This tab could not save your text for recovery after a reload. Copy it if you still need it."
+  },
+  "lobbyMembers": {
+    "participants": "Participants",
+    "you": "You",
+    "youDisconnected": "· Disconnected",
+    "disconnected": "Disconnected",
+    "avatarChanging": "Changing avatar…",
+    "changeMyAvatar": "Change my avatar",
+    "changeDisplayName": "Change {name}'s display name",
+    "avatarConnectionLost": "Connection lost. Check the avatar again after reconnecting.",
+    "avatarSendFailed": "Could not send the change. Check your connection and try again.",
+    "avatarResultUnknown": "The result could not be confirmed. Check your current avatar and try again.",
+    "avatarGenericError": "Could not change the avatar. Please try again."
+  },
+  "roomEntryPreview": {
+    "participantCount": "{count, plural, one {# participant} other {# participants}}",
+    "loadingNotes": "Sticky notes will load after you confirm entry to this room."
   }
 }

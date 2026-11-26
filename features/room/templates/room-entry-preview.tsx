@@ -1,6 +1,7 @@
 "use client";
 
 import { Hand, Minus, MousePointer2, Plus, Users } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { RoomPhase } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { BoardContext } from "../molecules/board-context";
@@ -17,6 +18,7 @@ const noop = (): void => {};
 
 // 入室確認前の背景。表示専用で、WS接続・本文取得・共有操作を行わない。
 export function RoomEntryPreview(props: RoomEntryPreviewProps) {
+  const t = useTranslations("app.roomEntryPreview");
   return (
     <div
       inert
@@ -45,11 +47,11 @@ export function RoomEntryPreview(props: RoomEntryPreviewProps) {
             </div>
             <div className="flex h-14 items-center gap-2 rounded-lg border border-border bg-background px-4 text-base">
               <Users className="size-4" />
-              参加者 {props.members.length}人
+              {t("participantCount", { count: props.members.length })}
             </div>
           </div>
           <p className="absolute bottom-24 inset-x-4 text-center text-base text-muted-foreground">
-            入室を確認してから、このルームの付箋を読み込みます。
+            {t("loadingNotes")}
           </p>
           <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-5 rounded-lg border border-border bg-background px-5 py-3 text-muted-foreground">
             <MousePointer2 className="size-5" />

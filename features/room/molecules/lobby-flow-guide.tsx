@@ -146,7 +146,7 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                       <span className={styles.action}>
                         {translate(`steps.${step.number}.action`)}
                       </span>
-                      <span className={styles.minutes}>{step.minutes}分</span>
+                      <span className={styles.minutes}>{step.minutes}{t("minuteSuffix")}</span>
                     </li>
                   );
                 })}

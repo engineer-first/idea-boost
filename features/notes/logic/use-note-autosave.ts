@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoomPhase } from "@/contracts/phase";
 import type {
@@ -25,7 +26,15 @@ type ServerState = {
   notes: Map<string, ProtocolNote>;
 };
 
-export type RecoveryItem = { noteId: string; text: string; reason: string };
+export type RecoveryReason =
+  | NonNullable<NoteDraft["recoveryReason"]>
+  | "storage-failure";
+
+export type RecoveryItem = {
+  noteId: string;
+  text: string;
+  reason: RecoveryReason;
+};
 
 function editable(
   note: ProtocolNote | undefined,
@@ -68,6 +77,9 @@ export function useNoteAutosave(options: {
   send: (message: ClientMessage) => boolean;
 }) {
   const key = noteDraftStorageKey(options.roomId, options.userId);
+  const t = useTranslations("app.boardDraftRecovery");
+  const tRef = useRef(t);
+  tRef.current = t;
   const draftsRef = useRef<Map<string, NoteDraft>>(new Map());
   // このmountで続いている変換だけを追跡する。再読込したcomposing値は中断扱い。
   const activeCompositionsRef = useRef(new Set<string>());
@@ -110,15 +122,17 @@ export function useNoteAutosave(options: {
       loaded.drafts.map((draft) => [draft.noteId, draft]),
     );
     blockedStorageRef.current = loaded.failureText !== null;
-    setStorageFailure(loaded.failureText);
+    setStorageFailure(
+      loaded.failureText === "保存領域を読み取れませんでした。"
+        ? tRef.current("storageReadFailed")
+        : loaded.failureText,
+    );
     repaint();
   }, [key, repaint]);
   const persist = useCallback(() => {
     if (blockedStorageRef.current) return;
     if (!persistNoteDrafts(key, [...draftsRef.current.values()])) {
-      setStorageFailure(
-        "このタブの再読込に備えて文章を残せません。必要ならコピーしてください。",
-      );
+      setStorageFailure(tRef.current("storageWriteFailed"));
       blockedStorageRef.current = true;
     }
   }, [key]);
@@ -701,26 +715,13 @@ export function useNoteAutosave(options: {
     .map((draft) => ({
       noteId: draft.noteId,
       text: draft.text,
-      reason:
-        draft.recoveryReason === "conflict"
-          ? "他の編集と競合しました。"
-          : draft.recoveryReason === "result-unknown"
-            ? "保存結果を確認できていません。再認証後に結果を確認します。"
-            : draft.recoveryReason === "send-failed"
-              ? "送信できませんでした。接続が戻ると安全を確認して再送します。"
-              : draft.recoveryReason === "missing"
-                ? "付箋が見つかりません。"
-                : draft.recoveryReason === "interrupted-composition"
-                  ? "変換中に中断されました。"
-                  : draft.recoveryReason === "not-editable"
-                    ? "現在は編集できません。"
-                    : "このタブの再読込に備えて保存できません。",
+      reason: draft.recoveryReason ?? "storage-failure",
     }));
   if (storageFailure && recoveries.length === 0)
     recoveries.push({
-      noteId: "保存領域",
+      noteId: "storage-failure",
       text: storageFailure,
-      reason: "保存領域を読み取れません。",
+      reason: "storage-failure",
     });
   void revision;
   return {

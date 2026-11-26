@@ -1,12 +1,9 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ROOM_NAME_MAX_LENGTH, RoomNameSchema } from "@/contracts/room-name";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
-
-// 画面ではルームの名前を「テーマ」と呼ぶ（docs/glossary.md）。contracts の検証文は使わず、ここで言い換える。
-export const ROOM_NAME_EMPTY_MESSAGE = "テーマを入力してください。";
-export const ROOM_NAME_TOO_LONG_MESSAGE = `テーマは${ROOM_NAME_MAX_LENGTH}文字以内で入力してください。`;
 
 export type RoomNameControls = {
   name: string | null;
@@ -34,6 +31,8 @@ export function useRoomName({
 }: Options): RoomNameControls & {
   applyMessage: (message: ServerMessage) => boolean;
 } {
+  const locale = useLocale();
+  const t = useTranslations("app.boardRoomName");
   const [name, setName] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [open, setOpen] = useState(false);
@@ -50,7 +49,7 @@ export function useRoomName({
     timeout.current = null;
     setPending(false);
     setError(message);
-  }, []);
+  }, [t]);
   useEffect(
     () => () => {
       if (timeout.current) clearTimeout(timeout.current);
@@ -59,10 +58,8 @@ export function useRoomName({
   );
   useEffect(() => {
     if (!connected && operation.current)
-      finish(
-        "接続が切れました。再接続後にテーマを確認し、もう一度保存してください。",
-      );
-  }, [connected, finish]);
+      finish(t("connectionLost"));
+  }, [connected, finish, t]);
   return {
     name,
     open,
@@ -97,7 +94,9 @@ export function useRoomName({
       const parsed = RoomNameSchema.safeParse(draft);
       if (!parsed.success) {
         setError(
-          draft.trim() ? ROOM_NAME_TOO_LONG_MESSAGE : ROOM_NAME_EMPTY_MESSAGE,
+          draft.trim()
+            ? t("tooLong", { max: ROOM_NAME_MAX_LENGTH })
+            : t("empty"),
         );
         return;
       }
@@ -106,17 +105,13 @@ export function useRoomName({
       setPending(true);
       setError(null);
       if (!send({ type: "room:rename", name: parsed.data, operationId: id })) {
-        finish(
-          "送信できませんでした。接続を確認して、もう一度保存してください。",
-        );
+        finish(t("sendFailed"));
         return;
       }
       if (operation.current === id)
         timeout.current = setTimeout(
           () =>
-            finish(
-              "結果を確認できませんでした。現在のテーマを確認して、もう一度保存してください。",
-            ),
+            finish(t("resultUnknown")),
           5000,
         );
     },
@@ -140,7 +135,7 @@ export function useRoomName({
         operation.current &&
         message.operationId === operation.current
       ) {
-        finish(message.message);
+        finish(locale === "en" ? t("genericError") : message.message);
         return true;
       }
       return false;

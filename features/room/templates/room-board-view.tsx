@@ -2172,11 +2172,11 @@ export function RoomBoardView({
               className="w-full max-w-md rounded-lg border border-border/40 bg-background/75 px-6 py-5 text-center shadow-tool backdrop-blur-[2px]"
             >
               <p className="text-lg font-semibold">
-                タイマーが開始されていません
+                {t("timerNotStarted")}
               </p>
 
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                円形のタイマーを押すと、この工程の規定時間で作業を始められます。
+                {t("timerInstruction")}
               </p>
             </div>
           </div>
@@ -2187,7 +2187,7 @@ export function RoomBoardView({
             role="status"
             className="pointer-events-none absolute bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-background px-3 py-2 text-sm shadow-tool"
           >
-            採用するには「選択」に戻してください
+            {t("switchToSelect")}
           </p>
         ) : null}
         <RoomBoardCanvas

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -21,18 +22,19 @@ export function NoteFontSizeControls({
   disabled,
   onChange,
 }: NoteFontSizeControlsProps) {
+  const t = useTranslations("app.boardNoteFontSize");
   const hasSelection = fontSize !== null;
   return (
     <TooltipProvider>
       <fieldset
         className="board-hud pointer-events-auto flex items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-tool"
         data-testid="note-font-size-controls"
-        aria-label="選択した付箋の文字サイズ"
-        aria-description="共有した付箋は全員の表示に反映されます"
+        aria-label={t("ariaLabel")}
+        aria-description={t("ariaDescription")}
       >
         <FontSizeButton
-          label="付箋の文字を小さく"
-          hint="選択した付箋の文字を小さく（共有後は全員に反映）"
+          label={t("decreaseLabel")}
+          hint={t("decreaseHint")}
           disabled={
             disabled || !hasSelection || fontSize <= NOTE_FONT_SIZE_RANGE.min
           }
@@ -52,8 +54,8 @@ export function NoteFontSizeControls({
           {fontSize === null ? "--px" : `${fontSize}px`}
         </span>
         <FontSizeButton
-          label="付箋の文字を大きく"
-          hint="選択した付箋の文字を大きく（共有後は全員に反映）"
+          label={t("increaseLabel")}
+          hint={t("increaseHint")}
           disabled={
             disabled || !hasSelection || fontSize >= NOTE_FONT_SIZE_RANGE.max
           }
