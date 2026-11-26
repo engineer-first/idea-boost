@@ -69,6 +69,14 @@ export const WaitingDecision: Story = {
   },
 };
 
+// 投票で自分の票が残っている間は、票を使い切ることが要ると示す。
+export const WaitingVotes: Story = {
+  args: {
+    disabled: true,
+    waiting: { kind: "votes" },
+  },
+};
+
 // 押下後、確認ダイアログが開いた状態。
 export const Opened: Story = {
   play: async ({ canvasElement }) => {

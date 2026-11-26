@@ -366,7 +366,7 @@ describe("RoomBoardHeader", () => {
     expect(done).toHaveAttribute("title", "票をすべて使うと押せます");
     // ホバーしなくても、押せない理由が次へのボタンの文言で見える。
     expect(
-      screen.getByRole("button", { name: "票を使い切ると次へ" }),
+      screen.getByRole("button", { name: "全票使うと次へ" }),
     ).toBeDisabled();
 
     rerender(<RoomBoardHeader {...props} completedVoterIds={[ME]} />);
@@ -375,7 +375,7 @@ describe("RoomBoardHeader", () => {
       "次へ進む準備ができたことをみんなに伝えます",
     );
     expect(
-      screen.queryByRole("button", { name: "票を使い切ると次へ" }),
+      screen.queryByRole("button", { name: "全票使うと次へ" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "あと2人で次へ" }),
@@ -2207,7 +2207,7 @@ it("投票不足時の次へから手動完了を送らない", () => {
     },
   });
   const next = screen.getByRole("button", {
-    name: "票を使い切ると次へ",
+    name: "全票使うと次へ",
   });
   expect(next).toBeDisabled();
   fireEvent.click(next);
