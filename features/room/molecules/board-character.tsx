@@ -37,7 +37,8 @@ export function BoardCharacter({ message }: BoardCharacterProps) {
           className="pointer-events-none relative flex flex-col items-start gap-1"
           data-testid="board-character"
         >
-          {/* スマホでは右上のタイマーの列を空け、吹き出しで残り時間を隠さない。 */}
+          {/* スマホでは右端にタイマーの円の幅（72px と余白）を空け、吹き出しで残り時間を隠さない。
+              11.25rem は先生の幅と左右の余白にタイマーの幅を足した値。 */}
           <div
             aria-hidden="true"
             data-testid="board-character-bubble"
