@@ -189,11 +189,14 @@
 }
 /* 時間切れの「＋1分」は次にやることなので、枠いっぱいに大きな太字で淡い主色の面に置く */
 .actions button[data-action="extend"] {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+/* 押せないときは面を付けず、従来の無効表示に任せる */
+.actions button[data-action="extend"]:enabled {
   background: var(--ib-color-primary-soft);
   color: var(--ib-color-primary-strong);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
 }
 .actions button[data-action="extend"]:enabled:hover {
   background: color-mix(
