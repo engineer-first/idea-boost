@@ -180,7 +180,7 @@
         },
         {
           "title": "Take it home",
-          "description": "Copy the problem, question, and idea you chose, or save them as text."
+          "description": "Copy the problem, question, and idea you chose, or save them as text or a PNG image."
         }
       ]
     },
@@ -220,7 +220,7 @@
         },
         {
           "title": "Create a room and invite others",
-          "description": "Copy the invitation URL or six-character code and send it to your team."
+          "description": "Copy the invite link or six-character code and send it to your team."
         },
         {
           "title": "Start when everyone is ready",
@@ -228,7 +228,7 @@
         },
         {
           "title": "Take your outcome with you",
-          "description": "Copy the problem, question, and idea or save them as a text file."
+          "description": "Copy the problem, question, and idea, or save them as text or a PNG image."
         }
       ],
       "codeHelp": "Have an invitation code? Enter it in the field at the top of this page to join."
