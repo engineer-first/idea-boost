@@ -51,8 +51,7 @@ export function LobbyMembers({
       : members.length <= 10
         ? "medium"
         : "compact";
-  const size =
-    density === "spacious" ? 192 : density === "medium" ? 112 : 96;
+  const size = density === "spacious" ? 192 : density === "medium" ? 112 : 96;
   return (
     <TooltipProvider>
       <fieldset
@@ -97,9 +96,7 @@ export function LobbyMembers({
             <span className={styles.status}>
               {isMe ? t("you") : null}
               {isConnected === false ? (
-                <span>
-                  {isMe ? t("youDisconnected") : t("disconnected")}
-                </span>
+                <span>{isMe ? t("youDisconnected") : t("disconnected")}</span>
               ) : null}
               {hasDuplicateName ? <span> {duplicateColorName}</span> : null}
             </span>

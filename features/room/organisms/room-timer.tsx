@@ -1,8 +1,8 @@
 "use client";
 
 import { Play, RotateCcw } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { TimerState } from "@/contracts/room-protocol";
 import { getRoomTimerDisplay } from "../logic/room-timer-display";
 import { useFloatingTimer } from "../logic/use-floating-timer";
@@ -202,7 +202,9 @@ export function RoomTimer({
                 else onExtend?.();
               }}
               title={
-                paused ? t("resumeFrom", { time: display.label }) : t("extendTitle")
+                paused
+                  ? t("resumeFrom", { time: display.label })
+                  : t("extendTitle")
               }
             >
               {paused ? <Play aria-hidden="true" /> : null}

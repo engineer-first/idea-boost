@@ -56,7 +56,7 @@ export function useMemberRemoval({
     timeoutRef.current = null;
     setPending(false);
     setError(message);
-  }, [t]);
+  }, []);
   useEffect(
     () => () => {
       if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
@@ -64,8 +64,7 @@ export function useMemberRemoval({
     [],
   );
   useEffect(() => {
-    if (!connected && operationRef.current)
-      finish(t("connectionLost"));
+    if (!connected && operationRef.current) finish(t("connectionLost"));
   }, [connected, finish, t]);
   const open = selection !== null;
   const liveTarget =
@@ -111,11 +110,7 @@ export function useMemberRemoval({
       return;
     }
     if (operationRef.current === operation)
-      timeoutRef.current = setTimeout(
-        () =>
-          finish(t("resultUnknown")),
-        5000,
-      );
+      timeoutRef.current = setTimeout(() => finish(t("resultUnknown")), 5000);
   }, [open, liveTarget, connected, blocked, send, finish, t]);
   const applyMessage = useCallback(
     (message: ServerMessage): boolean => {

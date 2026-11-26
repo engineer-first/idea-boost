@@ -537,7 +537,9 @@ export function RoomBoardHeader({
     votingAllComplete &&
     !isDisconnected;
   const completedMemberIds = progress.readyUserIds;
-  const completionLabel = t(isCurrentVotingStep ? "votingComplete" : "workComplete");
+  const completionLabel = t(
+    isCurrentVotingStep ? "votingComplete" : "workComplete",
+  );
   const timerSoundControls = useRoomTimerSounds({
     timer,
     serverOffsetMs: timerServerOffsetMs,
@@ -750,7 +752,7 @@ export function RoomBoardHeader({
                     ? t("ready")
                     : isCurrentUserReady
                       ? t("undoReady")
-                       : t("ready")
+                      : t("ready")
                 }
                 title={
                   activeSharing
@@ -824,7 +826,9 @@ export function RoomBoardHeader({
                     type="button"
                     variant="ghost"
                     className="text-sm h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
-                    aria-label={t("participantsCount", { count: members.length })}
+                    aria-label={t("participantsCount", {
+                      count: members.length,
+                    })}
                     data-member-menu-origin
                     title={t("openParticipants")}
                   >
@@ -922,7 +926,10 @@ export function RoomBoardHeader({
                     </span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-72" aria-label={t("participantsList")}>
+                <PopoverContent
+                  className="w-72"
+                  aria-label={t("participantsList")}
+                >
                   <p className="mb-3 text-base font-semibold">
                     {t("participantsCount", { count: members.length })}
                   </p>
@@ -1065,9 +1072,7 @@ export function RoomBoardHeader({
                   </AlertDialogTrigger>
                   <AlertDialogContent aria-describedby={undefined}>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {t("completeSprint")}
-                      </AlertDialogTitle>
+                      <AlertDialogTitle>{t("completeSprint")}</AlertDialogTitle>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
@@ -1179,7 +1184,9 @@ export function RoomBoardHeader({
                 <div className="mb-1 flex items-start gap-1 px-2">
                   <p className="min-w-0 break-all text-base leading-7">
                     <span className="text-muted-foreground">{t("theme")}</span>
-                    <span className="font-medium">{roomName ?? t("unsetTheme")}</span>
+                    <span className="font-medium">
+                      {roomName ?? t("unsetTheme")}
+                    </span>
                   </p>
                   {!outcomePublished && onRenameRoom ? (
                     <Button

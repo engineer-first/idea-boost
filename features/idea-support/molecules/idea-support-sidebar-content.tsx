@@ -73,11 +73,7 @@ export function IdeaSupportSidebarContent({
   }
 
   if (status === "empty") {
-    return (
-      <p className="p-4 text-base text-muted-foreground">
-        {t("empty")}
-      </p>
-    );
+    return <p className="p-4 text-base text-muted-foreground">{t("empty")}</p>;
   }
 
   if (status === "error") {
@@ -107,9 +103,7 @@ export function IdeaSupportSidebarContent({
           ))}
         </TabsList>
 
-        <p className="pt-2 text-muted-foreground text-xs">
-          {t("description")}
-        </p>
+        <p className="pt-2 text-muted-foreground text-xs">{t("description")}</p>
         <div className="pt-2">
           {displayContents.map((item) => (
             <TabsContent key={item.id} value={item.id}>

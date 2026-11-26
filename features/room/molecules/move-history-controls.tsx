@@ -1,8 +1,8 @@
 "use client";
 
 import { Redo2, Undo2 } from "lucide-react";
-import { useId } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import toolMotion from "@/components/ui/tool-motion.module.css";
 import {
@@ -43,9 +43,7 @@ export function MoveHistoryControls({
         aria-label={t("label")}
         aria-busy={pending}
       >
-        <p className="sr-only">
-          {t("description")}
-        </p>
+        <p className="sr-only">{t("description")}</p>
         {(
           [
             {
@@ -67,7 +65,10 @@ export function MoveHistoryControls({
           ] as const
         ).map(({ action, name, shortcut, onClick, Icon, direction }) => {
           const disabled = pending || action.disabled;
-          const reason = locale === "en" && action.reason ? t("unavailable") : (action.reason ?? "");
+          const reason =
+            locale === "en" && action.reason
+              ? t("unavailable")
+              : (action.reason ?? "");
           const actionDescription =
             locale === "en"
               ? t(direction === "undo" ? "undoDescription" : "redoDescription")

@@ -155,9 +155,7 @@ export function DotVotePaletteView({
       <div id={`${paletteId}-help`} className="sr-only">
         <p className="sr-only">{dotVoteGuidance(phase, locale).target}</p>
         <p className="sr-only">{dotVoteGuidance(phase, locale).withdrawal}</p>
-        <p className="sr-only">
-          {t("withdrawal")}
-        </p>
+        <p className="sr-only">{t("withdrawal")}</p>
       </div>
       <fieldset className="grid w-full min-w-0 grid-cols-2 gap-1.5">
         <legend className="sr-only">{t("kinds")}</legend>
@@ -237,7 +235,13 @@ export function DotVotePaletteView({
                         : DOT_VOTE_TAG_TONE[kind]
                     }`}
                   >
-                    {locale === "en" ? t(kind === "subjective" ? "labelSubjective" : "labelObjective") : DOT_VOTE_KIND_TAGS[kind]}
+                    {locale === "en"
+                      ? t(
+                          kind === "subjective"
+                            ? "labelSubjective"
+                            : "labelObjective",
+                        )
+                      : DOT_VOTE_KIND_TAGS[kind]}
                   </span>
                   {showsSpinner ? (
                     <span aria-hidden="true" className="flex h-4 items-center">

@@ -966,7 +966,9 @@ export function PrivateNotesToolbar({
                   variant="ghost"
                   size="icon-sm"
                   aria-expanded={displayedExpanded}
-                  aria-label={t("openList", { action: displayedExpanded ? t("close") : t("open") })}
+                  aria-label={t("openList", {
+                    action: displayedExpanded ? t("close") : t("open"),
+                  })}
                   className={toolMotion.button}
                   onClick={() => setIsExpanded((expanded) => !expanded)}
                 >

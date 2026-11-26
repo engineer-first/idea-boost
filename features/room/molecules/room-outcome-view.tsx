@@ -114,7 +114,9 @@ export function RoomOutcomeView({
   }, []);
   const canExport = available && outcome !== null;
   const locale = useLocale() === "en" ? "en" : "ja";
-  const outputText = outcome ? formatOutcomeText(outcome, new Date(), locale) : "";
+  const outputText = outcome
+    ? formatOutcomeText(outcome, new Date(), locale)
+    : "";
 
   function saveText() {
     if (!canExport || copyPending || pngPending) return;
@@ -124,9 +126,12 @@ export function RoomOutcomeView({
     const anchor = document.createElement("a");
     try {
       const now = new Date();
-      const blob = new Blob([`\uFEFF${formatOutcomeText(outcome, now, locale)}`], {
-        type: "text/plain;charset=utf-8",
-      });
+      const blob = new Blob(
+        [`\uFEFF${formatOutcomeText(outcome, now, locale)}`],
+        {
+          type: "text/plain;charset=utf-8",
+        },
+      );
       url = URL.createObjectURL(blob);
       anchor.href = url;
       const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;

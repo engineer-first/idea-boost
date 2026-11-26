@@ -1,8 +1,8 @@
 "use client";
 
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -20,8 +20,12 @@ export function IdeaGuidePanel({
 }: IdeaGuidePanelProps) {
   const t = useTranslations("app.boardIdeaGuide");
   const translate = t as (key: string) => string;
-  const hints = Array.from({ length: 5 }, (_, index) => translate(`hint${index + 1}`));
-  const examples = Array.from({ length: 5 }, (_, index) => translate(`example${index + 1}`));
+  const hints = Array.from({ length: 5 }, (_, index) =>
+    translate(`hint${index + 1}`),
+  );
+  const examples = Array.from({ length: 5 }, (_, index) =>
+    translate(`example${index + 1}`),
+  );
   const [examplesOpen, setExamplesOpen] = useState(false);
   const examplesId = useId();
   return (
@@ -32,15 +36,11 @@ export function IdeaGuidePanel({
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex flex-col gap-1.5">
           <p className="font-semibold text-base">{t("heading")}</p>
-          <p className="text-muted-foreground text-xs">
-            {t("description")}
-          </p>
+          <p className="text-muted-foreground text-xs">{t("description")}</p>
         </div>
 
         <div className="rounded-lg bg-muted/50 p-3">
-          <p className="mb-2 text-muted-foreground text-xs">
-            {t("example")}
-          </p>
+          <p className="mb-2 text-muted-foreground text-xs">{t("example")}</p>
           <dl className="space-y-2 text-base">
             <div>
               <dt className="text-muted-foreground text-xs">{t("question")}</dt>
@@ -54,7 +54,9 @@ export function IdeaGuidePanel({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-muted-foreground text-xs">{t("selectWrite")}</span>
+          <span className="text-muted-foreground text-xs">
+            {t("selectWrite")}
+          </span>
           <p className="text-muted-foreground text-xs">
             {t("hintDescription")}
           </p>

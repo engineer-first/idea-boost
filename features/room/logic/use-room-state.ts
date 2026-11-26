@@ -1,11 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 // メンバー一覧・進行状態・タイマーのサーバーメッセージ適用の hook。
 // ロビーとボードの両方で使う（ロビーはタイマーを表示しないが、状態の畳み込みは
 // 共通のまま害がない）。畳み込みの実体は room-reducer.ts の純関数群。
 // 入退出 toast（memberJoined / memberLeft）もここで出す — 両画面で同一の方針。
 import { useCallback, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
 import type { RoomPhase } from "@/contracts/phase";
 import type {
   ServerMessage,

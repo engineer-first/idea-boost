@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 // ルームボードの表示用コンポーネント。データ層には一切依存せず、
 // 付箋の配列と各種コールバックをpropsで受け取る。
 // WebSocket接続・スロットル・プロトコル送信はroom-board.tsx（コンテナ）の責務。
@@ -17,7 +18,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useTranslations } from "next-intl";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
@@ -2172,9 +2172,7 @@ export function RoomBoardView({
               data-testid="timer-work-hint"
               className="w-full max-w-md rounded-lg border border-border/40 bg-background/75 px-6 py-5 text-center shadow-tool backdrop-blur-[2px]"
             >
-              <p className="text-lg font-semibold">
-                {t("timerNotStarted")}
-              </p>
+              <p className="text-lg font-semibold">{t("timerNotStarted")}</p>
 
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {t("timerInstruction")}

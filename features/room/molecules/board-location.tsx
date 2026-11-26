@@ -116,9 +116,7 @@ export function BoardLocation({
   const stepLabel =
     phase.kind === "step" ? t(`stepNames.${phase.phase}-${phase.step}`) : "";
   const fullStepLabel =
-    phase.kind === "step"
-      ? t(`fullSteps.${phase.phase}-${phase.step}`)
-      : title;
+    phase.kind === "step" ? t(`fullSteps.${phase.phase}-${phase.step}`) : title;
   return (
     <div className={styles.slot} data-testid="board-location-slot">
       <fieldset
@@ -191,7 +189,8 @@ export function BoardLocation({
               )}
               {phase.kind === "step" && !outcomePublished && (
                 <span className={styles.next}>
-                  {t("next")}{t(`nextLabels.${phase.phase}-${phase.step}`)}
+                  {t("next")}
+                  {t(`nextLabels.${phase.phase}-${phase.step}`)}
                 </span>
               )}
             </span>
@@ -265,7 +264,9 @@ export function BoardLocation({
                   <Fragment key={number}>
                     <TabsTrigger
                       value={String(number)}
-                      aria-label={t("phaseTabLabel", { phase: t(`phaseNames.${number}`) })}
+                      aria-label={t("phaseTabLabel", {
+                        phase: t(`phaseNames.${number}`),
+                      })}
                       aria-current={
                         phase.kind === "step" && phase.phase === number
                           ? "step"
@@ -301,58 +302,52 @@ export function BoardLocation({
                   value={String(number)}
                   className={styles.stepScroll}
                 >
-                  <ol
-                    aria-label={t("allPhaseSteps")}
-                    className={styles.steps}
-                  >
-                    {Object.keys(ROOM_PHASE_STEP_LABELS[number]).map(
-                      (step) => {
-                        const current =
-                          phase.kind === "step" &&
-                          phase.phase === number &&
-                          phase.step === Number(step);
-                        const completed =
-                          phase.kind === "step" &&
-                          (number < phase.phase ||
-                            (number === phase.phase &&
-                              Number(step) < phase.step));
-                        return (
-                          <li
-                            key={step}
-                            aria-current={current ? "step" : undefined}
-                            data-testid={
-                              current ? "board-current-step" : undefined
-                            }
-                          >
-                            {completed ? (
-                              <span
-                                role="img"
-                                aria-label={t("completed")}
-                                className={styles.stepMarker}
-                              >
-                                <Check
-                                  aria-hidden="true"
-                                  className="size-3.5"
-                                />
-                              </span>
-                            ) : (
-                              <span
-                                aria-hidden="true"
-                                className={styles.stepMarker}
-                              >
-                                {step}
-                              </span>
-                            )}
-                            <span className="min-w-0 flex-1 break-words">
-                              {t(`fullSteps.${number}-${step}`)}
+                  <ol aria-label={t("allPhaseSteps")} className={styles.steps}>
+                    {Object.keys(ROOM_PHASE_STEP_LABELS[number]).map((step) => {
+                      const current =
+                        phase.kind === "step" &&
+                        phase.phase === number &&
+                        phase.step === Number(step);
+                      const completed =
+                        phase.kind === "step" &&
+                        (number < phase.phase ||
+                          (number === phase.phase &&
+                            Number(step) < phase.step));
+                      return (
+                        <li
+                          key={step}
+                          aria-current={current ? "step" : undefined}
+                          data-testid={
+                            current ? "board-current-step" : undefined
+                          }
+                        >
+                          {completed ? (
+                            <span
+                              role="img"
+                              aria-label={t("completed")}
+                              className={styles.stepMarker}
+                            >
+                              <Check aria-hidden="true" className="size-3.5" />
                             </span>
-                            {current ? (
-                              <span className={styles.currentLabel}>{t("current")}</span>
-                            ) : null}
-                          </li>
-                        );
-                      },
-                    )}
+                          ) : (
+                            <span
+                              aria-hidden="true"
+                              className={styles.stepMarker}
+                            >
+                              {step}
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1 break-words">
+                            {t(`fullSteps.${number}-${step}`)}
+                          </span>
+                          {current ? (
+                            <span className={styles.currentLabel}>
+                              {t("current")}
+                            </span>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ol>
                 </TabsContent>
               ))}

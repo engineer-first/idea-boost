@@ -311,7 +311,9 @@ export function NoteCard({
   const focusHideTimeoutRef = useRef<number | null>(null);
   const canCandidateAction =
     !isMultiSelected && (note.excluded ? canRestoreNote : canExcludeNote);
-  const candidateActionLabel = t(note.excluded ? "restoreAction" : "excludeAction");
+  const candidateActionLabel = t(
+    note.excluded ? "restoreAction" : "excludeAction",
+  );
   const candidateActionText = t(note.excluded ? "restore" : "exclude");
   const isCandidateActionVisible =
     !isOwnDrag &&

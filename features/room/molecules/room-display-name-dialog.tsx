@@ -1,7 +1,7 @@
 "use client";
 
-import { useId } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,7 +24,9 @@ export function RoomDisplayNameDialog({
   const tooLong = controls.draft.trim().length > ROOM_DISPLAY_NAME_MAX_LENGTH;
   const error = tooLong
     ? t("tooLong", { max: ROOM_DISPLAY_NAME_MAX_LENGTH })
-    : locale === "en" && controls.error ? t("genericError") : controls.error;
+    : locale === "en" && controls.error
+      ? t("genericError")
+      : controls.error;
   return (
     <Dialog open={controls.open} onOpenChange={controls.onOpenChange}>
       <DialogContent

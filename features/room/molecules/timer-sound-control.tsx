@@ -1,8 +1,8 @@
 "use client";
 
 import { CircleAlert, Volume2, VolumeX } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { TimerSoundControls } from "../logic/use-room-timer-sounds";
 
@@ -17,8 +17,7 @@ export function TimerSoundControl({
   const toggleRef = useRef<HTMLButtonElement>(null);
   const noticeRef = useRef<HTMLFieldSetElement>(null);
   const [noticeOpen, setNoticeOpen] = useState(playbackBlocked);
-  const playbackMessage =
-    t("playbackError");
+  const playbackMessage = t("playbackError");
   const title = playbackBlocked
     ? t("retryTitle")
     : t(enabled ? "enabledTitle" : "disabledTitle");

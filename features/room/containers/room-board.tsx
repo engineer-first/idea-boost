@@ -9,6 +9,7 @@
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   startTransition,
   useCallback,
@@ -16,7 +17,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useLocale, useTranslations } from "next-intl";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
 import {
   isPresenterViewFollowStep,
@@ -502,13 +502,21 @@ export function RoomBoard({
         if (message.source === "phase-transition") {
           bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
-            roomNotify.automaticallyExcludedCandidates(message.count, undo, notifications),
+            roomNotify.automaticallyExcludedCandidates(
+              message.count,
+              undo,
+              notifications,
+            ),
             message.operationId,
           );
         } else {
           bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
-            roomNotify.bulkCandidatesExcluded(message.count, undo, notifications),
+            roomNotify.bulkCandidatesExcluded(
+              message.count,
+              undo,
+              notifications,
+            ),
             message.operationId,
           );
         }

@@ -62,9 +62,7 @@ export function NoteDraftRecovery({
           id={contentId}
           className="mt-3 max-h-[min(55vh,24rem)] space-y-3 overflow-auto"
         >
-          <p className="text-xs text-muted-foreground">
-            {t("description")}
-          </p>
+          <p className="text-xs text-muted-foreground">{t("description")}</p>
           {items.map((item, index) => (
             <div key={item.noteId}>
               <p className="text-xs text-muted-foreground">

@@ -52,7 +52,9 @@ export function CanvasZoomControls({
         data-testid="canvas-zoom-controls"
         data-sharing-reaction-anchor=""
         aria-label={
-          showNavigationControls ? t("canvasControls") : t("moveHistoryControls")
+          showNavigationControls
+            ? t("canvasControls")
+            : t("moveHistoryControls")
         }
         aria-description={
           showNavigationControls
@@ -128,9 +130,7 @@ export function CanvasZoomControls({
                   <Minus aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                {t("zoomOutHint")}
-              </TooltipContent>
+              <TooltipContent side="top">{t("zoomOutHint")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -146,9 +146,7 @@ export function CanvasZoomControls({
                   {Math.round(zoom * 100)}%
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                {t("resetZoomHint")}
-              </TooltipContent>
+              <TooltipContent side="top">{t("resetZoomHint")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -164,9 +162,7 @@ export function CanvasZoomControls({
                   <Plus aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                {t("zoomInHint")}
-              </TooltipContent>
+              <TooltipContent side="top">{t("zoomInHint")}</TooltipContent>
             </Tooltip>
             <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
             <Tooltip>
@@ -183,9 +179,7 @@ export function CanvasZoomControls({
                   <Maximize2 aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                {t("fitToNotesHint")}
-              </TooltipContent>
+              <TooltipContent side="top">{t("fitToNotesHint")}</TooltipContent>
             </Tooltip>
             {reactionControls?.(toolDisabled)}
           </div>

@@ -54,7 +54,9 @@ export function RemoteCursor({
           transform: `translateY(${labelOffset * 32}px)`,
         }}
       >
-        <span className="truncate">{cursor.name || t("unnamedParticipant")}</span>
+        <span className="truncate">
+          {cursor.name || t("unnamedParticipant")}
+        </span>
       </div>
     </div>
   );

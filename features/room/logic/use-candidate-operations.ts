@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import type { Note } from "@/features/notes";
 import { notify } from "@/lib/notify";
@@ -86,9 +86,7 @@ export function useCandidateOperations({
   useEffect(() => {
     if (connected) return;
     if (pendingRef.current.length || bulkRef.current)
-      notify.error(
-        t("connectionLost"),
-      );
+      notify.error(t("connectionLost"));
     clear();
   }, [connected, clear, t]);
   useEffect(

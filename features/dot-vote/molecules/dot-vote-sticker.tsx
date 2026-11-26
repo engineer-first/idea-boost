@@ -1,7 +1,7 @@
 import { Star, Users } from "lucide-react";
+import { useLocale } from "next-intl";
 import type { ReactElement, PointerEvent as ReactPointerEvent } from "react";
 import { useRef } from "react";
-import { useLocale } from "next-intl";
 import {
   Tooltip,
   TooltipContent,
@@ -123,7 +123,9 @@ function WithStickerTooltip({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent>{dotVoteStickerTooltip(kind, phase, locale)}</TooltipContent>
+        <TooltipContent>
+          {dotVoteStickerTooltip(kind, phase, locale)}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -218,7 +220,9 @@ export function DotVoteSticker({
         <button
           type="button"
           data-state={state}
-          aria-label={locale === "en" ? `Withdraw one ${label}` : `${label}を1票取り消す`}
+          aria-label={
+            locale === "en" ? `Withdraw one ${label}` : `${label}を1票取り消す`
+          }
           className={`inline-flex transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${DOT_VOTE_SHAPE[kind]} ${
             onDragStart ? "touch-none cursor-grab active:cursor-grabbing" : ""
           } ${state === "pending" ? "animate-pulse" : ""}`}
@@ -271,7 +275,9 @@ export function DotVoteSticker({
       role="img"
       data-state={state}
       aria-label={
-        isPreview ? `${dotVoteStickerName(kind, phase, locale)}${locale === "en" ? " placement" : "を貼る位置"}` : label
+        isPreview
+          ? `${dotVoteStickerName(kind, phase, locale)}${locale === "en" ? " placement" : "を貼る位置"}`
+          : label
       }
       className={`inline-flex ${DOT_VOTE_SHAPE[kind]} ${
         isPreview ? "pointer-events-none opacity-50" : ""

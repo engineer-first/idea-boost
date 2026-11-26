@@ -1,7 +1,7 @@
 "use client";
 
-import { useId } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,9 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ROOM_NAME_MAX_LENGTH } from "@/contracts/room-name";
-import {
-  type RoomNameControls,
-} from "../logic/use-room-name";
+import type { RoomNameControls } from "../logic/use-room-name";
 
 export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
   const locale = useLocale();

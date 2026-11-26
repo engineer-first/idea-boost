@@ -9,13 +9,13 @@ import {
   MousePointer2,
   Users,
 } from "lucide-react";
-import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import { type DotVotePhase, DotVoteStickerImage } from "@/features/dot-vote";
 import {
-  STEP_GUIDE_DIAGRAM_COPY,
   SCAMPER_QUESTION_EXAMPLES,
+  STEP_GUIDE_DIAGRAM_COPY,
   type StepGuideDiagramKind,
   stepGuideVoteDiagramCopy,
 } from "../logic/step-guide-copy";

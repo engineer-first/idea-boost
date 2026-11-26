@@ -1,8 +1,8 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -254,7 +254,10 @@ export function StepOneOnboardingSlide({
 }: StepOneOnboardingSlideProps) {
   const locale = useLocale();
   const t = useTranslations("app.stepGuide");
-  const englishSlides = t.raw("slides") as Record<string, readonly StepGuideSlide[]>;
+  const englishSlides = t.raw("slides") as Record<
+    string,
+    readonly StepGuideSlide[]
+  >;
   const [open, setOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [slideTransition, setSlideTransition] = useState<"moving" | null>(null);
@@ -322,7 +325,7 @@ export function StepOneOnboardingSlide({
       // ストレージを使えない環境では、この表示中だけ一度表示する。
     }
     setOpen(true);
-  }, [isReady, phaseKey, userId, onReady, locale]);
+  }, [isReady, phaseKey, userId, onReady]);
 
   useEffect(() => {
     if (open) {
@@ -556,7 +559,10 @@ export function StepOneOnboardingSlide({
                     <li
                       key={item.title}
                       aria-current={index === slideIndex ? "step" : undefined}
-                      aria-label={t("ui.slideNumber", { current: index + 1, total: slides.length })}
+                      aria-label={t("ui.slideNumber", {
+                        current: index + 1,
+                        total: slides.length,
+                      })}
                     >
                       <button
                         aria-label={t("ui.goToSlide", { number: index + 1 })}

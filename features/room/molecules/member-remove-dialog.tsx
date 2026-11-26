@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +11,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useLocale, useTranslations } from "next-intl";
 import { MemberAvatar, NOTE_COLOR_NAMES } from "@/features/room-members";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 
@@ -30,7 +30,9 @@ export function MemberRemoveDialog({
   onClosed,
 }: MemberRemoveDialogProps) {
   const locale = useLocale();
-  const t = useTranslations("app.boardMemberRemoval") as (key: string) => string;
+  const t = useTranslations("app.boardMemberRemoval") as (
+    key: string,
+  ) => string;
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent
@@ -50,9 +52,7 @@ export function MemberRemoveDialog({
         }}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {t("title")}
-          </AlertDialogTitle>
+          <AlertDialogTitle>{t("title")}</AlertDialogTitle>
           {target ? (
             <div className="flex min-w-0 items-center gap-3">
               <TooltipProvider>
@@ -67,7 +67,10 @@ export function MemberRemoveDialog({
                   {target.name || t("unnamed")}
                 </p>
                 <p className="break-all text-xs text-muted-foreground">
-                  {t("colorLabel")}: {locale === "en" ? t(`colors.${target.color}`) : NOTE_COLOR_NAMES[target.color]}
+                  {t("colorLabel")}:{" "}
+                  {locale === "en"
+                    ? t(`colors.${target.color}`)
+                    : NOTE_COLOR_NAMES[target.color]}
                 </p>
               </div>
             </div>

@@ -84,9 +84,7 @@ export function OutcomeReflection({ roomId }: { roomId: string }) {
       if (!response.ok) {
         if (response.status === 401 || response.status === 404) {
           setData(null);
-          throw new Error(
-            messages("errorPermission"),
-          );
+          throw new Error(messages("errorPermission"));
         }
         if (response.status === 409 || response.status === 429) {
           const problem = await response.json();
@@ -97,9 +95,7 @@ export function OutcomeReflection({ roomId }: { roomId: string }) {
           );
         }
         throw new Error(
-          input
-            ? messages("errorGenerate")
-            : messages("errorLoad"),
+          input ? messages("errorGenerate") : messages("errorLoad"),
         );
       }
       const result = ReflectionResponseSchema.parse(await response.json());

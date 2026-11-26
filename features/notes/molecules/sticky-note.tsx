@@ -1,8 +1,8 @@
 "use client";
 
 import "./sticky-note.css";
-import type * as React from "react";
 import { useTranslations } from "next-intl";
+import type * as React from "react";
 import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import type { NoteColor } from "@/contracts/room-protocol";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
@@ -144,7 +144,7 @@ export function StickyNote({
             aria-label={
               decisionPresentation === "reference"
                 ? t("adopted")
-                 : t("issueDecision")
+                : t("issueDecision")
             }
             aria-hidden={!isDecided || undefined}
             className="sticky-note-stamp"

@@ -32,7 +32,7 @@ export function useRoomAvatar({
     timeout.current = null;
     setPending(false);
     setError(message);
-  }, [t]);
+  }, []);
   useEffect(
     () => () => {
       if (timeout.current) clearTimeout(timeout.current);
@@ -60,8 +60,7 @@ export function useRoomAvatar({
       }
       if (operation.current === operationId)
         timeout.current = setTimeout(
-          () =>
-            finish(t("avatarResultUnknown")),
+          () => finish(t("avatarResultUnknown")),
           5000,
         );
     },

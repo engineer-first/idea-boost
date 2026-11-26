@@ -1,8 +1,8 @@
 "use client";
 
 import { CornerUpLeft } from "lucide-react";
-import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,9 +80,7 @@ export function RestartWritingConfirmDialog({
             <wbr />
             <span className="inline-block">{t("title")}</span>
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t("description")}
-          </AlertDialogDescription>
+          <AlertDialogDescription>{t("description")}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="max-[400px]:px-1 max-[400px]:text-sm">

@@ -1,8 +1,8 @@
 "use client";
 
 import { ArrowRight, Minus } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -259,7 +259,7 @@ export function SharingPresenter({
                         ? t("presented")
                         : index === sharing.currentIndex
                           ? t("presenting")
-                           : t("upNext")}
+                          : t("upNext")}
                 </span>
               </MemberSelection>
               {canPassPresenter && index === sharing.currentIndex ? (
@@ -279,7 +279,9 @@ export function SharingPresenter({
         </ol>
         {otherMembers.length > 0 ? (
           <div className="mt-3 border-t border-border pt-3">
-            <p className="mb-1 text-xs text-muted-foreground">{t("otherParticipants")}</p>
+            <p className="mb-1 text-xs text-muted-foreground">
+              {t("otherParticipants")}
+            </p>
             {otherMembers.map((member) => (
               <MemberSelection
                 key={member.userId}

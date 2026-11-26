@@ -1,8 +1,8 @@
 "use client";
 
 import { Undo2 } from "lucide-react";
-import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +31,9 @@ export function PhaseRollbackDialog({
   onConfirm,
 }: PhaseRollbackDialogProps) {
   const t = useTranslations("app.boardRollback");
-  const phaseMessages = useTranslations("app.boardLocation") as (key: string) => string;
+  const phaseMessages = useTranslations("app.boardLocation") as (
+    key: string,
+  ) => string;
   const [open, setOpen] = useState(false);
   const [finalConfirmation, setFinalConfirmation] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -66,9 +68,7 @@ export function PhaseRollbackDialog({
       >
         <AlertDialogHeader className="place-items-start text-left">
           <AlertDialogTitle>
-            {finalConfirmation
-              ? t("warning")
-              : t("button")}
+            {finalConfirmation ? t("warning") : t("button")}
           </AlertDialogTitle>
           <AlertDialogDescription className="leading-relaxed">
             {finalConfirmation ? (
@@ -93,7 +93,9 @@ export function PhaseRollbackDialog({
             <p className="mb-1 text-xs leading-relaxed text-muted-foreground">
               {t("from", { phase: phaseLabel(phase) })}
             </p>
-            <p className="font-semibold">{t("to", { phase: phaseLabel(target) })}</p>
+            <p className="font-semibold">
+              {t("to", { phase: phaseLabel(target) })}
+            </p>
           </div>
         )}
         <AlertDialogFooter>

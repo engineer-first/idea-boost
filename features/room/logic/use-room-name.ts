@@ -49,7 +49,7 @@ export function useRoomName({
     timeout.current = null;
     setPending(false);
     setError(message);
-  }, [t]);
+  }, []);
   useEffect(
     () => () => {
       if (timeout.current) clearTimeout(timeout.current);
@@ -57,8 +57,7 @@ export function useRoomName({
     [],
   );
   useEffect(() => {
-    if (!connected && operation.current)
-      finish(t("connectionLost"));
+    if (!connected && operation.current) finish(t("connectionLost"));
   }, [connected, finish, t]);
   return {
     name,
@@ -109,11 +108,7 @@ export function useRoomName({
         return;
       }
       if (operation.current === id)
-        timeout.current = setTimeout(
-          () =>
-            finish(t("resultUnknown")),
-          5000,
-        );
+        timeout.current = setTimeout(() => finish(t("resultUnknown")), 5000);
     },
     onClosed() {
       if (trigger.current?.isConnected) trigger.current.focus();

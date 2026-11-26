@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 // ボード面。カメラで移動・拡大縮小する世界レイヤーに共有付箋・グループ枠・
 // ドラッグ中のゴーストを描き、下端にマイ付箋ドックを重ねる。
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
@@ -17,7 +18,6 @@ import {
   ViewTransition,
 } from "react";
 import { createPortal } from "react-dom";
-import { useTranslations } from "next-intl";
 import {
   DRAG_THRESHOLD_PX,
   getNoteHeight,
@@ -1118,7 +1118,9 @@ export function RoomBoardCanvas({
             {canvasZoomControls}
             <span aria-live="polite" className="sr-only">
               {selectionIds.length > 0
-                ? canvasMessages("selectedNotes", { count: selectionIds.length })
+                ? canvasMessages("selectedNotes", {
+                    count: selectionIds.length,
+                  })
                 : ""}
             </span>
           </div>
@@ -1375,7 +1377,8 @@ export function RoomBoardCanvas({
                       lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
                     }}
                   >
-                    {dragGhost.note.content || canvasMessages("notePlaceholder")}
+                    {dragGhost.note.content ||
+                      canvasMessages("notePlaceholder")}
                   </p>
                 </StickyNote>
               ) : null}

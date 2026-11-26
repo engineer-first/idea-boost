@@ -77,7 +77,10 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
     copy,
   } = props;
   const messages = useTranslations("app.outcomeReflection");
-  const translate = messages as (key: string, values?: Record<string, string | number>) => string;
+  const translate = messages as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const shared = data?.shared;
   const result = shared?.result;
   const plan = result?.kind === "plan" ? result : null;
@@ -85,7 +88,10 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
   const fields = editing
     ? [
         { field: "audience" as const, question: messages("audienceQuestion") },
-        { field: "situation" as const, question: messages("situationQuestion") },
+        {
+          field: "situation" as const,
+          question: messages("situationQuestion"),
+        },
       ]
     : questions;
   const index = plan ? Math.min(step, plan.steps.length - 1) : 0;
@@ -258,7 +264,10 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
             </div>
           )}
           {data && section === "research" && (
-            <section aria-label={messages("researchAriaTitle")} className="space-y-4">
+            <section
+              aria-label={messages("researchAriaTitle")}
+              className="space-y-4"
+            >
               {fields.length > 0 && (
                 <form
                   onSubmit={(event) => {
@@ -267,7 +276,11 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
                   }}
                   className={styles.conditionForm}
                 >
-                  <h3>{editing ? messages("editingConditions") : messages("checkBefore")}</h3>
+                  <h3>
+                    {editing
+                      ? messages("editingConditions")
+                      : messages("checkBefore")}
+                  </h3>
                   {fields.map((question, questionIndex) => (
                     <div key={question.field} className={styles.conditionField}>
                       <label htmlFor={`research-${question.field}`}>
@@ -325,7 +338,9 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
               {plan && current && !editing && (
                 <>
                   <div className={styles.method}>
-                    <span className={styles.methodLabel}>{messages("method")}</span>
+                    <span className={styles.methodLabel}>
+                      {messages("method")}
+                    </span>
                     <h3>{plan.method}</h3>
                     <details className={styles.methodReason}>
                       <summary>{messages("methodReason")}</summary>
@@ -339,7 +354,10 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
                   >
                     <div className={styles.stepProgress}>
                       <p role="status" className={styles.stepProgressText}>
-                        {messages("stepCounter", { current: index + 1, total: plan.steps.length })}
+                        {messages("stepCounter", {
+                          current: index + 1,
+                          total: plan.steps.length,
+                        })}
                       </p>
                       <div
                         role="progressbar"
@@ -372,7 +390,8 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
                       <div className={styles.stepFocus}>
                         <div className={styles.stepFocusItem}>
                           <p className={styles.stepFocusLabel}>
-                            <MessageCircle aria-hidden="true" /> {messages("askTry")}
+                            <MessageCircle aria-hidden="true" />{" "}
+                            {messages("askTry")}
                           </p>
                           <p>{current.task}</p>
                         </div>
@@ -491,7 +510,9 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
                 ))}
               </fieldset>
               <div className={styles.artifactCustom}>
-                <label htmlFor="reflection-artifact">{messages("customArtifact")}</label>
+                <label htmlFor="reflection-artifact">
+                  {messages("customArtifact")}
+                </label>
                 <input
                   id="reflection-artifact"
                   value={showCustomArtifact ? artifact : ""}
@@ -538,9 +559,7 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
               </Button>
               {copy === "success" && <p role="status">{messages("copied")}</p>}
               {copy === "failed" && (
-                <p role="alert">
-                  {messages("copyFailed")}
-                </p>
+                <p role="alert">{messages("copyFailed")}</p>
               )}
               <details className={styles.promptDetails}>
                 <summary>{messages("promptFull")}</summary>
@@ -560,14 +579,16 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
           {data && (
             <details className={styles.sharedDetails}>
               <summary>{messages("sharedDetails")}</summary>
-              <p>
-                {messages("sharedDescription")}
-              </p>
+              <p>{messages("sharedDescription")}</p>
               {shared?.context.audience && (
-                <p>{messages("audience", { value: shared.context.audience })}</p>
+                <p>
+                  {messages("audience", { value: shared.context.audience })}
+                </p>
               )}
               {shared?.context.situation && (
-                <p>{messages("situation", { value: shared.context.situation })}</p>
+                <p>
+                  {messages("situation", { value: shared.context.situation })}
+                </p>
               )}
               {!!shared?.sources.length && (
                 <ul className={styles.sourceList}>
@@ -588,20 +609,18 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
       {!section && (
         <details className={styles.sourceDetails}>
           <summary>{messages("sourceDetails")}</summary>
-          <p>
-            {messages("sourceDescription")}
-          </p>
+          <p>{messages("sourceDescription")}</p>
         </details>
       )}
       <AlertDialog open={confirming} onOpenChange={props.onConfirming}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {messages("confirmTitle")}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{messages("confirmTitle")}</AlertDialogTitle>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy !== null}>{messages("back")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy !== null}>
+              {messages("back")}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();

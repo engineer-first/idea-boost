@@ -1,9 +1,9 @@
 "use client";
 
 import { CheckCircle2, MousePointerClick, Undo2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { useTranslations } from "next-intl";
 
 export type AdoptionPhaseNumber = 1 | 2 | 3;
 
@@ -44,7 +44,11 @@ export function AdoptNoteControl({
 }: AdoptNoteControlProps) {
   const t = useTranslations("app.boardAdopt");
   const targetLabel = t(
-    phaseNumber === 1 ? "targetNote" : phaseNumber === 2 ? "targetQuestion" : "targetIdea",
+    phaseNumber === 1
+      ? "targetNote"
+      : phaseNumber === 2
+        ? "targetQuestion"
+        : "targetIdea",
   );
 
   if (decisionContent !== null) {

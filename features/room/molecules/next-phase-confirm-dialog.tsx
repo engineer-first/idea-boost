@@ -1,7 +1,7 @@
 "use client";
 
-import { type CSSProperties, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { type CSSProperties, useRef, useState } from "react";
 // 未完了メンバーがいる場合など、確認が必要な進行操作で表示する。
 import {
   AlertDialog,

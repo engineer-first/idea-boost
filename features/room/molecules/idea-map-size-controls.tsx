@@ -1,8 +1,8 @@
 "use client";
 
 import { Info, Minus, Plus } from "lucide-react";
-import type { ReactElement } from "react";
 import { useTranslations } from "next-intl";
+import type { ReactElement } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -10,7 +10,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { IDEA_MAP_SIZE_LEVEL_RANGE } from "@/contracts/board";
-
 
 export type IdeaMapSizeControlsProps = {
   sizeLevel: number;

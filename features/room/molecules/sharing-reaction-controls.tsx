@@ -2,8 +2,8 @@
 
 import { Smile } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
