@@ -102,14 +102,14 @@ export function BoardContext({
         <p
           data-testid="board-room-theme"
           title={roomName ?? undefined}
-          className="board-hud pointer-events-auto mt-2 flex w-fit max-w-full min-w-0 items-center rounded-lg border border-border bg-background px-3 py-1 text-sm shadow-tool max-[639px]:hidden"
+          className="board-hud pointer-events-auto mt-2 line-clamp-2 w-fit max-w-full min-w-0 break-words rounded-lg border border-border bg-background px-3 py-1 text-sm shadow-tool max-[639px]:hidden"
         >
           {roomName === null ? (
             <span className="text-muted-foreground">テーマ未設定</span>
           ) : (
             <>
-              <span className="shrink-0 text-muted-foreground">テーマ：</span>
-              <span className="min-w-0 truncate font-medium">{roomName}</span>
+              <span className="text-muted-foreground">テーマ：</span>
+              <span className="font-medium">{roomName}</span>
             </>
           )}
         </p>
