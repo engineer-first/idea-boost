@@ -49,6 +49,91 @@ const generator = () =>
   );
 
 describe("ユーザーニーズ調査の準備", () => {
+  it("日本語と英語の調査結果を同じルーム内で別々に保存・再取得する", async () => {
+    const room = await createRoomAs(user);
+    await runInRoomDO(room.roomId, async (_instance, state) => {
+      const englishOutput = {
+        kind: "plan" as const,
+        method: "Recent-event interview",
+        reason: "Learn about users' actual experiences.",
+        steps: [
+          {
+            title: "Find participants",
+            action: "Invite people who recently experienced the problem.",
+            task: "Tell me about the last time this happened.",
+            observe: "Notice the actions and workarounds they describe.",
+          },
+        ],
+        synthesis: "Separate observed facts from interpretations.",
+        recommendation: null,
+        alternatives: [],
+      };
+      const generate = vi.fn(
+        async (_mode: string, _input: string, locale: string) =>
+          locale === "en" ? englishOutput : output,
+      );
+      const storage = new OutcomeReflectionStorage(
+        state,
+        completed(),
+        generate,
+      );
+      const japanese = await storage.readOrGenerate(user.sub, research(), "ja");
+      const english = await storage.readOrGenerate(other, research(), "en");
+
+      expect(japanese?.shared).toMatchObject({
+        revision: 1,
+        result: output,
+      });
+      expect(english?.shared).toMatchObject({
+        revision: 1,
+        result: englishOutput,
+      });
+      expect(
+        (await storage.readOrGenerate(user.sub, null, "ja"))?.shared,
+      ).toEqual(japanese?.shared);
+      expect(
+        (await storage.readOrGenerate(other, null, "en"))?.shared,
+      ).toEqual(english?.shared);
+      expect(generate.mock.calls.map((call) => call[2])).toEqual(["ja", "en"]);
+    });
+  });
+
+  it("AI制作依頼文のキャッシュ・選択・生成回数上限を言語ごとに分ける", async () => {
+    const room = await createRoomAs(user);
+    await runInRoomDO(room.roomId, async (_instance, state) => {
+      const generate = vi.fn(
+        async (_mode: string, input: string, locale: string) => ({
+          artifact: JSON.parse(input).artifact,
+          content: locale === "en" ? "Create an interview guide." : "質問リストを作成してください。",
+        }),
+      );
+      const storage = new OutcomeReflectionStorage(
+        state,
+        completed(),
+        generate,
+      );
+
+      for (let index = 0; index < 20; index++) {
+        await storage.readOrGenerate(user.sub, prompt(`日本語-${index}`), "ja");
+        await storage.readOrGenerate(other, prompt(`English-${index}`), "en");
+      }
+      await expect(
+        storage.readOrGenerate(user.sub, prompt("日本語-追加"), "ja"),
+      ).rejects.toThrow(REFLECTION_LIMIT_ERROR);
+      await expect(
+        storage.readOrGenerate(other, prompt("English-extra"), "en"),
+      ).rejects.toThrow(REFLECTION_LIMIT_ERROR);
+
+      expect(
+        (await storage.readOrGenerate(user.sub, prompt("日本語-0"), "ja"))?.prompt?.content,
+      ).toContain("質問リスト");
+      expect(
+        (await storage.readOrGenerate(other, prompt("English-0"), "en"))?.prompt?.content,
+      ).toContain("Create an interview guide");
+      expect(generate).toHaveBeenCalledTimes(40);
+    });
+  });
+
   it("古い参照版で共通の手順を更新せず、推論前に拒否する", async () => {
     const room = await createRoomAs(user);
     await runInRoomDO(room.roomId, async (_instance, state) => {
