@@ -21,21 +21,25 @@ const FLOW_STEPS = PHASE_NUMBERS.flatMap((phase) =>
   })),
 );
 
+// 中央のステップバーが出る幅。board-location.module.css の narrowOnly の切り替えと揃える。
+const WIDE_QUERY = "(width >= 900px)";
+
 type LocationState = "compact" | "expanded";
 export type BoardLocationProps = {
   phase: RoomPhase;
   outcomePublished?: boolean;
   // 畳んだ現在地ボタンの右に並べる操作（「進め方」）。カードの高さは増やさない。
   action?: ReactNode;
-  // 中央のステップバーが出る広い画面では、同じ操作をステップバーから開くので右の操作を出さない。
-  actionOnNarrowOnly?: boolean;
+  // 中央のステップバーが出る広い画面（900px 以上）では、現在のステップ・全体の流れ・進め方を
+  // ステップバーから開けるので、重ねて示さないよう現在地カードごと出さない。
+  narrowOnly?: boolean;
 };
 
 export function BoardLocation({
   phase,
   outcomePublished = false,
   action,
-  actionOnNarrowOnly = false,
+  narrowOnly = false,
 }: BoardLocationProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
@@ -66,6 +70,17 @@ export function BoardLocation({
       trigger.current?.focus({ preventScroll: true });
     }
   }, [phaseKey]);
+  useEffect(() => {
+    if (!narrowOnly || state === "compact" || !window.matchMedia) return;
+    // 開いたまま広い画面へ変わるとカードは見えなくなるので閉じ、Escape や外側クリックを奪わない。
+    const wide = window.matchMedia(WIDE_QUERY);
+    function closeWhenWide(event: { matches: boolean }): void {
+      if (event.matches) setRequest({ phaseKey, state: "compact" });
+    }
+    closeWhenWide(wide);
+    wide.addEventListener("change", closeWhenWide);
+    return () => wide.removeEventListener("change", closeWhenWide);
+  }, [narrowOnly, state, phaseKey]);
   useEffect(() => {
     if (state === "compact") return;
     function outside(event: Event): void {
@@ -103,7 +118,11 @@ export function BoardLocation({
   const stepLabel =
     phase.kind === "step" ? STEP_NAMES[phase.phase][phase.step - 1] : "";
   return (
-    <div className={styles.slot} data-testid="board-location-slot">
+    <div
+      className={styles.slot}
+      data-narrow-only={narrowOnly || undefined}
+      data-testid="board-location-slot"
+    >
       <fieldset
         aria-label="現在地"
         ref={card}
@@ -123,10 +142,7 @@ export function BoardLocation({
             close();
         }}
       >
-        <div
-          className={styles.row}
-          data-action-narrow-only={actionOnNarrowOnly || undefined}
-        >
+        <div className={styles.row}>
           <button
             ref={trigger}
             type="button"

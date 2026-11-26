@@ -38,7 +38,7 @@ async function openMapOnly(page: Page): Promise<void> {
 
 async function openStory(page: Page, storyId: string): Promise<void> {
   await page.goto(`${origin}/iframe.html?id=${storyId}&viewMode=story`);
-  await page.getByTestId("board-location-card").waitFor();
+  await page.getByTestId("board-control-hud").waitFor();
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -449,8 +449,15 @@ test.each([
         "idea-value-feasibility-map-x-axis-label",
       );
 
+      // 上の情報は決定事項と中央のステップバーのうち下にあるほう。どちらとも重ねない。
+      const trail = await readBounds(page, "phase-step-trail");
+      const aboveBottom = Math.max(
+        context.y + context.height,
+        trail.y + trail.height,
+      );
       expect(plane.y - (context.y + context.height)).toBeGreaterThanOrEqual(16);
-      expect(plane.y - (context.y + context.height)).toBeLessThanOrEqual(24);
+      expect(plane.y - aboveBottom).toBeGreaterThanOrEqual(8);
+      expect(plane.y - aboveBottom).toBeLessThanOrEqual(24);
       // 3-3はマイ付箋の欄の幅224pxからタイマーの分80pxを除いた144pxだけ広がる。
       expect(plane.width).toBeCloseTo(phase === "3-2" ? 1124 : 1268, 1);
       expect(plane.height).toBeCloseTo(639.09375, 1);
@@ -1357,8 +1364,9 @@ test("上部は共通HUDを使い、決定事項を横並びにしてもマッ�
     await openWorkspace(page);
     const plane = page.getByTestId("idea-value-feasibility-map-plane");
     const initialPlane = await plane.boundingBox();
+    // 広い画面は現在地カードを出さないため、左の欄の幅を予約する枠で測る。
     const location = await page
-      .getByTestId("board-location-card")
+      .getByTestId("board-location-slot")
       .boundingBox();
     const question = await page
       .getByTestId("board-reference-hmw")
@@ -1522,7 +1530,7 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
   try {
     await openStory(page, "room-roomboardview--step-1-2-sharing");
     const sharedAnchors = {
-      location: await readBounds(page, "board-location-card"),
+      location: await readBounds(page, "board-location-slot"),
       controls: await readBounds(page, "board-control-hud"),
       tools: await readBounds(page, "board-tools-hud"),
       privateNotes: await readBounds(page, "private-notes-dock"),
@@ -1530,7 +1538,7 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
 
     await openWorkspace(page);
     const workspaceAnchors = {
-      location: await readBounds(page, "board-location-card"),
+      location: await readBounds(page, "board-location-slot"),
       controls: await readBounds(page, "board-control-hud"),
       tools: await readBounds(page, "board-tools-hud"),
       privateNotes: await readBounds(page, "private-notes-dock"),

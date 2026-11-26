@@ -1,6 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { stepGuideOpener } from "./step-guide-opener";
+import { flowOpener, stepGuideOpener } from "./step-guide-opener";
 import { checksWidth, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
@@ -86,7 +86,7 @@ test.each(
       await guide.click();
       await page.keyboard.press("Escape");
       await dialog.waitFor({ state: "hidden" });
-      await page.getByTestId("board-location-trigger").click();
+      await flowOpener(page, width).click();
       expect(await page.getByRole("tab", { name: /問い/ }).isVisible()).toBe(
         true,
       );

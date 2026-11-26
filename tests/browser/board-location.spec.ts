@@ -18,7 +18,9 @@ beforeAll(async () => {
   await mkdir("test-results/board-layout", { recursive: true });
 });
 beforeEach(async () => {
-  page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  // 900px 以上は中央のステップバーが現在地を示し、左上の現在地カードを出さない。
+  // このファイルはカードを検査するため、既定はカードが出る iPad 縦の幅にする。
+  page = await browser.newPage({ viewport: { width: 768, height: 1024 } });
   page.setDefaultTimeout(5000);
 });
 afterEach(async () => {
@@ -64,7 +66,41 @@ async function reachable(target: Locator): Promise<void> {
   ).toBe(true);
 }
 
-test.each(sizes([1280, 720], [390, 844]))(
+test.each([
+  [1280, true],
+  [900, true],
+  [899, false],
+  [768, false],
+] as const)(
+  "幅%iでは左上の現在地と中央のステップバーのどちらか一方だけで現在のステップを示す（広い画面はステップバー：%s）",
+  async (width, wide) => {
+    await page.setViewportSize({ width, height: 720 });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-2&viewMode=story`,
+    );
+    await page
+      .locator(
+        '[data-testid="board-location-card"]:visible, [data-testid="phase-step-trail"]:visible',
+      )
+      .first()
+      .waitFor();
+    await page.keyboard.press("Escape");
+    expect(await page.getByTestId("board-location-card").isVisible()).toBe(
+      !wide,
+    );
+    expect(await page.getByTestId("phase-step-trail").isVisible()).toBe(wide);
+    if (!wide) return;
+    // カードの枠が残って左上に空白を作らない。最上段の操作より下へ何も押し下げない。
+    const slot = await page.getByTestId("board-location-slot").boundingBox();
+    const controls = await page.getByTestId("board-control-hud").boundingBox();
+    expect((slot?.y ?? 0) + (slot?.height ?? 0)).toBeLessThan(
+      (controls?.y ?? 0) + (controls?.height ?? 0),
+    );
+    expect(slot?.height).toBeLessThan(controls?.height ?? 0);
+  },
+);
+
+test.each(sizes([768, 1024], [390, 844]))(
   "%i×%iで全14工程の棒・現在位置・表示幅ごとの高さを保つ",
   async (width, height) => {
     await page.setViewportSize({ width, height });
@@ -147,18 +183,7 @@ test("画面を狭めても現在地は横に広がらず、開いた詳細も�
   const card = page.getByTestId("board-location-card");
   const trigger = page.getByRole("button", { name: /現在地/ });
   let previousWidth = Number.POSITIVE_INFINITY;
-  for (const width of widths(
-    1280,
-    1200,
-    1199,
-    901,
-    900,
-    640,
-    639,
-    637,
-    542,
-    390,
-  )) {
+  for (const width of widths(899, 768, 640, 639, 637, 542, 390)) {
     await page.setViewportSize({ width, height: 618 });
     const compact = await card.boundingBox();
     expect(compact).not.toBeNull();
@@ -174,7 +199,7 @@ test("画面を狭めても現在地は横に広がらず、開いた詳細も�
   }
 });
 
-test.each(sizes([1280, 720], [390, 844]))(
+test.each(sizes([768, 1024], [390, 844]))(
   "%i×%iで2状態・3フェーズ・長い作業名・一覧・閉じた後の操作へ到達できる",
   async (width, height) => {
     await page.setViewportSize({ width, height });
@@ -267,7 +292,8 @@ test("実際の付箋を押すと手順を畳むと同時に選択し、カメ�
   const before = await canvas.boundingBox();
   const trigger = page.getByRole("button", { name: /現在地/ });
   await trigger.click();
-  const note = page.getByTestId("note-card").first();
+  // 開いた手順の下に隠れない、右側の付箋を押す。
+  const note = page.getByTestId("note-card").last();
   await note.getByRole("button", { name: "付箋", exact: true }).click();
   expect(await trigger.getAttribute("aria-expanded")).toBe("false");
   expect(await note.getAttribute("data-selected")).toBe("true");
@@ -354,7 +380,7 @@ test.skipIf(!includeMobile)(
 test.each(
   (
     [
-      [1280, 720, "auth-required"],
+      [768, 1024, "auth-required"],
       [390, 844, "auth-required"],
     ] as const
   ).filter(([width]) => checksWidth(width)),
@@ -410,7 +436,7 @@ test.each(
   },
 );
 
-test.each(sizes([1280, 720]))(
+test.each(sizes([768, 1024]))(
   "%i×%iでフィードバックの対象・未送信入力・復帰先を保持する",
   async (width, height) => {
     await page.setViewportSize({ width, height });
@@ -483,7 +509,7 @@ const nextLabels = [
   ["共有", "投票", "決定", "アイデア"],
   ["共有", "2軸評価", "投票", "決定", "成果"],
 ];
-test.each(sizes([390, 844], [1280, 720]))(
+test.each(sizes([390, 844], [768, 1024]))(
   "%i×%iで14工程の現在地と次をHUD用の高さで同じ行に収める",
   async (width, height) => {
     await page.setViewportSize({ width, height });

@@ -83,6 +83,7 @@ import styles from "./room-board-header.module.css";
 import { RoomTimer } from "./room-timer";
 
 const IDEA_MAP_CONTEXT_GAP = 18;
+const IDEA_MAP_STEP_TRAIL_GAP = 10;
 function getRecommendedTimerDurationMs(phase: RoomPhase): number {
   return (getFacilitationGuide(phase)?.durationMinutes ?? 3) * 60_000;
 }
@@ -298,8 +299,16 @@ export function RoomBoardHeader({
               Number.parseFloat(
                 board.style.getPropertyValue("--board-map-shift-y"),
               ) || 0;
-            const targetTop =
-              context.getBoundingClientRect().bottom + IDEA_MAP_CONTEXT_GAP;
+            // 広い画面は左上の現在地カードを出さず決定事項が上がるため、
+            // 中央のステップバーの下端より上にはマップを上げない。
+            const stepTrail = header.querySelector<HTMLElement>(
+              '[data-testid="phase-step-trail"]',
+            );
+            const targetTop = Math.max(
+              context.getBoundingClientRect().bottom + IDEA_MAP_CONTEXT_GAP,
+              (stepTrail?.getBoundingClientRect().bottom ?? 0) +
+                IDEA_MAP_STEP_TRAIL_GAP,
+            );
             const correction = targetTop - mapPlane.getBoundingClientRect().top;
             board.style.setProperty(
               "--board-map-shift-y",
@@ -673,7 +682,7 @@ export function RoomBoardHeader({
               hmwReference={hmwReference}
               roomName={roomName}
               roomNameLoading={!roomNameLoaded}
-              guideControlOnNarrowOnly={phase.kind === "step"}
+              locationOnNarrowOnly={phase.kind === "step"}
               guideControl={
                 <StepOneOnboardingSlide
                   controllerRef={stepGuideRef}
