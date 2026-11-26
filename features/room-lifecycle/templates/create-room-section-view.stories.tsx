@@ -69,3 +69,19 @@ export const Failure: Story = {
 };
 
 export const TooLong: Story = { args: { intentName: "あ".repeat(16) } };
+
+// ホームと同じ幅では、参加と同じく左に見出し・右に入力を置き、エラーの確保を1行に詰める。
+const wide: Story["decorators"] = [
+  (Story) => (
+    <div style={{ width: 960 }}>
+      <Story />
+    </div>
+  ),
+];
+
+export const Wide: Story = { decorators: wide };
+
+export const WideTooLong: Story = {
+  args: { intentName: "あ".repeat(16) },
+  decorators: wide,
+};

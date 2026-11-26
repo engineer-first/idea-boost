@@ -50,28 +50,6 @@
 .content > section[aria-labelledby="recent-rooms-heading"] {
   margin-bottom: 32px;
 }
-.hero {
-  display: grid;
-  gap: 32px;
-  align-items: center;
-}
-.intro h1 {
-  font-size: clamp(28px, 4.1vw, 52px);
-  font-weight: 650;
-  line-height: 1.35;
-  letter-spacing: -0.055em;
-}
-.intro h1 span {
-  display: block;
-}
-.intro p {
-  max-width: 30em;
-  margin-top: 20px;
-  color: var(--ib-color-muted);
-  font-size: 16px;
-  line-height: 1.8;
-  text-wrap: pretty;
-}
 .history {
   display: flex;
   justify-content: flex-end;
@@ -90,12 +68,8 @@
 }
 @media (min-width: 1024px) {
   .home {
-    padding-top: 96px;
+    padding-top: 48px;
     padding-bottom: 16px;
-  }
-  .hero {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 64px;
   }
   .history {
     margin-top: 0;

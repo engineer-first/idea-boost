@@ -51,6 +51,13 @@ describe("HomeView", () => {
     expect(screen.getByRole("button", { name: "参加する" })).toBeDisabled();
   });
 
+  it("見出しの一言を出さなくても、ページの見出しを読み上げで辿れる", () => {
+    renderView();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "ホーム" }),
+    ).toBeInTheDocument();
+  });
+
   it("error があるとき role=alert で表示する", () => {
     renderView({
       error:
