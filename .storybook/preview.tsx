@@ -1,6 +1,11 @@
 import type { Preview } from "@storybook/nextjs-vite";
+import { NextIntlClientProvider } from "next-intl";
 import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
+import appMessages from "../messages/ja/app.json";
+import landingMessages from "../messages/ja/landing.json";
 import "../app/globals.css";
+
+const storybookMessages = { app: appMessages, landing: landingMessages };
 
 const notoSans = Noto_Sans_JP({
   variable: "--font-noto-sans-jp",
@@ -14,6 +19,15 @@ const geistMono = Geist_Mono({
 });
 
 const preview: Preview = {
+  // Storybook は Next.js の App Router 外で描画するため、翻訳コンテキストを明示する。
+  // ブラウザテストの日本語表示と useTranslations / useLocale の前提をそろえる。
+  decorators: [
+    (Story) => (
+      <NextIntlClientProvider locale="ja" messages={storybookMessages}>
+        <Story />
+      </NextIntlClientProvider>
+    ),
+  ],
   parameters: {
     nextjs: { appDirectory: true },
     options: {
