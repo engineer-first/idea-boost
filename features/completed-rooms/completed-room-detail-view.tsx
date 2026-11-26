@@ -74,7 +74,7 @@ export function CompletedRoomDetailView({
             href="/completed-rooms"
             className="inline-flex min-h-11 items-center underline"
           >
-            過去の成果へ
+            過去の成果の一覧へ
           </Link>
           {loading ? (
             <p role="status">成果を読み込み中…</p>
