@@ -58,9 +58,7 @@ export function HomeView({
             href="/completed-rooms"
             className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-base font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
           >
-            <span className="underline underline-offset-4">
-              {t("history")}
-            </span>
+            <span className="underline underline-offset-4">{t("history")}</span>
             <ArrowRight className="size-4 shrink-0" aria-hidden />
           </Link>
         </nav>

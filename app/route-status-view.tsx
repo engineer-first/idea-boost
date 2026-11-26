@@ -13,9 +13,7 @@ import type { RouteStatusKind } from "./route-status-copy";
 // 自動では移動させず、利用者が戻り先を選ぶ（#993）。
 export function RouteStatusView({ kind }: { kind: RouteStatusKind }) {
   const t = useTranslations("app.routeStatus");
-  const heading = t(
-    kind === "not_found" ? "notFoundHeading" : "errorHeading",
-  );
+  const heading = t(kind === "not_found" ? "notFoundHeading" : "errorHeading");
   const description = t(
     kind === "not_found" ? "notFoundDescription" : "errorDescription",
   );

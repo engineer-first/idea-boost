@@ -120,9 +120,7 @@ export function LoginCard({
         {!isConfigured && (
           <div className="p-3 text-xs bg-warning-soft text-warning rounded-lg border border-warning/20 flex gap-2">
             <ShieldAlert className="h-4 w-4 shrink-0" />
-            <span>
-              {t("authSetup")}
-            </span>
+            <span>{t("authSetup")}</span>
           </div>
         )}
 

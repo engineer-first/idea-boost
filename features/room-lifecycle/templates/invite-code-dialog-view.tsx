@@ -40,9 +40,7 @@ export function InviteCodeDialogView({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent data-testid="invite-dialog">
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {t("confirmTitle", { hostName })}
-          </AlertDialogTitle>
+          <AlertDialogTitle>{t("confirmTitle", { hostName })}</AlertDialogTitle>
         </AlertDialogHeader>
         <AlertDialogDescription className="font-mono font-semibold text-foreground">
           {inviteCode}

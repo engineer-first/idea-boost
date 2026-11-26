@@ -78,11 +78,7 @@ export function CreateRoomSectionView({
             data-icon="inline-start"
           >
             <Plus data-icon="inline-start" aria-hidden />
-            {pending
-              ? t("pending")
-              : message
-                ? t("retry")
-                : t("submit")}
+            {pending ? t("pending") : message ? t("retry") : t("submit")}
           </Button>
         </form>
 

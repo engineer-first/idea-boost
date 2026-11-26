@@ -91,9 +91,9 @@ describe("ユーザーニーズ調査の準備", () => {
       expect(
         (await storage.readOrGenerate(user.sub, null, "ja"))?.shared,
       ).toEqual(japanese?.shared);
-      expect(
-        (await storage.readOrGenerate(other, null, "en"))?.shared,
-      ).toEqual(english?.shared);
+      expect((await storage.readOrGenerate(other, null, "en"))?.shared).toEqual(
+        english?.shared,
+      );
       expect(generate.mock.calls.map((call) => call[2])).toEqual(["ja", "en"]);
     });
   });

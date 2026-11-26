@@ -17,8 +17,7 @@ export function JoinRoomSection() {
   const [moving, startTransition] = useTransition();
   const normalizedCode = normalizeInviteCode(code);
   const isValidCode = isValidInviteCode(normalizedCode);
-  const codeError =
-    showCodeError && !isValidCode ? t("codeError") : undefined;
+  const codeError = showCodeError && !isValidCode ? t("codeError") : undefined;
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();

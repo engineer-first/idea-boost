@@ -24,11 +24,8 @@ vi.mock("next-intl/server", () => ({
   getMessages: async () => ({}),
 }));
 vi.mock("next-intl", () => ({
-  NextIntlClientProvider: ({
+  NextIntlClientProvider: ({ children }: { children: React.ReactNode }) =>
     children,
-  }: {
-    children: React.ReactNode;
-  }) => children,
 }));
 
 beforeEach(() => {

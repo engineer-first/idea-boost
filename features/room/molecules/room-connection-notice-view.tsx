@@ -32,9 +32,7 @@ export function RoomConnectionNoticeView({
       {stopped ? (
         <div className="flex flex-col items-start gap-1">
           <p className="font-semibold">
-            {status === "auth-required"
-              ? t("disconnected")
-              : t("unavailable")}
+            {status === "auth-required" ? t("disconnected") : t("unavailable")}
           </p>
           <Button asChild variant="outline" size="sm" className="min-h-11">
             <a href={status === "auth-required" ? (returnHref ?? "") : "/home"}>

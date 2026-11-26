@@ -124,9 +124,9 @@ export function RoomLobbyView({
             data-testid="room-lobby-view-member-count"
           >
             <Users size={18} aria-hidden="true" />
-            {new Intl.NumberFormat(
-              locale === "en" ? "en-US" : "ja-JP",
-            ).format(members.length)}{" "}
+            {new Intl.NumberFormat(locale === "en" ? "en-US" : "ja-JP").format(
+              members.length,
+            )}{" "}
             {t("memberSuffix")}
           </span>
         </header>

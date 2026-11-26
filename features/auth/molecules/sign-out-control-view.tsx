@@ -41,7 +41,8 @@ export function SignOutControlView({
           }
           onClick={() => onConfirmingChange(true)}
         >
-          {icon}{t("guestSignOut")}
+          {icon}
+          {t("guestSignOut")}
         </Button>
       ) : (
         <form action={onSignOut} onSubmit={onSubmit}>
@@ -51,7 +52,8 @@ export function SignOutControlView({
             size={size}
             className={className}
           >
-            {icon}{t("logout")}
+            {icon}
+            {t("logout")}
           </Button>
         </form>
       )}
