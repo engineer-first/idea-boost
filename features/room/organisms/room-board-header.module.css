@@ -176,10 +176,28 @@
   );
   box-shadow: inset 0 2px 3px rgb(from var(--ib-color-ink) r g b / 24%);
 }
+/* 押し済みでも押せない間（切断・進行中など）は、ほかのボタンと同じく面を外して破線で示す。 */
+.readyButton[aria-pressed="true"]:disabled {
+  border-color: var(--ib-color-line-strong);
+  border-style: dashed;
+  background: var(--background);
+  color: var(--muted-foreground);
+  box-shadow: none;
+}
 .readyButton[aria-pressed="true"] .completionMark {
   border-color: var(--ib-color-surface);
   background: var(--ib-color-surface);
   color: var(--ib-color-state-decided-text);
+}
+.readyButton[aria-pressed="true"]:disabled .completionMark {
+  border-color: var(--ib-color-state-decided-text);
+  background: var(--ib-color-state-decided-text);
+  color: var(--ib-color-surface);
+}
+/* 独自の影が Button のフォーカスリングを打ち消すため、キーボード操作の位置を primary のリングで示し直す。 */
+.readyButton:focus-visible,
+.readyButton[aria-pressed="true"]:focus-visible {
+  box-shadow: 0 0 0 3px rgb(from var(--ib-color-primary) r g b / 50%);
 }
 .nextWaiting:disabled {
   border-color: color-mix(in oklab, var(--foreground) 16%, var(--background));
