@@ -5,9 +5,6 @@
 
 import { toast } from "sonner";
 
-// 自動整理のお知らせは出しっぱなしにせず、一括で戻す機会を一定時間残して閉じる。
-const AUTO_EXCLUDE_NOTICE_DURATION_MS = 15_000;
-
 export const roomNotify = {
   multipleNoteMoveUnavailable(): void {
     toast("複数の付箋の移動は準備中です。1枚ずつ選択して動かしてください。", {
@@ -27,9 +24,6 @@ export const roomNotify = {
       "ヒント・マイ付箋を閉じてから、もう一度「付箋全体を表示」を押してください。",
       { id: "canvas-fit-unavailable", duration: 4000, closeButton: true },
     );
-  },
-  dismissCandidateNotice(id: string | number): void {
-    toast.dismiss(id);
   },
   memberJoined(name: string): void {
     toast(`${name} さんが参加しました`);
@@ -52,32 +46,5 @@ export const roomNotify = {
   // 自分からルームを退出したとき。
   roomLeft(): void {
     toast("ルームから退出しました");
-  },
-  noteExcluded(onUndo: () => void): string | number {
-    return toast("付箋を候補から外しました", {
-      action: { label: "元に戻す", onClick: onUndo },
-    });
-  },
-  bulkCandidatesExcluded(count: number, onUndo: () => void): string | number {
-    return toast(`${count}件の付箋を候補から外しました`, {
-      action: { label: "まとめて元に戻す", onClick: onUndo },
-    });
-  },
-  automaticallyExcludedCandidates(
-    count: number,
-    onUndo?: () => void,
-  ): string | number {
-    return toast(
-      onUndo
-        ? `投票完了により0票の付箋${count}件を候補から外しました。必要なら戻せます`
-        : `投票完了により0票の付箋${count}件を候補から外しました`,
-      onUndo
-        ? {
-            action: { label: "まとめて元に戻す", onClick: onUndo },
-            duration: AUTO_EXCLUDE_NOTICE_DURATION_MS,
-            closeButton: true,
-          }
-        : { duration: AUTO_EXCLUDE_NOTICE_DURATION_MS, closeButton: true },
-    );
   },
 };
