@@ -1599,8 +1599,11 @@ export function RoomBoardView({
       );
       // 広い画面で右隣に右上の操作群までの余地が無いときは、吹き出しを先生の真下へ出し、
       // 「◯-1に戻って書き足す」などの操作名を隠さない。操作群の位置は動かさない。
+      // 個人で書く工程は真下に書き込み欄があるため、欄を動かさないよう右隣のままにする。
       const characterBounds =
-        window.innerWidth >= 640 && characterHint.message
+        window.innerWidth >= 640 &&
+        !isPersonalNoteEntryPhase &&
+        characterHint.message
           ? root
               .querySelector<HTMLElement>(characterSelector)
               ?.getBoundingClientRect()
@@ -1626,7 +1629,9 @@ export function RoomBoardView({
           besideRight;
       if (placesBubbleBelow && characterBounds) {
         const controlBottom =
-          controlBounds && controlBounds.right > characterBounds.left
+          controlBounds &&
+          controlBounds.top < characterBounds.bottom &&
+          controlBounds.right > characterBounds.left
             ? controlBounds.bottom - characterBounds.top
             : 0;
         root.style.setProperty(

@@ -87,3 +87,33 @@ describe.each(sizes([1280, 800], [1024, 768], [768, 1024]))(
     );
   },
 );
+
+// 個人で書く工程は吹き出しを書き込み欄へ重ねない。欄の位置は吹き出しの出入りで動かさない。
+describe.each(sizes([1280, 800], [1024, 768], [768, 1024]))(
+  "%i×%i",
+  (width, height) => {
+    test.each([1, 3])(
+      "%i-1 で先生の吹き出しが書き込み欄に重ならない",
+      async (phase) => {
+        await page.setViewportSize({ width, height });
+        await page.goto(
+          `${origin}/iframe.html?id=room-roomboardview--guide-phase-${phase}-step-1&viewMode=story`,
+        );
+        await page.getByTestId("board-location-trigger").waitFor();
+        await page.keyboard.press("Escape");
+        await page.evaluate(() => document.fonts.ready);
+        const bubble = page.getByTestId("board-character-bubble");
+        await bubble.waitFor();
+        await expect
+          .poll(() =>
+            bubble.evaluate((element) => getComputedStyle(element).transform),
+          )
+          .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+        await page.waitForTimeout(300);
+        const bubbleBox = await box("board-character-bubble");
+        const workspace = await box("private-notes-toolbar");
+        expect(overlaps(bubbleBox, workspace)).toBe(false);
+      },
+    );
+  },
+);
