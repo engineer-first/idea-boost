@@ -22,6 +22,7 @@ import styles from "./next-phase-confirm-dialog.module.css";
 export type NextPhaseWaiting =
   | { kind: "members"; remaining: number; total: number }
   | { kind: "decision" }
+  | { kind: "votes" }
   | { kind: "connection" };
 
 export type NextPhaseConfirmDialogProps = {
@@ -45,6 +46,7 @@ const PENDING_LOOK =
 function waitingLabel(waiting: NextPhaseWaiting | undefined) {
   if (waiting?.kind === "connection") return "再接続中…";
   if (waiting?.kind === "decision") return "採用すると次へ";
+  if (waiting?.kind === "votes") return "全票使うと次へ";
   if (waiting?.kind === "members" && waiting.remaining > 0)
     return `あと${waiting.remaining}人で次へ`;
   return null;
