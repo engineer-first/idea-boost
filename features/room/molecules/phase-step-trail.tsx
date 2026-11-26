@@ -39,6 +39,8 @@ export function PhaseStepTrail({
   // 全体の流れは、ステップが進んだら閉じて次に開くときに今のフェーズから見せる。
   const stepKey = `${phase.phase}-${phase.step}`;
   const [flow, setFlow] = useState({ stepKey, open: false });
+  // 前のステップで開いた状態は持ち越さない。元のステップへ戻っても開き直さない。
+  if (flow.stepKey !== stepKey) setFlow({ stepKey, open: false });
   const flowOpen = flow.stepKey === stepKey && flow.open;
   const phaseName = `${PHASE_MARKERS[phase.phase]}${PHASE_SHORT_NAMES[phase.phase]}`;
   return (

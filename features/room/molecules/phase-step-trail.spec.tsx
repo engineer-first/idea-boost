@@ -79,4 +79,23 @@ describe("PhaseStepTrail", () => {
       screen.queryByRole("region", { name: "全体の流れと手順" }),
     ).not.toBeInTheDocument();
   });
+
+  it("全体の流れを開いたまま進んだ後に元のステップへ戻っても、閉じたまま", () => {
+    const { rerender } = render(
+      <PhaseStepTrail phase={buildPhaseStep(4, 1)} onOpenGuide={vi.fn()} />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "①課題：全体の流れを開く" }),
+    );
+    rerender(
+      <PhaseStepTrail phase={buildPhaseStep(5, 1)} onOpenGuide={vi.fn()} />,
+    );
+    rerender(
+      <PhaseStepTrail phase={buildPhaseStep(4, 1)} onOpenGuide={vi.fn()} />,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "全体の流れと手順" }),
+    ).not.toBeInTheDocument();
+  });
 });
