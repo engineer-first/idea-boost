@@ -3,6 +3,7 @@
 import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
 import Link from "next/link";
 import { useId, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 import { isLobby, type RoomPhase } from "@/contracts/phase";
@@ -67,7 +68,9 @@ export function RoomLobbyView({
   roomName,
   avatarChange,
   connectedUserIds,
-}: RoomLobbyViewProps) {
+]}: RoomLobbyViewProps) {
+  const locale = useLocale();
+  const t = useTranslations("app.lobby");
   const isRemovingMember = memberRemoval?.pending ?? false;
   const isDisconnected = connectionStatus !== "open";
   const isConnectionStopped =
@@ -97,7 +100,7 @@ export function RoomLobbyView({
         <header className={styles.header}>
           <div className={styles.roomTitle}>
             <h1>
-              {roomName ? (roomName.name ?? "テーマ未設定") : "ルーム待機室"}
+              {roomName ? (roomName.name ?? t("unsetTheme")) : t("roomFallback")}
             </h1>
             {roomName ? (
               <Button
@@ -105,8 +108,8 @@ export function RoomLobbyView({
                 variant="ghost"
                 size="icon"
                 className={styles.editRoom}
-                aria-label="テーマを変更"
-                title="テーマを変更"
+                aria-label={t("editTheme")}
+                title={t("editTheme")}
                 disabled={roomName.disabled || roomName.pending}
                 onClick={roomName.request}
               >
@@ -119,7 +122,7 @@ export function RoomLobbyView({
             data-testid="room-lobby-view-member-count"
           >
             <Users size={18} aria-hidden="true" />
-            {members.length} 名
+            {new Intl.NumberFormat(locale === "en" ? "en-US" : "ja-JP").format(members.length)} {t("memberSuffix")}
           </span>
         </header>
 
@@ -149,19 +152,19 @@ export function RoomLobbyView({
                 // 句の間にブラウザが空白を挟まないよう、名前は一続きで渡す。
                 aria-label={
                   members.length <= 4
-                    ? "メンバーが揃ったら、はじめよう。"
+                    ? `${t("readyHeadingFirst")}${t("readyHeadingSecond")}`
                     : undefined
                 }
               >
                 {members.length <= 4 ? (
                   // 幅が足りないときも「はじめよ／う。」のように語の途中で折り返さない。
                   <>
-                    <span className="inline-block">メンバーが揃ったら、</span>
+                    <span className="inline-block">{t("readyHeadingFirst")}</span>
                     <wbr />
-                    <span className="inline-block">はじめよう。</span>
+                    <span className="inline-block">{t("readyHeadingSecond")}</span>
                   </>
                 ) : (
-                  "参加メンバー"
+                  t("memberHeading")
                 )}
               </h2>
               <div id={avatarDescriptionId} className={styles.avatarMessage}>
@@ -173,7 +176,7 @@ export function RoomLobbyView({
               </div>
             </div>
             {members.length === 0 ? (
-              <p className={styles.empty}>メンバーの参加を待っています。</p>
+              <p className={styles.empty}>{t("waiting")}</p>
             ) : (
               <LobbyMembers
                 members={members}
@@ -214,19 +217,19 @@ export function RoomLobbyView({
                 className={styles.inviteTitle}
                 id={inviteTitleId}
                 // <wbr> の前後に空白を挟まないよう、名前は一続きで渡す。
-                aria-label="メンバーを招待"
+                aria-label={`${t("inviteHeadingFirst")}${t("inviteHeadingSecond")}`}
               >
                 {/* 狭い列でも「招／待」と語の途中で折り返さない。 */}
-                メンバーを
+                {t("inviteHeadingFirst")}
                 <wbr />
-                招待
+                {t("inviteHeadingSecond")}
               </h2>
-              <p>リンクやコードを送って、仲間を呼ぼう。</p>
+              <p>{t("inviteDescription")}</p>
             </div>
           </div>
           <div className={styles.inviteCode}>
-            <span>招待コード</span>
-            <CopyInviteButton value={inviteCode} itemLabel="招待コード" />
+            <span>{t("inviteCode")}</span>
+            <CopyInviteButton value={inviteCode} itemLabel={t("inviteCode")} />
           </div>
           <div className={styles.inviteUrl}>
             <InviteUrlActions
@@ -248,7 +251,7 @@ export function RoomLobbyView({
             className={styles.start}
           >
             <Play size={20} aria-hidden="true" className="fill-current" />
-            {isStarting ? "開始中…" : "スタート"}
+            {isStarting ? t("starting") : t("start")}
           </Button>
         </section>
 
@@ -257,16 +260,16 @@ export function RoomLobbyView({
 
         <footer className={styles.footer}>
           <details className={styles.privacy}>
-            <summary>保存とプライバシーについて</summary>
+            <summary>{t("privacySummary")}</summary>
             <p>
-              途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了した成果は180日間、ホームから見返せます。{" "}
+              {t("privacyDescription")}{" "}
               <Link
                 href="/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline underline-offset-4"
               >
-                保存とプライバシーについて（別タブ）
+                {t("privacyLink")}
               </Link>
             </p>
           </details>
@@ -280,7 +283,7 @@ export function RoomLobbyView({
             className={styles.leave}
           >
             <DoorOpen size={16} aria-hidden="true" />
-            {isLeaving ? "退出中…" : "退出する"}
+            {isLeaving ? t("leaving") : t("leave")}
           </Button>
         </footer>
       </div>
