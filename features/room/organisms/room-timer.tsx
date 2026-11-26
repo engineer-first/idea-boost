@@ -177,6 +177,7 @@ export function RoomTimer({
             <button
               type="button"
               ref={primaryActionRef}
+              data-action={paused ? "resume" : "extend"}
               disabled={disabled || (!paused && !onExtend)}
               onClick={(event) => {
                 if (event.currentTarget === document.activeElement)
