@@ -21,6 +21,9 @@ const FLOW_STEPS = PHASE_NUMBERS.flatMap((phase) =>
   })),
 );
 
+// 中央のステップバーが出る幅。board-location.module.css の narrowOnly の切り替えと揃える。
+const WIDE_QUERY = "(width >= 900px)";
+
 type LocationState = "compact" | "expanded";
 export type BoardLocationProps = {
   phase: RoomPhase;
@@ -67,6 +70,17 @@ export function BoardLocation({
       trigger.current?.focus({ preventScroll: true });
     }
   }, [phaseKey]);
+  useEffect(() => {
+    if (!narrowOnly || state === "compact" || !window.matchMedia) return;
+    // 開いたまま広い画面へ変わるとカードは見えなくなるので閉じ、Escape や外側クリックを奪わない。
+    const wide = window.matchMedia(WIDE_QUERY);
+    function closeWhenWide(event: { matches: boolean }): void {
+      if (event.matches) setRequest({ phaseKey, state: "compact" });
+    }
+    closeWhenWide(wide);
+    wide.addEventListener("change", closeWhenWide);
+    return () => wide.removeEventListener("change", closeWhenWide);
+  }, [narrowOnly, state, phaseKey]);
   useEffect(() => {
     if (state === "compact") return;
     function outside(event: Event): void {

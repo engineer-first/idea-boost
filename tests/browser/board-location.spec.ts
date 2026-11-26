@@ -90,9 +90,13 @@ test.each([
     );
     expect(await page.getByTestId("phase-step-trail").isVisible()).toBe(wide);
     if (!wide) return;
-    // カードの枠が残って左上に空白を作らない。
+    // カードの枠が残って左上に空白を作らない。最上段の操作より下へ何も押し下げない。
     const slot = await page.getByTestId("board-location-slot").boundingBox();
-    expect(slot?.height).toBe(0);
+    const controls = await page.getByTestId("board-control-hud").boundingBox();
+    expect((slot?.y ?? 0) + (slot?.height ?? 0)).toBeLessThan(
+      (controls?.y ?? 0) + (controls?.height ?? 0),
+    );
+    expect(slot?.height).toBeLessThan(controls?.height ?? 0);
   },
 );
 
