@@ -10,14 +10,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ROOM_NAME_MAX_LENGTH } from "@/contracts/room-name";
-import type { RoomNameControls } from "../logic/use-room-name";
+import {
+  ROOM_NAME_TOO_LONG_MESSAGE,
+  type RoomNameControls,
+} from "../logic/use-room-name";
 
 export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
   const id = useId();
   const tooLong = controls.draft.trim().length > ROOM_NAME_MAX_LENGTH;
-  const error = tooLong
-    ? `テーマは${ROOM_NAME_MAX_LENGTH}文字以内で入力してください。`
-    : controls.error;
+  const error = tooLong ? ROOM_NAME_TOO_LONG_MESSAGE : controls.error;
   return (
     <Dialog open={controls.open} onOpenChange={controls.onOpenChange}>
       <DialogContent

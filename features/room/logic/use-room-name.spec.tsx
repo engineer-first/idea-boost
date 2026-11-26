@@ -4,7 +4,7 @@ import type { ClientMessage } from "@/contracts/room-protocol";
 
 import { useRoomName } from "./use-room-name";
 
-describe("ルーム名の編集", () => {
+describe("テーマの編集", () => {
   it("取消・不正入力では送信せず、保存中の二重送信を防ぎ、失敗後も入力を残す", () => {
     const send = vi.fn((_message: ClientMessage) => true);
     const { result } = renderHook(() =>
@@ -30,7 +30,7 @@ describe("ルーム名の編集", () => {
     act(() => result.current.onDraftChange("　 "));
     act(() => result.current.onConfirm());
     expect(send).not.toHaveBeenCalled();
-    expect(result.current.error).toBeTruthy();
+    expect(result.current.error).toBe("テーマを入力してください。");
     act(() => result.current.onDraftChange("あ".repeat(16)));
     act(() => result.current.onConfirm());
     expect(send).not.toHaveBeenCalled();

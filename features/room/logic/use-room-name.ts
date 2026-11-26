@@ -1,8 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RoomNameSchema } from "@/contracts/room-name";
+import { ROOM_NAME_MAX_LENGTH, RoomNameSchema } from "@/contracts/room-name";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
+
+// 画面ではルームの名前を「テーマ」と呼ぶ（docs/glossary.md）。contracts の検証文は使わず、ここで言い換える。
+export const ROOM_NAME_EMPTY_MESSAGE = "テーマを入力してください。";
+export const ROOM_NAME_TOO_LONG_MESSAGE = `テーマは${ROOM_NAME_MAX_LENGTH}文字以内で入力してください。`;
 
 export type RoomNameControls = {
   name: string | null;
@@ -92,7 +96,9 @@ export function useRoomName({
       if (!open || disabled || operation.current) return;
       const parsed = RoomNameSchema.safeParse(draft);
       if (!parsed.success) {
-        setError(parsed.error.issues[0].message);
+        setError(
+          draft.trim() ? ROOM_NAME_TOO_LONG_MESSAGE : ROOM_NAME_EMPTY_MESSAGE,
+        );
         return;
       }
       const id = crypto.randomUUID();
