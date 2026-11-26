@@ -6,12 +6,16 @@ export type BoardCharacterProps = {
   message: string | null;
 };
 
-// 話しかけるように一文字ずつ出し、文字数によらず1秒弱で全文を出し切る。
-const REVEAL_TOTAL_MS = 900;
+// 話しかけるように一文字ずつ出す。吹き出しが開き終えてから（CSS の開始 300ms）
+// 文字数によらずこの時間で全文を出し切り、全体で1秒前後に収める。
+const REVEAL_TOTAL_MS = 650;
+// 絵文字の組み合わせや国旗を途中で分けないよう、見た目の1文字（書記素）で区切る。
+const graphemes = new Intl.Segmenter("ja", { granularity: "grapheme" });
 
 export function BoardCharacter({ message }: BoardCharacterProps) {
-  // 絵文字などのサロゲートペアを分けないよう、コードポイント単位で区切る。
-  const chars = message ? Array.from(message) : [];
+  const chars = message
+    ? Array.from(graphemes.segment(message), ({ segment }) => segment)
+    : [];
   const bubbleStyle = {
     "--char-step": `${REVEAL_TOTAL_MS / Math.max(chars.length, 1)}ms`,
   } as CSSProperties;

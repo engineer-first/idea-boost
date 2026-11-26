@@ -33,8 +33,9 @@
     animation: pop-in 300ms 60ms ease-out both;
   }
 
+  /* 吹き出しの拡大縮小（pop-in）がほぼ終わってから文字を出し始める。 */
   .char {
     animation: char-in 80ms
-      calc(150ms + var(--char-index) * var(--char-step, 40ms)) ease-out both;
+      calc(300ms + var(--char-index) * var(--char-step, 40ms)) ease-out both;
   }
 }
