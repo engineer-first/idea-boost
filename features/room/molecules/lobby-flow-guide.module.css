@@ -223,6 +223,10 @@
   --step-kind-color: var(--ib-color-state-decided);
 }
 .step[data-kind] .icon {
-  background: color-mix(in oklab, var(--step-kind-color) 14%, transparent);
-  color: var(--step-kind-color);
+  background: color-mix(
+    in oklab,
+    var(--step-kind-color, var(--ib-color-ink)) 14%,
+    transparent
+  );
+  color: var(--step-kind-color, var(--ib-color-ink));
 }
