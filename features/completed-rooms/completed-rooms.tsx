@@ -37,7 +37,7 @@ export function CompletedRooms({ accountLink }: { accountLink?: ReactNode }) {
         setError(
           response.status === 401
             ? COMPLETED_ROOMS_IDENTITY_ERROR
-            : "以前のルームを取得できませんでした。再取得をお試しください。",
+            : "過去の成果を取得できませんでした。再取得をお試しください。",
         );
         return;
       }
@@ -56,9 +56,7 @@ export function CompletedRooms({ accountLink }: { accountLink?: ReactNode }) {
       setCursor(result.nextCursor);
     } catch {
       if (!request.signal.aborted)
-        setError(
-          "以前のルームを取得できませんでした。再取得をお試しください。",
-        );
+        setError("過去の成果を取得できませんでした。再取得をお試しください。");
     } finally {
       if (!request.signal.aborted) setLoading(false);
     }

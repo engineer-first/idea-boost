@@ -92,9 +92,9 @@ it.each(widths(375, 1280))(
       );
       const more = page.getByRole("button", { name: "次のルームを表示" });
       await more.waitFor();
-      expect(
-        await page.getByText("以前のルームはまだありません。").count(),
-      ).toBe(0);
+      expect(await page.getByText("過去の成果はまだありません。").count()).toBe(
+        0,
+      );
       expect(
         await page
           .getByText(
@@ -137,7 +137,7 @@ it.each(widths(390, 1280))(
       const refresh = page.getByRole("button", { name: "最新の一覧を取得" });
       await refresh.waitFor();
       expect(
-        await page.getByText("以前のルームはまだありません。").isVisible(),
+        await page.getByText("過去の成果はまだありません。").isVisible(),
       ).toBe(true);
       await refresh.scrollIntoViewIfNeeded();
       const bounds = await refresh.boundingBox();
@@ -149,9 +149,9 @@ it.each(widths(390, 1280))(
       await page.keyboard.press("Enter");
       expect(await refresh.isDisabled()).toBe(true);
       await page.getByRole("link", { name: "成果を見る" }).waitFor();
-      expect(
-        await page.getByText("以前のルームはまだありません。").count(),
-      ).toBe(0);
+      expect(await page.getByText("過去の成果はまだありません。").count()).toBe(
+        0,
+      );
       expect(await refresh.isEnabled()).toBe(true);
       expect(
         await page.evaluate(
