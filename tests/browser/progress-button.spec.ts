@@ -79,7 +79,7 @@ test.each(widths(1280, 390))(
         .toBe(true);
       await complete.click();
       await expect.poll(() => next.getAttribute("aria-disabled")).toBe(null);
-      const checked = page.getByRole("button", { name: "準備OK！を取り消す" });
+      const checked = page.getByRole("button", { name: "できた！を取り消す" });
       expect(await checked.getAttribute("aria-pressed")).toBe("true");
       const hud = await page.getByTestId("board-control-hud").boundingBox();
       if (!hud) throw new Error("HUDが表示されません");

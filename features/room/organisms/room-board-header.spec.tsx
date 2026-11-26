@@ -1278,7 +1278,7 @@ describe("RoomBoardHeader", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("自分の完了状態を表示し、同じボタンから取り消せる", () => {
+  it("押し済みの「できた！」は同じ呼び方のまま押し済みを示し、押し直すと取り消せる", () => {
     const members = buildMembers(2, ME);
     const props = setup({
       phase: buildPhaseStep(3, 1),
@@ -1286,12 +1286,37 @@ describe("RoomBoardHeader", () => {
       progress: allReadyProgress(members),
     });
 
-    const complete = screen.getByRole("button", { name: "準備OK！を取り消す" });
-    expect(complete).toHaveTextContent("準備OK！");
+    const complete = screen.getByRole("button", { name: "できた！を取り消す" });
+    expect(complete).toHaveTextContent("できた！");
     expect(complete).toHaveAttribute("aria-pressed", "true");
+    expect(complete).toHaveAttribute(
+      "title",
+      expect.stringContaining("取り消"),
+    );
     fireEvent.click(complete);
     expect(props.onToggleReady).toHaveBeenCalledWith(false);
   });
+
+  it.each([
+    ["接続中", false, undefined],
+    ["切断中", true, "true"],
+  ] as const)(
+    "%sの押し済みの「できた！」は、押せない間だけ押せない表示の印を持つ",
+    (_label, isDisconnected, expected) => {
+      const members = buildMembers(2, ME);
+      setup({
+        phase: buildPhaseStep(3, 1),
+        onToggleReady: vi.fn(),
+        progress: allReadyProgress(members),
+        isDisconnected,
+      });
+
+      const complete = screen.getByRole("button", {
+        name: "できた！を取り消す",
+      });
+      expect(complete.dataset.unavailable).toBe(expected);
+    },
+  );
 
   it("完了フラグを立てた参加者のアバターにチェックを表示する", () => {
     const members = buildMembers(2, ME);

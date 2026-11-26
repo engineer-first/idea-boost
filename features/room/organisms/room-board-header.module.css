@@ -155,47 +155,51 @@
     transform: scale(1.2);
   }
 }
+/* 押し済みは緑の塗りと白抜きのチェックで示し、押す前の白いボタンと形で見分ける。
+   浮かせる影を外して沈んだ見た目にし、もう一度押すものに見せない。 */
 .readyButton[aria-pressed="true"] {
-  border-color: color-mix(
-    in oklab,
-    var(--ib-color-state-decided-text) 30%,
-    var(--ib-color-line)
-  );
-  background: color-mix(
-    in oklab,
-    var(--ib-color-state-decided) 9%,
-    var(--ib-color-surface)
-  );
-  color: color-mix(
-    in oklab,
-    var(--ib-color-state-decided-text) 75%,
-    var(--ib-color-ink)
-  );
+  border-color: var(--ib-color-state-decided-text);
+  background: var(--ib-color-state-decided-text);
+  color: var(--ib-color-surface);
+  box-shadow: inset 0 2px 3px rgb(from var(--ib-color-ink) r g b / 18%);
 }
 .readyButton[aria-pressed="true"]:enabled:hover {
   border-color: color-mix(
     in oklab,
-    var(--ib-color-state-decided-text) 55%,
-    var(--ib-color-line)
+    var(--ib-color-state-decided-text) 85%,
+    var(--ib-color-ink)
   );
   background: color-mix(
     in oklab,
-    var(--ib-color-state-decided) 14%,
-    var(--ib-color-surface)
+    var(--ib-color-state-decided-text) 85%,
+    var(--ib-color-ink)
   );
+  box-shadow: inset 0 2px 3px rgb(from var(--ib-color-ink) r g b / 24%);
+}
+/* 押し済みでも押せない間（切断・進行中など）は、ほかのボタンと同じく面を外して破線で示す。
+   押した直後の演出で一時的に disabled になる間は塗りのまま保つ。 */
+.readyButton[aria-pressed="true"][data-unavailable] {
+  border-color: var(--ib-color-line-strong);
+  border-style: dashed;
+  background: var(--background);
+  color: var(--muted-foreground);
+  box-shadow: none;
 }
 .readyButton[aria-pressed="true"] .completionMark {
-  border-color: color-mix(
-    in oklab,
-    var(--ib-color-state-decided-text) 75%,
-    var(--ib-color-ink)
-  );
-  background: color-mix(
-    in oklab,
-    var(--ib-color-state-decided-text) 75%,
-    var(--ib-color-ink)
-  );
+  border-color: var(--ib-color-surface);
+  background: var(--ib-color-surface);
+  color: var(--ib-color-state-decided-text);
+}
+.readyButton[aria-pressed="true"][data-unavailable] .completionMark {
+  border-color: var(--ib-color-state-decided-text);
+  background: var(--ib-color-state-decided-text);
   color: var(--ib-color-surface);
+}
+/* 独自の影が Button のフォーカスリングを打ち消すため、キーボード操作の位置を primary のリングで示し直す。
+   ホバーの影より後ろ・同じ詳細度以上にして、フォーカス中にマウスを重ねてもリングを残す。 */
+.readyButton.readyButton:focus-visible,
+.readyButton.readyButton[aria-pressed="true"]:focus-visible {
+  box-shadow: 0 0 0 3px rgb(from var(--ib-color-primary) r g b / 50%);
 }
 .nextWaiting:disabled {
   border-color: color-mix(in oklab, var(--foreground) 16%, var(--background));

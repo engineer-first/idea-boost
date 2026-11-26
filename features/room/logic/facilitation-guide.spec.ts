@@ -3,6 +3,29 @@ import { buildLobbyPhase, buildPhaseStep } from "@/contracts/phase.fixture";
 import { getFacilitationGuide } from "./facilitation-guide";
 
 describe("getFacilitationGuide", () => {
+  it.each([
+    [1, 1],
+    [1, 2],
+    [1, 3],
+    [1, 4],
+    [1, 5],
+    [2, 1],
+    [2, 2],
+    [2, 3],
+    [2, 4],
+    [3, 1],
+    [3, 2],
+    [3, 3],
+    [3, 4],
+    [3, 5],
+  ] as const)(
+    "フェーズ%i・ステップ%i の案内は、完了の操作をボタンと同じ「できた！」で呼び、「準備OK」と呼ばない",
+    (phase, step) => {
+      const guide = getFacilitationGuide(buildPhaseStep(step, phase));
+      expect(JSON.stringify(guide)).not.toContain("準備OK");
+    },
+  );
+
   it("グループ化では目的と、枠に名前を付ける操作を示す", () => {
     const guide = getFacilitationGuide(buildPhaseStep(3, 1));
     expect(guide?.firstAction).toContain("2枚");
