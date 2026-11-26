@@ -429,8 +429,12 @@ describe("RoomBoardHeader", () => {
       },
     });
     const { rerender } = render(<RoomBoardHeader {...props} />);
+    // 採用済みでも全員がそろうまでは、何を待っているかをボタンに出す。
     expect(
-      screen.getByRole("button", { name: "完了して成果を表示" }),
+      screen.queryByRole("button", { name: "完了して成果を表示" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "あと1人で完了" }),
     ).toBeDisabled();
     rerender(
       <RoomBoardHeader {...props} progress={allReadyProgress(members)} />,
@@ -455,9 +459,17 @@ describe("RoomBoardHeader", () => {
       timer: { status: "ended", durationMs: 300_000 },
       isDisconnected: true,
     });
-    const button = screen.getByRole("button", { name: "完了して成果を表示" });
+    const button = screen.getByRole("button", { name: "再接続中…" });
     expect(button).toBeDisabled();
     expect(button).not.toHaveClass(styles.nextReady);
+  });
+  it("採用前に切断しても、1-5・2-4 と同じく再接続を待っていると示す", () => {
+    setup({
+      phase: buildPhaseStep(5, 3),
+      hasFinalDecision: false,
+      isDisconnected: true,
+    });
+    expect(screen.getByRole("button", { name: "再接続中…" })).toBeDisabled();
   });
   it("時間切れ後の確認中に延長されたら、未完了のまま進行を確定できない", () => {
     const members = buildMembers(2, ME);
