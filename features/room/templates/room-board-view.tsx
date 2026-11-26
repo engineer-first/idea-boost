@@ -1704,7 +1704,7 @@ export function RoomBoardView({
           );
           // デスクトップでは参照情報の右側から書き始める。
           // 2-1の問いのヒントや3-1の考えるヒントを開閉しても付箋を動かさないよう、
-          // 左の列全体を最初から空ける。
+          // 左の列全体を最初から空ける。開いたヒントは列の内側に収まる。
           const workspace = root.querySelector<HTMLElement>(
             '[data-testid="private-notes-toolbar"]',
           );

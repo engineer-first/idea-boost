@@ -359,14 +359,25 @@ test("1280×800の3-1で考えるヒントを開閉しても、入力欄と付�
     );
   const closed = await positions();
   expect(closed.length).toBeGreaterThan(1);
+  expect(closed.every(Boolean)).toBe(true);
+  // 開閉後の配置の再計算（ResizeObserver）が終わるのを待ってから測る。
+  const settle = () =>
+    page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
   await page.getByRole("button", { name: "考えるヒントを開く" }).click();
   const help = page.locator('[data-testid="board-help-panel"] > div');
   await expect
     .poll(() => help.evaluate((e) => e.getBoundingClientRect().width))
     .toBeGreaterThan(300);
-  await expect.poll(positions).toEqual(closed);
+  await settle();
+  expect(await positions()).toEqual(closed);
   await page.getByRole("button", { name: "考えるヒントを閉じる" }).click();
-  await expect.poll(positions).toEqual(closed);
+  await settle();
+  expect(await positions()).toEqual(closed);
 });
 
 test("3-1で考えるヒントを開いても、付箋と入力欄はヒントに隠れない", async () => {
