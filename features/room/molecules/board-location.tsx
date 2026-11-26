@@ -16,6 +16,7 @@ import {
   type RoomPhase,
 } from "@/contracts/phase";
 import {
+  getNextStepShortName,
   getPhaseLabel,
   getPhaseProgressState,
   getPhaseTitle,
@@ -33,11 +34,6 @@ const FLOW_STEPS = PHASE_NUMBERS.flatMap((phase) =>
     step: index + 1,
   })),
 );
-const NEXT_LABELS = {
-  1: ["共有", "整理", "投票", "決定", "問い"],
-  2: ["共有", "投票", "決定", "アイデア"],
-  3: ["共有", "評価", "投票", "決定", "成果"],
-} as const;
 
 type LocationState = "compact" | "expanded";
 export type BoardLocationProps = {
@@ -181,7 +177,7 @@ export function BoardLocation({
               )}
               {phase.kind === "step" && !outcomePublished && (
                 <span className={styles.next}>
-                  次：{NEXT_LABELS[phase.phase][phase.step - 1]}
+                  次：{getNextStepShortName(phase)}
                 </span>
               )}
             </span>

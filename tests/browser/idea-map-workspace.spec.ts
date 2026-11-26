@@ -198,7 +198,7 @@ test.each([
         .toBe(1);
       await note
         .getByRole("button", {
-          name: `${label}シール 1票を1票取り消す`,
+          name: `${label}シールを取り消す`,
           exact: true,
         })
         .click();

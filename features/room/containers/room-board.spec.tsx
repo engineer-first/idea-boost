@@ -634,7 +634,7 @@ describe("問いの投票中の付箋移動", () => {
     dropTarget = cards[1];
     drag(
       within(cards[0]).getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       450,
       175,
@@ -664,7 +664,7 @@ describe("問いの投票中の付箋移動", () => {
     dropTarget = palette;
     drag(
       within(cards[1]).getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       320,
       700,
@@ -1453,7 +1453,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     fireEvent.click(screen.getByRole("button", { name: "完了して成果を表示" }));
     expect(socket.sent).toEqual([]);
     const confirmation = screen.getByRole("alertdialog", {
-      name: "スプリントを完了しますか？",
+      name: "完了して成果を表示しますか？",
     });
     fireEvent.click(
       within(confirmation).getByRole("button", { name: "完了する" }),
@@ -2877,7 +2877,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "「いいね」シール 2票を1票取り消す",
+        name: "「いいね」シール 2票のうち1票を取り消す",
       }),
     );
 
@@ -2909,7 +2909,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
     );
 
@@ -2938,7 +2938,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       { phase: buildPhaseStep(4) },
     );
     const sticker = screen.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     const palette = screen.getByRole("region", { name: "投票パレット" });
     const root = screen.getByTestId("room-board-view-root");
@@ -2992,7 +2992,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     expect(
       screen.queryByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
     ).not.toBeInTheDocument();
     expect(
@@ -3041,7 +3041,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
