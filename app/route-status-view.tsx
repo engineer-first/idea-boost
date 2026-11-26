@@ -9,7 +9,6 @@ import {
 import { HistoryBackButton } from "./history-back-button";
 import {
   type RouteStatusKind,
-  routeStatusActionCopy,
 } from "./route-status-copy";
 
 // 404・表示失敗の受け皿。検索から中身のない画面に見えないよう、

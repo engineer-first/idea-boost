@@ -16,8 +16,9 @@ export type InviteStatusViewProps =
 export function InviteStatusView(props: InviteStatusViewProps) {
   const t = useTranslations("app.invite");
   const key = props.kind === "not_found" ? "notFound" : props.kind;
-  const heading = t(`${key}Heading`);
-  const description = t(`${key}Description`);
+  const translate = t as (key: string) => string;
+  const heading = translate(`${key}Heading`);
+  const description = translate(`${key}Description`);
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col items-center overflow-y-auto p-4 sm:p-6">
       <Card className="my-auto w-full max-w-md shrink-0">

@@ -152,7 +152,7 @@ export function RoomLobbyView({
                 // 句の間にブラウザが空白を挟まないよう、名前は一続きで渡す。
                 aria-label={
                   members.length <= 4
-                    ? `${t("readyHeadingFirst")}${t("readyHeadingSecond")}`
+                    ? `${t("readyHeadingFirst")}${locale === "en" ? " " : ""}${t("readyHeadingSecond")}`
                     : undefined
                 }
               >
@@ -161,6 +161,7 @@ export function RoomLobbyView({
                   <>
                     <span className="inline-block">{t("readyHeadingFirst")}</span>
                     <wbr />
+                    {locale === "en" ? " " : null}
                     <span className="inline-block">{t("readyHeadingSecond")}</span>
                   </>
                 ) : (
@@ -217,11 +218,12 @@ export function RoomLobbyView({
                 className={styles.inviteTitle}
                 id={inviteTitleId}
                 // <wbr> の前後に空白を挟まないよう、名前は一続きで渡す。
-                aria-label={`${t("inviteHeadingFirst")}${t("inviteHeadingSecond")}`}
+                aria-label={`${t("inviteHeadingFirst")}${locale === "en" ? " " : ""}${t("inviteHeadingSecond")}`}
               >
                 {/* 狭い列でも「招／待」と語の途中で折り返さない。 */}
                 {t("inviteHeadingFirst")}
                 <wbr />
+                {locale === "en" ? " " : null}
                 {t("inviteHeadingSecond")}
               </h2>
               <p>{t("inviteDescription")}</p>

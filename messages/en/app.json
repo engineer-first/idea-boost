@@ -137,10 +137,10 @@
     "aria": "How it works and the overall flow",
     "howTo": "How it works",
     "doStep": "Complete the task for each step",
-    "whenDone": "When you're done,",
+    "whenDone": "When you're done, click",
     "ready": "Done!",
-    "press": "",
-    "allReady": "When everyone is ready,",
+    "press": " button.",
+    "allReady": "When everyone is ready, click",
     "next": "Next step",
     "total": "3 phases · about {minutes} min",
     "phase1": "Frame the problem",
@@ -203,6 +203,7 @@
         "name": "Choose a solution",
         "action": "Choose one solution"
       }
-    }
+    },
+    "flowTitle": "Overall flow"
   }
 }
