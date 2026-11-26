@@ -1013,11 +1013,17 @@ export function RoomBoardHeader({
                       className={`text-sm h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-sm max-[639px]:w-[116px] max-[639px]:whitespace-normal max-[639px]:leading-tight ${canPublishOutcome ? styles.nextReady : styles.nextWaiting}`}
                       disabled={!canPublishOutcome}
                     >
-                      <Check
-                        aria-hidden="true"
-                        className="size-4 max-[639px]:hidden"
-                      />
-                      完了して成果を表示
+                      {hasFinalDecision ? (
+                        <>
+                          <Check
+                            aria-hidden="true"
+                            className="size-4 max-[639px]:hidden"
+                          />
+                          完了して成果を表示
+                        </>
+                      ) : (
+                        "採用すると完了"
+                      )}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent aria-describedby={undefined}>

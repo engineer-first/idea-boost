@@ -8,6 +8,11 @@ import {
 import { IdeaGuidePanel } from "./idea-guide-panel";
 
 describe("IdeaGuidePanel", () => {
+  it("見出しは問いに答える方法を書くよう促す", () => {
+    render(<IdeaGuidePanel onHintSelect={vi.fn()} />);
+    expect(screen.getByText("問いに答える方法を書こう")).toBeVisible();
+  });
+
   it("補足を開いたときだけ考え方の例を表示し、開閉では付箋を作らない", async () => {
     const user = userEvent.setup();
     const onHintSelect = vi.fn();

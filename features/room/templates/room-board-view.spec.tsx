@@ -1996,7 +1996,7 @@ describe("RoomBoardView", () => {
       screen.queryByRole("button", { name: "次のステップへ" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "完了して成果を表示" }),
+      screen.getByRole("button", { name: "採用すると完了" }),
     ).toBeDisabled();
 
     rerender(
@@ -3346,7 +3346,9 @@ describe("RoomBoardView", () => {
         });
         const actionName = (decided: boolean) =>
           phase === 3
-            ? "完了して成果を表示"
+            ? decided
+              ? "完了して成果を表示"
+              : "採用すると完了"
             : decided
               ? "次のステップへ"
               : "採用すると次へ";

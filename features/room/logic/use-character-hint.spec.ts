@@ -95,6 +95,19 @@ describe("キャラクターの一言", () => {
     act(() => vi.advanceTimersByTime(2_000));
     expect(result.current.message).toContain("まず1枚");
   });
+  it("アイデアの共有は、画面の2軸マップへ置くことを案内する", () => {
+    const { result } = renderHook(() =>
+      useCharacterHint({
+        phase: { kind: "step", phase: 3, step: 2 },
+        timer: { status: "idle" },
+        serverOffsetMs: 0,
+        noteCount: 1,
+      }),
+    );
+    expect(result.current.message).toContain("2軸マップ");
+    expect(result.current.message).not.toContain("集め");
+  });
+
   it("未開始でも工程開始を案内し、工程変更で次の案内へ切り替える", () => {
     vi.useFakeTimers();
     const { result, rerender } = renderHook(
