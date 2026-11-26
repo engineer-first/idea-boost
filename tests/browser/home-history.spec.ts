@@ -473,7 +473,7 @@ it.each(widths)(
         `${origin}/iframe.html?id=completedrooms-container--default&viewMode=story`,
       );
       await page
-        .getByRole("heading", { name: "以前のルーム", exact: true })
+        .getByRole("heading", { name: "過去の成果", exact: true })
         .waitFor();
       expect(
         await page.getByRole("link", { name: "ホームへ" }).getAttribute("href"),
@@ -490,9 +490,9 @@ it.each(widths)(
       await page.getByRole("button", { name: "再取得", exact: true }).click();
       const more = page.getByRole("button", { name: "次のルームを表示" });
       await more.waitFor();
-      expect(
-        await page.getByText("以前のルームはまだありません。").count(),
-      ).toBe(0);
+      expect(await page.getByText("過去の成果はまだありません。").count()).toBe(
+        0,
+      );
       await more.click();
       const outcome = page.getByRole("link", {
         name: "成果を見る",
@@ -505,7 +505,7 @@ it.each(widths)(
       await capture(page, `completed-rooms-${width}-success`);
       expect(attempt).toBe(3);
       await page.getByRole("button", { name: "最新の一覧を取得" }).click();
-      await page.getByText("以前のルームはまだありません。").waitFor();
+      await page.getByText("過去の成果はまだありません。").waitFor();
       expect(await outcome.count()).toBe(0);
       expect(attempt).toBe(4);
       await expectNoHorizontalOverflow(page);
@@ -884,7 +884,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         await page.keyboard.press("Enter");
         await page.waitForURL(`${app}/completed-rooms`);
         await page
-          .getByRole("heading", { name: "以前のルーム", exact: true })
+          .getByRole("heading", { name: "過去の成果", exact: true })
           .waitFor();
         expect(context.pages()).toHaveLength(1);
         const outcome = page.locator(`a[href="/completed-rooms/${roomId}"]`);
@@ -902,7 +902,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         await expectNoHorizontalOverflow(page);
         await capture(page, `home-history-${width}-actual-detail`);
         const backToList = page.getByRole("link", {
-          name: "以前のルーム一覧へ",
+          name: "過去の成果の一覧へ",
           exact: true,
         });
         expect(await backToList.getAttribute("href")).toBe("/completed-rooms");

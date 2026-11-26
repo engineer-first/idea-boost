@@ -44,7 +44,7 @@ describe("本人の完了ルーム", () => {
       vi.fn().mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
     );
     render(<CompletedRooms />);
-    await screen.findByText("以前のルームはまだありません。");
+    await screen.findByText("過去の成果はまだありません。");
     // 本人Cookieの有効期間とは異なるため、30日を閲覧保証として案内しない。
     expect(
       screen.getByText(
@@ -63,7 +63,7 @@ describe("本人の完了ルーム", () => {
       .mockReturnValueOnce(indexed);
     vi.stubGlobal("fetch", fetcher);
     render(<CompletedRooms />);
-    await screen.findByText("以前のルームはまだありません。");
+    await screen.findByText("過去の成果はまだありません。");
     fireEvent.click(screen.getByRole("button", { name: "最新の一覧を取得" }));
     expect(screen.getByRole("status")).toHaveTextContent("読み込み");
     expect(
@@ -74,7 +74,7 @@ describe("本人の完了ルーム", () => {
     );
     await screen.findByText("採用の全文");
     expect(
-      screen.queryByText("以前のルームはまだありません。"),
+      screen.queryByText("過去の成果はまだありません。"),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "成果を見る" })).toHaveAttribute(
       "href",
@@ -97,7 +97,7 @@ describe("本人の完了ルーム", () => {
       name: "次のルームを表示",
     });
     expect(
-      screen.queryByText("以前のルームはまだありません。"),
+      screen.queryByText("過去の成果はまだありません。"),
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
@@ -167,7 +167,7 @@ describe("本人の完了ルーム", () => {
       await screen.findByRole("alert");
       expect(screen.queryByText("採用の全文")).not.toBeInTheDocument();
       expect(
-        screen.queryByText("以前のルームはまだありません。"),
+        screen.queryByText("過去の成果はまだありません。"),
       ).not.toBeInTheDocument();
     },
   );
@@ -186,7 +186,7 @@ describe("本人の完了ルーム", () => {
     first.unmount();
     expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
     render(<CompletedRooms />);
-    await screen.findByText("以前のルームはまだありません。");
+    await screen.findByText("過去の成果はまだありません。");
     await act(async () =>
       resolveOld(Response.json({ rooms: [detail], nextCursor: null })),
     );
@@ -217,7 +217,7 @@ describe("本人の完了ルーム", () => {
     expect(screen.getByRole("status")).toHaveTextContent("読み込み");
     await screen.findByRole("alert");
     expect(
-      screen.queryByText("以前のルームはまだありません。"),
+      screen.queryByText("過去の成果はまだありません。"),
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "再取得" }));
     await screen.findByText("採用の全文");
@@ -299,7 +299,7 @@ it("正常な0件では再取得エラーを出さない", async () => {
     vi.fn().mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
   );
   render(<CompletedRooms />);
-  await screen.findByText("以前のルームはまだありません。");
+  await screen.findByText("過去の成果はまだありません。");
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 it("反映待ちから同じ場面を再取得して正常な0枚を表示する", async () => {
@@ -473,7 +473,7 @@ it("一覧コンテナは成果の操作より下へ任意の連携スロット�
     vi.fn().mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
   );
   render(<CompletedRooms accountLink={<aside>連携の補助領域</aside>} />);
-  const content = await screen.findByText("以前のルームはまだありません。");
+  const content = await screen.findByText("過去の成果はまだありません。");
   const slot = screen.getByText("連携の補助領域");
   expect(
     content.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING,

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { completedRoomFixture } from "@/contracts/completed-rooms.fixture";
 import { CompletedRoomDetail } from "./completed-room-detail";
+import { CompletedRooms } from "./completed-rooms";
 
 afterEach(() => vi.unstubAllGlobals());
 it.each([401, 404])(
@@ -52,3 +53,30 @@ it.each([401, 404])(
     expect(screen.queryByText(room.idea)).not.toBeInTheDocument();
   },
 );
+it("一覧と詳細の戻り先を、ホームの入口と同じ「過去の成果」と呼ぶ", async () => {
+  const room = completedRoomFixture();
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(room))
+      .mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
+  );
+  render(<CompletedRoomDetail roomId={room.roomId} />);
+  expect(
+    await screen.findByRole("link", { name: "過去の成果の一覧へ" }),
+  ).toHaveAttribute("href", "/completed-rooms");
+  expect(screen.queryByText(/以前のルーム/)).not.toBeInTheDocument();
+});
+it("一覧は見出し・空の表示とも「過去の成果」と呼ぶ", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
+  );
+  render(<CompletedRooms />);
+  expect(
+    screen.getByRole("heading", { level: 1, name: "過去の成果" }),
+  ).toBeVisible();
+  expect(await screen.findByText("過去の成果はまだありません。")).toBeVisible();
+  expect(screen.queryByText(/以前のルーム/)).not.toBeInTheDocument();
+});
