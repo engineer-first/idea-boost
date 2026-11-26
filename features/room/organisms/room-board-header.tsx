@@ -464,6 +464,14 @@ export function RoomBoardHeader({
     !isDisconnected &&
     !isRemovingMember &&
     !isNextPhasePending;
+  // 採用後に完了を待っている間は、1-5・2-4 の「次へ」と同じく何を待っているかを示す。
+  const finalCompletionWaitingLabel = !hasFinalDecision
+    ? "採用すると完了"
+    : isDisconnected
+      ? "再接続中…"
+      : !canProceedByTimeOrReady && progress.notReadyUserIds.length > 0
+        ? `あと${progress.notReadyUserIds.length}人で完了`
+        : null;
   const completionCue = useCompletionCue({
     scope: `${inviteCode}:${currentUserId}:${JSON.stringify(phase)}:${phaseRevision}:${completionResetVersion}`,
     disabled:
@@ -1013,7 +1021,7 @@ export function RoomBoardHeader({
                       className={`text-sm h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-sm max-[639px]:w-[116px] max-[639px]:whitespace-normal max-[639px]:leading-tight ${canPublishOutcome ? styles.nextReady : styles.nextWaiting}`}
                       disabled={!canPublishOutcome}
                     >
-                      {hasFinalDecision ? (
+                      {finalCompletionWaitingLabel ?? (
                         <>
                           <Check
                             aria-hidden="true"
@@ -1021,8 +1029,6 @@ export function RoomBoardHeader({
                           />
                           完了して成果を表示
                         </>
-                      ) : (
-                        "採用すると完了"
                       )}
                     </Button>
                   </AlertDialogTrigger>

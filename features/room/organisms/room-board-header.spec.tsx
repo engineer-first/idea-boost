@@ -429,8 +429,12 @@ describe("RoomBoardHeader", () => {
       },
     });
     const { rerender } = render(<RoomBoardHeader {...props} />);
+    // 採用済みでも全員がそろうまでは、何を待っているかをボタンに出す。
     expect(
-      screen.getByRole("button", { name: "完了して成果を表示" }),
+      screen.queryByRole("button", { name: "完了して成果を表示" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "あと1人で完了" }),
     ).toBeDisabled();
     rerender(
       <RoomBoardHeader {...props} progress={allReadyProgress(members)} />,
@@ -455,7 +459,7 @@ describe("RoomBoardHeader", () => {
       timer: { status: "ended", durationMs: 300_000 },
       isDisconnected: true,
     });
-    const button = screen.getByRole("button", { name: "完了して成果を表示" });
+    const button = screen.getByRole("button", { name: "再接続中…" });
     expect(button).toBeDisabled();
     expect(button).not.toHaveClass(styles.nextReady);
   });

@@ -480,6 +480,31 @@ export const FinalCompletionConfirmation: Story = {
     ).toBeVisible();
   },
 };
+// 採用後、ほかの参加者の「できた！」を待つ間は、あと何人で完了かを示す。
+export const FinalCompletionWaitingMembers: Story = {
+  args: {
+    ...FinalDecisionPending.args,
+    members: VOTING_MEMBERS,
+    timer: {
+      status: "running",
+      durationMs: 300_000,
+      endsAt: Date.now() + 300_000,
+    },
+    progress: {
+      ...completedProgress(VOTING_MEMBERS),
+      readyUserIds: [ME],
+      notReadyUserIds: VOTING_MEMBERS.filter(({ userId }) => userId !== ME).map(
+        ({ userId }) => userId,
+      ),
+      allReady: false,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("button", { name: "あと2人で完了" }),
+    ).toBeDisabled();
+  },
+};
 export const FinalCompletionDisconnected: Story = {
   args: {
     ...FinalDecisionPending.args,
