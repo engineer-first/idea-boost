@@ -90,6 +90,7 @@ export const AllStates: Story = {
             <div className={styles.home}>
               <div aria-hidden className={styles.art} />
               <div className={styles.content}>
+                <h1 className="sr-only">ホーム</h1>
                 {error ? <HomeErrorAlert message={error} /> : null}
                 <CreateRoomSectionView
                   pending={false}

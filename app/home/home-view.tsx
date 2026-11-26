@@ -33,6 +33,8 @@ export function HomeView({
     <div className={styles.home} data-testid="home-view">
       <div aria-hidden className={styles.art} />
       <div className={styles.content}>
+        {/* 見出しの一言と説明はLPで伝わるので画面には出さず、読み上げ用の見出しだけ残す。 */}
+        <h1 className="sr-only">ホーム</h1>
         {error ? <HomeErrorAlert message={error} /> : null}
         {accountLinkStatus === "linked" ? (
           // アカウントの参加の記録から出す。端末の「直前のルーム」はこの一覧の先頭と重なるので出さない。
@@ -40,8 +42,6 @@ export function HomeView({
         ) : (
           <ReturnRoomSection currentUserId={currentUserId} />
         )}
-        {/* 見出しの一言と説明はLPで伝わるので画面には出さず、読み上げ用の見出しだけ残す。 */}
-        <h1 className="sr-only">ホーム</h1>
         <CreateRoomSection currentUserId={currentUserId} />
         <JoinRoomSection />
         <nav aria-label="過去の成果" className={styles.history}>
