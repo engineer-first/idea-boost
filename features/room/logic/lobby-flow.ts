@@ -99,7 +99,10 @@ const ENGLISH_STEPS: Record<string, { name: string; action: string }> = {
   "1-3": { name: "Group similar notes", action: "Group similar notes" },
   "1-4": { name: "Vote on the problem", action: "Vote on notes" },
   "1-5": { name: "Choose the problem", action: "Choose one problem" },
-  "2-1": { name: "Turn the problem into a question", action: "Reframe the problem as a question" },
+  "2-1": {
+    name: "Turn the problem into a question",
+    action: "Reframe the problem as a question",
+  },
   "2-2": { name: "Share your questions", action: "Take turns sharing" },
   "2-3": { name: "Vote on questions", action: "Vote on questions" },
   "2-4": { name: "Choose the question", action: "Choose one question" },
@@ -110,14 +113,19 @@ const ENGLISH_STEPS: Record<string, { name: string; action: string }> = {
   "3-5": { name: "Choose a solution", action: "Choose one solution" },
 };
 
-export function getLobbyFlowOverview(locale: AppLocale = "ja"): LobbyFlowOverview {
+export function getLobbyFlowOverview(
+  locale: AppLocale = "ja",
+): LobbyFlowOverview {
   if (locale === "ja") return LOBBY_FLOW_OVERVIEW;
   const phases = LOBBY_FLOW_OVERVIEW.phases.map((phase) => ({
     ...phase,
     title: ENGLISH_PHASE_TITLES[phase.phase],
     steps: phase.steps.map((step) => ({
       ...step,
-      ...(ENGLISH_STEPS[step.number] ?? { name: step.name, action: step.action }),
+      ...(ENGLISH_STEPS[step.number] ?? {
+        name: step.name,
+        action: step.action,
+      }),
     })),
   }));
   return { totalMinutes: LOBBY_FLOW_OVERVIEW.totalMinutes, phases };

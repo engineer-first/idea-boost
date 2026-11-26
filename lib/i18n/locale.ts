@@ -12,16 +12,21 @@ export function resolveLocale(acceptLanguage: string | null): AppLocale {
     .map((item, index) => {
       const [rawLanguage, ...parameters] = item.split(";");
       const language = rawLanguage.trim().toLowerCase();
-      const qualityParameter = parameters.find((part) => part.trim().startsWith("q="));
-      const quality = qualityParameter ? Number(qualityParameter.trim().slice(2)) : 1;
+      const qualityParameter = parameters.find((part) =>
+        part.trim().startsWith("q="),
+      );
+      const quality = qualityParameter
+        ? Number(qualityParameter.trim().slice(2))
+        : 1;
       return { language, quality, index };
     })
-    .filter(({ language, quality }) =>
-      language !== "" &&
-      language !== "*" &&
-      Number.isFinite(quality) &&
-      quality > 0 &&
-      quality <= 1
+    .filter(
+      ({ language, quality }) =>
+        language !== "" &&
+        language !== "*" &&
+        Number.isFinite(quality) &&
+        quality > 0 &&
+        quality <= 1,
     )
     .sort((a, b) => b.quality - a.quality || a.index - b.index);
 

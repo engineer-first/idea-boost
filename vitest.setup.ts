@@ -24,21 +24,21 @@ vi.mock("next-intl", async (importOriginal) => {
     useTranslations:
       (namespace: string) =>
       (key: string, values?: Record<string, string | number>) => {
-      const value = namespace.split(".").reduce<unknown>((current, part) => {
-        if (typeof current !== "object" || current === null) return undefined;
-        return (current as Record<string, unknown>)[part];
-      }, testMessages);
-      const message = key.split(".").reduce<unknown>((current, part) => {
-        if (typeof current !== "object" || current === null) return undefined;
-        return (current as Record<string, unknown>)[part];
-      }, value);
-      if (typeof message !== "string") return key;
-      return Object.entries(values ?? {}).reduce(
-        (text, [name, replacement]) =>
-          text.replaceAll(`{${name}}`, String(replacement)),
-        message,
-      );
-    },
+        const value = namespace.split(".").reduce<unknown>((current, part) => {
+          if (typeof current !== "object" || current === null) return undefined;
+          return (current as Record<string, unknown>)[part];
+        }, testMessages);
+        const message = key.split(".").reduce<unknown>((current, part) => {
+          if (typeof current !== "object" || current === null) return undefined;
+          return (current as Record<string, unknown>)[part];
+        }, value);
+        if (typeof message !== "string") return key;
+        return Object.entries(values ?? {}).reduce(
+          (text, [name, replacement]) =>
+            text.replaceAll(`{${name}}`, String(replacement)),
+          message,
+        );
+      },
   };
 });
 vi.mock("next-intl/server", async (importOriginal) => {

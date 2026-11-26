@@ -2,6 +2,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
+
 export type RoomConnectionNoticeViewProps = {
   status: RoomScreenConnectionStatus;
   className?: string;

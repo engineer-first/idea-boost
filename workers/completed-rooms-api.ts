@@ -14,6 +14,7 @@ import {
   REFLECTION_LIMIT_ERROR,
   REFLECTION_RESEARCH_LIMIT_ERROR,
 } from "./room/outcome-reflection";
+
 export function completedJson(body: unknown, status = 200): Response {
   return Response.json(body, {
     status,
@@ -120,13 +121,20 @@ export async function handleCompletedRooms(
         ].includes(cause.message)
       ) {
         const englishErrors: Record<string, string> = {
-          [REFLECTION_BUSY_ERROR]: "Another AI generation is running in this room. Try again when it finishes.",
-          [REFLECTION_LIMIT_ERROR]: "This room has reached the limit for generating production prompts. Previously generated content is still available.",
-          [REFLECTION_RESEARCH_LIMIT_ERROR]: "This room has reached the limit for generating research plans. The saved plan is still available.",
-          [REFLECTION_CONFLICT_ERROR]: "The shared research plan has changed. Refresh it before trying again.",
+          [REFLECTION_BUSY_ERROR]:
+            "Another AI generation is running in this room. Try again when it finishes.",
+          [REFLECTION_LIMIT_ERROR]:
+            "This room has reached the limit for generating production prompts. Previously generated content is still available.",
+          [REFLECTION_RESEARCH_LIMIT_ERROR]:
+            "This room has reached the limit for generating research plans. The saved plan is still available.",
+          [REFLECTION_CONFLICT_ERROR]:
+            "The shared research plan has changed. Refresh it before trying again.",
         };
         return completedJson(
-          { error: locale === "en" ? englishErrors[cause.message] : cause.message },
+          {
+            error:
+              locale === "en" ? englishErrors[cause.message] : cause.message,
+          },
           [REFLECTION_LIMIT_ERROR, REFLECTION_RESEARCH_LIMIT_ERROR].includes(
             cause.message,
           )
@@ -136,9 +144,10 @@ export async function handleCompletedRooms(
       }
       return completedJson(
         {
-          error: locale === "en"
-            ? "AI generation failed. Please wait a moment and try again."
-            : "AIの生成に失敗しました。時間をおいて再試行してください。",
+          error:
+            locale === "en"
+              ? "AI generation failed. Please wait a moment and try again."
+              : "AIの生成に失敗しました。時間をおいて再試行してください。",
         },
         503,
       );

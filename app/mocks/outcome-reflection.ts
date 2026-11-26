@@ -1,6 +1,8 @@
 import { HttpResponse, http } from "msw";
-import type { ReflectionShared } from "@/contracts/outcome-reflection";
-import { ReflectionRequestSchema } from "@/contracts/outcome-reflection";
+import {
+  ReflectionRequestSchema,
+  type ReflectionShared,
+} from "@/contracts/outcome-reflection";
 import {
   reflectionPlanFixture,
   reflectionResponseFixture,
@@ -22,7 +24,9 @@ export function createOutcomeReflectionHandlers() {
     http.get("/api/completed-rooms/:id/reflection", ({ params, request }) => {
       const locale = new URL(request.url).searchParams.get("locale") ?? "ja";
       return HttpResponse.json(
-        reflectionResponseFixture({ shared: latest(String(params.id), locale) }),
+        reflectionResponseFixture({
+          shared: latest(String(params.id), locale),
+        }),
       );
     }),
     http.post(

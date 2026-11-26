@@ -104,7 +104,10 @@ describe("ユーザーニーズ調査の準備", () => {
       const generate = vi.fn(
         async (_mode: string, input: string, locale: string) => ({
           artifact: JSON.parse(input).artifact,
-          content: locale === "en" ? "Create an interview guide." : "質問リストを作成してください。",
+          content:
+            locale === "en"
+              ? "Create an interview guide."
+              : "質問リストを作成してください。",
         }),
       );
       const storage = new OutcomeReflectionStorage(
@@ -124,12 +127,20 @@ describe("ユーザーニーズ調査の準備", () => {
         storage.readOrGenerate(other, prompt("English-extra"), "en"),
       ).rejects.toThrow(REFLECTION_LIMIT_ERROR);
 
-      expect(
-        (await storage.readOrGenerate(user.sub, prompt("日本語-0"), "ja"))?.prompt?.content,
-      ).toContain("質問リスト");
-      expect(
-        (await storage.readOrGenerate(other, prompt("English-0"), "en"))?.prompt?.content,
-      ).toContain("Create an interview guide");
+      const japanesePrompt = await storage.readOrGenerate(
+        user.sub,
+        prompt("日本語-0"),
+        "ja",
+      );
+      const englishPrompt = await storage.readOrGenerate(
+        other,
+        prompt("English-0"),
+        "en",
+      );
+      expect(japanesePrompt?.prompt?.content).toContain("質問リスト");
+      expect(englishPrompt?.prompt?.content).toContain(
+        "Create an interview guide",
+      );
       expect(generate).toHaveBeenCalledTimes(40);
     });
   });

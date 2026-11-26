@@ -22,6 +22,7 @@ import {
   OutcomeReflectionStorage,
 } from "./outcome-reflection";
 import { getRoomName, roomNameHandlers } from "./room-name";
+
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
 // エントリポイント（RPC / WebSocket）と横断ガード（phase ゲート）だけを持ち、
 // ドメインロジックは workers/room/ の各モジュールに委譲する:

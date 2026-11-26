@@ -29,6 +29,12 @@ function formatCompletedDate(value: number, locale: string): string {
 function RoomRow({ room }: { room: RecentRoom }) {
   const t = useTranslations("app.home");
   const locale = useLocale();
+  const completedDate = room.completedAt
+    ? `${locale === "ja" ? "・" : " · "}${formatCompletedDate(
+        room.completedAt,
+        locale,
+      )}`
+    : "";
   return (
     <>
       {/* 状態は名前の下に置き、列が狭くても名前の幅を残す。 */}
@@ -39,11 +45,7 @@ function RoomRow({ room }: { room: RecentRoom }) {
         <span className="text-sm text-muted-foreground">
           {room.status === "active"
             ? t("active")
-            : `${t("completed")}${
-                room.completedAt
-                  ? `${locale === "ja" ? "・" : " · "}${formatCompletedDate(room.completedAt, locale)}`
-                  : ""
-              }`}
+            : `${t("completed")}${completedDate}`}
         </span>
       </span>
       <ArrowRight className="size-4 shrink-0" aria-hidden />

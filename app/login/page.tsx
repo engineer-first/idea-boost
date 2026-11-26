@@ -51,7 +51,7 @@ export default async function LoginPage({
       next={sanitizeNextPath(guest_next ?? next)}
       aboutHref={`${locale === "en" ? "/en" : ""}/about${
         safeNext === "/" ? "" : `?next=${encodeURIComponent(safeNext)}`
-      }}`}
+      }`}
       invited={safeNext.startsWith("/invite/")}
       error={error}
       isConfigured={isAuthConfigured()}

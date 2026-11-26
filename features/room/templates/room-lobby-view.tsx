@@ -101,8 +101,8 @@ export function RoomLobbyView({
           <div className={styles.roomTitle}>
             <h1>
               {roomName
-              ? (roomName.name ?? t("unsetTheme"))
-              : t("roomFallback")}
+                ? (roomName.name ?? t("unsetTheme"))
+                : t("roomFallback")}
             </h1>
             {roomName ? (
               <Button

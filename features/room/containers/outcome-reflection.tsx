@@ -1,4 +1,5 @@
 "use client";
+
 import { useLocale } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import {

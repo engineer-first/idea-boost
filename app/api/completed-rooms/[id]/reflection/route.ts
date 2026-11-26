@@ -7,10 +7,9 @@ export async function GET(
   context: Context,
 ): Promise<Response> {
   const { id } = await context.params;
-  return proxyCompletedRooms(
-    `/api/completed-rooms/${encodeURIComponent(id)}/reflection${new URL(request.url).search}`,
-    request.signal,
-  );
+  const path = `/api/completed-rooms/${encodeURIComponent(id)}/reflection`;
+  const query = new URL(request.url).search;
+  return proxyCompletedRooms(`${path}${query}`, request.signal);
 }
 export async function POST(
   request: Request,
@@ -40,8 +39,10 @@ export async function POST(
       { status: 400, headers },
     );
   const { id } = await context.params;
+  const path = `/api/completed-rooms/${encodeURIComponent(id)}/reflection`;
+  const query = new URL(request.url).search;
   return proxyCompletedRooms(
-    `/api/completed-rooms/${encodeURIComponent(id)}/reflection${new URL(request.url).search}`,
+    `${path}${query}`,
     request.signal,
     JSON.stringify(result.data),
   );

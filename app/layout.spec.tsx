@@ -24,7 +24,11 @@ vi.mock("next-intl/server", () => ({
   getMessages: async () => ({}),
 }));
 vi.mock("next-intl", () => ({
-  NextIntlClientProvider: ({ children }: { children: React.ReactNode }) => children,
+  NextIntlClientProvider: ({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) => children,
 }));
 
 beforeEach(() => {
@@ -32,7 +36,10 @@ beforeEach(() => {
   language.value = "en";
 });
 
-it.each([["en", "en"], ["ja", "ja"]])(
+it.each([
+  ["en", "en"],
+  ["ja", "ja"],
+])(
   "選択された表示言語 %s を文書の lang に設定する",
   async (header, expected) => {
     language.value = header;
