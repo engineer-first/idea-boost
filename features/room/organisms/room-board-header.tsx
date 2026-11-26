@@ -68,6 +68,7 @@ import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
+import { PhaseStepTrail } from "../molecules/phase-step-trail";
 import { RestartWritingConfirmDialog } from "../molecules/restart-writing-confirm-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
@@ -680,6 +681,19 @@ export function RoomBoardHeader({
           ) : null}
         </div>
 
+        {/* 今のフェーズのステップの並びは、最上段の操作の真下・中央に常に出す。
+            左右を現在地カードの右端で揃えて中央に置き、入り切らないときは左の欄に重ねず右へ寄せる。
+            狭い幅では上段が折り返すため、左上の現在地だけで示す。 */}
+        {phase.kind === "step" ? (
+          <div
+            className="pointer-events-none absolute inset-x-[var(--board-location-right,23.25rem)] top-[calc(3.5rem+0.75rem)] flex [justify-content:safe_center] max-[900px]:hidden"
+            data-board-fit-edge="top"
+          >
+            <div data-board-fit-occupy="true">
+              <PhaseStepTrail phase={phase} />
+            </div>
+          </div>
+        ) : null}
         {/* 狭幅の完了表示は操作行の外へ置く。結果でも同じ縦余白を保ち、現在地表示を動かさない。 */}
         <div
           ref={controlsAreaRef}

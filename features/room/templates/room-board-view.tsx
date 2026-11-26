@@ -1518,6 +1518,7 @@ export function RoomBoardView({
       "board-context-hud",
       "board-control-hud",
       "board-connection-slot",
+      "phase-step-trail",
     ] as const;
     const helpPanelSelector = '[data-testid="board-help-panel"] > div';
     const characterSelector = '[data-testid="board-character"]';

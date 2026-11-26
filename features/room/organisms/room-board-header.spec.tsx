@@ -2291,3 +2291,38 @@ it("3-3から追加執筆の3-1へ移っても、マップ位置を保ったま�
   fireEvent.resize(window);
   expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
 });
+
+describe("今のフェーズのステップの並び", () => {
+  it("開く操作なしに、済んだステップを完了・今のステップを現在として並べる", () => {
+    setup({ phase: buildPhaseStep(2, 1) });
+    const trail = screen.getByRole("list", { name: "①課題のステップ" });
+    const items = within(trail).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "個人",
+      "共有",
+      "整理",
+      "投票",
+      "決定",
+    ]);
+    expect(within(items[0]).getByRole("img", { name: "完了" })).toBeTruthy();
+    expect(items[1].getAttribute("aria-current")).toBe("step");
+    expect(within(items[1]).queryByRole("img", { name: "完了" })).toBeNull();
+    expect(items[2].getAttribute("aria-current")).toBeNull();
+    expect(within(items[2]).queryByRole("img", { name: "完了" })).toBeNull();
+  });
+
+  it("3つ目のフェーズでは、そのフェーズのステップだけを並べる", () => {
+    setup({ phase: buildPhaseStep(3, 3) });
+    const trail = screen.getByRole("list", { name: "③アイデアのステップ" });
+    const items = within(trail).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "個人",
+      "共有",
+      "2軸評価",
+      "投票",
+      "決定",
+    ]);
+    expect(within(trail).getAllByRole("img", { name: "完了" })).toHaveLength(2);
+    expect(items[2].getAttribute("aria-current")).toBe("step");
+  });
+});
