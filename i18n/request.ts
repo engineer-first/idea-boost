@@ -7,11 +7,8 @@ import landingEn from "@/messages/en/landing.json";
 import appJa from "@/messages/ja/app.json";
 import landingJa from "@/messages/ja/landing.json";
 
-export default getRequestConfig(async ({ requestLocale }) => {
-  const requested = AppLocaleSchema.safeParse(await requestLocale);
-  const locale = requested.success
-    ? requested.data
-    : resolveLocale((await headers()).get("accept-language"));
+export default getRequestConfig(async () => {
+  const locale = resolveLocale((await headers()).get("accept-language"));
   return {
     locale,
     messages: {

@@ -1,6 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import appMessages from "./messages/ja/app.json";
+import landingMessages from "./messages/ja/landing.json";
 import { server } from "./app/mocks/node";
 
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
@@ -10,3 +12,38 @@ afterEach(() => server.resetHandlers());
 // 前のテストのDOMが残り、getByRole等が複数要素にヒットして失敗する。
 afterEach(() => cleanup());
 afterAll(() => server.close());
+
+
+// UI components use the Japanese messages by default in unit tests.
+// Individual tests can override these mocks when they need another locale.
+const testMessages = { app: appMessages, landing: landingMessages };
+vi.mock("next-intl", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next-intl")>();
+  return {
+    ...actual,
+    useLocale: () => "ja",
+    useTranslations: (namespace: string) => (key: string, values?: Record<string, string | number>) => {
+      const value = namespace.split(".").reduce<unknown>((current, part) => {
+        if (typeof current !== "object" || current === null) return undefined;
+        return (current as Record<string, unknown>)[part];
+      }, testMessages);
+      const message = key.split(".").reduce<unknown>((current, part) => {
+        if (typeof current !== "object" || current === null) return undefined;
+        return (current as Record<string, unknown>)[part];
+      }, value);
+      if (typeof message !== "string") return key;
+      return Object.entries(values ?? {}).reduce(
+        (text, [name, replacement]) => text.replaceAll(`{${name}}`, String(replacement)),
+        message,
+      );
+    },
+  };
+});
+vi.mock("next-intl/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next-intl/server")>();
+  return {
+    ...actual,
+    getLocale: async () => "ja",
+    getMessages: async () => testMessages,
+  };
+});
