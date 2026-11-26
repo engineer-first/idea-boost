@@ -8,7 +8,7 @@ import {
   expect,
   test,
 } from "vitest";
-import { sizes } from "./viewports";
+import { includeMobile } from "./viewports";
 
 // スマホ縦で招待から入った参加者が、ボードを見るだけで今のステップと残り時間を追えること（#1289）。
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
@@ -60,7 +60,11 @@ const STEPS: [phase: number, step: number][] = [
   [3, 5],
 ];
 
-describe.each(sizes([360, 740], [430, 932]))("%i×%i", (width, height) => {
+// 全サイズがスマホ幅なので、スマホ幅を回さない実行では空の suite にせず skip として残す。
+describe.skipIf(!includeMobile).each([
+  [360, 740],
+  [430, 932],
+])("%i×%i", (width, height) => {
   test.each(STEPS)(
     "フェーズ%i Step %i で先生の吹き出しが現在地・決定事項・タイマーを隠さない",
     async (phase, step) => {
