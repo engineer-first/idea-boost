@@ -96,8 +96,13 @@ export function RoomLobbyView({
       <div className={styles.content}>
         <header className={styles.header}>
           <div className={styles.roomTitle}>
-            <h1>
-              {roomName ? (roomName.name ?? "テーマ未設定") : "ルーム待機室"}
+            {/* 状態が届く前に「テーマ未設定」と仮表示しない。高さは保って見出しの跳ねを防ぐ。 */}
+            <h1 aria-busy={roomName && !roomName.loaded ? true : undefined}>
+              {roomName
+                ? roomName.loaded
+                  ? (roomName.name ?? "テーマ未設定")
+                  : "\u00a0"
+                : "ルーム待機室"}
             </h1>
             {roomName ? (
               <Button

@@ -12,6 +12,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 const controls = {
   name: "J05",
+  loaded: true,
   onClosed: () => {},
   open: true,
   draft: "J05",
