@@ -212,7 +212,7 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
   );
   await page.getByRole("tab", { name: "発想を広げる" }).click();
   const help = page.locator("#board-help-content");
-  await help.getByRole("button", { name: /ほかの問いを見る/ }).click();
+  await help.getByRole("button", { name: /ほかの観点を見る/ }).click();
   expect(await help.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(
     true,
   );
@@ -954,7 +954,7 @@ test("決定内容を参照したまま発想支援の3項目目へ到達でき�
   ).toBe(true);
   await page.getByRole("button", { name: "考えるヒントを開く" }).click();
   await page.getByRole("tab", { name: "発想を広げる", exact: true }).click();
-  await page.getByRole("button", { name: /ほかの問いを見る/ }).click();
+  await page.getByRole("button", { name: /ほかの観点を見る/ }).click();
   const content = await page.locator("#board-help-content").boundingBox();
   await page
     .locator("#board-help-content li:visible")

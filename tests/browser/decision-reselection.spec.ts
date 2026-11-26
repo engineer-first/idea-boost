@@ -70,13 +70,17 @@ for (const width of widths(1280, 375)) {
         .getByRole("button", { name: "選択をキャンセル", exact: true })
         .waitFor();
       expect(await cancel.count()).toBe(0);
+      const awaiting = page.getByRole("button", {
+        name: "採用すると完了",
+        exact: true,
+      });
       const complete = page.getByRole("button", {
         name: "完了して成果を表示",
         exact: true,
       });
       // 最終ステップは採用取消後も位置を保ち、未決定のまま完了させない。
-      if (phase === "3-5") expect(await complete.isDisabled()).toBe(true);
-      else expect(await complete.count()).toBe(0);
+      if (phase === "3-5") expect(await awaiting.isDisabled()).toBe(true);
+      else expect(await awaiting.count()).toBe(0);
       await page.screenshot({
         path: `${output}/${phase}-${width}-cleared.png`,
       });

@@ -74,7 +74,7 @@ export function CompletedRoomDetailView({
             href="/completed-rooms"
             className="inline-flex min-h-11 items-center underline"
           >
-            以前のルームへ
+            過去の成果の一覧へ
           </Link>
           {loading ? (
             <p role="status">成果を読み込み中…</p>
@@ -108,7 +108,7 @@ export function CompletedRoomDetailView({
             href="/completed-rooms"
             className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
           >
-            以前のルーム一覧へ
+            過去の成果の一覧へ
           </Link>
         }
         recordInfo={

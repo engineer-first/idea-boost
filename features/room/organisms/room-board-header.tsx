@@ -69,6 +69,7 @@ import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
+import { PhaseStepTrail } from "../molecules/phase-step-trail";
 import { RestartWritingConfirmDialog } from "../molecules/restart-writing-confirm-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
@@ -466,6 +467,16 @@ export function RoomBoardHeader({
     !isDisconnected &&
     !isRemovingMember &&
     !isNextPhasePending;
+  // 採用後に完了を待っている間は、1-5・2-4 の「次へ」と同じく何を待っているかを示す。
+  const finalCompletionWaitingLabel = isDisconnected
+    ? t("completionWaitingReconnect")
+    : !hasFinalDecision
+      ? t("completionWaitingAdoption")
+      : !canProceedByTimeOrReady && progress.notReadyUserIds.length > 0
+        ? t("completionWaitingMembers", {
+            count: progress.notReadyUserIds.length,
+          })
+        : null;
   const completionCue = useCompletionCue({
     scope: `${inviteCode}:${currentUserId}:${JSON.stringify(phase)}:${phaseRevision}:${completionResetVersion}`,
     disabled:
@@ -673,6 +684,20 @@ export function RoomBoardHeader({
             </div>
           ) : null}
         </div>
+
+        {/* 今のフェーズのステップの並びは、最上段の操作の真下・中央に常に出す。
+            左右を現在地カードの右端で揃えて中央に置き、入り切らないときは左の欄に重ねず右へ寄せる。
+            狭い幅では上段が折り返すため、左上の現在地だけで示す。 */}
+        {phase.kind === "step" ? (
+          <div
+            className="pointer-events-none absolute inset-x-[var(--board-location-right,23.25rem)] top-[calc(3.5rem+0.75rem)] flex [justify-content:safe_center] max-[900px]:hidden"
+            data-board-fit-edge="top"
+          >
+            <div data-board-fit-occupy="true">
+              <PhaseStepTrail phase={phase} />
+            </div>
+          </div>
+        ) : null}
 
         {/* 狭幅の完了表示は操作行の外へ置く。結果でも同じ縦余白を保ち、現在地表示を動かさない。 */}
         <div
@@ -1015,11 +1040,27 @@ export function RoomBoardHeader({
                       className={`text-sm h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-sm max-[639px]:w-[116px] max-[639px]:whitespace-normal max-[639px]:leading-tight ${canPublishOutcome ? styles.nextReady : styles.nextWaiting}`}
                       disabled={!canPublishOutcome}
                     >
-                      <Check
-                        aria-hidden="true"
-                        className="size-4 max-[639px]:hidden"
-                      />
-                      {t("publishOutcome")}
+                      {/* 待ちの文言は通常の完了文言と同じ幅に重ね、隣の操作の位置を動かさない。 */}
+                      <span className="grid justify-items-center">
+                        <span className="inline-flex items-center gap-2 [grid-area:1/1]">
+                          {finalCompletionWaitingLabel ?? (
+                            <>
+                              <Check
+                                aria-hidden="true"
+                                className="size-4 max-[639px]:hidden"
+                              />
+                              {t("publishOutcome")}
+                            </>
+                          )}
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          className="invisible inline-flex items-center gap-2 [grid-area:1/1]"
+                        >
+                          <span className="size-4 max-[639px]:hidden" />
+                          {t("publishOutcome")}
+                        </span>
+                      </span>
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent aria-describedby={undefined}>
@@ -1357,11 +1398,12 @@ export function RoomBoardHeader({
           (phase.kind === "step" && phase.step === 1) ? (
             <div
               data-testid="board-connection-slot"
-              className={
+              // 幅が狭いと中央上部のステップの並びが右へはみ出すため、接続の案内を前面に出す。
+              className={`relative z-[1] ${
                 phase.kind === "step" && phase.step === 1
                   ? "min-h-[38px] sm:min-h-0"
-                  : undefined
-              }
+                  : ""
+              }`}
             >
               <RoomConnectionNotice
                 returnHref={loginReturnHref}

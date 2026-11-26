@@ -18,6 +18,7 @@ import {
 } from "@/contracts/phase";
 import {
   getPhaseProgressState,
+  PHASE_MARKERS,
   PHASE_NUMBERS,
   type PhaseNumber,
 } from "../logic/phase-labels";
@@ -29,8 +30,6 @@ const FLOW_STEPS = PHASE_NUMBERS.flatMap((phase) =>
     step: index + 1,
   })),
 );
-const PHASE_MARKERS = { 1: "①", 2: "②", 3: "③" } as const;
-
 type LocationState = "compact" | "expanded";
 export type BoardLocationProps = {
   phase: RoomPhase;

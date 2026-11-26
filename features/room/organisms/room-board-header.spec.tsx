@@ -429,8 +429,12 @@ describe("RoomBoardHeader", () => {
       },
     });
     const { rerender } = render(<RoomBoardHeader {...props} />);
+    // 採用済みでも全員がそろうまでは、何を待っているかをボタンに出す。
     expect(
-      screen.getByRole("button", { name: "完了して成果を表示" }),
+      screen.queryByRole("button", { name: "完了して成果を表示" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "あと1人で完了" }),
     ).toBeDisabled();
     rerender(
       <RoomBoardHeader {...props} progress={allReadyProgress(members)} />,
@@ -455,9 +459,17 @@ describe("RoomBoardHeader", () => {
       timer: { status: "ended", durationMs: 300_000 },
       isDisconnected: true,
     });
-    const button = screen.getByRole("button", { name: "完了して成果を表示" });
+    const button = screen.getByRole("button", { name: "再接続中…" });
     expect(button).toBeDisabled();
     expect(button).not.toHaveClass(styles.nextReady);
+  });
+  it("採用前に切断しても、1-5・2-4 と同じく再接続を待っていると示す", () => {
+    setup({
+      phase: buildPhaseStep(5, 3),
+      hasFinalDecision: false,
+      isDisconnected: true,
+    });
+    expect(screen.getByRole("button", { name: "再接続中…" })).toBeDisabled();
   });
   it("時間切れ後の確認中に延長されたら、未完了のまま進行を確定できない", () => {
     const members = buildMembers(2, ME);
@@ -1533,7 +1545,7 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("最終案の決定前も完了ボタンを表示し、決定後に有効にする（host=%s）", () => {
+    it("最終案の決定前は完了ボタンに採用が要ることを出し、決定後に有効にする", () => {
       const onPublishOutcome = vi.fn();
       const props = setupProps({
         phase: buildPhaseStep(5, 3),
@@ -1543,7 +1555,7 @@ describe("RoomBoardHeader", () => {
       });
       const { rerender } = render(<RoomBoardHeader {...props} />);
       const completion = screen.getByRole("button", {
-        name: "完了して成果を表示",
+        name: "採用すると完了",
       });
       expect(completion).toBeDisabled();
       fireEvent.click(completion);
@@ -1551,6 +1563,7 @@ describe("RoomBoardHeader", () => {
       expect(onPublishOutcome).not.toHaveBeenCalled();
       rerender(<RoomBoardHeader {...props} hasFinalDecision />);
       expect(completion).toBeEnabled();
+      expect(completion).toHaveAccessibleName("完了して成果を表示");
       fireEvent.click(completion);
       expect(screen.getByRole("alertdialog")).toBeVisible();
       expect(onPublishOutcome).not.toHaveBeenCalled();
@@ -2277,4 +2290,39 @@ it("3-3から追加執筆の3-1へ移っても、マップ位置を保ったま�
   header.style.removeProperty("--board-location-height");
   fireEvent.resize(window);
   expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
+});
+
+describe("今のフェーズのステップの並び", () => {
+  it("開く操作なしに、済んだステップを完了・今のステップを現在として並べる", () => {
+    setup({ phase: buildPhaseStep(2, 1) });
+    const trail = screen.getByRole("list", { name: "①課題のステップ" });
+    const items = within(trail).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "個人",
+      "共有",
+      "整理",
+      "投票",
+      "決定",
+    ]);
+    expect(within(items[0]).getByRole("img", { name: "完了" })).toBeTruthy();
+    expect(items[1].getAttribute("aria-current")).toBe("step");
+    expect(within(items[1]).queryByRole("img", { name: "完了" })).toBeNull();
+    expect(items[2].getAttribute("aria-current")).toBeNull();
+    expect(within(items[2]).queryByRole("img", { name: "完了" })).toBeNull();
+  });
+
+  it("3つ目のフェーズでは、そのフェーズのステップだけを並べる", () => {
+    setup({ phase: buildPhaseStep(3, 3) });
+    const trail = screen.getByRole("list", { name: "③アイデアのステップ" });
+    const items = within(trail).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "個人",
+      "共有",
+      "2軸評価",
+      "投票",
+      "決定",
+    ]);
+    expect(within(trail).getAllByRole("img", { name: "完了" })).toHaveLength(2);
+    expect(items[2].getAttribute("aria-current")).toBe("step");
+  });
 });

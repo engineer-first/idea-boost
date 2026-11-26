@@ -36,7 +36,7 @@ export const Empty: Story = { args: { rooms: [], hasMore: false } };
 export const Unavailable: Story = {
   args: {
     rooms: [],
-    error: "以前のルームを取得できませんでした。再取得をお試しください。",
+    error: "過去の成果を取得できませんでした。再取得をお試しください。",
     hasMore: false,
   },
 };

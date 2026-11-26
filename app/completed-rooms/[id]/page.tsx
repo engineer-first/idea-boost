@@ -14,7 +14,7 @@ import {
 import { getCurrentUser } from "@/lib/session/current-user";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "以前のルーム | Idea Boost" };
+export const metadata: Metadata = { title: "過去の成果 | Idea Boost" };
 export default async function CompletedRoomPage({
   params,
   searchParams,

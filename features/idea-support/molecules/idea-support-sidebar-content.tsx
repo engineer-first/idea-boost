@@ -107,6 +107,9 @@ export function IdeaSupportSidebarContent({
           ))}
         </TabsList>
 
+        <p className="pt-2 text-muted-foreground text-xs">
+          {t("description")}
+        </p>
         <div className="pt-2">
           {displayContents.map((item) => (
             <TabsContent key={item.id} value={item.id}>
@@ -131,8 +134,8 @@ export function IdeaSupportSidebarContent({
                   }
                 >
                   {expanded[item.id]
-                    ? t("collapseQuestions")
-                    : t("showQuestions", { count: item.content.length - 1 })}
+                    ? t("collapsePerspectives")
+                    : t("showPerspectives", { count: item.content.length - 1 })}
                   {expanded[item.id] ? (
                     <ChevronUp aria-hidden="true" />
                   ) : (
@@ -159,9 +162,6 @@ export function IdeaSupportSidebarContent({
           ))}
         </div>
       </Tabs>
-      <p className="mt-3 text-muted-foreground text-xs">
-        {t("description")}
-      </p>
     </div>
   );
 }

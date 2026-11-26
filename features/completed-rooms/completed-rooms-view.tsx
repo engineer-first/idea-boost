@@ -33,7 +33,7 @@ export function CompletedRoomsView({
           ホームへ
         </Link>
         <header>
-          <h1 className="text-3xl font-bold">以前のルーム</h1>
+          <h1 className="text-3xl font-bold">過去の成果</h1>
           <p className="mt-3 text-base leading-6 text-muted-foreground">
             完了時に参加していたルームと、成果を残して途中退出したルームを見返せます。成果の保存期限は完了から180日間です。
           </p>
@@ -91,7 +91,7 @@ export function CompletedRoomsView({
         </ul>
         {loading && (
           <p role="status" aria-live="polite">
-            以前のルームを読み込み中…
+            過去の成果を読み込み中…
           </p>
         )}
         {error && (
@@ -112,7 +112,7 @@ export function CompletedRoomsView({
             <p>
               {hasMore
                 ? "このページに表示できるルームはありません。続きのルームを確認してください。"
-                : "以前のルームはまだありません。"}
+                : "過去の成果はまだありません。"}
             </p>
             {!hasMore && (
               <p className="text-base leading-6 text-muted-foreground">
