@@ -1,11 +1,20 @@
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import styles from "./board-character.module.css";
 
 export type BoardCharacterProps = {
   message: string | null;
 };
 
+// 話しかけるように一文字ずつ出し、文字数によらず1秒弱で全文を出し切る。
+const REVEAL_TOTAL_MS = 900;
+
 export function BoardCharacter({ message }: BoardCharacterProps) {
+  // 絵文字などのサロゲートペアを分けないよう、コードポイント単位で区切る。
+  const chars = message ? Array.from(message) : [];
+  const bubbleStyle = {
+    "--char-step": `${REVEAL_TOTAL_MS / Math.max(chars.length, 1)}ms`,
+  } as CSSProperties;
   return (
     <>
       {/* 読み上げソフトは既存の枠の中身の変化を読むため、枠は常に置いておく。 */}
@@ -21,9 +30,22 @@ export function BoardCharacter({ message }: BoardCharacterProps) {
           <div
             aria-hidden="true"
             data-testid="board-character-bubble"
+            style={bubbleStyle}
             className={`${styles.bubble} absolute top-1 left-full ml-1.5 w-max max-w-[min(22rem,calc(100vw-var(--board-character-mobile-inline-space,6.5rem)))] rounded-2xl rounded-tl-sm border bg-background px-3.5 py-2.5 text-sm text-foreground leading-snug shadow-[0_8px_20px_rgb(0_0_0/0.05)] sm:top-[var(--board-character-bubble-top,0.25rem)] sm:left-[var(--board-character-bubble-left,100%)] sm:ml-[var(--board-character-bubble-gap,0.375rem)] sm:max-w-[var(--board-character-bubble-max-width,22rem)] sm:whitespace-nowrap`}
           >
-            {message}
+            {/* 全文を最初から置いて透明から順に見せるので、表示中も吹き出しの大きさは変わらない。
+                文字は並び替わらず key={message} で丸ごと作り直すため、位置を key にする。 */}
+            {chars.map((char, index) => (
+              <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: 文字の並びは固定で、文が変わると親ごと作り直す
+                key={index}
+                data-char
+                className={styles.char}
+                style={{ "--char-index": index } as CSSProperties}
+              >
+                {char}
+              </span>
+            ))}
           </div>
           <Image
             src="/room/teacher.webp"
