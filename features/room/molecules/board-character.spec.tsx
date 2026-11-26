@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BoardCharacter } from "./board-character";
 
 describe("ボードのキャラクター", () => {
@@ -40,7 +40,8 @@ describe("ボードのキャラクター", () => {
     expect(
       Array.from(chars, (c) => c.style.getPropertyValue("--char-index")),
     ).toEqual(["0", "1", "2", "3", "4", "5", "6"]);
-    // 全文を出し切るまでの時間は文字数によらず1秒前後に収める。
+    // 文字を出す間隔の合計は文字数によらず一定にする（実際の秒数は CSS の開始待ちを足して
+    // 1秒前後。秒数そのものは stories と表示レビューで確かめる）。
     const step = Number.parseFloat(
       bubble.style.getPropertyValue("--char-step"),
     );
@@ -51,5 +52,26 @@ describe("ボードのキャラクター", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       /^次は投票だよ👨‍👩‍👧$/,
     );
+  });
+
+  describe("Intl.Segmenter がない古いブラウザ", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    });
+    it("読み込みで壊れず、吹き出しの文字をコードポイント単位で順に出す", async () => {
+      vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
+      vi.resetModules();
+      const { BoardCharacter: Fallback } = await import("./board-character");
+      render(<Fallback message="次は🎉" />);
+      const chars = screen
+        .getByTestId("board-character-bubble")
+        .querySelectorAll("[data-char]");
+      expect(Array.from(chars, (c) => c.textContent)).toEqual([
+        "次",
+        "は",
+        "🎉",
+      ]);
+    });
   });
 });

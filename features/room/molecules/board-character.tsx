@@ -9,13 +9,19 @@ export type BoardCharacterProps = {
 // 話しかけるように一文字ずつ出す。吹き出しが開き終えてから（CSS の開始 300ms）
 // 文字数によらずこの時間で全文を出し切り、全体で1秒前後に収める。
 const REVEAL_TOTAL_MS = 650;
+
 // 絵文字の組み合わせや国旗を途中で分けないよう、見た目の1文字（書記素）で区切る。
-const graphemes = new Intl.Segmenter("ja", { granularity: "grapheme" });
+// Intl.Segmenter がない古いブラウザでは、読み込みで壊さずコードポイント単位に戻す。
+function splitChars(text: string): string[] {
+  if (typeof Intl.Segmenter !== "function") return Array.from(text);
+  return Array.from(
+    new Intl.Segmenter("ja", { granularity: "grapheme" }).segment(text),
+    ({ segment }) => segment,
+  );
+}
 
 export function BoardCharacter({ message }: BoardCharacterProps) {
-  const chars = message
-    ? Array.from(graphemes.segment(message), ({ segment }) => segment)
-    : [];
+  const chars = message ? splitChars(message) : [];
   const bubbleStyle = {
     "--char-step": `${REVEAL_TOTAL_MS / Math.max(chars.length, 1)}ms`,
   } as CSSProperties;

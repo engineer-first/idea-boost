@@ -75,7 +75,7 @@ async function waitForLayoutAnimations(locator: Locator): Promise<void> {
               animation.effect?.getTiming().iterations !== Infinity,
           ).length;
         }),
-      // ボードのキャラクターの吹き出しは文字を約1秒かけて出すため、
+      // ボードのキャラクターの吹き出しは文字を出し切るまで1秒を少し超えるため、
       // expect.poll の既定1秒ではそれが終わる前に打ち切られる。
       { timeout: 3_000 },
     )
