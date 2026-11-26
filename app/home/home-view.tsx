@@ -40,16 +40,9 @@ export function HomeView({
         ) : (
           <ReturnRoomSection currentUserId={currentUserId} />
         )}
-        <div className={styles.hero}>
-          <header className={styles.intro}>
-            <h1>
-              <span>そのひらめき、</span>
-              <span>みんなで育てよう。</span>
-            </h1>
-            <p>ルームを作って、仲間とアイデア出しを始めましょう。</p>
-          </header>
-          <CreateRoomSection currentUserId={currentUserId} />
-        </div>
+        {/* 見出しの一言と説明はLPで伝わるので画面には出さず、読み上げ用の見出しだけ残す。 */}
+        <h1 className="sr-only">ホーム</h1>
+        <CreateRoomSection currentUserId={currentUserId} />
         <JoinRoomSection />
         <nav aria-label="過去の成果" className={styles.history}>
           <Link

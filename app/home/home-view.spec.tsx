@@ -51,6 +51,16 @@ describe("HomeView", () => {
     expect(screen.getByRole("button", { name: "参加する" })).toBeDisabled();
   });
 
+  it("LPで伝わる見出しと説明文を出さず、ページの見出しは読み上げ用に残す", () => {
+    renderView();
+    expect(screen.queryByText("そのひらめき、")).not.toBeInTheDocument();
+    expect(screen.queryByText("みんなで育てよう。")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("ルームを作って、仲間とアイデア出しを始めましょう。"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("sr-only");
+  });
+
   it("error があるとき role=alert で表示する", () => {
     renderView({
       error:
