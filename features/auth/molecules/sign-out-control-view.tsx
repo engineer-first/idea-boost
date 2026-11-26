@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { GuestIdentityRemovalDialog } from "./guest-identity-removal-dialog";
 
@@ -27,6 +28,7 @@ export function SignOutControlView({
   className,
   icon,
 }: SignOutControlViewProps) {
+  const t = useTranslations("app.menu");
   return (
     <>
       {sessionKind === "guest" ? (
@@ -39,7 +41,7 @@ export function SignOutControlView({
           }
           onClick={() => onConfirmingChange(true)}
         >
-          {icon}このブラウザから本人情報を消す
+          {icon}{t("guestSignOut")}
         </Button>
       ) : (
         <form action={onSignOut} onSubmit={onSubmit}>
@@ -49,7 +51,7 @@ export function SignOutControlView({
             size={size}
             className={className}
           >
-            {icon}ログアウト
+            {icon}{t("logout")}
           </Button>
         </form>
       )}
