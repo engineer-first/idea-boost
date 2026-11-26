@@ -688,7 +688,7 @@ export function RoomBoardHeader({
             {isManualProgressStep ? (
               <span className="sr-only" aria-live="polite">
                 {completionCue.stage === "waiting"
-                  ? "準備OKを更新しています"
+                  ? "「できた！」を更新しています"
                   : isCurrentUserReady
                     ? "あなたは次へ進む準備ができています"
                     : "あなたは作業中です"}
@@ -722,7 +722,7 @@ export function RoomBoardHeader({
                   activeSharing
                     ? "できた！"
                     : isCurrentUserReady
-                      ? "準備OK！を取り消す"
+                      ? "できた！を取り消す"
                       : "できた！"
                 }
                 title={
@@ -731,7 +731,7 @@ export function RoomBoardHeader({
                       ? "発表を終えて共有を完了します"
                       : "次の人の発表へバトンタッチします"
                     : isCurrentUserReady
-                      ? "クリックして作業中に戻す"
+                      ? "押し済みです。もう一度押すと取り消して作業中に戻ります"
                       : votesRemaining
                         ? "票をすべて使うと押せます"
                         : "次へ進む準備ができたことをみんなに伝えます"
@@ -748,13 +748,7 @@ export function RoomBoardHeader({
                 <span className={styles.completionMark} aria-hidden="true">
                   <Check className="size-3.5" strokeWidth={2.5} />
                 </span>
-                <span>
-                  {activeSharing
-                    ? "できた！"
-                    : isCurrentUserReady
-                      ? "準備OK！"
-                      : "できた！"}
-                </span>
+                <span>できた！</span>
               </Button>
             ) : showVotingCompletion ? (
               <span
