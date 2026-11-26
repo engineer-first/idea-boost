@@ -63,7 +63,7 @@ export const AllStates: Story = {
         {states.map(({ label, members }) => (
           <div key={label} className="flex flex-col gap-2">
             <span className="font-mono text-xs text-muted-foreground">
-              {label}（{members.length} 名）
+              {label}（{members.length}人）
             </span>
             <RoomMembers members={members} currentUserId={ME} />
           </div>
