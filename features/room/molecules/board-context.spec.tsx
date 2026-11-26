@@ -529,13 +529,7 @@ describe("2軸マップのステップへ入るときの参照カード", () => 
       screen.getByRole("button", { name: "決定した問い" }),
     ).toHaveAttribute("aria-expanded", "true");
 
-    rerender(
-      <BoardContext
-        initialDisclosureId={null}
-        phase={buildPhaseStep(2, 3)}
-        {...props}
-      />,
-    );
+    rerender(<BoardContext phase={buildPhaseStep(2, 3)} {...props} />);
 
     expect(
       screen.getByRole("button", { name: "決定した問い" }),

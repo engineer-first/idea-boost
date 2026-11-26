@@ -48,7 +48,7 @@ export function BoardContext({
         ? `${phase.phase}-${phase.step}`
         : String(phase.phase);
   const defaultInitialId =
-    phase.kind === "step"
+    phase.kind === "step" && !usesIdeaMapViewport
       ? phase.phase === 3
         ? "hmw"
         : phase.phase === 2

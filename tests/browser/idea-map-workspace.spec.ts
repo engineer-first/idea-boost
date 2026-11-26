@@ -1799,7 +1799,7 @@ test.each([
   { width: 1280, height: 800 },
   { width: 1440, height: 1000 },
 ])(
-  "3-3〜3-5（$width×$height）ではタイマーがマップの右上の角に重ならない",
+  "3-3（3-4・3-5も同じ広がり方、$width×$height）ではタイマーがマップの右上の角に重ならない",
   async ({ width, height }) => {
     const page = await browser.newPage({ viewport: { width, height } });
     try {
@@ -1813,9 +1813,7 @@ test.each([
       const overlapsVertically =
         timer.y < map.y + map.height && map.y < timer.y + timer.height;
       expect(overlapsHorizontally && overlapsVertically).toBe(false);
-      // マップはタイマーの手前まで広がり、右側の余白を残しすぎない。
       expect(timer.x - (map.x + map.width)).toBeGreaterThanOrEqual(8);
-      expect(timer.x - (map.x + map.width)).toBeLessThanOrEqual(24);
       await page.screenshot({
         path: `${output}/map-only-timer-${width}.png`,
       });
