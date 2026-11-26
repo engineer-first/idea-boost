@@ -47,6 +47,8 @@ export type NoteCardProps = {
   isAdoptionFocused?: boolean;
   /** 付箋に重なる採用の当たり判定へポインターが乗っている。除外ボタンを出す。 */
   isAdoptionTargetHovered?: boolean;
+  /** 自分が今押せば決定できる付箋に「決定する」を示す。 */
+  showDecideHint?: boolean;
   // WebSocket未接続時（connecting/closed）に親から渡す。true の間は選択・
   // ドラッグ・編集開始・削除を無効化する。room-client.send() は未openだと
   // メッセージを黙って破棄するため、UI操作自体を止めないと「入力したのに
@@ -245,6 +247,7 @@ export function NoteCard({
   onClearDecision,
   isAdoptionFocused = false,
   isAdoptionTargetHovered = false,
+  showDecideHint = false,
   disabled = false,
   canEditNote,
   canDeleteNote,
@@ -1093,6 +1096,7 @@ export function NoteCard({
       onStampClick={onClearDecision}
       stampDisabled={disabled}
       isAdoptionFocused={isAdoptionFocused}
+      showDecideHint={showDecideHint}
       color={note.color}
       height={Math.min(
         maxDisplayHeight,

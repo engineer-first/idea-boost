@@ -567,6 +567,49 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
+  it("採用選択中に候補へポインターかフォーカスを合わせた間だけ、その付箋に「決定する」を示す", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isAdoptMode: true,
+      notes: [
+        buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+        buildNote({ id: "note-2", content: "候補B", visibility: "shared" }),
+      ],
+    });
+    const cardOf = (id: string) =>
+      screen
+        .getAllByTestId("note-card")
+        .find(
+          (card) => card.getAttribute("data-note-id") === id,
+        ) as HTMLElement;
+    const targetA = screen.getByRole("button", { name: "採用する付箋: 候補A" });
+    const targetB = screen.getByRole("button", { name: "採用する付箋: 候補B" });
+    expect(screen.queryByText("決定する")).not.toBeInTheDocument();
+
+    fireEvent.pointerEnter(targetA);
+    expect(within(cardOf("note-1")).getByText("決定する")).toBeVisible();
+    expect(within(cardOf("note-2")).queryByText("決定する")).toBeNull();
+    fireEvent.pointerLeave(targetA);
+    expect(screen.queryByText("決定する")).not.toBeInTheDocument();
+
+    fireEvent.focus(targetB);
+    expect(within(cardOf("note-2")).getByText("決定する")).toBeVisible();
+    fireEvent.blur(targetB);
+    expect(screen.queryByText("決定する")).not.toBeInTheDocument();
+  });
+
+  it("採用選択中でなければ、付箋に「決定する」を示さない", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isAdoptMode: false,
+      notes: [
+        buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+      ],
+    });
+    fireEvent.pointerEnter(screen.getAllByTestId("note-card")[0]);
+    expect(screen.queryByText("決定する")).not.toBeInTheDocument();
+  });
+
   it.each([buildPhaseStep(5), buildPhaseStep(4, 2), buildPhaseStep(5, 3)])(
     "%j の決定済み状態では別の候補も再採用できない",
     (phase) => {

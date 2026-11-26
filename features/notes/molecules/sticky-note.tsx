@@ -1,4 +1,5 @@
 import "./sticky-note.css";
+import { Check } from "lucide-react";
 import type * as React from "react";
 import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import type { NoteColor } from "@/contracts/room-protocol";
@@ -18,6 +19,8 @@ export type StickyNoteProps = {
   onStampClick?: () => void;
   stampDisabled?: boolean;
   isAdoptionFocused?: boolean;
+  /** 押せば決定できる付箋に、はんこと同じ緑の「決定する」の目印を出す。 */
+  showDecideHint?: boolean;
   color?: NoteColor | null;
   children: React.ReactNode;
   height?: number;
@@ -40,6 +43,7 @@ export function StickyNote({
   onStampClick,
   stampDisabled = false,
   isAdoptionFocused = false,
+  showDecideHint = false,
   color = "yellow",
   children,
   height = NOTE_HEIGHT,
@@ -60,6 +64,7 @@ export function StickyNote({
       data-decided={isDecided || undefined}
       data-decision-presentation={decisionPresentation}
       data-adoption-focused={isAdoptionFocused || undefined}
+      data-decide-hint={(showDecideHint && !isDecided) || undefined}
       data-editing={dataEditing || undefined}
       data-vote-drop-target={dataVoteDropTarget || undefined}
       data-excluded={dataExcluded || undefined}
@@ -148,6 +153,13 @@ export function StickyNote({
             決定
           </span>
         )}
+        {showDecideHint && !isDecided ? (
+          // 当たり判定は付箋全体なので、これは押せる場所の目印だけを担う。
+          <span className="sticky-note-decide-hint absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full border-2 border-state-decided bg-background px-3 py-1.5 text-sm font-bold text-state-decided-text shadow-tool">
+            <Check aria-hidden="true" className="size-4" strokeWidth={3} />
+            決定する
+          </span>
+        ) : null}
       </div>
       <div
         data-slot="sticky-note-content"

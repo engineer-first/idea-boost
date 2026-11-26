@@ -464,6 +464,12 @@ export function RoomBoardCanvas({
     null,
   );
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
+  // 自分が今クリック（Enter）すれば決定できる付箋。キーボードの選択をポインターより優先する。
+  const [adoptionKeyboardFocusNoteId, setAdoptionKeyboardFocusNoteId] =
+    useState<string | null>(null);
+  const decideHintNoteId = isAdoptMode
+    ? (adoptionKeyboardFocusNoteId ?? adoptionHoverNoteId)
+    : null;
   const selectedNote = [...notes, ...privateNotes].find(
     (note) => note.id === selectedNoteId,
   );
@@ -539,6 +545,7 @@ export function RoomBoardCanvas({
     adoptionPointerNoteIdRef.current = null;
     adoptionKeyboardNoteIdRef.current = null;
     setAdoptionHoverNoteId(null);
+    setAdoptionKeyboardFocusNoteId(null);
   }, [isAdoptMode]);
 
   function publishAdoptionFocus(): void {
@@ -563,6 +570,7 @@ export function RoomBoardCanvas({
 
   function handleAdoptionFocus(noteId: string): void {
     adoptionKeyboardNoteIdRef.current = noteId;
+    setAdoptionKeyboardFocusNoteId(noteId);
     publishAdoptionFocus();
   }
 
@@ -570,6 +578,9 @@ export function RoomBoardCanvas({
     if (adoptionKeyboardNoteIdRef.current === noteId) {
       adoptionKeyboardNoteIdRef.current = null;
     }
+    setAdoptionKeyboardFocusNoteId((current) =>
+      current === noteId ? null : current,
+    );
     publishAdoptionFocus();
   }
 
@@ -723,6 +734,9 @@ export function RoomBoardCanvas({
           adoptionFocusNoteId === note.id && decision?.noteId !== note.id
         }
         isAdoptionTargetHovered={adoptionHoverNoteId === note.id}
+        showDecideHint={
+          decideHintNoteId === note.id && decision?.noteId !== note.id
+        }
         disabled={isDisconnected}
         onSelect={(id, options) => {
           if (writingCollapsed && id) setPreviewNoteId(id);

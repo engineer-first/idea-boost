@@ -49,7 +49,7 @@ export function PhaseLoopControls({
         <Button
           type="button"
           variant="outline"
-          className="h-10 px-3 text-sm"
+          className="h-11 px-3 text-sm"
           disabled={disabled || candidateCount === 0}
         >
           もう一度投票する
