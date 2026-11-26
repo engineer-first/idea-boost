@@ -91,3 +91,7 @@ export const WithLongTheme: Story = {
 export const WithoutTheme: Story = {
   args: { roomName: null },
 };
+// ルームの状態が届く前は文言なしの枠で高さだけ保ち、「テーマ未設定」と仮表示しない。
+export const ThemeLoading: Story = {
+  args: { roomName: null, roomNameLoading: true },
+};
