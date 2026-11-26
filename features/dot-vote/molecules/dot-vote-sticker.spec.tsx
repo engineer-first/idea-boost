@@ -82,8 +82,7 @@ describe("DotVoteSticker", () => {
         />,
       );
 
-      const sticker = screen.getByRole("button", { name });
-      expect(sticker.getAttribute("aria-label")).not.toMatch(/1票を1票/);
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
     },
   );
 

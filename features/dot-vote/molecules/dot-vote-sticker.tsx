@@ -74,7 +74,7 @@ function stickerLabel(
   return `${dotVoteStickerName(kind, phase)} ${count}票`;
 }
 
-// 取り消しは1票ずつなので、貼った票数と取り消す票数を「1票を1票」と重ねない。
+// 取り消しは常に1票ずつ。2票以上貼ったときだけ、何票のうちの1票かを添える。
 function removeLabel(
   kind: DotVoteKind,
   phase: DotVotePhase,
