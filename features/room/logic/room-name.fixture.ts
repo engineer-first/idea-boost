@@ -5,6 +5,7 @@ export function buildRoomNameControls(
 ): RoomNameControls {
   return {
     name: "J05",
+    loaded: true,
     open: false,
     draft: "J05",
     pending: false,

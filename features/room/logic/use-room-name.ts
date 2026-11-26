@@ -10,6 +10,8 @@ export const ROOM_NAME_TOO_LONG_MESSAGE = `テーマは${ROOM_NAME_MAX_LENGTH}�
 
 export type RoomNameControls = {
   name: string | null;
+  // ルームの状態（snapshot）が届いたか。届く前の null は「未設定」と区別する。
+  loaded: boolean;
   open: boolean;
   draft: string;
   pending: boolean;
@@ -36,6 +38,7 @@ export function useRoomName({
 } {
   const [name, setName] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
@@ -65,6 +68,7 @@ export function useRoomName({
   }, [connected, finish]);
   return {
     name,
+    loaded,
     open,
     draft,
     pending,
@@ -127,6 +131,7 @@ export function useRoomName({
       if (message.type === "snapshot") {
         setName(message.roomName ?? null);
         setReady(message.roomName !== undefined);
+        setLoaded(true);
       }
       if (message.type === "room:renamed") {
         setName(message.name);
