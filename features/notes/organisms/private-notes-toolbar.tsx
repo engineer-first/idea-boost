@@ -25,6 +25,7 @@ import {
   NOTE_WIDTH,
 } from "@/contracts/board";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { cn } from "@/lib/utils";
 import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
@@ -1073,7 +1074,34 @@ export function PrivateNotesToolbar({
             }
           }}
         >
-          {isWorkspace && !workspaceCollapsible && exampleNotes.length > 0 ? (
+          {isWorkspace &&
+          !workspaceCollapsible &&
+          exampleNotes.length > 0 &&
+          notes.length > 0 ? (
+            // 書き始めた後は、例を1行の参照に縮めて自分の付箋に場所を譲る。
+            <section
+              aria-label="問いの例"
+              className="mx-auto mb-4 flex max-w-[var(--private-notes-grid-width)] flex-wrap justify-center gap-2"
+            >
+              {exampleNotes.map((example, index) => (
+                <p
+                  key={example}
+                  data-testid={`example-note-${index + 1}`}
+                  className="min-w-0 rounded-sm px-2 py-1 text-sm leading-5"
+                  style={{
+                    backgroundColor: NOTE_COLOR_STYLES.blue.backgroundColor,
+                    color: NOTE_COLOR_STYLES.blue.foregroundColor,
+                  }}
+                >
+                  {example}
+                </p>
+              ))}
+            </section>
+          ) : null}
+          {isWorkspace &&
+          !workspaceCollapsible &&
+          exampleNotes.length > 0 &&
+          notes.length === 0 ? (
             <section
               aria-label="問いの例"
               className={cn("mb-6 grid", workspaceGrid)}

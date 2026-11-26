@@ -201,6 +201,18 @@ export const Phase2Step1FewNotes: Story = {
     },
   },
 };
+export const Phase2Step1EightNotes: Story = {
+  ...Phase2Step1FewNotes,
+  name: "問いの下書き8枚",
+  args: {
+    ...Phase2Step1FewNotes.args,
+    interactions: {
+      ...boardMeta.args.interactions,
+      ...Phase2Step1.args?.interactions,
+      privateNotes: PRIVATE_NOTES.slice(0, 8),
+    },
+  },
+};
 export const Phase2Step1WaitingForHint: Story = {
   ...Phase2Step1FewNotes,
   name: "問いヒントの呼びかけ待ち",
