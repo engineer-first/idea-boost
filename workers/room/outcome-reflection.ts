@@ -275,7 +275,7 @@ export class OutcomeReflectionStorage {
         )
           throw new Error("回答済みの項目を再質問しています。");
         if (!(await this.completed.get(userId))) return null;
-        this.assertRevision(request.revision);
+        this.assertRevision(request.revision, locale);
         shared = {
           revision: shared.revision + 1,
           context,
@@ -317,7 +317,7 @@ export class OutcomeReflectionStorage {
         shared.truncated || clipped,
       );
       if (!(await this.completed.get(userId))) return null;
-      this.assertRevision(request.revision);
+      this.assertRevision(request.revision, locale);
       this.recordAttempt("prompt", `${localePrefix(locale)}:%:prompt:%`, locale);
       const output = PromptContentSchema.parse(
         await this.generate("prompt", input.input, locale),
@@ -350,7 +350,7 @@ export class OutcomeReflectionStorage {
         generatedAt: Date.now(),
       });
       if (!(await this.completed.get(userId))) return null;
-      this.assertRevision(request.revision);
+      this.assertRevision(request.revision, locale);
       this.write(promptKey, prompt);
       this.write(selectionStorageKey(userId, locale), request.artifact);
       return this.response(userId, shared, locale, prompt);
