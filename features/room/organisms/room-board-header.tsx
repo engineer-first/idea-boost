@@ -353,7 +353,14 @@ export function RoomBoardHeader({
         ? null
         : new ResizeObserver(updateBoardLayoutOffsets);
     observer?.observe(area);
-    if (usesIdeaMapViewport) observer?.observe(header);
+    if (usesIdeaMapViewport) {
+      observer?.observe(header);
+      // テーマの折り返しなどで現在地の欄だけが伸びても、マップを参照欄の下へ測り直す。
+      const contextHud = header.querySelector<HTMLElement>(
+        '[data-testid="board-context-hud"]',
+      );
+      if (contextHud) observer?.observe(contextHud);
+    }
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );

@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildMembers,
@@ -2345,4 +2345,23 @@ describe("今のフェーズのステップの並び", () => {
     expect(within(trail).getAllByRole("img", { name: "完了" })).toHaveLength(2);
     expect(items[2].getAttribute("aria-current")).toBe("step");
   });
+});
+
+it("2軸マップのステップでは、テーマの折り返しで現在地の欄が伸びたらマップ位置を測り直す", () => {
+  const observed: Element[] = [];
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe(element: Element): void {
+        observed.push(element);
+      }
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  );
+  onTestFinished(() => {
+    vi.unstubAllGlobals();
+  });
+  setup({ phase: buildPhaseStep(2, 3), roomName: "J05" });
+  expect(observed).toContain(screen.getByTestId("board-context-hud"));
 });
