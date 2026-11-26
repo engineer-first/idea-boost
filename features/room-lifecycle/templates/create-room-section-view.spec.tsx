@@ -4,7 +4,7 @@ import { CreateRoomSectionView } from "./create-room-section-view";
 
 it("15文字を受け付け16文字でエラーと作成不可を示す", () => {
   render(<CreateRoomSectionView onSubmit={vi.fn()} />);
-  const input = screen.getByRole("textbox", { name: "ルーム名（任意）" });
+  const input = screen.getByRole("textbox", { name: "テーマ（任意）" });
   fireEvent.change(input, { target: { value: "あ".repeat(15) } });
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   fireEvent.change(input, { target: { value: "あ".repeat(16) } });
@@ -13,4 +13,13 @@ it("15文字を受け付け16文字でエラーと作成不可を示す", () => 
   expect(
     screen.getByRole("button", { name: "新しいルームを作成" }),
   ).toBeDisabled();
+});
+
+it("入力前に、何を書けばよいかとテーマの例を示す", () => {
+  render(<CreateRoomSectionView onSubmit={vi.fn()} />);
+  const input = screen.getByRole("textbox", { name: "テーマ（任意）" });
+  expect(input).toHaveAttribute("placeholder", "例：通学で困っていること");
+  expect(input).toHaveAccessibleDescription(
+    "困りごとの形で書くと、課題を出しやすくなります。",
+  );
 });

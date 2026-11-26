@@ -393,7 +393,7 @@ describe.skipIf(!app || !api)("専用dev:verifyの実認証経路", () => {
       await page.waitForURL(`${app}/home`);
       const createCard = page.getByTestId("home-create-room");
       const roomName = createCard.getByRole("textbox", {
-        name: "ルーム名（任意）",
+        name: "テーマ（任意）",
       });
       await roomName.waitFor();
       await roomName.fill("ゲストのルーム作成検査");

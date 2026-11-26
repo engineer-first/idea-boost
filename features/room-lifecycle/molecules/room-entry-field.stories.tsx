@@ -7,8 +7,8 @@ const meta = {
   parameters: { layout: "padded" },
   args: {
     id: "room-name",
-    label: "ルーム名（任意）",
-    placeholder: "例：新しいサービスの相談",
+    label: "テーマ（任意）",
+    placeholder: "例：通学で困っていること",
   },
   decorators: [
     (Story) => (
@@ -22,7 +22,18 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const RoomName: Story = {};
+export const RoomName: Story = {
+  args: { description: "困りごとの形で書くと、課題を出しやすくなります。" },
+};
+
+// エラーが出ると、補足と同じ枠をエラーに置き換える。
+export const RoomNameTooLong: Story = {
+  args: {
+    ...RoomName.args,
+    defaultValue: "あ".repeat(16),
+    error: "テーマは15文字以内で入力してください。",
+  },
+};
 
 export const InviteCode: Story = {
   args: {

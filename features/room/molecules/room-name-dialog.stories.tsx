@@ -48,7 +48,7 @@ export const Interactive: Story = {
     const [draft, setDraft] = useState("J05");
     return (
       <>
-        <Button onClick={() => setOpen(true)}>ルーム名を変更</Button>
+        <Button onClick={() => setOpen(true)}>テーマを変更</Button>
         <RoomNameDialog
           controls={{
             ...controls,

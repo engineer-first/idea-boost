@@ -97,9 +97,7 @@ export function RoomLobbyView({
         <header className={styles.header}>
           <div className={styles.roomTitle}>
             <h1>
-              {roomName
-                ? (roomName.name ?? "名前のないルーム")
-                : "ルーム待機室"}
+              {roomName ? (roomName.name ?? "テーマ未設定") : "ルーム待機室"}
             </h1>
             {roomName ? (
               <Button
@@ -107,8 +105,8 @@ export function RoomLobbyView({
                 variant="ghost"
                 size="icon"
                 className={styles.editRoom}
-                aria-label="ルーム名を変更"
-                title="ルーム名を変更"
+                aria-label="テーマを変更"
+                title="テーマを変更"
                 disabled={roomName.disabled || roomName.pending}
                 onClick={roomName.request}
               >

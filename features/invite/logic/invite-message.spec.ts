@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildInviteMessage } from "./invite-message";
 
 describe("buildInviteMessage", () => {
-  it("ルーム名・参加リンク・招待コードを、チャットへそのまま貼れる行に並べる", () => {
+  it("テーマ・参加リンク・招待コードを、チャットへそのまま貼れる行に並べる", () => {
     expect(
       buildInviteMessage({
         roomName: "J05",
@@ -11,7 +11,8 @@ describe("buildInviteMessage", () => {
       }),
     ).toBe(
       [
-        "Idea Boost のルーム「J05」に招待します。",
+        "Idea Boost のルームに招待します。",
+        "テーマ: J05",
         "参加リンク: https://idea-flow.example/invite/AB12CD",
         "招待コード: AB12CD",
       ].join("\n"),
@@ -19,25 +20,29 @@ describe("buildInviteMessage", () => {
   });
 
   it.each([null, undefined, "", "   "])(
-    "ルーム名が無いとき（%j）は名前を出さずに案内する",
+    "テーマが無いとき（%j）はテーマの行を出さずに案内する",
     (roomName) => {
       expect(
         buildInviteMessage({
           roomName,
           inviteCode: "AB12CD",
           inviteUrl: "https://idea-flow.example/invite/AB12CD",
-        }).split("\n")[0],
-      ).toBe("Idea Boost のルームに招待します。");
+        }).split("\n"),
+      ).toEqual([
+        "Idea Boost のルームに招待します。",
+        "参加リンク: https://idea-flow.example/invite/AB12CD",
+        "招待コード: AB12CD",
+      ]);
     },
   );
 
-  it("ルーム名の前後の空白は落とす", () => {
+  it("テーマの前後の空白は落とす", () => {
     expect(
       buildInviteMessage({
         roomName: "  J05 ",
         inviteCode: "AB12CD",
         inviteUrl: "https://idea-flow.example/invite/AB12CD",
-      }).split("\n")[0],
-    ).toBe("Idea Boost のルーム「J05」に招待します。");
+      }).split("\n")[1],
+    ).toBe("テーマ: J05");
   });
 });
