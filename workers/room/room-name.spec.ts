@@ -120,7 +120,7 @@ describe("ルーム名の変更", () => {
     const before = await identity(roomId);
     for (const [name, extra] of [
       ["　 ", {}],
-      ["あ".repeat(16), {}],
+      ["あ".repeat(31), {}],
       ["J05", { roomId: crypto.randomUUID() }],
     ] as const) {
       rename(b, name, extra);
@@ -222,7 +222,7 @@ it("参加先確認の非同期待機中にセッション期限を越えた変�
   });
 });
 
-it("16文字のルーム名では新規作成できない", async () => {
+it("31文字のルーム名では新規作成できない", async () => {
   const response = await exports.default.fetch("https://api.test/api/rooms", {
     method: "POST",
     headers: {
@@ -232,13 +232,13 @@ it("16文字のルーム名では新規作成できない", async () => {
     body: JSON.stringify({
       requestId: issueCreationId().requestId,
       expectedPrincipal: A.sub,
-      name: "あ".repeat(16),
+      name: "あ".repeat(31),
     }),
   });
   expect(response.status).toBe(400);
 });
-it("15文字の名前で作成し、15文字の別名にも変更できる", async () => {
-  const name = "あ".repeat(15);
+it("30文字の名前で作成し、30文字の別名にも変更できる", async () => {
+  const name = "あ".repeat(30);
   const response = await exports.default.fetch("https://api.test/api/rooms", {
     method: "POST",
     headers: {
@@ -255,7 +255,7 @@ it("15文字の名前で作成し、15文字の別名にも変更できる", asy
   const { roomId } = await response.json<{ roomId: string }>();
   const { socket, snapshot } = await connect(A, roomId);
   expect(snapshot).toMatchObject({ roomName: name });
-  const nextName = "い".repeat(15);
+  const nextName = "い".repeat(30);
   rename(socket, nextName);
   expect(await socket.next()).toMatchObject({
     type: "room:renamed",

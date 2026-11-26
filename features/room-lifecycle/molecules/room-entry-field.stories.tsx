@@ -28,7 +28,7 @@ export const RoomName: Story = {};
 export const RoomNameTooLong: Story = {
   args: {
     defaultValue: "あ".repeat(16),
-    error: "テーマは15文字以内で入力してください。",
+    error: "テーマは30文字以内で入力してください。",
   },
 };
 
