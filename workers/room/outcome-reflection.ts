@@ -115,7 +115,7 @@ const ResearchCacheSchema = z.object({
 });
 const SHARED_KEY = "v5:shared";
 const localePrefix = (locale: AppLocale) => locale === "ja" ? "v5" : "v6:en";
-const sharedStorageKey = (locale: AppLocale) => locale === "ja" ? SHARED_KEY : "v6:en:shared";
+const researchResultKey = (revision: number, locale: AppLocale) => `${localePrefix(locale)}:result:${revision}`;
 const selectionStorageKey = (userId: string, locale: AppLocale) => `${localePrefix(locale)}:selection:${userId}`;
 
 export function buildReflectionInput(
@@ -276,17 +276,33 @@ export class OutcomeReflectionStorage {
           throw new Error("回答済みの項目を再質問しています。");
         if (!(await this.completed.get(userId))) return null;
         this.assertRevision(request.revision, locale);
-        shared = {
-          revision: shared.revision + 1,
+        const sourceChanged =
+          JSON.stringify(input.sources.map(({ id, content, scene }) => ({ id, content, scene }))) !==
+          JSON.stringify(shared.sources.map(({ id, content, scene }) => ({ id, content, scene })));
+        const contextChanged =
+          JSON.stringify(context) !== JSON.stringify(shared.context);
+        const hasResultForRevision =
+          Boolean(this.read(researchResultKey(shared.revision, "ja"))) ||
+          Boolean(this.read(researchResultKey(shared.revision, "en"))) ||
+          Boolean(shared.result);
+        const revision =
+          sourceChanged || contextChanged || !hasResultForRevision
+            ? shared.revision + 1
+            : shared.revision;
+        const generatedAt = previous?.generatedAt ?? Date.now();
+        const common = {
+          revision,
           context,
-          result,
+          result: null,
           sources: input.sources,
           truncated: input.truncated,
-          generatedAt: previous?.generatedAt ?? Date.now(),
+          generatedAt: null,
         };
         if (!previous)
-          this.write(cacheKey, { result, generatedAt: shared.generatedAt });
-        this.write(sharedStorageKey(locale), shared);
+          this.write(cacheKey, { result, generatedAt });
+        this.write(SHARED_KEY, common);
+        this.write(researchResultKey(revision, locale), { result, generatedAt });
+        shared = { ...common, result, generatedAt };
         return this.response(userId, shared, locale);
       }
       const plan = shared.result?.kind === "plan" ? shared.result : null;
@@ -364,17 +380,45 @@ export class OutcomeReflectionStorage {
     truncated = false,
     locale: AppLocale = "ja",
   ): ReflectionShared {
-    const stored = this.read(sharedStorageKey(locale));
-    return stored
-      ? ReflectionSharedSchema.parse(stored)
-      : {
-          revision: 0,
-          context: { audience: "", situation: "" },
-          result: null,
-          sources,
-          truncated,
-          generatedAt: null,
-        };
+    const stored = this.read(SHARED_KEY);
+    if (!stored) {
+      return {
+        revision: 0,
+        context: { audience: "", situation: "" },
+        result: null,
+        sources,
+        truncated,
+        generatedAt: null,
+      };
+    }
+    const common = ReflectionSharedSchema.parse(stored);
+    const localizedResult = this.read(researchResultKey(common.revision, locale));
+    const legacyJapaneseResult = locale === "ja" ? common.result : null;
+    const cached = localizedResult
+      ? ResearchCacheSchema.parse(localizedResult)
+      : null;
+    const localizedSources = common.sources.map((source) => {
+      let label = source.label;
+      if (source.id === "decision-1")
+        label = locale === "ja" ? "確定した課題" : "Confirmed problem";
+      else if (source.id === "decision-2")
+        label = locale === "ja" ? "確定した問い" : "Confirmed question";
+      else if (source.id === "decision-3")
+        label = locale === "ja" ? "採用したアイデア" : "Adopted idea";
+      else if (source.id.startsWith("problem-grouping:"))
+        label = locale === "ja" ? "課題の共有付箋" : "Shared problem notes";
+      else if (source.id.startsWith("question-decision:"))
+        label = locale === "ja" ? "問いの共有付箋" : "Shared question notes";
+      else if (source.id.startsWith("idea-mapping:"))
+        label = locale === "ja" ? "アイデアの共有付箋" : "Shared idea notes";
+      return { ...source, label };
+    });
+    return {
+      ...common,
+      sources: localizedSources,
+      result: cached?.result ?? legacyJapaneseResult,
+      generatedAt: cached?.generatedAt ?? (legacyJapaneseResult ? common.generatedAt : null),
+    };
   }
   private assertRevision(revision: number, locale: AppLocale): void {
     if (this.shared([], false, locale).revision !== revision)
