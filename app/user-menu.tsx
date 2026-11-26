@@ -1,9 +1,9 @@
 "use client";
 
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -84,7 +84,10 @@ export function UserMenu({
                 variant="ghost"
                 className="min-h-11 w-full justify-start gap-3 px-2"
               >
-                <Link href={locale === "en" ? "/en/about" : "/about"} onClick={() => setMenuOpen(false)}>
+                <Link
+                  href={locale === "en" ? "/en/about" : "/about"}
+                  onClick={() => setMenuOpen(false)}
+                >
                   {t("about")}
                 </Link>
               </Button>

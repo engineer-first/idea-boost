@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
+import { redirect } from "next/navigation";
 import {
   LoginChoice,
   sanitizeNextPath,
@@ -25,7 +25,9 @@ export async function generateMetadata({
   const { next } = await searchParams;
   const locale = await getLocale();
   if (sanitizeNextPath(next).startsWith("/invite/")) return inviteMetadata;
-  return { title: locale === "en" ? "Sign in | Idea Boost" : "ログイン | Idea Boost" };
+  return {
+    title: locale === "en" ? "Sign in | Idea Boost" : "ログイン | Idea Boost",
+  };
 }
 
 export default async function LoginPage({
@@ -47,7 +49,9 @@ export default async function LoginPage({
     <LoginChoice
       // ゲストは名前登録後にguest_nextへ進む。Google・ログイン済み時はnextのまま。
       next={sanitizeNextPath(guest_next ?? next)}
-      aboutHref={`${locale === "en" ? "/en" : ""}/about${safeNext === "/" ? "" : `?next=${encodeURIComponent(safeNext)}`}`}
+      aboutHref={`${locale === "en" ? "/en" : ""}/about${
+        safeNext === "/" ? "" : `?next=${encodeURIComponent(safeNext)}`
+      }}`}
       invited={safeNext.startsWith("/invite/")}
       error={error}
       isConfigured={isAuthConfigured()}

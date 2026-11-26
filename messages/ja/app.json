@@ -3,7 +3,7 @@
     "sloganFirst": "アイデア出しをスマートに、",
     "sloganSecond": "スムーズに。",
     "invitedNotice": "ルームに招待されています。はじめると、そのまま参加できます。",
-    "about": "Idea Boost について",
+    "about": "IdeaBoostとは？",
     "errorPrefix": "エラー",
     "retry": "もう一度お試しください。",
     "authSetup": "認証の環境設定が必要です。.env.local を確認してください。",
@@ -15,7 +15,8 @@
     "email": "メールアドレス",
     "password": "パスワード",
     "pending": "ログイン中…",
-    "devSubmit": "開発用ユーザーでログイン"
+    "devSubmit": "開発用ユーザーでログイン",
+    "guestHeading": "ゲストではじめる"
   },
   "guestName": {
     "label": "仲間に表示される名前",
@@ -48,7 +49,7 @@
     "confirmAgain": "もう一度確認する",
     "previousRooms": "以前のルーム",
     "roomErrorTitle": "操作を完了できませんでした",
-    "identityUnavailable": "このブラウザではゲストの本人情報を利用できません。"
+    "identityUnavailable": "本人確認の情報が見つからないか、期限が切れています。新しく始めると別の参加者になり、以前の付箋・投票は引き継がれません。"
   },
   "createRoom": {
     "title": "ルームを作成",
@@ -90,7 +91,7 @@
   "menu": {
     "aria": "ユーザーメニュー",
     "editDisplayName": "表示名を変更",
-    "about": "Idea Boostについて",
+    "about": "IdeaBoostについて",
     "guestSignOut": "このブラウザから本人情報を消す",
     "logout": "ログアウト"
   },

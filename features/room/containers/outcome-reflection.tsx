@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";
+import { useEffect, useRef, useState } from "react";
 import {
   type ReflectionContext,
   type ReflectionRequest,
@@ -69,7 +69,8 @@ export function OutcomeReflection({ roomId }: { roomId: string }) {
     copyGeneration.current++;
     try {
       const response = await fetch(
-        `/api/completed-rooms/${encodeURIComponent(roomId)}/reflection?locale=${locale}`,
+        `/api/completed-rooms/${encodeURIComponent(roomId)}/reflection` +
+          `?locale=${locale}`,
         {
           method: input ? "POST" : "GET",
           headers: { "Content-Type": "application/json" },

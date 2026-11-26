@@ -5,8 +5,8 @@
 // UX: 作成を主役にし、招待コードによる参加をすぐ下の段で案内する。
 
 import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { type AccountLinkResult, AccountLinkSection } from "@/features/auth";
 import {
   CreateRoomSection,
@@ -29,7 +29,7 @@ export function HomeView({
   currentUserId,
   accountLinkStatus,
   accountLinkResult,
-]}: HomeViewProps) {
+}: HomeViewProps) {
   const t = useTranslations("app.home");
   return (
     <div className={styles.home} data-testid="home-view">

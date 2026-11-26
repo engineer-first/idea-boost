@@ -76,7 +76,7 @@ it("調査・競合調査・制作物の入口を分け、手順を開くと保�
   fireEvent.click(screen.getByRole("button", { name: "調査を準備する" }));
   await waitFor(() =>
     expect(fetch).toHaveBeenCalledWith(
-      "/api/completed-rooms/room/reflection",
+      "/api/completed-rooms/room/reflection?locale=ja",
       expect.objectContaining({ method: "GET" }),
     ),
   );

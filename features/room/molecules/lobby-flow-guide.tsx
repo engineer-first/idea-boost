@@ -8,8 +8,8 @@ import {
   Stamp,
   Sticker,
 } from "lucide-react";
-import { useId } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useId } from "react";
 import {
   getLobbyFlowOverview,
   type LobbyFlowStepKind,
@@ -39,7 +39,10 @@ export type LobbyFlowGuideProps = {
 export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
   const locale = useLocale();
   const t = useTranslations("app.lobbyFlow");
-  const translate = t as (key: string, values?: Record<string, string | number>) => string;
+  const translate = t as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const overview = getLobbyFlowOverview(locale === "en" ? "en" : "ja");
   const howToTitleId = useId();
   const flowTitleId = useId();
@@ -119,7 +122,10 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                 <span>
                   {PHASE_MARKERS[phase.phase]} {phase.title}
                 </span>
-                <span className={styles.minutes}>{phase.minutes}{t("minuteSuffix")}</span>
+                <span className={styles.minutes}>
+                  {phase.minutes}
+                  {t("minuteSuffix")}
+                </span>
               </h3>
               <ol className={styles.steps}>
                 {phase.steps.map((step) => {
@@ -137,7 +143,9 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                         <span className={styles.number}>{step.number}</span>{" "}
                         {translate(`steps.${step.number}.name`)}
                       </span>
-                      <span className={styles.action}>{translate(`steps.${step.number}.action`)}</span>
+                      <span className={styles.action}>
+                        {translate(`steps.${step.number}.action`)}
+                      </span>
                       <span className={styles.minutes}>{step.minutes}分</span>
                     </li>
                   );

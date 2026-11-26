@@ -51,11 +51,11 @@ export default async function RootLayout({
       <body className="flex h-full flex-col overflow-hidden">
         <NextIntlClientProvider locale={locale} messages={messages}>
           {user ? (
-          <AppHeader
-            currentUserId={user.sub}
-            sessionKind={user.kind}
-            userName={displayName?.ok ? (displayName.name ?? "") : ""}
-          />
+            <AppHeader
+              currentUserId={user.sub}
+              sessionKind={user.kind}
+              userName={displayName?.ok ? (displayName.name ?? "") : ""}
+            />
           ) : null}
           {/* ヘッダー以外の領域。画面全体のスクロールは禁止し、必要なら各ページ内で制御する */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

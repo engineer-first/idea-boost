@@ -1,9 +1,9 @@
 "use client";
 
 import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useId, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 import { isLobby, type RoomPhase } from "@/contracts/phase";
@@ -68,7 +68,7 @@ export function RoomLobbyView({
   roomName,
   avatarChange,
   connectedUserIds,
-]}: RoomLobbyViewProps) {
+}: RoomLobbyViewProps) {
   const locale = useLocale();
   const t = useTranslations("app.lobby");
   const isRemovingMember = memberRemoval?.pending ?? false;
@@ -100,7 +100,9 @@ export function RoomLobbyView({
         <header className={styles.header}>
           <div className={styles.roomTitle}>
             <h1>
-              {roomName ? (roomName.name ?? t("unsetTheme")) : t("roomFallback")}
+              {roomName
+              ? (roomName.name ?? t("unsetTheme"))
+              : t("roomFallback")}
             </h1>
             {roomName ? (
               <Button
@@ -122,7 +124,10 @@ export function RoomLobbyView({
             data-testid="room-lobby-view-member-count"
           >
             <Users size={18} aria-hidden="true" />
-            {new Intl.NumberFormat(locale === "en" ? "en-US" : "ja-JP").format(members.length)} {t("memberSuffix")}
+            {new Intl.NumberFormat(
+              locale === "en" ? "en-US" : "ja-JP",
+            ).format(members.length)}{" "}
+            {t("memberSuffix")}
           </span>
         </header>
 
@@ -152,7 +157,9 @@ export function RoomLobbyView({
                 // 句の間にブラウザが空白を挟まないよう、名前は一続きで渡す。
                 aria-label={
                   members.length <= 4
-                    ? `${t("readyHeadingFirst")}${locale === "en" ? " " : ""}${t("readyHeadingSecond")}`
+                    ? `${t("readyHeadingFirst")}${
+                        locale === "en" ? " " : ""
+                      }${t("readyHeadingSecond")}`
                     : undefined
                 }
               >
@@ -218,7 +225,9 @@ export function RoomLobbyView({
                 className={styles.inviteTitle}
                 id={inviteTitleId}
                 // <wbr> の前後に空白を挟まないよう、名前は一続きで渡す。
-                aria-label={`${t("inviteHeadingFirst")}${locale === "en" ? " " : ""}${t("inviteHeadingSecond")}`}
+                aria-label={`${t("inviteHeadingFirst")}${
+                  locale === "en" ? " " : ""
+                }${t("inviteHeadingSecond")}`}
               >
                 {/* 狭い列でも「招／待」と語の途中で折り返さない。 */}
                 {t("inviteHeadingFirst")}

@@ -15,7 +15,8 @@
     "email": "Email address",
     "password": "Password",
     "pending": "Signing in…",
-    "devSubmit": "Sign in as a developer user"
+    "devSubmit": "Sign in as a developer user",
+    "guestHeading": "Start as a guest"
   },
   "guestName": {
     "label": "Name shown to teammates",

@@ -5,7 +5,10 @@ import { RouteStatusView } from "./route-status-view";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   return {
-    title: locale === "en" ? "Page not found | Idea Boost" : "ページが見つかりません | Idea Boost",
+    title:
+      locale === "en"
+        ? "Page not found | Idea Boost"
+        : "ページが見つかりません | Idea Boost",
   };
 }
 

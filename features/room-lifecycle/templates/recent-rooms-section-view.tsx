@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { RecentRoom } from "@/contracts/recent-rooms";
 
@@ -39,7 +39,11 @@ function RoomRow({ room }: { room: RecentRoom }) {
         <span className="text-sm text-muted-foreground">
           {room.status === "active"
             ? t("active")
-            : `${t("completed")}${room.completedAt ? ` · ${formatCompletedDate(room.completedAt, locale)}` : ""}`}
+            : `${t("completed")}${
+                room.completedAt
+                  ? `${locale === "ja" ? "・" : " · "}${formatCompletedDate(room.completedAt, locale)}`
+                  : ""
+              }`}
         </span>
       </span>
       <ArrowRight className="size-4 shrink-0" aria-hidden />

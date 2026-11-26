@@ -7,8 +7,8 @@ import {
   ShieldAlert,
   UserRound,
 } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import {
   type ReactNode,
   useActionState,
@@ -173,7 +173,7 @@ export function LoginCard({
               tabIndex={-1}
               className="text-lg font-semibold focus:outline-none"
             >
-              {guestStartLabel}
+              {t("guestHeading")}
             </h2>
             {guestForm}
             <button

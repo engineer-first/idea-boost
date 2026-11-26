@@ -1,9 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import { server } from "./app/mocks/node";
 import appMessages from "./messages/ja/app.json";
 import landingMessages from "./messages/ja/landing.json";
-import { server } from "./app/mocks/node";
 
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
@@ -13,7 +13,6 @@ afterEach(() => server.resetHandlers());
 afterEach(() => cleanup());
 afterAll(() => server.close());
 
-
 // UI components use the Japanese messages by default in unit tests.
 // Individual tests can override these mocks when they need another locale.
 const testMessages = { app: appMessages, landing: landingMessages };
@@ -22,7 +21,9 @@ vi.mock("next-intl", async (importOriginal) => {
   return {
     ...actual,
     useLocale: () => "ja",
-    useTranslations: (namespace: string) => (key: string, values?: Record<string, string | number>) => {
+    useTranslations:
+      (namespace: string) =>
+      (key: string, values?: Record<string, string | number>) => {
       const value = namespace.split(".").reduce<unknown>((current, part) => {
         if (typeof current !== "object" || current === null) return undefined;
         return (current as Record<string, unknown>)[part];
@@ -33,7 +34,8 @@ vi.mock("next-intl", async (importOriginal) => {
       }, value);
       if (typeof message !== "string") return key;
       return Object.entries(values ?? {}).reduce(
-        (text, [name, replacement]) => text.replaceAll(`{${name}}`, String(replacement)),
+        (text, [name, replacement]) =>
+          text.replaceAll(`{${name}}`, String(replacement)),
         message,
       );
     },
