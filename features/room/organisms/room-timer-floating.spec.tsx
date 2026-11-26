@@ -118,6 +118,235 @@ describe("フローティングタイマー", () => {
       vi.unstubAllGlobals();
     }
   });
+  it("中央付近へドラッグして離すと、その場に留まらず作業領域の最寄りの端へ寄る", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.dataset.testid === "room-board-view-root")
+          return new DOMRect(0, 0, 1280, 720);
+        if (this.dataset.testid === "board-control-hud")
+          return new DOMRect(900, 12, 368, 56);
+        return new DOMRect(0, 0, 0, 0);
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().width;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().height;
+      },
+    );
+    const view = render(
+      <div data-testid="room-board-view-root">
+        <div data-testid="board-control-hud" />
+        <RoomTimer {...props()} />
+      </div>,
+    );
+    try {
+      const floating = screen.getByTestId("timer-floating");
+      expect(floating.style.left).toBe("1196px");
+      expect(floating.style.top).toBe("80px");
+      fireEvent.pointerDown(floating, {
+        pointerId: 1,
+        button: 0,
+        clientX: 1232,
+        clientY: 116,
+      });
+      fireEvent.pointerMove(floating, {
+        pointerId: 1,
+        clientX: 700,
+        clientY: 400,
+      });
+      // ドラッグ中は指に付いてくる
+      expect(floating.style.left).toBe("664px");
+      expect(floating.style.top).toBe("364px");
+      fireEvent.pointerUp(floating, { pointerId: 1 });
+      // 下端が最も近いので、横位置を保って下端へ寄る
+      expect(floating.style.left).toBe("664px");
+      expect(floating.style.top).toBe("636px");
+    } finally {
+      view.unmount();
+      vi.restoreAllMocks();
+    }
+  });
+  it("上中央のステップ表示の近くで離しても、ステップ表示に重ねず上端の空きへ寄る", () => {
+    const trail = new DOMRect(400, 0, 480, 120);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.dataset.testid === "room-board-view-root")
+          return new DOMRect(0, 0, 1280, 720);
+        if (this.dataset.testid === "board-control-hud")
+          return new DOMRect(900, 12, 368, 56);
+        if (this.dataset.testid === "phase-step-trail") return trail;
+        return new DOMRect(0, 0, 0, 0);
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().width;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().height;
+      },
+    );
+    const view = render(
+      <div data-testid="room-board-view-root">
+        <div data-testid="board-control-hud" />
+        <div data-testid="phase-step-trail" />
+        <RoomTimer {...props()} />
+      </div>,
+    );
+    try {
+      const floating = screen.getByTestId("timer-floating");
+      fireEvent.pointerDown(floating, {
+        pointerId: 1,
+        button: 0,
+        clientX: 1232,
+        clientY: 116,
+      });
+      fireEvent.pointerMove(floating, {
+        pointerId: 1,
+        clientX: 640,
+        clientY: 200,
+      });
+      fireEvent.pointerUp(floating, { pointerId: 1 });
+      const left = Number.parseFloat(floating.style.left);
+      const top = Number.parseFloat(floating.style.top);
+      const overlapsTrail =
+        left < trail.right &&
+        left + 72 > trail.left &&
+        top < trail.bottom &&
+        top + 72 > trail.top;
+      expect(overlapsTrail).toBe(false);
+      // その場（top 164）に残らず、ステップ表示の横の上端へ寄る
+      expect(top).toBe(12);
+    } finally {
+      view.unmount();
+      vi.restoreAllMocks();
+    }
+  });
+  it("端へ寄せた後に作業領域が広がっても、同じ辺に付け直す。寄る途中に掴み直すと動きの印を外す", () => {
+    let rootRect = new DOMRect(0, 0, 1280, 720);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.dataset.testid === "room-board-view-root") return rootRect;
+        if (this.dataset.testid === "board-control-hud")
+          return new DOMRect(900, 12, 368, 56);
+        return new DOMRect(0, 0, 0, 0);
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().width;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().height;
+      },
+    );
+    const view = render(
+      <div data-testid="room-board-view-root">
+        <div data-testid="board-control-hud" />
+        <RoomTimer {...props()} />
+      </div>,
+    );
+    try {
+      const floating = screen.getByTestId("timer-floating");
+      fireEvent.pointerDown(floating, {
+        pointerId: 1,
+        button: 0,
+        clientX: 1232,
+        clientY: 116,
+      });
+      fireEvent.pointerMove(floating, {
+        pointerId: 1,
+        clientX: 700,
+        clientY: 400,
+      });
+      fireEvent.pointerUp(floating, { pointerId: 1 });
+      expect(floating.style.top).toBe("636px");
+      expect(floating.dataset.snapping).toBe("true");
+      fireEvent.pointerDown(floating, {
+        pointerId: 2,
+        button: 0,
+        clientX: 700,
+        clientY: 672,
+      });
+      expect(floating.dataset.snapping).toBeUndefined();
+      fireEvent.pointerUp(floating, { pointerId: 2 });
+      rootRect = new DOMRect(0, 0, 1280, 900);
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      // 下端に寄せたので、高さが増えても新しい下端に付く
+      expect(floating.style.top).toBe("816px");
+      expect(floating.style.left).toBe("664px");
+    } finally {
+      view.unmount();
+      vi.restoreAllMocks();
+    }
+  });
+  it("端へ寄せた後に案内が広がり終えたら、測り直して重ならない位置へずらす", () => {
+    let bubble = new DOMRect(0, 0, 0, 0);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.dataset.testid === "room-board-view-root")
+          return new DOMRect(0, 0, 1280, 720);
+        if (this.dataset.testid === "board-control-hud")
+          return new DOMRect(900, 12, 368, 56);
+        if (this.dataset.testid === "board-character-bubble") return bubble;
+        return new DOMRect(0, 0, 0, 0);
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().width;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().height;
+      },
+    );
+    const view = render(
+      <div data-testid="room-board-view-root">
+        <div data-testid="board-control-hud" />
+        <div data-testid="board-character-bubble" />
+        <RoomTimer {...props()} />
+      </div>,
+    );
+    try {
+      const floating = screen.getByTestId("timer-floating");
+      fireEvent.pointerDown(floating, {
+        pointerId: 1,
+        button: 0,
+        clientX: 1232,
+        clientY: 116,
+      });
+      fireEvent.pointerMove(floating, {
+        pointerId: 1,
+        clientX: 640,
+        clientY: 100,
+      });
+      fireEvent.pointerUp(floating, { pointerId: 1 });
+      expect(floating.style.top).toBe("12px");
+      expect(floating.style.left).toBe("604px");
+      // 吹き出しが広がり終えて、上端のタイマーに届いた
+      bubble = new DOMRect(400, 0, 400, 60);
+      fireEvent.animationEnd(screen.getByTestId("board-character-bubble"));
+      const left = Number.parseFloat(floating.style.left);
+      expect(left + 72 <= 400 - 12 || left >= 800 + 12).toBe(true);
+      expect(floating.style.top).toBe("12px");
+    } finally {
+      view.unmount();
+      vi.restoreAllMocks();
+    }
+  });
   it("稼働中は残り時間を読み上げられ、時間設定や延長・進行操作を表示しない", () => {
     render(<RoomTimer {...props()} />);
     expect(screen.getByRole("timer")).toHaveAccessibleName(/02:30/);

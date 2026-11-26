@@ -335,6 +335,12 @@
 }
 /* 動きを減らす設定では動かさず、外枠と札の色・太さだけで伝える */
 @media (prefers-reduced-motion: no-preference) {
+  /* ドラッグを離したあと、作業領域の端まで滑らかに寄る */
+  .floating[data-snapping="true"] {
+    transition:
+      left 200ms ease-out,
+      top 200ms ease-out;
+  }
   .floating:not([data-timer-expanded="true"])[data-urgency="minute"] {
     animation: timer-nudge 600ms ease-in-out 2;
   }

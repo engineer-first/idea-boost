@@ -9,14 +9,25 @@ import {
 import { NOTE_HEIGHT } from "@/contracts/board";
 import {
   placeRoomTimer,
+  snapRoomTimer,
+  type TimerEdge,
   type TimerPosition,
   type TimerRect,
+  timerEdge,
 } from "./timer-position";
 
 const OBSTACLES =
   '[data-testid="step-one-onboarding-trigger"], [data-testid="board-control-hud"], [data-testid="board-context-hud"], [data-testid="board-location-card"], [data-testid="private-notes-toolbar"], [data-testid="canvas-zoom-hud"], [data-testid="board-tools-hud"], [data-testid="idea-map-size-controls-hud"], [data-testid="board-connection-status"], [data-private-writing-hint] [data-testid="board-character-bubble"]';
+/**
+ * 端へ寄せるときだけ避ける、画面の上下中央の案内。
+ * 初期配置（右上）とマイ付箋の段組みには関わらないので、通常の配置計算には含めない。
+ */
+const SNAP_OBSTACLES =
+  '[data-testid="phase-step-trail"], [data-testid="board-character"], [data-testid="board-character-bubble"], [data-testid="sharing-current-presenter"], [data-testid="phase-loop-hud"] > *';
 const MIN_PRIVATE_COMPOSER_WIDTH = 192;
 const PRIVATE_WRITING_HEADER_SPACE = 136;
+/** 端へ寄る動きの印を外すまでの時間。room-timer.module.css の transition（200ms）より少し長くする */
+const SNAP_SETTLE_MS = 240;
 
 export function useFloatingTimer(
   ref: RefObject<HTMLElement | null>,
@@ -42,7 +53,19 @@ export function useFloatingTimer(
   const targetRef = useRef(targetWidth);
   const velocity = useRef(0);
 
-  const layout = (width = targetRef.current, settle = true) => {
+  const snapTimeout = useRef(0);
+  /** ドラッグで寄せた辺。再配置でも同じ辺に付け直す。キー移動で外す */
+  const snappedEdge = useRef<TimerEdge | null>(null);
+  const stopSnapMotion = () => {
+    window.clearTimeout(snapTimeout.current);
+    if (ref.current) delete ref.current.dataset.snapping;
+  };
+
+  const layout = (
+    width = targetRef.current,
+    settle = true,
+    dropped = false,
+  ) => {
     const element = ref.current;
     if (!element) return;
     const root = element.closest<HTMLElement>(
@@ -117,14 +140,38 @@ export function useFloatingTimer(
           moved.current || node.dataset.testid !== "private-notes-toolbar",
       )
       .map((node) => node.getBoundingClientRect());
+    const snap =
+      settle && moved.current && (dropped || snappedEdge.current !== null);
+    if (snap)
+      for (const node of root?.querySelectorAll<HTMLElement>(SNAP_OBSTACLES) ??
+        [])
+        if (node.offsetWidth > 0 && node.offsetHeight > 0)
+          obstacles.push(node.getBoundingClientRect());
     if (!position.current || !moved.current) position.current = initial;
-    if (settle)
+    if (snap) {
+      position.current = snapRoomTimer(
+        position.current,
+        width,
+        bounds,
+        obstacles,
+        dropped ? undefined : (snappedEdge.current ?? undefined),
+      );
+      snappedEdge.current = timerEdge(position.current, width, bounds);
+    } else if (settle)
       position.current = placeRoomTimer(
         position.current,
         width,
         bounds,
         obstacles,
       );
+    if (dropped) {
+      // 離した位置から端までを滑らかに移す。動きを減らす設定では CSS 側で即座に移る。
+      element.dataset.snapping = "true";
+      window.clearTimeout(snapTimeout.current);
+      snapTimeout.current = window.setTimeout(() => {
+        delete element.dataset.snapping;
+      }, SNAP_SETTLE_MS);
+    }
     element.style.left = `${position.current.right - width}px`;
     element.style.top = `${position.current.top}px`;
   };
@@ -191,7 +238,11 @@ export function useFloatingTimer(
       : null;
     if (root) mutations?.observe(root, { childList: true, subtree: true });
     window.addEventListener("resize", update);
+    // 案内の吹き出しは縮んだ状態から広がって出る。広がり終えた大きさで測り直す
+    root?.addEventListener("animationend", update);
     return () => {
+      root?.removeEventListener("animationend", update);
+      window.clearTimeout(snapTimeout.current);
       observer?.disconnect();
       mutations?.disconnect();
       window.removeEventListener("resize", update);
@@ -203,6 +254,8 @@ export function useFloatingTimer(
 
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
     if (event.button !== 0 || !position.current) return;
+    // 寄っている途中に掴み直したら、動きを止めて指に付ける
+    stopSnapMotion();
     drag.current = {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -234,9 +287,11 @@ export function useFloatingTimer(
   };
   const onPointerEnd = (event: PointerEvent<HTMLElement>) => {
     if (drag.current?.pointerId !== event.pointerId) return;
+    const dropped = drag.current.active;
     drag.current = null;
     setDragging(false);
-    layoutRef.current();
+    // ドラッグして離したときだけ、作業領域の最寄りの端へ寄せる
+    layoutRef.current(undefined, true, dropped);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (
@@ -247,6 +302,7 @@ export function useFloatingTimer(
       return;
     event.preventDefault();
     moved.current = true;
+    snappedEdge.current = null;
     position.current = {
       right:
         position.current.right +

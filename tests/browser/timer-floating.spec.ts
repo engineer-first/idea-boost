@@ -19,6 +19,29 @@ async function rect(page: Page, id: string) {
   if (!r) throw new Error(`${id}が表示されません`);
   return r;
 }
+/** 離した後、端へ寄る動きが終わってからの位置を読む */
+async function settledTimer(page: Page) {
+  await expect
+    .poll(() =>
+      page.getByTestId("timer-floating").getAttribute("data-snapping"),
+    )
+    .toBeNull();
+  return rect(page, "timer-floating");
+}
+/** 作業領域（幅×高さ）のどれかの辺から12pxの所に接しているか */
+function touchesEdge(
+  r: { x: number; y: number; width: number; height: number },
+  width: number,
+  height: number,
+) {
+  const near = (a: number, b: number) => Math.abs(a - b) <= 1;
+  return (
+    near(r.x, 12) ||
+    near(r.x + r.width, width - 12) ||
+    near(r.y, 12) ||
+    near(r.y + r.height, height - 12)
+  );
+}
 
 test.each(widths(1280, 390))(
   "幅%dで時間切れ後の1分延長とドラッグを操作できる",
@@ -73,11 +96,16 @@ test.each(widths(1280, 390))(
       expect(before.height).toBeCloseTo(72);
       await page.mouse.move(before.x + 28, before.y + 28);
       await page.mouse.down();
-      await page.mouse.move(before.x - 100, before.y + 100, { steps: 10 });
+      // 円の上で動かし始めてから運ぶ（最初の一歩で円の外へ出るとドラッグにならない）
+      await page.mouse.move(before.x + 12, before.y + 44, { steps: 2 });
+      await page.mouse.move(width / 2, 450, { steps: 20 });
       await page.mouse.up();
-      const after = await rect(page, "timer-floating");
-      expect(after.x).toBeLessThan(before.x);
-      expect(after.y).toBeGreaterThan(before.y);
+      // 画面中央で離すと、中央に残らず最寄りの端へ寄る
+      const after = await settledTimer(page);
+      expect(touchesEdge(after, width, 900)).toBe(true);
+      expect(
+        Math.abs(after.x - before.x) + Math.abs(after.y - before.y),
+      ).toBeGreaterThan(100);
       expect(await circle.getAttribute("data-status")).toBe("running");
     } finally {
       await page.close();
@@ -184,7 +212,7 @@ test.each(widths(1280, 768, 390))(
       await page.mouse.down();
       await page.mouse.move(notes.x + 40, notes.y + 40, { steps: 12 });
       await page.mouse.up();
-      const parked = await rect(page, "timer-floating");
+      const parked = await settledTimer(page);
       const overlaps =
         parked.x < notes.x + notes.width &&
         parked.x + parked.width > notes.x &&
@@ -193,6 +221,47 @@ test.each(widths(1280, 768, 390))(
       expect(overlaps).toBe(false);
       expect(parked.x).toBeGreaterThanOrEqual(0);
       expect(parked.x + parked.width).toBeLessThanOrEqual(width);
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test.each(widths(1280, 1024))(
+  "幅%dで上中央のステップ表示の近くで離しても、ステップ表示に重ねず端へ寄る",
+  async (width) => {
+    const page = await browser.newPage({
+      viewport: { width, height: 900 },
+      reducedMotion: "reduce",
+    });
+    try {
+      await story(page, "room-roomboardview--floating-timer-running");
+      const trail = await rect(page, "phase-step-trail");
+      const timer = await rect(page, "timer-floating");
+      await page.mouse.move(timer.x + 28, timer.y + 28);
+      await page.mouse.down();
+      await page.mouse.move(timer.x + 12, timer.y + 44, { steps: 2 });
+      await page.mouse.move(
+        trail.x + trail.width / 2,
+        trail.y + trail.height + 60,
+        { steps: 12 },
+      );
+      await page.mouse.up();
+      const parked = await settledTimer(page);
+      const overlaps =
+        parked.x < trail.x + trail.width &&
+        parked.x + parked.width > trail.x &&
+        parked.y < trail.y + trail.height &&
+        parked.y + parked.height > trail.y;
+      expect(overlaps).toBe(false);
+      const root = await rect(page, "room-board-view-root");
+      expect(
+        touchesEdge(
+          { ...parked, x: parked.x - root.x, y: parked.y - root.y },
+          root.width,
+          root.height,
+        ),
+      ).toBe(true);
     } finally {
       await page.close();
     }
