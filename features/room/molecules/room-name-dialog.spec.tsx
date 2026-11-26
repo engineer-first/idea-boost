@@ -25,20 +25,20 @@ it("入力・保存・キャンセルを接続し、保存中は入力と二重�
   expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
 });
 
-it("15文字では案内せず16文字でエラーを出して保存を止め、短くすると解除する", () => {
+it("30文字では案内せず31文字でエラーを出して保存を止め、短くすると解除する", () => {
   const controls = buildRoomNameControls({
     open: true,
-    draft: "あ".repeat(15),
+    draft: "あ".repeat(30),
     onConfirm: vi.fn(),
   });
   const { rerender } = render(<RoomNameDialog controls={controls} />);
-  expect(screen.queryByText(/15文字以内/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/30文字以内/)).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "保存する" })).toBeEnabled();
   rerender(
-    <RoomNameDialog controls={{ ...controls, draft: "あ".repeat(16) }} />,
+    <RoomNameDialog controls={{ ...controls, draft: "あ".repeat(31) }} />,
   );
-  expect(screen.getByRole("textbox")).toHaveValue("あ".repeat(16));
-  expect(screen.getByRole("alert")).toHaveTextContent("15文字以内");
+  expect(screen.getByRole("textbox")).toHaveValue("あ".repeat(31));
+  expect(screen.getByRole("alert")).toHaveTextContent("30文字以内");
   expect(screen.getByRole("button", { name: "保存する" })).toBeDisabled();
   const form = screen.getByRole("textbox").closest("form");
   if (!form) throw new Error("入力フォームがありません");

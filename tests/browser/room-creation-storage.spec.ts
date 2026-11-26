@@ -280,14 +280,14 @@ it("移動中の通知は同じタブのBroadcastChannelからも確認を再開
 });
 
 it.each(["prepared", "submitted", "legacy"] as const)(
-  "旧上限80文字の%s控えは先頭15文字に短縮して復元・一覧取得できる",
+  "旧上限80文字の%s控えは先頭30文字に短縮して復元・一覧取得できる",
   async (kind) => {
     const p = await tab();
     const user = crypto.randomUUID();
     const value = {
       ...record(),
       expectedPrincipal: user,
-      name: `${"あ".repeat(14)}😀${"あ".repeat(64)}`,
+      name: `${"あ".repeat(29)}😀${"あ".repeat(49)}`,
       state:
         kind === "prepared" ? ("prepared" as const) : ("submitted" as const),
     };
@@ -326,7 +326,7 @@ it.each(["prepared", "submitted", "legacy"] as const)(
         user,
       ),
     ).toMatchObject({
-      name: value.name.slice(0, 15).replace(/[\uD800-\uDBFF]$/, ""),
+      name: value.name.slice(0, 30).replace(/[\uD800-\uDBFF]$/, ""),
       requestId: value.requestId,
     });
     expect(
@@ -336,7 +336,7 @@ it.each(["prepared", "submitted", "legacy"] as const)(
       ),
     ).toEqual([
       expect.objectContaining({
-        name: value.name.slice(0, 15).replace(/[\uD800-\uDBFF]$/, ""),
+        name: value.name.slice(0, 30).replace(/[\uD800-\uDBFF]$/, ""),
       }),
     ]);
     await p.close();

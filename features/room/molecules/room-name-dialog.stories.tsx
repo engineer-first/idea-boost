@@ -65,5 +65,5 @@ export const Interactive: Story = {
 };
 
 export const TooLong: Story = {
-  args: { controls: { ...controls, draft: "あ".repeat(16) } },
+  args: { controls: { ...controls, draft: "あ".repeat(31) } },
 };
