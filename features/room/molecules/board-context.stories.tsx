@@ -57,8 +57,10 @@ export const HmwWriting: Story = {
   },
 };
 export const AfterWriting: Story = {
+  // 3-2は閉じて入るため、問いの付箋の見た目を確かめるよう開いた状態を指定する。
   args: {
     phase: buildPhaseStep(2, 3),
+    initialDisclosureId: "hmw",
   },
 };
 
