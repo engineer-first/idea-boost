@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "next-intl";
 import {
   type ReflectionContext,
   type ReflectionRequest,
@@ -12,6 +13,7 @@ import {
 } from "../molecules/outcome-reflection-view";
 
 export function OutcomeReflection({ roomId }: { roomId: string }) {
+  const locale = useLocale();
   const [section, setSection] = useState<ReflectionSection | null>(null);
   const [data, setData] = useState<ReflectionResponse | null>(null);
   const [context, setContext] = useState<ReflectionContext>({
@@ -67,7 +69,7 @@ export function OutcomeReflection({ roomId }: { roomId: string }) {
     copyGeneration.current++;
     try {
       const response = await fetch(
-        `/api/completed-rooms/${encodeURIComponent(roomId)}/reflection`,
+        `/api/completed-rooms/${encodeURIComponent(roomId)}/reflection?locale=${locale}`,
         {
           method: input ? "POST" : "GET",
           headers: { "Content-Type": "application/json" },

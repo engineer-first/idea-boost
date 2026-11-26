@@ -1,3 +1,4 @@
+import type { AppLocale } from "../../contracts/app-locale";
 import type {
   ReflectionRequest,
   ReflectionResponse,
@@ -265,7 +266,7 @@ export class RoomDO extends DurableObject {
     this.reflection = new OutcomeReflectionStorage(
       ctx,
       this.completed,
-      (mode, input) => generateReflection(env.AI, mode, input),
+      (mode, input, locale) => generateReflection(env.AI, mode, input, locale),
     );
     // スキーマは room-do-migrations/ の版管理で管理する。
     // マイグレーション完了までイベント配信を止め、移行中のストレージに
@@ -1154,8 +1155,9 @@ export class RoomDO extends DurableObject {
   async getOutcomeReflection(
     userId: string,
     request: ReflectionRequest | null,
+    locale: AppLocale = "ja",
   ): Promise<ReflectionResponse | null> {
-    return this.reflection.readOrGenerate(userId, request);
+    return this.reflection.readOrGenerate(userId, request, locale);
   }
 
   async getCompletedBoard(

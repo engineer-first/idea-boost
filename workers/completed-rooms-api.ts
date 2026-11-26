@@ -3,6 +3,7 @@ import {
   type CompletedRoomsResponse,
   CompletedSceneKindSchema,
 } from "../contracts/completed-rooms";
+import { AppLocaleSchema } from "../contracts/app-locale";
 import { isUuid } from "../contracts/ids";
 import { ReflectionRequestSchema } from "../contracts/outcome-reflection";
 import type { ApiWorkerEnv } from "./api-worker";
@@ -75,6 +76,8 @@ export async function handleCompletedRooms(
     /^\/api\/completed-rooms\/([^/]+)\/reflection$/,
   );
   if (reflection) {
+    const localeResult = AppLocaleSchema.safeParse(url.searchParams.get("locale") ?? "ja");
+    const locale = localeResult.success ? localeResult.data : "ja";
     if (!["GET", "POST"].includes(request.method))
       return completedJson({ error: "利用できない操作です。" }, 405);
     if (
@@ -102,7 +105,7 @@ export async function handleCompletedRooms(
     try {
       const result = await env.ROOM_DO.get(
         env.ROOM_DO.idFromName(reflection[1]),
-      ).getOutcomeReflection(userId, parsed?.success ? parsed.data : null);
+      ).getOutcomeReflection(userId, parsed?.success ? parsed.data : null, locale);
       return result ? completedJson(result) : notFound();
     } catch (cause) {
       if (

@@ -41,7 +41,7 @@ export async function POST(
     );
   const { id } = await context.params;
   return proxyCompletedRooms(
-    `/api/completed-rooms/${encodeURIComponent(id)}/reflection`,
+    `/api/completed-rooms/${encodeURIComponent(id)}/reflection${new URL(request.url).search}`,
     request.signal,
     JSON.stringify(result.data),
   );
