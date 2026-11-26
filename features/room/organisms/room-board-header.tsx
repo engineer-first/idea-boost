@@ -655,6 +655,7 @@ export function RoomBoardHeader({
               decidedHmw={decidedHmw}
               issueReference={issueReference}
               hmwReference={hmwReference}
+              roomName={roomName ?? null}
               guideControl={
                 <StepOneOnboardingSlide
                   phaseKey={
@@ -1159,8 +1160,10 @@ export function RoomBoardHeader({
                   <MoreHorizontal aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
+              {/* 右端を操作欄の外枠＋円形タイマーの外枠（2px）まで広げ、開いたメニューの横からタイマーがはみ出さないようにする。 */}
               <PopoverContent
                 ref={roomMenuContentRef}
+                alignOffset={-9}
                 className={
                   isPhaseOnePrivateNoteEntry ? "z-[70] w-80 p-2" : "w-80 p-2"
                 }

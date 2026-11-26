@@ -939,6 +939,16 @@ describe("RoomBoardHeader", () => {
       ).toHaveTextContent("AB12CD");
     });
 
+    it("作業画面ではメニューを開かなくてもテーマを確認できる", () => {
+      setup({ roomName: "J05" });
+      expect(screen.getByTestId("board-room-theme")).toHaveTextContent(
+        "テーマ：J05",
+      );
+      expect(
+        screen.queryByRole("dialog", { name: "ルームメニュー" }),
+      ).not.toBeInTheDocument();
+    });
+
     it("ルームメニューの招待から、テーマ・参加リンク・招待コードを含む招待文をコピーできる", async () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
       const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
@@ -2109,9 +2119,12 @@ it("参加者はルームメニューで現在名と変更入口を確認でき�
   const onRenameRoom = vi.fn();
   const props = setupProps({ roomName: "J05", onRenameRoom });
   const { rerender } = render(<RoomBoardHeader {...props} />);
-  expect(screen.queryByText("J05")).not.toBeInTheDocument();
   openRoomMenu();
-  expect(screen.getByText("J05")).toBeInTheDocument();
+  expect(
+    within(screen.getByRole("dialog", { name: "ルームメニュー" })).getByText(
+      "J05",
+    ),
+  ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "テーマを変更" }));
   expect(onRenameRoom).toHaveBeenCalledOnce();
   rerender(<RoomBoardHeader {...props} outcomePublished />);

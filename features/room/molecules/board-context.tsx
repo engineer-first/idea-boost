@@ -26,6 +26,8 @@ export type BoardContextProps = {
   hmwReference?: Carryover | null;
   // 現在地カードの中、現在地ボタンの右に並べる操作（「進め方」）。
   guideControl?: ReactNode;
+  // 作業中に「テーマ何だっけ」とメニューを開かずに済むよう常に見せる。渡さない画面では出さない。
+  roomName?: string | null;
 };
 
 export function BoardContext({
@@ -37,6 +39,7 @@ export function BoardContext({
   issueReference,
   hmwReference,
   guideControl,
+  roomName,
 }: BoardContextProps) {
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
   // 2軸マップのステップは、前のステップで開いたカードを持ち越さず閉じて入る。
@@ -95,6 +98,22 @@ export function BoardContext({
         outcomePublished={outcomePublished}
         action={guideControl}
       />
+      {roomName !== undefined ? (
+        <p
+          data-testid="board-room-theme"
+          title={roomName ?? undefined}
+          className="board-hud pointer-events-auto mt-2 flex w-fit max-w-full min-w-0 items-center rounded-lg border border-border bg-background px-3 py-1 text-sm shadow-tool max-[639px]:hidden"
+        >
+          {roomName === null ? (
+            <span className="text-muted-foreground">テーマ未設定</span>
+          ) : (
+            <>
+              <span className="shrink-0 text-muted-foreground">テーマ：</span>
+              <span className="min-w-0 truncate font-medium">{roomName}</span>
+            </>
+          )}
+        </p>
+      ) : null}
       {disclosures.length > 0 ? (
         <div
           className={`${styles.references} board-hud pointer-events-auto pt-2 ${usesIdeaMapViewport ? "grid w-full grid-cols-2 items-stretch gap-2 max-[639px]:grid-cols-1" : "w-[200px] space-y-2"}`}
