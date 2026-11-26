@@ -812,7 +812,7 @@ describe("NoteCard", () => {
 
       expect(
         screen.getByRole("button", {
-          name: "「需要ありそう」シール 2票を1票取り消す",
+          name: "「需要ありそう」シール 2票のうち1票を取り消す",
         }),
       ).toBeInTheDocument();
       expect(
@@ -852,7 +852,7 @@ describe("NoteCard", () => {
       });
 
       const sticker = screen.getByRole("button", {
-        name: "「需要ありそう」シール 1票を1票取り消す",
+        name: "「需要ありそう」シールを取り消す",
       });
       expect(sticker.parentElement).toHaveStyle({ left: "25%", top: "75%" });
     });
@@ -1078,7 +1078,7 @@ describe("NoteCard", () => {
 
       fireEvent.click(
         screen.getByRole("button", {
-          name: "「需要ありそう」シール 2票を1票取り消す",
+          name: "「需要ありそう」シール 2票のうち1票を取り消す",
         }),
       );
 
@@ -1145,7 +1145,7 @@ describe("NoteCard", () => {
 
       fireEvent.click(
         screen.getByRole("button", {
-          name: "「需要ありそう」シール 1票を1票取り消す",
+          name: "「需要ありそう」シールを取り消す",
         }),
       );
 

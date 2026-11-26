@@ -765,7 +765,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
           : source === "パレット"
             ? palette
             : screen.getByRole("button", {
-                name: "「いいね」シール 1票を1票取り消す",
+                name: "「いいね」シールを取り消す",
               });
       if (source === "付箋押下") fireEvent.click(palette);
       fireEvent.pointerDown(owner, {
@@ -861,7 +861,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
         name:
           source === "パレット"
             ? "「いいね」シール 残り2票"
-            : "「いいね」シール 1票を1票取り消す",
+            : "「いいね」シールを取り消す",
       });
       const surface = getNoteSurface(screen.getByTestId("note-card"));
       fireEvent.pointerDown(owner, {
@@ -919,7 +919,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
       const owner =
         source === "配置済み"
           ? screen.getByRole("button", {
-              name: "「いいね」シール 1票を1票取り消す",
+              name: "「いいね」シールを取り消す",
             })
           : palette;
       if (source === "選択") fireEvent.click(palette);
@@ -2800,7 +2800,7 @@ describe("RoomBoardView", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
@@ -2880,7 +2880,7 @@ describe("RoomBoardView", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
@@ -2902,7 +2902,7 @@ describe("RoomBoardView", () => {
     ).toBeEnabled();
     expect(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
     ).toBeInTheDocument();
     expect(notify).toHaveBeenCalledWith(
@@ -2934,7 +2934,7 @@ describe("RoomBoardView", () => {
     });
 
     const sticker = screen.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     const palette = screen.getByRole("region", { name: "投票パレット" });
     const root = screen.getByTestId("room-board-view-root");
@@ -2991,7 +2991,7 @@ describe("RoomBoardView", () => {
     });
 
     const sticker = screen.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     const root = screen.getByTestId("room-board-view-root");
     Object.defineProperty(document, "elementFromPoint", {
@@ -4478,7 +4478,7 @@ describe("投票pointer所有と取消", () => {
     });
     const { props } = setup({ phase: buildPhaseStep(4), notes: [note] });
     const sticker = screen.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     fireEvent.pointerDown(sticker, {
       pointerId: 41,
@@ -4608,7 +4608,7 @@ describe("AT-004: 所有gestureの取消経路", () => {
         name:
           source === "palette"
             ? "「いいね」シール 残り2票"
-            : "「いいね」シール 1票を1票取り消す",
+            : "「いいね」シールを取り消す",
       });
       const root = screen.getByTestId("room-board-view-root");
       const hand = screen.getByRole("button", { name: "手のひらツール" });
@@ -4650,7 +4650,7 @@ describe("AT-004: 所有gestureの取消経路", () => {
       expect(props.onNoteVoteRemove).not.toHaveBeenCalled();
       expect(
         screen.getByRole("button", {
-          name: "「いいね」シール 1票を1票取り消す",
+          name: "「いいね」シールを取り消す",
         }),
       ).toBeInTheDocument();
       const palette = screen.getByRole("button", {
@@ -4950,7 +4950,7 @@ it("AT-023: hand toolでも本人シールnative keyboard clickは1回取消す"
     detail: 0,
   });
   const sticker = screen.getByRole("button", {
-    name: "「いいね」シール 1票を1票取り消す",
+    name: "「いいね」シールを取り消す",
   });
   fireEvent.click(sticker, { detail: 0 });
   expect(props.onNoteVoteStickerRemove).toHaveBeenCalledTimes(1);
@@ -5011,7 +5011,7 @@ describe("CI-IN002: active gesture中のnote custom semantic key", () => {
         value: () => cards[2],
       });
       const owner = screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       });
       fireEvent.pointerDown(owner, {
         pointerId: 301,

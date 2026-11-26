@@ -1061,7 +1061,7 @@ export function RoomBoardHeader({
                   <AlertDialogContent aria-describedby={undefined}>
                     <AlertDialogHeader>
                       <AlertDialogTitle>
-                        スプリントを完了しますか？
+                        完了して成果を表示しますか？
                       </AlertDialogTitle>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

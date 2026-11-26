@@ -579,10 +579,10 @@ for (const source of ["palette", "sticker"] as const) {
     });
     await palette.waitFor();
     const sticker = page
-      .getByRole("button", { name: "「いいね」シール 1票を1票取り消す" })
+      .getByRole("button", { name: "「いいね」シールを取り消す" })
       .first();
     const countBefore = await page
-      .getByRole("button", { name: "「いいね」シール 1票を1票取り消す" })
+      .getByRole("button", { name: "「いいね」シールを取り消す" })
       .count();
     const owner = source === "palette" ? palette : sticker;
     await owner.evaluate((el) => {
@@ -638,7 +638,7 @@ for (const source of ["palette", "sticker"] as const) {
     expect(
       await page
         .getByRole("button", {
-          name: "「いいね」シール 1票を1票取り消す",
+          name: "「いいね」シールを取り消す",
         })
         .count(),
     ).toBe(countBefore);
@@ -769,7 +769,7 @@ for (const tool of ["選択ツール", "手のひらツール"] as const) {
       `${origin}/iframe.html?id=room-roomboardview--canvas-input-voting&viewMode=story`,
     );
     const sticker = page.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     await sticker.waitFor();
     await sticker.evaluate((el) => {
@@ -982,7 +982,7 @@ for (const key of ["Enter", "Space"] as const) {
     });
     await palette.click();
     const owner = page.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     const cards = page.getByTestId("note-card");
     const surface = cards.nth(2).getByRole("button", { name: /付箋/ });

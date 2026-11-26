@@ -1,4 +1,4 @@
-import type { RoomPhase } from "@/contracts/phase";
+import type { RoomPhase, RoomStepPhase } from "@/contracts/phase";
 
 export const PHASE_NUMBERS = [1, 2, 3] as const;
 export type PhaseNumber = (typeof PHASE_NUMBERS)[number];
@@ -39,3 +39,14 @@ export const STEP_SHORT_NAMES = {
   2: ["個人", "共有", "投票", "決定"],
   3: ["個人", "共有", "2軸評価", "投票", "決定"],
 } as const satisfies Record<PhaseNumber, readonly string[]>;
+
+// 現在地の「次：」は、ステップの並びと同じ呼び方を使う。フェーズの最後は次のフェーズ、
+// 最後のフェーズの最後は成果を示す。
+export function getNextStepShortName(phase: RoomStepPhase): string {
+  const names: readonly string[] = STEP_SHORT_NAMES[phase.phase];
+  const nextStep = names[phase.step];
+  if (nextStep) return nextStep;
+  return phase.phase < 3
+    ? PHASE_SHORT_NAMES[(phase.phase + 1) as 2 | 3]
+    : "成果";
+}
