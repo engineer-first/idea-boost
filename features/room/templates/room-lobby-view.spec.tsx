@@ -357,6 +357,28 @@ it("待機画面でホスト=%sも現在名を確認して変更を開ける", (
   expect(request).toHaveBeenCalledOnce();
 });
 
+it("待機画面でテーマ名のテキストをクリックしても変更を開ける", () => {
+  const request = vi.fn();
+  renderView({
+    roomName: buildRoomNameControls({ name: "課題のテーマ", request }),
+  });
+  fireEvent.click(screen.getByText("課題のテーマ"));
+  expect(request).toHaveBeenCalledOnce();
+});
+
+it("テーマ変更が無効または送信中のときはテキストをクリックしても変更を開かない", () => {
+  const request = vi.fn();
+  renderView({
+    roomName: buildRoomNameControls({
+      name: "課題のテーマ",
+      disabled: true,
+      request,
+    }),
+  });
+  fireEvent.click(screen.getByText("課題のテーマ"));
+  expect(request).not.toHaveBeenCalled();
+});
+
 describe("待機中のアイコン変更", () => {
   it("自分の顔だけを変更操作にし、名前の編集とは別に操作できる", async () => {
     const cycle = vi.fn();

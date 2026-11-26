@@ -49,9 +49,37 @@
   letter-spacing: -0.035em;
   overflow-wrap: anywhere;
 }
-.editRoom {
+.editRoomTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin: -4px -8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--ib-rounded-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.editRoomTrigger:hover:not(:disabled) {
+  background: var(--ib-color-surface-muted);
+}
+.editRoomTrigger:focus-visible {
+  outline: 2px solid var(--ib-color-primary);
+  outline-offset: 2px;
+}
+.editRoomTrigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.editRoomIcon {
   flex-shrink: 0;
-  margin-top: 5px;
+  color: var(--ib-color-muted);
 }
 .memberCount {
   display: inline-flex;

@@ -742,7 +742,7 @@ describe("PrivateNotesToolbar", () => {
       "w-[min(15rem,calc(100vw-1.5rem))]",
       "flex-col",
     );
-    expect(toolbar).toHaveClass("h-[min(48rem,calc(100vh-6rem))]");
+    expect(toolbar).toHaveClass("h-[calc(100vh-6rem)]");
     expect(toolbar).not.toHaveClass("h-fit");
     expect(toolbar).not.toHaveClass("max-h-[min(48rem,calc(100vh-6rem))]");
     const controls = screen.getByTestId("private-notes-controls");
@@ -919,7 +919,7 @@ describe("PrivateNotesToolbar", () => {
     };
     const view = render(<PrivateNotesToolbar {...props} />);
     const toolbar = screen.getByTestId("private-notes-toolbar");
-    const expandedHeight = "h-[min(48rem,calc(100vh-6rem))]";
+    const expandedHeight = "h-[calc(100vh-6rem)]";
 
     expect(toolbar).toHaveClass(expandedHeight);
 
