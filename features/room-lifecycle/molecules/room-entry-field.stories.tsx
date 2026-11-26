@@ -27,7 +27,7 @@ export const RoomName: Story = {};
 // エラーは入力の下の確保済みの枠に出し、ボタンの位置を動かさない。
 export const RoomNameTooLong: Story = {
   args: {
-    defaultValue: "あ".repeat(16),
+    defaultValue: "あ".repeat(31),
     error: "テーマは30文字以内で入力してください。",
   },
 };
