@@ -95,7 +95,7 @@ describe("本人向けの完了ルーム再訪", () => {
         for (let i = 0; i < 20; i++)
           state.storage.sql.exec(
             "INSERT INTO outcome_reflections(cache_key,value_json) VALUES(?, '{}')",
-            `v1:previous:prompt:${i}`,
+            `v5:0:prompt:previous-${i}`,
           );
       });
       expect(
