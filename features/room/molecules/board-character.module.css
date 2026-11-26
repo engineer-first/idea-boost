@@ -13,6 +13,16 @@
   }
 }
 
+@keyframes char-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 動きを減らす設定では animation を付けず、最初から全文を出す。 */
 @media (prefers-reduced-motion: no-preference) {
   .teacher {
     animation: pop-in 300ms ease-out both;
@@ -21,5 +31,11 @@
   .bubble {
     transform-origin: top left;
     animation: pop-in 300ms 60ms ease-out both;
+  }
+
+  /* 吹き出しの拡大縮小（pop-in）がほぼ終わってから文字を出し始める。 */
+  .char {
+    animation: char-in 80ms
+      calc(300ms + var(--char-index) * var(--char-step, 40ms)) ease-out both;
   }
 }

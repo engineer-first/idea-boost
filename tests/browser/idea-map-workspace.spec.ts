@@ -58,22 +58,26 @@ async function readBounds(page: Page, testId: string) {
 
 async function waitForLayoutAnimations(locator: Locator): Promise<void> {
   await expect
-    .poll(() =>
-      locator.evaluate((element) => {
-        const animations = new Set(element.getAnimations({ subtree: true }));
-        for (
-          let parent = element.parentElement;
-          parent;
-          parent = parent.parentElement
-        )
-          for (const animation of parent.getAnimations())
-            animations.add(animation);
-        return [...animations].filter(
-          (animation) =>
-            (animation.playState === "running" || animation.pending) &&
-            animation.effect?.getTiming().iterations !== Infinity,
-        ).length;
-      }),
+    .poll(
+      () =>
+        locator.evaluate((element) => {
+          const animations = new Set(element.getAnimations({ subtree: true }));
+          for (
+            let parent = element.parentElement;
+            parent;
+            parent = parent.parentElement
+          )
+            for (const animation of parent.getAnimations())
+              animations.add(animation);
+          return [...animations].filter(
+            (animation) =>
+              (animation.playState === "running" || animation.pending) &&
+              animation.effect?.getTiming().iterations !== Infinity,
+          ).length;
+        }),
+      // ボードのキャラクターの吹き出しは文字を出し切るまで1秒を少し超えるため、
+      // expect.poll の既定1秒ではそれが終わる前に打ち切られる。
+      { timeout: 3_000 },
     )
     .toBe(0);
 }

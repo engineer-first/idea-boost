@@ -49,7 +49,13 @@
     "confirmAgain": "Check again",
     "previousRooms": "Previous rooms",
     "roomErrorTitle": "The action couldn't be completed",
-    "identityUnavailable": "Guest identity is unavailable in this browser."
+    "identityUnavailable": "Guest identity is unavailable in this browser.",
+    "createdAt": "Created {date}",
+    "createdAtTitle": "Created on {date}",
+    "expiresAtTitle": "Scheduled for deletion on {date}",
+    "autoDeleteRemaining": "Time until automatic deletion:",
+    "expiresInDays": "{days} days left",
+    "expiresSoon": "soon"
   },
   "createRoom": {
     "title": "Create a room",
