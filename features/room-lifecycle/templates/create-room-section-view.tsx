@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,7 +11,6 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { ROOM_CREATION_NAME_MAX } from "@/contracts/room-creation";
-import { createRoomCopy } from "../logic/create-room-copy";
 import { RoomEntryField } from "../molecules/room-entry-field";
 import styles from "./room-entry-section.module.css";
 
@@ -28,6 +28,7 @@ export function CreateRoomSectionView({
   intentName,
   message,
 }: CreateRoomSectionViewProps) {
+  const t = useTranslations("app.createRoom");
   const [input, setInput] = useState({ intentName, value: intentName ?? "" });
   const draft =
     input.intentName === intentName ? input.value : (intentName ?? "");
@@ -35,9 +36,9 @@ export function CreateRoomSectionView({
   return (
     <Card className={styles.create} data-testid="home-create-room">
       <CardHeader className={styles.createHeader}>
-        <h2>ルームを作成</h2>
+        <h2>{t("title")}</h2>
         <CardDescription className={styles.description}>
-          {createRoomCopy.description}
+          {t("description")}
         </CardDescription>
       </CardHeader>
       <CardContent className={styles.createContent}>
@@ -53,21 +54,21 @@ export function CreateRoomSectionView({
         >
           <RoomEntryField
             id="room-name"
-            label="テーマ（任意）"
+            label={t("label")}
             name="name"
             onChange={(event) =>
               setInput({ intentName, value: event.target.value })
             }
             error={
               tooLong
-                ? `テーマは${ROOM_CREATION_NAME_MAX}文字以内で入力してください。`
+                ? t("tooLong", { max: ROOM_CREATION_NAME_MAX })
                 : undefined
             }
             disabled={pending}
             defaultValue={intentName}
             key={intentName ?? "new"}
-            placeholder="例：通学で困っていること"
-            description="困りごとの形で書くと、課題を出しやすくなります。"
+            placeholder={t("placeholder")}
+            description={t("hint")}
           />
           <Button
             type="submit"
@@ -78,10 +79,10 @@ export function CreateRoomSectionView({
           >
             <Plus data-icon="inline-start" aria-hidden />
             {pending
-              ? "準備中…"
+              ? t("pending")
               : message
-                ? "もう一度試す"
-                : "新しいルームを作成"}
+                ? t("retry")
+                : t("submit")}
           </Button>
         </form>
 

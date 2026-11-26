@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -6,18 +7,17 @@ import {
   CardDescription,
   CardHeader,
 } from "@/components/ui/card";
-import {
-  type InviteStatusKind,
-  inviteCopy,
-  inviteStatusCopy,
-} from "../logic/invite-copy";
+import type { InviteStatusKind } from "../logic/invite-copy";
 
 export type InviteStatusViewProps =
   | { kind: "unavailable"; retryHref: string }
   | { kind: Exclude<InviteStatusKind, "unavailable"> };
 
 export function InviteStatusView(props: InviteStatusViewProps) {
-  const { heading, description } = inviteStatusCopy[props.kind];
+  const t = useTranslations("app.invite");
+  const key = props.kind === "not_found" ? "notFound" : props.kind;
+  const heading = t(`${key}Heading`);
+  const description = t(`${key}Description`);
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col items-center overflow-y-auto p-4 sm:p-6">
       <Card className="my-auto w-full max-w-md shrink-0">
@@ -33,11 +33,11 @@ export function InviteStatusView(props: InviteStatusViewProps) {
           {props.kind === "unavailable" && (
             <Button asChild className="min-h-11">
               {/* フルリロードで同じ招待URLをサーバーに再照会する。 */}
-              <a href={props.retryHref}>{inviteCopy.retryLabel}</a>
+              <a href={props.retryHref}>{t("retry")}</a>
             </Button>
           )}
           <Button asChild variant="outline" className="min-h-11">
-            <Link href="/home">{inviteCopy.homeLabel}</Link>
+            <Link href="/home">{t("home")}</Link>
           </Button>
         </CardContent>
       </Card>

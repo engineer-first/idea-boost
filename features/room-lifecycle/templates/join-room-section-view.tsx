@@ -1,6 +1,7 @@
 // ホーム「ルームに参加」セクションの表示専用。
 // 招待ページへ進むコード入力と、遷移中・入力エラーを表示する。
 import { LogIn } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,7 +9,6 @@ import {
   CardDescription,
   CardHeader,
 } from "@/components/ui/card";
-import { inviteCopy } from "../logic/invite-copy";
 import { RoomEntryField } from "../molecules/room-entry-field";
 import styles from "./room-entry-section.module.css";
 
@@ -31,6 +31,7 @@ export function JoinRoomSectionView({
   moving = false,
   onSubmit,
 }: JoinRoomSectionViewProps) {
+  const t = useTranslations("app.joinRoom");
   return (
     <Card className={styles.join} data-testid="home-join-room">
       <div className={styles.joinLayout}>
@@ -39,9 +40,9 @@ export function JoinRoomSectionView({
             <LogIn className="size-5" aria-hidden />
           </div>
           <div className="space-y-1.5">
-            <h2>ルームに参加</h2>
+            <h2>{t("title")}</h2>
             <CardDescription className={styles.description}>
-              共有された英数字6桁の招待コードを入力します。
+              {t("description")}
             </CardDescription>
           </div>
         </CardHeader>
@@ -53,7 +54,7 @@ export function JoinRoomSectionView({
           >
             <RoomEntryField
               id="code"
-              label={inviteCopy.codeLabel}
+              label={t("label")}
               name="code"
               value={code}
               onChange={(event) => onCodeChange(event.target.value)}
@@ -72,7 +73,7 @@ export function JoinRoomSectionView({
               disabled={!canSubmit || moving}
               className={styles.joinAction}
             >
-              {moving ? "移動中…" : "参加する"}
+              {moving ? t("moving") : t("submit")}
             </Button>
           </form>
         </CardContent>
