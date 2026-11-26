@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { placeRoomTimer, snapRoomTimer } from "./timer-position";
+import { placeRoomTimer, snapRoomTimer, timerEdge } from "./timer-position";
 
 const bounds = { left: 0, top: 0, right: 1280, bottom: 720 };
 describe("タイマーの配置", () => {
@@ -102,5 +102,36 @@ describe("ドロップ時の端へのスナップ", () => {
       sidebar,
     ]);
     expect(p).toEqual({ right: 1268, top: 80 });
+  });
+  it("寄せた辺を指定すると、作業領域が広がってもその辺に付け直す", () => {
+    const wide = { left: 0, top: 0, right: 1600, bottom: 720 };
+    expect(
+      snapRoomTimer({ right: 1268, top: 80 }, 72, wide, [], "right"),
+    ).toEqual({ right: 1588, top: 80 });
+    expect(
+      snapRoomTimer(
+        { right: 600, top: 636 },
+        72,
+        { ...bounds, bottom: 900 },
+        [],
+        "bottom",
+      ),
+    ).toEqual({ right: 600, top: 816 });
+  });
+  it("寄せた辺に後から案内が出たら、同じ辺の空きへずらす", () => {
+    const bubble = { left: 500, top: 0, right: 800, bottom: 60 };
+    expect(
+      snapRoomTimer({ right: 700, top: 12 }, 72, bounds, [bubble], "top"),
+    ).toEqual({ right: 884, top: 12 });
+  });
+});
+
+describe("寄せた辺の判定", () => {
+  it("作業領域のどの辺に接しているかを返し、内側なら null を返す", () => {
+    expect(timerEdge({ right: 1268, top: 330 }, 72, bounds)).toBe("right");
+    expect(timerEdge({ right: 84, top: 330 }, 72, bounds)).toBe("left");
+    expect(timerEdge({ right: 600, top: 12 }, 72, bounds)).toBe("top");
+    expect(timerEdge({ right: 600, top: 636 }, 72, bounds)).toBe("bottom");
+    expect(timerEdge({ right: 600, top: 300 }, 72, bounds)).toBeNull();
   });
 });

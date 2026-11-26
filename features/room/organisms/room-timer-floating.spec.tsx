@@ -222,6 +222,70 @@ describe("フローティングタイマー", () => {
         top < trail.bottom &&
         top + 72 > trail.top;
       expect(overlapsTrail).toBe(false);
+      // その場（top 164）に残らず、ステップ表示の横の上端へ寄る
+      expect(top).toBe(12);
+    } finally {
+      view.unmount();
+      vi.restoreAllMocks();
+    }
+  });
+  it("端へ寄せた後に作業領域が広がっても、同じ辺に付け直す。寄る途中に掴み直すと動きの印を外す", () => {
+    let rootRect = new DOMRect(0, 0, 1280, 720);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.dataset.testid === "room-board-view-root") return rootRect;
+        if (this.dataset.testid === "board-control-hud")
+          return new DOMRect(900, 12, 368, 56);
+        return new DOMRect(0, 0, 0, 0);
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().width;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().height;
+      },
+    );
+    const view = render(
+      <div data-testid="room-board-view-root">
+        <div data-testid="board-control-hud" />
+        <RoomTimer {...props()} />
+      </div>,
+    );
+    try {
+      const floating = screen.getByTestId("timer-floating");
+      fireEvent.pointerDown(floating, {
+        pointerId: 1,
+        button: 0,
+        clientX: 1232,
+        clientY: 116,
+      });
+      fireEvent.pointerMove(floating, {
+        pointerId: 1,
+        clientX: 700,
+        clientY: 400,
+      });
+      fireEvent.pointerUp(floating, { pointerId: 1 });
+      expect(floating.style.top).toBe("636px");
+      expect(floating.dataset.snapping).toBe("true");
+      fireEvent.pointerDown(floating, {
+        pointerId: 2,
+        button: 0,
+        clientX: 700,
+        clientY: 672,
+      });
+      expect(floating.dataset.snapping).toBeUndefined();
+      fireEvent.pointerUp(floating, { pointerId: 2 });
+      rootRect = new DOMRect(0, 0, 1280, 900);
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      // 下端に寄せたので、高さが増えても新しい下端に付く
+      expect(floating.style.top).toBe("816px");
+      expect(floating.style.left).toBe("664px");
     } finally {
       view.unmount();
       vi.restoreAllMocks();
