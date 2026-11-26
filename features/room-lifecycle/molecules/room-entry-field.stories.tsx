@@ -7,8 +7,9 @@ const meta = {
   parameters: { layout: "padded" },
   args: {
     id: "room-name",
-    label: "ルーム名（任意）",
-    placeholder: "例：新しいサービスの相談",
+    label: "テーマ（任意）",
+    placeholder: "例：通学で困っていること",
+    description: "困りごとの形で書くと、課題を出しやすくなります。",
   },
   decorators: [
     (Story) => (

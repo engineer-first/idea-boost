@@ -283,7 +283,7 @@ it.each(filterWidths(390, 640, 1280))(
       await page.goto(
         `${origin}/iframe.html?id=home-homeview--default&viewMode=story`,
       );
-      const name = page.getByRole("textbox", { name: "ルーム名（任意）" });
+      const name = page.getByRole("textbox", { name: "テーマ（任意）" });
       const code = page.getByRole("textbox", { name: "招待コード" });
       const create = page.getByRole("button", {
         name: "新しいルームを作成",
@@ -668,7 +668,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .click();
       await page.waitForURL(`${app}/home`);
       await page
-        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .getByRole("textbox", { name: "テーマ（任意）" })
         .fill("前の会");
       await page
         .getByRole("button", { name: "新しいルームを作成", exact: true })
@@ -684,7 +684,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: /^前の会/ })
         .waitFor();
       await page
-        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .getByRole("textbox", { name: "テーマ（任意）" })
         .fill("ルームA");
       await page
         .getByRole("button", { name: "新しいルームを作成", exact: true })
@@ -744,7 +744,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .click();
       await inviter.waitForURL(`${app}/home`);
       await inviter
-        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .getByRole("textbox", { name: "テーマ（任意）" })
         .fill("ルームB");
       await inviter
         .getByRole("button", { name: "新しいルームを作成", exact: true })
@@ -870,7 +870,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         expect(detailResponse.ok()).toBe(true);
         const room = CompletedRoomSchema.parse(await detailResponse.json());
         await page
-          .getByRole("textbox", { name: "ルーム名（任意）" })
+          .getByRole("textbox", { name: "テーマ（任意）" })
           .fill("授業の相談");
         await page.getByRole("textbox", { name: "招待コード" }).fill("ABC123");
         await page
@@ -972,7 +972,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       };
       await checkEntry("without-return");
       await page
-        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .getByRole("textbox", { name: "テーマ（任意）" })
         .fill("高さ確認の会");
       await create.click();
       await page.getByRole("main").getByTestId("room-lobby-view").waitFor();

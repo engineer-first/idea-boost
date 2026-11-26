@@ -256,7 +256,7 @@ describe("招待リンク/コード", () => {
 });
 
 describe("招待文", () => {
-  it("開始待ちの招待から、ルーム名・参加リンク・招待コードを含む招待文をコピーできる", async () => {
+  it("開始待ちの招待から、テーマ・参加リンク・招待コードを含む招待文をコピーできる", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
     Object.defineProperty(navigator, "clipboard", {
@@ -273,7 +273,8 @@ describe("招待文", () => {
       );
       expect(writeText).toHaveBeenCalledExactlyOnceWith(
         [
-          "Idea Boost のルーム「J05」に招待します。",
+          "Idea Boost のルームに招待します。",
+          "テーマ: J05",
           "参加リンク: https://idea-flow.example/invite/AB12CD",
           "招待コード: AB12CD",
         ].join("\n"),
@@ -367,7 +368,7 @@ it("待機画面でホスト=%sも現在名を確認して変更を開ける", (
   const request = vi.fn();
   renderView({ roomName: buildRoomNameControls({ request }) });
   expect(screen.getByText("J05")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "ルーム名を変更" }));
+  fireEvent.click(screen.getByRole("button", { name: "テーマを変更" }));
   expect(request).toHaveBeenCalledOnce();
 });
 

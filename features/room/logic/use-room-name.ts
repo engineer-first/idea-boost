@@ -56,7 +56,7 @@ export function useRoomName({
   useEffect(() => {
     if (!connected && operation.current)
       finish(
-        "接続が切れました。再接続後にルーム名を確認し、もう一度保存してください。",
+        "接続が切れました。再接続後にテーマを確認し、もう一度保存してください。",
       );
   }, [connected, finish]);
   return {
@@ -109,7 +109,7 @@ export function useRoomName({
         timeout.current = setTimeout(
           () =>
             finish(
-              "結果を確認できませんでした。現在のルーム名を確認して、もう一度保存してください。",
+              "結果を確認できませんでした。現在のテーマを確認して、もう一度保存してください。",
             ),
           5000,
         );

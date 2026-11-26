@@ -37,7 +37,7 @@ export const Unsupported: Story = {
 export const WithMessage: Story = {
   args: {
     message:
-      "Idea Boost のルーム「J05」に招待します。\n参加リンク: https://idea-flow.example/invite/ABC234\n招待コード: ABC234",
+      "Idea Boost のルームに招待します。\nテーマ: J05\n参加リンク: https://idea-flow.example/invite/ABC234\n招待コード: ABC234",
   },
   beforeEach: () => mockShare(async () => undefined),
 };

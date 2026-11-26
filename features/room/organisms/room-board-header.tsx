@@ -1133,7 +1133,7 @@ export function RoomBoardHeader({
               >
                 <div className="mb-1 flex items-start gap-1 px-2">
                   <p className="min-w-0 break-all text-base leading-7">
-                    <span className="text-muted-foreground">ルーム名：</span>
+                    <span className="text-muted-foreground">テーマ：</span>
                     <span className="font-medium">{roomName ?? "未設定"}</span>
                   </p>
                   {!outcomePublished && onRenameRoom ? (
@@ -1142,8 +1142,8 @@ export function RoomBoardHeader({
                       variant="ghost"
                       size="icon"
                       className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
-                      aria-label="ルーム名を変更"
-                      title="ルーム名を変更"
+                      aria-label="テーマを変更"
+                      title="テーマを変更"
                       disabled={isDisconnected || isLeaving || roomNameDisabled}
                       onClick={() => {
                         setRoomMenuOpen(false);

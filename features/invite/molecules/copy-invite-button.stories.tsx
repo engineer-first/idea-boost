@@ -81,7 +81,7 @@ export const Failed: Story = {
 // 招待文のコピーは、招待コードの見出しの行に置く小さな文字ボタン。
 const textArgs = {
   value:
-    "Idea Boost のルーム「J05」に招待します。\n参加リンク: https://idea-flow.example/invite/ABC234\n招待コード: ABC234",
+    "Idea Boost のルームに招待します。\nテーマ: J05\n参加リンク: https://idea-flow.example/invite/ABC234\n招待コード: ABC234",
   itemLabel: "招待文",
   label: "招待文をコピー",
   appearance: "text",

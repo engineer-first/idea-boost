@@ -56,7 +56,7 @@ test.each(widths(1024, 1280))(
         )
         .toBe(true);
       for (const control of [
-        page.getByRole("textbox", { name: "ルーム名（任意）" }),
+        page.getByRole("textbox", { name: "テーマ（任意）" }),
         create,
         page.getByRole("textbox", { name: "招待コード" }),
         page.getByRole("button", { name: "参加する", exact: true }),

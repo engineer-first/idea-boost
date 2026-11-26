@@ -53,20 +53,21 @@ export function CreateRoomSectionView({
         >
           <RoomEntryField
             id="room-name"
-            label="ルーム名（任意）"
+            label="テーマ（任意）"
             name="name"
             onChange={(event) =>
               setInput({ intentName, value: event.target.value })
             }
             error={
               tooLong
-                ? `ルーム名は${ROOM_CREATION_NAME_MAX}文字以内で入力してください。`
+                ? `テーマは${ROOM_CREATION_NAME_MAX}文字以内で入力してください。`
                 : undefined
             }
             disabled={pending}
             defaultValue={intentName}
             key={intentName ?? "new"}
-            placeholder="例：新しいサービスの相談"
+            placeholder="例：通学で困っていること"
+            description="困りごとの形で書くと、課題を出しやすくなります。"
           />
           <Button
             type="submit"

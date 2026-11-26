@@ -16,7 +16,7 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
   const id = useId();
   const tooLong = controls.draft.trim().length > ROOM_NAME_MAX_LENGTH;
   const error = tooLong
-    ? `ルーム名は${ROOM_NAME_MAX_LENGTH}文字以内で入力してください。`
+    ? `テーマは${ROOM_NAME_MAX_LENGTH}文字以内で入力してください。`
     : controls.error;
   return (
     <Dialog open={controls.open} onOpenChange={controls.onOpenChange}>
@@ -38,7 +38,7 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
         }}
       >
         <DialogHeader>
-          <DialogTitle>ルーム名を変更</DialogTitle>
+          <DialogTitle>テーマを変更</DialogTitle>
         </DialogHeader>
         <form
           className="grid gap-4"
@@ -49,7 +49,7 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
         >
           <div className="grid gap-2">
             <label htmlFor={id} className="text-base font-medium">
-              ルーム名
+              テーマ
             </label>
             <Input
               id={id}

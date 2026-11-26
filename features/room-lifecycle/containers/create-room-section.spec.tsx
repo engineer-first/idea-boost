@@ -333,18 +333,18 @@ it.each(["unavailable", "completed"] as const)(
 it("再ログイン中も作成カードとルーム名を保持し、戻ると入力を再開できる", async () => {
   m.create.mockResolvedValue({ ok: false, reason: "reauth_required" });
   render(<CreateRoomSection currentUserId={USER} />);
-  const input = await screen.findByLabelText("ルーム名（任意）");
+  const input = await screen.findByLabelText("テーマ（任意）");
   await waitFor(() => expect(input).toBeEnabled());
   await userEvent.type(input, "新サービスの相談");
   await click();
   await screen.findByRole("button", { name: "Googleでログインして続ける" });
   expect(screen.getByTestId("home-create-room")).toBeInTheDocument();
-  expect(screen.getByLabelText("ルーム名（任意）")).toHaveValue(
+  expect(screen.getByLabelText("テーマ（任意）")).toHaveValue(
     "新サービスの相談",
   );
   await userEvent.click(screen.getByRole("button", { name: "戻る" }));
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-  expect(screen.getByLabelText("ルーム名（任意）")).toHaveValue(
+  expect(screen.getByLabelText("テーマ（任意）")).toHaveValue(
     "新サービスの相談",
   );
   expect(m.push).not.toHaveBeenCalled();
