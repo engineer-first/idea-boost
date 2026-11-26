@@ -133,6 +133,49 @@ for (const phase of [2, 3]) {
   });
 }
 
+for (const viewport of [
+  { width: 1280, height: 800 },
+  { width: 1440, height: 900 },
+]) {
+  test(`${viewport.width}×${viewport.height}・2-1: 参照情報を避けても入力欄と付箋一覧が左右対称にそろう`, async () => {
+    page = await browser.newPage({ viewport });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-2-step-1&viewMode=story`,
+    );
+    await page.getByTestId("private-notes-list").waitFor();
+    await page.evaluate(() => document.fonts.ready);
+
+    const layout = await page.evaluate(() => {
+      const bounds = (selector: string) =>
+        document.querySelector(selector)?.getBoundingClientRect() ?? null;
+      const list = bounds('[data-testid="private-notes-list"]');
+      const controls = bounds('[data-testid="private-notes-controls"]');
+      const notes = Array.from(
+        document.querySelector('[data-testid="private-notes-list"]')
+          ?.children ?? [],
+        (child) => child.getBoundingClientRect(),
+      );
+      if (!list || !controls || notes.length === 0) return null;
+      const notesLeft = Math.min(...notes.map((note) => note.left));
+      const notesRight = Math.max(...notes.map((note) => note.right));
+      return {
+        leftSpace: notesLeft - list.left,
+        rightSpace: list.right - notesRight,
+        centerGap: Math.abs(
+          (notesLeft + notesRight) / 2 - (controls.left + controls.right) / 2,
+        ),
+      };
+    });
+
+    // 一覧に収まらない列の余りを右だけに寄せず、入力欄と同じ中心に付箋を並べる。
+    expect(layout).not.toBeNull();
+    expect(
+      Math.abs((layout?.leftSpace ?? 0) - (layout?.rightSpace ?? 0)),
+    ).toBeLessThanOrEqual(2);
+    expect(layout?.centerGap).toBeLessThanOrEqual(2);
+  });
+}
+
 for (const step of [2, 3]) {
   test.skipIf(!includeMobile)(
     `390px・1-${step}: 上部欄の下の空白でボードを操作できる`,
