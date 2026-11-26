@@ -43,7 +43,8 @@ export type LobbyFlowOverview = {
   phases: readonly LobbyFlowPhase[];
 };
 
-function getStepKind(phase: RoomStepPhase): LobbyFlowStepKind {
+// ステップでやることの種類。開始待ちの全体の流れと、ボードのステップバーで同じ絵と色にする。
+export function getStepKind(phase: RoomStepPhase): LobbyFlowStepKind {
   if (isPersonalWritingStep(phase)) return "write";
   if (phase.step === 2) return "share";
   if (isVotingStep(phase)) return "vote";

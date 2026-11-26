@@ -1,33 +1,11 @@
-import {
-  ChartScatter,
-  Check,
-  Group,
-  type LucideIcon,
-  Megaphone,
-  Pencil,
-  Stamp,
-  Sticker,
-} from "lucide-react";
+import { Check } from "lucide-react";
 import { useId } from "react";
-import {
-  getLobbyFlowOverview,
-  type LobbyFlowStepKind,
-} from "../logic/lobby-flow";
+import { getLobbyFlowOverview } from "../logic/lobby-flow";
 import styles from "./lobby-flow-guide.module.css";
+import { STEP_KIND_ICONS } from "./step-kind-icons";
 
 // 開始待ちの画面で、始める前に「進み方」と「全体の流れ」を見せる説明パネル。
 // 操作は持たない。ステップ名・目安時間・やることは進行の定義から出す。
-
-// 画面でやることそのものの絵にする。鉛筆で書く・メガホンで発表する・仲間分けする・
-// シールを貼る・はんこで決める・縦横の軸に置く。
-const KIND_ICONS: Record<LobbyFlowStepKind, LucideIcon> = {
-  write: Pencil,
-  share: Megaphone,
-  group: Group,
-  vote: Sticker,
-  decide: Stamp,
-  map: ChartScatter,
-};
 
 const PHASE_MARKERS = { 1: "①", 2: "②", 3: "③" } as const;
 
@@ -119,7 +97,7 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
               </h3>
               <ol className={styles.steps}>
                 {phase.steps.map((step) => {
-                  const Icon = KIND_ICONS[step.kind];
+                  const Icon = STEP_KIND_ICONS[step.kind];
                   return (
                     <li
                       key={step.number}
