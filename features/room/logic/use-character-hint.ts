@@ -22,6 +22,8 @@ const HINTS = {
   ended: "時間になったよ、次の工程をみんなで確認しよう。",
   sharingEndedPresenter: "時間になったよ、次の人にバトンを渡そう。",
   sharingEndedListener: "時間になったよ、発表を最後まで聞こう。",
+  // 最後の人の交代で共有が終わると、タイマーも終了になる。時間切れとは言わない。
+  sharingFinished: "みんな発表したよ、次のステップへ進もう。",
 } as const;
 
 // タイマー開始からの経過時間。この時刻にコツを1つずつ出す。
@@ -230,13 +232,12 @@ export function useCharacterHint({
         // 同じ時刻のコツは、優先の一言で置き換える。
         shownTips.current = dueTips;
         show(
-          kind === "ended" &&
-            phase.kind === "step" &&
-            phase.step === 2 &&
-            sharingRole !== "finished"
-            ? sharingRole === "presenter"
-              ? HINTS.sharingEndedPresenter
-              : HINTS.sharingEndedListener
+          kind === "ended" && phase.kind === "step" && phase.step === 2
+            ? sharingRole === "finished"
+              ? HINTS.sharingFinished
+              : sharingRole === "presenter"
+                ? HINTS.sharingEndedPresenter
+                : HINTS.sharingEndedListener
             : HINTS[kind],
           kind !== "empty",
         );

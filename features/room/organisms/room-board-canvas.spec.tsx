@@ -340,6 +340,20 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
+  it("全員の発表が終わったら、マイ付箋の欄で番を待つ案内を出さない", () => {
+    setup({
+      phase: buildPhaseStep(2),
+      permissions: getBoardPermissions(buildPhaseStep(2)),
+      privateNotes: [buildNote({ id: "private-1", visibility: "private" })],
+      canPublishPrivateNote: false,
+      sharingComplete: true,
+    });
+    const toolbar = openPrivateNotesToolbar();
+    const status = within(toolbar).getByRole("status");
+    expect(status).toHaveTextContent("発表は終わりました");
+    expect(status).not.toHaveTextContent("自分の番で発表できます");
+  });
+
   it("ドラッグ権利の応答前もドラッグ中の候補操作を隠し、終了後に選択表示へ戻す", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),

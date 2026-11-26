@@ -420,7 +420,7 @@ describe("キャラクターの一言", () => {
     rerender({ timer: { ...running, endsAt: Date.now() + 180_000 } });
     expect(result.current.message).toBeNull();
   });
-  it("共有が終わった時間切れは、全員に次の工程の確認を案内する", () => {
+  it("全員の発表が終わったら、時間切れと言わずに次のステップへ進むよう案内する", () => {
     const { result } = renderHook(() =>
       useCharacterHint({
         phase: { ...phase, step: 2 },
@@ -431,7 +431,7 @@ describe("キャラクターの一言", () => {
       }),
     );
     expect(result.current.message).toBe(
-      "時間になったよ、次の工程をみんなで確認しよう。",
+      "みんな発表したよ、次のステップへ進もう。",
     );
   });
   it("個人作業の時間切れは発表者かどうかで変えない", () => {

@@ -2223,6 +2223,7 @@ export function RoomBoardView({
             canPublishNoteInTurn(phase, sharing, currentUserId)
           }
           privateNotePublishBlocked={privateNotePublishBlocked}
+          sharingComplete={sharing?.status === "complete"}
           expandPrivateNotesRequest={expandPrivateNotesRequest}
           privateNoteAddRef={privateNoteAddRef}
           noteCreationPending={noteCreationPending}
