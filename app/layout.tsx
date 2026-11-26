@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import { AppHeader } from "@/app/app-header";
 import { Toaster } from "@/components/ui/sonner";
@@ -34,29 +36,33 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // ログイン済みなら共通ヘッダーを出す（login 等は user=null なので非表示）。
-  const user = await getCurrentUser();
+  const [user, locale, messages] = await Promise.all([
+    getCurrentUser(),
+    getLocale(),
+    getMessages(),
+  ]);
   const displayName = user ? await loadDisplayName(user.sub) : null;
 
   return (
-    // 翻訳済みの LP は本文の要素に自分の言語を付ける。翻訳前の画面を英語として
-    // 読み上げないよう、文書全体は日本語のままにする。
     <html
-      lang="ja"
+      lang={locale}
       className={`${notoSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased`}
     >
       <body className="flex h-full flex-col overflow-hidden">
-        {user ? (
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {user ? (
           <AppHeader
             currentUserId={user.sub}
             sessionKind={user.kind}
             userName={displayName?.ok ? (displayName.name ?? "") : ""}
           />
-        ) : null}
-        {/* ヘッダー以外の領域。画面全体のスクロールは禁止し、必要なら各ページ内で制御する */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {children}
-        </div>
-        <Toaster />
+          ) : null}
+          {/* ヘッダー以外の領域。画面全体のスクロールは禁止し、必要なら各ページ内で制御する */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {children}
+          </div>
+          <Toaster />
+        </NextIntlClientProvider>
       </body>
     </html>
   );
