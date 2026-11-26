@@ -114,7 +114,7 @@ for (const width of widths(390, 1280)) {
       expect(await last.isVisible()).toBe(false);
       await scamper.press("Tab");
       // Radixのtabpanel自体もTabで辿れる。実際に操作対象へ移動する。
-      const more = page.getByRole("button", { name: /ほかの問い/ });
+      const more = page.getByRole("button", { name: /ほかの観点/ });
       await more.focus();
       await page.keyboard.press("Enter");
       await last.scrollIntoViewIfNeeded();
@@ -138,7 +138,7 @@ for (const width of widths(390, 1280)) {
       expect(await last.isVisible()).toBe(true);
       for (const category of ["逆転発想", "他業界事例", "オズボーン"]) {
         await page.getByRole("tab", { name: category, exact: true }).click();
-        const toggle = page.getByRole("button", { name: /ほかの問い/ });
+        const toggle = page.getByRole("button", { name: /ほかの観点/ });
         await toggle.press("Enter");
         expect(await toggle.getAttribute("aria-expanded")).toBe("true");
         await toggle.press("Space");
