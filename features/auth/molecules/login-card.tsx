@@ -8,6 +8,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   type ReactNode,
   useActionState,
@@ -21,15 +22,6 @@ import {
   DEV_AUTH_DEFAULT_EMAIL,
   DEV_AUTH_DEFAULT_PASSWORD,
 } from "../logic/dev-auth-defaults";
-import {
-  googleStartLabel,
-  guestStartLabel,
-  loginAboutLabel,
-  loginBackLabel,
-  loginChoiceDivider,
-  loginInvitedNotice,
-  loginRetryLabel,
-} from "../logic/login-copy";
 
 export type LoginCardProps = {
   guestForm: ReactNode;
@@ -61,6 +53,7 @@ export function LoginCard({
   googleAction,
   passwordAction,
 }: LoginCardProps) {
+  const t = useTranslations("app.login");
   const [step, setStep] = useState<"choice" | "guest">("choice");
   const previousStep = useRef(step);
   const guestHeadingId = useId();
@@ -92,8 +85,8 @@ export function LoginCard({
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-black text-primary">Idea Boost</h1>
           <p className="text-balance text-base text-muted-foreground">
-            <span className="inline-block">アイデア出しをスマートに、</span>
-            <span className="inline-block">スムーズに。</span>
+            <span className="inline-block">{t("sloganFirst")}</span>
+            <span className="inline-block">{t("sloganSecond")}</span>
           </p>
         </div>
 
@@ -101,7 +94,7 @@ export function LoginCard({
           <p className="flex items-start gap-2 rounded-lg bg-primary-soft p-3 text-base text-primary-strong">
             <DoorOpen aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
             <span className="[word-break:auto-phrase]">
-              {loginInvitedNotice}
+              {t("invitedNotice")}
             </span>
           </p>
         )}
@@ -110,7 +103,7 @@ export function LoginCard({
           href={aboutHref}
           className="flex min-h-11 items-center justify-center text-base text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
         >
-          {loginAboutLabel}
+          {t("about")}
         </Link>
 
         {loginError && (
@@ -118,9 +111,9 @@ export function LoginCard({
             role="alert"
             className="p-3 text-base bg-danger-soft text-danger-text rounded-lg border border-danger/20"
           >
-            <span className="font-bold">エラー: </span>
+            <span className="font-bold">{t("errorPrefix")}: </span>
             {loginError}
-            <p className="mt-1">{loginRetryLabel}</p>
+            <p className="mt-1">{t("retry")}</p>
           </div>
         )}
 
@@ -128,7 +121,7 @@ export function LoginCard({
           <div className="p-3 text-xs bg-warning-soft text-warning rounded-lg border border-warning/20 flex gap-2">
             <ShieldAlert className="h-4 w-4 shrink-0" />
             <span>
-              認証の環境設定が必要です。.env.local を確認してください。
+              {t("authSetup")}
             </span>
           </div>
         )}
@@ -149,12 +142,12 @@ export function LoginCard({
                 >
                   <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114-3.535 0-6.4-2.865-6.4-6.4s2.865-6.4 6.4-6.4c1.554 0 2.973.55 4.077 1.458L20.89 4.09C18.57 1.92 15.43 1 12 1 5.925 1 1 5.925 1 12s4.925 11 11 11c6.28 0 11-4.42 11-11 0-.74-.08-1.285-.2-1.715H12.24z" />
                 </svg>
-                {googleStartLabel}
+                {t("google")}
               </button>
             </form>
             <div className="flex items-center gap-3 text-base text-muted-foreground">
               <span aria-hidden="true" className="h-px flex-1 bg-border" />
-              <span>{loginChoiceDivider}</span>
+              <span>{t("divider")}</span>
               <span aria-hidden="true" className="h-px flex-1 bg-border" />
             </div>
             <button
@@ -165,7 +158,7 @@ export function LoginCard({
               onClick={() => setStep("guest")}
             >
               <UserRound aria-hidden="true" className="h-5 w-5 text-primary" />
-              {guestStartLabel}
+              {t("guest")}
             </button>
           </div>
         ) : (
@@ -190,7 +183,7 @@ export function LoginCard({
               className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-base text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
             >
               <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-              {loginBackLabel}
+              {t("back")}
             </button>
           </section>
         )}
@@ -199,20 +192,20 @@ export function LoginCard({
           <div className="space-y-4 pt-4 border-t border-border">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground justify-center">
               <KeyRound className="h-4 w-4" />
-              <span>開発用ログイン</span>
+              <span>{t("devHeading")}</span>
             </div>
             <form action={devAction} className="space-y-3">
               <label
                 htmlFor="dev-auth-email"
                 className="block text-base font-medium"
               >
-                メールアドレス
+                {t("email")}
               </label>
               <input
                 id="dev-auth-email"
                 name="email"
                 type="email"
-                placeholder="メールアドレス"
+                placeholder={t("email")}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -222,7 +215,7 @@ export function LoginCard({
                 htmlFor="dev-auth-password"
                 className="block text-base font-medium"
               >
-                パスワード
+                {t("password")}
               </label>
               <input
                 id="dev-auth-password"
@@ -239,7 +232,7 @@ export function LoginCard({
                 disabled={!isConfigured || pending}
                 className="w-full py-2.5 bg-primary hover:bg-primary-strong text-primary-foreground rounded-lg text-base font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {pending ? "ログイン中…" : "開発用ユーザーでログイン"}
+                {pending ? t("pending") : t("devSubmit")}
               </button>
             </form>
           </div>
