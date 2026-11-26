@@ -1826,6 +1826,7 @@ describe("RoomBoardView", () => {
   type PersonalWorkspaceGeometry = {
     contextHeight: number;
     helpPanel: DOMRect | null;
+    contextColumn: DOMRect | null;
   };
   function mockPersonalWorkspaceGeometry(
     overrides: Partial<PersonalWorkspaceGeometry> = {},
@@ -1833,6 +1834,7 @@ describe("RoomBoardView", () => {
     const geometry: PersonalWorkspaceGeometry = {
       contextHeight: 250,
       helpPanel: null,
+      contextColumn: null,
       ...overrides,
     };
     const rectOf = (element: HTMLElement): DOMRect | null => {
@@ -1841,6 +1843,8 @@ describe("RoomBoardView", () => {
       switch (element.dataset.testid) {
         case "board-frame":
           return new DOMRect(0, 100, 1280, 700);
+        case "board-context-column":
+          return geometry.contextColumn;
         case "board-context-hud":
           return new DOMRect(0, 110, 200, geometry.contextHeight);
         case "board-context-references":
@@ -1905,23 +1909,32 @@ describe("RoomBoardView", () => {
     }
   });
 
-  it("640px以上の3-1で考えるヒントを開くと、付箋一覧をヒントの右端から16px離して始める", () => {
-    mockPersonalWorkspaceGeometry({
-      helpPanel: new DOMRect(12, 372, 320, 330),
-    });
-    setup({
-      phase: buildPhaseStep(1, 3),
-      hmwDecidedIssue: "決定した課題",
-      decidedHmw: "決定した問い",
-      help: openIdeaHelp,
-    });
+  it.each([
+    ["開いた", true],
+    ["閉じた", false],
+  ])(
+    "640px以上の3-1で考えるヒントを%sときも、付箋一覧を左の列の右端から16px離して始める",
+    (_label, isOpen) => {
+      mockPersonalWorkspaceGeometry({
+        helpPanel: isOpen
+          ? new DOMRect(12, 372, 320, 330)
+          : new DOMRect(12, 372, 200, 36),
+        contextColumn: new DOMRect(12, 110, 360, 590),
+      });
+      setup({
+        phase: buildPhaseStep(1, 3),
+        hmwDecidedIssue: "決定した課題",
+        decidedHmw: "決定した問い",
+        help: { ...openIdeaHelp, isOpen },
+      });
 
-    const root = screen.getByTestId("room-board-view-root");
-    // ヒントの右端332px − マイ付箋エリアの左端20px + 16px。
-    expect(root.style.getPropertyValue("--board-private-reference-inset")).toBe(
-      "328px",
-    );
-  });
+      const root = screen.getByTestId("room-board-view-root");
+      // 左の列の右端372px − マイ付箋エリアの左端20px + 16px。開閉で変えない。
+      expect(
+        root.style.getPropertyValue("--board-private-reference-inset"),
+      ).toBe("368px");
+    },
+  );
 
   it("640px未満の3-1で考えるヒントを開くと、ヒントの下からマイ付箋エリアを始める", () => {
     const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(390);

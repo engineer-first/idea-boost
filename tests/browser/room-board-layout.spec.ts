@@ -342,6 +342,33 @@ for (const [phase, reference] of [
   }
 }
 
+test("1280×800の3-1で考えるヒントを開閉しても、入力欄と付箋の並びの位置は変わらない", async () => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openStory("room-roomboardlayout--phase-3-step-1");
+  const positions = () =>
+    page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-testid="private-notes-list"] > *',
+        ),
+        document.querySelector<HTMLElement>('[aria-label="付箋を書く"]'),
+      ].map((element) => {
+        const rect = element?.getBoundingClientRect();
+        return rect ? [Math.round(rect.left), Math.round(rect.top)] : null;
+      }),
+    );
+  const closed = await positions();
+  expect(closed.length).toBeGreaterThan(1);
+  await page.getByRole("button", { name: "考えるヒントを開く" }).click();
+  const help = page.locator('[data-testid="board-help-panel"] > div');
+  await expect
+    .poll(() => help.evaluate((e) => e.getBoundingClientRect().width))
+    .toBeGreaterThan(300);
+  await expect.poll(positions).toEqual(closed);
+  await page.getByRole("button", { name: "考えるヒントを閉じる" }).click();
+  await expect.poll(positions).toEqual(closed);
+});
+
 test("3-1で考えるヒントを開いても、付箋と入力欄はヒントに隠れない", async () => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openStory("room-roomboardlayout--phase-3-step-1");
