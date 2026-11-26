@@ -2,6 +2,7 @@
 
 import { CornerUpLeft } from "lucide-react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,12 +34,13 @@ export function RestartWritingConfirmDialog({
   compactOnNarrow = false,
   onConfirm,
 }: RestartWritingConfirmDialogProps) {
+  const t = useTranslations("app.boardRestart");
   const [open, setOpen] = useState(false);
   const [requested, setRequested] = useState(false);
   const waiting = requested && pending;
   // 押す前に「全員で書くステップへ戻る」ことが分かるよう、戻り先の番号を操作名に含め、確認の決定ボタンと同じ言葉にする。
-  const actionLabel = `${phaseNumber}-1に戻って書き足す`;
-  const label = waiting ? "切り替え中…" : actionLabel;
+  const actionLabel = t("action", { step: `${phaseNumber}-1` });
+  const label = waiting ? t("switching") : actionLabel;
 
   return (
     <AlertDialog
@@ -70,21 +72,21 @@ export function RestartWritingConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle
             className="text-balance"
-            aria-label={`全員で${phaseNumber}-1に戻って、付箋を書き足しますか？`}
+            aria-label={t("aria", { step: `${phaseNumber}-1` })}
           >
             <span className="inline-block">
-              全員で{phaseNumber}-1に戻って、
+              {t("aria", { step: `${phaseNumber}-1` })}
             </span>
             <wbr />
-            <span className="inline-block">付箋を書き足しますか？</span>
+            <span className="inline-block">{t("title")}</span>
           </AlertDialogTitle>
           <AlertDialogDescription>
-            共有済みの付箋と下書きは残ります。
+            {t("description")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="max-[400px]:px-1 max-[400px]:text-sm">
-            キャンセル
+            {t("cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             className="max-[400px]:px-1 max-[400px]:text-sm"

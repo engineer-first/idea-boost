@@ -2,6 +2,7 @@
 
 import { Undo2 } from "lucide-react";
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { RoomPhase } from "@/contracts/phase";
-import { getPhaseLabel } from "../logic/phase-labels";
 
 export type PhaseRollbackDialogProps = {
   phase: RoomPhase;
@@ -30,11 +30,17 @@ export function PhaseRollbackDialog({
   disabled,
   onConfirm,
 }: PhaseRollbackDialogProps) {
+  const t = useTranslations("app.boardRollback");
+  const phaseMessages = useTranslations("app.boardLocation") as (key: string) => string;
   const [open, setOpen] = useState(false);
   const [finalConfirmation, setFinalConfirmation] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const targetNumber =
-    target.kind === "step" ? `${target.phase}-${target.step}` : "開始待ち";
+    target.kind === "step" ? `${target.phase}-${target.step}` : t("lobby");
+  const phaseLabel = (value: RoomPhase) =>
+    value.kind === "step"
+      ? `${value.phase}-${value.step} ${phaseMessages(`fullSteps.${value.phase}-${value.step}`)}`
+      : phaseMessages("waiting");
   return (
     <AlertDialog
       open={open}
@@ -51,7 +57,7 @@ export function PhaseRollbackDialog({
           disabled={disabled}
         >
           <Undo2 className="size-4" aria-hidden="true" />
-          直前のステップに戻る
+          {t("button")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent
@@ -61,20 +67,20 @@ export function PhaseRollbackDialog({
         <AlertDialogHeader className="place-items-start text-left">
           <AlertDialogTitle>
             {finalConfirmation
-              ? "この操作は取り消せません。"
-              : "直前のステップに戻る"}
+              ? t("warning")
+              : t("button")}
           </AlertDialogTitle>
           <AlertDialogDescription className="leading-relaxed">
             {finalConfirmation ? (
-              "本当に実行しますか？"
+              t("confirm")
             ) : (
               <>
-                次のステップへ進む直前の状態に、全員を戻します。
+                {t("description")}
                 <br />
-                それ以降に全員が操作したものを
+                {t("changes")}
                 <span className="whitespace-nowrap">
                   <strong className="font-semibold text-foreground">
-                    取り消します
+                    {t("changesEnd")}
                   </strong>
                   。
                 </span>
@@ -85,14 +91,14 @@ export function PhaseRollbackDialog({
         {!finalConfirmation && (
           <div className="rounded-lg bg-muted p-4">
             <p className="mb-1 text-xs leading-relaxed text-muted-foreground">
-              {getPhaseLabel(phase)} から
+              {t("from", { phase: phaseLabel(phase) })}
             </p>
-            <p className="font-semibold">{getPhaseLabel(target)} へ戻る</p>
+            <p className="font-semibold">{t("to", { phase: phaseLabel(target) })}</p>
           </div>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel className="min-h-11" ref={cancelRef}>
-            キャンセル
+            {t("cancel")}
           </AlertDialogCancel>
           {finalConfirmation ? (
             <AlertDialogAction
@@ -101,7 +107,7 @@ export function PhaseRollbackDialog({
               onClick={onConfirm}
               variant="destructive"
             >
-              {targetNumber}へ戻る
+              {t("return", { step: targetNumber })}
             </AlertDialogAction>
           ) : (
             <Button
@@ -113,7 +119,7 @@ export function PhaseRollbackDialog({
                 cancelRef.current?.focus();
               }}
             >
-              {targetNumber}へ戻る
+              {t("return", { step: targetNumber })}
             </Button>
           )}
         </AlertDialogFooter>

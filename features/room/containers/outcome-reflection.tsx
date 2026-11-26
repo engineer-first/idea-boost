@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import {
   type ReflectionContext,
@@ -15,6 +15,7 @@ import {
 
 export function OutcomeReflection({ roomId }: { roomId: string }) {
   const locale = useLocale();
+  const messages = useTranslations("app.outcomeReflection");
   const [section, setSection] = useState<ReflectionSection | null>(null);
   const [data, setData] = useState<ReflectionResponse | null>(null);
   const [context, setContext] = useState<ReflectionContext>({
@@ -49,12 +50,12 @@ export function OutcomeReflection({ roomId }: { roomId: string }) {
         setData(null);
         setBusy(null);
         setCopy("idle");
-        setError("閲覧期限が終了しました。成果を開き直してください。");
+        setError(messages("errorViewExpired"));
       } else timer = setTimeout(check, Math.min(remaining, 2147483647));
     };
     check();
     return () => clearTimeout(timer);
-  }, [data]);
+  }, [data, messages]);
 
   async function send(
     input: ReflectionRequest | null,
@@ -84,21 +85,21 @@ export function OutcomeReflection({ roomId }: { roomId: string }) {
         if (response.status === 401 || response.status === 404) {
           setData(null);
           throw new Error(
-            "閲覧権限または閲覧期限を確認できません。成果を開き直してください。",
+            messages("errorPermission"),
           );
         }
         if (response.status === 409 || response.status === 429) {
           const problem = await response.json();
           throw new Error(
-            typeof problem.error === "string"
+            locale === "ja" && typeof problem.error === "string"
               ? problem.error
-              : "最新版を取得して再試行してください。",
+              : messages("errorRefresh"),
           );
         }
         throw new Error(
           input
-            ? "生成できませんでした。保存済みの手順は残っています。もう一度お試しください。"
-            : "保存された内容を読み込めませんでした。最新版を取得してください。",
+            ? messages("errorGenerate")
+            : messages("errorLoad"),
         );
       }
       const result = ReflectionResponseSchema.parse(await response.json());
@@ -133,7 +134,7 @@ export function OutcomeReflection({ roomId }: { roomId: string }) {
     } catch (cause) {
       if (!controller.signal.aborted)
         setError(
-          cause instanceof Error ? cause.message : "読み込めませんでした。",
+          cause instanceof Error ? cause.message : messages("errorUnknown"),
         );
     } finally {
       inFlight.current = false;

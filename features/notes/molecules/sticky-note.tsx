@@ -1,5 +1,8 @@
+"use client";
+
 import "./sticky-note.css";
 import type * as React from "react";
+import { useTranslations } from "next-intl";
 import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import type { NoteColor } from "@/contracts/room-protocol";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
@@ -50,6 +53,7 @@ export function StickyNote({
   "data-vote-drop-target": dataVoteDropTarget,
   "data-excluded": dataExcluded,
 }: StickyNoteProps) {
+  const t = useTranslations("app.boardStickyNote");
   return (
     <div
       ref={ref}
@@ -124,28 +128,28 @@ export function StickyNote({
         {isDecided && onStampClick && decisionPresentation === "board" ? (
           <button
             type="button"
-            title="確定を取り消す"
-            aria-label="決定のはんこ（確定を取り消す）"
+            title={t("undo")}
+            aria-label={t("stampAria")}
             disabled={stampDisabled}
             className="sticky-note-stamp sticky-note-stamp-action"
             // 盤面のパン・範囲選択へ押下が渡らないようにする。
             onPointerDown={(event) => event.stopPropagation()}
             onClick={onStampClick}
           >
-            決定
+            {t("decision")}
           </button>
         ) : (
           <span
             role="status"
             aria-label={
               decisionPresentation === "reference"
-                ? "採用済み"
-                : "取り組む課題に決定済み"
+                ? t("adopted")
+                 : t("issueDecision")
             }
             aria-hidden={!isDecided || undefined}
             className="sticky-note-stamp"
           >
-            決定
+            {t("decision")}
           </span>
         )}
       </div>

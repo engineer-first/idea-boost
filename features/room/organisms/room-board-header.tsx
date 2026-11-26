@@ -12,6 +12,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   type ReactNode,
   useCallback,
@@ -203,6 +204,7 @@ export function RoomBoardHeader({
   onTimerResume,
   onTimerExtend,
 }: RoomBoardHeaderProps) {
+  const t = useTranslations("app.boardHeader");
   const controlsAreaRef = useRef<HTMLDivElement>(null);
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
@@ -524,7 +526,7 @@ export function RoomBoardHeader({
     votingAllComplete &&
     !isDisconnected;
   const completedMemberIds = progress.readyUserIds;
-  const completionLabel = isCurrentVotingStep ? "投票完了" : "作業完了";
+  const completionLabel = t(isCurrentVotingStep ? "votingComplete" : "workComplete");
   const timerSoundControls = useRoomTimerSounds({
     timer,
     serverOffsetMs: timerServerOffsetMs,
@@ -614,7 +616,7 @@ export function RoomBoardHeader({
   const currentMember = members.find(
     (member) => member.userId === currentUserId,
   );
-  const leaveLabel = isLeaving ? "退出中…" : "退出する";
+  const leaveLabel = t(isLeaving ? "leaving" : "leave");
 
   // 交代の瞬間だけでなく発表中ずっと出し、誰の番かをボードを見たまま分かるようにする。
   const sharingAnnouncement =
@@ -679,7 +681,7 @@ export function RoomBoardHeader({
         >
           <fieldset
             className={`board-hud pointer-events-auto relative flex ${canCompleteSharing ? "min-h-14 flex-wrap" : "h-14"} min-w-0 max-w-full shrink-0 items-center justify-end gap-1 rounded-xl border border-border bg-background p-1.5 shadow-tool max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2`}
-            aria-label="ルームの操作"
+            aria-label={t("roomControls")}
             data-completion-cue={completionCue.stage}
             data-testid="board-control-hud"
             data-board-fit-edge="top"
@@ -687,10 +689,10 @@ export function RoomBoardHeader({
             {isManualProgressStep ? (
               <span className="sr-only" aria-live="polite">
                 {completionCue.stage === "waiting"
-                  ? "「できた！」を更新しています"
+                  ? t("readyUpdating")
                   : isCurrentUserReady
-                    ? "あなたは次へ進む準備ができています"
-                    : "あなたは作業中です"}
+                    ? t("readyForNext")
+                    : t("working")}
               </span>
             ) : null}
             {canRestartWriting && onRestartWriting && phase.kind === "step" ? (
@@ -720,21 +722,21 @@ export function RoomBoardHeader({
                 aria-pressed={activeSharing ? undefined : isCurrentUserReady}
                 aria-label={
                   activeSharing
-                    ? "できた！"
+                    ? t("ready")
                     : isCurrentUserReady
-                      ? "できた！を取り消す"
-                      : "できた！"
+                      ? t("undoReady")
+                       : t("ready")
                 }
                 title={
                   activeSharing
                     ? isLastPresenter
-                      ? "発表を終えて共有を完了します"
-                      : "次の人の発表へバトンタッチします"
+                      ? t("finishPresentation")
+                      : t("passToNext")
                     : isCurrentUserReady
-                      ? "押し済みです。もう一度押すと取り消して作業中に戻ります"
+                      ? t("alreadyReady")
                       : votesRemaining
-                        ? "票をすべて使うと押せます"
-                        : "次へ進む準備ができたことをみんなに伝えます"
+                        ? t("useAllVotes")
+                        : t("readyDescription")
                 }
                 onClick={() => {
                   if (activeSharing) {
@@ -748,7 +750,7 @@ export function RoomBoardHeader({
                 <span className={styles.completionMark} aria-hidden="true">
                   <Check className="size-3.5" strokeWidth={2.5} />
                 </span>
-                <span>できた！</span>
+                <span>{t("ready")}</span>
               </Button>
             ) : showVotingCompletion ? (
               <span
@@ -761,10 +763,10 @@ export function RoomBoardHeader({
                   data-testid="vote-completion-label"
                 >
                   <Check className="size-3.5 shrink-0" />
-                  全員OK
+                  {t("allReady")}
                 </span>
                 <span className="sr-only" role="status" aria-live="polite">
-                  全員の投票が完了しました
+                  {t("allVotesComplete")}
                 </span>
               </span>
             ) : null}
@@ -797,9 +799,9 @@ export function RoomBoardHeader({
                     type="button"
                     variant="ghost"
                     className="text-sm h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
-                    aria-label={`参加者 ${members.length}人`}
+                    aria-label={t("participantsCount", { count: members.length })}
                     data-member-menu-origin
-                    title="参加者一覧を開く"
+                    title={t("openParticipants")}
                   >
                     <span
                       className="flex items-center pl-2 max-[900px]:pl-0"
@@ -895,9 +897,9 @@ export function RoomBoardHeader({
                     </span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-72" aria-label="参加者一覧">
+                <PopoverContent className="w-72" aria-label={t("participantsList")}>
                   <p className="mb-3 text-base font-semibold">
-                    参加者 {members.length}人
+                    {t("participantsCount", { count: members.length })}
                   </p>
                   <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto p-1">
                     {members.map((member) => (
@@ -914,7 +916,7 @@ export function RoomBoardHeader({
                             member.userId === currentUserId &&
                             onEditSelf &&
                             !outcomePublished
-                              ? `${member.name}：表示名を変更`
+                              ? t("participantRename", { name: member.name })
                               : member.name
                           }
                           className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
@@ -973,7 +975,7 @@ export function RoomBoardHeader({
                           ) : null}
                           {member.userId === currentUserId ? (
                             <span className="text-xs text-muted-foreground">
-                              あなた
+                              {t("you")}
                             </span>
                           ) : null}
                         </MemberSelection>
@@ -990,7 +992,7 @@ export function RoomBoardHeader({
                 disabled={isDisconnected || isRemovingMember}
                 onClick={() => onSharingStart?.(sharingDuration)}
               >
-                最初の人を開始
+                {t("startFirstPresenter")}
               </Button>
             ) : null}
             {isResultStep(phase) && isFinalStep ? (
@@ -1000,7 +1002,7 @@ export function RoomBoardHeader({
                   className="text-sm h-10 shrink-0 px-3"
                   onClick={onShowOutcome}
                 >
-                  成果を見る
+                  {t("viewOutcome")}
                 </Button>
               ) : (
                 <AlertDialog
@@ -1017,17 +1019,17 @@ export function RoomBoardHeader({
                         aria-hidden="true"
                         className="size-4 max-[639px]:hidden"
                       />
-                      完了して成果を表示
+                      {t("publishOutcome")}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent aria-describedby={undefined}>
                     <AlertDialogHeader>
                       <AlertDialogTitle>
-                        スプリントを完了しますか？
+                        {t("completeSprint")}
                       </AlertDialogTitle>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                      <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
                       <AlertDialogAction
                         disabled={
                           isDisconnected ||
@@ -1038,7 +1040,7 @@ export function RoomBoardHeader({
                         }
                         onClick={onPublishOutcome}
                       >
-                        完了する
+                        {t("complete")}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -1114,7 +1116,7 @@ export function RoomBoardHeader({
                   type="button"
                   variant="ghost"
                   className="h-10 w-8 shrink-0 p-0"
-                  aria-label="ルームメニューを開く"
+                  aria-label={t("openRoomMenu")}
                   ref={roomMenuTriggerRef}
                   data-testid="room-menu-trigger"
                 >
@@ -1126,7 +1128,7 @@ export function RoomBoardHeader({
                 className={
                   isPhaseOnePrivateNoteEntry ? "z-[70] w-80 p-2" : "w-80 p-2"
                 }
-                aria-label="ルームメニュー"
+                aria-label={t("roomMenu")}
                 onCloseAutoFocus={(event) => {
                   if (!feedbackOpening.current) return;
                   event.preventDefault();
@@ -1135,8 +1137,8 @@ export function RoomBoardHeader({
               >
                 <div className="mb-1 flex items-start gap-1 px-2">
                   <p className="min-w-0 break-all text-base leading-7">
-                    <span className="text-muted-foreground">テーマ：</span>
-                    <span className="font-medium">{roomName ?? "未設定"}</span>
+                    <span className="text-muted-foreground">{t("theme")}</span>
+                    <span className="font-medium">{roomName ?? t("unsetTheme")}</span>
                   </p>
                   {!outcomePublished && onRenameRoom ? (
                     <Button
@@ -1144,8 +1146,8 @@ export function RoomBoardHeader({
                       variant="ghost"
                       size="icon"
                       className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
-                      aria-label="テーマを変更"
-                      title="テーマを変更"
+                      aria-label={t("changeTheme")}
+                      title={t("changeTheme")}
                       disabled={isDisconnected || isLeaving || roomNameDisabled}
                       onClick={() => {
                         setRoomMenuOpen(false);
@@ -1160,7 +1162,7 @@ export function RoomBoardHeader({
                   <MemberSelection
                     name={
                       onEditSelf
-                        ? `${currentMember.name}：表示名を変更`
+                        ? t("renameMember", { name: currentMember.name })
                         : currentMember.name
                     }
                     onSelect={
@@ -1202,10 +1204,10 @@ export function RoomBoardHeader({
 
                 <div className="flex flex-col gap-1">
                   <div className="relative flex h-10 items-center px-2 pr-12 text-base">
-                    タイマー通知音
+                    {t("timerSound")}
                     <TimerSoundControl {...timerSoundControls} />
                   </div>
-                  {/* 成果公開後のルームには参加できないため招待を出さない。 */}
+                  {/* 成果公開後のルームには参加できないため{t("invite")}を出さない。 */}
                   {!outcomePublished ? (
                     <Popover>
                       <PopoverTrigger asChild>
@@ -1215,7 +1217,7 @@ export function RoomBoardHeader({
                           className="h-10 w-full justify-start gap-3 px-2 font-normal"
                         >
                           <UserPlus aria-hidden="true" className="size-4" />
-                          招待
+                          {t("invite")}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent
@@ -1224,13 +1226,13 @@ export function RoomBoardHeader({
                         className={
                           isPhaseOnePrivateNoteEntry ? "z-[70] w-80" : "w-80"
                         }
-                        aria-label="ルームに招待"
+                        aria-label={t("inviteToRoom")}
                       >
                         <p className="mb-1 text-base font-semibold">
-                          ルームに招待
+                          {t("inviteToRoom")}
                         </p>
                         <p className="mb-4 text-xs leading-5 text-muted-foreground">
-                          リンクまたはコードを送って、参加してもらいましょう。
+                          {t("inviteDescription")}
                         </p>
 
                         <div
@@ -1239,11 +1241,11 @@ export function RoomBoardHeader({
                         >
                           <div className="min-w-0">
                             <span className="block text-xs text-muted-foreground">
-                              招待コード
+                              {t("inviteCode")}
                             </span>
                             <CopyInviteButton
                               value={inviteCode}
-                              itemLabel="招待コード"
+                              itemLabel={t("inviteCode")}
                               className="mt-1"
                             />
                           </div>
@@ -1273,7 +1275,7 @@ export function RoomBoardHeader({
                       }}
                     >
                       <MessageSquare aria-hidden="true" className="size-4" />
-                      フィードバック
+                      {t("feedback")}
                     </Button>
                   ) : null}
                   {rollbackTarget &&
@@ -1294,7 +1296,7 @@ export function RoomBoardHeader({
                       className="h-10 w-full justify-start gap-3 px-2 font-normal"
                       asChild
                     >
-                      <Link href="/home">ホームへ戻る</Link>
+                      <Link href="/home">{t("backHome")}</Link>
                     </Button>
                   ) : (
                     <Button

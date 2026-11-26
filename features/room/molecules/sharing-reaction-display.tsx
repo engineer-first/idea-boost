@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -25,6 +26,7 @@ export type SharingReactionDisplayProps = {
 export function SharingReactionDisplay({
   reactions,
 }: SharingReactionDisplayProps) {
+  const t = useTranslations("app.boardReaction") as (key: string) => string;
   const displayRef = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<Record<string, number>>({});
   useLayoutEffect(() => {
@@ -84,7 +86,7 @@ export function SharingReactionDisplay({
       ref={displayRef}
       className={styles.display}
       role="status"
-      aria-label="届いたリアクション"
+      aria-label={t("received")}
       aria-live="polite"
       aria-atomic="false"
       aria-relevant="additions"
@@ -97,7 +99,7 @@ export function SharingReactionDisplay({
           data-positioned={positions[reaction.id] !== undefined}
           className={styles.reaction}
           role="img"
-          aria-label={SHARING_REACTION_OPTIONS[reaction.kind].label}
+          aria-label={t(reaction.kind)}
           style={
             {
               "--reaction-position": positions[reaction.id] ?? 0.5,

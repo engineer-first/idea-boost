@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,6 +59,7 @@ function StepOneOnboardingIllustrationContent({
   alt: string;
   votePhase?: StepGuideSlide["votePhase"];
 }) {
+  const t = useTranslations("app.stepGuide");
   if (kind !== "many-notes" && kind !== "add-note") {
     return (
       <StepGuideIllustration kind={kind} alt={alt} votePhase={votePhase} />
@@ -103,7 +105,7 @@ function StepOneOnboardingIllustrationContent({
               x="164"
               y="185"
             >
-              朝の支度が大変
+              {t("diagrams.morning")}
             </text>
           </g>
           <g transform="rotate(4 321 158)">
@@ -129,7 +131,7 @@ function StepOneOnboardingIllustrationContent({
               x="320"
               y="185"
             >
-              忘れ物が多い
+              {t("diagrams.forgotten")}
             </text>
           </g>
           <g transform="rotate(-3 477 158)">
@@ -155,7 +157,7 @@ function StepOneOnboardingIllustrationContent({
               x="476"
               y="185"
             >
-              片づけが続かない
+              {t("diagrams.tidying")}
             </text>
           </g>
         </>
@@ -165,7 +167,7 @@ function StepOneOnboardingIllustrationContent({
         <>
           <rect fill="#fff" height="186" rx="16" width="410" x="115" y="68" />
           <text fill="#526277" fontSize="14" fontWeight="600" x="143" y="99">
-            自分だけに表示
+            {t("diagrams.onlyYou")}
           </text>
           <rect
             fill="#fff"
@@ -185,7 +187,7 @@ function StepOneOnboardingIllustrationContent({
             y="134"
             textAnchor="start"
           >
-            付箋を書く
+            {t("diagrams.writeNote")}
           </text>
           <path
             d="M225 154v16m-5-5 5 5 5-5"
@@ -197,7 +199,7 @@ function StepOneOnboardingIllustrationContent({
           />
           <rect fill="#f9e69b" height="58" rx="2" width="168" x="143" y="178" />
           <text fill="#514b38" fontSize="14" fontWeight="600" x="155" y="205">
-            最近困ったこと…
+            {t("diagrams.recentNoteExample")}
           </text>
         </>
       ) : null}
@@ -250,6 +252,9 @@ export function StepOneOnboardingSlide({
   isReady,
   onReady,
 }: StepOneOnboardingSlideProps) {
+  const locale = useLocale();
+  const t = useTranslations("app.stepGuide");
+  const englishSlides = t.raw("slides") as Record<string, readonly StepGuideSlide[]>;
   const [open, setOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [slideTransition, setSlideTransition] = useState<"moving" | null>(null);
@@ -267,7 +272,10 @@ export function StepOneOnboardingSlide({
   const activeVisitRef = useRef<string | null>(null);
   const wasOpenRef = useRef(false);
   // 「進め方」から開ける案内。自動で開くかどうかは getStepGuideSlides で決める。
-  const slides = getStepGuideReferenceSlides(phaseKey);
+  const slides =
+    locale === "en"
+      ? (englishSlides[phaseKey] ?? [])
+      : getStepGuideReferenceSlides(phaseKey);
   const slide = slides[slideIndex] ?? slides[0];
   const previewSlide = slideTransition
     ? slides[pendingSlideIndexRef.current]
@@ -314,7 +322,7 @@ export function StepOneOnboardingSlide({
       // ストレージを使えない環境では、この表示中だけ一度表示する。
     }
     setOpen(true);
-  }, [isReady, phaseKey, userId, onReady]);
+  }, [isReady, phaseKey, userId, onReady, locale]);
 
   useEffect(() => {
     if (open) {
@@ -498,7 +506,7 @@ export function StepOneOnboardingSlide({
           className="pointer-events-auto h-auto shrink-0 rounded-none rounded-r-xl border-0 border-l border-border bg-transparent px-3 text-sm shadow-none transition hover:bg-muted"
           onClick={openGuide}
         >
-          進め方
+          {t("ui.openGuide")}
         </Button>
       ) : null}
       <Dialog
@@ -541,17 +549,17 @@ export function StepOneOnboardingSlide({
             >
               <div className="flex justify-center">
                 <ol
-                  aria-label="スライドの進捗"
+                  aria-label={t("ui.progress")}
                   className="m-0 flex list-none items-center gap-1.5 p-0"
                 >
                   {slides.map((item, index) => (
                     <li
                       key={item.title}
                       aria-current={index === slideIndex ? "step" : undefined}
-                      aria-label={`${index + 1}枚目 / 全${slides.length}枚`}
+                      aria-label={t("ui.slideNumber", { current: index + 1, total: slides.length })}
                     >
                       <button
-                        aria-label={`${index + 1}枚目に戻る`}
+                        aria-label={t("ui.goToSlide", { number: index + 1 })}
                         className="flex h-8 w-fit items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         disabled={
                           slideTransition !== null || index >= slideIndex
@@ -585,14 +593,14 @@ export function StepOneOnboardingSlide({
                     disabled={isClosingToGuide}
                     onClick={start}
                   >
-                    はじめる
+                    {t("ui.start")}
                   </Button>
                 ) : (
                   <Button
                     className="h-12 min-w-52 rounded-lg px-8 text-base"
                     onClick={advanceSlide}
                   >
-                    次へ
+                    {t("ui.next")}
                   </Button>
                 )}
               </DialogFooter>

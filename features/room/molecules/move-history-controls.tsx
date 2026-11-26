@@ -2,6 +2,7 @@
 
 import { Redo2, Undo2 } from "lucide-react";
 import { useId } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import toolMotion from "@/components/ui/tool-motion.module.css";
 import {
@@ -32,22 +33,24 @@ export function MoveHistoryControls({
   onUndo,
   onRedo,
 }: MoveHistoryControlsProps) {
+  const locale = useLocale();
+  const t = useTranslations("app.boardMoveHistory");
   const id = useId();
   return (
     <TooltipProvider>
       <fieldset
         className="pointer-events-auto flex min-w-0 shrink-0 items-center gap-1"
-        aria-label="付箋の移動履歴"
+        aria-label={t("label")}
         aria-busy={pending}
       >
         <p className="sr-only">
-          本人の付箋移動だけを元に戻します。本文編集中は通常の文字入力の取り消しです。
+          {t("description")}
         </p>
         {(
           [
             {
               action: undo,
-              name: "移動を元に戻す",
+              name: t("undo"),
               shortcut: "Ctrl / Cmd + Z",
               onClick: onUndo,
               Icon: Undo2,
@@ -55,7 +58,7 @@ export function MoveHistoryControls({
             },
             {
               action: redo,
-              name: "移動をやり直す",
+              name: t("redo"),
               shortcut: "Ctrl / Cmd + Shift + Z",
               onClick: onRedo,
               Icon: Redo2,
@@ -64,7 +67,12 @@ export function MoveHistoryControls({
           ] as const
         ).map(({ action, name, shortcut, onClick, Icon, direction }) => {
           const disabled = pending || action.disabled;
-          const description = `${name}（${shortcut}）。${action.label}。${pending ? "移動を反映しています…" : (action.reason ?? "")}`;
+          const reason = locale === "en" && action.reason ? t("unavailable") : (action.reason ?? "");
+          const actionDescription =
+            locale === "en"
+              ? t(direction === "undo" ? "undoDescription" : "redoDescription")
+              : action.label;
+          const description = `${name} (${shortcut}). ${actionDescription}. ${pending ? t("pending") : reason}`;
           return (
             <Tooltip key={direction}>
               <TooltipTrigger asChild>
@@ -99,7 +107,7 @@ export function MoveHistoryControls({
         })}
         {pending ? (
           <span role="status" className="sr-only">
-            移動を反映しています…
+            {t("pending")}
           </span>
         ) : null}
       </fieldset>

@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { MemberAvatar } from "@/features/room-members";
 import styles from "./sharing-announcement.module.css";
@@ -16,6 +19,7 @@ export function SharingAnnouncement({
   member,
   isSelf = false,
 }: SharingAnnouncementProps) {
+  const t = useTranslations("app.boardSharing");
   return (
     <div
       role="status"
@@ -38,7 +42,7 @@ export function SharingAnnouncement({
           size={32}
         />
         <span className="min-w-0 break-words">
-          {isSelf ? "あなたのターンです" : `${member.name}さんのターンです`}
+          {isSelf ? t("yourTurn") : t("memberTurn", { name: member.name })}
         </span>
       </span>
     </div>

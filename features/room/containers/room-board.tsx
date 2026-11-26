@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
 import {
   isPresenterViewFollowStep,
@@ -96,10 +97,13 @@ function isPrivateNotesWorkspaceHandoff(
   );
 }
 
-function getPersonalNoteExamples(phase: RoomPhase): readonly string[] {
+function getPersonalNoteExamples(
+  phase: RoomPhase,
+  examples: readonly string[] = HMW_EXAMPLES,
+): readonly string[] {
   // 例付箋は問い作成（2-1）だけで使う。
   return phase.kind === "step" && phase.phase === 2 && phase.step === 1
-    ? HMW_EXAMPLES
+    ? examples
     : [];
 }
 
@@ -117,6 +121,12 @@ export function RoomBoard({
 }: RoomBoardProps) {
   const feedback = useFeedback(roomId, submitFeedback);
   const router = useRouter();
+  const locale = useLocale();
+  const boardFlow = useTranslations("app.boardFlow");
+  const notifications = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const completionNavigationStarted = useRef(false);
   const [completionResetVersion, setCompletionResetVersion] = useState(0);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
@@ -194,9 +204,9 @@ export function RoomBoard({
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const sharingGenerationRef = useRef(0);
   const handleUnknownNoteCreation = useCallback((): void => {
-    notify.error("付箋を追加できたか確認できません。接続を確認しています。");
+    notify.error(notifications("noteCreationUncertain"));
     resynchronize();
-  }, [resynchronize]);
+  }, [notifications, resynchronize]);
   const notes = useRoomNotes({
     send,
     connected: connectionStatus === "open",
@@ -210,8 +220,12 @@ export function RoomBoard({
   });
   useEffect(() => {
     if (notes.noteCreationFailure)
-      notify.error(notes.noteCreationFailure.message);
-  }, [notes.noteCreationFailure]);
+      notify.error(
+        locale === "en"
+          ? notifications("noteCreationFailed")
+          : notes.noteCreationFailure.message,
+      );
+  }, [locale, notes.noteCreationFailure, notifications]);
   const moveHistory = useMoveHistory({
     send,
     notes: notes.notes,
@@ -488,13 +502,13 @@ export function RoomBoard({
         if (message.source === "phase-transition") {
           bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
-            roomNotify.automaticallyExcludedCandidates(message.count, undo),
+            roomNotify.automaticallyExcludedCandidates(message.count, undo, notifications),
             message.operationId,
           );
         } else {
           bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
-            roomNotify.bulkCandidatesExcluded(message.count, undo),
+            roomNotify.bulkCandidatesExcluded(message.count, undo, notifications),
             message.operationId,
           );
         }
@@ -517,11 +531,19 @@ export function RoomBoard({
       setCompletionResetVersion((version) => version + 1);
       if (message.code === "phase-confirmation-required") {
         setIsNextPhasePending(false);
-        notify.error(message.message);
+        notify.error(
+          locale === "en"
+            ? notifications("phaseConfirmationRequired")
+            : message.message,
+        );
         return;
       }
       console.warn(`ルーム操作エラー (${message.code}): ${message.message}`);
-      notify.error(message.message);
+      notify.error(
+        locale === "en"
+          ? notifications("roomOperationFailed")
+          : message.message,
+      );
       setIsNextPhasePending(false);
       return;
     }
@@ -903,7 +925,7 @@ export function RoomBoard({
       drafts.recoverDisconnected();
     notes.cancelNoteDrag();
     notes.clearPeerMoves();
-    moveHistory.clear("接続が切れたため、移動履歴を終了しました。");
+    moveHistory.clear(notifications("moveHistoryCleared"));
     boardInteractions.cancelCurrentNoteDrag(true);
   }, [
     boardInteractions.cancelCurrentNoteDrag,
@@ -913,6 +935,7 @@ export function RoomBoard({
     moveHistory.clear,
     drafts.setConnected,
     drafts.recoverDisconnected,
+    notifications,
   ]);
 
   return (
@@ -943,7 +966,12 @@ export function RoomBoard({
         }}
         feedback={feedback}
         notes={boardNotes}
-        exampleNotes={getPersonalNoteExamples(roomState.phase)}
+        exampleNotes={getPersonalNoteExamples(
+          roomState.phase,
+          locale === "en"
+            ? (boardFlow.raw("hmwExamples") as readonly string[])
+            : HMW_EXAMPLES,
+        )}
         confirmedNotes={notes.notes.filter(
           (note) => note.visibility === "shared",
         )}

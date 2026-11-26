@@ -7,8 +7,9 @@ export type RoomOutcome = {
 export function formatOutcomeText(
   outcome: RoomOutcome,
   exportedAt: Date,
+  locale: "ja" | "en" = "ja",
 ): string {
-  const date = new Intl.DateTimeFormat("ja-JP", {
+  const date = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "ja-JP", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -16,16 +17,16 @@ export function formatOutcomeText(
     minute: "2-digit",
   }).format(exportedAt);
   return [
-    "チームで決めた成果",
+    locale === "en" ? "Team results" : "チームで決めた成果",
     `出力日: ${date}`,
     "",
-    `1. 決定した課題\n${outcome.issue}`,
+    `${locale === "en" ? "1. Selected challenge" : "1. 決定した課題"}\n${outcome.issue}`,
     "",
-    `2. 決定した問い\n${outcome.hmw}`,
+    `${locale === "en" ? "2. Selected question" : "2. 決定した問い"}\n${outcome.hmw}`,
     "",
-    `3. 採用したアイデア\n${outcome.idea}`,
+    `${locale === "en" ? "3. Selected idea" : "3. 採用したアイデア"}\n${outcome.idea}`,
     "",
-    "次に試すこと",
+    locale === "en" ? "What to try next" : "次に試すこと",
     "",
     "",
   ].join("\n");

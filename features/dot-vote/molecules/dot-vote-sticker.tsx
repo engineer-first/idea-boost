@@ -1,6 +1,7 @@
 import { Star, Users } from "lucide-react";
 import type { ReactElement, PointerEvent as ReactPointerEvent } from "react";
 import { useRef } from "react";
+import { useLocale } from "next-intl";
 import {
   Tooltip,
   TooltipContent,
@@ -70,8 +71,11 @@ function stickerLabel(
   kind: DotVoteKind,
   phase: DotVotePhase,
   count: number,
+  locale: "ja" | "en",
 ): string {
-  return `${dotVoteStickerName(kind, phase)} ${count}票`;
+  return locale === "en"
+    ? `${dotVoteStickerName(kind, phase, locale)} · ${count} votes`
+    : `${dotVoteStickerName(kind, phase, locale)} ${count}票`;
 }
 
 function displayCount(count: number): string {
@@ -114,11 +118,12 @@ function WithStickerTooltip({
   phase: DotVotePhase;
   children: ReactElement;
 }) {
+  const locale = useLocale() === "en" ? "en" : "ja";
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent>{dotVoteStickerTooltip(kind, phase)}</TooltipContent>
+        <TooltipContent>{dotVoteStickerTooltip(kind, phase, locale)}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -132,7 +137,8 @@ export function DotVoteSticker({
   onRemove,
   onDragStart,
 }: DotVoteStickerProps) {
-  const label = stickerLabel(kind, phase, count);
+  const locale = useLocale() === "en" ? "en" : "ja";
+  const label = stickerLabel(kind, phase, count, locale);
   const isPreview = state === "preview";
   const pointerOriginRef = useRef<{
     pointerId: number;
@@ -212,7 +218,7 @@ export function DotVoteSticker({
         <button
           type="button"
           data-state={state}
-          aria-label={`${label}を1票取り消す`}
+          aria-label={locale === "en" ? `Withdraw one ${label}` : `${label}を1票取り消す`}
           className={`inline-flex transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${DOT_VOTE_SHAPE[kind]} ${
             onDragStart ? "touch-none cursor-grab active:cursor-grabbing" : ""
           } ${state === "pending" ? "animate-pulse" : ""}`}
@@ -265,7 +271,7 @@ export function DotVoteSticker({
       role="img"
       data-state={state}
       aria-label={
-        isPreview ? `${dotVoteStickerName(kind, phase)}を貼る位置` : label
+        isPreview ? `${dotVoteStickerName(kind, phase, locale)}${locale === "en" ? " placement" : "を貼る位置"}` : label
       }
       className={`inline-flex ${DOT_VOTE_SHAPE[kind]} ${
         isPreview ? "pointer-events-none opacity-50" : ""

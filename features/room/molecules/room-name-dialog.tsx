@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,14 +12,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { ROOM_NAME_MAX_LENGTH } from "@/contracts/room-name";
 import {
-  ROOM_NAME_TOO_LONG_MESSAGE,
   type RoomNameControls,
 } from "../logic/use-room-name";
 
 export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
+  const locale = useLocale();
+  const t = useTranslations("app.boardRoomName");
   const id = useId();
   const tooLong = controls.draft.trim().length > ROOM_NAME_MAX_LENGTH;
-  const error = tooLong ? ROOM_NAME_TOO_LONG_MESSAGE : controls.error;
+  const error = tooLong
+    ? t("tooLong", { max: ROOM_NAME_MAX_LENGTH })
+    : locale === "en" && controls.error
+      ? t("genericError")
+      : controls.error;
   return (
     <Dialog open={controls.open} onOpenChange={controls.onOpenChange}>
       <DialogContent
@@ -39,7 +45,7 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
         }}
       >
         <DialogHeader>
-          <DialogTitle>テーマを変更</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
         </DialogHeader>
         <form
           className="grid gap-4"
@@ -50,7 +56,7 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
         >
           <div className="grid gap-2">
             <label htmlFor={id} className="text-base font-medium">
-              テーマ
+              {t("label")}
             </label>
             <Input
               id={id}
@@ -79,7 +85,7 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
             ) : null}
             {controls.disabled ? (
               <p role="status" className="text-base text-muted-foreground">
-                接続・ルームの状態を確認してから保存してください。
+                {t("disabled")}
               </p>
             ) : null}
           </div>
@@ -91,14 +97,14 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
               disabled={controls.pending}
               onClick={() => controls.onOpenChange(false)}
             >
-              キャンセル
+              {t("cancel")}
             </Button>
             <Button
               type="submit"
               className="h-12 font-bold"
               disabled={tooLong || controls.pending || controls.disabled}
             >
-              {controls.pending ? "保存中…" : "保存する"}
+              {controls.pending ? t("saving") : t("save")}
             </Button>
           </div>
         </form>

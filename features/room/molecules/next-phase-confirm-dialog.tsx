@@ -1,6 +1,7 @@
 "use client";
 
 import { type CSSProperties, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 // 未完了メンバーがいる場合など、確認が必要な進行操作で表示する。
 import {
   AlertDialog,
@@ -43,12 +44,15 @@ export type NextPhaseConfirmDialogProps = {
 const PENDING_LOOK =
   "border-dashed border-line-strong bg-background text-muted-foreground shadow-none hover:bg-background";
 
-function waitingLabel(waiting: NextPhaseWaiting | undefined) {
-  if (waiting?.kind === "connection") return "再接続中…";
-  if (waiting?.kind === "decision") return "採用すると次へ";
-  if (waiting?.kind === "votes") return "全票使うと次へ";
+function waitingLabel(
+  waiting: NextPhaseWaiting | undefined,
+  t: (key: string, values?: Record<string, string | number>) => string,
+) {
+  if (waiting?.kind === "connection") return t("reconnecting");
+  if (waiting?.kind === "decision") return t("decision");
+  if (waiting?.kind === "votes") return t("votes");
   if (waiting?.kind === "members" && waiting.remaining > 0)
-    return `あと${waiting.remaining}人で次へ`;
+    return t("members", { remaining: waiting.remaining });
   return null;
 }
 
@@ -62,6 +66,11 @@ export function NextPhaseConfirmDialog({
   notReadyNames = [],
   notReadyMembers = [],
 }: NextPhaseConfirmDialogProps) {
+  const messages = useTranslations("app.boardNextPhase");
+  const translate = messages as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const [open, setOpen] = useState(false);
   const proceed = useRef<() => void>(() => {});
   proceed.current = () => {
@@ -69,7 +78,7 @@ export function NextPhaseConfirmDialog({
     if (requireConfirmation) setOpen(true);
     else onConfirm();
   };
-  const pendingLabel = disabled ? waitingLabel(waiting) : null;
+  const pendingLabel = disabled ? waitingLabel(waiting, translate) : null;
   const pressableWhilePending = disabled && onPendingPress !== undefined;
   const readyRatio =
     disabled && waiting?.kind === "members" && waiting.total > 0
@@ -99,11 +108,11 @@ export function NextPhaseConfirmDialog({
         }
       }}
     >
-      {/* 待ちの文言は「次のステップへ」の幅に収め、隣の操作の位置を動かさない。 */}
+      {/* 待ちの文言は「{messages("next")}」の幅に収め、隣の操作の位置を動かさない。 */}
       <span className={styles.label}>
-        <span>{pendingLabel ?? "次のステップへ"}</span>
+        <span>{pendingLabel ?? messages("next")}</span>
         <span aria-hidden="true" className={styles.reserve}>
-          次のステップへ
+          {messages("next")}
         </span>
       </span>
     </Button>
@@ -117,20 +126,20 @@ export function NextPhaseConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>
             {notReadyNames.length > 0
-              ? "完了していないメンバーがいます"
+              ? messages("incomplete")
               : !requireConfirmation
-                ? "全員が完了しました"
-                : "次のステップへ進みますか？"}
+                ? messages("allComplete")
+                : messages("confirm")}
           </AlertDialogTitle>
 
           {notReadyNames.length > 0 ? (
             <TooltipProvider>
               <fieldset
-                aria-label="未完了のメンバー"
+                aria-label={messages("notReady")}
                 className="mt-3 w-full rounded-lg border-0 bg-warning-soft px-3 py-3"
               >
                 <p className="mb-2 text-sm font-bold text-warning">
-                  まだ完了していない {notReadyNames.length} 人
+                  {messages("notReadyCount", { count: notReadyNames.length })}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {(notReadyMembers.length > 0
@@ -162,10 +171,10 @@ export function NextPhaseConfirmDialog({
         </AlertDialogHeader>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+          <AlertDialogCancel>{messages("cancel")}</AlertDialogCancel>
 
           <AlertDialogAction disabled={disabled} onClick={onConfirm}>
-            次へ進む
+            {messages("continue")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

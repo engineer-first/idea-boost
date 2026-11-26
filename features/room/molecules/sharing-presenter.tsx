@@ -2,6 +2,7 @@
 
 import { ArrowRight, Minus } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +35,7 @@ export type SharingPresenterProps = {
   selectionDisabled?: boolean;
   members?: ProtocolMember[];
   connectedUserIds?: readonly string[];
-  /** 今の発表者をパスする。渡したときだけ発表中の行にパスを出す。 */
+  /** 今の発表者を{t("pass")}。渡したときだけ発表中の行に{t("pass")}を出す。 */
   onPassPresenter?: () => void;
   passDisabled?: boolean;
 };
@@ -50,6 +51,8 @@ export function SharingPresenter({
   onPassPresenter,
   passDisabled = false,
 }: SharingPresenterProps) {
+  const t = useTranslations("app.boardSharing");
+  const headerMessages = useTranslations("app.boardHeader");
   const descriptionId = useId();
   const presentIds = new Set(members.map((member) => member.userId));
   const orderRef = useRef<HTMLSpanElement>(null);
@@ -57,9 +60,9 @@ export function SharingPresenter({
   const current = sharing.order[sharing.currentIndex ?? sharing.results.length];
   const isActive = sharing.status === "active";
   const currentStatusLabel =
-    sharing.startsAt !== null ? "まもなく発表" : "発表中";
+    sharing.startsAt !== null ? t("startingSoon") : t("presenting");
   const currentPresenterId = current?.userId;
-  // 確認中に交代したら別の人をパスしないよう、確認を開いた時点の番と照合する。
+  // 確認中に交代したら別の人を{t("pass")}しないよう、確認を開いた時点の番と照合する。
   const [passTarget, setPassTarget] = useState<{
     userId: string;
     revision: string;
@@ -111,7 +114,7 @@ export function SharingPresenter({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          aria-label="発表者と全体の順番を確認"
+          aria-label={t("presenterOrderAria")}
           data-member-menu-origin
           aria-describedby={descriptionId}
           className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-lg border-border bg-primary-soft px-2 text-left hover:bg-muted max-[900px]:min-w-[220px] max-[900px]:flex-1"
@@ -154,13 +157,13 @@ export function SharingPresenter({
                       color={member.color}
                       size={isCurrent ? 30 : 26}
                       isVotingComplete={result === "done"}
-                      completionLabel="発表済み"
+                      completionLabel={t("presented")}
                     />
                     {result === "passed" ? (
                       <span
                         className="absolute -bottom-1 -right-1 inline-flex size-3.5 items-center justify-center rounded-full border border-background bg-muted-foreground text-background"
                         role="img"
-                        aria-label="パス"
+                        aria-label={t("passAria")}
                       >
                         <Minus aria-hidden="true" className="size-2.5" />
                       </span>
@@ -182,9 +185,9 @@ export function SharingPresenter({
           </span>
           <span id={descriptionId} className="sr-only">
             {sharing.status === "complete"
-              ? "共有完了"
+              ? t("sharingComplete")
               : sharing.status === "ready"
-                ? "一人ずつ共有します"
+                ? t("sharingOneByOne")
                 : `${currentStatusLabel}：${current?.name ?? ""}`}
           </span>
         </Button>
@@ -192,11 +195,11 @@ export function SharingPresenter({
       <PopoverContent
         align="end"
         className="w-80 max-h-[calc(100dvh-2rem)] overflow-y-auto"
-        aria-label="共有する順番"
+        aria-label={t("turnOrder")}
       >
-        <p className="text-base font-semibold">共有する順番</p>
+        <p className="text-base font-semibold">{t("turnOrder")}</p>
         <p className="mb-3 mt-1 text-xs text-muted-foreground">
-          課題・問い・アイデアを同じ順番で共有します。
+          {t("shareInstruction")}
         </p>
         <ol className="max-h-72 space-y-3 overflow-y-auto">
           {sharing.order.map((member, index) => (
@@ -207,7 +210,7 @@ export function SharingPresenter({
               <MemberSelection
                 name={
                   member.userId === currentUserId && onEditSelf
-                    ? `${member.name}：表示名を変更`
+                    ? headerMessages("renameMember", { name: member.name })
                     : member.name
                 }
                 className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
@@ -249,14 +252,14 @@ export function SharingPresenter({
                 </span>
                 <span className="shrink-0">
                   {!presentIds.has(member.userId)
-                    ? "退出済み"
+                    ? t("left")
                     : sharing.results[index] === "passed"
-                      ? "今回はパス"
+                      ? t("passed")
                       : sharing.results[index] === "done"
-                        ? "発表済み"
+                        ? t("presented")
                         : index === sharing.currentIndex
-                          ? "発表中"
-                          : "これから"}
+                          ? t("presenting")
+                           : t("upNext")}
                 </span>
               </MemberSelection>
               {canPassPresenter && index === sharing.currentIndex ? (
@@ -264,11 +267,11 @@ export function SharingPresenter({
                   type="button"
                   variant="outline"
                   className="min-h-11 shrink-0 px-3 text-sm"
-                  aria-label={`${member.name}をパス`}
+                  aria-label={t("passMember", { name: member.name })}
                   disabled={passDisabled}
                   onClick={requestPass}
                 >
-                  パス
+                  {t("pass")}
                 </Button>
               ) : null}
             </li>
@@ -276,13 +279,13 @@ export function SharingPresenter({
         </ol>
         {otherMembers.length > 0 ? (
           <div className="mt-3 border-t border-border pt-3">
-            <p className="mb-1 text-xs text-muted-foreground">ほかの参加者</p>
+            <p className="mb-1 text-xs text-muted-foreground">{t("otherParticipants")}</p>
             {otherMembers.map((member) => (
               <MemberSelection
                 key={member.userId}
                 name={
                   member.userId === currentUserId && onEditSelf
-                    ? `${member.name}：表示名を変更`
+                    ? headerMessages("renameMember", { name: member.name })
                     : member.name
                 }
                 className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
@@ -329,15 +332,15 @@ export function SharingPresenter({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {current?.name}さんの番をパスしますか？
+              {t("passMemberConfirm", { name: current?.name ?? "" })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {current?.name}さんは接続中です。次の人の発表に進みます。
+              {t("participantConnected", { name: current?.name ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11">
-              キャンセル
+              {t("cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="min-h-11"
@@ -347,7 +350,7 @@ export function SharingPresenter({
                 onPassPresenter?.();
               }}
             >
-              パスする
+              {t("pass")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

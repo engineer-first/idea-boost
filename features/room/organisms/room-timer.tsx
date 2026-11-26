@@ -2,6 +2,7 @@
 
 import { Play, RotateCcw } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import type { TimerState } from "@/contracts/room-protocol";
 import { getRoomTimerDisplay } from "../logic/room-timer-display";
 import { useFloatingTimer } from "../logic/use-floating-timer";
@@ -32,6 +33,8 @@ export function RoomTimer({
   now: getNow = systemNow,
   initialDurationMs = TIMER_DEFAULT_DURATION_MS,
 }: RoomTimerProps) {
+  const locale = useLocale();
+  const t = useTranslations("app.boardTimer");
   const [now, setNow] = useState(getNow);
   const [collapsed, setCollapsed] = useState(false);
   const ref = useRef<HTMLFieldSetElement>(null);
@@ -76,7 +79,24 @@ export function RoomTimer({
     }
   }, [expanded]);
 
-  const label = `タイマー（${display.durationLabel}） ${ended ? "終了" : timer.status === "idle" ? "未開始" : timer.status === "paused" ? "一時停止中" : "残り"} ${display.label}`;
+  const durationLabel =
+    locale === "en"
+      ? display.durationLabel.replace("分", t("minuteSuffix"))
+      : display.durationLabel;
+  const timerState = t(
+    ended
+      ? "statusEnded"
+      : timer.status === "idle"
+        ? "statusIdle"
+        : timer.status === "paused"
+          ? "statusPaused"
+          : "statusRunning",
+  );
+  const label = t("label", {
+    duration: durationLabel,
+    state: timerState,
+    time: display.label,
+  });
 
   return (
     <fieldset
@@ -88,7 +108,7 @@ export function RoomTimer({
       data-urgency={display.urgency}
       data-dragging={dragging}
       data-board-native-control
-      aria-label="タイマー。Altと矢印キーで移動できます"
+      aria-label={t("instructions")}
       {...floating}
       onBlurCapture={(event) => {
         if (
@@ -123,7 +143,7 @@ export function RoomTimer({
           className={styles.duration}
           aria-hidden="true"
         >
-          {display.durationLabel}
+          {durationLabel}
         </span>
       ) : null}
       <div className={styles.surface}>
@@ -136,8 +156,8 @@ export function RoomTimer({
             data-status={ended ? "ended" : timer.status}
             className={styles.circle}
             disabled={disabled}
-            aria-label={`${label}${hasActions ? "。操作を開く" : timer.status === "idle" ? "。規定時間で開始" : "。ドラッグして移動"}`}
-            title={`${label}（ドラッグ、またはAltと矢印キーで移動）`}
+            aria-label={`${label}. ${hasActions ? t("openActions") : timer.status === "idle" ? t("startAction") : t("dragAction")}`}
+            title={`${label} (${t("dragInstructions")})`}
             onClick={(event) => {
               if (event.currentTarget === document.activeElement && hasActions)
                 focusTarget.current = "actions";
@@ -182,22 +202,22 @@ export function RoomTimer({
                 else onExtend?.();
               }}
               title={
-                paused ? `残り${display.label}から再開します` : "1分延長します"
+                paused ? t("resumeFrom", { time: display.label }) : t("extendTitle")
               }
             >
               {paused ? <Play aria-hidden="true" /> : null}
-              {paused ? "再開" : "＋1分"}
+              {paused ? t("resume") : t("extend")}
             </button>
           </div>
         )}
       </div>
       <span aria-live="polite" className="sr-only">
         {paused
-          ? `タイマーを再開すると残り${display.label}から計時します。`
+          ? t("resumeAnnouncement", { time: display.label })
           : ended
             ? extensionUsed
-              ? "時間になりました。進行条件を確認してください。"
-              : "時間になりました。1分延長できます。"
+              ? t("timeUpCheckConditions")
+              : t("timeUpExtend")
             : null}
       </span>
     </fieldset>

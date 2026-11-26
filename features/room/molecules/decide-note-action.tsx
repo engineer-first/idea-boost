@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 export const DECIDE_NOTE_ACTION_SIZE = 36;
@@ -14,13 +15,14 @@ export type DecideNoteActionProps = {
 // 決定操作だけを担う。決定済み表示は NoteCard 側の非操作statusとし、
 // 同じ場所に二重に表示しない。
 export function DecideNoteAction({ x, y, onDecide }: DecideNoteActionProps) {
+  const t = useTranslations("app.boardDecide");
   return (
     <Button
       type="button"
       size="icon-lg"
       variant="outline"
-      aria-label="この付箋を取り組む課題に決定"
-      title="この付箋を取り組む課題に決定"
+      aria-label={t("selectChallenge")}
+      title={t("selectChallenge")}
       className="absolute z-30 rounded-full bg-background/90 shadow-tool"
       style={{ left: x, top: y }}
       onClick={onDecide}

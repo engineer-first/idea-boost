@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Check } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Fragment,
   type ReactNode,
@@ -16,9 +17,7 @@ import {
   type RoomPhase,
 } from "@/contracts/phase";
 import {
-  getPhaseLabel,
   getPhaseProgressState,
-  getPhaseTitle,
   PHASE_NUMBERS,
   type PhaseNumber,
 } from "../logic/phase-labels";
@@ -30,18 +29,7 @@ const FLOW_STEPS = PHASE_NUMBERS.flatMap((phase) =>
     step: index + 1,
   })),
 );
-const STEP_NAMES = {
-  1: ["個人", "共有", "整理", "投票", "決定"],
-  2: ["個人", "共有", "投票", "決定"],
-  3: ["個人", "共有", "2軸評価", "投票", "決定"],
-} as const;
 const PHASE_MARKERS = { 1: "①", 2: "②", 3: "③" } as const;
-const NEXT_LABELS = {
-  1: ["共有", "整理", "投票", "決定", "問い"],
-  2: ["共有", "投票", "決定", "アイデア"],
-  3: ["共有", "評価", "投票", "決定", "成果"],
-} as const;
-const PHASE_NAMES = { 1: "課題", 2: "問い", 3: "アイデア" } as const;
 
 type LocationState = "compact" | "expanded";
 export type BoardLocationProps = {
@@ -56,6 +44,7 @@ export function BoardLocation({
   outcomePublished = false,
   action,
 }: BoardLocationProps) {
+  const t = useTranslations("app.boardLocation");
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [request, setRequest] = useState<{
@@ -115,7 +104,10 @@ export function BoardLocation({
     };
   }, [state, phaseKey]);
 
-  const title = getPhaseTitle(phase);
+  const title =
+    phase.kind === "step" ? t(`phaseTitles.${phase.phase}`) : t("waiting");
+  const phaseName =
+    phase.kind === "step" ? t(`phaseNames.${phase.phase}`) : title;
   const currentPosition =
     phase.kind === "step"
       ? FLOW_STEPS.findIndex(
@@ -123,11 +115,15 @@ export function BoardLocation({
         ) + 1
       : 0;
   const stepLabel =
-    phase.kind === "step" ? STEP_NAMES[phase.phase][phase.step - 1] : "";
+    phase.kind === "step" ? t(`stepNames.${phase.phase}-${phase.step}`) : "";
+  const fullStepLabel =
+    phase.kind === "step"
+      ? t(`fullSteps.${phase.phase}-${phase.step}`)
+      : title;
   return (
     <div className={styles.slot} data-testid="board-location-slot">
       <fieldset
-        aria-label="現在地"
+        aria-label={t("currentLocation")}
         ref={card}
         className={`${styles.card} board-hud`}
         data-state={state}
@@ -149,7 +145,18 @@ export function BoardLocation({
           <button
             ref={trigger}
             type="button"
-            aria-label={`現在地：${phase.kind === "step" ? `${PHASE_MARKERS[phase.phase]} ${title}・${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}` : title}。全体の流れを${state === "compact" ? "開く" : "閉じる"}`}
+            aria-label={
+              phase.kind === "step"
+                ? t("currentLocationToggle", {
+                    phase: `${PHASE_MARKERS[phase.phase]} ${title}`,
+                    step: fullStepLabel,
+                    action: t(state === "compact" ? "open" : "close"),
+                  })
+                : t("currentLocationLobby", {
+                    phase: title,
+                    action: t(state === "compact" ? "open" : "close"),
+                  })
+            }
             aria-expanded={state !== "compact"}
             aria-controls={`${id}-detail`}
             data-testid="board-location-trigger"
@@ -168,7 +175,7 @@ export function BoardLocation({
                 <>
                   <span className={styles.currentPhase}>
                     {PHASE_MARKERS[phase.phase]}
-                    {PHASE_NAMES[phase.phase]}
+                    {phaseName}
                   </span>
                   <span aria-hidden="true" className="text-muted-foreground">
                     ｜
@@ -185,7 +192,7 @@ export function BoardLocation({
               )}
               {phase.kind === "step" && !outcomePublished && (
                 <span className={styles.next}>
-                  次：{NEXT_LABELS[phase.phase][phase.step - 1]}
+                  {t("next")}{t(`nextLabels.${phase.phase}-${phase.step}`)}
                 </span>
               )}
             </span>
@@ -200,11 +207,15 @@ export function BoardLocation({
             {phase.kind === "step" ? (
               <span
                 role="progressbar"
-                aria-label="全工程の現在地"
+                aria-label={t("progressLabel")}
                 aria-valuemin={0}
                 aria-valuemax={FLOW_STEPS.length}
                 aria-valuenow={currentPosition}
-                aria-valuetext={`全${FLOW_STEPS.length}工程の${currentPosition}番目。${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}`}
+                aria-valuetext={t("progressText", {
+                  total: FLOW_STEPS.length,
+                  current: currentPosition,
+                  step: fullStepLabel,
+                })}
                 className={styles.progressRail}
                 data-testid="board-progress-rail"
               >
@@ -235,7 +246,7 @@ export function BoardLocation({
         {state !== "compact" ? (
           <section
             id={`${id}-detail`}
-            aria-label="全体の流れと手順"
+            aria-label={t("flowAria")}
             className={styles.detail}
           >
             <Tabs
@@ -246,7 +257,7 @@ export function BoardLocation({
               className="min-h-0 gap-0"
             >
               <TabsList
-                aria-label="3つのフェーズの手順"
+                aria-label={t("phaseTabs")}
                 data-testid="board-phase-progress"
                 variant="line"
                 className={styles.phases}
@@ -255,7 +266,7 @@ export function BoardLocation({
                   <Fragment key={number}>
                     <TabsTrigger
                       value={String(number)}
-                      aria-label={`${PHASE_MARKERS[number]} ${PHASE_NAMES[number]}の手順`}
+                      aria-label={t("phaseTabLabel", { phase: t(`phaseNames.${number}`) })}
                       aria-current={
                         phase.kind === "step" && phase.phase === number
                           ? "step"
@@ -274,7 +285,7 @@ export function BoardLocation({
                       >
                         {number}
                       </span>
-                      <span>{PHASE_NAMES[number]}</span>
+                      <span>{t(`phaseNames.${number}`)}</span>
                     </TabsTrigger>
                     {index < 2 ? (
                       <ArrowRight
@@ -292,11 +303,11 @@ export function BoardLocation({
                   className={styles.stepScroll}
                 >
                   <ol
-                    aria-label="このフェーズの全手順"
+                    aria-label={t("allPhaseSteps")}
                     className={styles.steps}
                   >
-                    {Object.entries(ROOM_PHASE_STEP_LABELS[number]).map(
-                      ([step, label]) => {
+                    {Object.keys(ROOM_PHASE_STEP_LABELS[number]).map(
+                      (step) => {
                         const current =
                           phase.kind === "step" &&
                           phase.phase === number &&
@@ -317,7 +328,7 @@ export function BoardLocation({
                             {completed ? (
                               <span
                                 role="img"
-                                aria-label="完了"
+                                aria-label={t("completed")}
                                 className={styles.stepMarker}
                               >
                                 <Check
@@ -334,10 +345,10 @@ export function BoardLocation({
                               </span>
                             )}
                             <span className="min-w-0 flex-1 break-words">
-                              {label.replace(/^\d+-\d+\s*/, "")}
+                              {t(`fullSteps.${number}-${step}`)}
                             </span>
                             {current ? (
-                              <span className={styles.currentLabel}>現在</span>
+                              <span className={styles.currentLabel}>{t("current")}</span>
                             ) : null}
                           </li>
                         );

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import {
   type ReactNode,
   type Ref,
@@ -32,11 +33,6 @@ export type RoomOutcomeViewProps = {
   feedbackPrompt?: ReactNode;
 };
 
-const CARDS = [
-  { label: "決定した課題", key: "issue" },
-  { label: "決定した問い", key: "hmw" },
-] as const;
-
 export function RoomOutcomeView({
   outcome,
   connected = false,
@@ -53,6 +49,11 @@ export function RoomOutcomeView({
   onExportFailure,
   feedbackPrompt,
 }: RoomOutcomeViewProps) {
+  const t = useTranslations("app.roomOutcome");
+  const cards = [
+    { label: t("issue"), key: "issue" },
+    { label: t("question"), key: "hmw" },
+  ] as const;
   const [pngPending, setPngPending] = useState(false);
   const [pngSaved, setPngSaved] = useState(false);
   const pngSavedTimeout = useRef<number | null>(null);
@@ -112,7 +113,8 @@ export function RoomOutcomeView({
     };
   }, []);
   const canExport = available && outcome !== null;
-  const outputText = outcome ? formatOutcomeText(outcome, new Date()) : "";
+  const locale = useLocale() === "en" ? "en" : "ja";
+  const outputText = outcome ? formatOutcomeText(outcome, new Date(), locale) : "";
 
   function saveText() {
     if (!canExport || copyPending || pngPending) return;
@@ -122,7 +124,7 @@ export function RoomOutcomeView({
     const anchor = document.createElement("a");
     try {
       const now = new Date();
-      const blob = new Blob([`\uFEFF${formatOutcomeText(outcome, now)}`], {
+      const blob = new Blob([`\uFEFF${formatOutcomeText(outcome, now, locale)}`], {
         type: "text/plain;charset=utf-8",
       });
       url = URL.createObjectURL(blob);
@@ -246,7 +248,7 @@ export function RoomOutcomeView({
     setDownloadStarted(false);
     try {
       await navigator.clipboard.writeText(
-        formatOutcomeText(outcome, new Date()),
+        formatOutcomeText(outcome, new Date(), locale),
       );
       if (!active.current || generation !== exportGeneration.current) return;
       setCopySucceeded(true);
@@ -266,17 +268,17 @@ export function RoomOutcomeView({
   return (
     <main className={styles.page} data-testid="room-outcome-view">
       <div className={styles.content}>
-        <h1 className={styles.title}>チームで決めた成果</h1>
+        <h1 className={styles.title}>{t("title")}</h1>
         {!available || !outcome ? (
           <p
             role="alert"
             className="mt-6 rounded-lg border border-border bg-muted px-4 py-3 text-base leading-6"
           >
             {authorized === false
-              ? "閲覧権限を確認できません。ホームの「過去の成果を見る」から開き直してください。"
+              ? t("unavailableAuth")
               : !available
-                ? "接続が切れています。前回受信した内容は最新か確認できません。再接続してから成果を確認・保存してください。"
-                : "決定内容をすべて確認できません。再接続してから成果を確認・保存してください。"}
+                ? t("unavailableConnection")
+                : t("unavailableOutcome")}
           </p>
         ) : null}
 
@@ -289,22 +291,22 @@ export function RoomOutcomeView({
             style={{ width: "100%", height: "auto" }}
           >
             <div className={styles.noteContent}>
-              <h2>採用したアイデア</h2>
+              <h2>{t("adoptedIdea")}</h2>
               <p>
                 {!available && (
                   <>
-                    <span>未確認</span>
+                    <span>{t("unconfirmed")}</span>
                     {"\n"}
                   </>
                 )}
-                {outcome?.idea ?? "確認できません"}
+                {outcome?.idea ?? t("unknown")}
               </p>
             </div>
           </StickyNote>
           <details open={!reflection} className={styles.decisionContext}>
-            <summary>課題・問いを見返す</summary>
+            <summary>{t("reviewContext")}</summary>
             <div className={styles.contextNotes}>
-              {CARDS.map(({ label, key }) => (
+              {cards.map(({ label, key }) => (
                 <StickyNote
                   key={key}
                   noteId={`outcome-${key}`}
@@ -318,11 +320,11 @@ export function RoomOutcomeView({
                     <p>
                       {!available && (
                         <>
-                          <span>未確認</span>
+                          <span>{t("unconfirmed")}</span>
                           {"\n"}
                         </>
                       )}
-                      {outcome?.[key] ?? "確認できません"}
+                      {outcome?.[key] ?? t("unknown")}
                     </p>
                   </div>
                 </StickyNote>
@@ -332,16 +334,15 @@ export function RoomOutcomeView({
         </div>
         {reflection ?? (
           <section className="mt-8 rounded-lg border border-border bg-card p-4 sm:p-6">
-            <h2 className="text-lg font-bold">次に試すこと</h2>
+            <h2 className="text-lg font-bold">{t("nextSteps")}</h2>
             <p className="mt-2 text-base leading-7">
-              誰の、どんな場面を確かめたい？
-              簡単な画面を描き、その人に見せて確かめてみよう。
+              {t("nextStepsDescription")}
             </p>
           </section>
         )}
         {canExport ? (
           <section className={styles.export}>
-            <h2 className="text-lg font-bold">成果を保存する</h2>
+            <h2 className="text-lg font-bold">{t("save")}</h2>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button
@@ -352,10 +353,10 @@ export function RoomOutcomeView({
                 disabled={copyPending || pngPending}
               >
                 {pngPending
-                  ? "PNGを生成中…"
+                  ? t("pngPending")
                   : pngSaved
-                    ? "保存済み"
-                    : "PNGで保存"}
+                    ? t("saved")
+                    : t("savePng")}
               </Button>
 
               <Button
@@ -365,7 +366,7 @@ export function RoomOutcomeView({
                 onClick={saveText}
                 disabled={copyPending || pngPending}
               >
-                テキストを保存
+                {t("saveText")}
               </Button>
 
               <Button
@@ -375,34 +376,34 @@ export function RoomOutcomeView({
                 onClick={() => void copyText()}
                 disabled={copyPending || pngPending}
               >
-                {copyPending ? "コピー中…" : "成果をコピー"}
+                {copyPending ? t("copyPending") : t("copy")}
               </Button>
             </div>
           </section>
         ) : null}
         {downloadStarted && canExport ? (
           <p role="status" className="mt-3 text-base">
-            ダウンロードを開始しました。保存したファイルを確認してください。
+            {t("downloadStarted")}
           </p>
         ) : null}
         {copySucceeded && canExport ? (
           <p role="status" className="mt-3 text-base">
-            コピーしました。メモに貼り付けて保存してください。
+            {t("copied")}
           </p>
         ) : null}
         {saveFailed && canExport ? (
           <p role="alert" className="mt-3 text-base text-destructive">
-            保存を開始できませんでした。もう一度試すか、全文をコピーしてください。
+            {t("saveFailed")}
           </p>
         ) : null}
         {copyFailed && canExport ? (
           <div className="mt-4 rounded-lg border border-destructive/40 bg-white p-4">
             <p role="alert" className="text-base">
-              コピーできませんでした。下の全文を選択して手動でコピーしてください。
+              {t("copyFailed")}
             </p>
             <textarea
               readOnly
-              aria-label="手動でコピーする成果全文"
+              aria-label={t("copyAll")}
               className="mt-3 h-56 w-full rounded-md border p-3 text-base"
               value={outputText}
               onFocus={(event) => event.currentTarget.select()}
@@ -414,12 +415,12 @@ export function RoomOutcomeView({
         {recordInfo}
 
         <nav
-          aria-label="ページ移動"
+          aria-label={t("pageNav")}
           className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 pb-8"
         >
           {onBackToBoard && (
             <Button type="button" variant="outline" onClick={onBackToBoard}>
-              ボードへ戻る
+              {t("backBoard")}
             </Button>
           )}
 
@@ -427,7 +428,7 @@ export function RoomOutcomeView({
             href="/home"
             className="inline-flex min-h-10 items-center rounded-lg px-2 text-base font-semibold text-primary underline underline-offset-4 hover:no-underline"
           >
-            ホームへ戻る
+            {t("backHome")}
           </Link>
 
           {additionalNavigation}
@@ -435,8 +436,7 @@ export function RoomOutcomeView({
 
         {!authorized ? (
           <p className="text-xs leading-5 text-muted-foreground">
-            完了したルームは、ホームの「過去の成果を見る」から見返せます。
-            保存期限は完了から180日間です。
+            {t("retention")}
           </p>
         ) : null}
 
@@ -453,7 +453,7 @@ export function RoomOutcomeView({
                   className="h-auto px-0 text-sm text-muted-foreground"
                   onClick={onOpenFeedback}
                 >
-                  フィードバック
+                  {t("feedback")}
                 </Button>
               </div>
             ) : null}

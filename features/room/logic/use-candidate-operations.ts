@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import type { Note } from "@/features/notes";
 import { notify } from "@/lib/notify";
@@ -31,6 +32,10 @@ export function useCandidateOperations({
   connected: boolean;
   send: (message: ClientMessage) => void;
 }): CandidateOperations {
+  const t = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const [pending, setPending] = useState<PendingCandidate[]>([]);
   const pendingRef = useRef<PendingCandidate[]>([]);
   const [bulkPending, setBulkPending] = useState(false);
@@ -82,10 +87,10 @@ export function useCandidateOperations({
     if (connected) return;
     if (pendingRef.current.length || bulkRef.current)
       notify.error(
-        "通信が切断されました。再接続後の候補状態を確認してください。",
+        t("connectionLost"),
       );
     clear();
-  }, [connected, clear]);
+  }, [connected, clear, t]);
   useEffect(
     () => () => {
       for (const id of notices.current) roomNotify.dismissCandidateNotice(id);
@@ -211,13 +216,13 @@ export function useCandidateOperations({
       ) {
         const id = operation.id;
         notices.current.add(
-          roomNotify.noteExcluded(() => change(operation.noteId, false, id)),
+          roomNotify.noteExcluded(() => change(operation.noteId, false, id), t),
         );
       }
       drainRestores();
       return superseded;
     },
-    [change, clear, drainRestores],
+    [change, clear, drainRestores, t],
   );
 
   const bulkRestore = useCallback(

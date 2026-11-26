@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslations } from "next-intl";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
@@ -439,6 +440,8 @@ export function RoomBoardView({
   onTimerExtend,
   onTimerStop,
 }: RoomBoardViewProps) {
+  const t = useTranslations("app.boardFlow");
+  const notifications = useTranslations("app.notifications");
   const isRemovingMember = memberRemoval?.pending ?? false;
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
@@ -462,7 +465,7 @@ export function RoomBoardView({
               NOTE_COLOR_STYLES[presenterViewColor].backgroundColor,
           }}
         />
-        <span>あなたの視点がフォローされています</span>
+        <span>{t("followingView")}</span>
       </div>
     ) : isFollowingPresenterView &&
       !isPresenterViewOwner &&
@@ -483,14 +486,14 @@ export function RoomBoardView({
           }}
         />
         <span className="whitespace-nowrap">
-          {presenterViewName}さんをフォロー中
+          {t("followingPresenter", { name: presenterViewName })}
         </span>
         <button
           type="button"
           className="whitespace-nowrap rounded-lg px-2 py-1 hover:bg-muted"
           onClick={onUnfollowPresenterView}
         >
-          フォローを外す
+          {t("stopFollowing")}
         </button>
       </div>
     ) : !isPresenterViewOwner && canFollowPresenterView ? (
@@ -504,7 +507,7 @@ export function RoomBoardView({
         }}
         onClick={onFollowPresenterView}
       >
-        発表者をフォロー
+        {t("followPresenter")}
       </button>
     ) : null;
   const shouldExpandPrivateNotes =
@@ -582,14 +585,14 @@ export function RoomBoardView({
       ...moveHistory.undo,
       disabled: moveHistory.undo.disabled || isVoteStickerHeld,
       reason: isVoteStickerHeld
-        ? "投票シールを離すか、選択を解除すると移動を元に戻せます。"
+        ? t("moveUndoBlocked")
         : moveHistory.undo.reason,
     },
     redo: {
       ...moveHistory.redo,
       disabled: moveHistory.redo.disabled || isVoteStickerHeld,
       reason: isVoteStickerHeld
-        ? "投票シールを離すか、選択を解除すると移動をやり直せます。"
+        ? t("moveRedoBlocked")
         : moveHistory.redo.reason,
     },
   };
@@ -987,7 +990,7 @@ export function RoomBoardView({
     decision === null
       ? null
       : (notes.find((note) => note.id === decision.noteId)?.content ??
-        "確定した内容");
+        t("selectedContent"));
   const phaseLoopControls = isResultStep(phase) ? (
     <PhaseLoopControls
       key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
@@ -1264,7 +1267,7 @@ export function RoomBoardView({
         } else {
           const note = noteElementAt(event.clientX, event.clientY);
           if (note && isExcludedVoteTarget(note)) {
-            roomNotify.cannotVoteExcludedNote();
+            roomNotify.cannotVoteExcludedNote(notifications);
           } else if (note) {
             const rect = note.getBoundingClientRect();
             const noteId = note.dataset.noteId;
@@ -1417,7 +1420,7 @@ export function RoomBoardView({
     if (isExcludedVoteTarget(note)) {
       event.preventDefault();
       event.stopPropagation();
-      roomNotify.cannotVoteExcludedNote();
+      roomNotify.cannotVoteExcludedNote(notifications);
       return;
     }
     const rect = note.getBoundingClientRect();
@@ -2301,7 +2304,7 @@ export function RoomBoardView({
           onFitToNotes={() => {
             const viewport = boardScrollerRef.current;
             if (viewport && fitToNotes(getBoardFitInsets(viewport)) === false)
-              roomNotify.canvasFitUnavailable();
+              roomNotify.canvasFitUnavailable(notifications);
           }}
           onSelect={handleNoteSelect}
           onNoteDragStart={(noteId, event, origin) => {
@@ -2316,7 +2319,7 @@ export function RoomBoardView({
                   origin,
                   noteId,
                 );
-              else roomNotify.multipleNoteMoveUnavailable();
+              else roomNotify.multipleNoteMoveUnavailable(notifications);
               return;
             }
             handleSharedNoteDragStart(noteId, event, origin);

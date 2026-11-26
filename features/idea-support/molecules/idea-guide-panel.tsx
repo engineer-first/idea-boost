@@ -2,17 +2,10 @@
 
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useId, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-  IDEA_GUIDE_DESCRIPTION,
-  IDEA_GUIDE_EXAMPLES,
-  IDEA_GUIDE_HEADING,
-  IDEA_GUIDE_HINTS,
-  IDEA_GUIDE_SAMPLE,
-  IDEA_HINT_DESCRIPTION,
-} from "../logic/idea-guide-content";
 
 export type IdeaGuidePanelProps = {
   onHintSelect: (content: string) => void;
@@ -25,6 +18,10 @@ export function IdeaGuidePanel({
   disabled = false,
   className,
 }: IdeaGuidePanelProps) {
+  const t = useTranslations("app.boardIdeaGuide");
+  const translate = t as (key: string) => string;
+  const hints = Array.from({ length: 5 }, (_, index) => translate(`hint${index + 1}`));
+  const examples = Array.from({ length: 5 }, (_, index) => translate(`example${index + 1}`));
   const [examplesOpen, setExamplesOpen] = useState(false);
   const examplesId = useId();
   return (
@@ -34,35 +31,35 @@ export function IdeaGuidePanel({
     >
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex flex-col gap-1.5">
-          <p className="font-semibold text-base">{IDEA_GUIDE_HEADING}</p>
+          <p className="font-semibold text-base">{t("heading")}</p>
           <p className="text-muted-foreground text-xs">
-            {IDEA_GUIDE_DESCRIPTION}
+            {t("description")}
           </p>
         </div>
 
         <div className="rounded-lg bg-muted/50 p-3">
           <p className="mb-2 text-muted-foreground text-xs">
-            例：問い → アイデア
+            {t("example")}
           </p>
           <dl className="space-y-2 text-base">
             <div>
-              <dt className="text-muted-foreground text-xs">問い</dt>
-              <dd>{IDEA_GUIDE_SAMPLE.question}</dd>
+              <dt className="text-muted-foreground text-xs">{t("question")}</dt>
+              <dd>{t("sampleQuestion")}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground text-xs">アイデア</dt>
-              <dd>{IDEA_GUIDE_SAMPLE.idea}</dd>
+              <dt className="text-muted-foreground text-xs">{t("idea")}</dt>
+              <dd>{t("sampleIdea")}</dd>
             </div>
           </dl>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-muted-foreground text-xs">書き出しを選ぶ</span>
+          <span className="text-muted-foreground text-xs">{t("selectWrite")}</span>
           <p className="text-muted-foreground text-xs">
-            {IDEA_HINT_DESCRIPTION}
+            {t("hintDescription")}
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {IDEA_GUIDE_HINTS.map((hint) => (
+            {hints.map((hint) => (
               <Button
                 key={hint}
                 type="button"
@@ -87,7 +84,7 @@ export function IdeaGuidePanel({
             aria-controls={examplesId}
             onClick={() => setExamplesOpen((open) => !open)}
           >
-            {examplesOpen ? "ほかの考え方を閉じる" : "ほかの考え方を見る"}
+            {examplesOpen ? t("otherClose") : t("otherOpen")}
             {examplesOpen ? (
               <ChevronUp aria-hidden="true" />
             ) : (
@@ -99,7 +96,7 @@ export function IdeaGuidePanel({
             hidden={!examplesOpen}
             className={examplesOpen ? "flex flex-col gap-1" : "hidden"}
           >
-            {IDEA_GUIDE_EXAMPLES.map((example) => (
+            {examples.map((example) => (
               <li key={example} className="text-base leading-relaxed">
                 {example}
               </li>

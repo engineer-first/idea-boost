@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,21 +22,6 @@ export type LeaveConfirmDialogProps = {
   onClosed?: () => void;
 };
 
-const COPY: Record<
-  LeaveConfirmMode,
-  {
-    title: string;
-    confirm: string;
-    confirming: string;
-  }
-> = {
-  leave: {
-    title: "退出しますか？",
-    confirm: "退出する",
-    confirming: "退出中…",
-  },
-};
-
 export function LeaveConfirmDialog({
   open,
   onOpenChange,
@@ -43,7 +29,7 @@ export function LeaveConfirmDialog({
   isLeaving,
   onClosed,
 }: LeaveConfirmDialogProps) {
-  const copy = COPY.leave;
+  const t = useTranslations("app.boardLeave");
 
   return (
     <AlertDialog
@@ -64,12 +50,12 @@ export function LeaveConfirmDialog({
         }}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+          <AlertDialogTitle>{t("title")}</AlertDialogTitle>
         </AlertDialogHeader>
 
         <AlertDialogFooter>
           <AlertDialogCancel className="min-h-11" disabled={isLeaving}>
-            キャンセル
+            {t("cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={(event) => {
@@ -80,7 +66,7 @@ export function LeaveConfirmDialog({
             disabled={isLeaving}
             data-testid="leave-confirm-action"
           >
-            {isLeaving ? copy.confirming : copy.confirm}
+            {isLeaving ? t("confirming") : t("confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
