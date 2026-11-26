@@ -1,19 +1,59 @@
 .trail {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 4px 6px 4px 12px;
+  gap: 6px;
+  height: 40px;
+  padding: 4px 6px 4px 4px;
   border: 1px solid var(--border);
   border-radius: var(--ib-rounded-xl);
   background: var(--background);
   color: var(--foreground);
   box-shadow: var(--elevation-tool);
   white-space: nowrap;
+  /* ボードの上に重なる帯の中で、フェーズ名と今のステップを押せるようにする。 */
+  pointer-events: auto;
 }
 .phase {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 30px;
+  padding: 0 6px 0 8px;
+  border-radius: var(--ib-rounded-lg);
   font-size: 12px;
   font-weight: 700;
+  cursor: pointer;
+}
+.phase:hover,
+.phase[aria-expanded="true"] {
+  background: var(--muted);
+}
+.phase:focus-visible,
+.stepButton:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.disclosure {
+  width: 12px;
+  height: 12px;
+  color: var(--muted-foreground);
+}
+.phase[aria-expanded="true"] > .disclosure {
+  transform: rotate(180deg);
+}
+.flow {
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(480px, calc(100dvh - 160px));
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.flowBody {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 4px;
 }
 .steps {
   display: flex;
@@ -24,9 +64,9 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 3px;
-  height: 26px;
-  padding-inline: 10px;
+  gap: 5px;
+  height: 30px;
+  padding-inline: 4px 10px;
   border-radius: var(--ib-rounded-full);
   font-size: 12px;
   line-height: 1;
@@ -41,8 +81,44 @@
   height: 1px;
   background: var(--ib-color-line);
 }
+/* やることの種類は開始待ちの「全体の流れ」と同じ色で、アイコンにだけ使う。 */
+.step[data-kind="write"] {
+  --step-kind-color: var(--ib-color-step-write);
+}
+.step[data-kind="share"] {
+  --step-kind-color: var(--ib-color-step-share);
+}
+.step[data-kind="group"],
+.step[data-kind="map"] {
+  --step-kind-color: var(--ib-color-step-organize);
+}
+.step[data-kind="vote"] {
+  --step-kind-color: var(--ib-color-step-vote);
+}
+.step[data-kind="decide"] {
+  --step-kind-color: var(--ib-color-state-decided);
+}
+.mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--ib-rounded-full);
+  background: color-mix(in oklab, var(--step-kind-color) 14%, transparent);
+  color: var(--step-kind-color);
+}
+.mark > svg {
+  width: 13px;
+  height: 13px;
+}
 .step[data-state="done"] {
   color: var(--foreground);
+}
+.step[data-state="done"] .mark {
+  background: transparent;
+  color: var(--ib-color-state-decided);
 }
 .step[data-state="current"] {
   background: var(--ib-color-primary-soft);
@@ -52,13 +128,25 @@
 .step[data-state="upcoming"] {
   color: var(--muted-foreground);
 }
-.mark {
-  display: flex;
-  width: 12px;
-  height: 12px;
-  color: var(--ib-color-state-decided);
+/* 今のステップは押すと進め方が開く。li の塗りいっぱいを押せる範囲にする。 */
+.step:has(> .stepButton) {
+  padding: 0;
 }
-.mark > svg {
-  width: 100%;
+.stepButton {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   height: 100%;
+  padding-inline: 4px 10px;
+  border-radius: inherit;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.stepButton:hover {
+  background: color-mix(
+    in oklab,
+    var(--ib-color-primary-strong) 8%,
+    transparent
+  );
 }

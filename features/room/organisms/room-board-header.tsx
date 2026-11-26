@@ -63,6 +63,7 @@ import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
 import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import type { Member, PhaseProgressState } from "../logic/room-reducer";
+import { getStepGuideReferenceSlides } from "../logic/step-guide-copy";
 import { useCompletionCue } from "../logic/use-completion-cue";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import { BoardContext } from "../molecules/board-context";
@@ -73,7 +74,10 @@ import { RestartWritingConfirmDialog } from "../molecules/restart-writing-confir
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
 import { SharingPresenter } from "../molecules/sharing-presenter";
-import { StepOneOnboardingSlide } from "../molecules/step-one-onboarding-slide";
+import {
+  type StepGuideController,
+  StepOneOnboardingSlide,
+} from "../molecules/step-one-onboarding-slide";
 import { TimerSoundControl } from "../molecules/timer-sound-control";
 import styles from "./room-board-header.module.css";
 import { RoomTimer } from "./room-timer";
@@ -622,6 +626,8 @@ export function RoomBoardHeader({
     sharingDuration,
     onTimerStart,
   ]);
+  const stepGuideRef = useRef<StepGuideController>(null);
+  const trailGuideTriggerRef = useRef<HTMLButtonElement>(null);
   const handleInitialOnboardingReady = useCallback(
     () => handleGuidePhaseReady("1-1"),
     [handleGuidePhaseReady],
@@ -667,8 +673,11 @@ export function RoomBoardHeader({
               hmwReference={hmwReference}
               roomName={roomName}
               roomNameLoading={!roomNameLoaded}
+              guideControlOnNarrowOnly={phase.kind === "step"}
               guideControl={
                 <StepOneOnboardingSlide
+                  controllerRef={stepGuideRef}
+                  alternateTriggerRef={trailGuideTriggerRef}
                   phaseKey={
                     phase.kind === "step"
                       ? `${phase.phase}-${phase.step}`
@@ -702,7 +711,17 @@ export function RoomBoardHeader({
             data-board-fit-edge="top"
           >
             <div data-board-fit-occupy="true">
-              <PhaseStepTrail phase={phase} />
+              <PhaseStepTrail
+                phase={phase}
+                guideTriggerRef={trailGuideTriggerRef}
+                onOpenGuide={
+                  !isDisconnected &&
+                  getStepGuideReferenceSlides(guidePhaseKey).length > 0
+                    ? () =>
+                        stepGuideRef.current?.open(trailGuideTriggerRef.current)
+                    : undefined
+                }
+              />
             </div>
           </div>
         ) : null}

@@ -768,6 +768,26 @@ describe("RoomBoardHeader", () => {
     ).toBeVisible();
   });
 
+  it("中央のステップバーの今のステップから進め方を開き、閉じるとそのステップへフォーカスを戻す", async () => {
+    localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
+    setup({ inviteCode: "TRAIL-GUIDE", phase: buildPhaseStep(1, 1) });
+
+    const stepButton = within(screen.getByTestId("phase-step-trail")).getByRole(
+      "button",
+      { name: "「個人」の進め方を開く" },
+    );
+    fireEvent.click(stepButton);
+    expect(
+      await screen.findByRole("dialog", {
+        name: "最近あった困ったことを付箋に書き出そう。",
+      }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(stepButton).toHaveFocus();
+  });
+
   it("スライドの進捗から前のスライドへ戻れる", async () => {
     const inviteCode = "ONBOARD-BACK";
     localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");

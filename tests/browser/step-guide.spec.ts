@@ -1,5 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { stepGuideOpener } from "./step-guide-opener";
 import { checksWidth, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
@@ -44,7 +45,7 @@ test.each(
       await page.goto(
         `${origin}/iframe.html?id=room-roomboardlayout--phase-${phase}-step-${step}&viewMode=story`,
       );
-      const guide = page.getByRole("button", { name: "進め方" });
+      const guide = stepGuideOpener(page, width);
       await guide.waitFor();
       expect(await page.getByRole("dialog").count()).toBe(0);
       const canvas = page.getByTestId("board-canvas");
@@ -112,7 +113,7 @@ test.each(widths(390, 1280))(
       for (const target of [
         members,
         page.getByRole("button", { name: "できた！", exact: true }),
-        page.getByRole("button", { name: "進め方", exact: true }),
+        stepGuideOpener(page, width),
       ]) {
         await target.scrollIntoViewIfNeeded();
         expect(
