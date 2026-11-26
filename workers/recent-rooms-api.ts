@@ -39,8 +39,60 @@ export async function handleRecentRooms(
         label: room.idea,
         status: "completed",
         completedAt: room.completedAt,
+        expiresAt: room.expiresAt,
       }),
     ),
   ].slice(0, RECENT_ROOMS_LIMIT);
-  return completedJson({ rooms } satisfies RecentRoomsResponse);
+  const dates = await roomDates(
+    env,
+    rooms.map((room) => room.roomId),
+  );
+  return completedJson({
+    rooms: rooms.map((room) => {
+      const found = dates.get(room.roomId);
+      const createdAt = found?.createdAt;
+      // 完了ルームは成果の閲覧期限が正本。進行中は成果の保全期限（使うたびに延びる）を出す。
+      const expiresAt = room.expiresAt ?? found?.expiresAt;
+      return {
+        ...room,
+        ...(createdAt === undefined ? {} : { createdAt }),
+        ...(expiresAt === undefined ? {} : { expiresAt }),
+      };
+    }),
+  } satisfies RecentRoomsResponse);
+}
+
+// 返すルームは上で本人の在籍・閲覧権で絞り込み済み。ここでは表示用の日付だけを足す。
+// 記録が無い・読めないときは日付を省き、一覧そのものは返す。
+async function roomDates(
+  env: ApiWorkerEnv,
+  roomIds: string[],
+): Promise<Map<string, { createdAt?: number; expiresAt?: number }>> {
+  const dates = new Map<string, { createdAt?: number; expiresAt?: number }>();
+  if (!roomIds.length) return dates;
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT r.id AS room_id, r.created_at, s.expires_at FROM rooms r LEFT JOIN shared_outcomes s ON s.room_id = r.id WHERE r.id IN (${roomIds.map(() => "?").join(",")})`,
+    )
+      .bind(...roomIds)
+      .all<{
+        room_id: string;
+        created_at: string | null;
+        expires_at: number | null;
+      }>();
+    for (const row of results) {
+      const createdAt = row.created_at
+        ? Date.parse(`${row.created_at.replace(" ", "T")}Z`)
+        : Number.NaN;
+      dates.set(row.room_id, {
+        ...(Number.isFinite(createdAt) ? { createdAt } : {}),
+        ...(typeof row.expires_at === "number"
+          ? { expiresAt: row.expires_at }
+          : {}),
+      });
+    }
+  } catch {
+    // 日付は補助情報なので、読めなくても一覧を返す。
+  }
+  return dates;
 }
