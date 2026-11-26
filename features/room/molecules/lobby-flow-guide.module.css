@@ -204,12 +204,25 @@
   }
 }
 
-/* 種類はアイコンの形で見分ける。色は意味が一致する「決定」だけに付ける。 */
-.step[data-kind="decide"] .icon {
-  background: color-mix(
-    in oklab,
-    var(--ib-color-state-decided) 14%,
-    transparent
-  );
-  color: var(--ib-color-state-decided);
+/* 種類はアイコンの形と色で見分ける。フェーズが変わっても同じ種類は同じ色にし、
+   丸い面は線の色を淡く混ぜて作る（DESIGN.md「ステップの種類」）。 */
+.step[data-kind="write"] {
+  --step-kind-color: var(--ib-color-step-write);
+}
+.step[data-kind="share"] {
+  --step-kind-color: var(--ib-color-step-share);
+}
+.step[data-kind="group"],
+.step[data-kind="map"] {
+  --step-kind-color: var(--ib-color-step-organize);
+}
+.step[data-kind="vote"] {
+  --step-kind-color: var(--ib-color-step-vote);
+}
+.step[data-kind="decide"] {
+  --step-kind-color: var(--ib-color-state-decided);
+}
+.step[data-kind] .icon {
+  background: color-mix(in oklab, var(--step-kind-color) 14%, transparent);
+  color: var(--step-kind-color);
 }
