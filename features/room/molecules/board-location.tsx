@@ -27,15 +27,16 @@ export type BoardLocationProps = {
   outcomePublished?: boolean;
   // 畳んだ現在地ボタンの右に並べる操作（「進め方」）。カードの高さは増やさない。
   action?: ReactNode;
-  // 中央のステップバーが出る広い画面では、同じ操作をステップバーから開くので右の操作を出さない。
-  actionOnNarrowOnly?: boolean;
+  // 中央のステップバーが出る広い画面（900px 以上）では、現在のステップ・全体の流れ・進め方を
+  // ステップバーから開けるので、重ねて示さないよう現在地カードごと出さない。
+  narrowOnly?: boolean;
 };
 
 export function BoardLocation({
   phase,
   outcomePublished = false,
   action,
-  actionOnNarrowOnly = false,
+  narrowOnly = false,
 }: BoardLocationProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
@@ -103,7 +104,11 @@ export function BoardLocation({
   const stepLabel =
     phase.kind === "step" ? STEP_NAMES[phase.phase][phase.step - 1] : "";
   return (
-    <div className={styles.slot} data-testid="board-location-slot">
+    <div
+      className={styles.slot}
+      data-narrow-only={narrowOnly || undefined}
+      data-testid="board-location-slot"
+    >
       <fieldset
         aria-label="現在地"
         ref={card}
@@ -123,10 +128,7 @@ export function BoardLocation({
             close();
         }}
       >
-        <div
-          className={styles.row}
-          data-action-narrow-only={actionOnNarrowOnly || undefined}
-        >
+        <div className={styles.row}>
           <button
             ref={trigger}
             type="button"

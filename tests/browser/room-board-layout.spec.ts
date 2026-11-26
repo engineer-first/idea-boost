@@ -9,6 +9,7 @@ import {
   test,
   vi,
 } from "vitest";
+import { flowOpener } from "./step-guide-opener";
 import { checksWidth, includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
@@ -176,7 +177,7 @@ test.each(steps)(
   async (step) => {
     const [phase, number] = step.split("-");
     await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
-    await page.getByTestId("board-context-hud").waitFor();
+    await page.getByTestId("board-control-hud").waitFor();
     // 集計ステップは結果ダイアログを閉じたボード本体も検査する。
     await page.keyboard.press("Escape");
     await expectLayout();
@@ -750,14 +751,14 @@ test.each([1280, 1024, 768])(
   async (width) => {
     await page.setViewportSize({ width, height: 720 });
     await openStory("room-roomboardlayout--phase-3-step-1");
+    await page.getByTestId("board-control-hud").waitFor();
     const hud = page.getByTestId("board-context-hud");
-    await hud.waitFor();
-    const location = hud.getByRole("button", { name: /現在地/ });
+    const location = flowOpener(page, width);
     expect(await location.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
       true,
     );
     await location.click();
-    const step = hud.getByTestId("board-current-step");
+    const step = page.getByTestId("board-current-step");
     expect(await step.textContent()).toContain("アイデアを書き出す（個人）");
     expect(await step.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
       true,
@@ -855,12 +856,12 @@ test.each([1024, 768])(
       const [phase, number] = step.split("-");
       await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
       const hud = page.getByTestId("board-context-hud");
-      await hud.waitFor();
+      await page.getByTestId("board-control-hud").waitFor();
       await page.keyboard.press("Escape");
       expect(
-        await hud
-          .getByTestId("board-location-trigger")
-          .evaluate((e) => e.scrollWidth <= e.clientWidth),
+        await flowOpener(page, width).evaluate(
+          (e) => e.scrollWidth <= e.clientWidth,
+        ),
         step,
       ).toBe(true);
       expect(
@@ -887,9 +888,10 @@ test.each([1280, 1024, 768])(
   async (width) => {
     await page.setViewportSize({ width, height: 720 });
     await openStory("room-roomboardlayout--phase-3-step-1");
+    // 進捗の線は左上の現在地カードの中にあり、カードはステップバーの出ない狭い幅だけに出す。
     const progress = page.getByTestId("board-progress-rail");
     await progress.waitFor({ state: "attached" });
-    expect(await progress.isVisible()).toBe(true);
+    expect(await progress.isVisible()).toBe(width < 900);
     const members = page.getByRole("button", {
       name: "参加者 12人",
       exact: true,
@@ -933,11 +935,11 @@ test.each([1280, 768])(
     const initial = await hud.boundingBox();
     expect(initial?.height).toBeLessThanOrEqual(390);
     expect(await page.getByTestId("board-location-trigger").isVisible()).toBe(
-      true,
+      width < 900,
     );
     expect(await page.getByTestId("board-current-step").count()).toBe(0);
     expect(await page.getByTestId("board-progress-rail").isVisible()).toBe(
-      true,
+      width < 900,
     );
 
     const issueTrigger = page.getByRole("button", { name: "決定した課題" });
@@ -1402,7 +1404,7 @@ test.each(widths(1280, 390))(
     for (const step of steps) {
       const [phase, number] = step.split("-");
       await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
-      await page.getByTestId("board-context-hud").waitFor();
+      await page.getByTestId("board-control-hud").waitFor();
       expect(
         await page
           .getByRole("dialog", { name: "投票結果", exact: true })

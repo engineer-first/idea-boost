@@ -72,7 +72,7 @@ describe.skipIf(!includeMobile).each([
       await page.goto(
         `${origin}/iframe.html?id=room-roomboardview--guide-phase-${phase}-step-${step}&viewMode=story`,
       );
-      await page.getByTestId("board-location-trigger").waitFor();
+      await page.getByTestId("board-control-hud").waitFor();
       await page.keyboard.press("Escape");
       await page.evaluate(() => document.fonts.ready);
       const bubble = page.getByTestId("board-character-bubble");

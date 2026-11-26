@@ -63,7 +63,7 @@ describe.each(sizes([1280, 800], [1024, 768], [768, 1024]))(
         await page.goto(
           `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story`,
         );
-        await page.getByTestId("board-location-trigger").waitFor();
+        await page.getByTestId("board-control-hud").waitFor();
         await page.keyboard.press("Escape");
         await page.evaluate(() => document.fonts.ready);
         const bubble = page.getByTestId("board-character-bubble");
@@ -99,7 +99,7 @@ describe.each(sizes([1280, 800], [1024, 768], [768, 1024]))(
         await page.goto(
           `${origin}/iframe.html?id=room-roomboardview--guide-phase-${phase}-step-1&viewMode=story`,
         );
-        await page.getByTestId("board-location-trigger").waitFor();
+        await page.getByTestId("board-control-hud").waitFor();
         await page.keyboard.press("Escape");
         await page.evaluate(() => document.fonts.ready);
         const bubble = page.getByTestId("board-character-bubble");

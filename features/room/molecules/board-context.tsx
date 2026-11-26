@@ -26,8 +26,8 @@ export type BoardContextProps = {
   hmwReference?: Carryover | null;
   // 現在地カードの中、現在地ボタンの右に並べる操作（「進め方」）。
   guideControl?: ReactNode;
-  // 広い画面では「進め方」を中央のステップバーから開くため、現在地カードには出さない。
-  guideControlOnNarrowOnly?: boolean;
+  // 広い画面では現在のステップと「進め方」を中央のステップバーで示すため、現在地カードごと出さない。
+  locationOnNarrowOnly?: boolean;
   // 作業中に「テーマ何だっけ」とメニューを開かずに済むよう常に見せる。渡さない画面では出さない。
   roomName?: string | null;
   // ルームの状態が届く前は「テーマ未設定」と仮表示せず、高さだけ保つ。
@@ -43,7 +43,7 @@ export function BoardContext({
   issueReference,
   hmwReference,
   guideControl,
-  guideControlOnNarrowOnly,
+  locationOnNarrowOnly,
   roomName,
   roomNameLoading = false,
 }: BoardContextProps) {
@@ -103,7 +103,7 @@ export function BoardContext({
         phase={phase}
         outcomePublished={outcomePublished}
         action={guideControl}
-        actionOnNarrowOnly={guideControlOnNarrowOnly}
+        narrowOnly={locationOnNarrowOnly}
       />
       {roomName !== undefined ? (
         <p

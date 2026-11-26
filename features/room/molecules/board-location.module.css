@@ -62,14 +62,14 @@
   border-start-end-radius: 0;
   border-end-end-radius: 0;
 }
-/* 中央のステップバーは 900px 以上で出るので、同じ幅から「進め方」をステップバーへ任せる。 */
+/* 中央のステップバーは 900px 以上で出るので、同じ幅から現在地の表示をステップバーへ任せる。
+   枠の高さも 0 にして、左上に空白を残さない。幅は残し、先生やステップバーの配置の基準に使う。 */
 @media (width >= 900px) {
-  .row[data-action-narrow-only="true"] > .action {
-    display: none;
+  .slot[data-narrow-only="true"] {
+    height: 0;
   }
-  .row[data-action-narrow-only="true"] > .trigger {
-    border-start-end-radius: inherit;
-    border-end-end-radius: inherit;
+  .slot[data-narrow-only="true"] > .card {
+    display: none;
   }
 }
 .currentAction {
