@@ -1038,7 +1038,7 @@ export function RoomBoardHeader({
                           aria-hidden="true"
                           className="invisible inline-flex items-center gap-2 [grid-area:1/1]"
                         >
-                          <Check className="size-4 max-[639px]:hidden" />
+                          <span className="size-4 max-[639px]:hidden" />
                           完了して成果を表示
                         </span>
                       </span>
