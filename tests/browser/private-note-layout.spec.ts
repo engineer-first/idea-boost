@@ -142,6 +142,8 @@ for (const viewport of [
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardlayout--phase-2-step-1&viewMode=story`,
     );
+    // Windows・Linux のように幅を取るスクロールバーでも中心がずれないことを確かめる。
+    await page.addStyleTag({ content: "::-webkit-scrollbar { width: 15px; }" });
     await page.getByTestId("private-notes-list").waitFor();
     await page.evaluate(() => document.fonts.ready);
 

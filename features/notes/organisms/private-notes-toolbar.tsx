@@ -1006,7 +1006,8 @@ export function PrivateNotesToolbar({
             "min-h-0 flex-1 overflow-y-auto overscroll-contain",
             isWorkspace
               ? cn(
-                  "px-3 [scrollbar-gutter:stable] md:px-5",
+                  // スクロールバーが幅を取る環境でも、入力欄と一覧の中心を左右同じ分だけ空けてそろえる。
+                  "px-3 [scrollbar-gutter:stable_both-edges] md:px-5",
                   isWritingCollapsed ? "py-2" : "pt-5 pb-3",
                 )
               : "px-2 py-3",
