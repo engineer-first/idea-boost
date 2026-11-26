@@ -1393,11 +1393,12 @@ export function RoomBoardHeader({
           (phase.kind === "step" && phase.step === 1) ? (
             <div
               data-testid="board-connection-slot"
-              className={
+              // 幅が狭いと中央上部のステップの並びが右へはみ出すため、接続の案内を前面に出す。
+              className={`relative z-[1] ${
                 phase.kind === "step" && phase.step === 1
                   ? "min-h-[38px] sm:min-h-0"
-                  : undefined
-              }
+                  : ""
+              }`}
             >
               <RoomConnectionNotice
                 returnHref={loginReturnHref}

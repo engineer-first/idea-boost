@@ -39,14 +39,14 @@
   left: -9px;
   width: 6px;
   height: 1px;
-  background: var(--ib-color-line-strong);
+  background: var(--ib-color-line);
 }
 .step[data-state="done"] {
   color: var(--foreground);
 }
 .step[data-state="current"] {
   background: var(--ib-color-primary-soft);
-  color: var(--primary-strong);
+  color: var(--ib-color-primary-strong);
   font-weight: 700;
 }
 .step[data-state="upcoming"] {
