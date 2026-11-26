@@ -22,6 +22,8 @@ const HINTS = {
   ended: "時間になったよ、次の工程をみんなで確認しよう。",
   sharingEndedPresenter: "時間になったよ、次の人にバトンを渡そう。",
   sharingEndedListener: "時間になったよ、発表を最後まで聞こう。",
+  // 最後の人の交代で共有が終わると、タイマーも終了になる。時間切れとは言わない。
+  sharingFinished: "みんな発表したよ、次のステップへ進もう。",
 } as const;
 
 // タイマー開始からの経過時間。この時刻にコツを1つずつ出す。
@@ -202,6 +204,7 @@ export function useCharacterHint({
         // 0枚の案内は工程に1回。時間に関する案内とコツだけを数え直す。
         seen.current.delete("warning");
         seen.current.delete("ended");
+        seen.current.delete("sharingFinished");
         shownTips.current = null;
         // 前の番の残り時間・時間切れの案内を、次の番に持ち越さない。
         setHint((current) => (current?.timed ? null : current));
@@ -225,19 +228,26 @@ export function useCharacterHint({
                 Date.now() - startedAt.current >= 30_000
               ? "empty"
               : null;
-      if (kind && !seen.current.has(kind)) {
-        seen.current.add(kind);
+      const isSharingStep = phase.kind === "step" && phase.step === 2;
+      // 時間切れの一言を出した後に最後の人が終えても、共有の完了は別に知らせる。
+      const seenKey =
+        kind === "ended" && isSharingStep && sharingRole === "finished"
+          ? "sharingFinished"
+          : kind;
+      if (kind && seenKey && !seen.current.has(seenKey)) {
+        seen.current.add(seenKey);
+        // 完了の後に途中参加で共有が戻っても、同じタイマーの時間切れは言わない。
+        if (seenKey === "sharingFinished") seen.current.add("ended");
         // 同じ時刻のコツは、優先の一言で置き換える。
         shownTips.current = dueTips;
         show(
-          kind === "ended" &&
-            phase.kind === "step" &&
-            phase.step === 2 &&
-            sharingRole !== "finished"
-            ? sharingRole === "presenter"
-              ? HINTS.sharingEndedPresenter
-              : HINTS.sharingEndedListener
-            : HINTS[kind],
+          seenKey === "sharingFinished"
+            ? HINTS.sharingFinished
+            : kind === "ended" && isSharingStep
+              ? sharingRole === "presenter"
+                ? HINTS.sharingEndedPresenter
+                : HINTS.sharingEndedListener
+              : HINTS[kind],
           kind !== "empty",
         );
         return;
