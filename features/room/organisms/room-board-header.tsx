@@ -119,6 +119,8 @@ export type RoomBoardHeaderProps = {
   isNextPhasePending: boolean;
   onEditSelf?: () => void;
   roomName?: string | null;
+  // ルームの状態が届いたか。届く前の null を「テーマ未設定」と区別する。
+  roomNameLoaded?: boolean;
   onRenameRoom?: () => void;
   roomNameDisabled?: boolean;
   onSelectMember?: (userId: string) => void;
@@ -187,6 +189,7 @@ export function RoomBoardHeader({
   onSelectMember,
   onEditSelf,
   roomName,
+  roomNameLoaded = true,
   onRenameRoom,
   roomNameDisabled,
   isRemovingMember = false,
@@ -350,7 +353,14 @@ export function RoomBoardHeader({
         ? null
         : new ResizeObserver(updateBoardLayoutOffsets);
     observer?.observe(area);
-    if (usesIdeaMapViewport) observer?.observe(header);
+    if (usesIdeaMapViewport) {
+      observer?.observe(header);
+      // テーマの折り返しなどで現在地の欄だけが伸びても、マップを参照欄の下へ測り直す。
+      const contextHud = header.querySelector<HTMLElement>(
+        '[data-testid="board-context-hud"]',
+      );
+      if (contextHud) observer?.observe(contextHud);
+    }
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
@@ -655,6 +665,8 @@ export function RoomBoardHeader({
               decidedHmw={decidedHmw}
               issueReference={issueReference}
               hmwReference={hmwReference}
+              roomName={roomName}
+              roomNameLoading={!roomNameLoaded}
               guideControl={
                 <StepOneOnboardingSlide
                   phaseKey={
@@ -1159,8 +1171,10 @@ export function RoomBoardHeader({
                   <MoreHorizontal aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
+              {/* 右端を操作欄の外枠＋円形タイマーの外枠（2px）まで広げ、開いたメニューの横からタイマーがはみ出さないようにする。 */}
               <PopoverContent
                 ref={roomMenuContentRef}
+                alignOffset={-9}
                 className={
                   isPhaseOnePrivateNoteEntry ? "z-[70] w-80 p-2" : "w-80 p-2"
                 }

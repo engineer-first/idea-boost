@@ -78,3 +78,20 @@ export const MissingSource: Story = {
 export const LongQuestion: Story = {
   args: { decidedHmw: "問いを読み返しながら考える。".repeat(150) },
 };
+
+// 作業中もメニューを開かずにテーマを確かめられる。最大30文字は2行まで折り返して全文を見せる。
+export const WithTheme: Story = {
+  args: { roomName: "通学路を安全にするには" },
+};
+export const WithLongTheme: Story = {
+  args: {
+    roomName: "通学路で自転車と歩行者がぶつかりそうになる問題をなくすには",
+  },
+};
+export const WithoutTheme: Story = {
+  args: { roomName: null },
+};
+// ルームの状態が届く前は文言なしの枠で高さだけ保ち、「テーマ未設定」と仮表示しない。
+export const ThemeLoading: Story = {
+  args: { roomName: null, roomNameLoading: true },
+};

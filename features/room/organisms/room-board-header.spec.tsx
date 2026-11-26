@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildMembers,
@@ -937,6 +937,23 @@ describe("RoomBoardHeader", () => {
       expect(
         screen.getByRole("button", { name: "招待コードをコピー" }),
       ).toHaveTextContent("AB12CD");
+    });
+
+    it("作業画面ではメニューを開かなくてもテーマを確認できる", () => {
+      setup({ roomName: "J05" });
+      expect(screen.getByTestId("board-room-theme")).toHaveTextContent(
+        "テーマ：J05",
+      );
+      expect(
+        screen.queryByRole("dialog", { name: "ルームメニュー" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("作業画面ではルームの状態が届くまで「テーマ未設定」と出さない", () => {
+      setup({ roomName: null, roomNameLoaded: false });
+      expect(screen.getByTestId("board-room-theme")).not.toHaveTextContent(
+        "テーマ未設定",
+      );
     });
 
     it("ルームメニューの招待から、テーマ・参加リンク・招待コードを含む招待文をコピーできる", async () => {
@@ -2109,9 +2126,12 @@ it("参加者はルームメニューで現在名と変更入口を確認でき�
   const onRenameRoom = vi.fn();
   const props = setupProps({ roomName: "J05", onRenameRoom });
   const { rerender } = render(<RoomBoardHeader {...props} />);
-  expect(screen.queryByText("J05")).not.toBeInTheDocument();
   openRoomMenu();
-  expect(screen.getByText("J05")).toBeInTheDocument();
+  expect(
+    within(screen.getByRole("dialog", { name: "ルームメニュー" })).getByText(
+      "J05",
+    ),
+  ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "テーマを変更" }));
   expect(onRenameRoom).toHaveBeenCalledOnce();
   rerender(<RoomBoardHeader {...props} outcomePublished />);
@@ -2325,4 +2345,23 @@ describe("今のフェーズのステップの並び", () => {
     expect(within(trail).getAllByRole("img", { name: "完了" })).toHaveLength(2);
     expect(items[2].getAttribute("aria-current")).toBe("step");
   });
+});
+
+it("2軸マップのステップでは、テーマの折り返しで現在地の欄が伸びたらマップ位置を測り直す", () => {
+  const observed: Element[] = [];
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe(element: Element): void {
+        observed.push(element);
+      }
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  );
+  onTestFinished(() => {
+    vi.unstubAllGlobals();
+  });
+  setup({ phase: buildPhaseStep(2, 3), roomName: "J05" });
+  expect(observed).toContain(screen.getByTestId("board-context-hud"));
 });

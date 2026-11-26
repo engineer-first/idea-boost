@@ -555,3 +555,56 @@ describe("2軸マップのステップへ入るときの参照カード", () => 
     ).toHaveAttribute("aria-expanded", "false");
   });
 });
+
+describe("作業中のテーマ表示", () => {
+  it("メニューを開かなくても現在のテーマを常に表示する", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(1, 1)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+        roomName="文化祭の来場者が迷うこと"
+      />,
+    );
+    const theme = screen.getByTestId("board-room-theme");
+    expect(theme).toHaveTextContent("テーマ：文化祭の来場者が迷うこと");
+    expect(theme).toHaveAttribute("title", "文化祭の来場者が迷うこと");
+  });
+  it("テーマが未入力なら「テーマ未設定」と出す", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(2, 1)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+        roomName={null}
+      />,
+    );
+    expect(screen.getByTestId("board-room-theme")).toHaveTextContent(
+      "テーマ未設定",
+    );
+  });
+  it("ルームの状態が届く前は「テーマ未設定」と仮表示せず、枠だけ残す", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(1, 1)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+        roomName={null}
+        roomNameLoading
+      />,
+    );
+    const theme = screen.getByTestId("board-room-theme");
+    expect(theme).not.toHaveTextContent("テーマ未設定");
+    expect(theme).toHaveAttribute("aria-busy", "true");
+  });
+  it("テーマを渡さない画面では表示しない", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(1, 1)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+      />,
+    );
+    expect(screen.queryByTestId("board-room-theme")).not.toBeInTheDocument();
+  });
+});
