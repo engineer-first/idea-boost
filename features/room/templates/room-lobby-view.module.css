@@ -341,7 +341,8 @@
     width: clamp(160px, 18vw, 280px);
     opacity: 1;
   }
-  /* 顔が多いと飾りが顔と名前に重なるので、PC では顔の色に任せて飾りを出さない。 */
+  /* 顔が多いと飾りが顔と名前に重なるので、PC では顔の色に任せて飾りを出さない。
+     多人数（data-member-density="many"）は必ず compact なので、説明パネルを隠す単列表示でも出ない。 */
   .stage[data-density="compact"]::before,
   .stage[data-density="compact"]::after {
     display: none;
