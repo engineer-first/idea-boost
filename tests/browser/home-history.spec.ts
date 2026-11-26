@@ -778,9 +778,11 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         });
       });
       await inviteButton.click();
-      const inviteUrl = await inviter.evaluate(
+      // 「リンクをコピー」は招待文ごとコピーするので、参加リンクの行からURLを取り出す。
+      const copiedInvite = await inviter.evaluate(
         () => document.documentElement.dataset.copiedInviteUrl,
       );
+      const inviteUrl = copiedInvite?.match(/^参加リンク: (\S+)$/m)?.[1];
       if (!inviteUrl) throw new Error("招待URLなし");
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.goto(inviteUrl);

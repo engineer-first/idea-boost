@@ -298,9 +298,11 @@ export async function smokePreviewBrowserCollaboration(
       });
     });
     await owner.getByRole("button", { name: "招待リンクをコピー" }).click();
-    const inviteUrl = await owner.evaluate(
+    // 「リンクをコピー」は招待文ごとコピーするので、参加リンクの行からURLを取り出す。
+    const copiedInvite = await owner.evaluate(
       () => (globalThis as unknown as InviteCopyWindow).copiedInviteUrl,
     );
+    const inviteUrl = copiedInvite?.match(/^参加リンク: (\S+)$/m)?.[1];
     assert.ok(inviteUrl, "招待リンクをコピーできませんでした。");
     assert.equal(new URL(inviteUrl).origin, input.origin);
     await owner.keyboard.press("Escape");

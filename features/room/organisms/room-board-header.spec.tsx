@@ -956,7 +956,7 @@ describe("RoomBoardHeader", () => {
       );
     });
 
-    it("ルームメニューの招待から、テーマ・参加リンク・招待コードを含む招待文をコピーできる", async () => {
+    it("ルームメニューの招待の「リンクをコピー」1つで、テーマ・参加リンク・招待コードを含む招待文をコピーできる", async () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
       const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
       Object.defineProperty(navigator, "clipboard", {
@@ -968,9 +968,12 @@ describe("RoomBoardHeader", () => {
         openRoomMenu();
         fireEvent.click(screen.getByRole("button", { name: "招待" }));
         const invite = screen.getByTestId("board-view-invite");
+        expect(
+          within(invite).queryByRole("button", { name: "招待文をコピー" }),
+        ).not.toBeInTheDocument();
         await act(async () =>
           fireEvent.click(
-            within(invite).getByRole("button", { name: "招待文をコピー" }),
+            within(invite).getByRole("button", { name: "招待リンクをコピー" }),
           ),
         );
         expect(writeText).toHaveBeenCalledExactlyOnceWith(

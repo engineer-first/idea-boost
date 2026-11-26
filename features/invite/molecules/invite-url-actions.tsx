@@ -7,7 +7,7 @@ import { CopyInviteButton } from "./copy-invite-button";
 
 export type InviteUrlActionsProps = {
   value: string;
-  // チャットへそのまま貼れる招待文。渡したときだけ「招待文をコピー」を出す。
+  // チャットへそのまま貼れる招待文。渡すと「リンクをコピー」でリンク単独の代わりにこれをコピーする。
   message?: string;
   layout?: "stacked" | "inline";
 };
@@ -80,66 +80,54 @@ function InviteUrlActionsContent({
 
   const ShareIcon = failed ? CircleAlert : Share2;
   return (
-    // 招待文のコピーは小さな文字ボタンにして、招待コードの見出しと同じ高さの行に置く。
-    // 開始待ちの低い画面でも、招待欄の高さと幅を増やさない。
-    <div className="flex w-full min-w-0 flex-col items-start">
-      {message ? (
-        <CopyInviteButton
-          value={message}
-          itemLabel="招待文"
-          label="招待文をコピー"
-          appearance="text"
-        />
-      ) : null}
-      <div
-        className={
-          layout === "inline"
-            ? "flex w-full min-w-0 items-center gap-2"
-            : "flex w-full min-w-0 flex-col items-end gap-1"
-        }
-      >
-        {/* URLの全文は見せず、押すとリンクをコピーする。 */}
-        <CopyInviteButton
-          value={value}
-          itemLabel="招待リンク"
-          label="リンクをコピー"
-        />
-        {supported ? (
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-muted-foreground"
-              onClick={handleShare}
-              disabled={pending}
-              aria-busy={pending}
-              aria-label="招待リンクを共有"
-              title={
-                failed
-                  ? "共有できませんでした。リンクをコピーして送ってください。"
-                  : "端末の共有メニューを開く"
-              }
-              data-share-state={failed ? "error" : "idle"}
-            >
-              <ShareIcon
-                aria-hidden="true"
-                className={failed ? "text-destructive" : undefined}
-              />
-              共有
-            </Button>
-            <span
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-              className="sr-only"
-            >
-              {failed
+    <div
+      className={
+        layout === "inline"
+          ? "flex w-full min-w-0 items-center gap-2"
+          : "flex w-full min-w-0 flex-col items-end gap-1"
+      }
+    >
+      {/* URLの全文は見せない。招待文があれば、リンクを含む招待文ごとコピーして1つのボタンで済ませる。 */}
+      <CopyInviteButton
+        value={message ?? value}
+        itemLabel="招待リンク"
+        label="リンクをコピー"
+      />
+      {supported ? (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-muted-foreground"
+            onClick={handleShare}
+            disabled={pending}
+            aria-busy={pending}
+            aria-label="招待リンクを共有"
+            title={
+              failed
                 ? "共有できませんでした。リンクをコピーして送ってください。"
-                : ""}
-            </span>
-          </>
-        ) : null}
-      </div>
+                : "端末の共有メニューを開く"
+            }
+            data-share-state={failed ? "error" : "idle"}
+          >
+            <ShareIcon
+              aria-hidden="true"
+              className={failed ? "text-destructive" : undefined}
+            />
+            共有
+          </Button>
+          <span
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+          >
+            {failed
+              ? "共有できませんでした。リンクをコピーして送ってください。"
+              : ""}
+          </span>
+        </>
+      ) : null}
     </div>
   );
 }
