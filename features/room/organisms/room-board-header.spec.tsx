@@ -1297,6 +1297,27 @@ describe("RoomBoardHeader", () => {
     expect(props.onToggleReady).toHaveBeenCalledWith(false);
   });
 
+  it.each([
+    ["接続中", false, undefined],
+    ["切断中", true, "true"],
+  ] as const)(
+    "%sの押し済みの「できた！」は、押せない間だけ押せない表示の印を持つ",
+    (_label, isDisconnected, expected) => {
+      const members = buildMembers(2, ME);
+      setup({
+        phase: buildPhaseStep(3, 1),
+        onToggleReady: vi.fn(),
+        progress: allReadyProgress(members),
+        isDisconnected,
+      });
+
+      const complete = screen.getByRole("button", {
+        name: "できた！を取り消す",
+      });
+      expect(complete.dataset.unavailable).toBe(expected);
+    },
+  );
+
   it("完了フラグを立てた参加者のアバターにチェックを表示する", () => {
     const members = buildMembers(2, ME);
     setup({

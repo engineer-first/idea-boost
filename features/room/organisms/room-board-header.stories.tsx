@@ -154,6 +154,24 @@ export const ProgressControls: Story = {
   },
 };
 
+// 本人が「できた！」を押した後。呼び方は変えず、緑の塗りとチェックで押し済みを示す。
+export const ReadyChecked: Story = {
+  args: {
+    phase: buildPhaseStep(3),
+    members: VOTING_MEMBERS,
+    progress: completedProgress(VOTING_MEMBERS),
+  },
+};
+
+// 押し済みのまま切断したとき。押せない間は面を外して破線で示す。
+export const ReadyCheckedDisconnected: Story = {
+  args: {
+    ...ReadyChecked.args,
+    isDisconnected: true,
+    connectionStatus: "closed",
+  },
+};
+
 // 参加者視点（招待情報とフェーズ移行が出ない）。
 export const NonHost: Story = {
   args: {},

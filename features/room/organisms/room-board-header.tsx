@@ -480,11 +480,10 @@ export function RoomBoardHeader({
     isCurrentVotingStep &&
     !isCurrentUserReady &&
     !completedVoterIds.includes(currentUserId);
-  const readyButtonDisabled =
-    roomActionDisabled ||
-    sharingCompletionDisabled ||
-    votesRemaining ||
-    completionCue.busy;
+  // 押した直後の演出中（completionCue.busy）は押し済みの塗りを保ち、本当に押せない間だけ破線で示す。
+  const readyButtonUnavailable =
+    roomActionDisabled || sharingCompletionDisabled || votesRemaining;
+  const readyButtonDisabled = readyButtonUnavailable || completionCue.busy;
   const sharingTurnKey =
     activeSharing?.status === "active"
       ? `${inviteCode}:${currentUserId}:${phaseRevision}:${activeSharing.revision}`
@@ -716,6 +715,7 @@ export function RoomBoardHeader({
                   showSharingCompletionCue || undefined
                 }
                 disabled={readyButtonDisabled}
+                data-unavailable={readyButtonUnavailable || undefined}
                 aria-busy={completionCue.stage === "waiting"}
                 aria-pressed={activeSharing ? undefined : isCurrentUserReady}
                 aria-label={
