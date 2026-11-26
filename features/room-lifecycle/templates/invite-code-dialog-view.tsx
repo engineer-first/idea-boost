@@ -3,6 +3,7 @@
 // 招待コード参加の確認 Dialog の表示部。props in / callback out に徹し、
 // Server Action・router・toast には触れない（Storybook に単体で載る）。
 // 配線（joinRoom・遷移・open/pending 管理）は containers/invite-code-dialog。
+import { useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,12 +35,13 @@ export function InviteCodeDialogView({
   onOpenChange,
   onConfirm,
 }: InviteCodeDialogViewProps) {
+  const t = useTranslations("app.invite");
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent data-testid="invite-dialog">
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {hostName} さんが作成したルームに参加しますか？
+            {t("confirmTitle", { hostName })}
           </AlertDialogTitle>
         </AlertDialogHeader>
         <AlertDialogDescription className="font-mono font-semibold text-foreground">
@@ -51,7 +53,7 @@ export function InviteCodeDialogView({
           </p>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>キャンセル</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>{t("cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault();
@@ -60,7 +62,7 @@ export function InviteCodeDialogView({
             disabled={pending}
             data-testid="invite-join-action"
           >
-            {pending ? "参加中…" : "参加する"}
+            {pending ? t("joining") : t("join")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

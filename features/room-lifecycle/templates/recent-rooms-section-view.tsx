@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import type { RecentRoom } from "@/contracts/recent-rooms";
 
@@ -16,8 +17,8 @@ export type RecentRoomsSectionViewProps = {
 const rowClass =
   "flex h-full min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-left text-base hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:border-dashed disabled:border-line-strong disabled:bg-background disabled:text-muted-foreground";
 
-function formatCompletedDate(value: number): string {
-  return new Intl.DateTimeFormat("ja-JP", {
+function formatCompletedDate(value: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "ja-JP", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -26,6 +27,8 @@ function formatCompletedDate(value: number): string {
 }
 
 function RoomRow({ room }: { room: RecentRoom }) {
+  const t = useTranslations("app.home");
+  const locale = useLocale();
   return (
     <>
       {/* 状態は名前の下に置き、列が狭くても名前の幅を残す。 */}
@@ -35,8 +38,8 @@ function RoomRow({ room }: { room: RecentRoom }) {
         </span>
         <span className="text-sm text-muted-foreground">
           {room.status === "active"
-            ? "進行中"
-            : `完了${room.completedAt ? `・${formatCompletedDate(room.completedAt)}` : ""}`}
+            ? t("active")
+            : `${t("completed")}${room.completedAt ? ` · ${formatCompletedDate(room.completedAt, locale)}` : ""}`}
         </span>
       </span>
       <ArrowRight className="size-4 shrink-0" aria-hidden />
@@ -54,6 +57,7 @@ export function RecentRoomsSectionView({
   onOpenActive,
   onRetry,
 }: RecentRoomsSectionViewProps) {
+  const t = useTranslations("app.home");
   return (
     <section
       aria-labelledby="recent-rooms-heading"
@@ -64,15 +68,15 @@ export function RecentRoomsSectionView({
         id="recent-rooms-heading"
         className="shrink-0 text-base font-semibold"
       >
-        最近のルーム
+        {t("recent")}
       </h2>
       {loadFailed ? (
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p role="status" className="text-base text-muted-foreground">
-            ルームを読み込めませんでした。
+            {t("loadFailed")}
           </p>
           <Button variant="outline" className="min-h-11" onClick={onRetry}>
-            もう一度読み込む
+            {t("retry")}
           </Button>
         </div>
       ) : (
