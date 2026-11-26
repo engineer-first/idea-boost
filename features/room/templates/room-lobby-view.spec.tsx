@@ -103,7 +103,7 @@ describe("RoomLobbyView", () => {
     renderView({ members: buildMembers(4, ME) });
     expect(
       screen.getByTestId("room-lobby-view-member-count"),
-    ).toHaveTextContent("4 名");
+    ).toHaveTextContent("4人");
   });
 
   it("見出しは語の途中で折り返さず、読点の後だけで改行できる", () => {

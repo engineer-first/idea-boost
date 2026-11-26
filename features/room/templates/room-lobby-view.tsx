@@ -119,7 +119,7 @@ export function RoomLobbyView({
             data-testid="room-lobby-view-member-count"
           >
             <Users size={18} aria-hidden="true" />
-            {members.length} 名
+            {members.length}人
           </span>
         </header>
 
