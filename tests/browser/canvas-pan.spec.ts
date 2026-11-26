@@ -54,12 +54,12 @@ async function expectPanEnded(): Promise<void> {
 
 test("右上の操作バーの開閉後は移動だけでパンせず、背景ドラッグは動く", async () => {
   const original = await canvasTransform();
-  for (const name of [
-    "参加者 3人",
-    "ルームメニューを開く",
-    "タイマー（6分） 未開始 06:00。規定時間で開始",
+  for (const control of [
+    page.getByRole("button", { name: "参加者 3人", exact: true }),
+    page.getByRole("button", { name: "ルームメニューを開く", exact: true }),
+    page.getByTestId("room-timer"),
   ]) {
-    await page.getByRole("button", { name, exact: true }).click();
+    await control.click();
     await page.mouse.move(600, 620);
     await expectPanEnded();
     expect(await canvasTransform()).toBe(original);

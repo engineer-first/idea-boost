@@ -1758,6 +1758,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(notifyMocks.automaticallyExcludedCandidates).toHaveBeenCalledWith(
       1,
       expect.any(Function),
+      expect.any(Function),
     );
   });
 

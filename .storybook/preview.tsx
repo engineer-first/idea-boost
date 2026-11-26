@@ -1,6 +1,6 @@
 import type { Preview } from "@storybook/nextjs-vite";
-import { NextIntlClientProvider } from "next-intl";
 import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
 import appMessages from "../messages/ja/app.json";
 import landingMessages from "../messages/ja/landing.json";
 import "../app/globals.css";
