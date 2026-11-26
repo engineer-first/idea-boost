@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { type Ref, useState } from "react";
 import {
   Popover,
@@ -10,6 +10,7 @@ import {
 import type { RoomStepPhase } from "@/contracts/phase";
 import { getStepKind } from "../logic/lobby-flow";
 import {
+  getNextStepShortName,
   PHASE_MARKERS,
   PHASE_SHORT_NAMES,
   STEP_SHORT_NAMES,
@@ -24,6 +25,8 @@ export type PhaseStepTrailProps = {
   onOpenGuide?: () => void;
   // 進め方を閉じたときにフォーカスを戻し、閉じる動きの行き先にする今のステップのボタン。
   guideTriggerRef?: Ref<HTMLButtonElement>;
+  // タイマーが時間切れの間は、今のステップから次への矢印を動かして次へ進めることを知らせる。
+  timeUp?: boolean;
 };
 
 type StepState = "done" | "current" | "upcoming";
@@ -35,6 +38,7 @@ export function PhaseStepTrail({
   phase,
   onOpenGuide,
   guideTriggerRef,
+  timeUp = false,
 }: PhaseStepTrailProps) {
   // 全体の流れは、ステップが進んだら閉じて次に開くときに今のフェーズから見せる。
   const stepKey = `${phase.phase}-${phase.step}`;
@@ -44,7 +48,11 @@ export function PhaseStepTrail({
   const flowOpen = flow.stepKey === stepKey && flow.open;
   const phaseName = `${PHASE_MARKERS[phase.phase]}${PHASE_SHORT_NAMES[phase.phase]}`;
   return (
-    <div className={`${styles.trail} board-hud`} data-testid="phase-step-trail">
+    <div
+      className={`${styles.trail} board-hud`}
+      data-testid="phase-step-trail"
+      data-time-up={timeUp ? "true" : undefined}
+    >
       <Popover
         open={flowOpen}
         onOpenChange={(open) => setFlow({ stepKey, open })}
@@ -119,6 +127,16 @@ export function PhaseStepTrail({
               ) : (
                 content
               )}
+              {state === "current" && timeUp ? (
+                <span
+                  role="img"
+                  aria-label={`時間切れ：次の「${getNextStepShortName(phase)}」へ進めます`}
+                  className={styles.nextArrow}
+                  data-testid="phase-step-trail-next-arrow"
+                >
+                  <ChevronRight aria-hidden="true" strokeWidth={3} />
+                </span>
+              ) : null}
             </li>
           );
         })}

@@ -27,3 +27,9 @@ export const FlowOpen: Story = {
     );
   },
 };
+// タイマーが時間切れの間は、今のステップから次への矢印を動かす。
+export const TimeUp: Story = { args: { timeUp: true } };
+// フェーズの最後のステップの時間切れは、帯の端に次のフェーズへの矢印を出す。
+export const TimeUpLastStep: Story = {
+  args: { phase: buildPhaseStep(5, 3), timeUp: true },
+};

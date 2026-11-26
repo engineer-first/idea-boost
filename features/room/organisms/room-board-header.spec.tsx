@@ -768,6 +768,34 @@ describe("RoomBoardHeader", () => {
     ).toBeVisible();
   });
 
+  it("タイマーが時間切れの間だけ、中央のステップバーに次への矢印を出す", () => {
+    const props = setupProps({
+      phase: buildPhaseStep(1, 1),
+      timer: { status: "ended", durationMs: 180_000 },
+    });
+    const { rerender } = render(<RoomBoardHeader {...props} />);
+    const trail = screen.getByTestId("phase-step-trail");
+    expect(
+      within(trail).getByRole("img", {
+        name: "時間切れ：次の「共有」へ進めます",
+      }),
+    ).toBeVisible();
+
+    rerender(
+      <RoomBoardHeader
+        {...props}
+        timer={{
+          status: "running",
+          endsAt: Date.now() + 60_000,
+          durationMs: 60_000,
+        }}
+      />,
+    );
+    expect(
+      within(trail).queryByRole("img", { name: /^時間切れ：/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it("中央のステップバーの今のステップから進め方を開き、閉じるとそのステップへフォーカスを戻す", async () => {
     localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
     setup({ inviteCode: "TRAIL-GUIDE", phase: buildPhaseStep(1, 1) });

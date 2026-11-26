@@ -722,6 +722,7 @@ export function RoomBoardHeader({
             <div data-board-fit-occupy="true">
               <PhaseStepTrail
                 phase={phase}
+                timeUp={timer.status === "ended"}
                 guideTriggerRef={trailGuideTriggerRef}
                 onOpenGuide={
                   !isDisconnected &&
