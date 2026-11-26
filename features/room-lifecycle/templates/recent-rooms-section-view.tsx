@@ -16,11 +16,11 @@ export type RecentRoomsSectionViewProps = {
 };
 
 const cardClass =
-  "flex h-full min-h-11 w-full flex-col gap-2 rounded-lg border border-border bg-background p-3 text-left text-base hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:border-dashed disabled:border-line-strong disabled:bg-background disabled:text-muted-foreground";
+  "flex h-full min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left text-base hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:border-dashed disabled:border-line-strong disabled:bg-background disabled:text-muted-foreground";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function formatCompletedDate(value: number): string {
+function formatDate(value: number): string {
   return new Intl.DateTimeFormat("ja-JP", {
     year: "numeric",
     month: "2-digit",
@@ -29,50 +29,56 @@ function formatCompletedDate(value: number): string {
   }).format(value);
 }
 
-function remainingLabel(expiresAt: number, now: number): string {
-  const days = Math.ceil((expiresAt - now) / DAY_MS);
-  return days > 0 ? `あと${days}日で削除` : "まもなく削除";
+function formatMonthDay(value: number): string {
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Tokyo",
+  }).format(value);
 }
 
+function remainingLabel(expiresAt: number, now: number): string {
+  const days = Math.ceil((expiresAt - now) / DAY_MS);
+  return days > 0 ? `あと${days}日` : "まもなく";
+}
+
+// 1枚を名前と1行の補足に収め、ホームの作成・参加を初期画面から押し出さない。
+// 日付は分かるものだけ出す。古い記録で無くても名前と状態のカードとして成り立つ。
 function RoomCard({ room, now }: { room: RecentRoom; now: number }) {
   return (
     <>
-      <span className="flex w-full items-start justify-between gap-2">
-        <span className="flex min-w-0 flex-col">
-          <span
-            className="line-clamp-2 break-all font-medium"
-            title={room.label}
-          >
-            {room.label}
-          </span>
-          <span className="text-sm text-muted-foreground">
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="line-clamp-1 break-all font-medium" title={room.label}>
+          {room.label}
+        </span>
+        <span className="flex flex-wrap items-center gap-x-3 text-sm tabular-nums text-muted-foreground">
+          <span>
             {room.status === "active"
               ? "進行中"
-              : `完了${room.completedAt ? `・${formatCompletedDate(room.completedAt)}` : ""}`}
+              : `完了${room.completedAt ? `・${formatMonthDay(room.completedAt)}` : ""}`}
           </span>
-        </span>
-        <ArrowRight className="mt-1 size-4 shrink-0" aria-hidden />
-      </span>
-      {/* 日付は分かるものだけ出す。古い記録で無くても名前と状態のカードとして成り立つ。 */}
-      {(room.createdAt !== undefined || room.expiresAt !== undefined) && (
-        <span className="mt-auto flex flex-wrap gap-x-3 gap-y-1 text-sm tabular-nums text-muted-foreground">
           {room.createdAt !== undefined && (
-            <span className="inline-flex items-center gap-1">
-              <CalendarDays className="size-4 shrink-0" aria-hidden />
-              {formatCompletedDate(room.createdAt)} 作成
+            <span
+              className="inline-flex items-center gap-1"
+              title={`${formatDate(room.createdAt)}に作成`}
+            >
+              <CalendarDays className="size-3.5 shrink-0" aria-hidden />
+              {formatMonthDay(room.createdAt)}作成
             </span>
           )}
           {room.expiresAt !== undefined && (
             <span
               className="inline-flex items-center gap-1"
-              title={`${formatCompletedDate(room.expiresAt)}に自動で削除されます`}
+              title={`${formatDate(room.expiresAt)}に自動削除`}
             >
-              <Trash2 className="size-4 shrink-0" aria-hidden />
+              <Trash2 className="size-3.5 shrink-0" aria-hidden />
+              <span className="sr-only">自動削除まで</span>
               {remainingLabel(room.expiresAt, now)}
             </span>
           )}
         </span>
-      )}
+      </span>
+      <ArrowRight className="size-4 shrink-0" aria-hidden />
     </>
   );
 }
@@ -91,7 +97,8 @@ export function RecentRoomsSectionView({
   return (
     <section
       aria-labelledby="recent-rooms-heading"
-      className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"
+      // PC幅では見出しとカードを横に並べ、作成・参加を初期画面から押し出さない。
+      className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4"
     >
       <h2
         id="recent-rooms-heading"
@@ -109,8 +116,7 @@ export function RecentRoomsSectionView({
           </Button>
         </div>
       ) : (
-        // 最大3件。PC幅では横に並べ、作成・参加を初期画面から押し出さない。
-        <ul className="grid min-w-0 gap-2 sm:grid-cols-3">
+        <ul className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(14rem,1fr))]">
           {rooms.map((room) => (
             <li key={room.roomId} className="flex">
               {room.status === "active" ? (
@@ -135,7 +141,7 @@ export function RecentRoomsSectionView({
         </ul>
       )}
       {message && (
-        <p role="status" className="text-base leading-relaxed">
+        <p role="status" className="text-base leading-relaxed sm:basis-full">
           {message}
         </p>
       )}

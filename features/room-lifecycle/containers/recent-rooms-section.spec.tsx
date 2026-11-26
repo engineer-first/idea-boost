@@ -42,7 +42,7 @@ it("参加したルームを状態つきで並べ、進行中はルームへ戻�
   expect(resume).toHaveTextContent("進行中");
   const outcome = screen.getByRole("link", { name: /通学路の見守りアプリ/ });
   expect(outcome).toHaveAttribute("href", `/completed-rooms/${done}`);
-  expect(outcome).toHaveTextContent("完了・2026/11/20");
+  expect(outcome).toHaveTextContent("完了・11/20");
   expect(fetch).toHaveBeenCalledWith("/api/recent-rooms", {
     cache: "no-store",
   });
@@ -74,11 +74,29 @@ it("作成日と自動削除までの残り日数を出し、値が無いルー�
   });
   render(<RecentRoomsSection currentUserId={userId} />);
   const card = await screen.findByRole("button", { name: /チームA/ });
-  expect(card).toHaveTextContent("2026/11/24 作成");
-  expect(card).toHaveTextContent("あと3日で削除");
+  expect(card).toHaveTextContent("11/24作成");
+  expect(card).toHaveTextContent("自動削除まであと3日");
   const outcome = screen.getByRole("link", { name: /通学路の見守りアプリ/ });
   expect(outcome).not.toHaveTextContent("作成");
   expect(outcome).not.toHaveTextContent("削除");
+});
+
+it("自動削除の予定を過ぎたルームは残り日数ではなく「まもなく」と出す", async () => {
+  vi.spyOn(Date, "now").mockReturnValue(Date.UTC(2026, 10, 26, 3));
+  respond({
+    rooms: [
+      {
+        roomId: active,
+        label: "チームA",
+        status: "active",
+        expiresAt: Date.UTC(2026, 10, 26, 2),
+      },
+    ],
+  });
+  render(<RecentRoomsSection currentUserId={userId} />);
+  const card = await screen.findByRole("button", { name: /チームA/ });
+  expect(card).toHaveTextContent("自動削除までまもなく");
+  expect(card).not.toHaveTextContent(/あと-?\d+日/);
 });
 
 it("参加したルームが無ければ何も出さない", async () => {
