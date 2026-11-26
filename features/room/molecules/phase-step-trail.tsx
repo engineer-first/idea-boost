@@ -36,11 +36,17 @@ export function PhaseStepTrail({
   onOpenGuide,
   guideTriggerRef,
 }: PhaseStepTrailProps) {
-  const [flowOpen, setFlowOpen] = useState(false);
+  // 全体の流れは、ステップが進んだら閉じて次に開くときに今のフェーズから見せる。
+  const stepKey = `${phase.phase}-${phase.step}`;
+  const [flow, setFlow] = useState({ stepKey, open: false });
+  const flowOpen = flow.stepKey === stepKey && flow.open;
   const phaseName = `${PHASE_MARKERS[phase.phase]}${PHASE_SHORT_NAMES[phase.phase]}`;
   return (
     <div className={`${styles.trail} board-hud`} data-testid="phase-step-trail">
-      <Popover open={flowOpen} onOpenChange={setFlowOpen}>
+      <Popover
+        open={flowOpen}
+        onOpenChange={(open) => setFlow({ stepKey, open })}
+      >
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -52,7 +58,12 @@ export function PhaseStepTrail({
             <ChevronDown aria-hidden="true" className={styles.disclosure} />
           </button>
         </PopoverTrigger>
-        <PopoverContent align="center" className={styles.flow}>
+        <PopoverContent
+          align="center"
+          // 狭い幅でステップバーが隠れたら、浮いた中身も出さない。
+          hideWhenDetached
+          className={styles.flow}
+        >
           <section aria-label="全体の流れと手順" className={styles.flowBody}>
             <BoardFlowSteps phase={phase} />
           </section>

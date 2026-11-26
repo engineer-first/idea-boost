@@ -59,4 +59,24 @@ describe("PhaseStepTrail", () => {
     );
     expect(phaseButton).toHaveAttribute("aria-expanded", "true");
   });
+
+  it("全体の流れを開いたままステップが進むと閉じる", () => {
+    const { rerender } = render(
+      <PhaseStepTrail phase={buildPhaseStep(5, 1)} onOpenGuide={vi.fn()} />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "①課題：全体の流れを開く" }),
+    );
+    expect(
+      screen.getByRole("region", { name: "全体の流れと手順" }),
+    ).toBeVisible();
+
+    rerender(
+      <PhaseStepTrail phase={buildPhaseStep(1, 2)} onOpenGuide={vi.fn()} />,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "全体の流れと手順" }),
+    ).not.toBeInTheDocument();
+  });
 });

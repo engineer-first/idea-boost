@@ -386,14 +386,22 @@ export function StepOneOnboardingSlide({
     open: (from) => openGuide(from ?? alternateTriggerRef?.current ?? null),
   }));
 
-  // 開いた部品へ戻す。自動で開いたときは、画面に出ている方の入口へ戻す。
+  // 開いた部品へ戻す。開いている間に画面幅が変わってその部品が隠れたときや、
+  // 自動で開いたときは、画面に出ている方の入口へ戻す。
   const returnTarget = (): HTMLElement | null => {
-    const openedFrom = openedFromRef.current;
-    if (openedFrom?.isConnected) return openedFrom;
-    const alternate = alternateTriggerRef?.current ?? null;
-    if (!isRendered(guideButtonRef.current) && isRendered(alternate))
-      return alternate;
-    return guideButtonRef.current;
+    const openedFrom = openedFromRef.current?.isConnected
+      ? openedFromRef.current
+      : null;
+    const candidates = [
+      openedFrom,
+      guideButtonRef.current,
+      alternateTriggerRef?.current ?? null,
+    ];
+    return (
+      candidates.find((element) => isRendered(element)) ??
+      openedFrom ??
+      guideButtonRef.current
+    );
   };
 
   const transitionToSlide = (

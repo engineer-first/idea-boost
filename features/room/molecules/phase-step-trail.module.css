@@ -128,9 +128,6 @@
 .step[data-state="upcoming"] {
   color: var(--muted-foreground);
 }
-.step[data-state="upcoming"] .mark {
-  opacity: 0.6;
-}
 /* 今のステップは押すと進め方が開く。li の塗りいっぱいを押せる範囲にする。 */
 .step:has(> .stepButton) {
   padding: 0;
