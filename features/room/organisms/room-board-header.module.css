@@ -155,13 +155,23 @@
     transform: scale(1.2);
   }
 }
-/* 押し済みは緑の塗りと白抜きのチェックで示し、押す前の白いボタンと形で見分ける。
-   浮かせる影を外して沈んだ見た目にし、もう一度押すものに見せない。 */
+/* 押し済みは淡い緑の面・緑の枠・緑で塗ったチェックの丸で示し、押す前の白いボタンと灰色の丸から形と色で見分ける。
+   全面を濃い緑で塗ると重くのっぺり見えるため、濃い緑はチェックの丸だけに置く。
+   文字は淡い面の上で 4.5:1 を保つよう緑に墨を混ぜる。浮かせる影を外して沈んだ見た目にする。 */
 .readyButton[aria-pressed="true"] {
   border-color: var(--ib-color-state-decided-text);
-  background: var(--ib-color-state-decided-text);
-  color: var(--ib-color-surface);
-  box-shadow: inset 0 2px 3px rgb(from var(--ib-color-ink) r g b / 18%);
+  background: color-mix(
+    in oklab,
+    var(--ib-color-state-decided) 12%,
+    var(--ib-color-surface)
+  );
+  color: color-mix(
+    in oklab,
+    var(--ib-color-state-decided-text) 82%,
+    var(--ib-color-ink)
+  );
+  box-shadow: inset 0 1px 2px
+    rgb(from var(--ib-color-state-decided-text) r g b / 16%);
 }
 .readyButton[aria-pressed="true"]:enabled:hover {
   border-color: color-mix(
@@ -171,13 +181,14 @@
   );
   background: color-mix(
     in oklab,
-    var(--ib-color-state-decided-text) 85%,
-    var(--ib-color-ink)
+    var(--ib-color-state-decided) 18%,
+    var(--ib-color-surface)
   );
-  box-shadow: inset 0 2px 3px rgb(from var(--ib-color-ink) r g b / 24%);
+  box-shadow: inset 0 1px 3px
+    rgb(from var(--ib-color-state-decided-text) r g b / 22%);
 }
 /* 押し済みでも押せない間（切断・進行中など）は、ほかのボタンと同じく面を外して破線で示す。
-   押した直後の演出で一時的に disabled になる間は塗りのまま保つ。 */
+   押した直後の演出で一時的に disabled になる間は淡い緑の面のまま保つ。 */
 .readyButton[aria-pressed="true"][data-unavailable] {
   border-color: var(--ib-color-line-strong);
   border-style: dashed;
@@ -186,11 +197,6 @@
   box-shadow: none;
 }
 .readyButton[aria-pressed="true"] .completionMark {
-  border-color: var(--ib-color-surface);
-  background: var(--ib-color-surface);
-  color: var(--ib-color-state-decided-text);
-}
-.readyButton[aria-pressed="true"][data-unavailable] .completionMark {
   border-color: var(--ib-color-state-decided-text);
   background: var(--ib-color-state-decided-text);
   color: var(--ib-color-surface);
