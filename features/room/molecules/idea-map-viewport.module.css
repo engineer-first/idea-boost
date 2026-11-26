@@ -11,6 +11,15 @@
   }
 }
 
+/* 900px以上の3-3〜3-5では、タイマーが右上HUDの下（マップ上端より下まで）に
+   置かれる。タイマーの幅72pxと右余白12px・間隔12pxから、マップ枠の右余白
+   16pxを引いた5remだけ広げずに残し、「しやすい」×「高」の角を隠さない。 */
+@media (min-width: 900px) {
+  .workspace[data-map-expanded="true"] {
+    --idea-map-expansion: calc(var(--idea-map-rail-width, 14rem) - 5rem);
+  }
+}
+
 .workspacePlane {
   width: calc(100% + var(--idea-map-expansion));
 }

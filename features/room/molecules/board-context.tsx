@@ -38,8 +38,15 @@ export function BoardContext({
   hmwReference,
   guideControl,
 }: BoardContextProps) {
-  const phaseKey = phase.kind === "step" ? String(phase.phase) : "lobby";
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
+  // 2軸マップのステップは、前のステップで開いたカードを持ち越さず閉じて入る。
+  // 開いたカードがマップの左上と縦軸の「高」を隠すため。
+  const phaseKey =
+    phase.kind !== "step"
+      ? "lobby"
+      : usesIdeaMapViewport
+        ? `${phase.phase}-${phase.step}`
+        : String(phase.phase);
   const defaultInitialId =
     phase.kind === "step"
       ? phase.phase === 3
