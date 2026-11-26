@@ -37,11 +37,13 @@ export function BoardCharacter({ message }: BoardCharacterProps) {
           className="pointer-events-none relative flex flex-col items-start gap-1"
           data-testid="board-character"
         >
+          {/* スマホでは右端にタイマーの円の幅（72px と余白）を空け、吹き出しで残り時間を隠さない。
+              11.25rem は先生の幅と左右の余白にタイマーの幅を足した値。 */}
           <div
             aria-hidden="true"
             data-testid="board-character-bubble"
             style={bubbleStyle}
-            className={`${styles.bubble} absolute top-1 left-full ml-1.5 w-max max-w-[min(22rem,calc(100vw-var(--board-character-mobile-inline-space,6.5rem)))] rounded-2xl rounded-tl-sm border bg-background px-3.5 py-2.5 text-sm text-foreground leading-snug shadow-[0_8px_20px_rgb(0_0_0/0.05)] sm:top-[var(--board-character-bubble-top,0.25rem)] sm:left-[var(--board-character-bubble-left,100%)] sm:ml-[var(--board-character-bubble-gap,0.375rem)] sm:max-w-[var(--board-character-bubble-max-width,22rem)] sm:whitespace-nowrap`}
+            className={`${styles.bubble} absolute top-1 left-full ml-1.5 w-max max-w-[min(22rem,calc(100vw-11.25rem))] rounded-2xl rounded-tl-sm border bg-background px-3.5 py-2.5 text-sm text-foreground leading-snug shadow-[0_8px_20px_rgb(0_0_0/0.05)] sm:top-[var(--board-character-bubble-top,0.25rem)] sm:left-[var(--board-character-bubble-left,100%)] sm:ml-[var(--board-character-bubble-gap,0.375rem)] sm:max-w-[var(--board-character-bubble-max-width,22rem)] sm:whitespace-nowrap`}
           >
             {/* 全文を最初から置いて透明から順に見せるので、表示中も吹き出しの大きさは変わらない。
                 文字は並び替わらず key={message} で丸ごと作り直すため、位置を key にする。 */}
