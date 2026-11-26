@@ -598,6 +598,34 @@ describe("RoomBoardCanvas", () => {
     expect(screen.queryByText("決定する")).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["手のひらツールに切り替える", { interactionTool: "hand" as const }],
+    [
+      "ほかの人が別の付箋を決定する",
+      { decision: buildDecision({ noteId: "note-2" }) },
+    ],
+    ["接続が切れる", { isDisconnected: true }],
+  ])(
+    "「決定する」を示した付箋でも、%sと押せないので目印を消す",
+    (_, change) => {
+      const { props, rerender } = setup({
+        phase: buildPhaseStep(5),
+        isAdoptMode: true,
+        notes: [
+          buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+          buildNote({ id: "note-2", content: "候補B", visibility: "shared" }),
+        ],
+      });
+      fireEvent.pointerEnter(
+        screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+      );
+      expect(screen.getByText("決定する")).toBeVisible();
+
+      rerender(<RoomBoardCanvas {...props} {...change} />);
+      expect(screen.queryByText("決定する")).not.toBeInTheDocument();
+    },
+  );
+
   it("採用選択中でなければ、付箋に「決定する」を示さない", () => {
     setup({
       phase: buildPhaseStep(5),

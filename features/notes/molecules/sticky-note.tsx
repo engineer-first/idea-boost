@@ -64,7 +64,6 @@ export function StickyNote({
       data-decided={isDecided || undefined}
       data-decision-presentation={decisionPresentation}
       data-adoption-focused={isAdoptionFocused || undefined}
-      data-decide-hint={(showDecideHint && !isDecided) || undefined}
       data-editing={dataEditing || undefined}
       data-vote-drop-target={dataVoteDropTarget || undefined}
       data-excluded={dataExcluded || undefined}
@@ -155,7 +154,11 @@ export function StickyNote({
         )}
         {showDecideHint && !isDecided ? (
           // 当たり判定は付箋全体なので、これは押せる場所の目印だけを担う。
-          <span className="sticky-note-decide-hint absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full border-2 border-state-decided bg-background px-3 py-1.5 text-sm font-bold text-state-decided-text shadow-tool">
+          // 読み上げは当たり判定の名前に任せる。下端の投票結果の段を隠さない高さに置く。
+          <span
+            aria-hidden="true"
+            className="absolute bottom-12 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full border-2 border-state-decided bg-background px-3 py-1.5 text-sm font-bold text-state-decided-text shadow-tool"
+          >
             <Check aria-hidden="true" className="size-4" strokeWidth={3} />
             決定する
           </span>

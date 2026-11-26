@@ -678,6 +678,7 @@ export function RoomBoardCanvas({
     note: Note,
     maxDisplayHeight?: number,
     displayScale: number | "responsive-map" = 1,
+    isAdoptTarget = false,
   ) {
     return (
       <NoteCard
@@ -734,9 +735,8 @@ export function RoomBoardCanvas({
           adoptionFocusNoteId === note.id && decision?.noteId !== note.id
         }
         isAdoptionTargetHovered={adoptionHoverNoteId === note.id}
-        showDecideHint={
-          decideHintNoteId === note.id && decision?.noteId !== note.id
-        }
+        // 当たり判定が消えると leave / blur が届かないので、押せる間だけに絞る。
+        showDecideHint={isAdoptTarget && decideHintNoteId === note.id}
         disabled={isDisconnected}
         onSelect={(id, options) => {
           if (writingCollapsed && id) setPreviewNoteId(id);
@@ -901,6 +901,7 @@ export function RoomBoardCanvas({
           note,
           ideaMapNoteMetrics?.unscaledHeight,
           usesIdeaMapViewport ? "responsive-map" : 1,
+          isAdoptTarget,
         )}
         {isAdoptTarget ? (
           <button
