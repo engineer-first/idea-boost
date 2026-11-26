@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   toast: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
-  dismiss: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -14,7 +13,6 @@ vi.mock("sonner", () => ({
   toast: Object.assign(mocks.toast, {
     success: mocks.success,
     error: mocks.error,
-    dismiss: mocks.dismiss,
   }),
 }));
 
@@ -63,20 +61,5 @@ describe("roomNotify", () => {
     roomNotify.roomLeft();
     expect(mocks.toast).toHaveBeenCalledTimes(1);
     expect(mocks.toast).toHaveBeenCalledWith("ルームから退出しました");
-  });
-
-  it("自動整理のお知らせは出しっぱなしにせず、有限の時間で閉じる", () => {
-    const onUndo = vi.fn();
-
-    roomNotify.automaticallyExcludedCandidates(8, onUndo);
-
-    expect(mocks.toast).toHaveBeenCalledWith(
-      "投票完了により0票の付箋8件を候補から外しました。必要なら戻せます",
-      {
-        action: { label: "まとめて元に戻す", onClick: onUndo },
-        duration: 15_000,
-        closeButton: true,
-      },
-    );
   });
 });

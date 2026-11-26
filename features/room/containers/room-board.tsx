@@ -17,11 +17,7 @@ import {
   useState,
 } from "react";
 import type { SetDisplayNameInput } from "@/contracts/display-name";
-import {
-  isPresenterViewFollowStep,
-  isResultStep,
-  type RoomPhase,
-} from "@/contracts/phase";
+import { isPresenterViewFollowStep, type RoomPhase } from "@/contracts/phase";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import { canPublishNoteInTurn } from "@/contracts/sharing";
 import type { DisplayNameResult } from "@/features/auth";
@@ -39,7 +35,6 @@ import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { getBoardPermissions } from "../logic/board-permissions";
 import { clampCanvasCoordinate, screenToWorld } from "../logic/canvas-camera";
 import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
-import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
 import { useCandidateOperations } from "../logic/use-candidate-operations";
@@ -123,9 +118,6 @@ export function RoomBoard({
   const [isPrivateNotesHandoffPending, setIsPrivateNotesHandoffPending] =
     useState(false);
   const privateNotesHandoffCleanupRef = useRef<(() => void) | null>(null);
-  const candidateNoticeIdsRef = useRef(new Set<string | number>());
-  const bulkUndoIdsRef = useRef(new Set<string>());
-  const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({
     initialMembers,
@@ -388,14 +380,6 @@ export function RoomBoard({
   }, [phaseKey, shouldFollowPresenterView]);
   const sharingReactionMessageRef = useRef<SharingReactionMessageHandler>(null);
 
-  function clearCandidateNotices(): void {
-    bulkUndoIdsRef.current.clear();
-    bulkNoticeIdsRef.current.clear();
-    for (const id of candidateNoticeIdsRef.current)
-      roomNotify.dismissCandidateNotice(id);
-    candidateNoticeIdsRef.current.clear();
-  }
-
   function beginPrivateNotesHandoff(): void {
     privateNotesHandoffCleanupRef.current?.();
     privateNotesHandoffCleanupRef.current = null;
@@ -434,17 +418,6 @@ export function RoomBoard({
   useEffect(
     () => () => {
       privateNotesHandoffCleanupRef.current?.();
-      for (const id of candidateNoticeIdsRef.current)
-        roomNotify.dismissCandidateNotice(id);
-      candidateNoticeIdsRef.current.clear();
-    },
-    [],
-  );
-
-  const rememberCandidateNotice = useCallback(
-    (id: string | number, operationId: string): void => {
-      candidateNoticeIdsRef.current.add(id);
-      bulkNoticeIdsRef.current.set(operationId, id);
     },
     [],
   );
@@ -459,56 +432,9 @@ export function RoomBoard({
     if (displayName.applyMessage(message)) return;
     moveHistory.applyMessage(message);
     if (memberRemoval.applyMessage(message)) return;
-    if (
-      message.type === "snapshot" ||
-      message.type === "outcome:published" ||
-      (message.type === "decision:updated" && message.decision !== null) ||
-      (message.type === "phase:updated" &&
-        (!isResultStep(message.phase) ||
-          roomState.phase.kind !== "step" ||
-          message.phase.kind !== "step" ||
-          message.phase.phase !== roomState.phase.phase))
-    ) {
-      clearCandidateNotices();
-    }
     const receivedAt = Date.now();
     drafts.applyMessage(message);
     if (candidates.applyMessage(message)) return;
-    if (message.type === "snapshot") {
-      bulkUndoIdsRef.current.clear();
-      bulkNoticeIdsRef.current.clear();
-    }
-    if (message.type === "note:bulk-excluded") {
-      if (message.count > 0) {
-        const undo = () => {
-          if (!bulkUndoIdsRef.current.has(message.operationId)) return;
-          if (candidates.bulkRestore(message.operationId))
-            bulkUndoIdsRef.current.delete(message.operationId);
-        };
-        if (message.source === "phase-transition") {
-          bulkUndoIdsRef.current.add(message.operationId);
-          rememberCandidateNotice(
-            roomNotify.automaticallyExcludedCandidates(message.count, undo),
-            message.operationId,
-          );
-        } else {
-          bulkUndoIdsRef.current.add(message.operationId);
-          rememberCandidateNotice(
-            roomNotify.bulkCandidatesExcluded(message.count, undo),
-            message.operationId,
-          );
-        }
-      }
-    }
-    if (message.type === "note:bulk-restored") {
-      const notice = bulkNoticeIdsRef.current.get(message.operationId);
-      if (notice !== undefined) {
-        roomNotify.dismissCandidateNotice(notice);
-        candidateNoticeIdsRef.current.delete(notice);
-        bulkNoticeIdsRef.current.delete(message.operationId);
-      }
-      bulkUndoIdsRef.current.delete(message.operationId);
-    }
     if (message.type === "error") {
       notes.applyMessage(message);
       if (message.operationId !== undefined) {

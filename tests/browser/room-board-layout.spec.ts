@@ -1258,37 +1258,6 @@ test.skipIf(!includeMobile)(
   },
 );
 
-test.each(
-  (
-    [
-      [1280, "undo-notification"],
-      [390, "undo-notification"],
-      [1280, "undo-notification-hmw"],
-      [390, "undo-notification-hmw"],
-      [1280, "undo-notification-idea"],
-      [390, "undo-notification-idea"],
-    ] as const
-  ).filter(([width]) => checksWidth(width)),
-)("U03: %ipxの%sで決定中の通知とUndoへ到達できる", async (width, story) => {
-  await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
-  await openStory(`room-roomboardlayout--${story}`);
-  const board = page.getByTestId("room-board-view-root");
-  const before = await board.boundingBox();
-  await page.getByRole("button", { name: "除外通知を再現" }).click();
-  await page.getByText(/投票完了により0票の付箋1件/).waitFor();
-  expect(await board.boundingBox()).toEqual(before);
-  await page.waitForTimeout(400);
-  await page.screenshot({
-    path: `${output}/u03-toast-${story}-${width}.png`,
-  });
-  await page
-    .getByRole("button", { name: "まとめて元に戻す", exact: true })
-    .click();
-  expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
-    true,
-  );
-});
-
 // 固定情報との意図した部分重なりは許容し、各操作対象に到達できる可視部分が残ることを調べる。
 async function expectHudTargets(context: string): Promise<void> {
   const targets = page.locator(
