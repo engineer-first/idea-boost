@@ -150,3 +150,43 @@
     transparent
   );
 }
+/* タイマーが終わった間は、今のステップと次の間の線を矢印に替え、次へ進めることを知らせる。 */
+.step[data-state="current"]:has(> .nextArrow) + .step::before {
+  content: none;
+}
+/* フェーズの最後のステップでは、帯の端に矢印の場所を空ける。 */
+.step:last-child:has(> .nextArrow) {
+  margin-right: 12px;
+}
+.nextArrow {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  color: var(--ib-color-primary-strong);
+  animation: next-arrow-nudge 1.2s ease-in-out infinite;
+}
+.nextArrow > svg {
+  width: 14px;
+  height: 14px;
+}
+@keyframes next-arrow-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(2px);
+  }
+}
+/* 動きを減らす設定では動かさず、矢印の形と色で知らせる。 */
+@media (prefers-reduced-motion: reduce) {
+  .nextArrow {
+    animation: none;
+  }
+}

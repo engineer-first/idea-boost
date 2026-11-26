@@ -4,6 +4,30 @@ import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { PhaseStepTrail } from "./phase-step-trail";
 
 describe("PhaseStepTrail", () => {
+  it("時間切れの間は、今のステップから次のステップへの矢印を出す", () => {
+    render(<PhaseStepTrail phase={buildPhaseStep(1, 2)} timeUp />);
+
+    expect(
+      screen.getByRole("img", { name: "次の「共有」へ進めます" }),
+    ).toBeVisible();
+  });
+
+  it("時間切れでないときは、次への矢印を出さない", () => {
+    render(<PhaseStepTrail phase={buildPhaseStep(1, 2)} />);
+
+    expect(
+      screen.queryByRole("img", { name: /へ進めます$/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("フェーズの最後のステップで時間切れになると、次のフェーズへの矢印を出す", () => {
+    render(<PhaseStepTrail phase={buildPhaseStep(5, 1)} timeUp />);
+
+    expect(
+      screen.getByRole("img", { name: "次の「問い」へ進めます" }),
+    ).toBeVisible();
+  });
+
   it("今のステップを押すと、そのステップの進め方を開く", () => {
     const onOpenGuide = vi.fn();
     render(

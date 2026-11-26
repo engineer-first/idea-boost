@@ -722,6 +722,12 @@ export function RoomBoardHeader({
             <div data-board-fit-occupy="true">
               <PhaseStepTrail
                 phase={phase}
+                timeUp={
+                  timer.status === "ended" &&
+                  // 共有は発表者ごとの時間切れでは次へ進めない。一巡して終わったときだけ知らせる。
+                  (activeSharing === null ||
+                    activeSharing.status === "complete")
+                }
                 guideTriggerRef={trailGuideTriggerRef}
                 onOpenGuide={
                   !isDisconnected &&
