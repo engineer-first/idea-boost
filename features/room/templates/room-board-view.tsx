@@ -2221,32 +2221,6 @@ export function RoomBoardView({
         {canSendSharingReaction(phase) && !outcomePublished
           ? sharingReactionDisplay
           : null}
-        {/* 時間切れの通知を出し切るまで、同じ中央に未開始の案内を重ねない。 */}
-        {timer.status === "idle" &&
-        timerAlert === null &&
-        !isAdditionalWriting &&
-        sharing?.status !== "complete" &&
-        !sharing?.startsAt &&
-        phase.kind === "step" &&
-        !isDisconnected &&
-        decision === null ? (
-          <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center px-4">
-            <div
-              role="status"
-              aria-live="polite"
-              data-testid="timer-work-hint"
-              className="w-full max-w-md rounded-lg border border-border/40 bg-background/75 px-6 py-5 text-center shadow-tool backdrop-blur-[2px]"
-            >
-              <p className="text-lg font-semibold">
-                タイマーが開始されていません
-              </p>
-
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                円形のタイマーを押すと、この工程の規定時間で作業を始められます。
-              </p>
-            </div>
-          </div>
-        ) : null}
         <TimerAlert kind={timerAlert} />
         {isAdoptMode && interactionTool === "hand" ? (
           <p

@@ -86,8 +86,8 @@ describe("タイマーの画面中央の通知", () => {
   });
 });
 
-describe("時間切れの通知と未開始の案内", () => {
-  it("延長後の自動進行で未開始に戻っても、時間切れの通知が消えるまで未開始の案内を重ねない", () => {
+describe("時間切れの通知と未開始のタイマー", () => {
+  it("延長後の自動進行で未開始に戻っても、時間切れの通知が消えた後に未開始の案内を出さない", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     onTestFinished(() => {
@@ -103,10 +103,28 @@ describe("時間切れの通知と未開始の案内", () => {
     expect(screen.getByTestId("timer-alert")).toHaveTextContent(
       "時間になりました！",
     );
-    expect(screen.queryByTestId("timer-work-hint")).not.toBeInTheDocument();
     act(() => vi.advanceTimersByTime(3_000));
     expect(screen.queryByTestId("timer-alert")).not.toBeInTheDocument();
-    expect(screen.getByTestId("timer-work-hint")).toBeInTheDocument();
+    expect(
+      screen.queryByText("タイマーが開始されていません"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("ステップ遷移直後に自動開始を待つ間、未開始の案内で付箋エリアを覆わない", () => {
+    const { rerender, props } = setup({
+      phase: buildPhaseStep(2, 1),
+      timer: { status: "running", endsAt: 60_000, durationMs: 60_000 },
+    });
+    rerender(
+      <TestBoardView
+        {...props}
+        phase={buildPhaseStep(3, 1)}
+        timer={{ status: "idle" }}
+      />,
+    );
+    expect(
+      screen.queryByText("タイマーが開始されていません"),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -5287,15 +5305,6 @@ it("作者の退出・表示名更新後も共有付箋に作者名のホバー�
     />,
   );
   expect(screen.queryByTitle(/^作者:/)).not.toBeInTheDocument();
-});
-
-it("追加執筆中は停止中タイマーの中央案内で付箋エリアを覆わない", () => {
-  setup({
-    phase: buildPhaseStep(1),
-    isAdditionalWriting: true,
-    timer: { status: "idle" },
-  });
-  expect(screen.queryByTestId("timer-work-hint")).not.toBeInTheDocument();
 });
 
 it.each([1, 3] as const)(

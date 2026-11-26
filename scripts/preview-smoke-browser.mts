@@ -550,7 +550,7 @@ export async function smokePreviewBrowserCollaboration(
     await owner.getByRole("button", { name: /^タイマー 未開始/ }).click();
     await owner.getByRole("button", { name: "開始", exact: true }).click();
     await owner.keyboard.press("Escape");
-    await member.getByTestId("timer-work-hint").waitFor({ state: "hidden" });
+    await member.getByRole("timer", { name: /残り/ }).waitFor();
     await capture(owner, "result-owner-synchronized");
     await capture(member, "result-participant-synchronized");
     console.log(
