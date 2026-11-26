@@ -511,6 +511,11 @@ export const FinalCompletionDisconnected: Story = {
     isDisconnected: true,
     connectionStatus: "reconnecting",
   },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("button", { name: "再接続中…" }),
+    ).toBeDisabled();
+  },
 };
 
 export const TimeUpProgress: Story = {

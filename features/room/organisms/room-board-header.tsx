@@ -465,10 +465,10 @@ export function RoomBoardHeader({
     !isRemovingMember &&
     !isNextPhasePending;
   // 採用後に完了を待っている間は、1-5・2-4 の「次へ」と同じく何を待っているかを示す。
-  const finalCompletionWaitingLabel = !hasFinalDecision
-    ? "採用すると完了"
-    : isDisconnected
-      ? "再接続中…"
+  const finalCompletionWaitingLabel = isDisconnected
+    ? "再接続中…"
+    : !hasFinalDecision
+      ? "採用すると完了"
       : !canProceedByTimeOrReady && progress.notReadyUserIds.length > 0
         ? `あと${progress.notReadyUserIds.length}人で完了`
         : null;
@@ -1021,15 +1021,27 @@ export function RoomBoardHeader({
                       className={`text-sm h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-sm max-[639px]:w-[116px] max-[639px]:whitespace-normal max-[639px]:leading-tight ${canPublishOutcome ? styles.nextReady : styles.nextWaiting}`}
                       disabled={!canPublishOutcome}
                     >
-                      {finalCompletionWaitingLabel ?? (
-                        <>
-                          <Check
-                            aria-hidden="true"
-                            className="size-4 max-[639px]:hidden"
-                          />
+                      {/* 待ちの文言は「完了して成果を表示」の幅に重ね、隣の操作の位置を動かさない。 */}
+                      <span className="grid justify-items-center">
+                        <span className="inline-flex items-center gap-2 [grid-area:1/1]">
+                          {finalCompletionWaitingLabel ?? (
+                            <>
+                              <Check
+                                aria-hidden="true"
+                                className="size-4 max-[639px]:hidden"
+                              />
+                              完了して成果を表示
+                            </>
+                          )}
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          className="invisible inline-flex items-center gap-2 [grid-area:1/1]"
+                        >
+                          <Check className="size-4 max-[639px]:hidden" />
                           完了して成果を表示
-                        </>
-                      )}
+                        </span>
+                      </span>
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent aria-describedby={undefined}>
