@@ -10,6 +10,10 @@ export const RecentRoomSchema = z.strictObject({
   label: z.string(),
   status: z.enum(["active", "completed"]),
   completedAt: z.number().optional(),
+  /** ルームを作った日時（epoch ms）。古い記録で分からなければ省く。 */
+  createdAt: z.number().optional(),
+  /** 成果が自動削除される日時（epoch ms）。進行中は最後の利用から、完了は初回の完了から数える。分からなければ省く。 */
+  expiresAt: z.number().optional(),
 });
 export type RecentRoom = z.infer<typeof RecentRoomSchema>;
 

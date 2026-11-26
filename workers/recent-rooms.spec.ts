@@ -87,6 +87,25 @@ describe("ホームの最近参加したルーム", () => {
     expect(JSON.stringify(body)).not.toMatch(/User4|inviteCode|authorId/);
   });
 
+  it("各ルームに作成日と自動削除の予定日時を付ける", async () => {
+    const me = user(9);
+    const other = user(6);
+    const before = Date.now() - 60_000;
+    const completed = await completeAs(me, other);
+    const active = await createRoomAs(other);
+    await joinRoomAs(me, active.inviteCode);
+    const body = RecentRoomsResponseSchema.parse(
+      await (await recentRooms(me)).json(),
+    );
+    const byId = new Map(body.rooms.map((room) => [room.roomId, room]));
+    for (const roomId of [active.roomId, completed.roomId]) {
+      const room = byId.get(roomId);
+      expect(room?.createdAt).toBeGreaterThanOrEqual(before - 1000);
+      expect(room?.createdAt).toBeLessThanOrEqual(Date.now());
+      expect(room?.expiresAt).toBeGreaterThan(Date.now());
+    }
+  });
+
   it("退出したルームは参加候補に残っていても出さない", async () => {
     const me = user(7);
     const other = user(8);
