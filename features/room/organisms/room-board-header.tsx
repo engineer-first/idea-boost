@@ -1053,13 +1053,15 @@ export function RoomBoardHeader({
                     ? { kind: "connection" }
                     : isNextPhaseBlocked && isResultStep(phase)
                       ? { kind: "decision" }
-                      : !canProceedByTimeOrReady
-                        ? {
-                            kind: "members",
-                            remaining: progress.notReadyUserIds.length,
-                            total: progress.connectedUserIds.length,
-                          }
-                        : undefined
+                      : votesRemaining
+                        ? { kind: "votes" }
+                        : !canProceedByTimeOrReady
+                          ? {
+                              kind: "members",
+                              remaining: progress.notReadyUserIds.length,
+                              total: progress.connectedUserIds.length,
+                            }
+                          : undefined
                 }
                 disabled={
                   isDisconnected ||
