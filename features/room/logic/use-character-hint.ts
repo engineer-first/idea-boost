@@ -204,6 +204,7 @@ export function useCharacterHint({
         // 0枚の案内は工程に1回。時間に関する案内とコツだけを数え直す。
         seen.current.delete("warning");
         seen.current.delete("ended");
+        seen.current.delete("sharingFinished");
         shownTips.current = null;
         // 前の番の残り時間・時間切れの案内を、次の番に持ち越さない。
         setHint((current) => (current?.timed ? null : current));
@@ -227,18 +228,24 @@ export function useCharacterHint({
                 Date.now() - startedAt.current >= 30_000
               ? "empty"
               : null;
-      if (kind && !seen.current.has(kind)) {
-        seen.current.add(kind);
+      const isSharingStep = phase.kind === "step" && phase.step === 2;
+      // 時間切れの一言を出した後に最後の人が終えても、共有の完了は別に知らせる。
+      const seenKey =
+        kind === "ended" && isSharingStep && sharingRole === "finished"
+          ? "sharingFinished"
+          : kind;
+      if (kind && seenKey && !seen.current.has(seenKey)) {
+        seen.current.add(seenKey);
         // 同じ時刻のコツは、優先の一言で置き換える。
         shownTips.current = dueTips;
         show(
-          kind === "ended" && phase.kind === "step" && phase.step === 2
-            ? sharingRole === "finished"
-              ? HINTS.sharingFinished
-              : sharingRole === "presenter"
+          seenKey === "sharingFinished"
+            ? HINTS.sharingFinished
+            : kind === "ended" && isSharingStep
+              ? sharingRole === "presenter"
                 ? HINTS.sharingEndedPresenter
                 : HINTS.sharingEndedListener
-            : HINTS[kind],
+              : HINTS[kind],
           kind !== "empty",
         );
         return;
