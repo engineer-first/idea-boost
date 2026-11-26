@@ -150,7 +150,7 @@
     transparent
   );
 }
-/* 時間切れの間は、今のステップと次の間の線を矢印に替え、次へ進めることを知らせる。 */
+/* タイマーが終わった間は、今のステップと次の間の線を矢印に替え、次へ進めることを知らせる。 */
 .step[data-state="current"]:has(> .nextArrow) + .step::before {
   content: none;
 }
@@ -161,7 +161,7 @@
 .nextArrow {
   position: absolute;
   top: 50%;
-  right: -13px;
+  right: -12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -181,10 +181,10 @@
     transform: translateX(0);
   }
   50% {
-    transform: translateX(3px);
+    transform: translateX(2px);
   }
 }
-/* 動きを減らす設定では動かさず、色だけで知らせる。 */
+/* 動きを減らす設定では動かさず、矢印の形と色で知らせる。 */
 @media (prefers-reduced-motion: reduce) {
   .nextArrow {
     animation: none;

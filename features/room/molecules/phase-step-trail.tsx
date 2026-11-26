@@ -25,7 +25,7 @@ export type PhaseStepTrailProps = {
   onOpenGuide?: () => void;
   // 進め方を閉じたときにフォーカスを戻し、閉じる動きの行き先にする今のステップのボタン。
   guideTriggerRef?: Ref<HTMLButtonElement>;
-  // タイマーが時間切れの間は、今のステップから次への矢印を動かして次へ進めることを知らせる。
+  // タイマーが終わって次へ進める間は、今のステップから次への矢印を動かして知らせる。
   timeUp?: boolean;
 };
 
@@ -48,11 +48,7 @@ export function PhaseStepTrail({
   const flowOpen = flow.stepKey === stepKey && flow.open;
   const phaseName = `${PHASE_MARKERS[phase.phase]}${PHASE_SHORT_NAMES[phase.phase]}`;
   return (
-    <div
-      className={`${styles.trail} board-hud`}
-      data-testid="phase-step-trail"
-      data-time-up={timeUp ? "true" : undefined}
-    >
+    <div className={`${styles.trail} board-hud`} data-testid="phase-step-trail">
       <Popover
         open={flowOpen}
         onOpenChange={(open) => setFlow({ stepKey, open })}
@@ -130,9 +126,8 @@ export function PhaseStepTrail({
               {state === "current" && timeUp ? (
                 <span
                   role="img"
-                  aria-label={`時間切れ：次の「${getNextStepShortName(phase)}」へ進めます`}
+                  aria-label={`次の「${getNextStepShortName(phase)}」へ進めます`}
                   className={styles.nextArrow}
-                  data-testid="phase-step-trail-next-arrow"
                 >
                   <ChevronRight aria-hidden="true" strokeWidth={3} />
                 </span>

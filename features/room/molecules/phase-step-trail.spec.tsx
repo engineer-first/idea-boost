@@ -8,30 +8,23 @@ describe("PhaseStepTrail", () => {
     render(<PhaseStepTrail phase={buildPhaseStep(1, 2)} timeUp />);
 
     expect(
-      screen.getByRole("img", { name: "時間切れ：次の「共有」へ進めます" }),
+      screen.getByRole("img", { name: "次の「共有」へ進めます" }),
     ).toBeVisible();
-    expect(screen.getByTestId("phase-step-trail")).toHaveAttribute(
-      "data-time-up",
-      "true",
-    );
   });
 
   it("時間切れでないときは、次への矢印を出さない", () => {
     render(<PhaseStepTrail phase={buildPhaseStep(1, 2)} />);
 
     expect(
-      screen.queryByRole("img", { name: /^時間切れ：/ }),
+      screen.queryByRole("img", { name: /へ進めます$/ }),
     ).not.toBeInTheDocument();
-    expect(screen.getByTestId("phase-step-trail")).not.toHaveAttribute(
-      "data-time-up",
-    );
   });
 
   it("フェーズの最後のステップで時間切れになると、次のフェーズへの矢印を出す", () => {
     render(<PhaseStepTrail phase={buildPhaseStep(5, 1)} timeUp />);
 
     expect(
-      screen.getByRole("img", { name: "時間切れ：次の「問い」へ進めます" }),
+      screen.getByRole("img", { name: "次の「問い」へ進めます" }),
     ).toBeVisible();
   });
 

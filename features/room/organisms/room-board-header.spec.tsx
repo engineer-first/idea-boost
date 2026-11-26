@@ -777,7 +777,7 @@ describe("RoomBoardHeader", () => {
     const trail = screen.getByTestId("phase-step-trail");
     expect(
       within(trail).getByRole("img", {
-        name: "時間切れ：次の「共有」へ進めます",
+        name: "次の「共有」へ進めます",
       }),
     ).toBeVisible();
 
@@ -792,7 +792,21 @@ describe("RoomBoardHeader", () => {
       />,
     );
     expect(
-      within(trail).queryByRole("img", { name: /^時間切れ：/ }),
+      within(trail).queryByRole("img", { name: /へ進めます$/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("共有の途中で発表者の時間が切れても、次のステップへの矢印は出さない", () => {
+    setup({
+      phase: buildPhaseStep(2, 1),
+      sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+      timer: { status: "ended", durationMs: 180_000 },
+    });
+
+    expect(
+      within(screen.getByTestId("phase-step-trail")).queryByRole("img", {
+        name: /へ進めます$/,
+      }),
     ).not.toBeInTheDocument();
   });
 
