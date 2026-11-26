@@ -174,23 +174,25 @@ describe("InviteUrlActions", () => {
     }
   });
 
-  it("招待文を渡したときだけ「招待文をコピー」を出し、押すと招待文をそのままコピーする", async () => {
-    stubShare(undefined);
+  it("招待文を渡すと「リンクをコピー」が招待文をコピーし、別の「招待文をコピー」は出さない", async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    stubShare(share);
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText },
     });
-    const { rerender } = render(<InviteUrlActions value={url} />);
+    const message = `Idea Boost のルームに招待します。\n参加リンク: ${url}\n招待コード: ABC234`;
+    render(<InviteUrlActions value={url} message={message} />);
     expect(
       screen.queryByRole("button", { name: "招待文をコピー" }),
     ).not.toBeInTheDocument();
-
-    const message = `Idea Boost のルームに招待します。\n参加リンク: ${url}\n招待コード: ABC234`;
-    rerender(<InviteUrlActions value={url} message={message} />);
-    const button = screen.getByRole("button", { name: "招待文をコピー" });
-    expect(button).toHaveTextContent("招待文をコピー");
+    const button = screen.getByRole("button", { name: "招待リンクをコピー" });
+    expect(button).toHaveTextContent("リンクをコピー");
     await act(async () => fireEvent.click(button));
     expect(writeText).toHaveBeenCalledExactlyOnceWith(message);
+    // 端末の共有メニューへはURLだけを渡す。
+    fireEvent.click(screen.getByRole("button", { name: "招待リンクを共有" }));
+    expect(share).toHaveBeenCalledExactlyOnceWith({ url });
   });
 });

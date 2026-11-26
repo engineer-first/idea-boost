@@ -1,6 +1,6 @@
 "use client";
 
-import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
+import { DoorOpen, Pencil, Play, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -212,7 +212,7 @@ export function RoomLobbyView({
         >
           <div className={styles.inviteHeading}>
             <span className={styles.inviteIcon}>
-              <Link2 size={24} aria-hidden="true" />
+              <UserPlus size={24} aria-hidden="true" />
             </span>
             <div>
               <h2
@@ -226,7 +226,6 @@ export function RoomLobbyView({
                 <wbr />
                 招待
               </h2>
-              <p>リンクやコードを送って、仲間を呼ぼう。</p>
             </div>
           </div>
           <div className={styles.inviteCode}>
