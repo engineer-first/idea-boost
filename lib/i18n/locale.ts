@@ -1,27 +1,33 @@
-export type AppLocale = "ja" | "en";
+import { DEFAULT_APP_LOCALE, type AppLocale } from "@/contracts/app-locale";
 
-/** 言語が分からないとき（言語を送らない検索エンジン・AI・SNS の取得を含む）の言語。 */
-export const DEFAULT_LOCALE: AppLocale = "ja";
+export type { AppLocale } from "@/contracts/app-locale";
 
-/**
- * ブラウザが最も望む表示言語を返す。表示言語の自動切り替えには使わず、
- * 別の言語の版への案内を出すかどうかの判断にだけ使う。
- */
+/** 対応する言語が見つからないときに使う既定の表示言語。 */
+export const DEFAULT_LOCALE: AppLocale = DEFAULT_APP_LOCALE;
+
+/** Accept-Language から、最も優先度の高い対応言語を選ぶ。 */
 export function resolveLocale(acceptLanguage: string | null): AppLocale {
   const preferred = (acceptLanguage ?? "")
     .split(",")
     .map((item, index) => {
-      const [language, ...parameters] = item.split(";");
-      const quality = parameters.find((part) => part.trim().startsWith("q="));
-      const value = quality ? Number(quality.trim().slice(2)) : 1;
-      return {
-        language: language.trim().toLowerCase(),
-        quality: Number.isFinite(value) ? value : 0,
-        index,
-      };
+      const [rawLanguage, ...parameters] = item.split(";");
+      const language = rawLanguage.trim().toLowerCase();
+      const qualityParameter = parameters.find((part) => part.trim().startsWith("q="));
+      const quality = qualityParameter ? Number(qualityParameter.trim().slice(2)) : 1;
+      return { language, quality, index };
     })
-    .filter((item) => item.language !== "" && item.quality > 0)
-    .sort((a, b) => b.quality - a.quality || a.index - b.index)[0]?.language;
-  if (preferred === undefined) return DEFAULT_LOCALE;
-  return preferred === "ja" || preferred.startsWith("ja-") ? "ja" : "en";
+    .filter(({ language, quality }) =>
+      language !== "" &&
+      language !== "*" &&
+      Number.isFinite(quality) &&
+      quality > 0 &&
+      quality <= 1
+    )
+    .sort((a, b) => b.quality - a.quality || a.index - b.index);
+
+  for (const { language } of preferred) {
+    if (language === "ja" || language.startsWith("ja-")) return "ja";
+    if (language === "en" || language.startsWith("en-")) return "en";
+  }
+  return DEFAULT_LOCALE;
 }
