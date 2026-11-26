@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { getLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
 import {
   LoginChoice,
   sanitizeNextPath,

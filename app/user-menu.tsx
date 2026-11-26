@@ -1,8 +1,8 @@
 "use client";
 
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {

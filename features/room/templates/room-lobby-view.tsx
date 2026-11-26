@@ -1,8 +1,8 @@
 "use client";
 
 import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -166,10 +166,14 @@ export function RoomLobbyView({
                 {members.length <= 4 ? (
                   // 幅が足りないときも「はじめよ／う。」のように語の途中で折り返さない。
                   <>
-                    <span className="inline-block">{t("readyHeadingFirst")}</span>
+                    <span className="inline-block">
+                      {t("readyHeadingFirst")}
+                    </span>
                     <wbr />
                     {locale === "en" ? " " : null}
-                    <span className="inline-block">{t("readyHeadingSecond")}</span>
+                    <span className="inline-block">
+                      {t("readyHeadingSecond")}
+                    </span>
                   </>
                 ) : (
                   t("memberHeading")

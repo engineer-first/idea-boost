@@ -1,4 +1,4 @@
-import { DEFAULT_APP_LOCALE, type AppLocale } from "@/contracts/app-locale";
+import { type AppLocale, DEFAULT_APP_LOCALE } from "@/contracts/app-locale";
 
 export type { AppLocale } from "@/contracts/app-locale";
 

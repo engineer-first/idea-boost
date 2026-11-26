@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
+import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
-import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import { AppHeader } from "@/app/app-header";
 import { Toaster } from "@/components/ui/sonner";
 import { loadDisplayName } from "@/features/auth";

@@ -108,7 +108,11 @@ export async function handleCompletedRooms(
     try {
       const result = await env.ROOM_DO.get(
         env.ROOM_DO.idFromName(reflection[1]),
-      ).getOutcomeReflection(userId, parsed?.success ? parsed.data : null, locale);
+      ).getOutcomeReflection(
+        userId,
+        parsed?.success ? parsed.data : null,
+        locale,
+      );
       return result ? completedJson(result) : notFound();
     } catch (cause) {
       if (

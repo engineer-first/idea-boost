@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import type { RecentRoom } from "@/contracts/recent-rooms";
 

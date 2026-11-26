@@ -1,5 +1,5 @@
-import { getRequestConfig } from "next-intl/server";
 import { headers } from "next/headers";
+import { getRequestConfig } from "next-intl/server";
 import { resolveLocale } from "@/lib/i18n/locale";
 import appEn from "@/messages/en/app.json";
 import appJa from "@/messages/ja/app.json";
