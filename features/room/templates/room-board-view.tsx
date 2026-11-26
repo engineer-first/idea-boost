@@ -1703,13 +1703,16 @@ export function RoomBoardView({
             `${Math.ceil(headerBottom + 12)}px`,
           );
           // デスクトップでは参照情報の右側から書き始める。
-          // 2-1は問いのヒントが開いても付箋を動かさないよう、左の列全体を空ける。
+          // 2-1の問いのヒントや3-1の考えるヒントを開閉しても付箋を動かさないよう、
+          // 左の列全体を最初から空ける。開いたヒントは列の内側に収まる。
           const workspace = root.querySelector<HTMLElement>(
             '[data-testid="private-notes-toolbar"]',
           );
+          const reservesContextColumn =
+            isPhaseStep(phase, 2, 1) || isPhaseStep(phase, 3, 1);
           const referenceRight = isDesktop
             ? Math.max(
-                isPhaseStep(phase, 2, 1)
+                reservesContextColumn
                   ? (visibleBounds('[data-testid="board-context-column"]')
                       ?.right ?? 0)
                   : 0,
