@@ -281,9 +281,14 @@ export class OutcomeReflectionStorage {
           JSON.stringify(shared.sources.map(({ id, content, scene }) => ({ id, content, scene })));
         const contextChanged =
           JSON.stringify(context) !== JSON.stringify(shared.context);
+        const storedCommon = this.read(SHARED_KEY);
+        const legacyJapaneseResult = storedCommon
+          ? ReflectionSharedSchema.parse(storedCommon).result
+          : null;
         const hasResultForRevision =
           Boolean(this.read(researchResultKey(shared.revision, "ja"))) ||
           Boolean(this.read(researchResultKey(shared.revision, "en"))) ||
+          Boolean(legacyJapaneseResult) ||
           Boolean(shared.result);
         const revision =
           sourceChanged || contextChanged || !hasResultForRevision
@@ -298,6 +303,16 @@ export class OutcomeReflectionStorage {
           truncated: input.truncated,
           generatedAt: null,
         };
+        if (
+          legacyJapaneseResult &&
+          !this.read(researchResultKey(shared.revision, "ja"))
+        ) {
+          const legacy = ReflectionSharedSchema.parse(storedCommon);
+          this.write(researchResultKey(shared.revision, "ja"), {
+            result: legacyJapaneseResult,
+            generatedAt: legacy.generatedAt ?? Date.now(),
+          });
+        }
         if (!previous)
           this.write(cacheKey, { result, generatedAt });
         this.write(SHARED_KEY, common);
