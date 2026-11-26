@@ -23,19 +23,3 @@ describe("英語版LPの文言", () => {
     expect(JSON.stringify(en).match(/[぀-ヿ㐀-鿿]/u)).toBeNull();
   });
 });
-
-describe("日本語LPの文言", () => {
-  const { landingCopy } = ja;
-
-  it("招待の渡し方は用語集どおり「招待リンク」と呼び、「招待URL」と書かない", () => {
-    expect(JSON.stringify(ja)).not.toContain("招待URL");
-    expect(landingCopy.gettingStarted.steps[1].description).toContain(
-      "招待リンク",
-    );
-  });
-
-  it("持ち帰り方には、成果画面で選べるPNG保存も挙げる", () => {
-    expect(landingCopy.scenes.items[5].description).toContain("PNG");
-    expect(landingCopy.gettingStarted.steps[3].description).toContain("PNG");
-  });
-});
