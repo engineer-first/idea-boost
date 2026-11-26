@@ -1058,7 +1058,7 @@ export function RoomBoardCanvas({
         ) : null}
         <div
           data-private-writing-hint={isPersonalNoteEntryPhase || undefined}
-          className={`pointer-events-none fixed top-[calc(var(--board-location-bottom,4.25rem)+0.5rem)] left-3 z-[42] sm:top-[var(--board-location-top,0.75rem)] sm:left-[calc(var(--board-location-right,23.25rem)+0.75rem)] ${isPersonalNoteEntryPhase ? "[--board-character-mobile-inline-space:11.25rem]" : ""}`}
+          className={`pointer-events-none fixed top-[calc(var(--board-location-bottom,4.25rem)+0.5rem)] left-3 z-[42] sm:top-[var(--board-location-top,0.75rem)] sm:left-[calc(var(--board-location-right,23.25rem)+0.75rem)]`}
         >
           {character}
         </div>

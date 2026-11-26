@@ -1564,6 +1564,18 @@ export function RoomBoardView({
         '[data-testid="board-location-slot"]',
       );
       const locationBounds = locationCard?.getBoundingClientRect();
+      // スマホは決定事項の参照が現在地の下に積まれるため、先生はその下に置いて参照を隠さない。
+      // 個人作業は入力欄の配置とあわせて下で決める。
+      const references = root.querySelector<HTMLElement>(
+        '[data-testid="board-context-references"]',
+      );
+      const referencesBottom =
+        window.innerWidth < 640 &&
+        !isPersonalNoteEntryPhase &&
+        references &&
+        references.getClientRects().length > 0
+          ? references.getBoundingClientRect().bottom
+          : 0;
       root.style.setProperty(
         "--board-location-top",
         `${locationBounds?.top ?? 12}px`,
@@ -1574,7 +1586,7 @@ export function RoomBoardView({
       );
       root.style.setProperty(
         "--board-location-bottom",
-        `${Math.ceil(locationBounds?.bottom ?? 68)}px`,
+        `${Math.ceil(Math.max(locationBounds?.bottom ?? 68, referencesBottom))}px`,
       );
       // 「進め方」は現在地カードの中にあるため、吹き出しは先生の右隣に出す。
       const rem =
