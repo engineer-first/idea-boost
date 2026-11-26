@@ -291,6 +291,62 @@ describe("フローティングタイマー", () => {
       vi.restoreAllMocks();
     }
   });
+  it("端へ寄せた後に案内が広がり終えたら、測り直して重ならない位置へずらす", () => {
+    let bubble = new DOMRect(0, 0, 0, 0);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.dataset.testid === "room-board-view-root")
+          return new DOMRect(0, 0, 1280, 720);
+        if (this.dataset.testid === "board-control-hud")
+          return new DOMRect(900, 12, 368, 56);
+        if (this.dataset.testid === "board-character-bubble") return bubble;
+        return new DOMRect(0, 0, 0, 0);
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().width;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().height;
+      },
+    );
+    const view = render(
+      <div data-testid="room-board-view-root">
+        <div data-testid="board-control-hud" />
+        <div data-testid="board-character-bubble" />
+        <RoomTimer {...props()} />
+      </div>,
+    );
+    try {
+      const floating = screen.getByTestId("timer-floating");
+      fireEvent.pointerDown(floating, {
+        pointerId: 1,
+        button: 0,
+        clientX: 1232,
+        clientY: 116,
+      });
+      fireEvent.pointerMove(floating, {
+        pointerId: 1,
+        clientX: 640,
+        clientY: 100,
+      });
+      fireEvent.pointerUp(floating, { pointerId: 1 });
+      expect(floating.style.top).toBe("12px");
+      expect(floating.style.left).toBe("604px");
+      // 吹き出しが広がり終えて、上端のタイマーに届いた
+      bubble = new DOMRect(400, 0, 400, 60);
+      fireEvent.animationEnd(screen.getByTestId("board-character-bubble"));
+      const left = Number.parseFloat(floating.style.left);
+      expect(left + 72 <= 400 - 12 || left >= 800 + 12).toBe(true);
+      expect(floating.style.top).toBe("12px");
+    } finally {
+      view.unmount();
+      vi.restoreAllMocks();
+    }
+  });
   it("稼働中は残り時間を読み上げられ、時間設定や延長・進行操作を表示しない", () => {
     render(<RoomTimer {...props()} />);
     expect(screen.getByRole("timer")).toHaveAccessibleName(/02:30/);

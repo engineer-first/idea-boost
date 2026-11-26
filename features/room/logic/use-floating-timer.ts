@@ -238,7 +238,10 @@ export function useFloatingTimer(
       : null;
     if (root) mutations?.observe(root, { childList: true, subtree: true });
     window.addEventListener("resize", update);
+    // 案内の吹き出しは縮んだ状態から広がって出る。広がり終えた大きさで測り直す
+    root?.addEventListener("animationend", update);
     return () => {
+      root?.removeEventListener("animationend", update);
       window.clearTimeout(snapTimeout.current);
       observer?.disconnect();
       mutations?.disconnect();
