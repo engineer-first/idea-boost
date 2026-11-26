@@ -249,7 +249,10 @@ describe("useRoomState", () => {
     );
 
     expect(result.current.members).toHaveLength(1);
-    expect(notifyMocks.memberJoined).toHaveBeenCalledWith("Taro");
+    expect(notifyMocks.memberJoined).toHaveBeenCalledWith(
+      "Taro",
+      expect.any(Function),
+    );
   });
 
   it("member_left は除去前の一覧から名前を引いて memberLeft を toast する", () => {
@@ -265,7 +268,10 @@ describe("useRoomState", () => {
     );
 
     expect(result.current.members).toHaveLength(0);
-    expect(notifyMocks.memberLeft).toHaveBeenCalledWith("Taro");
+    expect(notifyMocks.memberLeft).toHaveBeenCalledWith(
+      "Taro",
+      expect.any(Function),
+    );
   });
 
   it("外された member_left は、外した本人とそれ以外で言い分け、退出とは区別する", () => {
@@ -296,8 +302,18 @@ describe("useRoomState", () => {
     );
 
     expect(result.current.members.map((m) => m.userId)).toEqual(["me"]);
-    expect(notifyMocks.memberRemoved).toHaveBeenNthCalledWith(1, "Taro", true);
-    expect(notifyMocks.memberRemoved).toHaveBeenNthCalledWith(2, "Hana", false);
+    expect(notifyMocks.memberRemoved).toHaveBeenNthCalledWith(
+      1,
+      "Taro",
+      true,
+      expect.any(Function),
+    );
+    expect(notifyMocks.memberRemoved).toHaveBeenNthCalledWith(
+      2,
+      "Hana",
+      false,
+      expect.any(Function),
+    );
     expect(notifyMocks.memberLeft).not.toHaveBeenCalled();
   });
 
@@ -312,7 +328,10 @@ describe("useRoomState", () => {
       result.current.applyMessage({ type: "member_left", userId: "u1" });
     });
 
-    expect(notifyMocks.memberLeft).toHaveBeenCalledWith("Taro");
+    expect(notifyMocks.memberLeft).toHaveBeenCalledWith(
+      "Taro",
+      expect.any(Function),
+    );
     expect(result.current.members).toHaveLength(0);
   });
 });

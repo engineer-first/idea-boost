@@ -18,27 +18,45 @@ afterAll(() => server.close());
 const testMessages = { app: appMessages, landing: landingMessages };
 vi.mock("next-intl", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next-intl")>();
+  type TestTranslator = ((
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string) & {
+    raw: (key: string) => unknown;
+  };
+  const translators = new Map<string, TestTranslator>();
+  const resolveMessage = (namespace: string, key: string): unknown => {
+    const value = namespace.split(".").reduce<unknown>((current, part) => {
+      if (typeof current !== "object" || current === null) return undefined;
+      return (current as Record<string, unknown>)[part];
+    }, testMessages);
+    return key.split(".").reduce<unknown>((current, part) => {
+      if (typeof current !== "object" || current === null) return undefined;
+      return (current as Record<string, unknown>)[part];
+    }, value);
+  };
   return {
     ...actual,
     useLocale: () => "ja",
-    useTranslations:
-      (namespace: string) =>
-      (key: string, values?: Record<string, string | number>) => {
-        const value = namespace.split(".").reduce<unknown>((current, part) => {
-          if (typeof current !== "object" || current === null) return undefined;
-          return (current as Record<string, unknown>)[part];
-        }, testMessages);
-        const message = key.split(".").reduce<unknown>((current, part) => {
-          if (typeof current !== "object" || current === null) return undefined;
-          return (current as Record<string, unknown>)[part];
-        }, value);
+    useTranslations: (namespace: string): TestTranslator => {
+      const cached = translators.get(namespace);
+      if (cached) return cached;
+      const translate = ((
+        key: string,
+        values?: Record<string, string | number>,
+      ) => {
+        const message = resolveMessage(namespace, key);
         if (typeof message !== "string") return key;
         return Object.entries(values ?? {}).reduce(
           (text, [name, replacement]) =>
             text.replaceAll(`{${name}}`, String(replacement)),
           message,
         );
-      },
+      }) as TestTranslator;
+      translate.raw = (key) => resolveMessage(namespace, key);
+      translators.set(namespace, translate);
+      return translate;
+    },
   };
 });
 vi.mock("next-intl/server", async (importOriginal) => {

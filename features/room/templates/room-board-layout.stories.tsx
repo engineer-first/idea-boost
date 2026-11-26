@@ -522,9 +522,9 @@ const RECOVERY_ITEMS = [
   {
     noteId: "recovered-note",
     text: "接続が戻らなくても、書きかけの文章を消さずに持ち帰れます。",
-    reason: "現在は編集できません。",
+    reason: "not-editable",
   },
-];
+] as const;
 export const AuthRequiredWithDraft: Story = {
   ...AuthRequired,
   decorators: [

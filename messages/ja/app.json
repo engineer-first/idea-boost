@@ -371,7 +371,7 @@
     "notReady": "未完了のメンバー",
     "notReadyCount": "まだ完了していない {count} 人",
     "cancel": "キャンセル",
-    "continue": "次へ"
+    "continue": "次へ進む"
   },
   "boardAdopt": {
     "targetNote": "付箋",
@@ -552,7 +552,7 @@
     "searchPrompt": "検索AI用の依頼文",
     "artifactAria": "調査の準備物を選ぶ",
     "artifactHint": "モックや質問リスト",
-    "backActions": "次のアクション",
+    "backActions": "次のアクションに戻る",
     "refresh": "最新版を取得",
     "loading": "保存された内容を読み込んでいます…",
     "planning": "調査の進め方を用意しています…",

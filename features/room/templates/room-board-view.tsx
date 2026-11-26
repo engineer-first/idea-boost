@@ -441,7 +441,10 @@ export function RoomBoardView({
   onTimerStop,
 }: RoomBoardViewProps) {
   const t = useTranslations("app.boardFlow");
-  const notifications = useTranslations("app.notifications");
+  const notifications = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const isRemovingMember = memberRemoval?.pending ?? false;
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";

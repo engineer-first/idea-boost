@@ -44,6 +44,7 @@ export function BoardLocation({
   action,
 }: BoardLocationProps) {
   const t = useTranslations("app.boardLocation");
+  const translate = (key: string) => t(key as Parameters<typeof t>[0]);
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [request, setRequest] = useState<{
@@ -104,9 +105,11 @@ export function BoardLocation({
   }, [state, phaseKey]);
 
   const title =
-    phase.kind === "step" ? t(`phaseTitles.${phase.phase}`) : t("waiting");
+    phase.kind === "step"
+      ? translate(`phaseTitles.${phase.phase}`)
+      : t("waiting");
   const phaseName =
-    phase.kind === "step" ? t(`phaseNames.${phase.phase}`) : title;
+    phase.kind === "step" ? translate(`phaseNames.${phase.phase}`) : title;
   const currentPosition =
     phase.kind === "step"
       ? FLOW_STEPS.findIndex(
@@ -114,9 +117,13 @@ export function BoardLocation({
         ) + 1
       : 0;
   const stepLabel =
-    phase.kind === "step" ? t(`stepNames.${phase.phase}-${phase.step}`) : "";
+    phase.kind === "step"
+      ? translate(`stepNames.${phase.phase}-${phase.step}`)
+      : "";
   const fullStepLabel =
-    phase.kind === "step" ? t(`fullSteps.${phase.phase}-${phase.step}`) : title;
+    phase.kind === "step"
+      ? translate(`fullSteps.${phase.phase}-${phase.step}`)
+      : title;
   return (
     <div className={styles.slot} data-testid="board-location-slot">
       <fieldset
@@ -190,7 +197,7 @@ export function BoardLocation({
               {phase.kind === "step" && !outcomePublished && (
                 <span className={styles.next}>
                   {t("next")}
-                  {t(`nextLabels.${phase.phase}-${phase.step}`)}
+                  {translate(`nextLabels.${phase.phase}-${phase.step}`)}
                 </span>
               )}
             </span>
@@ -265,7 +272,7 @@ export function BoardLocation({
                     <TabsTrigger
                       value={String(number)}
                       aria-label={t("phaseTabLabel", {
-                        phase: t(`phaseNames.${number}`),
+                        phase: translate(`phaseNames.${number}`),
                       })}
                       aria-current={
                         phase.kind === "step" && phase.phase === number
@@ -285,7 +292,7 @@ export function BoardLocation({
                       >
                         {number}
                       </span>
-                      <span>{t(`phaseNames.${number}`)}</span>
+                      <span>{translate(`phaseNames.${number}`)}</span>
                     </TabsTrigger>
                     {index < 2 ? (
                       <ArrowRight
@@ -338,7 +345,7 @@ export function BoardLocation({
                             </span>
                           )}
                           <span className="min-w-0 flex-1 break-words">
-                            {t(`fullSteps.${number}-${step}`)}
+                            {translate(`fullSteps.${number}-${step}`)}
                           </span>
                           {current ? (
                             <span className={styles.currentLabel}>
