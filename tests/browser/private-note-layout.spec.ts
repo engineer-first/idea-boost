@@ -168,6 +168,7 @@ for (const viewport of [
     });
 
     // 一覧に収まらない列の余りを右だけに寄せず、入力欄と同じ中心に付箋を並べる。
+    // 付箋は左の列から詰まるので、1行目が埋まる付箋20枚の story で列全体の端を測る。
     expect(layout).not.toBeNull();
     expect(
       Math.abs((layout?.leftSpace ?? 0) - (layout?.rightSpace ?? 0)),

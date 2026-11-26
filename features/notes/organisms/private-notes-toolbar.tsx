@@ -77,7 +77,7 @@ export type PrivateNotesToolbarProps = {
 
 // 参照情報を避けて列が5つ入らないときも、余りを左右に分けて入力欄と同じ中心に並べる。
 const workspaceGrid =
-  "max-w-[var(--private-notes-grid-width)] grid-cols-[repeat(auto-fill,var(--private-note-width))] justify-center gap-x-[var(--private-note-column-gap)] gap-y-6";
+  "max-w-[var(--private-notes-grid-width)] grid-cols-[repeat(auto-fill,var(--private-note-width))] justify-center-safe gap-x-[var(--private-note-column-gap)] gap-y-6";
 const workspaceComposer =
   "mx-auto w-full max-w-[var(--private-note-composer-width)]";
 const composerTextLayout =
