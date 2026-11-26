@@ -133,14 +133,18 @@ for (const phase of [2, 3]) {
   });
 }
 
-for (const viewport of [
-  { width: 1280, height: 800 },
-  { width: 1440, height: 900 },
+// 2-1 の 1280・1440 は参照情報を避けて列が5つ入らない。1-1 と 1920 は5列が入る。
+for (const { step, viewport } of [
+  { step: "2-1", viewport: { width: 1280, height: 800 } },
+  { step: "2-1", viewport: { width: 1440, height: 900 } },
+  { step: "2-1", viewport: { width: 1920, height: 1080 } },
+  { step: "1-1", viewport: { width: 1440, height: 900 } },
 ]) {
-  test(`${viewport.width}×${viewport.height}・2-1: 参照情報を避けても入力欄と付箋一覧が左右対称にそろう`, async () => {
+  test(`${viewport.width}×${viewport.height}・${step}: 入力欄と付箋一覧が左右対称にそろう`, async () => {
     page = await browser.newPage({ viewport });
+    const [phase, phaseStep] = step.split("-");
     await page.goto(
-      `${origin}/iframe.html?id=room-roomboardlayout--phase-2-step-1&viewMode=story`,
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-${phase}-step-${phaseStep}&viewMode=story`,
     );
     // Windows・Linux のように幅を取るスクロールバーでも中心がずれないことを確かめる。
     await page.addStyleTag({ content: "::-webkit-scrollbar { width: 15px; }" });

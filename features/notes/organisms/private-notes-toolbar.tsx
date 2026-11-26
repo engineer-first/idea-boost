@@ -662,6 +662,25 @@ export function PrivateNotesToolbar({
     return () => observer.disconnect();
   }, [workspaceCollapsible, workspaceExpanded, notes]);
 
+  useLayoutEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    const toolbar = scrollContainer?.closest<HTMLElement>(
+      '[data-testid="private-notes-toolbar"]',
+    );
+    if (!isWorkspace || !scrollContainer || !toolbar) return;
+    // Windows などでスクロールバーが一覧の右を狭めても、入力欄の右にも同じ幅を空けて中心をそろえる。
+    const measure = () =>
+      toolbar.style.setProperty(
+        "--private-notes-scrollbar-width",
+        `${scrollContainer.offsetWidth - scrollContainer.clientWidth}px`,
+      );
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(scrollContainer);
+    return () => observer.disconnect();
+  }, [isWorkspace]);
+
   useEffect(() => {
     if (addRequest <= 0 || addRequest === lastAddRequestRef.current) return;
     lastAddRequestRef.current = addRequest;
@@ -1006,8 +1025,7 @@ export function PrivateNotesToolbar({
             "min-h-0 flex-1 overflow-y-auto overscroll-contain",
             isWorkspace
               ? cn(
-                  // スクロールバーが幅を取る環境でも、入力欄と一覧の中心を左右同じ分だけ空けてそろえる。
-                  "px-3 [scrollbar-gutter:stable_both-edges] md:px-5",
+                  "px-3 [scrollbar-gutter:stable] md:px-5",
                   isWritingCollapsed ? "py-2" : "pt-5 pb-3",
                 )
               : "px-2 py-3",
