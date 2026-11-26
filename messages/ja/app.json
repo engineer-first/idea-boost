@@ -86,5 +86,123 @@
     "cancel": "キャンセル",
     "joining": "参加中…",
     "join": "参加する"
+  },
+  "menu": {
+    "aria": "ユーザーメニュー",
+    "editDisplayName": "表示名を変更",
+    "about": "Idea Boostについて",
+    "guestSignOut": "このブラウザから本人情報を消す",
+    "logout": "ログアウト"
+  },
+  "routeStatus": {
+    "notFoundHeading": "ページが見つかりません",
+    "notFoundDescription": "URLが間違っているか、ページが移動・削除された可能性があります。",
+    "errorHeading": "ページを表示できませんでした",
+    "errorDescription": "時間をおいて、もう一度お試しください。",
+    "notFoundTitle": "ページが見つかりません | Idea Boost",
+    "errorTitle": "ページを表示できません | Idea Boost",
+    "top": "トップへ戻る",
+    "back": "前の画面へ戻る"
+  },
+  "lobby": {
+    "roomFallback": "ルーム待機室",
+    "unsetTheme": "テーマ未設定",
+    "editTheme": "テーマを変更",
+    "memberSuffix": "名",
+    "readyHeadingFirst": "メンバーが揃ったら、",
+    "readyHeadingSecond": "はじめよう。",
+    "memberHeading": "参加メンバー",
+    "waiting": "メンバーの参加を待っています。",
+    "inviteHeadingFirst": "メンバーを",
+    "inviteHeadingSecond": "招待",
+    "inviteDescription": "リンクやコードを送って、仲間を呼ぼう。",
+    "inviteCode": "招待コード",
+    "starting": "開始中…",
+    "start": "スタート",
+    "privacySummary": "保存とプライバシーについて",
+    "privacyDescription": "途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了した成果は180日間、ホームから見返せます。",
+    "privacyLink": "保存とプライバシーについて（別タブ）",
+    "leaving": "退出中…",
+    "leave": "退出する"
+  },
+  "connection": {
+    "disconnected": "接続が切れました",
+    "unavailable": "このルームは利用できません",
+    "reload": "再読み込み",
+    "home": "ホームへ戻る",
+    "connecting": "接続中",
+    "reconnecting": "再接続中"
+  },
+  "lobbyFlow": {
+    "aria": "進み方と全体の流れ",
+    "howTo": "進み方",
+    "doStep": "各ステップのやることをやる",
+    "whenDone": "終わったら",
+    "ready": "できた！",
+    "press": "を押す",
+    "allReady": "全員そろったら",
+    "next": "次のステップへ",
+    "total": "3フェーズ・約{minutes}分",
+    "phase1": "課題整理",
+    "phase2": "問いの整理",
+    "phase3": "アイデア決定",
+    "steps": {
+      "1-1": {
+        "name": "困りごとを書く",
+        "action": "困ったことを書く"
+      },
+      "1-2": {
+        "name": "付箋を共有する",
+        "action": "一人ずつ発表する"
+      },
+      "1-3": {
+        "name": "似た付箋を集める",
+        "action": "付箋をグループに分ける"
+      },
+      "1-4": {
+        "name": "課題に投票する",
+        "action": "付箋を選んで投票する"
+      },
+      "1-5": {
+        "name": "課題を決める",
+        "action": "課題を1つに決める"
+      },
+      "2-1": {
+        "name": "課題を問いに変える",
+        "action": "課題を質問に変える"
+      },
+      "2-2": {
+        "name": "問いを共有する",
+        "action": "一人ずつ発表する"
+      },
+      "2-3": {
+        "name": "問いに投票する",
+        "action": "問いに投票する"
+      },
+      "2-4": {
+        "name": "問いを決める",
+        "action": "問いを1つに決める"
+      },
+      "3-1": {
+        "name": "解決策を書く",
+        "action": "解決策を書き出す"
+      },
+      "3-2": {
+        "name": "解決策を共有する",
+        "action": "一人ずつ発表する"
+      },
+      "3-3": {
+        "name": "解決策を比べる",
+        "action": "付箋を動かして比べる"
+      },
+      "3-4": {
+        "name": "解決策に投票する",
+        "action": "解決策に投票する"
+      },
+      "3-5": {
+        "name": "解決策を決める",
+        "action": "解決策を1つに決める"
+      }
+    }
   }
 }

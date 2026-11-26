@@ -86,5 +86,123 @@
     "cancel": "Cancel",
     "joining": "Joining…",
     "join": "Join room"
+  },
+  "menu": {
+    "aria": "User menu",
+    "editDisplayName": "Change display name",
+    "about": "About Idea Boost",
+    "guestSignOut": "Remove my identity from this browser",
+    "logout": "Sign out"
+  },
+  "routeStatus": {
+    "notFoundHeading": "Page not found",
+    "notFoundDescription": "The URL may be incorrect, or the page may have moved or been deleted.",
+    "errorHeading": "We couldn't display this page",
+    "errorDescription": "Please try again in a moment.",
+    "notFoundTitle": "Page not found | Idea Boost",
+    "errorTitle": "Unable to display page | Idea Boost",
+    "top": "Back to home",
+    "back": "Go back"
+  },
+  "lobby": {
+    "roomFallback": "Room lobby",
+    "unsetTheme": "No topic set",
+    "editTheme": "Edit topic",
+    "memberSuffix": "members",
+    "readyHeadingFirst": "Once everyone is here,",
+    "readyHeadingSecond": "let's get started.",
+    "memberHeading": "Participants",
+    "waiting": "Waiting for participants to join.",
+    "inviteHeadingFirst": "Invite",
+    "inviteHeadingSecond": "your team",
+    "inviteDescription": "Send the link or code to invite your teammates.",
+    "inviteCode": "Invitation code",
+    "starting": "Starting…",
+    "start": "Start",
+    "privacySummary": "Storage and privacy",
+    "privacyDescription": "Shared boards, published vote totals, progress times, and completed outcomes are saved automatically. Completed outcomes are available from Home for 180 days.",
+    "privacyLink": "Storage and privacy (opens in a new tab)",
+    "leaving": "Leaving…",
+    "leave": "Leave room"
+  },
+  "connection": {
+    "disconnected": "Connection lost",
+    "unavailable": "This room is unavailable",
+    "reload": "Reload",
+    "home": "Back to home",
+    "connecting": "Connecting",
+    "reconnecting": "Reconnecting"
+  },
+  "lobbyFlow": {
+    "aria": "How it works and the overall flow",
+    "howTo": "How it works",
+    "doStep": "Complete the task for each step",
+    "whenDone": "When you're done,",
+    "ready": "Done!",
+    "press": "",
+    "allReady": "When everyone is ready,",
+    "next": "Next step",
+    "total": "3 phases · about {minutes} min",
+    "phase1": "Frame the problem",
+    "phase2": "Frame the question",
+    "phase3": "Choose an idea",
+    "steps": {
+      "1-1": {
+        "name": "Write down challenges",
+        "action": "Write down challenges"
+      },
+      "1-2": {
+        "name": "Share your notes",
+        "action": "Take turns sharing"
+      },
+      "1-3": {
+        "name": "Group similar notes",
+        "action": "Group similar notes"
+      },
+      "1-4": {
+        "name": "Vote on the problem",
+        "action": "Vote on notes"
+      },
+      "1-5": {
+        "name": "Choose the problem",
+        "action": "Choose one problem"
+      },
+      "2-1": {
+        "name": "Turn the problem into a question",
+        "action": "Reframe the problem as a question"
+      },
+      "2-2": {
+        "name": "Share your questions",
+        "action": "Take turns sharing"
+      },
+      "2-3": {
+        "name": "Vote on questions",
+        "action": "Vote on questions"
+      },
+      "2-4": {
+        "name": "Choose the question",
+        "action": "Choose one question"
+      },
+      "3-1": {
+        "name": "Write solutions",
+        "action": "Write down solutions"
+      },
+      "3-2": {
+        "name": "Share solutions",
+        "action": "Take turns sharing"
+      },
+      "3-3": {
+        "name": "Compare solutions",
+        "action": "Move notes to compare"
+      },
+      "3-4": {
+        "name": "Vote on solutions",
+        "action": "Vote on solutions"
+      },
+      "3-5": {
+        "name": "Choose a solution",
+        "action": "Choose one solution"
+      }
+    }
   }
 }
