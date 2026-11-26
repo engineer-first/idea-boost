@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BoardCharacter } from "./board-character";
 
 describe("ボードのキャラクター", () => {
@@ -25,5 +25,53 @@ describe("ボードのキャラクター", () => {
     rerender(<BoardCharacter message={null} />);
     expect(screen.queryByTestId("board-character")).not.toBeInTheDocument();
     expect(status).toBeEmptyDOMElement();
+  });
+  it("吹き出しは一文字ずつ順に出るよう文字を分け、読み上げ用の枠には全文を1回だけ置く", () => {
+    render(<BoardCharacter message="次は投票だよ👨‍👩‍👧" />);
+    const bubble = screen.getByTestId("board-character-bubble");
+    // 表示中も全文が DOM にあり、吹き出しの幅は最初から全文で決まる。
+    expect(bubble).toHaveTextContent("次は投票だよ👨‍👩‍👧");
+    const chars = bubble.querySelectorAll<HTMLElement>("[data-char]");
+    // 家族の絵文字のように複数のコードポイントでできた1文字も分けない。
+    expect(Array.from(chars, (c) => c.textContent)).toEqual([
+      ..."次は投票だよ",
+      "👨‍👩‍👧",
+    ]);
+    expect(
+      Array.from(chars, (c) => c.style.getPropertyValue("--char-index")),
+    ).toEqual(["0", "1", "2", "3", "4", "5", "6"]);
+    // 文字を出す間隔の合計は文字数によらず一定にする（実際の秒数は CSS の開始待ちを足して
+    // 1秒前後。秒数そのものは stories と表示レビューで確かめる）。
+    const step = Number.parseFloat(
+      bubble.style.getPropertyValue("--char-step"),
+    );
+    expect(step * chars.length).toBeGreaterThan(500);
+    expect(step * chars.length).toBeLessThanOrEqual(1100);
+    expect(bubble).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /^次は投票だよ👨‍👩‍👧$/,
+    );
+  });
+
+  describe("Intl.Segmenter がない古いブラウザ", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    });
+    it("読み込みで壊れず、吹き出しの文字をコードポイント単位で順に出す", async () => {
+      vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
+      vi.resetModules();
+      const { BoardCharacter: Fallback } = await import("./board-character");
+      render(<Fallback message="次は🎉" />);
+      const chars = screen
+        .getByTestId("board-character-bubble")
+        .querySelectorAll("[data-char]");
+      expect(Array.from(chars, (c) => c.textContent)).toEqual([
+        "次",
+        "は",
+        "🎉",
+      ]);
+    });
   });
 });
