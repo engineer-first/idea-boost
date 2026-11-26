@@ -456,6 +456,10 @@ export function RoomBoardCanvas({
       ? `${styles.personalWorkspacePanel} fixed inset-x-3 bottom-3 z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 lg:inset-x-5 lg:bottom-5`
       : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[var(--board-timer-row-bottom,4.5rem)] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-start max-[639px]:top-[var(--board-timer-row-bottom,10rem)] max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
+  // 採用の当たり判定は付箋の上に重なるので、付箋側の除外ボタンへホバーを伝える。
+  const [adoptionHoverNoteId, setAdoptionHoverNoteId] = useState<string | null>(
+    null,
+  );
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
   const selectedNote = [...notes, ...privateNotes].find(
     (note) => note.id === selectedNoteId,
@@ -529,6 +533,7 @@ export function RoomBoardCanvas({
     // 選択モードを抜けた時点で両モダリティの一時状態を破棄する。
     adoptionPointerNoteIdRef.current = null;
     adoptionKeyboardNoteIdRef.current = null;
+    setAdoptionHoverNoteId(null);
   }, [isAdoptMode]);
 
   function publishAdoptionFocus(): void {
@@ -539,6 +544,7 @@ export function RoomBoardCanvas({
 
   function handleAdoptionPointerEnter(noteId: string): void {
     adoptionPointerNoteIdRef.current = noteId;
+    setAdoptionHoverNoteId(noteId);
     publishAdoptionFocus();
   }
 
@@ -546,6 +552,7 @@ export function RoomBoardCanvas({
     if (adoptionPointerNoteIdRef.current === noteId) {
       adoptionPointerNoteIdRef.current = null;
     }
+    setAdoptionHoverNoteId((current) => (current === noteId ? null : current));
     publishAdoptionFocus();
   }
 
@@ -692,7 +699,6 @@ export function RoomBoardCanvas({
         canMoveNote={!boardInteractionBlocked && permissions.canMoveNote}
         canExcludeNote={
           !boardInteractionBlocked &&
-          !isAdoptMode &&
           !isMultiSelected &&
           interactionTool === "select" &&
           permissions.canExcludeNote &&
@@ -700,7 +706,6 @@ export function RoomBoardCanvas({
         }
         canRestoreNote={
           !boardInteractionBlocked &&
-          !isAdoptMode &&
           !isMultiSelected &&
           interactionTool === "select" &&
           permissions.canRestoreNote &&
@@ -712,6 +717,7 @@ export function RoomBoardCanvas({
         isAdoptionFocused={
           adoptionFocusNoteId === note.id && decision?.noteId !== note.id
         }
+        isAdoptionTargetHovered={adoptionHoverNoteId === note.id}
         disabled={isDisconnected}
         onSelect={(id, options) => {
           if (writingCollapsed && id) setPreviewNoteId(id);

@@ -1268,7 +1268,114 @@ describe("マイ付箋の追加ショートカット", () => {
   });
 });
 
+describe("決定ステップの採用モードの既定", () => {
+  it("決定ステップに入ると、開始ボタンを押さずに付箋をクリックして採用できる", () => {
+    const onNoteDecide = vi.fn();
+    setup({
+      phase: buildPhaseStep(5),
+      notes: [buildNote({ id: "note-1", content: "候補A" })],
+      onNoteDecide,
+    });
+
+    expect(screen.getByText("採用する付箋をクリック")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+    );
+    expect(onNoteDecide).toHaveBeenCalledWith("note-1");
+  });
+
+  it("確定を取り消すと、そのまま別の付箋を採用できる", () => {
+    const notes = [
+      buildNote({ id: "note-1", content: "候補A" }),
+      buildNote({ id: "note-2", content: "候補B" }),
+    ];
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      notes,
+      decision: buildDecision({ noteId: "note-1" }),
+    });
+    rerender(<TestBoardView {...props} decision={null} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "採用する付箋: 候補B" }),
+    );
+    expect(props.onNoteDecide).toHaveBeenCalledWith("note-2");
+  });
+
+  it("採用モード中も付箋に重ねたポインターで除外できる", () => {
+    const onNoteExclude = vi.fn();
+    setup({
+      phase: buildPhaseStep(5),
+      notes: [buildNote({ id: "note-1", content: "候補A" })],
+      onNoteExclude,
+    });
+
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+    );
+    const exclude = screen.getByRole("button", { name: "除外する" });
+    expect(exclude).not.toHaveClass("opacity-0");
+    fireEvent.click(exclude);
+    expect(onNoteExclude).toHaveBeenCalledWith("note-1");
+  });
+
+  it("採用の当たり判定から除外ボタンへポインターを移しても、除外ボタンを消さない", () => {
+    vi.useFakeTimers();
+    try {
+      setup({
+        phase: buildPhaseStep(5),
+        notes: [buildNote({ id: "note-1", content: "候補A" })],
+      });
+      const target = screen.getByRole("button", {
+        name: "採用する付箋: 候補A",
+      });
+      fireEvent.pointerEnter(target);
+      const exclude = screen.getByRole("button", { name: "除外する" });
+      // 実ブラウザでは離脱と進入が同じイベント処理の中で続き、描画はその後になる。
+      act(() => {
+        fireEvent.pointerOut(target, { relatedTarget: exclude });
+        fireEvent.pointerOver(exclude, { relatedTarget: target });
+      });
+      act(() => vi.advanceTimersByTime(500));
+      expect(exclude).not.toHaveClass("opacity-0");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("確定済みで開くと採用モードにせず、付箋を選べる", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      notes: [buildNote({ id: "note-1", content: "候補A" })],
+      decision: buildDecision({ noteId: "note-1" }),
+    });
+    expect(
+      screen.queryByText("採用する付箋をクリック"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-scroller")).not.toHaveAttribute(
+      "data-adopt-mode",
+    );
+  });
+
+  it("キャンセルした後は入口から採用モードに戻れる", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      notes: [buildNote({ id: "note-1", content: "候補A" })],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "選択をキャンセル" }));
+    expect(
+      screen.queryByText("採用する付箋をクリック"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    expect(screen.getByText("採用する付箋をクリック")).toBeInTheDocument();
+  });
+});
+
 describe("採用する付箋の選択モード", () => {
+  const reopenSelection = () =>
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+
   it("hover・focus を共有し、Escape・キャンセル・確定・切断で解除を通知する", () => {
     const onAdoptionFocusChange = vi.fn();
     const { props, rerender } = setup({
@@ -1277,31 +1384,29 @@ describe("採用する付箋の選択モード", () => {
       notes: [buildNote({ id: "note-1", content: "候補A" })],
       onAdoptionFocusChange,
     });
-    const start = () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
-      );
-      return screen.getByRole("button", { name: "採用する付箋: 候補A" });
-    };
+    const target = () =>
+      screen.getByRole("button", { name: "採用する付箋: 候補A" });
 
-    fireEvent.pointerEnter(start());
+    fireEvent.pointerEnter(target());
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
     fireEvent.keyDown(screen.getByTestId("board-scroller"), { key: "Escape" });
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
-    fireEvent.focus(start());
+    reopenSelection();
+    fireEvent.focus(target());
     fireEvent.click(screen.getByRole("button", { name: "選択をキャンセル" }));
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
-    fireEvent.click(start());
+    reopenSelection();
+    fireEvent.click(target());
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
-    const target = start();
-    fireEvent.pointerEnter(target);
+    reopenSelection();
+    fireEvent.pointerEnter(target());
     rerender(<TestBoardView {...props} connectionStatus="closed" />);
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
   });
-  it("画面下の入口から開始し、対象を1件クリックすると確定して終了する", () => {
+  it("対象を1件クリックすると確定して選択モードを終える", () => {
     const onNoteDecide = vi.fn();
     setup({
       phase: buildPhaseStep(5),
@@ -1310,7 +1415,6 @@ describe("採用する付箋の選択モード", () => {
       onNoteDecide,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     expect(
       screen
         .getAllByRole("status")
@@ -1334,42 +1438,39 @@ describe("採用する付箋の選択モード", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
     });
-    const start = () =>
-      fireEvent.click(
-        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
-      );
+    const expectSelectionModeOpen = () =>
+      expect(screen.getByText("採用する付箋をクリック")).toBeInTheDocument();
     const expectSelectionModeClosed = () =>
       expect(
         screen.queryByText("採用する付箋をクリック"),
       ).not.toBeInTheDocument();
 
-    start();
+    expectSelectionModeOpen();
     fireEvent.keyDown(screen.getByTestId("board-scroller"), { key: "Escape" });
     expectSelectionModeClosed();
 
-    start();
+    reopenSelection();
     fireEvent.click(screen.getByRole("button", { name: "選択をキャンセル" }));
     expectSelectionModeClosed();
 
-    start();
     rerender(<TestBoardView {...props} phase={buildPhaseStep(1, 2)} />);
     expectSelectionModeClosed();
 
+    // 別のステップから戻ると、キャンセル前の既定（採用モード）に戻る。
     rerender(<TestBoardView {...props} phase={buildPhaseStep(5)} />);
-    start();
+    expectSelectionModeOpen();
     rerender(<TestBoardView {...props} connectionStatus="closed" />);
     expectSelectionModeClosed();
   });
 
-  it("空白クリックでは確定せず、候補外と非ホストを対象にしない", () => {
+  it("空白クリックでは確定せず、候補外を対象にしない", () => {
     const onNoteDecide = vi.fn();
-    const { rerender, props } = setup({
+    setup({
       phase: buildPhaseStep(5),
 
       notes: [buildNote({ id: "note-1", content: "候補外", excluded: true })],
       onNoteDecide,
     });
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     fireEvent.pointerUp(screen.getByTestId("board-canvas"), {
       pointerId: 1,
       clientX: 20,
@@ -1379,8 +1480,6 @@ describe("採用する付箋の選択モード", () => {
     expect(
       screen.queryByRole("button", { name: /採用する付箋:/ }),
     ).not.toBeInTheDocument();
-
-    rerender(<TestBoardView {...props} />);
     expect(
       screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
     ).toBeDisabled();
@@ -1450,7 +1549,6 @@ describe("考えるヒントの外部制御", () => {
     expect(
       screen.queryByRole("dialog", { name: "投票結果" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     expect(
       screen.getAllByRole("button", { name: /採用するアイデア:/ }),
     ).toHaveLength(2);
@@ -3909,9 +4007,6 @@ describe("反復ワークフロー", () => {
 
         notes: [buildNote({ id: "candidate", content: "選んだ候補" })],
       });
-      fireEvent.click(
-        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
-      );
       expect(props.onNoteDecide).not.toHaveBeenCalled();
       fireEvent.click(
         screen.getByRole("button", { name: `採用する${label}: 選んだ候補` }),
@@ -4199,9 +4294,6 @@ describe("付箋上の投票結果", () => {
       expect(
         screen.getByRole("img", { name: objectiveName }),
       ).toBeInTheDocument();
-      fireEvent.click(
-        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
-      );
       fireEvent.click(screen.getByRole("button", { name: /比較する候補/ }));
       expect(props.onNoteDecide).toHaveBeenCalledOnce();
     },
@@ -5023,9 +5115,6 @@ describe("CI-PHASE002: 採用semantic activationとgesture所有", () => {
 
         notes: buildNotes(3),
       });
-      fireEvent.click(
-        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
-      );
       const target = screen.getByRole("button", {
         name: "採用する付箋: 付箋 2",
       });

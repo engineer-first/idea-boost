@@ -45,6 +45,8 @@ export type NoteCardProps = {
   /** 渡すと、決定済み付箋の右上のはんこから確定を取り消せる。 */
   onClearDecision?: () => void;
   isAdoptionFocused?: boolean;
+  /** 付箋に重なる採用の当たり判定へポインターが乗っている。除外ボタンを出す。 */
+  isAdoptionTargetHovered?: boolean;
   // WebSocket未接続時（connecting/closed）に親から渡す。true の間は選択・
   // ドラッグ・編集開始・削除を無効化する。room-client.send() は未openだと
   // メッセージを黙って破棄するため、UI操作自体を止めないと「入力したのに
@@ -242,6 +244,7 @@ export function NoteCard({
   isDecided = false,
   onClearDecision,
   isAdoptionFocused = false,
+  isAdoptionTargetHovered = false,
   disabled = false,
   canEditNote,
   canDeleteNote,
@@ -429,6 +432,21 @@ export function NoteCard({
     }, ACTION_HIDE_DELAY_MS);
   }, [cancelPointerActionHide, releasePointerAction]);
 
+  const wasAdoptionTargetHoveredRef = useRef(false);
+  const isPointerOverCandidateActionRef = useRef(false);
+  useEffect(() => {
+    const wasHovered = wasAdoptionTargetHoveredRef.current;
+    wasAdoptionTargetHoveredRef.current = isAdoptionTargetHovered;
+    if (isAdoptionTargetHovered) schedulePointerActionShow();
+    // 当たり判定から除外ボタンへ移ったときは、ボタン側の hover を優先して消さない。
+    else if (wasHovered && !isPointerOverCandidateActionRef.current)
+      schedulePointerActionHide();
+  }, [
+    isAdoptionTargetHovered,
+    schedulePointerActionShow,
+    schedulePointerActionHide,
+  ]);
+
   useEffect(() => {
     if (!isFocusActionVisible) return;
     const ownerDocument = noteRef.current?.ownerDocument;
@@ -503,6 +521,8 @@ export function NoteCard({
 
   useEffect(() => {
     if (canCandidateAction) return;
+    // ボタンごと外れると pointerleave が届かないので、ボタン上の印もここで外す。
+    isPointerOverCandidateActionRef.current = false;
     cancelPointerActionHide();
     setIsPointerActionVisible(false);
     releasePointerAction();
@@ -961,11 +981,15 @@ export function NoteCard({
               aria-busy={candidatePending}
               tabIndex={isCandidateActionVisible ? 0 : -1}
               onPointerEnter={() => {
+                isPointerOverCandidateActionRef.current = true;
                 cancelPointerActionHide();
                 claimPointerAction();
                 setIsPointerActionVisible(true);
               }}
-              onPointerLeave={schedulePointerActionHide}
+              onPointerLeave={() => {
+                isPointerOverCandidateActionRef.current = false;
+                schedulePointerActionHide();
+              }}
               onFocus={() => {
                 cancelFocusActionHide();
                 setIsFocusActionVisible(true);

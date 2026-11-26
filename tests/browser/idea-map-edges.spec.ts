@@ -31,9 +31,6 @@ test.each(widths(390, 900))(
       );
       await page.getByTestId("idea-map-viewport-plane").waitFor();
       await page.evaluate(() => document.fonts.ready);
-      await page
-        .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
-        .click();
       const wrapper = page.getByTestId(
         "idea-value-feasibility-map-note-map-edge-movable",
       );

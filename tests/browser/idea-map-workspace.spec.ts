@@ -222,9 +222,6 @@ test("3-5の固定マップで投票結果を表示し、採用する付箋を�
     expect(
       await note.getByTestId("dot-vote-result-count-objective").textContent(),
     ).toBe("6");
-    await page
-      .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
-      .click();
     await note.getByRole("button", { name: /採用するアイデア:/ }).click();
     await expect
       .poll(() => page.getByTestId("canvas-input-adoption-count").textContent())

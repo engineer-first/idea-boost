@@ -65,8 +65,9 @@ for (const width of widths(1280, 375)) {
         path: `${output}/${phase}-${width}-decided.png`,
       });
       await cancel.click();
+      // 取り消した後も採用モードのまま、開始ボタンを押さずに選び直せる。
       await page
-        .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
+        .getByRole("button", { name: "選択をキャンセル", exact: true })
         .waitFor();
       expect(await cancel.count()).toBe(0);
       const complete = page.getByRole("button", {
@@ -79,9 +80,6 @@ for (const width of widths(1280, 375)) {
       await page.screenshot({
         path: `${output}/${phase}-${width}-cleared.png`,
       });
-      await page
-        .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
-        .click();
       const candidate = page
         .getByRole("button", { name: new RegExp(`採用する${label}:`) })
         .nth(1);

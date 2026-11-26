@@ -1073,9 +1073,6 @@ for (const gesture of ["pan", "note-drag"] as const) {
       await page.goto(
         `${origin}/iframe.html?id=room-roomboardview--canvas-input-adoption&viewMode=story`,
       );
-      await page
-        .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
-        .click();
       const targets = page.locator("[data-adopt-target]");
       const target = targets.nth(1);
       const camera = await transform();
