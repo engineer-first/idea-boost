@@ -296,22 +296,25 @@ test.skipIf(!includeMobile)(
   },
 );
 
-test("1280x800px: 問いの下書きを8枚書いても、例が1行に縮んでマイ付箋がスクロールしない", async () => {
+test("1280x800px: 問いの下書きを書き始めたら、例は1行に縮んで付箋1段分の高さを取らない", async () => {
   page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardlayout--phase-2-step-1-eight-notes&viewMode=story`,
     { timeout: 30_000 },
   );
-  const scroll = page.getByTestId("private-notes-scroll");
-  await scroll.waitFor();
+  await page.getByTestId("private-notes-scroll").waitFor();
   await page.evaluate(() => document.fonts.ready);
-  expect(await page.getByTestId("note-card").count()).toBe(8);
+  const notes = page.getByTestId("note-card");
+  expect(await notes.count()).toBe(8);
   const examples = page.getByRole("region", { name: "問いの例" });
   expect(await examples.locator("[data-slot='sticky-note']").count()).toBe(0);
-  const { scrollHeight, clientHeight } = await scroll.evaluate((element) => ({
-    scrollHeight: element.scrollHeight,
-    clientHeight: element.clientHeight,
-  }));
-  expect(scrollHeight).toBeLessThanOrEqual(clientHeight);
+  const exampleBounds = await examples.boundingBox();
+  const noteBounds = await notes.first().boundingBox();
+  if (!exampleBounds || !noteBounds) throw new Error("例か付箋が見えません");
+  // 列数は実行環境のスクロールバー幅で変わるため、例の行が付箋1段より十分低いことで確かめる。
+  expect(exampleBounds.height).toBeLessThan(noteBounds.height / 2);
+  expect(noteBounds.y - (exampleBounds.y + exampleBounds.height)).toBeLessThan(
+    40,
+  );
   await page.screenshot({ path: `${output}/1280-eight-notes.png` });
 });
