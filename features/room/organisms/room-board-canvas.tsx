@@ -467,8 +467,17 @@ export function RoomBoardCanvas({
   // 自分が今クリック（Enter）すれば決定できる付箋。キーボードの選択をポインターより優先する。
   const [adoptionKeyboardFocusNoteId, setAdoptionKeyboardFocusNoteId] =
     useState<string | null>(null);
+  // 除外などで当たり判定ごと消えた付箋には blur が届かないので、候補に残る間だけ優先する。
+  const keyboardDecideHintNoteId = notes.some(
+    (note) =>
+      note.id === adoptionKeyboardFocusNoteId &&
+      note.visibility === "shared" &&
+      !note.excluded,
+  )
+    ? adoptionKeyboardFocusNoteId
+    : null;
   const decideHintNoteId = isAdoptMode
-    ? (adoptionKeyboardFocusNoteId ?? adoptionHoverNoteId)
+    ? (keyboardDecideHintNoteId ?? adoptionHoverNoteId)
     : null;
   const selectedNote = [...notes, ...privateNotes].find(
     (note) => note.id === selectedNoteId,

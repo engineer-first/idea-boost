@@ -626,6 +626,32 @@ describe("RoomBoardCanvas", () => {
     },
   );
 
+  it("フォーカスしていた候補が除外されたら、ほかの候補へポインターを合わせると「決定する」を示す", () => {
+    const notes = [
+      buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+      buildNote({ id: "note-2", content: "候補B", visibility: "shared" }),
+    ];
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isAdoptMode: true,
+      notes,
+    });
+    fireEvent.focus(
+      screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+    );
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        notes={[{ ...notes[0], excluded: true }, notes[1]]}
+      />,
+    );
+
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "採用する付箋: 候補B" }),
+    );
+    expect(screen.getByText("決定する")).toBeVisible();
+  });
+
   it("採用選択中でなければ、付箋に「決定する」を示さない", () => {
     setup({
       phase: buildPhaseStep(5),
