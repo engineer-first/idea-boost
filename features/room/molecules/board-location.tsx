@@ -19,8 +19,11 @@ import {
   getPhaseLabel,
   getPhaseProgressState,
   getPhaseTitle,
+  PHASE_MARKERS,
+  PHASE_SHORT_NAMES as PHASE_NAMES,
   PHASE_NUMBERS,
   type PhaseNumber,
+  STEP_SHORT_NAMES as STEP_NAMES,
 } from "../logic/phase-labels";
 import styles from "./board-location.module.css";
 
@@ -30,18 +33,11 @@ const FLOW_STEPS = PHASE_NUMBERS.flatMap((phase) =>
     step: index + 1,
   })),
 );
-const STEP_NAMES = {
-  1: ["個人", "共有", "整理", "投票", "決定"],
-  2: ["個人", "共有", "投票", "決定"],
-  3: ["個人", "共有", "2軸評価", "投票", "決定"],
-} as const;
-const PHASE_MARKERS = { 1: "①", 2: "②", 3: "③" } as const;
 const NEXT_LABELS = {
   1: ["共有", "整理", "投票", "決定", "問い"],
   2: ["共有", "投票", "決定", "アイデア"],
   3: ["共有", "評価", "投票", "決定", "成果"],
 } as const;
-const PHASE_NAMES = { 1: "課題", 2: "問い", 3: "アイデア" } as const;
 
 type LocationState = "compact" | "expanded";
 export type BoardLocationProps = {

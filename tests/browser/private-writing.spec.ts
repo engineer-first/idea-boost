@@ -146,21 +146,22 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
       point.left + point.width / 2,
       point.top + point.height / 2,
     );
-    const headerBottom = ["board-context-hud", "board-control-hud"].reduce(
-      (bottom, testId) => {
-        const element = document.querySelector<HTMLElement>(
-          `[data-testid="${testId}"]`,
-        );
-        if (
-          !element ||
-          element.getClientRects().length === 0 ||
-          getComputedStyle(element).visibility === "hidden"
-        )
-          return bottom;
-        return Math.max(bottom, element.getBoundingClientRect().bottom);
-      },
-      0,
-    );
+    const headerBottom = [
+      "board-context-hud",
+      "board-control-hud",
+      "phase-step-trail",
+    ].reduce((bottom, testId) => {
+      const element = document.querySelector<HTMLElement>(
+        `[data-testid="${testId}"]`,
+      );
+      if (
+        !element ||
+        element.getClientRects().length === 0 ||
+        getComputedStyle(element).visibility === "hidden"
+      )
+        return bottom;
+      return Math.max(bottom, element.getBoundingClientRect().bottom);
+    }, 0);
     return {
       canvasInert: canvas.hasAttribute("inert"),
       canvasFilter: getComputedStyle(canvas).filter,
@@ -186,7 +187,7 @@ test("1-1: タイマー未開始でも付箋を追加・日本語入力でき、
     workspaceHasInertAncestor: false,
     pointerHitsWorkspace: true,
   });
-  // 最上段の現在地・上部メニューの直下から始め、接続案内はエリアの前面に重ねる。
+  // 最上段の現在地・上部メニューと、その下のステップの並びの直下から始め、接続案内はエリアの前面に重ねる。
   expect(layers.panelTop).toBeGreaterThanOrEqual(layers.headerBottom + 12);
   expect(layers.panelTop).toBeLessThanOrEqual(layers.headerBottom + 50);
 
