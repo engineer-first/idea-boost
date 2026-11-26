@@ -84,7 +84,8 @@ export function MemberAvatar({
               width={size}
               height={size}
               unoptimized
-              className="size-full object-contain"
+              // 切断中は顔を薄くし、全員チェックの分母から外れている人を一目で分かるようにする。
+              className={`size-full object-contain ${isConnected === false ? "opacity-40 grayscale" : ""}`}
               draggable={false}
             />
           </span>
