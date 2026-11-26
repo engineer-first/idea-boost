@@ -22,40 +22,50 @@ describe("円形タイマーの表示", () => {
     ).toBe(degrees);
   });
   it.each([
-    [1, "rgb(34, 197, 94)"],
-    [0.5, "rgb(234, 179, 8)"],
-    [0.2, "rgb(239, 68, 68)"],
-  ])("残り割合%sを%sで表す", (ratio, color) => {
-    const ratioNumber = Number(ratio);
+    [300_000, "var(--ib-color-primary)"],
+    [61_000, "var(--ib-color-primary)"],
+    [60_000, "var(--ib-color-warning)"],
+    [31_000, "var(--ib-color-warning)"],
+    [30_000, "var(--ib-color-danger)"],
+    [5_000, "var(--ib-color-danger)"],
+  ])(
+    "残り%sミリ秒の円をデザイントークン%sで塗り、残り1分・30秒の合図とそろえる",
+    (remainingMs, color) => {
+      expect(
+        getRoomTimerDisplay(
+          {
+            status: "running",
+            endsAt: 1000 + remainingMs,
+            durationMs: 300_000,
+          },
+          300_000,
+          1000,
+        ).color,
+      ).toBe(color);
+    },
+  );
+  it("一時停止中も残り時間に応じた色を保ち、未開始は主色で満たす", () => {
     expect(
       getRoomTimerDisplay(
-        {
-          status: "running",
-          endsAt: 1000 + 300000 * ratioNumber,
-          durationMs: 300000,
-        },
-        300000,
+        { status: "paused", remainingMs: 20_000, durationMs: 300_000 },
+        300_000,
         1000,
       ).color,
-    ).toBe(color);
+    ).toBe("var(--ib-color-danger)");
+    expect(getRoomTimerDisplay({ status: "idle" }, 300_000, 1000).color).toBe(
+      "var(--ib-color-primary)",
+    );
   });
-  it("残り時間が減ると緑から黄を経て赤へ近づく", () => {
-    const colorAt = (ratio: number) =>
+  it("設定時間が合図のしきい値以下なら、開始直後から注意の色にしない", () => {
+    expect(
       getRoomTimerDisplay(
-        {
-          status: "running",
-          endsAt: 1000 + 300000 * ratio,
-          durationMs: 300000,
-        },
-        300000,
+        { status: "running", endsAt: 1000 + 60_000, durationMs: 60_000 },
+        60_000,
         1000,
-      ).color;
-
-    expect(colorAt(0.75)).toBe("rgb(134, 188, 51)");
-    expect(colorAt(0.25)).toBe("rgb(238, 87, 58)");
-    expect(colorAt(0)).toBe("rgb(239, 68, 68)");
+      ).color,
+    ).toBe("var(--ib-color-primary)");
   });
-  it("規定時間が異なっても残り割合が同じなら同じ色と面積になる", () => {
+  it("規定時間が異なっても残り割合が同じなら同じ面積になる", () => {
     const short = getRoomTimerDisplay(
       { status: "running", endsAt: 1000 + 90000, durationMs: 180000 },
       180000,
@@ -66,7 +76,6 @@ describe("円形タイマーの表示", () => {
       420000,
       1000,
     );
-    expect(short.color).toBe(long.color);
     expect(short.elapsedDegrees).toBe(long.elapsedDegrees);
   });
 });

@@ -24,14 +24,48 @@ function props() {
 }
 
 describe("RoomTimer", () => {
-  it("閉じた円の下にそのステップの設定時間を出す", () => {
+  it("円の下の札は、未開始と時間切れで設定時間を、計時中と停止中は残り時間を数字で出す", () => {
+    const { rerender } = render(
+      <RoomTimer {...props()} timer={{ status: "idle" }} />,
+    );
+    const badge = () => screen.getByTestId("room-timer-duration");
+    expect(badge()).toHaveTextContent("5分");
+    rerender(
+      <RoomTimer
+        {...props()}
+        timer={buildRunningTimer({ remainingMs: 150_000, durationMs: 300_000 })}
+      />,
+    );
+    expect(badge()).toHaveTextContent("02:30");
+    rerender(
+      <RoomTimer
+        {...props()}
+        timer={buildPausedTimer({ remainingMs: 40_000 })}
+      />,
+    );
+    fireEvent.keyDown(screen.getByTestId("timer-floating"), { key: "Escape" });
+    expect(badge()).toHaveTextContent("00:40");
+    rerender(
+      <RoomTimer
+        {...props()}
+        timer={buildEndedTimer({ durationMs: 300_000 })}
+      />,
+    );
+    fireEvent.keyDown(screen.getByTestId("timer-floating"), { key: "Escape" });
+    expect(badge()).toHaveTextContent("5分");
+  });
+  it("円の残りと経過をデザイントークンの色で塗る", () => {
     render(
       <RoomTimer
         {...props()}
         timer={buildRunningTimer({ remainingMs: 150_000, durationMs: 300_000 })}
       />,
     );
-    expect(screen.getByTestId("room-timer-duration")).toHaveTextContent("5分");
+    const background = screen
+      .getByTestId("room-timer-disk")
+      .style.getPropertyValue("background");
+    expect(background).toContain("var(--ib-color-line)");
+    expect(background).toContain("var(--ib-color-primary)");
   });
   it("残り1分・30秒・10秒で段階を切り替え、一時停止中は段階を出さない", () => {
     const { rerender } = render(

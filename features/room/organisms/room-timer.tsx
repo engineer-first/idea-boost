@@ -48,6 +48,9 @@ export function RoomTimer({
   const extensionUsed = timer.status !== "idle" && !!timer.extensionUsed;
   const hasActions = paused || (ended && !extensionUsed);
   const expanded = hasActions && !collapsed;
+  /** 計時中と停止中は円の下の札に残り時間を出し、未開始と時間切れでは設定時間を出す */
+  const showsRemaining =
+    !ended && (timer.status === "running" || timer.status === "paused");
   const { dragging, ...floating } = useFloatingTimer(ref, expanded, !paused);
 
   useEffect(() => {
@@ -123,7 +126,7 @@ export function RoomTimer({
           className={styles.duration}
           aria-hidden="true"
         >
-          {display.durationLabel}
+          {showsRemaining ? display.label : display.durationLabel}
         </span>
       ) : null}
       <div className={styles.surface}>
@@ -149,7 +152,7 @@ export function RoomTimer({
               data-testid="room-timer-disk"
               className={styles.disk}
               style={{
-                background: `conic-gradient(from 0deg, #e5e7eb 0deg ${display.elapsedDegrees}deg, ${display.color} ${display.elapsedDegrees}deg 360deg)`,
+                background: `conic-gradient(from 0deg, var(--ib-color-line) 0deg ${display.elapsedDegrees}deg, ${display.color} ${display.elapsedDegrees}deg 360deg)`,
               }}
               aria-hidden="true"
             />

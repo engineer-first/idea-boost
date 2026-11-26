@@ -143,6 +143,9 @@
   height: 20px;
   transform: translate(-50%, -50%);
   color: var(--ib-color-ink);
+  /* 主色・注意・危険のどの面の上でも読めるよう、針と同じく白い縁を付ける */
+  filter: drop-shadow(0 0 1px var(--background))
+    drop-shadow(0 0 1px var(--background));
 }
 .actions {
   display: flex;
