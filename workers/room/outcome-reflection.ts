@@ -63,6 +63,7 @@ Do not copy leading questions from research: convert them to neutral questions a
     ? instruction
         .replace("Return Japanese JSON", "Return English JSON")
         .replace("Write a Japanese production brief", "Write an English production brief")
+        .replace("Use a friendly, concrete Japanese voice (〜してみよう).", "Use a friendly, concrete English voice.")
         + "\nWrite every user-facing value in English. Keep JSON property names and schema shape unchanged. Do not translate participant-authored source text."
     : instruction;
   const localizedSystem = locale === "ja"
