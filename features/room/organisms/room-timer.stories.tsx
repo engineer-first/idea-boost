@@ -36,6 +36,14 @@ export const RunningHost: Story = {
   args: {
     timer: buildRunningTimer({ durationMs: 300_000, remainingMs: 240_000 }),
   },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "計時中。残りを主色の扇形と針で示し、円の下の札に残り時間を数字で出す。",
+      },
+    },
+  },
 };
 export const HalfTime: Story = {
   args: {
@@ -50,7 +58,7 @@ export const OneMinuteLeft: Story = {
     docs: {
       description: {
         story:
-          "残り1分。外枠と時間の札を注意の色にし、入ったときに2回だけ小さく膨らむ。",
+          "残り1分。外枠・円の残り・時間の札を注意の色にし、入ったときに2回だけ小さく膨らむ。",
       },
     },
   },
@@ -63,7 +71,7 @@ export const ThirtySecondsLeft: Story = {
     docs: {
       description: {
         story:
-          "残り30秒。外枠を危険の色で少し太くし、入ったときにベルのように3回揺れる。",
+          "残り30秒。外枠と円の残りを危険の色にして外枠を少し太くし、入ったときにベルのように3回揺れる。",
       },
     },
   },
