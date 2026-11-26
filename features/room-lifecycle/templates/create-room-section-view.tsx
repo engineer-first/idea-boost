@@ -58,7 +58,7 @@ export function CreateRoomSectionView({
               disabled={pending}
               defaultValue={intentName}
               key={intentName ?? "new"}
-              placeholder="例：通学で困っていること"
+              placeholder="例：アプリをもっと使ってもらうには"
             />
             <Button
               type="submit"

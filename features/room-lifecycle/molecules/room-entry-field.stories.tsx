@@ -8,7 +8,7 @@ const meta = {
   args: {
     id: "room-name",
     label: "テーマ（任意）",
-    placeholder: "例：通学で困っていること",
+    placeholder: "例：アプリをもっと使ってもらうには",
   },
   decorators: [
     (Story) => (
