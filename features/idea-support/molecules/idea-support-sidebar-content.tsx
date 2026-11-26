@@ -72,6 +72,9 @@ export function IdeaSupportSidebarContent({
           ))}
         </TabsList>
 
+        <p className="pt-2 text-muted-foreground text-xs">
+          {IDEA_SUPPORT_DESCRIPTION}
+        </p>
         <div className="pt-2">
           {contents.map((item) => (
             <TabsContent key={item.id} value={item.id}>
@@ -96,8 +99,8 @@ export function IdeaSupportSidebarContent({
                   }
                 >
                   {expanded[item.id]
-                    ? "ほかの問いを閉じる"
-                    : `ほかの問いを見る（${item.content.length - 1}）`}
+                    ? "ほかの観点を閉じる"
+                    : `ほかの観点を見る（${item.content.length - 1}）`}
                   {expanded[item.id] ? (
                     <ChevronUp aria-hidden="true" />
                   ) : (
@@ -124,9 +127,6 @@ export function IdeaSupportSidebarContent({
           ))}
         </div>
       </Tabs>
-      <p className="mt-3 text-muted-foreground text-xs">
-        {IDEA_SUPPORT_DESCRIPTION}
-      </p>
     </div>
   );
 }

@@ -34,7 +34,7 @@ for (const width of widths(390, 1440)) {
       });
       const tools = page.getByRole("tablist", { name: "発想法" });
       const panel = page.getByRole("tabpanel").filter({ has: tools });
-      const more = panel.getByRole("button", { name: /ほかの問いを見る/ });
+      const more = panel.getByRole("button", { name: /ほかの観点を見る/ });
       expect(await more.getAttribute("aria-expanded")).toBe("false");
       await more.press("Enter");
       const last = page.getByText(

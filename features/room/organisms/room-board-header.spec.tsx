@@ -1533,7 +1533,7 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("最終案の決定前も完了ボタンを表示し、決定後に有効にする（host=%s）", () => {
+    it("最終案の決定前は完了ボタンに採用が要ることを出し、決定後に有効にする", () => {
       const onPublishOutcome = vi.fn();
       const props = setupProps({
         phase: buildPhaseStep(5, 3),
@@ -1543,7 +1543,7 @@ describe("RoomBoardHeader", () => {
       });
       const { rerender } = render(<RoomBoardHeader {...props} />);
       const completion = screen.getByRole("button", {
-        name: "完了して成果を表示",
+        name: "採用すると完了",
       });
       expect(completion).toBeDisabled();
       fireEvent.click(completion);
@@ -1551,6 +1551,7 @@ describe("RoomBoardHeader", () => {
       expect(onPublishOutcome).not.toHaveBeenCalled();
       rerender(<RoomBoardHeader {...props} hasFinalDecision />);
       expect(completion).toBeEnabled();
+      expect(completion).toHaveAccessibleName("完了して成果を表示");
       fireEvent.click(completion);
       expect(screen.getByRole("alertdialog")).toBeVisible();
       expect(onPublishOutcome).not.toHaveBeenCalled();

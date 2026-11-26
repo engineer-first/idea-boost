@@ -75,7 +75,7 @@ export const Failure: Story = {
 export const MoreQuestions: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: /ほかの問いを見る/ }),
+      within(canvasElement).getByRole("button", { name: /ほかの観点を見る/ }),
     );
   },
 };

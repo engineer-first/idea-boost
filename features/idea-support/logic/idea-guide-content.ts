@@ -1,4 +1,4 @@
-export const IDEA_GUIDE_HEADING = "問いを実現する方法を書こう";
+export const IDEA_GUIDE_HEADING = "問いに答える方法を書こう";
 
 export const IDEA_GUIDE_DESCRIPTION = "思いついた方法を、1枚に1つ。";
 
