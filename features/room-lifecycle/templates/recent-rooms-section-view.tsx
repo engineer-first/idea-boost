@@ -58,7 +58,9 @@ function RoomCard({ room, now }: { room: RecentRoom; now: number }) {
           {room.createdAt !== undefined && (
             <span
               className="inline-flex items-center gap-1"
-              title={t("createdAtTitle", { date: formatDate(room.createdAt, locale) })}
+              title={t("createdAtTitle", {
+                date: formatDate(room.createdAt, locale),
+              })}
             >
               <CalendarDays className="size-3.5 shrink-0" aria-hidden />
               {t("createdAt", { date: formatMonthDay(room.createdAt, locale) })}
@@ -67,7 +69,9 @@ function RoomCard({ room, now }: { room: RecentRoom; now: number }) {
           {room.expiresAt !== undefined && (
             <span
               className="inline-flex items-center gap-1"
-              title={t("expiresAtTitle", { date: formatDate(room.expiresAt, locale) })}
+              title={t("expiresAtTitle", {
+                date: formatDate(room.expiresAt, locale),
+              })}
             >
               <Trash2 className="size-3.5 shrink-0" aria-hidden />
               <span className="sr-only">{t("autoDeleteRemaining")}</span>
