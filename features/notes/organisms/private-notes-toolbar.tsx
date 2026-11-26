@@ -1074,54 +1074,49 @@ export function PrivateNotesToolbar({
             }
           }}
         >
-          {isWorkspace &&
-          !workspaceCollapsible &&
-          exampleNotes.length > 0 &&
-          notes.length > 0 ? (
-            // 書き始めた後は、例を1行の参照に縮めて自分の付箋に場所を譲る。
-            <section
-              aria-label="問いの例"
-              className="mx-auto mb-4 flex max-w-[var(--private-notes-grid-width)] flex-wrap justify-center gap-2"
-            >
-              {exampleNotes.map((example, index) => (
-                <p
-                  key={example}
-                  data-testid={`example-note-${index + 1}`}
-                  className="min-w-0 rounded-sm px-2 py-1 text-sm leading-5"
-                  style={{
-                    backgroundColor: NOTE_COLOR_STYLES.blue.backgroundColor,
-                    color: NOTE_COLOR_STYLES.blue.foregroundColor,
-                  }}
-                >
-                  {example}
-                </p>
-              ))}
-            </section>
-          ) : null}
-          {isWorkspace &&
-          !workspaceCollapsible &&
-          exampleNotes.length > 0 &&
-          notes.length === 0 ? (
-            <section
-              aria-label="問いの例"
-              className={cn("mb-6 grid", workspaceGrid)}
-            >
-              {exampleNotes.map((example, index) => (
-                <StickyNote
-                  key={example}
-                  noteId={`example-note-${index}`}
-                  color="blue"
-                  height={getNoteHeight(example, NOTE_DEFAULT_FONT_SIZE)}
-                  testId={`example-note-${index + 1}`}
-                >
-                  <div className="flex h-full flex-col p-2">
-                    <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-base">
-                      {example}
-                    </p>
+          {isWorkspace && !workspaceCollapsible && exampleNotes.length > 0 ? (
+            notes.length > 0 ? (
+              // 書き始めた後は、例を1行の参照に縮めて自分の付箋に場所を譲る。
+              <section
+                aria-label="問いの例"
+                className="mx-auto mb-4 flex max-w-[var(--private-notes-grid-width)] flex-wrap justify-center gap-2"
+              >
+                {exampleNotes.map((example, index) => (
+                  <div
+                    key={example}
+                    data-testid={`example-note-${index + 1}`}
+                    className="min-w-0 rounded-note px-2 py-1"
+                    style={{
+                      backgroundColor: NOTE_COLOR_STYLES.blue.backgroundColor,
+                      color: NOTE_COLOR_STYLES.blue.foregroundColor,
+                    }}
+                  >
+                    <p className="text-sm leading-5">{example}</p>
                   </div>
-                </StickyNote>
-              ))}
-            </section>
+                ))}
+              </section>
+            ) : (
+              <section
+                aria-label="問いの例"
+                className={cn("mb-6 grid", workspaceGrid)}
+              >
+                {exampleNotes.map((example, index) => (
+                  <StickyNote
+                    key={example}
+                    noteId={`example-note-${index}`}
+                    color="blue"
+                    height={getNoteHeight(example, NOTE_DEFAULT_FONT_SIZE)}
+                    testId={`example-note-${index + 1}`}
+                  >
+                    <div className="flex h-full flex-col p-2">
+                      <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-base">
+                        {example}
+                      </p>
+                    </div>
+                  </StickyNote>
+                ))}
+              </section>
+            )
           ) : null}
           <div
             ref={listRef}

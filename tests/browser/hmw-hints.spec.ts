@@ -295,3 +295,23 @@ test.skipIf(!includeMobile)(
     ).toEqual([]);
   },
 );
+
+test("1280x800px: 問いの下書きを8枚書いても、例が1行に縮んでマイ付箋がスクロールしない", async () => {
+  page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardlayout--phase-2-step-1-eight-notes&viewMode=story`,
+    { timeout: 30_000 },
+  );
+  const scroll = page.getByTestId("private-notes-scroll");
+  await scroll.waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  expect(await page.getByTestId("note-card").count()).toBe(8);
+  const examples = page.getByRole("region", { name: "問いの例" });
+  expect(await examples.locator("[data-slot='sticky-note']").count()).toBe(0);
+  const { scrollHeight, clientHeight } = await scroll.evaluate((element) => ({
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+  }));
+  expect(scrollHeight).toBeLessThanOrEqual(clientHeight);
+  await page.screenshot({ path: `${output}/1280-eight-notes.png` });
+});
