@@ -456,6 +456,26 @@ describe("キャラクターの一言", () => {
       "みんな発表したよ、次のステップへ進もう。",
     );
   });
+  it("全員の発表が終わった後に途中参加で共有が戻っても、時間切れの一言を出さない", () => {
+    const { result, rerender } = renderHook(
+      ({ sharingRole }: { sharingRole: "presenter" | "finished" }) =>
+        useCharacterHint({
+          phase: { ...phase, step: 2 },
+          timer: { status: "ended", durationMs: 180_000 },
+          serverOffsetMs: 0,
+          noteCount: 1,
+          sharingRole,
+        }),
+      { initialProps: { sharingRole: "finished" as "presenter" | "finished" } },
+    );
+    expect(result.current.message).toBe(
+      "みんな発表したよ、次のステップへ進もう。",
+    );
+    rerender({ sharingRole: "presenter" });
+    expect(result.current.message).toBe(
+      "みんな発表したよ、次のステップへ進もう。",
+    );
+  });
   it("個人作業の時間切れは発表者かどうかで変えない", () => {
     const { result } = renderHook(() =>
       useCharacterHint({

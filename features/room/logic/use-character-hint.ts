@@ -236,6 +236,8 @@ export function useCharacterHint({
           : kind;
       if (kind && seenKey && !seen.current.has(seenKey)) {
         seen.current.add(seenKey);
+        // 完了の後に途中参加で共有が戻っても、同じタイマーの時間切れは言わない。
+        if (seenKey === "sharingFinished") seen.current.add("ended");
         // 同じ時刻のコツは、優先の一言で置き換える。
         shownTips.current = dueTips;
         show(
