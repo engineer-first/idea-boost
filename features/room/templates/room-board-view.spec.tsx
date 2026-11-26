@@ -87,7 +87,7 @@ describe("タイマーの画面中央の通知", () => {
 });
 
 describe("時間切れの通知と未開始のタイマー", () => {
-  it("延長後の自動進行で未開始に戻っても、時間切れの通知が消えた後に未開始の案内を出さない", () => {
+  it("延長後の自動進行で未開始に戻っても、時間切れの通知を出し切った後に中央へ案内を重ねない", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     onTestFinished(() => {
@@ -125,6 +125,9 @@ describe("時間切れの通知と未開始のタイマー", () => {
     expect(
       screen.queryByText("タイマーが開始されていません"),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /未開始.*規定時間で開始/ }),
+    ).toBeInTheDocument();
   });
 });
 
