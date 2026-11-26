@@ -1,5 +1,0 @@
-/* 開始待ちの PC と同じく高さを固定し、パネルの中をスクロールする。 */
-.fixedHeight.fixedHeight {
-  container-type: size;
-  overflow: auto;
-}
