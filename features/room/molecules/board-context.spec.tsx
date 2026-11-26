@@ -583,6 +583,20 @@ describe("作業中のテーマ表示", () => {
       "テーマ未設定",
     );
   });
+  it("ルームの状態が届く前は「テーマ未設定」と仮表示せず、枠だけ残す", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(1, 1)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+        roomName={null}
+        roomNameLoading
+      />,
+    );
+    const theme = screen.getByTestId("board-room-theme");
+    expect(theme).not.toHaveTextContent("テーマ未設定");
+    expect(theme).toHaveAttribute("aria-busy", "true");
+  });
   it("テーマを渡さない画面では表示しない", () => {
     render(
       <BoardContext

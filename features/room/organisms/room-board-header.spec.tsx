@@ -949,6 +949,13 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
+    it("作業画面ではルームの状態が届くまで「テーマ未設定」と出さない", () => {
+      setup({ roomName: null, roomNameLoaded: false });
+      expect(screen.getByTestId("board-room-theme")).not.toHaveTextContent(
+        "テーマ未設定",
+      );
+    });
+
     it("ルームメニューの招待から、テーマ・参加リンク・招待コードを含む招待文をコピーできる", async () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
       const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");

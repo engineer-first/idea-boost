@@ -119,6 +119,8 @@ export type RoomBoardHeaderProps = {
   isNextPhasePending: boolean;
   onEditSelf?: () => void;
   roomName?: string | null;
+  // ルームの状態が届いたか。届く前の null を「テーマ未設定」と区別する。
+  roomNameLoaded?: boolean;
   onRenameRoom?: () => void;
   roomNameDisabled?: boolean;
   onSelectMember?: (userId: string) => void;
@@ -187,6 +189,7 @@ export function RoomBoardHeader({
   onSelectMember,
   onEditSelf,
   roomName,
+  roomNameLoaded = true,
   onRenameRoom,
   roomNameDisabled,
   isRemovingMember = false,
@@ -655,7 +658,8 @@ export function RoomBoardHeader({
               decidedHmw={decidedHmw}
               issueReference={issueReference}
               hmwReference={hmwReference}
-              roomName={roomName ?? null}
+              roomName={roomName}
+              roomNameLoading={!roomNameLoaded}
               guideControl={
                 <StepOneOnboardingSlide
                   phaseKey={

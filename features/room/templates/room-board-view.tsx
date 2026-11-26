@@ -1681,6 +1681,15 @@ export function RoomBoardView({
             }
             headerBottom = Math.max(headerBottom, bounds.bottom);
           }
+          // 左の列を空けないステップ（1-1）では、現在地の下のテーマ表示と入力欄を重ねない。
+          const reservesContextColumn =
+            isPhaseStep(phase, 2, 1) || isPhaseStep(phase, 3, 1);
+          if (isDesktop && !reservesContextColumn) {
+            headerBottom = Math.max(
+              headerBottom,
+              visibleBounds('[data-testid="board-room-theme"]')?.bottom ?? 0,
+            );
+          }
           if (!isDesktop) {
             const guide = visibleBounds(characterSelector);
             const bubble = characterHint.message
@@ -1708,8 +1717,6 @@ export function RoomBoardView({
           const workspace = root.querySelector<HTMLElement>(
             '[data-testid="private-notes-toolbar"]',
           );
-          const reservesContextColumn =
-            isPhaseStep(phase, 2, 1) || isPhaseStep(phase, 3, 1);
           const referenceRight = isDesktop
             ? Math.max(
                 reservesContextColumn
@@ -2131,6 +2138,7 @@ export function RoomBoardView({
       >
         <RoomBoardHeader
           roomName={roomName?.name}
+          roomNameLoaded={roomName?.loaded}
           onRenameRoom={roomName?.request}
           roomNameDisabled={roomName?.disabled || roomName?.pending}
           loginReturnHref={loginReturnHref}

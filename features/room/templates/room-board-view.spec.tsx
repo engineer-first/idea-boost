@@ -11,6 +11,7 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import type { Note } from "@/features/notes";
+import { buildRoomNameControls } from "../logic/room-name.fixture";
 import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
@@ -1822,6 +1823,44 @@ describe("RoomBoardView", () => {
       expect(top()).toBe("178px");
     },
   );
+
+  it("640px以上の1-1では、現在地の下のテーマ表示より下からマイ付箋エリアを始める", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        switch (this.dataset.testid) {
+          case "board-frame":
+            return new DOMRect(0, 100, 1280, 700);
+          case "board-location-slot":
+            return new DOMRect(0, 110, 200, 40);
+          case "board-room-theme":
+            return new DOMRect(0, 158, 200, 50);
+          case "board-control-hud":
+            return new DOMRect(900, 110, 300, 56);
+          default:
+            return new DOMRect(0, 0, 0, 0);
+        }
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(
+      function (this: HTMLElement) {
+        return [
+          "board-location-slot",
+          "board-room-theme",
+          "board-control-hud",
+        ].includes(this.dataset.testid ?? "")
+          ? ([this.getBoundingClientRect()] as unknown as DOMRectList)
+          : ([] as unknown as DOMRectList);
+      },
+    );
+
+    setup({ phase: buildPhaseStep(1, 1), roomName: buildRoomNameControls() });
+
+    const root = screen.getByTestId("room-board-view-root");
+    // テーマ表示の下端（158 + 50）から12px空け、テーマとマイ付箋の入力欄を重ねない。
+    expect(root.style.getPropertyValue("--board-private-expanded-top")).toBe(
+      "220px",
+    );
+  });
 
   type PersonalWorkspaceGeometry = {
     contextHeight: number;
