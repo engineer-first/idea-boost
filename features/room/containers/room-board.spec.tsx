@@ -1650,6 +1650,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(notifyMocks.bulkCandidatesExcluded).toHaveBeenCalledWith(
       1,
       expect.any(Function),
+      expect.any(Function),
     );
     const undo = notifyMocks.bulkCandidatesExcluded.mock.calls[0]?.[1];
     if (typeof undo !== "function") throw new Error("Undo がありません");
@@ -1731,6 +1732,7 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     expect(notifyMocks.automaticallyExcludedCandidates).toHaveBeenCalledWith(
       1,
+      expect.any(Function),
       expect.any(Function),
     );
     const undo = notifyMocks.automaticallyExcludedCandidates.mock.calls[0]?.[1];
