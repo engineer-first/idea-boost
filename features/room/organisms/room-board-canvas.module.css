@@ -50,8 +50,12 @@
       100%
     )
   );
+  /* 一覧の右のスクロールバーと同じ幅を入力欄の右にも空け、列が5つ入らないときも中心をそろえる。 */
   padding-inline-end: max(
-    var(--private-workspace-padding),
+    calc(
+      var(--private-workspace-padding) +
+      var(--private-notes-scrollbar-width, 0px)
+    ),
     var(--private-workspace-grid-end-inset),
     var(--private-workspace-header-timer-inset)
   );

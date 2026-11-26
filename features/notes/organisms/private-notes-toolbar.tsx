@@ -75,8 +75,9 @@ export type PrivateNotesToolbarProps = {
   ) => void;
 };
 
+// 参照情報を避けて列が5つ入らないときも、余りを左右に分けて入力欄と同じ中心に並べる。
 const workspaceGrid =
-  "max-w-[var(--private-notes-grid-width)] grid-cols-[repeat(auto-fill,var(--private-note-width))] justify-start gap-x-[var(--private-note-column-gap)] gap-y-6";
+  "max-w-[var(--private-notes-grid-width)] grid-cols-[repeat(auto-fill,var(--private-note-width))] justify-center-safe gap-x-[var(--private-note-column-gap)] gap-y-6";
 const workspaceComposer =
   "mx-auto w-full max-w-[var(--private-note-composer-width)]";
 const composerTextLayout =
@@ -660,6 +661,25 @@ export function PrivateNotesToolbar({
     observer.observe(scrollContainer);
     return () => observer.disconnect();
   }, [workspaceCollapsible, workspaceExpanded, notes]);
+
+  useLayoutEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    const toolbar = scrollContainer?.closest<HTMLElement>(
+      '[data-testid="private-notes-toolbar"]',
+    );
+    if (!isWorkspace || !scrollContainer || !toolbar) return;
+    // Windows などでスクロールバーが一覧の右を狭めても、入力欄の右にも同じ幅を空けて中心をそろえる。
+    const measure = () =>
+      toolbar.style.setProperty(
+        "--private-notes-scrollbar-width",
+        `${scrollContainer.offsetWidth - scrollContainer.clientWidth}px`,
+      );
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(scrollContainer);
+    return () => observer.disconnect();
+  }, [isWorkspace]);
 
   useEffect(() => {
     if (addRequest <= 0 || addRequest === lastAddRequestRef.current) return;
