@@ -2,8 +2,8 @@
   "LANDING_CONTACT_URL": "https://forms.gle/Adq3ZMyEVGEnxb169",
   "landingCopy": {
     "brand": "Idea Boost",
-    "title": "Idea Boost | 良いアイデアは、チームで出せる。",
-    "description": "全員の考えを出し合って、チームで良いアイデアを一つに決めるWebアプリです。",
+    "title": "良いアイデアは、チームで出せる。無料アイデア出しツール | Idea Boost",
+    "description": "ハッカソン・ビジコン・チーム制作のアイデア出しに。全員が書いて持ち寄り、「どうしたら〜できる？」の問いから案を広げ、票を見ずに選んで良いアイデアを一つに決める無料Webアプリ。進行役なしで、デザインスプリントの進め方を使えます。",
     "heading": ["良いアイデアは、", "チームで出せる。"],
     "subheading": [
       "つくるのはAIで速くなった。",

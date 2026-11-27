@@ -58,3 +58,32 @@ it("script 要素を閉じる文字列を含んでも HTML として壊れない
   expect(text).not.toContain("<");
   expect(JSON.parse(text)).toEqual({ name: "</script><b>" });
 });
+
+describe.each<AppLocale>(["ja", "en"])(
+  "%s の LP が示すアプリの素性",
+  (locale) => {
+    it("表記ゆれの IdeaBoost を、WebSite と WebApplication の別名に示す", () => {
+      expect(nodeOf(locale, "WebSite").alternateName).toContain("IdeaBoost");
+      expect(nodeOf(locale, "WebApplication").alternateName).toContain(
+        "IdeaBoost",
+      );
+    });
+
+    it("関連する手法（デザインスプリント・ブレインストーミング・HMW）を about に示す", () => {
+      const about = nodeOf(locale, "WebApplication").about as {
+        name: string;
+      }[];
+      expect(about.map((item) => item.name)).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/design sprint|デザインスプリント/i),
+          expect.stringMatching(/brainstorming|ブレインストーミング/i),
+          expect.stringMatching(/How Might We/),
+        ]),
+      );
+    });
+
+    it("無料で使えることを isAccessibleForFree でも示す", () => {
+      expect(nodeOf(locale, "WebApplication").isAccessibleForFree).toBe(true);
+    });
+  },
+);
