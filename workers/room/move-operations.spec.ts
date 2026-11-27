@@ -24,6 +24,7 @@ import { noteHandlers } from "./note-handlers";
 import { findNote, insertNote, toProtocolNote } from "./notes";
 import { getPhase, savePhase } from "./phase";
 import { presenceHandlers } from "./presence";
+import { recordProgressTransition } from "./progress-history";
 import type { RoomDO } from "./room-do";
 import { saveTimerState } from "./timer";
 
@@ -1780,4 +1781,118 @@ describe("移動の失敗の記録", () => {
       });
       expect(failures()).toEqual([]);
     }));
+});
+
+describe("ステップが進む直前に離した移動", () => {
+  // 1-2 で離した移動を、1-3 へ進んでタイマーが止まった直後に送る（#1442）。
+  async function advanceFromSharing(
+    ctx: HandlerCtx,
+    enteredAt = Date.now(),
+  ): Promise<number> {
+    savePhase(ctx.sql, { kind: "step", phase: 1, step: 2 });
+    const released = Number(
+      ctx.sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
+        .phase_revision,
+    );
+    recordProgressTransition(
+      ctx.sql,
+      { kind: "step", phase: 1, step: 2 },
+      { kind: "step", phase: 1, step: 3 },
+      "next",
+      enteredAt,
+      () => ({}) as never,
+    );
+    savePhase(ctx.sql, { kind: "step", phase: 1, step: 3 });
+    saveTimerState(ctx.sql, { status: "idle" });
+    return released;
+  }
+  function startMessage(
+    ctx: HandlerCtx,
+    operationId: string,
+    releasedPhaseRevision?: number,
+  ) {
+    const row = ctx.sql
+      .exec(
+        "SELECT phase_revision, group_revision, map_revision FROM room_state WHERE id=1",
+      )
+      .one();
+    return JSON.stringify({
+      type: "note:move:start",
+      operationId,
+      expectedPhaseRevision: Number(row.phase_revision),
+      expectedGroupRevision: Number(row.group_revision),
+      expectedMapRevision: Number(row.map_revision),
+      coordinateSpace: "canvas",
+      targets: [
+        {
+          noteId: N1,
+          positionRevision: findNote(ctx.sql, N1)?.position_revision ?? 0,
+          visibilityRevision: findNote(ctx.sql, N1)?.visibility_revision ?? 0,
+        },
+      ],
+      ...(releasedPhaseRevision === undefined ? {} : { releasedPhaseRevision }),
+    });
+  }
+  function collect(ctx: HandlerCtx): ServerMessage[] {
+    const sent: ServerMessage[] = [];
+    ctx.ws.send = (data) =>
+      sent.push(JSON.parse(String(data)) as ServerMessage);
+    return sent;
+  }
+  const commitMessage = (operationId: string) =>
+    JSON.stringify({
+      type: "note:move:commit",
+      operationId,
+      delta: { x: 300, y: 0 },
+    });
+
+  it("前のステップの版を添えた移動は、タイマーが止まった新しいステップでも保存する", () =>
+    setup("released-before-step-advance", async (ctx, _responses, instance) => {
+      const released = await advanceFromSharing(ctx);
+      const sent = collect(ctx);
+      await instance.webSocketMessage(ctx.ws, startMessage(ctx, OP, released));
+      await instance.webSocketMessage(ctx.ws, commitMessage(OP));
+      expect(sent).toContainEqual(
+        expect.objectContaining({
+          type: "note:move:result",
+          operationId: OP,
+          status: "accepted",
+        }),
+      );
+      expect(findNote(ctx.sql, N1)?.x).toBe(400);
+    }));
+
+  it("新しいステップで始めた移動は、今までどおりタイマーを待つ", () =>
+    setup("new-move-after-step-advance", async (ctx, _responses, instance) => {
+      await advanceFromSharing(ctx);
+      const sent = collect(ctx);
+      await instance.webSocketMessage(ctx.ws, startMessage(ctx, OP));
+      expect(sent.at(-1)).toMatchObject({
+        type: "error",
+        message: "タイマーが動作していないため、ボードを操作できません。",
+      });
+      expect(findNote(ctx.sql, N1)?.x).toBe(100);
+    }));
+
+  it.each([
+    ["2つ前のステップの版", -1, 0],
+    ["進んでから時間がたった", 0, 60_000],
+  ] as const)("%sを添えた移動は受け付けない", (_label, offset, elapsed) =>
+    setup(
+      `released-too-old-${elapsed}-${offset}`,
+      async (ctx, _responses, instance) => {
+        const released = await advanceFromSharing(ctx, Date.now() - elapsed);
+        const sent = collect(ctx);
+        await instance.webSocketMessage(
+          ctx.ws,
+          startMessage(ctx, OP, released + offset),
+        );
+        await instance.webSocketMessage(ctx.ws, commitMessage(OP));
+        expect(sent).not.toContainEqual(
+          expect.objectContaining({ status: "accepted" }),
+        );
+        expect(findNote(ctx.sql, N1)?.x).toBe(100);
+      },
+    ),
+  );
 });

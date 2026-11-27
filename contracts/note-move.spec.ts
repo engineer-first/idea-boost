@@ -30,6 +30,24 @@ describe("move transaction boundary", () => {
     ])
       expect(parseClientMessage(JSON.stringify(message))).toEqual(message);
   });
+  it("前のステップで離した移動は、離したときの工程の版を添えて始められる", () => {
+    const message = {
+      type: "note:move:start",
+      operationId,
+      expectedPhaseRevision: 2,
+      expectedGroupRevision: 0,
+      expectedMapRevision: 0,
+      coordinateSpace: "canvas",
+      targets: [{ noteId, positionRevision: 0, visibilityRevision: 0 }],
+      releasedPhaseRevision: 1,
+    };
+    expect(parseClientMessage(JSON.stringify(message))).toEqual(message);
+    expect(
+      parseClientMessage(
+        JSON.stringify({ ...message, releasedPhaseRevision: -1 }),
+      ),
+    ).toBeNull();
+  });
 });
 
 it("有効なcanvasの両端間deltaを受理し位置上限より大きな異常deltaを拒否する", () => {
