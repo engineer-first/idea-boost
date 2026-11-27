@@ -1,8 +1,9 @@
 import { hackathonIdeaGuide } from "./guide-hackathon-idea";
+import { howMightWeGuide } from "./guide-how-might-we";
 import type { Guide } from "./guide-types";
 
 /** 公開している解説ページ。一覧・サイトマップ・llms.txt はこの順に並べる。 */
-export const GUIDES: readonly Guide[] = [hackathonIdeaGuide];
+export const GUIDES: readonly Guide[] = [hackathonIdeaGuide, howMightWeGuide];
 
 export function getGuide(slug: string): Guide | undefined {
   return GUIDES.find((guide) => guide.slug === slug);
