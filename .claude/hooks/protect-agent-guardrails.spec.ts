@@ -80,6 +80,28 @@ describe("protect-agent-guardrails hook", () => {
     expect(result.stderr).toBe("");
   });
 
+  it("allows .env.tpl that holds only 1Password references", () => {
+    const result = runHook({
+      file_path: "/repo/.env.tpl",
+      content:
+        "# comment\n\nGOOGLE_CLIENT_ID=op://Automation/idea-boost-GOOGLE_CLIENT_ID/credential\n",
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+  });
+
+  it("denies .env.tpl that holds a plain value", () => {
+    const result = runHook({
+      file_path: "/repo/.env.tpl",
+      new_string:
+        "GOOGLE_CLIENT_ID=op://Automation/idea-boost-GOOGLE_CLIENT_ID/credential\nGOOGLE_CLIENT_SECRET=raw-secret",
+    });
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("op://");
+  });
+
   it("denies disabling TypeScript strict mode", () => {
     const result = runHook({
       file_path: "/repo/tsconfig.json",

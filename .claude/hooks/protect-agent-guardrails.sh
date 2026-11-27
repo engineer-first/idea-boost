@@ -57,6 +57,14 @@ if [[ "$BASENAME" == "CLAUDE.md" ]]; then
   deny "Refusing to edit CLAUDE.md directly. Edit AGENTS.md and keep CLAUDE.md as a symlink to AGENTS.md."
 fi
 
+# .env.tpl は 1Password の参照（op://）だけを置くテンプレート。値の行が混ざる編集は止める
+if [[ "$BASENAME" == ".env.tpl" ]]; then
+  if grep -vE '^[[:space:]]*(#.*)?$' <<<"$NEW_TEXT" | grep -vqE '^[A-Z][A-Z0-9_]*=op://[^[:space:]]+$'; then
+    deny "Refusing to edit .env.tpl with a plain value. Keep only NAME=op://... references and comments."
+  fi
+  exit 0
+fi
+
 if [[ "$BASENAME" == ".env" || "$BASENAME" == .env.* ]] && [[ "$BASENAME" != ".env.example" ]]; then
   deny "Refusing to edit ${BASENAME}. Secret files must be edited by a human. Update .env.example for template changes."
 fi

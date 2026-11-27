@@ -56,10 +56,13 @@ R3 は、人の本人確認・支払い・判断が要るもの。値を人が�
 - ループは `scripts/loop/loop-secret.sh` で読む。`check <名前>` は置き場所だけを示し、`read <名前>` は値を標準出力に出すので変数への代入かパイプにだけ使う（例：`CLOUDFLARE_API_TOKEN="$(scripts/loop/loop-secret.sh read CLOUDFLARE_API_TOKEN_LOOP)" npx wrangler ...`）。`gh-secret <名前>` は値を標準入力で `gh secret set` に渡す。中では `op read op://Automation/idea-boost-<名前>/credential` を使う。値を表示・ログ・ファイル・コメントに出さない。
 - 移行期間の予備として、1Password に項目が無いときだけ mini のキーチェーンの `idea-boost/<名前>` を読み、予備を使ったことを標準エラーに出す。サービスアカウントのトークンが無い・切れた、op が無い、通信の失敗など、ほかの理由で 1Password を読めないときは、古い値を使わないよう予備に落ちずに止まる。新しい値はキーチェーンに置かない。
 - 読めないとき（終了コード 3）は、標準エラーの理由を添えて `needs-human` にする。項目が無いなら Automation 保管庫に置いてほしい項目名を、トークンが無い・切れたならサービスアカウントの作り直しを頼む。
+- worktree の `.env.local`・`workers/.dev.vars` に入れる値は [.env.tpl](../../.env.tpl) に `op://` の参照だけを書く。`scripts/setup-worktree.sh`（中身は `scripts/worktree-env.sh`）がサービスアカウントで 1 行ずつ `op inject` し、example の同じ名前の行を差し替える。項目が無い・読めないときは空のまま作り、置いてほしい項目名を標準エラーに出す。トークンか op が無い環境（メンバーの PC・CI）は 1Password を使わない。作り直すには両方のファイルを消して再実行する。
 
-| 名前                        | 用途                                                                                                          |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN_LOOP` | ideaboost アカウントの D1 編集・Workers スクリプト読み取り・アカウント設定読み取り・ideaboost.dev の DNS 編集 |
+| 名前                        | 用途                                                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CLOUDFLARE_API_TOKEN_LOOP` | ideaboost アカウントの D1 編集・Workers スクリプト読み取り・アカウント設定読み取り・ideaboost.dev の DNS 編集                                          |
+| `GOOGLE_CLIENT_ID`          | ローカル開発の Google ログイン（`.env.tpl` から `.env.local` へ）。リダイレクト URI に `http://localhost:3000/auth/callback` を許す OAuth クライアント |
+| `GOOGLE_CLIENT_SECRET`      | 同じ OAuth クライアントのシークレット（`.env.tpl` から `.env.local` へ）                                                                               |
 
 ### 人に頼むとき
 
