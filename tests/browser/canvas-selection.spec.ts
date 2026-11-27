@@ -87,14 +87,14 @@ test.each(widths(390, 1280))(
     const hint = page.locator(
       '[data-slot="tooltip-content"]:not([data-state="closed"])',
     );
-    for (const name of [
-      "選択ツール",
-      "手のひらツール",
-      "キャンバスを縮小",
-      "ズームを100%に戻す",
-      "キャンバスを拡大",
-      "付箋全体を表示",
-    ]) {
+    for (const [name, expectedHint] of [
+      ["選択ツール", "選択（V）"],
+      ["手のひらツール", "手のひら"],
+      ["キャンバスを縮小", "縮小"],
+      ["ズームを100%に戻す", "100%に戻す"],
+      ["キャンバスを拡大", "拡大"],
+      ["付箋全体を表示", "全体を表示"],
+    ] as const) {
       const button = page.getByRole("button", { name, exact: true });
       await button.hover();
       await page.clock.runFor(199);
@@ -107,7 +107,7 @@ test.each(widths(390, 1280))(
           return hint.isVisible();
         })
         .toBe(true);
-      expect(await hint.textContent()).toContain(name.replace("ツール", ""));
+      expect(await hint.textContent()).toContain(expectedHint);
       const bounds = await hint.boundingBox();
       if (!bounds) throw new Error("ヒントが表示されていません");
       expect(bounds.x).toBeGreaterThanOrEqual(0);
@@ -188,7 +188,7 @@ test.each([1, 8])(
         return hint.isVisible();
       })
       .toBe(true);
-    expect(await hint.textContent()).toContain("選択（背景でV）");
+    expect(await hint.textContent()).toContain("選択（V）");
   },
 );
 

@@ -479,8 +479,32 @@ export function RoomBoardCanvas({
   const decideHintNoteId = isAdoptMode
     ? (keyboardDecideHintNoteId ?? adoptionHoverNoteId)
     : null;
-  const selectedNote = [...notes, ...privateNotes].find(
-    (note) => note.id === selectedNoteId,
+  const allNotes = [...notes, ...privateNotes];
+  const selectedNotes = selectionIds.flatMap((id) => {
+    const found = allNotes.find((note) => note.id === id);
+    return found ? [found] : [];
+  });
+  const editableSelectedNotes = selectedNotes.filter(
+    (note) =>
+      !note.excluded &&
+      !(
+        phase.kind === "step" &&
+        phase.step === 1 &&
+        note.visibility === "shared"
+      ),
+  );
+  const selectedUniformFontSize =
+    editableSelectedNotes.length > 0 &&
+    editableSelectedNotes.every(
+      (note) => note.fontSize === editableSelectedNotes[0].fontSize,
+    )
+      ? editableSelectedNotes[0].fontSize
+      : null;
+  const canDecreaseSelectedFontSize = editableSelectedNotes.some(
+    (note) => note.fontSize > 12,
+  );
+  const canIncreaseSelectedFontSize = editableSelectedNotes.some(
+    (note) => note.fontSize < 24,
   );
   const mapNoteGeometry = getIdeaMapNoteGeometry(
     ideaMapSizeLevel,
@@ -1108,23 +1132,31 @@ export function RoomBoardCanvas({
             // 対象の付箋を選ぶまでは押せない操作を見せない。場所は保ち、
             // 選んだときに横軸の端やズーム操作が動かないようにする。
             style={
-              selectedNote === undefined ? { visibility: "hidden" } : undefined
+              selectedNotes.length === 0 ? { visibility: "hidden" } : undefined
             }
           >
             {permissions.canEditNote ? (
               <NoteFontSizeControls
-                fontSize={selectedNote?.fontSize ?? null}
-                disabled={
-                  isDisconnected ||
-                  selectedNote === undefined ||
-                  selectedNote.excluded ||
-                  (phase.kind === "step" &&
-                    phase.step === 1 &&
-                    selectedNote.visibility === "shared")
-                }
+                fontSize={selectedUniformFontSize}
+                hasSelection={editableSelectedNotes.length > 0}
+                canDecrease={canDecreaseSelectedFontSize}
+                canIncrease={canIncreaseSelectedFontSize}
+                disabled={isDisconnected || editableSelectedNotes.length === 0}
                 onChange={(fontSize) => {
-                  if (selectedNote)
-                    onNoteFontSizeChange(selectedNote.id, fontSize);
+                  for (const note of editableSelectedNotes) {
+                    onNoteFontSizeChange(note.id, fontSize);
+                  }
+                }}
+                onStep={(delta) => {
+                  for (const note of editableSelectedNotes) {
+                    const nextSize = Math.min(
+                      24,
+                      Math.max(12, note.fontSize + delta),
+                    );
+                    if (nextSize !== note.fontSize) {
+                      onNoteFontSizeChange(note.id, nextSize);
+                    }
+                  }
                 }}
               />
             ) : null}

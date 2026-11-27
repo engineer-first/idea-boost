@@ -54,15 +54,17 @@ const DOT_VOTE_SHAPE = {
   objective: "rounded-md",
 } satisfies Record<DotVoteKind, string>;
 
-type DotVoteStickerImageSize = "default" | "result";
+type DotVoteStickerImageSize = "default" | "palette" | "result";
 
 const DOT_VOTE_IMAGE_SIZE = {
   default: "size-7",
+  palette: "size-10",
   result: "size-[22px]",
 } satisfies Record<DotVoteStickerImageSize, string>;
 
 const DOT_VOTE_ICON_SIZE = {
   default: "size-4",
+  palette: "size-5",
   result: "size-3.5",
 } satisfies Record<DotVoteStickerImageSize, string>;
 

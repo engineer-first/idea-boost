@@ -65,6 +65,9 @@ export function MoveHistoryControls({
         ).map(({ action, name, shortcut, onClick, Icon, direction }) => {
           const disabled = pending || action.disabled;
           const description = `${name}（${shortcut}）。${action.label}。${pending ? "移動を反映しています…" : (action.reason ?? "")}`;
+          const tooltipText = action.reason
+            ? `${name}（${shortcut}）— ${action.reason}`
+            : `${name}（${shortcut}）`;
           return (
             <Tooltip key={direction}>
               <TooltipTrigger asChild>
@@ -89,7 +92,7 @@ export function MoveHistoryControls({
                 </fieldset>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-64">
-                {description}
+                {tooltipText}
               </TooltipContent>
               <span id={`${id}-${direction}`} className="sr-only">
                 {description}

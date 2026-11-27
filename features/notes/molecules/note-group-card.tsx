@@ -2,12 +2,6 @@
 
 import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { RenderGroup } from "@/contracts/grouping";
 
 export type NoteGroupCardProps = {
@@ -118,48 +112,39 @@ export function NoteGroupCard({
               }}
               className="w-48 max-w-full rounded-md border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] outline-none"
             />
+          ) : canGroupNote ? (
+            <button
+              type="button"
+              className="group flex w-full cursor-pointer items-start gap-1 rounded-lg border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-left text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] select-none"
+              onClick={() => setIsEditing(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setIsEditing(true);
+                }
+              }}
+            >
+              <span
+                data-testid="group-name-display"
+                className="line-clamp-2 min-w-0 flex-1 break-words text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)]"
+              >
+                {name}
+              </span>
+              <Pencil
+                aria-hidden="true"
+                data-testid="group-name-pencil"
+                className="mt-1 size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+              />
+            </button>
           ) : (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  {canGroupNote ? (
-                    <button
-                      type="button"
-                      className="group flex w-full cursor-pointer items-start gap-1 rounded-lg border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-left text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] select-none"
-                      onClick={() => setIsEditing(true)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setIsEditing(true);
-                        }
-                      }}
-                    >
-                      <span
-                        data-testid="group-name-display"
-                        className="line-clamp-2 min-w-0 flex-1 break-words text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)]"
-                      >
-                        {name}
-                      </span>
-                      <Pencil
-                        aria-hidden="true"
-                        data-testid="group-name-pencil"
-                        className="mt-1 size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
-                      />
-                    </button>
-                  ) : (
-                    <div className="flex w-full items-start rounded-lg border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] select-none">
-                      <span
-                        data-testid="group-name-display"
-                        className="line-clamp-2 min-w-0 flex-1 break-words text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)]"
-                      >
-                        {name}
-                      </span>
-                    </div>
-                  )}
-                </TooltipTrigger>
-                <TooltipContent>{name}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex w-full items-start rounded-lg border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] select-none">
+              <span
+                data-testid="group-name-display"
+                className="line-clamp-2 min-w-0 flex-1 break-words text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)]"
+              >
+                {name}
+              </span>
+            </div>
           )}
         </div>
       )}

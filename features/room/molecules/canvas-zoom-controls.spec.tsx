@@ -201,7 +201,8 @@ describe("CanvasZoomControls", () => {
         screen.getByRole("button", { name: "選択ツール" }),
         { pointerType: "mouse" },
       );
-      expect(screen.getByRole("tooltip")).toHaveTextContent("選択（背景でV）");
+      expect(screen.getByRole("tooltip")).toHaveTextContent("選択（V）");
+      expect(screen.getByRole("tooltip")).not.toHaveTextContent("背景で");
     } finally {
       vi.useRealTimers();
     }

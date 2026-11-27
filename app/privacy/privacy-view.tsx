@@ -51,6 +51,20 @@ export function PrivacyView() {
             意見は送信から30日間保存します。ルームの利用・閲覧・退出では期限を変えません。期限後は閲覧を停止し、1時間ごとの処理で削除します。処理に失敗した場合も閲覧停止を維持し、次の処理で削除を再試行します。本人用の編集・削除画面はありません。運営者は受付IDを指定して緊急削除できます。緊急削除後の再送による復活を防ぐため、受付IDのハッシュと失効時刻だけを記録します。失効期間は最長48時間で、期間終了後に1時間ごとの処理で物理削除します。削除に失敗した場合は次回再試行するため、その間はハッシュが残ります。本文・ルーム・投稿者の情報はこの失効記録に残しません。
           </p>
         </section>
+        <section className="space-y-2">
+          <h2 className="font-semibold">利用状況の計測にPostHogを使います</h2>
+          <p className="leading-relaxed">
+            どこから訪れた人がどれだけ利用を始めたかを知り、紹介の仕方を改善するため、画面の閲覧と離脱をPostHog,
+            Inc.（米国）が提供する計測サービス「PostHog」へ送ります。送るのは、閲覧した画面のパス、URLに付いた流入元の情報（utm_source・utm_medium・utm_campaignなど）、参照元サイトのドメイン、ブラウザ・OS・画面サイズ・おおよその地域です。
+          </p>
+          <p className="leading-relaxed">
+            招待コード・ルームID・成果IDはパスから取り除いて送ります。ほかのURLのクエリやハッシュ、参照元の検索語も送りません。名前・メール・アカウントID、付箋や意見の本文、クリックした場所、画面の録画は送らないため、計測の記録から誰の操作かは分かりません。IPアドレスは保存しない設定にしています。
+          </p>
+          <p className="leading-relaxed">
+            匿名の識別子はcookieではなくブラウザのlocalStorageに保存します。Do
+            Not Trackを有効にしたブラウザからは送りません。
+          </p>
+        </section>
         <Link
           href="/home"
           className="inline-flex min-h-11 items-center underline underline-offset-4"

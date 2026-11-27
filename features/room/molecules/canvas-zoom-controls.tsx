@@ -77,7 +77,7 @@ export function CanvasZoomControls({
                   <MousePointer2 aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">選択（背景でV）</TooltipContent>
+              <TooltipContent side="top">選択（V）</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -95,7 +95,7 @@ export function CanvasZoomControls({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs">
-                手のひら（背景でH）。Space＋ドラッグで一時的に画面移動
+                手のひら（H / Space＋ドラッグ）
               </TooltipContent>
             </Tooltip>
             <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
@@ -126,9 +126,7 @@ export function CanvasZoomControls({
                   <Minus aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                キャンバスを縮小（自分だけの表示）
-              </TooltipContent>
+              <TooltipContent side="top">縮小</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -144,9 +142,7 @@ export function CanvasZoomControls({
                   {Math.round(zoom * 100)}%
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                ズームを100%に戻す（自分だけの表示）
-              </TooltipContent>
+              <TooltipContent side="top">100%に戻す</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -162,9 +158,7 @@ export function CanvasZoomControls({
                   <Plus aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                キャンバスを拡大（自分だけの表示）
-              </TooltipContent>
+              <TooltipContent side="top">拡大</TooltipContent>
             </Tooltip>
             <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
             <Tooltip>
@@ -181,9 +175,7 @@ export function CanvasZoomControls({
                   <Maximize2 aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                付箋全体を表示（自分だけの表示）
-              </TooltipContent>
+              <TooltipContent side="top">全体を表示</TooltipContent>
             </Tooltip>
             {reactionControls?.(toolDisabled)}
           </div>

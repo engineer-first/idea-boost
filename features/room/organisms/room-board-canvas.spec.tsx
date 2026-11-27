@@ -394,6 +394,31 @@ describe("RoomBoardCanvas", () => {
     expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-1", 15);
   });
 
+  it("複数の付箋を選択しているときも文字サイズ操作を表示し、全付箋の文字サイズを一括変更する", () => {
+    const onNoteFontSizeChange = vi.fn();
+    setup({
+      phase: buildPhaseStep(2),
+      permissions: getBoardPermissions(buildPhaseStep(2)),
+      notes: [
+        buildNote({ id: "note-1", fontSize: 14 }),
+        buildNote({ id: "note-2", fontSize: 18 }),
+        buildNote({ id: "note-3", fontSize: 16, excluded: true }),
+      ],
+      selectedNoteId: null,
+      selectedNoteIds: ["note-1", "note-2", "note-3"],
+      onNoteFontSizeChange,
+    });
+
+    const fontControls = screen.getByTestId("note-font-size-controls");
+    expect(fontControls).toBeVisible();
+    expect(fontControls).toHaveTextContent("--px");
+
+    fireEvent.click(screen.getByRole("button", { name: "付箋の文字を大きく" }));
+    expect(onNoteFontSizeChange).toHaveBeenCalledTimes(2);
+    expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-1", 15);
+    expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-2", 19);
+  });
+
   it("付箋を選ぶまで文字サイズ操作を見せず、切断中は無効にする", () => {
     const phase = buildPhaseStep(2);
     const { props, rerender } = setup({

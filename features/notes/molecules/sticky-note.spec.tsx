@@ -96,6 +96,28 @@ describe("StickyNote", () => {
     );
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
+  it("取り消せる決定のはんこは未決定から決定への切替でも同じDOM要素を保ち、押下アニメーションを発火できる", () => {
+    const onStampClick = vi.fn();
+    const { rerender, container } = render(
+      <StickyNote noteId="state" onStampClick={onStampClick}>
+        本文
+      </StickyNote>,
+    );
+    const stampBefore = container.querySelector(".sticky-note-stamp");
+    expect(stampBefore).not.toBeNull();
+    expect(stampBefore).toHaveAttribute("aria-hidden", "true");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+
+    rerender(
+      <StickyNote noteId="state" isDecided onStampClick={onStampClick}>
+        本文
+      </StickyNote>,
+    );
+    const stampAfter = screen.getByRole("button", {
+      name: "決定のはんこ（確定を取り消す）",
+    });
+    expect(stampAfter).toBe(stampBefore);
+  });
   it.each(NOTE_COLOR_PALETTE)(
     "%s の注目でも作者色を保ち、背景を重ねない",
     (color) => {
