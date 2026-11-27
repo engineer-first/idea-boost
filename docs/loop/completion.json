@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-11-24",
+  "updated": "2026-11-27",
   "definition": "PRD のうち「壊れていたら困る」振る舞いを守る約束と、その確かめ方。全 item の status が pass、巡回で S1/S2 が2回続けて0件、かつ本番に載っていれば「開発として完成」。初学者チームが迷わず決められるか（PRD Goal 1）は別に、ユーザーテストで確かめる。",
   "rules": [
     "status・evidence・production を変えるのは、台帳を確かめる PR（人が起動する）だけ。巡回は patrol log に「合格した旅に対応する item」を書くまでで、このファイルを変えない。capability と acceptance を変えるのは人。",
@@ -221,6 +221,20 @@
       "status": "unverified",
       "production": "unknown",
       "evidence": ""
+    },
+    {
+      "id": "C16",
+      "area": "note-move",
+      "capability": "共有付箋を掴んで、動かしたとおりに置ける",
+      "acceptance": [
+        "付箋移動の計測（npm run probe:note-move）で、docs/loop/note-move-baseline.json の下限を下回る場面が無い",
+        "docs/loop/note-move-baseline.json の各場面の下限が、same-note-contention（同じ付箋を2人が同時に掴む。片方が負けるのは設計どおり）を除いて 1 になっている",
+        "docs/loop/note-move-reliability.md の原因の台帳に、状態が open の行が無い"
+      ],
+      "journey": "J2",
+      "status": "unverified",
+      "production": "unknown",
+      "evidence": ""
     }
   ],
   "coverage": {
@@ -229,7 +243,7 @@
     "PRD 4 Goal 3（個人ワーク）": "C04",
     "PRD 4 Goal 4（ステルス投票）": "C06",
     "PRD 5 Non-Goal の例外（PBI-AI-930）": "C15",
-    "PRD 6・進行仕様（ステップ・共有・候補整理）": "C03〜C08・C13",
+    "PRD 6・進行仕様（ステップ・共有・候補整理）": "C03〜C08・C13・C16",
     "PRD 7 コア機能・表示名・顔アイコン": "C01・C02・C08・C10",
     "PRD 7 ルーム作成・退出・再訪": "C02・C09・C10",
     "PRD 10 意見と使いやすさ評価": "C14",

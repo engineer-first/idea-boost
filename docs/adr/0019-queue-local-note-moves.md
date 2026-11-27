@@ -32,6 +32,7 @@ date: "2026-10-18"
 
 - [ADR 0006](0006-move-transactions.md)：関連する判断。
 - [ADR 0018](0018-websocket-message-order.md)：関連する判断。
+- [ADR 0033](0033-note-move-never-fails.md)：未送信の移動を捨てる範囲を、成立しなくなった移動だけへ狭めていく提案。
 
 ## References
 

@@ -7,6 +7,7 @@
    - 1周で終わる大きさなら、その Issue に `loop:ready` を付け、「ループが着手候補にしました。拾わせたくなければ `loop:skip` を」とコメントする（受け入れ条件が無ければ、そのコメントに条件とリスク段階を書く）
    - 大きいものは、最初の1歩を新しい Issue に切り出して `loop:ready` を付ける（`create-work-issue` skill の形、元の Issue を Refs する）
    - 1回に新しく `loop:ready` にするのは5件まで
+   - [移動の台帳](../note-move-reliability.md#原因の台帳)の `open` の原因に対応する Issue が、open の `loop:ready` に無ければ先に戻す（`claimed`・`blocked`・`needs-human` が付いているものは触らない。閉じられていたら、台帳の行を引いて新しい Issue を立てる）。この分は5件の外で数える
 3. `blocked` は理由を読み、(a) 小さく分け直す、(b) 前提の Issue を先に立てる、(c) R3 なら `needs-human` に回す、のどれかにする
 4. 3時間以上動きの無い `claimed` は claim を外してコメントする
 5. 公開リポジトリなので、Issue に本番のデータ・個人情報・秘密を書かない
