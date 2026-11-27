@@ -223,6 +223,44 @@ describe("PrivateNotesToolbar", () => {
     expect(list.firstElementChild).toBe(screen.getByTestId("note-card"));
   });
 
+  it.each([
+    { label: "書く前は付箋の形で見せる", count: 0, sticky: true },
+    { label: "書き始めたら1行の参照に縮める", count: 1, sticky: false },
+  ])("問いの例: $label", ({ count, sticky }) => {
+    const props = {
+      exampleNotes: ["（例）どうすれば、忘れ物を減らせるだろう？"],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+      presentation: "workspace" as const,
+    };
+    render(
+      <PrivateNotesToolbar
+        {...props}
+        notes={Array.from({ length: count }, (_, index) =>
+          buildNote({ id: `mine-${index}`, visibility: "private" }),
+        )}
+      />,
+    );
+
+    const examples = screen.getByRole("region", { name: "問いの例" });
+    expect(examples).toHaveTextContent(
+      "（例）どうすれば、忘れ物を減らせるだろう？",
+    );
+    // 書いた付箋が増えたら、例は付箋1枚分の高さを取らずに場所を譲る。
+    expect(examples.querySelector("[data-slot='sticky-note']") !== null).toBe(
+      sticky,
+    );
+  });
+
   it("workspaceからdockへ切り替わるとマイ付箋を展開する", () => {
     const props = {
       notes: [buildNote({ visibility: "private", content: "非公開の考え" })],

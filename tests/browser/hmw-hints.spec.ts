@@ -295,3 +295,26 @@ test.skipIf(!includeMobile)(
     ).toEqual([]);
   },
 );
+
+test("1280x800px: 問いの下書きを書き始めたら、例は1行に縮んで付箋1段分の高さを取らない", async () => {
+  page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardlayout--phase-2-step-1-eight-notes&viewMode=story`,
+    { timeout: 30_000 },
+  );
+  await page.getByTestId("private-notes-scroll").waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  const notes = page.getByTestId("note-card");
+  expect(await notes.count()).toBe(8);
+  const examples = page.getByRole("region", { name: "問いの例" });
+  expect(await examples.locator("[data-slot='sticky-note']").count()).toBe(0);
+  const exampleBounds = await examples.boundingBox();
+  const noteBounds = await notes.first().boundingBox();
+  if (!exampleBounds || !noteBounds) throw new Error("例か付箋が見えません");
+  // 列数は実行環境のスクロールバー幅で変わるため、例の行が付箋1段より十分低いことで確かめる。
+  expect(exampleBounds.height).toBeLessThan(noteBounds.height / 2);
+  expect(noteBounds.y - (exampleBounds.y + exampleBounds.height)).toBeLessThan(
+    40,
+  );
+  await page.screenshot({ path: `${output}/1280-eight-notes.png` });
+});
