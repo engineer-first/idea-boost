@@ -136,6 +136,7 @@ export function useFloatingTimer(
           PRIVATE_WRITING_HEADER_SPACE + NOTE_HEIGHT;
       // 640px 以上ではマイ付箋の枠が右端まで広がり、上端がタイマーの下端より上に来る。
       // 枠の右上角にタイマーがかからないよう、枠はタイマーの段の下から始める。
+      // 接続の案内でタイマーが一時的に下がっても枠が跳ねないよう、段は HUD の下の定位置で測る。
       const panel = header?.parentElement?.getBoundingClientRect();
       const overlapsPanelCorner =
         window.innerWidth >= 640 &&
@@ -149,10 +150,13 @@ export function useFloatingTimer(
         "--board-private-timer-inset",
         `${needsTimerRow ? 0 : endInset}px`,
       );
-      root.style.setProperty(
-        "--board-private-timer-top",
-        `${needsTimerRow ? rowBottom : 0}px`,
-      );
+      const timerTop =
+        hasRoomBelowTimer || !fitsBesideTimer
+          ? rowBottom
+          : overlapsPanelCorner
+            ? hudBottom + 12 + 84
+            : 0;
+      root.style.setProperty("--board-private-timer-top", `${timerTop}px`);
     }
     const obstacles: TimerRect[] = obstacleNodes
       .flatMap((node) => {
