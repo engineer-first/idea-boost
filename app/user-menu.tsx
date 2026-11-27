@@ -2,6 +2,7 @@
 
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +15,6 @@ import {
   SignOutControl,
   useDisplayName,
 } from "@/features/auth";
-import { aboutMenuLabel } from "./app-header-copy";
 
 export type UserMenuProps = {
   userName: string;
@@ -31,6 +31,8 @@ export function UserMenu({
   sessionKind,
   signOutAction,
 }: UserMenuProps) {
+  const locale = useLocale();
+  const t = useTranslations("app.menu");
   const displayName = useDisplayName({ currentUserId });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
@@ -42,7 +44,7 @@ export function UserMenu({
           <Button
             ref={menuTrigger}
             variant="ghost"
-            aria-label="ユーザーメニュー"
+            aria-label={t("aria")}
             className="min-h-11 min-w-11 max-w-48 gap-1.5 px-2"
           >
             {userName ? (
@@ -75,15 +77,18 @@ export function UserMenu({
                   void displayName.request();
                 }}
               >
-                表示名を変更
+                {t("editDisplayName")}
               </Button>
               <Button
                 asChild
                 variant="ghost"
                 className="min-h-11 w-full justify-start gap-3 px-2"
               >
-                <Link href="/about" onClick={() => setMenuOpen(false)}>
-                  {aboutMenuLabel}
+                <Link
+                  href={locale === "en" ? "/en/about" : "/about"}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {t("about")}
                 </Link>
               </Button>
               <hr className="my-1 border-t border-border" />

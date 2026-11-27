@@ -30,7 +30,13 @@ export function dotVotePhaseOf(phase: RoomPhase): DotVotePhase {
 
 export function dotVoteLabels(
   phase: DotVotePhase,
+  locale: "ja" | "en" = "ja",
 ): Readonly<Record<DotVoteKind, string>> {
+  if (locale === "en")
+    return {
+      subjective: "Top pick!",
+      objective: phase === 3 ? "High potential" : "Like",
+    };
   return DOT_VOTE_LABELS_BY_PHASE[phase];
 }
 
@@ -54,8 +60,21 @@ export type DotVoteGuidance = {
   withdrawal: string;
 };
 
-export function dotVoteGuidance(phase: DotVotePhase): DotVoteGuidance {
-  const labels = dotVoteLabels(phase);
+export function dotVoteGuidance(
+  phase: DotVotePhase,
+  locale: "ja" | "en" = "ja",
+): DotVoteGuidance {
+  const labels = dotVoteLabels(phase, locale);
+  if (locale === "en") {
+    const allowance = `${labels.subjective}: 1 vote · ${labels.objective}: 3 votes`;
+    return {
+      target: "Vote on individual notes in the current phase.",
+      allowance,
+      summary: `Use ${allowance} to vote on individual notes in the current phase.`,
+      operation: `Drag or select a sticker from ${allowance} and place it on a note.`,
+      withdrawal: "Select a placed sticker to withdraw one vote.",
+    };
+  }
   const allowance = `${labels.subjective}1票・${labels.objective}3票`;
   return {
     target: "投票対象は現在のフェーズの個々の付箋です。",
@@ -69,22 +88,31 @@ export function dotVoteGuidance(phase: DotVotePhase): DotVoteGuidance {
 export function dotVoteStickerName(
   kind: DotVoteKind,
   phase: DotVotePhase,
+  locale: "ja" | "en" = "ja",
 ): string {
-  return `「${dotVoteLabels(phase)[kind]}」シール`;
+  const label = dotVoteLabels(phase, locale)[kind];
+  return locale === "en" ? `${label} sticker` : `「${label}」シール`;
 }
 
 export function dotVoteRemainingLabel(
   kind: DotVoteKind,
   remaining: number,
   phase: DotVotePhase,
+  locale: "ja" | "en" = "ja",
 ): string {
-  return `${dotVoteStickerName(kind, phase)} 残り${remaining}票`;
+  return locale === "en"
+    ? `${dotVoteStickerName(kind, phase, locale)} · ${remaining} votes left`
+    : `${dotVoteStickerName(kind, phase, locale)} 残り${remaining}票`;
 }
 
 // 付箋の上のシールに合わせたときの1行の説明。基準の一文はステップガイドで示すため含めない。
 export function dotVoteStickerTooltip(
   kind: DotVoteKind,
   phase: DotVotePhase,
+  locale: "ja" | "en" = "ja",
 ): string {
-  return `${dotVoteLabels(phase)[kind]}（${DOT_VOTE_KIND_TAGS[kind]}）`;
+  const label = dotVoteLabels(phase, locale)[kind];
+  if (locale === "en")
+    return `${label} · ${kind === "subjective" ? "Personal choice" : "Potential value"}`;
+  return `${label}（${DOT_VOTE_KIND_TAGS[kind]}）`;
 }

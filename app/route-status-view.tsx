@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -6,16 +7,16 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { HistoryBackButton } from "./history-back-button";
-import {
-  type RouteStatusKind,
-  routeStatusActionCopy,
-  routeStatusCopy,
-} from "./route-status-copy";
+import type { RouteStatusKind } from "./route-status-copy";
 
 // 404・表示失敗の受け皿。検索から中身のない画面に見えないよう、
 // 自動では移動させず、利用者が戻り先を選ぶ（#993）。
 export function RouteStatusView({ kind }: { kind: RouteStatusKind }) {
-  const { heading, description } = routeStatusCopy[kind];
+  const t = useTranslations("app.routeStatus");
+  const heading = t(kind === "not_found" ? "notFoundHeading" : "errorHeading");
+  const description = t(
+    kind === "not_found" ? "notFoundDescription" : "errorDescription",
+  );
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col items-center overflow-y-auto p-4 sm:p-6">
       <Card className="my-auto w-full max-w-md shrink-0">
@@ -30,9 +31,9 @@ export function RouteStatusView({ kind }: { kind: RouteStatusKind }) {
         <CardContent className="flex flex-col gap-3">
           <Button asChild className="min-h-11">
             {/* global-error は Next のルーターの外でも描くため、通常のリンクで全体を読み直す。 */}
-            <a href="/">{routeStatusActionCopy.topLabel}</a>
+            <a href="/">{t("top")}</a>
           </Button>
-          <HistoryBackButton label={routeStatusActionCopy.backLabel} />
+          <HistoryBackButton label={t("back")} />
         </CardContent>
       </Card>
     </main>

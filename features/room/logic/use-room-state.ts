@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 // メンバー一覧・進行状態・タイマーのサーバーメッセージ適用の hook。
 // ロビーとボードの両方で使う（ロビーはタイマーを表示しないが、状態の畳み込みは
 // 共通のまま害がない）。畳み込みの実体は room-reducer.ts の純関数群。
@@ -64,6 +65,10 @@ export function useRoomState(options: {
   // 外した本人かどうかで退出 toast の文言を言い分ける。
   currentUserId?: string;
 }): UseRoomStateResult {
+  const t = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const [sharing, setSharing] = useState<SharingState | null>(null);
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
   const [authorNames, setAuthorNames] = useState<ReadonlyMap<string, string>>(
@@ -102,7 +107,7 @@ export function useRoomState(options: {
       // member_joined / member_left は自分以外の参加者から届く通知。
       // 自分自身の参加・退出はサーバから届かない（broadcastToAllExcept）。
       if (message.type === "member_joined") {
-        roomNotify.memberJoined(message.member.name);
+        roomNotify.memberJoined(message.member.name, t);
       }
       if (message.type === "member_left") {
         // member_left は userId のみなので、除去前の members から名前を引く。
@@ -113,9 +118,10 @@ export function useRoomState(options: {
           roomNotify.memberRemoved(
             left.name,
             message.removedByUserId === currentUserId,
+            t,
           );
         } else if (left) {
-          roomNotify.memberLeft(left.name);
+          roomNotify.memberLeft(left.name, t);
         }
       }
       const nextMembers = applyMemberServerMessage(membersRef.current, message);
@@ -156,7 +162,7 @@ export function useRoomState(options: {
         applyTimerServerMessage(current, message, receivedAt),
       );
     },
-    [currentUserId],
+    [currentUserId, t],
   );
 
   return {

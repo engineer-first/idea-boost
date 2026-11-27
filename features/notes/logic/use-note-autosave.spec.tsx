@@ -264,7 +264,7 @@ describe("useNoteAutosave", () => {
     );
     act(() => vi.advanceTimersByTime(30000));
     expect(result.current.recoveries).toEqual([
-      expect.objectContaining({ text: "B", reason: "現在は編集できません。" }),
+      expect.objectContaining({ text: "B", reason: "not-editable" }),
     ]);
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -1000,7 +1000,7 @@ describe("useNoteAutosave", () => {
         expect.objectContaining({
           noteId,
           text: "変換中のB",
-          reason: "変換中に中断されました。",
+          reason: "interrupted-composition",
         }),
       ]);
       expect(send).toHaveBeenCalledExactlyOnceWith({
@@ -1073,7 +1073,7 @@ describe("useNoteAutosave", () => {
         throw new Error("save missing");
       act(() => first.result.current.recoverDisconnected());
       expect(first.result.current.recoveries[0]?.text).toBe("結果不明の本文");
-      expect(first.result.current.recoveries[0]?.reason).toContain("結果");
+      expect(first.result.current.recoveries[0]?.reason).toBe("result-unknown");
       act(() => vi.advanceTimersByTime(30000));
       expect(send).toHaveBeenCalledTimes(1);
       first.unmount();
@@ -1111,7 +1111,7 @@ describe("useNoteAutosave", () => {
           expect(second.result.current.recoveries).toEqual([
             expect.objectContaining({
               text: "結果不明の本文",
-              reason: "他の編集と競合しました。",
+              reason: "conflict",
             }),
           ]);
         }
@@ -1236,7 +1236,7 @@ describe("useNoteAutosave", () => {
     expect(second.result.current.recoveries).toEqual([
       expect.objectContaining({
         text: "変換中に残した文章",
-        reason: "変換中に中断されました。",
+        reason: "interrupted-composition",
       }),
     ]);
     act(() => vi.advanceTimersByTime(30000));

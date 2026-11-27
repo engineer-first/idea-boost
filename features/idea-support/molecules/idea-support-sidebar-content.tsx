@@ -1,15 +1,14 @@
 "use client";
 
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import {
-  IDEA_SUPPORT_DESCRIPTION,
-  type IdeaSupportContent,
-  type IdeaSupportType,
-  ideaSupportContents,
+import type {
+  IdeaSupportContent,
+  IdeaSupportType,
 } from "../logic/idea-support-content";
 
 export type IdeaSupportContentState = "loading" | "empty" | "ready" | "error";
@@ -23,8 +22,44 @@ export type IdeaSupportSidebarContentProps = {
 export function IdeaSupportSidebarContent({
   status = "ready",
   defaultContentId = "osborn",
-  contents = ideaSupportContents,
+  contents,
 }: IdeaSupportSidebarContentProps) {
+  const t = useTranslations("app.ideaSupportPanel");
+  const translate = t as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
+  const getPrompts = (method: string, count: number): string[] =>
+    Array.from({ length: count }, (_, index) =>
+      translate(`methods.${method}.prompts.p${index + 1}`),
+    );
+  const translatedContents: IdeaSupportContent[] = [
+    {
+      id: "osborn",
+      label: translate("methods.osborn.label"),
+      title: translate("methods.osborn.title"),
+      content: getPrompts("osborn", 8),
+    },
+    {
+      id: "scamper",
+      label: translate("methods.scamper.label"),
+      title: translate("methods.scamper.title"),
+      content: getPrompts("scamper", 7),
+    },
+    {
+      id: "reverse",
+      label: translate("methods.reverse.label"),
+      title: translate("methods.reverse.title"),
+      content: getPrompts("reverse", 3),
+    },
+    {
+      id: "industry",
+      label: translate("methods.industry.label"),
+      title: translate("methods.industry.title"),
+      content: getPrompts("industry", 4),
+    },
+  ];
+  const displayContents = contents ?? translatedContents;
   const [expanded, setExpanded] = useState<
     Partial<Record<IdeaSupportType, boolean>>
   >({});
@@ -32,23 +67,19 @@ export function IdeaSupportSidebarContent({
   if (status === "loading") {
     return (
       <p className="p-4 text-base text-muted-foreground" role="status">
-        発想支援を読み込んでいます
+        {t("loading")}
       </p>
     );
   }
 
   if (status === "empty") {
-    return (
-      <p className="p-4 text-base text-muted-foreground">
-        発想支援コンテンツはありません
-      </p>
-    );
+    return <p className="p-4 text-base text-muted-foreground">{t("empty")}</p>;
   }
 
   if (status === "error") {
     return (
       <p className="p-4 text-base text-destructive" role="alert">
-        発想支援コンテンツを表示できません
+        {t("error")}
       </p>
     );
   }
@@ -59,9 +90,9 @@ export function IdeaSupportSidebarContent({
         <TabsList
           variant="line"
           className="grid w-full grid-cols-4 gap-0 border-b border-border p-0 group-data-horizontal/tabs:h-7"
-          aria-label="発想法"
+          aria-label={t("tabAria")}
         >
-          {contents.map((item) => (
+          {displayContents.map((item) => (
             <TabsTrigger
               key={item.id}
               value={item.id}
@@ -72,11 +103,9 @@ export function IdeaSupportSidebarContent({
           ))}
         </TabsList>
 
-        <p className="pt-2 text-muted-foreground text-xs">
-          {IDEA_SUPPORT_DESCRIPTION}
-        </p>
+        <p className="pt-2 text-muted-foreground text-xs">{t("description")}</p>
         <div className="pt-2">
-          {contents.map((item) => (
+          {displayContents.map((item) => (
             <TabsContent key={item.id} value={item.id}>
               <h3 className="mb-2 font-semibold">{item.title}</h3>
 
@@ -99,8 +128,8 @@ export function IdeaSupportSidebarContent({
                   }
                 >
                   {expanded[item.id]
-                    ? "ほかの観点を閉じる"
-                    : `ほかの観点を見る（${item.content.length - 1}）`}
+                    ? t("collapsePerspectives")
+                    : t("showPerspectives", { count: item.content.length - 1 })}
                   {expanded[item.id] ? (
                     <ChevronUp aria-hidden="true" />
                   ) : (

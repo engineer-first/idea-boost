@@ -1,4 +1,5 @@
 import { AlarmClock, Hourglass } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { TimerAlertKind } from "../logic/use-timer-alert";
 import styles from "./timer-alert.module.css";
 
@@ -9,13 +10,13 @@ export type TimerAlertProps = {
 // 時間切れはタイマー本体とキャラクターが読み上げるため、読み上げは残り1分だけにする。
 const ALERTS = {
   oneMinute: {
-    text: "あと1分！",
+    text: "1 minute left!",
     Icon: Hourglass,
     iconClassName: "text-warning",
     announce: true,
   },
   timeUp: {
-    text: "時間になりました！",
+    text: "Time is up!",
     Icon: AlarmClock,
     iconClassName: "text-foreground",
     announce: false,
@@ -24,12 +25,13 @@ const ALERTS = {
 
 /** 残り1分と時間切れを画面中央に短く知らせる。付箋の操作は通す */
 export function TimerAlert({ kind }: TimerAlertProps) {
+  const t = useTranslations("app.boardTimer");
   const alert = kind ? ALERTS[kind] : null;
   return (
     <>
       {/* 読み上げソフトは既存の枠の中身の変化を読むため、枠は常に置いておく。 */}
       <p role="status" className="sr-only">
-        {alert?.announce ? alert.text : ""}
+        {alert?.announce ? t("oneMinute") : ""}
       </p>
       {alert ? (
         <div
@@ -46,7 +48,7 @@ export function TimerAlert({ kind }: TimerAlertProps) {
               className={`size-8 shrink-0 ${alert.iconClassName}`}
               aria-hidden="true"
             />
-            {alert.text}
+            {t(kind === "oneMinute" ? "oneMinute" : "timeUp")}
           </div>
         </div>
       ) : null}

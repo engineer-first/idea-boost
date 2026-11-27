@@ -1,4 +1,7 @@
+"use client";
+
 import { ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HmwTemplatePanel } from "@/features/hmw";
@@ -24,10 +27,11 @@ export function BoardHelpPanel({
   onHmwTemplateSelect,
   onIdeaHintSelect,
 }: BoardHelpPanelProps) {
+  const t = useTranslations("app.boardHelp");
   if (kind === null) return null;
   return (
     <aside
-      aria-label="考えるヒント"
+      aria-label={t("label")}
       data-testid="board-help-panel"
       data-open={isOpen}
       className={`pointer-events-none flex min-h-0 max-w-full items-start ${
@@ -52,7 +56,7 @@ export function BoardHelpPanel({
           variant="ghost"
           className="h-9 w-full shrink-0 justify-between max-[639px]:h-[42px] max-[639px]:px-2 rounded-none bg-background px-4 hover:bg-background aria-expanded:bg-background"
           data-help-toggle
-          aria-label={`考えるヒントを${isOpen ? "閉じる" : "開く"}`}
+          aria-label={t("toggle", { action: t(isOpen ? "close" : "open") })}
           aria-expanded={isOpen}
           aria-controls="board-help-content"
           onClick={() => onOpenChange(!isOpen)}
@@ -62,8 +66,8 @@ export function BoardHelpPanel({
               aria-hidden="true"
               className="size-4 text-muted-foreground"
             />
-            <span className="max-[639px]:hidden">考えるヒント</span>
-            <span className="hidden max-[639px]:inline">ヒント</span>
+            <span className="max-[639px]:hidden">{t("label")}</span>
+            <span className="hidden max-[639px]:inline">{t("shortLabel")}</span>
           </span>
           {isOpen ? (
             <ChevronUp aria-hidden="true" className="max-[639px]:hidden" />
@@ -86,19 +90,19 @@ export function BoardHelpPanel({
               <TabsList
                 variant="line"
                 className="mx-4 grid w-auto shrink-0 grid-cols-2 border-b border-border p-0 group-data-horizontal/tabs:h-8"
-                aria-label="考えるヒントの種類"
+                aria-label={t("kind")}
               >
                 <TabsTrigger
                   value="write"
                   className="h-8 rounded-none group-data-horizontal/tabs:after:bottom-0"
                 >
-                  書き出し
+                  {t("write")}
                 </TabsTrigger>
                 <TabsTrigger
                   value="expand"
                   className="h-8 rounded-none group-data-horizontal/tabs:after:bottom-0"
                 >
-                  発想を広げる
+                  {t("expand")}
                 </TabsTrigger>
               </TabsList>
               <div

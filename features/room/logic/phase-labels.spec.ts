@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { ROOM_PHASE_STEP_LABELS } from "@/contracts/phase";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import { getNextStepShortName, STEP_SHORT_NAMES } from "./phase-labels";
+import ja from "@/messages/ja/app.json";
+import {
+  getNextStepShortName,
+  PHASE_LABELS,
+  PHASE_SHORT_NAMES,
+  STEP_SHORT_NAMES,
+} from "./phase-labels";
 
 // 中央上部のステップの並びと同じ呼び方。フェーズの最後は次のフェーズ、最後は成果。
 const NEXT_NAMES = {
@@ -26,4 +33,24 @@ describe("次のステップの短い呼び方", () => {
       STEP_SHORT_NAMES[3][2],
     );
   });
+});
+
+it("日本語の辞書のフェーズ・ステップ名は、進行の定義と同じ呼び方にする", () => {
+  const location = ja.boardLocation;
+  for (const phase of [1, 2, 3] as const) {
+    expect(location.phaseTitles[phase]).toBe(PHASE_LABELS[phase]);
+    expect(location.phaseNames[phase]).toBe(PHASE_SHORT_NAMES[phase]);
+    STEP_SHORT_NAMES[phase].forEach((name, index) => {
+      const step = index + 1;
+      const key = `${phase}-${step}` as keyof typeof location.stepNames;
+      expect(location.stepNames[key]).toBe(name);
+      expect(location.nextLabels[key]).toBe(
+        getNextStepShortName({ kind: "step", phase, step } as Parameters<
+          typeof getNextStepShortName
+        >[0]),
+      );
+      const labels: Record<number, string> = ROOM_PHASE_STEP_LABELS[phase];
+      expect(`${key} ${location.fullSteps[key]}`).toBe(labels[step]);
+    });
+  }
 });

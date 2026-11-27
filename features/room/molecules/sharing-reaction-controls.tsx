@@ -2,6 +2,7 @@
 
 import { Smile } from "lucide-react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,8 @@ export function SharingReactionControls({
   disabled,
   onSendReaction,
 }: SharingReactionControlsProps) {
+  const t = useTranslations("app.boardReaction");
+  const translate = t as (key: string) => string;
   const [open, setOpen] = useState(false);
   const motion = useSharingReactionMotion(disabled);
   const anchorRef = useRef<ReactionToolbarAnchor | null>(null);
@@ -73,7 +76,7 @@ export function SharingReactionControls({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="リアクション"
+                aria-label={t("label")}
                 aria-disabled={disabled}
                 className={`${toolMotion.button} aria-disabled:opacity-50 aria-disabled:hover:bg-transparent`}
               >
@@ -81,12 +84,12 @@ export function SharingReactionControls({
               </Button>
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent side="top">リアクション</TooltipContent>
+          <TooltipContent side="top">{t("label")}</TooltipContent>
         </Tooltip>
         <PopoverContent
           side="top"
           align="end"
-          aria-label="リアクションを選ぶ"
+          aria-label={t("choose")}
           className={`${styles.bar} flex w-max items-center justify-center border-border bg-background shadow-tool`}
         >
           {SHARING_REACTION_KINDS.map((kind) => {
@@ -97,7 +100,7 @@ export function SharingReactionControls({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={option.sendLabel}
+                aria-label={translate(`send.${kind}`)}
                 aria-disabled={disabled}
                 className={`${styles.choice} aria-disabled:hover:bg-transparent`}
                 onPointerEnter={(event) => {

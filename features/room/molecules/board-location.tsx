@@ -1,16 +1,9 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { PHASE_STEP_COUNTS, type RoomPhase } from "@/contracts/phase";
-import {
-  getNextStepShortName,
-  getPhaseLabel,
-  getPhaseTitle,
-  PHASE_MARKERS,
-  PHASE_SHORT_NAMES as PHASE_NAMES,
-  PHASE_NUMBERS,
-  STEP_SHORT_NAMES as STEP_NAMES,
-} from "../logic/phase-labels";
+import { PHASE_MARKERS, PHASE_NUMBERS } from "../logic/phase-labels";
 import { BoardFlowSteps } from "./board-flow-steps";
 import styles from "./board-location.module.css";
 
@@ -41,6 +34,8 @@ export function BoardLocation({
   action,
   narrowOnly = false,
 }: BoardLocationProps) {
+  const t = useTranslations("app.boardLocation");
+  const translate = (key: string) => t(key as Parameters<typeof t>[0]);
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [request, setRequest] = useState<{
@@ -108,7 +103,12 @@ export function BoardLocation({
     };
   }, [state, phaseKey]);
 
-  const title = getPhaseTitle(phase);
+  const title =
+    phase.kind === "step"
+      ? translate(`phaseTitles.${phase.phase}`)
+      : t("waiting");
+  const phaseName =
+    phase.kind === "step" ? translate(`phaseNames.${phase.phase}`) : title;
   const currentPosition =
     phase.kind === "step"
       ? FLOW_STEPS.findIndex(
@@ -116,7 +116,13 @@ export function BoardLocation({
         ) + 1
       : 0;
   const stepLabel =
-    phase.kind === "step" ? STEP_NAMES[phase.phase][phase.step - 1] : "";
+    phase.kind === "step"
+      ? translate(`stepNames.${phase.phase}-${phase.step}`)
+      : "";
+  const fullStepLabel =
+    phase.kind === "step"
+      ? translate(`fullSteps.${phase.phase}-${phase.step}`)
+      : title;
   return (
     <div
       className={styles.slot}
@@ -124,7 +130,7 @@ export function BoardLocation({
       data-testid="board-location-slot"
     >
       <fieldset
-        aria-label="現在地"
+        aria-label={t("currentLocation")}
         ref={card}
         className={`${styles.card} board-hud`}
         data-state={state}
@@ -146,7 +152,18 @@ export function BoardLocation({
           <button
             ref={trigger}
             type="button"
-            aria-label={`現在地：${phase.kind === "step" ? `${PHASE_MARKERS[phase.phase]} ${title}・${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}` : title}。全体の流れを${state === "compact" ? "開く" : "閉じる"}`}
+            aria-label={
+              phase.kind === "step"
+                ? t("currentLocationToggle", {
+                    phase: `${PHASE_MARKERS[phase.phase]} ${title}`,
+                    step: fullStepLabel,
+                    action: t(state === "compact" ? "open" : "close"),
+                  })
+                : t("currentLocationLobby", {
+                    phase: title,
+                    action: t(state === "compact" ? "open" : "close"),
+                  })
+            }
             aria-expanded={state !== "compact"}
             aria-controls={`${id}-detail`}
             data-testid="board-location-trigger"
@@ -164,7 +181,7 @@ export function BoardLocation({
                 <>
                   <span className={styles.currentPhase}>
                     {PHASE_MARKERS[phase.phase]}
-                    {PHASE_NAMES[phase.phase]}
+                    {phaseName}
                   </span>
                   <span aria-hidden="true" className="text-muted-foreground">
                     ｜
@@ -181,7 +198,8 @@ export function BoardLocation({
               )}
               {phase.kind === "step" && !outcomePublished && (
                 <span className={styles.next}>
-                  次：{getNextStepShortName(phase)}
+                  {t("next")}
+                  {translate(`nextLabels.${phase.phase}-${phase.step}`)}
                 </span>
               )}
             </span>
@@ -196,11 +214,15 @@ export function BoardLocation({
             {phase.kind === "step" ? (
               <span
                 role="progressbar"
-                aria-label="全工程の現在地"
+                aria-label={t("progressLabel")}
                 aria-valuemin={0}
                 aria-valuemax={FLOW_STEPS.length}
                 aria-valuenow={currentPosition}
-                aria-valuetext={`全${FLOW_STEPS.length}工程の${currentPosition}番目。${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}`}
+                aria-valuetext={t("progressText", {
+                  total: FLOW_STEPS.length,
+                  current: currentPosition,
+                  step: fullStepLabel,
+                })}
                 className={styles.progressRail}
                 data-testid="board-progress-rail"
               >
@@ -231,7 +253,7 @@ export function BoardLocation({
         {state !== "compact" ? (
           <section
             id={`${id}-detail`}
-            aria-label="全体の流れと手順"
+            aria-label={t("flowAria")}
             className={styles.detail}
           >
             <BoardFlowSteps phase={phase} />

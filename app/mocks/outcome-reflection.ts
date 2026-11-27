@@ -1,6 +1,8 @@
 import { HttpResponse, http } from "msw";
-import type { ReflectionShared } from "@/contracts/outcome-reflection";
-import { ReflectionRequestSchema } from "@/contracts/outcome-reflection";
+import {
+  ReflectionRequestSchema,
+  type ReflectionShared,
+} from "@/contracts/outcome-reflection";
 import {
   reflectionPlanFixture,
   reflectionResponseFixture,
@@ -9,8 +11,9 @@ import {
 
 export function createOutcomeReflectionHandlers() {
   const rooms = new Map<string, ReflectionShared>();
-  const latest = (id: string) =>
-    rooms.get(id) ??
+  const key = (id: string, locale: string) => `${id}:${locale}`;
+  const latest = (id: string, locale: string) =>
+    rooms.get(key(id, locale)) ??
     reflectionSharedFixture({
       revision: 0,
       result: null,
@@ -18,14 +21,19 @@ export function createOutcomeReflectionHandlers() {
       generatedAt: null,
     });
   return [
-    http.get("/api/completed-rooms/:id/reflection", ({ params }) =>
-      HttpResponse.json(
-        reflectionResponseFixture({ shared: latest(String(params.id)) }),
-      ),
-    ),
+    http.get("/api/completed-rooms/:id/reflection", ({ params, request }) => {
+      const locale = new URL(request.url).searchParams.get("locale") ?? "ja";
+      return HttpResponse.json(
+        reflectionResponseFixture({
+          shared: latest(String(params.id), locale),
+        }),
+      );
+    }),
     http.post(
       "/api/completed-rooms/:id/reflection",
       async ({ params, request }) => {
+        const locale = new URL(request.url).searchParams.get("locale") ?? "ja";
+        const roomKey = key(String(params.id), locale);
         const parsed = ReflectionRequestSchema.safeParse(await request.json());
         if (!parsed.success)
           return HttpResponse.json(
@@ -33,7 +41,7 @@ export function createOutcomeReflectionHandlers() {
             { status: 400 },
           );
         const input = parsed.data;
-        let shared = latest(String(params.id));
+        let shared = latest(String(params.id), locale);
         if (input.revision !== shared.revision)
           return HttpResponse.json(
             {
@@ -59,7 +67,7 @@ export function createOutcomeReflectionHandlers() {
                 }
               : reflectionPlanFixture(),
           });
-          rooms.set(String(params.id), shared);
+          rooms.set(roomKey, shared);
         }
         return HttpResponse.json(
           reflectionResponseFixture({

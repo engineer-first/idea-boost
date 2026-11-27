@@ -1,3 +1,4 @@
+import type { AppLocale } from "@/contracts/app-locale";
 import {
   isPersonalWritingStep,
   isPhaseStep,
@@ -88,6 +89,45 @@ const LOBBY_FLOW_OVERVIEW: LobbyFlowOverview = (() => {
   return { totalMinutes: sumMinutes(phases), phases };
 })();
 
-export function getLobbyFlowOverview(): LobbyFlowOverview {
-  return LOBBY_FLOW_OVERVIEW;
+const ENGLISH_PHASE_TITLES: Record<PhaseNumber, string> = {
+  1: "Define the challenge",
+  2: "Frame the question",
+  3: "Choose an idea",
+};
+const ENGLISH_STEPS: Record<string, { name: string; action: string }> = {
+  "1-1": { name: "Write down challenges", action: "Write down challenges" },
+  "1-2": { name: "Share your notes", action: "Take turns sharing" },
+  "1-3": { name: "Group similar notes", action: "Group similar notes" },
+  "1-4": { name: "Vote on challenges", action: "Vote on notes" },
+  "1-5": { name: "Choose the challenge", action: "Choose one challenge" },
+  "2-1": {
+    name: "Turn the challenge into a question",
+    action: "Reframe the challenge as a question",
+  },
+  "2-2": { name: "Share your questions", action: "Take turns sharing" },
+  "2-3": { name: "Vote on questions", action: "Vote on questions" },
+  "2-4": { name: "Choose the question", action: "Choose one question" },
+  "3-1": { name: "Write solutions", action: "Write down solutions" },
+  "3-2": { name: "Share solutions", action: "Take turns sharing" },
+  "3-3": { name: "Compare solutions", action: "Move notes to compare" },
+  "3-4": { name: "Vote on solutions", action: "Vote on solutions" },
+  "3-5": { name: "Choose a solution", action: "Choose one solution" },
+};
+
+export function getLobbyFlowOverview(
+  locale: AppLocale = "ja",
+): LobbyFlowOverview {
+  if (locale === "ja") return LOBBY_FLOW_OVERVIEW;
+  const phases = LOBBY_FLOW_OVERVIEW.phases.map((phase) => ({
+    ...phase,
+    title: ENGLISH_PHASE_TITLES[phase.phase],
+    steps: phase.steps.map((step) => ({
+      ...step,
+      ...(ENGLISH_STEPS[step.number] ?? {
+        name: step.name,
+        action: step.action,
+      }),
+    })),
+  }));
+  return { totalMinutes: LOBBY_FLOW_OVERVIEW.totalMinutes, phases };
 }

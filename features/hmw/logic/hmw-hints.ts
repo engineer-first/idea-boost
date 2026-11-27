@@ -1,3 +1,5 @@
+import type { AppLocale } from "@/contracts/app-locale";
+
 export type HmwHint = {
   readonly id: string;
   readonly word: string;
@@ -92,6 +94,68 @@ export const HMW_HINT_GROUPS = [
     },
   ],
 ] as const satisfies readonly (readonly [HmwHint, HmwHint, HmwHint])[];
+
+type HmwHintId = (typeof HMW_HINT_GROUPS)[number][number]["id"];
+
+// 英語の語と文型。課題は参加者が書いた原文のまま差し込む。
+const HMW_HINTS_EN: Record<HmwHintId, Pick<HmwHint, "word" | "template">> = {
+  enjoy: {
+    word: "Enjoy",
+    template: "How might we make “{issue}” something to enjoy?",
+  },
+  prevent: {
+    word: "Get ahead",
+    template: "How might we prevent “{issue}” before it happens?",
+  },
+  cooperate: {
+    word: "Help each other",
+    template:
+      "How might we work with the people around us to deal with “{issue}”?",
+  },
+  reduce: {
+    word: "Reduce",
+    template: "How might we reduce how often “{issue}” happens?",
+  },
+  motivation: {
+    word: "Motivation",
+    template: "How might we feel more motivated to tackle “{issue}”?",
+  },
+  reason: {
+    word: "Reason",
+    template: "Why is “{issue}” a problem in the first place?",
+  },
+  avoid: {
+    word: "Avoid",
+    template: "How might we avoid having to deal with “{issue}” at all?",
+  },
+  time: {
+    word: "Change the timing",
+    template: "How might we deal with “{issue}” by acting at a different time?",
+  },
+  standpoint: {
+    word: "Standpoint",
+    template:
+      "Would we think differently if we put ourselves in someone else’s shoes?",
+  },
+  divide: {
+    word: "Break it down",
+    template: "How might we break “{issue}” into smaller parts to work on?",
+  },
+  environment: {
+    word: "Change the setting",
+    template: "How might we deal with “{issue}” by changing our surroundings?",
+  },
+  assumption: {
+    word: "Question assumptions",
+    template: "What do we take for granted about “{issue}”?",
+  },
+};
+
+/** 表示言語に合わせた語と文型を返す。日本語は定義そのもの。 */
+export function localizeHmwHint(hint: HmwHint, locale: AppLocale): HmwHint {
+  if (locale === "ja") return hint;
+  return { ...hint, ...HMW_HINTS_EN[hint.id as HmwHintId] };
+}
 
 export function buildHmwHintQuestion(
   decidedIssue: string | null,

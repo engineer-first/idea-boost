@@ -301,7 +301,10 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
     expect(notifyMocks.memberJoined).toHaveBeenCalledTimes(1);
-    expect(notifyMocks.memberJoined).toHaveBeenCalledWith("Taro");
+    expect(notifyMocks.memberJoined).toHaveBeenCalledWith(
+      "Taro",
+      expect.any(Function),
+    );
   });
 
   it("member_left を受信すると members から名前を引き、notify.memberLeft を呼ぶ", () => {
@@ -318,7 +321,10 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
     expect(notifyMocks.memberLeft).toHaveBeenCalledTimes(1);
-    expect(notifyMocks.memberLeft).toHaveBeenCalledWith("Taro");
+    expect(notifyMocks.memberLeft).toHaveBeenCalledWith(
+      "Taro",
+      expect.any(Function),
+    );
     // 退出者は一覧から消える
     expect(screen.getAllByTestId("avatar")).toHaveLength(1);
   });

@@ -1,4 +1,7 @@
+"use client";
+
 import { MousePointer2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { cn } from "@/lib/utils";
 import type { RemoteCursorPresence } from "../logic/cursor-presence";
@@ -19,6 +22,7 @@ export function RemoteCursor({
   className,
   style,
 }: RemoteCursorProps) {
+  const t = useTranslations("app.boardCanvas");
   const color = NOTE_COLOR_STYLES[cursor.color].backgroundColor;
   return (
     <div
@@ -50,7 +54,9 @@ export function RemoteCursor({
           transform: `translateY(${labelOffset * 32}px)`,
         }}
       >
-        <span className="truncate">{cursor.name || "名前未設定"}</span>
+        <span className="truncate">
+          {cursor.name || t("unnamedParticipant")}
+        </span>
       </div>
     </div>
   );

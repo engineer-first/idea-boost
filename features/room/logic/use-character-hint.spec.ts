@@ -19,6 +19,28 @@ const long: TimerState = {
 };
 
 describe("キャラクターの一言", () => {
+  it("英語の表示では、開始の一言・コツ・残り時間・時間切れを英語で出す", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const { result } = renderHook(() =>
+      useCharacterHint({
+        phase,
+        timer: running,
+        serverOffsetMs: 0,
+        noteCount: 1,
+        locale: "en",
+      }),
+    );
+    const japanese = /[\u3040-\u30ff\u4e00-\u9fff]/;
+    expect(result.current.message).toMatch(/one per note/);
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(result.current.message).not.toMatch(japanese);
+    act(() => vi.advanceTimersByTime(120_000));
+    expect(result.current.message).toContain("30 seconds");
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(result.current.message).toContain("Time is up");
+  });
+
   it.each([0, 1])(
     "通常ヒントを無効にすると付箋%i枚の開始・書き出し・コツを出さず、残り時間は知らせる",
     (noteCount) => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,7 @@ export function NoteFontSizeControls({
   onChange,
   onStep,
 }: NoteFontSizeControlsProps) {
+  const t = useTranslations("app.boardNoteFontSize");
   const hasSelection = hasSelectionProp ?? fontSize !== null;
   const canDecrease =
     canDecreaseProp ??
@@ -41,12 +43,12 @@ export function NoteFontSizeControls({
       <fieldset
         className="board-hud pointer-events-auto flex items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-tool"
         data-testid="note-font-size-controls"
-        aria-label="選択した付箋の文字サイズ"
-        aria-description="共有した付箋は全員の表示に反映されます"
+        aria-label={t("ariaLabel")}
+        aria-description={t("ariaDescription")}
       >
         <FontSizeButton
-          label="付箋の文字を小さく"
-          hint="文字を小さく"
+          label={t("decreaseLabel")}
+          hint={t("decreaseHint")}
           disabled={disabled || !hasSelection || !canDecrease}
           onClick={() => {
             if (onStep) {
@@ -67,8 +69,8 @@ export function NoteFontSizeControls({
           {fontSize === null ? "--px" : `${fontSize}px`}
         </span>
         <FontSizeButton
-          label="付箋の文字を大きく"
-          hint="文字を大きく"
+          label={t("increaseLabel")}
+          hint={t("increaseHint")}
           disabled={disabled || !hasSelection || !canIncrease}
           onClick={() => {
             if (onStep) {

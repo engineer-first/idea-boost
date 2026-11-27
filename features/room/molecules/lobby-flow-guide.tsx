@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useId } from "react";
 import { getLobbyFlowOverview } from "../logic/lobby-flow";
 import styles from "./lobby-flow-guide.module.css";
@@ -14,12 +15,18 @@ export type LobbyFlowGuideProps = {
 };
 
 export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
-  const overview = getLobbyFlowOverview();
+  const locale = useLocale();
+  const t = useTranslations("app.lobbyFlow");
+  const translate = t as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
+  const overview = getLobbyFlowOverview(locale === "en" ? "en" : "ja");
   const howToTitleId = useId();
   const flowTitleId = useId();
   return (
     <section
-      aria-label="進み方と全体の流れ"
+      aria-label={t("aria")}
       // 収まらないときは中をスクロールして読む。中に押せる部品が無いので、
       // Safari でもキーボードで届くようパネル自体を Tab で選べるようにする。
       // biome-ignore lint/a11y/noNoninteractiveTabindex: スクロールする説明をキーボードでも読めるようにする。
@@ -29,31 +36,31 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
     >
       <div className={styles.inner}>
         <h2 id={howToTitleId} className={styles.title}>
-          進み方
+          {t("howTo")}
         </h2>
         <ol aria-labelledby={howToTitleId} className={styles.howTo}>
           <li>
             <span aria-hidden="true" className={styles.howToNumber}>
               1
             </span>
-            <span className={styles.howToText}>各ステップのやることをやる</span>
+            <span className={styles.howToText}>{t("doStep")}</span>
           </li>
           <li>
             <span aria-hidden="true" className={styles.howToNumber}>
               2
             </span>
             <span className={styles.howToText}>
-              終わったら
+              {t("whenDone")}
               {/* 押せない見本。実際のボタンと同じ形で、どれを押すかを伝える。 */}
               <span className={styles.readySample}>
                 <span aria-hidden="true" className={styles.readyMark}>
                   <Check className="size-3.5" strokeWidth={2.5} />
                 </span>
                 <span className="sr-only">「</span>
-                できた！
+                {t("ready")}
                 <span className="sr-only">」</span>
               </span>
-              を押す
+              {t("press")}
             </span>
           </li>
           <li>
@@ -61,10 +68,10 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
               3
             </span>
             <span className={styles.howToText}>
-              全員そろったら
+              {t("allReady")}
               <span className={styles.nextSample}>
                 <span className="sr-only">「</span>
-                次のステップへ
+                {t("next")}
                 <span className="sr-only">」</span>
               </span>
             </span>
@@ -73,10 +80,10 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
 
         <div className={styles.flowHeading}>
           <h2 id={flowTitleId} className={styles.title}>
-            全体の流れ
+            {t("flowTitle")}
           </h2>
           <span className={styles.total}>
-            3フェーズ・約{overview.totalMinutes}分
+            {translate("total", { minutes: overview.totalMinutes })}
           </span>
         </div>
         <ol aria-labelledby={flowTitleId} className={styles.phases}>
@@ -93,7 +100,10 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                 <span>
                   {PHASE_MARKERS[phase.phase]} {phase.title}
                 </span>
-                <span className={styles.minutes}>{phase.minutes}分</span>
+                <span className={styles.minutes}>
+                  {phase.minutes}
+                  {t("minuteSuffix")}
+                </span>
               </h3>
               <ol className={styles.steps}>
                 {phase.steps.map((step) => {
@@ -112,7 +122,10 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                         {step.name}
                       </span>
                       <span className={styles.action}>{step.action}</span>
-                      <span className={styles.minutes}>{step.minutes}分</span>
+                      <span className={styles.minutes}>
+                        {step.minutes}
+                        {t("minuteSuffix")}
+                      </span>
                     </li>
                   );
                 })}

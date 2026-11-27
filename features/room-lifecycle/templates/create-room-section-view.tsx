@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -22,6 +23,7 @@ export function CreateRoomSectionView({
   intentName,
   message,
 }: CreateRoomSectionViewProps) {
+  const t = useTranslations("app.createRoom");
   const [input, setInput] = useState({ intentName, value: intentName ?? "" });
   const draft =
     input.intentName === intentName ? input.value : (intentName ?? "");
@@ -30,7 +32,7 @@ export function CreateRoomSectionView({
     <Card className={styles.create} data-testid="home-create-room">
       <div className={styles.createLayout}>
         <CardHeader className={styles.createHeader}>
-          <h2>ルームを作成</h2>
+          <h2>{t("title")}</h2>
         </CardHeader>
         <CardContent className={styles.createContent}>
           <form
@@ -45,20 +47,20 @@ export function CreateRoomSectionView({
           >
             <RoomEntryField
               id="room-name"
-              label="テーマ（任意）"
+              label={t("label")}
               name="name"
               onChange={(event) =>
                 setInput({ intentName, value: event.target.value })
               }
               error={
                 tooLong
-                  ? `テーマは${ROOM_CREATION_NAME_MAX}文字以内で入力してください。`
+                  ? t("tooLong", { max: ROOM_CREATION_NAME_MAX })
                   : undefined
               }
               disabled={pending}
               defaultValue={intentName}
               key={intentName ?? "new"}
-              placeholder="例：アプリをもっと使ってもらうには"
+              placeholder={t("placeholder")}
             />
             <Button
               type="submit"
@@ -68,11 +70,7 @@ export function CreateRoomSectionView({
               data-icon="inline-start"
             >
               <Plus data-icon="inline-start" aria-hidden />
-              {pending
-                ? "準備中…"
-                : message
-                  ? "もう一度試す"
-                  : "新しいルームを作成"}
+              {pending ? t("pending") : message ? t("retry") : t("submit")}
             </Button>
           </form>
 

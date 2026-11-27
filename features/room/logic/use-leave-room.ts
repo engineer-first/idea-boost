@@ -3,6 +3,7 @@
 // API 成功後は Server Action の redirect でホームへ戻る。失敗時は WS を維持して
 // 再操作できる状態に戻す（先に close すると失敗時に再接続不能になるため、
 // close は RoomDO に任せる）。
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useRef, useState, useTransition } from "react";
 import { notify } from "@/lib/notify";
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
@@ -32,6 +33,11 @@ export type UseLeaveRoomResult = {
 
 export function useLeaveRoom(options: { roomId: string }): UseLeaveRoomResult {
   const { roomId } = options;
+  const locale = useLocale();
+  const t = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const [isLeaving, setIsLeaving] = useState(false);
   const [isLeavePending, startLeaveTransition] = useTransition();
   const isLeavingRef = useRef(false);
@@ -51,20 +57,22 @@ export function useLeaveRoom(options: { roomId: string }): UseLeaveRoomResult {
         if (isNextRedirectError(error)) {
           clearLastRoom(roomId);
           // 自分の操作成功をトーストで伝える（ホーム遷移後も Toaster は root にある）。
-          roomNotify.roomLeft();
+          roomNotify.roomLeft(t);
           return;
         }
         // 5xx 等: WS は開いたまま、操作可能に戻す。
         isLeavingRef.current = false;
         setIsLeaving(false);
         const message =
-          error instanceof Error
-            ? error.message
-            : "ルームからの退出に失敗しました。";
+          locale === "en"
+            ? t("leaveFailed")
+            : error instanceof Error
+              ? error.message
+              : t("leaveFailed");
         notify.error(message);
       }
     });
-  }, [isLeavePending, roomId]);
+  }, [isLeavePending, locale, roomId, t]);
 
   return { isLeaving, isLeavingRef, leave };
 }

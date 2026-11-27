@@ -4,6 +4,7 @@
 // MemberAvatar + 名前を 横 4 × 縦 3（最大 12 人）のグリッドで表示する。
 // 13 人以上は先頭 12 人 + +N（クリックで隠れメンバー Dialog）。
 import { Pencil } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import {
   Dialog,
@@ -47,6 +48,7 @@ export function RoomMembers({
   selectionDisabled = false,
   completedVoterIds = [],
 }: RoomMembersProps) {
+  const t = useTranslations("app.members");
   const [overflowOpen, setOverflowOpen] = useState(false);
   // 超過があるときは最終マスを +N に使う（4×3 の枠を崩さない）。
   const hasOverflow = members.length > maxVisible;
@@ -58,7 +60,7 @@ export function RoomMembers({
   return (
     <TooltipProvider>
       <fieldset
-        aria-label="参加者"
+        aria-label={t("participants")}
         data-testid="room-members"
         className="m-0 grid w-full max-w-xl grid-cols-4 gap-x-3 gap-y-3 border-0 p-0"
       >
@@ -74,7 +76,7 @@ export function RoomMembers({
               <MemberSelection
                 name={
                   isMe && onEditSelf
-                    ? `${member.name}：表示名を変更`
+                    ? t("editName", { name: member.name })
                     : member.name
                 }
                 className="flex w-full min-w-0 flex-col items-center gap-1 p-1 text-center"
@@ -125,7 +127,7 @@ export function RoomMembers({
         {hidden > 0 ? (
           <button
             type="button"
-            aria-label={`他 ${hidden}人`}
+            aria-label={t("others", { count: hidden })}
             data-testid="room-members-overflow"
             onClick={() => setOverflowOpen(true)}
             className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center justify-self-center self-center rounded-full border-2 border-background bg-muted text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -142,7 +144,7 @@ export function RoomMembers({
           data-testid="room-members-overflow-dialog"
         >
           <DialogHeader>
-            <DialogTitle>他のメンバー</DialogTitle>
+            <DialogTitle>{t("otherMembers")}</DialogTitle>
           </DialogHeader>
           <ul
             className="flex max-h-72 flex-col gap-3 overflow-y-auto"
@@ -157,7 +159,7 @@ export function RoomMembers({
                 <MemberSelection
                   name={
                     member.userId === currentUserId && onEditSelf
-                      ? `${member.name}：表示名を変更`
+                      ? t("editName", { name: member.name })
                       : member.name
                   }
                   className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"

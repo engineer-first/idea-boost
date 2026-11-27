@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 // ボード面。カメラで移動・拡大縮小する世界レイヤーに共有付箋・グループ枠・
 // ドラッグ中のゴーストを描き、下端にマイ付箋ドックを重ねる。
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
@@ -70,7 +71,6 @@ import type {
   CanvasTool,
 } from "../logic/use-canvas-selection";
 import type { RemotePresenterView } from "../logic/use-presenter-view";
-import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { IdeaMapViewport } from "../molecules/idea-map-viewport";
@@ -84,7 +84,6 @@ import styles from "./room-board-canvas.module.css";
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
 // 自分の番でない人がマイ付箋を一覧の外へ運ぼうとしたとき、一覧の近くに出す案内。
 // 幅の狭いパネルでも1行に収め、一覧の位置を動かさない。
-const PUBLISH_BLOCKED_HINT = "自分の番になったら出せます";
 const ADOPTION_TARGET_CLASS_NAME =
   "absolute inset-0 z-20 cursor-pointer rounded-[inherit] border-4 border-transparent bg-transparent outline-none";
 
@@ -314,6 +313,9 @@ export function RoomBoardCanvas({
   addPrivateNoteRequest = 0,
   privateNoteAddRef,
 }: RoomBoardCanvasProps) {
+  const canvasMessages = useTranslations("app.boardCanvas");
+  const adoptionMessages = useTranslations("app.boardAdopt");
+  const publishBlockedHint = canvasMessages("publishBlocked");
   const [ideaMapViewportZoom, setIdeaMapViewportZoom] = useState(1);
   const isAdditionalWritingStep =
     isAdditionalWriting && phase.kind === "step" && phase.step === 1;
@@ -433,9 +435,15 @@ export function RoomBoardCanvas({
     : isResultStep(phase)
       ? "result"
       : "hidden";
-  const adoptionTargetLabel = getAdoptionTargetLabel(
-    phase.kind === "step" ? phase.phase : 1,
-  );
+  const adoptionTargetKey =
+    phase.kind === "step"
+      ? phase.phase === 1
+        ? "targetNote"
+        : phase.phase === 2
+          ? "targetQuestion"
+          : "targetIdea"
+      : "targetNote";
+  const adoptionTargetLabel = adoptionMessages(adoptionTargetKey);
   // 3-2から固定2軸マップで共有・配置し、投票・決定まで同じ表示を引き継ぐ。
   // 配置済みの付箋がある3-1再訪時は従来どおり閲覧のみできる。
   const isIdeaValueFeasibilityMapVisible =
@@ -528,19 +536,19 @@ export function RoomBoardCanvas({
     (isPresenterViewOwner && isPresenterViewFollowedByOthers);
 
   const waitingTurnHint = sharingComplete
-    ? "発表は終わりました"
+    ? canvasMessages("sharingFinished")
     : privateNotePublishBlocked
-      ? PUBLISH_BLOCKED_HINT
-      : "自分の番で発表できます";
+      ? publishBlockedHint
+      : canvasMessages("waitingYourTurn");
   const privateNotesSharingHint = isSavingBeforeShare
-    ? "本文の保存を確認してから共有します…"
+    ? canvasMessages("savingBeforeShare")
     : isPhaseStep(phase, 3, 2)
       ? canPublishPrivateNote
-        ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
+        ? canvasMessages("shareOnMap")
         : waitingTurnHint
       : phase.kind === "step" && phase.step === 2
         ? canPublishPrivateNote
-          ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+          ? canvasMessages("shareOnBoard")
           : waitingTurnHint
         : undefined;
   const presenterFrameColor =
@@ -940,7 +948,10 @@ export function RoomBoardCanvas({
           <button
             type="button"
             data-adopt-target="true"
-            aria-label={`採用する${adoptionTargetLabel}: ${note.content || "内容なし"}`}
+            aria-label={canvasMessages("adoptNoteLabel", {
+              target: adoptionTargetLabel,
+              content: note.content || canvasMessages("noContent"),
+            })}
             className={ADOPTION_TARGET_CLASS_NAME}
             onPointerEnter={() => handleAdoptionPointerEnter(note.id)}
             onPointerLeave={() => handleAdoptionPointerLeave(note.id)}
@@ -1018,7 +1029,7 @@ export function RoomBoardCanvas({
               lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
             }}
           >
-            {dragGhost.note.content || "メモを入力..."}
+            {dragGhost.note.content || canvasMessages("notePlaceholder")}
           </p>
         </StickyNote>
       );
@@ -1071,7 +1082,7 @@ export function RoomBoardCanvas({
               lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
             }}
           >
-            {dragGhost.note.content || "メモを入力..."}
+            {dragGhost.note.content || canvasMessages("notePlaceholder")}
           </p>
         </StickyNote>
       </div>
@@ -1111,7 +1122,7 @@ export function RoomBoardCanvas({
         ) : null}
         <div
           data-private-writing-hint={isPersonalNoteEntryPhase || undefined}
-          className={`pointer-events-none fixed top-[calc(var(--board-location-bottom,4.25rem)+0.5rem)] left-3 z-[42] sm:top-[var(--board-location-top,0.75rem)] sm:left-[calc(var(--board-location-right,23.25rem)+0.75rem)]`}
+          className="pointer-events-none fixed top-[calc(var(--board-location-bottom,4.25rem)+0.5rem)] left-3 z-[42] sm:top-[var(--board-location-top,0.75rem)] sm:left-[calc(var(--board-location-right,23.25rem)+0.75rem)]"
         >
           {character}
         </div>
@@ -1168,7 +1179,9 @@ export function RoomBoardCanvas({
             {canvasZoomControls}
             <span aria-live="polite" className="sr-only">
               {selectionIds.length > 0
-                ? `選択した付箋：${selectionIds.length}枚`
+                ? canvasMessages("selectedNotes", {
+                    count: selectionIds.length,
+                  })
                 : ""}
             </span>
           </div>
@@ -1209,15 +1222,15 @@ export function RoomBoardCanvas({
             data-interaction-tool={interactionTool}
             tabIndex={-1}
             role="application"
-            aria-label="共有キャンバス"
+            aria-label={canvasMessages("canvasAriaLabel")}
             aria-description={
               isAdditionalWritingStep
-                ? "背景のドラッグやホイールで共有ボードを移動し、共有付箋のクリックで全文を確認できます。表示の移動と拡大縮小は自分だけに反映されます。"
+                ? canvasMessages("additionalWritingAriaDescription")
                 : usesIdeaMapViewport
                   ? isIdeaMapWorkspaceStep
-                    ? "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。"
-                    : "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。"
-                  : "背景でVは選択、Hは手のひら。Spaceとドラッグで画面移動"
+                    ? canvasMessages("mapWorkspaceAriaDescription")
+                    : canvasMessages("mapReadOnlyAriaDescription")
+                  : canvasMessages("navigationAriaDescription")
             }
             data-selection-count={selectionIds.length}
             data-adopt-mode={isAdoptMode || undefined}
@@ -1267,7 +1280,7 @@ export function RoomBoardCanvas({
           >
             <button
               type="button"
-              aria-label="共有キャンバスの背景"
+              aria-label={canvasMessages("canvasBackgroundAriaLabel")}
               data-canvas-background="true"
               className="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             />
@@ -1397,7 +1410,7 @@ export function RoomBoardCanvas({
                   role="status"
                   className="absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-lg border bg-background/95 px-5 py-3 text-sm font-semibold shadow-tool"
                 >
-                  候補がありません。除外済みの付箋を戻してください。
+                  {canvasMessages("noCandidates")}
                 </div>
               ) : null}
               {!isIdeaValueFeasibilityMapVisible && dragGhost ? (
@@ -1425,7 +1438,8 @@ export function RoomBoardCanvas({
                       lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
                     }}
                   >
-                    {dragGhost.note.content || "メモを入力..."}
+                    {dragGhost.note.content ||
+                      canvasMessages("notePlaceholder")}
                   </p>
                 </StickyNote>
               ) : null}
@@ -1489,7 +1503,7 @@ export function RoomBoardCanvas({
                   {/* 編集を確定した直後に運ぶと、保存の応答前は下書きだけが新しい。 */}
                   {(draftValue?.(dragPreview.note.id) ??
                     dragPreview.note.content) ||
-                    "メモを入力..."}
+                    canvasMessages("notePlaceholder")}
                 </p>
               </StickyNote>,
               document.body,
@@ -1519,7 +1533,7 @@ export function RoomBoardCanvas({
             role="status"
             className="pointer-events-none absolute inset-x-4 top-1/3 text-center text-base text-muted-foreground"
           >
-            共有された付箋はまだありません
+            {canvasMessages("noSharedNotes")}
           </p>
         ) : null}
         {permissions.showPrivateToolbar ? (
@@ -1564,7 +1578,7 @@ export function RoomBoardCanvas({
                 }
                 sharingHint={privateNotesSharingHint}
                 sharingHintEmphasized={
-                  privateNotesSharingHint === PUBLISH_BLOCKED_HINT
+                  privateNotesSharingHint === publishBlockedHint
                 }
                 presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
                 workspaceCollapsible={isAdditionalWritingStep}

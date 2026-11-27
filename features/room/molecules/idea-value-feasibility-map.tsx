@@ -1,4 +1,7 @@
+"use client";
+
 import { ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import { IDEA_MAP_BASE_DIMENSIONS } from "@/contracts/board";
 import {
@@ -6,7 +9,6 @@ import {
   getIdeaValueFeasibilityMapDimensions,
   IDEA_MAP_AXIS_SIZE,
   IDEA_MAP_GRID_GAP,
-  IDEA_VALUE_FEASIBILITY_MAP_LABELS,
 } from "../logic/idea-value-feasibility-map";
 
 const MAP_GRID_STYLE = {
@@ -33,7 +35,19 @@ export function IdeaValueFeasibilityMap({
   planeRef,
   sizeLevel = 0,
 }: IdeaValueFeasibilityMapProps) {
-  const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
+  const t = useTranslations("app.boardMap");
+  const labels = {
+    ariaLabel: t("ariaLabel"),
+    title: t("title"),
+    value: t("value"),
+    feasibility: t("feasibility"),
+    low: t("low"),
+    high: t("high"),
+    feasibilityLow: t("feasibilityLow"),
+    feasibilityHigh: t("feasibilityHigh"),
+    valueScaleAriaLabel: t("valueScaleAriaLabel"),
+    feasibilityScaleAriaLabel: t("feasibilityScaleAriaLabel"),
+  };
   const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
   const axisLabelFontSize = getIdeaMapAxisLabelFontSize(sizeLevel);
   const axisLabelStyle = {

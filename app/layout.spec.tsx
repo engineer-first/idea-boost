@@ -5,7 +5,7 @@ const fonts = vi.hoisted(() => ({
   noto: vi.fn((_options: Record<string, unknown>) => ({ variable: "noto" })),
   zen: vi.fn(),
 }));
-const language = vi.hoisted(() => ({ value: "en-US,en;q=0.9" }));
+const language = vi.hoisted(() => ({ value: "en" }));
 
 vi.mock("next/font/google", () => ({
   Noto_Sans_JP: fonts.noto,
@@ -19,22 +19,33 @@ vi.mock("@/components/ui/sonner", () => ({ Toaster: () => null }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "accept-language": language.value }),
 }));
+vi.mock("next-intl/server", () => ({
+  getLocale: async () => language.value,
+  getMessages: async () => ({}),
+}));
+vi.mock("next-intl", () => ({
+  NextIntlClientProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+}));
 
 beforeEach(() => {
   vi.resetModules();
-  language.value = "en-US,en;q=0.9";
+  language.value = "en";
 });
 
-it.each(["en-US,en;q=0.9", "ja-JP,ja;q=0.9,en;q=0.8"])(
-  "翻訳していない画面は Accept-Language が %s でも日本語として読み上げる",
-  async (header) => {
+it.each([
+  ["en", "en"],
+  ["ja", "ja"],
+])(
+  "選択された表示言語 %s を文書の lang に設定する",
+  async (header, expected) => {
     language.value = header;
     const { default: RootLayout } = await import("./layout");
     const markup = renderToStaticMarkup(
       await RootLayout({ children: <main>ログイン</main> }),
     );
     const document = new DOMParser().parseFromString(markup, "text/html");
-    expect(document.documentElement.lang).toBe("ja");
+    expect(document.documentElement.lang).toBe(expected);
   },
 );
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Hand, Maximize2, Minus, MousePointer2, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import toolMotion from "@/components/ui/tool-motion.module.css";
@@ -42,6 +43,7 @@ export function CanvasZoomControls({
   onZoomIn,
   onFitToNotes,
 }: CanvasZoomControlsProps) {
+  const t = useTranslations("app.boardCanvas");
   if (!showNavigationControls && !moveHistory) return null;
   return (
     <TooltipProvider>
@@ -50,13 +52,15 @@ export function CanvasZoomControls({
         data-testid="canvas-zoom-controls"
         data-sharing-reaction-anchor=""
         aria-label={
-          showNavigationControls ? "キャンバス表示操作" : "付箋の移動履歴"
+          showNavigationControls
+            ? t("canvasControls")
+            : t("moveHistoryControls")
         }
         aria-description={
           showNavigationControls
             ? onToolChange
-              ? "方向キーで視野を移動、PageUp・PageDownで上下に読む。視野とズームの変更は自分だけの表示です"
-              : "ズームの変更は自分だけの表示です"
+              ? t("navigationDescription")
+              : t("zoomDescription")
             : undefined
         }
       >
@@ -68,7 +72,7 @@ export function CanvasZoomControls({
                   type="button"
                   variant={interactionTool === "select" ? "secondary" : "ghost"}
                   size="icon-sm"
-                  aria-label="選択ツール"
+                  aria-label={t("selectTool")}
                   className={toolMotion.button}
                   aria-pressed={interactionTool === "select"}
                   disabled={toolDisabled}
@@ -77,7 +81,7 @@ export function CanvasZoomControls({
                   <MousePointer2 aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">選択（V）</TooltipContent>
+              <TooltipContent side="top">{t("selectToolHint")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -85,7 +89,7 @@ export function CanvasZoomControls({
                   type="button"
                   variant={interactionTool === "hand" ? "secondary" : "ghost"}
                   size="icon-sm"
-                  aria-label="手のひらツール"
+                  aria-label={t("handTool")}
                   className={toolMotion.button}
                   aria-pressed={interactionTool === "hand"}
                   disabled={toolDisabled}
@@ -95,7 +99,7 @@ export function CanvasZoomControls({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs">
-                手のひら（H / Space＋ドラッグ）
+                {t("handToolHint")}
               </TooltipContent>
             </Tooltip>
             <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
@@ -119,14 +123,14 @@ export function CanvasZoomControls({
                   variant="ghost"
                   size="icon-sm"
                   disabled={toolDisabled || zoom <= 0.01}
-                  aria-label="キャンバスを縮小"
+                  aria-label={t("zoomOut")}
                   className={toolMotion.button}
                   onClick={onZoomOut}
                 >
                   <Minus aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">縮小</TooltipContent>
+              <TooltipContent side="top">{t("zoomOutHint")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -136,13 +140,13 @@ export function CanvasZoomControls({
                   size="sm"
                   className={`${toolMotion.button} min-w-14 tabular-nums`}
                   disabled={toolDisabled}
-                  aria-label="ズームを100%に戻す"
+                  aria-label={t("resetZoom")}
                   onClick={onResetZoom}
                 >
                   {Math.round(zoom * 100)}%
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">100%に戻す</TooltipContent>
+              <TooltipContent side="top">{t("resetZoomHint")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -151,14 +155,14 @@ export function CanvasZoomControls({
                   variant="ghost"
                   size="icon-sm"
                   disabled={toolDisabled || zoom >= 4}
-                  aria-label="キャンバスを拡大"
+                  aria-label={t("zoomIn")}
                   className={toolMotion.button}
                   onClick={onZoomIn}
                 >
                   <Plus aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">拡大</TooltipContent>
+              <TooltipContent side="top">{t("zoomInHint")}</TooltipContent>
             </Tooltip>
             <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
             <Tooltip>
@@ -168,14 +172,14 @@ export function CanvasZoomControls({
                   variant="ghost"
                   size="icon-sm"
                   disabled={toolDisabled}
-                  aria-label="付箋全体を表示"
+                  aria-label={t("fitToNotes")}
                   className={toolMotion.button}
                   onClick={onFitToNotes}
                 >
                   <Maximize2 aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">全体を表示</TooltipContent>
+              <TooltipContent side="top">{t("fitToNotesHint")}</TooltipContent>
             </Tooltip>
             {reactionControls?.(toolDisabled)}
           </div>

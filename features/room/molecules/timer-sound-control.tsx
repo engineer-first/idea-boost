@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleAlert, Volume2, VolumeX } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { TimerSoundControls } from "../logic/use-room-timer-sounds";
@@ -11,15 +12,15 @@ export function TimerSoundControl({
   onEnable,
   onMute,
 }: TimerSoundControls) {
+  const t = useTranslations("app.boardTimerSound");
   const errorId = useId();
   const toggleRef = useRef<HTMLButtonElement>(null);
   const noticeRef = useRef<HTMLFieldSetElement>(null);
   const [noticeOpen, setNoticeOpen] = useState(playbackBlocked);
-  const playbackMessage =
-    "通知音を再生できません。音ボタンで再試行できます（この端末のみ）。";
+  const playbackMessage = t("playbackError");
   const title = playbackBlocked
-    ? "通知音を再生できません。押して再試行（この端末のみ）"
-    : `通知音: ${enabled ? "ON" : "OFF"}（この端末のみ）`;
+    ? t("retryTitle")
+    : t(enabled ? "enabledTitle" : "disabledTitle");
 
   useEffect(() => {
     setNoticeOpen(playbackBlocked);
@@ -57,7 +58,7 @@ export function TimerSoundControl({
         ref={toggleRef}
         type="button"
         data-testid="timer-sound-toggle"
-        aria-label="タイマー通知音"
+        aria-label={t("label")}
         aria-pressed={enabled}
         aria-describedby={playbackBlocked ? errorId : undefined}
         title={title}
@@ -95,7 +96,7 @@ export function TimerSoundControl({
         popover="manual"
         hidden={!playbackBlocked || !noticeOpen}
         style={{ display: playbackBlocked && noticeOpen ? "block" : "none" }}
-        aria-label="通知音の再生エラー"
+        aria-label={t("errorLabel")}
         className="board-hud fixed inset-auto z-50 m-0 w-64 max-w-[calc(100vw-2rem)] space-y-2 rounded-xl border bg-background p-3 text-base leading-relaxed text-foreground shadow-tool"
       >
         <p>{playbackMessage}</p>
@@ -108,7 +109,7 @@ export function TimerSoundControl({
             toggleRef.current?.focus();
           }}
         >
-          案内を閉じる
+          {t("dismiss")}
         </Button>
       </fieldset>
     </>

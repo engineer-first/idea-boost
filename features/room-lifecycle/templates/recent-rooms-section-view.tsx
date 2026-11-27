@@ -1,5 +1,6 @@
 import { ArrowRight, CalendarDays, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import type { RecentRoom } from "@/contracts/recent-rooms";
 
@@ -20,8 +21,8 @@ const cardClass =
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function formatDate(value: number): string {
-  return new Intl.DateTimeFormat("ja-JP", {
+function formatDate(value: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "ja-JP", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -29,22 +30,19 @@ function formatDate(value: number): string {
   }).format(value);
 }
 
-function formatMonthDay(value: number): string {
-  return new Intl.DateTimeFormat("ja-JP", {
+function formatMonthDay(value: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "ja-JP", {
     month: "2-digit",
     day: "2-digit",
     timeZone: "Asia/Tokyo",
   }).format(value);
 }
 
-function remainingLabel(expiresAt: number, now: number): string {
-  const days = Math.ceil((expiresAt - now) / DAY_MS);
-  return days > 0 ? `あと${days}日` : "まもなく";
-}
-
 // 1枚を名前と1行の補足に収め、ホームの作成・参加を初期画面から押し出さない。
 // 日付は分かるものだけ出す。古い記録で無くても名前と状態のカードとして成り立つ。
 function RoomCard({ room, now }: { room: RecentRoom; now: number }) {
+  const t = useTranslations("app.home");
+  const locale = useLocale();
   return (
     <>
       <span className="flex min-w-0 flex-1 flex-col">
@@ -54,26 +52,34 @@ function RoomCard({ room, now }: { room: RecentRoom; now: number }) {
         <span className="flex flex-wrap items-center gap-x-3 text-sm tabular-nums text-muted-foreground">
           <span>
             {room.status === "active"
-              ? "進行中"
-              : `完了${room.completedAt ? `・${formatMonthDay(room.completedAt)}` : ""}`}
+              ? t("active")
+              : `${t("completed")}${room.completedAt ? `${locale === "ja" ? "・" : " · "}${formatMonthDay(room.completedAt, locale)}` : ""}`}
           </span>
           {room.createdAt !== undefined && (
             <span
               className="inline-flex items-center gap-1"
-              title={`${formatDate(room.createdAt)}に作成`}
+              title={t("createdAtTitle", {
+                date: formatDate(room.createdAt, locale),
+              })}
             >
               <CalendarDays className="size-3.5 shrink-0" aria-hidden />
-              {formatMonthDay(room.createdAt)}作成
+              {t("createdAt", { date: formatMonthDay(room.createdAt, locale) })}
             </span>
           )}
           {room.expiresAt !== undefined && (
             <span
               className="inline-flex items-center gap-1"
-              title={`${formatDate(room.expiresAt)}に自動削除`}
+              title={t("expiresAtTitle", {
+                date: formatDate(room.expiresAt, locale),
+              })}
             >
               <Trash2 className="size-3.5 shrink-0" aria-hidden />
-              <span className="sr-only">自動削除まで</span>
-              {remainingLabel(room.expiresAt, now)}
+              <span className="sr-only">{t("autoDeleteRemaining")}</span>
+              {Math.ceil((room.expiresAt - now) / DAY_MS) > 0
+                ? t("expiresInDays", {
+                    days: Math.ceil((room.expiresAt - now) / DAY_MS),
+                  })
+                : t("expiresSoon")}
             </span>
           )}
         </span>
@@ -94,6 +100,7 @@ export function RecentRoomsSectionView({
   onOpenActive,
   onRetry,
 }: RecentRoomsSectionViewProps) {
+  const t = useTranslations("app.home");
   return (
     <section
       aria-labelledby="recent-rooms-heading"
@@ -104,15 +111,15 @@ export function RecentRoomsSectionView({
         id="recent-rooms-heading"
         className="shrink-0 text-base font-semibold"
       >
-        最近のルーム
+        {t("recent")}
       </h2>
       {loadFailed ? (
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p role="status" className="text-base text-muted-foreground">
-            ルームを読み込めませんでした。
+            {t("loadFailed")}
           </p>
           <Button variant="outline" className="min-h-11" onClick={onRetry}>
-            もう一度読み込む
+            {t("retry")}
           </Button>
         </div>
       ) : (

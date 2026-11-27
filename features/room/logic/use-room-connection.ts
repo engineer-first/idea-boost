@@ -4,6 +4,7 @@
 // - 接続の生成・破棄と表示用の接続状態
 // - onMessage は最新のハンドラへ届ける（ハンドラ差し替えで再接続しない）
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CompletedRoomSchema } from "@/contracts/completed-rooms";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
@@ -46,6 +47,10 @@ export function useRoomConnection({
   isLeavingRef,
 }: UseRoomConnectionOptions): UseRoomConnectionResult {
   const router = useRouter();
+  const t = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   // createRoomClient が生成直後に "connecting" を通知するので初期値と一致する。
   const [connectionStatus, setConnectionStatus] =
     useState<RoomScreenConnectionStatus>("connecting");
@@ -198,7 +203,7 @@ export function useRoomConnection({
           // 自分の操作による通知は useLeaveRoom 成功時に出す（二重 toast 防止）。
           // ほかの参加者に外されたときは本人の操作が無いので、ここで伝える。
           if (status === "removed" && !isLeavingRef?.current)
-            roomNotify.removedFromRoom();
+            roomNotify.removedFromRoom(t);
           router.replace("/home");
           return;
         }
@@ -235,6 +240,7 @@ export function useRoomConnection({
     router,
     isLeavingRef,
     synchronizationRequest,
+    t,
   ]);
 
   const resynchronize = useCallback((): void => {

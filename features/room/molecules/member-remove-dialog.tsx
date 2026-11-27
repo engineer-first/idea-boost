@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,10 @@ export function MemberRemoveDialog({
   onConfirm,
   onClosed,
 }: MemberRemoveDialogProps) {
+  const locale = useLocale();
+  const t = useTranslations("app.boardMemberRemoval") as (
+    key: string,
+  ) => string;
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent
@@ -47,9 +52,7 @@ export function MemberRemoveDialog({
         }}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            この参加者をルームから外しますか？
-          </AlertDialogTitle>
+          <AlertDialogTitle>{t("title")}</AlertDialogTitle>
           {target ? (
             <div className="flex min-w-0 items-center gap-3">
               <TooltipProvider>
@@ -61,10 +64,13 @@ export function MemberRemoveDialog({
               </TooltipProvider>
               <div className="min-w-0">
                 <p className="break-all text-base font-semibold">
-                  {target.name || "名前未設定"}
+                  {target.name || t("unnamed")}
                 </p>
                 <p className="break-all text-xs text-muted-foreground">
-                  識別色: {NOTE_COLOR_NAMES[target.color]}
+                  {t("colorLabel")}:{" "}
+                  {locale === "en"
+                    ? t(`colors.${target.color}`)
+                    : NOTE_COLOR_NAMES[target.color]}
                 </p>
               </div>
             </div>
@@ -72,27 +78,27 @@ export function MemberRemoveDialog({
         </AlertDialogHeader>
         {!target ? (
           <p role="status" className="text-base text-muted-foreground">
-            この参加者は退出しました。参加者を選び直してください。
+            {t("notPresent")}
           </p>
         ) : null}
         {disconnected ? (
           <p role="status" className="text-base text-muted-foreground">
-            再接続してから操作してください。
+            {t("reconnect")}
           </p>
         ) : null}
         {blocked ? (
           <p role="status" className="text-base text-muted-foreground">
-            進行中の操作が終わってから操作してください。
+            {t("blocked")}
           </p>
         ) : null}
         {error ? (
           <p role="alert" className="text-base text-destructive">
-            {error}
+            {locale === "en" ? t("genericError") : error}
           </p>
         ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel className="min-h-11" disabled={pending}>
-            キャンセル
+            {t("cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             className="min-h-11 bg-destructive text-white hover:bg-destructive/90"
@@ -102,7 +108,7 @@ export function MemberRemoveDialog({
               onConfirm();
             }}
           >
-            {pending ? "退出処理中…" : "ルームから外す"}
+            {pending ? t("removing") : t("remove")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

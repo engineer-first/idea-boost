@@ -7,6 +7,7 @@ import {
   ChevronUp,
   LockKeyhole,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   useCallback,
   useEffect,
@@ -309,6 +310,7 @@ export function PrivateNotesToolbar({
   onDelete,
   onDragStart,
 }: PrivateNotesToolbarProps) {
+  const t = useTranslations("app.boardPrivateNotes");
   const isWorkspace = presentation === "workspace";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const displayedExpanded = workspaceCollapsible
@@ -826,13 +828,13 @@ export function PrivateNotesToolbar({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {canCreateNote ? (
           <CardTitle className="whitespace-nowrap font-normal text-sm/none md:text-base/none">
-            マイ付箋
+            {t("title")}
           </CardTitle>
         ) : null}
         {/* 共有前の付箋がほかの人に見えないことを、鍵の形と札で示す（#1085）。 */}
         <p className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 text-xs text-muted-foreground">
           <LockKeyhole aria-hidden="true" className="size-3.5 shrink-0" />
-          自分だけに表示
+          {t("privateOnly")}
         </p>
       </div>
       {canCreateNote ? (
@@ -840,7 +842,7 @@ export function PrivateNotesToolbar({
           id={composerHelpId}
           className="ms-auto text-right text-xs text-muted-foreground"
         >
-          Enterで追加 · Shift+Enterで改行
+          {t("inputHint")}
         </p>
       ) : null}
     </div>
@@ -867,7 +869,7 @@ export function PrivateNotesToolbar({
       </div>
       <textarea
         ref={composerRef}
-        aria-label="付箋を書く"
+        aria-label={t("inputLabel")}
         aria-describedby={composerHelpId}
         autoCapitalize="sentences"
         data-private-note-composer="true"
@@ -883,7 +885,7 @@ export function PrivateNotesToolbar({
           composerComposingRef.current = false;
         }}
         onKeyDown={handleComposerKeyDown}
-        placeholder="付箋を書く"
+        placeholder={t("placeholder")}
         rows={1}
         value={composerValue}
         className={cn(
@@ -966,7 +968,7 @@ export function PrivateNotesToolbar({
               ) : (
                 <ArrowUp aria-hidden="true" />
               )}
-              {displayedExpanded ? "縮める" : "広げる"}
+              {displayedExpanded ? t("collapse") : t("expand")}
             </Button>
           </div>
         ) : (
@@ -985,7 +987,9 @@ export function PrivateNotesToolbar({
                   variant="ghost"
                   size="icon-sm"
                   aria-expanded={displayedExpanded}
-                  aria-label={`マイ付箋を${displayedExpanded ? "閉じる" : "開く"}`}
+                  aria-label={t("openList", {
+                    action: displayedExpanded ? t("close") : t("open"),
+                  })}
                   className={toolMotion.button}
                   onClick={() => setIsExpanded((expanded) => !expanded)}
                 >
@@ -1031,7 +1035,7 @@ export function PrivateNotesToolbar({
                 )
               : "px-2 py-3",
           )}
-          aria-label="マイ付箋一覧"
+          aria-label={t("list")}
           data-testid="private-notes-scroll"
           onPointerDown={(event) => {
             if (
@@ -1078,7 +1082,7 @@ export function PrivateNotesToolbar({
             notes.length > 0 ? (
               // 書き始めた後は、例を1行の参照に縮めて自分の付箋に場所を譲る。
               <section
-                aria-label="問いの例"
+                aria-label={t("questionExamples")}
                 className="mx-auto mb-4 flex max-w-[var(--private-notes-grid-width)] flex-wrap justify-center gap-2"
               >
                 {exampleNotes.map((example, index) => (
@@ -1097,7 +1101,7 @@ export function PrivateNotesToolbar({
               </section>
             ) : (
               <section
-                aria-label="問いの例"
+                aria-label={t("questionExamples")}
                 className={cn("mb-6 grid", workspaceGrid)}
               >
                 {exampleNotes.map((example, index) => (

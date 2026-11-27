@@ -1,10 +1,11 @@
 import type { AppLocale } from "@/lib/i18n/locale";
-import type ja from "@/messages/ja/landing.json";
+import type appEn from "@/messages/en/app.json";
+import type landingJa from "@/messages/ja/landing.json";
 
-// 日本語の JSON を正として next-intl の文言に型を付ける。
+// 英語 JSON を共通スキーマとして使い、日本語側の不足キーも型で検出する。
 declare module "next-intl" {
   interface AppConfig {
     Locale: AppLocale;
-    Messages: { landing: typeof ja };
+    Messages: { app: typeof appEn; landing: typeof landingJa };
   }
 }

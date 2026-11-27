@@ -13,7 +13,7 @@ export const Conflict: Story = {
       {
         noteId: "例の付箋",
         text: "消さずに残した文章です。",
-        reason: "他の編集と競合しました。",
+        reason: "conflict",
       },
     ],
   },
@@ -25,12 +25,12 @@ export const MultipleLongDrafts: Story = {
       {
         noteId: "中断した付箋",
         text: "接続が切れる前に考えていた文章です。\n".repeat(50),
-        reason: "現在は編集できません。",
+        reason: "not-editable",
       },
       {
         noteId: "変換中の付箋",
         text: "かんじに変換していた未確定の文章",
-        reason: "変換中に中断されました。",
+        reason: "interrupted-composition",
       },
     ],
   },
@@ -59,7 +59,7 @@ export const SaveResultUnknown: Story = {
       {
         noteId: "保存確認中の付箋",
         text: "保存を送信しましたが、認証期限が切れて結果を確認できていない文章です。",
-        reason: "保存結果を確認できていません。再認証後に結果を確認します。",
+        reason: "result-unknown",
       },
     ],
   },

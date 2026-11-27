@@ -1,16 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ROOM_DISPLAY_NAME_MAX_LENGTH } from "@/contracts/room-protocol";
-import {
-  guestIdentityNotice,
-  guestIdentityPendingLabel,
-  guestIdentitySubmitLabel,
-  guestNameLabel,
-} from "../logic/guest-identity-copy";
 
 export type GuestNameFormViewProps = {
   name: string;
@@ -25,14 +20,15 @@ export function GuestNameFormView({
   name,
   pending,
   error: serverError,
-  submitLabel = guestIdentitySubmitLabel,
+  submitLabel,
   onNameChange,
   onSubmit,
 }: GuestNameFormViewProps) {
+  const t = useTranslations("app.guestName");
   const id = useId();
   const tooLong = name.trim().length > ROOM_DISPLAY_NAME_MAX_LENGTH;
   const error = tooLong
-    ? `表示名は${ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。`
+    ? t("tooLong", { max: ROOM_DISPLAY_NAME_MAX_LENGTH })
     : serverError;
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -47,7 +43,7 @@ export function GuestNameFormView({
       }}
     >
       <Field className="gap-2">
-        <FieldLabel htmlFor={id}>{guestNameLabel}</FieldLabel>
+        <FieldLabel htmlFor={id}>{t("label")}</FieldLabel>
         <Input
           ref={inputRef}
           id={id}
@@ -69,9 +65,9 @@ export function GuestNameFormView({
           </FieldError>
         ) : null}
       </Field>
-      <p className="text-base text-muted-foreground">{guestIdentityNotice}</p>
+      <p className="text-base text-muted-foreground">{t("notice")}</p>
       <Button type="submit" className="min-h-11" disabled={pending || tooLong}>
-        {pending ? guestIdentityPendingLabel : submitLabel}
+        {pending ? t("pending") : (submitLabel ?? t("submit"))}
       </Button>
     </form>
   );

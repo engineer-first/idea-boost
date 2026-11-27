@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 
@@ -19,6 +20,8 @@ export function useRoomAvatar({
   blocked: boolean;
   send: (message: ClientMessage) => boolean;
 }): RoomAvatarControls & { applyMessage: (message: ServerMessage) => boolean } {
+  const locale = useLocale();
+  const t = useTranslations("app.lobbyMembers");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const operation = useRef<string | null>(null);
@@ -38,12 +41,8 @@ export function useRoomAvatar({
   );
   useEffect(() => {
     if ((!connected || blocked) && operation.current)
-      finish(
-        connected
-          ? null
-          : "接続が切れました。再接続後にアイコンを確認してください。",
-      );
-  }, [connected, blocked, finish]);
+      finish(connected ? null : t("avatarConnectionLost"));
+  }, [connected, blocked, finish, t]);
   const disabled = !connected || blocked || pending;
   return {
     pending,
@@ -56,17 +55,12 @@ export function useRoomAvatar({
       setPending(true);
       setError(null);
       if (!send({ type: "member:cycle-avatar", operationId })) {
-        finish(
-          "送信できませんでした。接続を確認して、もう一度お試しください。",
-        );
+        finish(t("avatarSendFailed"));
         return;
       }
       if (operation.current === operationId)
         timeout.current = setTimeout(
-          () =>
-            finish(
-              "結果を確認できませんでした。現在のアイコンを確認して、もう一度お試しください。",
-            ),
+          () => finish(t("avatarResultUnknown")),
           5000,
         );
     },
@@ -82,7 +76,7 @@ export function useRoomAvatar({
         operation.current &&
         message.operationId === operation.current
       ) {
-        finish(message.message);
+        finish(locale === "en" ? t("avatarGenericError") : message.message);
         return true;
       }
       return false;

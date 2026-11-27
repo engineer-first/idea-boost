@@ -1,14 +1,18 @@
+import { headers } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
-import { DEFAULT_LOCALE } from "@/lib/i18n/locale";
-import en from "@/messages/en/landing.json";
-import ja from "@/messages/ja/landing.json";
+import { resolveLocale } from "@/lib/i18n/locale";
+import appEn from "@/messages/en/app.json";
+import landingEn from "@/messages/en/landing.json";
+import appJa from "@/messages/ja/app.json";
+import landingJa from "@/messages/ja/landing.json";
 
-// 表示言語は URL で決める（LP は / と /en）。Accept-Language では切り替えない。
-// 言語を指定されなかったときは日本語にする。
-export default getRequestConfig(async ({ requestLocale }) => {
-  const locale = (await requestLocale) === "en" ? "en" : DEFAULT_LOCALE;
+export default getRequestConfig(async () => {
+  const locale = resolveLocale((await headers()).get("accept-language"));
   return {
     locale,
-    messages: { landing: locale === "ja" ? ja : en },
+    messages: {
+      app: locale === "ja" ? appJa : appEn,
+      landing: locale === "ja" ? landingJa : landingEn,
+    },
   };
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { Pencil, Repeat } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -39,6 +40,11 @@ export function LobbyMembers({
   avatarChange,
   avatarDescriptionId,
 }: LobbyMembersProps) {
+  const locale = useLocale();
+  const t = useTranslations("app.lobbyMembers");
+  const memberMessages = useTranslations("app.boardMemberRemoval") as (
+    key: string,
+  ) => string;
   const density =
     members.length <= 4
       ? "spacious"
@@ -49,7 +55,7 @@ export function LobbyMembers({
   return (
     <TooltipProvider>
       <fieldset
-        aria-label="参加者"
+        aria-label={t("participants")}
         data-testid="room-members"
         data-density={density}
         data-count={members.length}
@@ -78,18 +84,21 @@ export function LobbyMembers({
               {member.name}
             </span>
           );
+          const hasDuplicateName = members.some(
+            (other) =>
+              other.userId !== member.userId && other.name === member.name,
+          );
+          const duplicateColorName =
+            locale === "en"
+              ? memberMessages(`colors.${member.color}`)
+              : NOTE_COLOR_NAMES[member.color];
           const status = (
             <span className={styles.status}>
-              {isMe ? "あなた" : null}
+              {isMe ? t("you") : null}
               {isConnected === false ? (
-                <span>{isMe ? "・" : ""}接続切れ</span>
+                <span>{isMe ? t("youDisconnected") : t("disconnected")}</span>
               ) : null}
-              {members.some(
-                (other) =>
-                  other.userId !== member.userId && other.name === member.name,
-              ) ? (
-                <span> {NOTE_COLOR_NAMES[member.color]}</span>
-              ) : null}
+              {hasDuplicateName ? <span> {duplicateColorName}</span> : null}
             </span>
           );
           return (
@@ -107,8 +116,8 @@ export function LobbyMembers({
                       className={styles.avatarButton}
                       aria-label={
                         avatarChange.pending
-                          ? "アイコンを変更中…"
-                          : "自分のアイコンを変更"
+                          ? t("avatarChanging")
+                          : t("changeMyAvatar")
                       }
                       aria-describedby={avatarDescriptionId}
                       aria-busy={avatarChange.pending}
@@ -140,7 +149,7 @@ export function LobbyMembers({
                     <button
                       type="button"
                       className={styles.nameButton}
-                      aria-label={`${member.name}：表示名を変更`}
+                      aria-label={t("changeDisplayName", { name: member.name })}
                       aria-haspopup="dialog"
                       onClick={(event) => {
                         event.currentTarget.focus();

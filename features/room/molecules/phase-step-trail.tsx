@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type Ref, useState } from "react";
 import {
   Popover,
@@ -9,12 +10,7 @@ import {
 } from "@/components/ui/popover";
 import type { RoomStepPhase } from "@/contracts/phase";
 import { getStepKind } from "../logic/lobby-flow";
-import {
-  getNextStepShortName,
-  PHASE_MARKERS,
-  PHASE_SHORT_NAMES,
-  STEP_SHORT_NAMES,
-} from "../logic/phase-labels";
+import { PHASE_MARKERS, STEP_SHORT_NAMES } from "../logic/phase-labels";
 import { BoardFlowSteps } from "./board-flow-steps";
 import styles from "./phase-step-trail.module.css";
 import { STEP_KIND_ICONS } from "./step-kind-icons";
@@ -46,7 +42,9 @@ export function PhaseStepTrail({
   // 前のステップで開いた状態は持ち越さない。元のステップへ戻っても開き直さない。
   if (flow.stepKey !== stepKey) setFlow({ stepKey, open: false });
   const flowOpen = flow.stepKey === stepKey && flow.open;
-  const phaseName = `${PHASE_MARKERS[phase.phase]}${PHASE_SHORT_NAMES[phase.phase]}`;
+  const t = useTranslations("app.boardLocation");
+  const translate = (key: string) => t(key as Parameters<typeof t>[0]);
+  const phaseName = `${PHASE_MARKERS[phase.phase]}${translate(`phaseNames.${phase.phase}`)}`;
   return (
     <div className={`${styles.trail} board-hud`} data-testid="phase-step-trail">
       <Popover
@@ -56,7 +54,7 @@ export function PhaseStepTrail({
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label={`${phaseName}：全体の流れを開く`}
+            aria-label={t("trailOpenFlow", { phase: phaseName })}
             className={styles.phase}
             data-testid="phase-step-trail-phase"
           >
@@ -70,14 +68,18 @@ export function PhaseStepTrail({
           hideWhenDetached
           className={styles.flow}
         >
-          <section aria-label="全体の流れと手順" className={styles.flowBody}>
+          <section aria-label={t("flowAria")} className={styles.flowBody}>
             <BoardFlowSteps phase={phase} />
           </section>
         </PopoverContent>
       </Popover>
-      <ol aria-label={`${phaseName}のステップ`} className={styles.steps}>
-        {STEP_SHORT_NAMES[phase.phase].map((name, index) => {
+      <ol
+        aria-label={t("trailSteps", { phase: phaseName })}
+        className={styles.steps}
+      >
+        {STEP_SHORT_NAMES[phase.phase].map((shortName, index) => {
           const step = index + 1;
+          const name = translate(`stepNames.${phase.phase}-${step}`);
           const state: StepState =
             step < phase.step
               ? "done"
@@ -89,7 +91,11 @@ export function PhaseStepTrail({
           const content = (
             <>
               {state === "done" ? (
-                <span role="img" aria-label="完了" className={styles.mark}>
+                <span
+                  role="img"
+                  aria-label={t("completed")}
+                  className={styles.mark}
+                >
                   <Check aria-hidden="true" strokeWidth={3} />
                 </span>
               ) : (
@@ -102,7 +108,7 @@ export function PhaseStepTrail({
           );
           return (
             <li
-              key={name}
+              key={shortName}
               aria-current={state === "current" ? "step" : undefined}
               data-state={state}
               data-kind={kind}
@@ -112,8 +118,8 @@ export function PhaseStepTrail({
                 <button
                   ref={guideTriggerRef}
                   type="button"
-                  aria-label={`「${name}」の進め方を開く`}
-                  title="このステップの進め方を見る"
+                  aria-label={t("openGuide", { step: name })}
+                  title={t("guideTitle")}
                   className={styles.stepButton}
                   data-testid="phase-step-trail-guide"
                   onClick={onOpenGuide}
@@ -126,7 +132,9 @@ export function PhaseStepTrail({
               {state === "current" && timeUp ? (
                 <span
                   role="img"
-                  aria-label={`次の「${getNextStepShortName(phase)}」へ進めます`}
+                  aria-label={t("nextAvailable", {
+                    step: translate(`nextLabels.${phase.phase}-${phase.step}`),
+                  })}
                   className={styles.nextArrow}
                 >
                   <ChevronRight aria-hidden="true" strokeWidth={3} />

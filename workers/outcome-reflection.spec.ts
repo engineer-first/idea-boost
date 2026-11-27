@@ -49,6 +49,172 @@ const generator = () =>
   );
 
 describe("ユーザーニーズ調査の準備", () => {
+  it("日本語と英語の調査結果を同じルーム内で別々に保存・再取得する", async () => {
+    const room = await createRoomAs(user);
+    await runInRoomDO(room.roomId, async (_instance, state) => {
+      const englishOutput = {
+        kind: "plan" as const,
+        method: "Recent-event interview",
+        reason: "Learn about users' actual experiences.",
+        steps: [
+          {
+            title: "Find participants",
+            action: "Invite people who recently experienced the problem.",
+            task: "Tell me about the last time this happened.",
+            observe: "Notice the actions and workarounds they describe.",
+          },
+        ],
+        synthesis: "Separate observed facts from interpretations.",
+        recommendation: null,
+        alternatives: [],
+      };
+      const generate = vi.fn(
+        async (_mode: string, _input: string, locale: string) =>
+          locale === "en" ? englishOutput : output,
+      );
+      const storage = new OutcomeReflectionStorage(
+        state,
+        completed(),
+        generate,
+      );
+      const japanese = await storage.readOrGenerate(user.sub, research(), "ja");
+      const english = await storage.readOrGenerate(other, research(1), "en");
+
+      expect(japanese?.shared).toMatchObject({
+        revision: 1,
+        result: output,
+      });
+      expect(english?.shared).toMatchObject({
+        revision: 1,
+        result: englishOutput,
+      });
+      expect(
+        (await storage.readOrGenerate(user.sub, null, "ja"))?.shared,
+      ).toEqual(japanese?.shared);
+      expect((await storage.readOrGenerate(other, null, "en"))?.shared).toEqual(
+        english?.shared,
+      );
+      expect(generate.mock.calls.map((call) => call[2])).toEqual(["ja", "en"]);
+    });
+  });
+
+  it("記録が入力上限を超えるルームでも、日英が同じ条件で生成して revision を上げ合わない", async () => {
+    // ラベルの長さが言語で違うため、上限の境目では残る記録の数が日英で変わる。
+    const noteCount = 300;
+    const content = (index: number, pad: number) =>
+      `昼休みに席を探すだけで疲れてしまう${"。".repeat(pad)}${index % 10}`;
+    const decisions = completedRoomFixture().decisions;
+    const kept = (locale: "ja" | "en", pad: number) =>
+      buildReflectionInput(
+        [
+          ...decisions.map((decision) => ({
+            id: `decision-${decision.phase}`,
+            label: (locale === "ja"
+              ? ["", "確定した課題", "確定した問い", "採用したアイデア"]
+              : [
+                  "",
+                  "Confirmed challenge",
+                  "Confirmed question",
+                  "Adopted idea",
+                ])[decision.phase],
+            content: decision.content,
+            scene: null,
+          })),
+          ...Array.from({ length: noteCount }, (_, index) => ({
+            id: `problem-grouping:many-${index}`,
+            label:
+              locale === "ja" ? "課題の共有付箋" : "Shared challenge notes",
+            content: content(index, pad),
+            scene: "problem-grouping" as const,
+          })),
+        ],
+        { context: { audience: "", situation: "" } },
+      ).sources.length;
+    const pad = Array.from({ length: 60 }, (_, index) => index).find(
+      (candidate) => kept("ja", candidate) !== kept("en", candidate),
+    );
+    if (pad === undefined) throw new Error("境目の長さが見つかりません");
+    const room = await createRoomAs(user);
+    await runInRoomDO(room.roomId, async (_instance, state) => {
+      const board = completedSceneBoardFixture("problem-grouping");
+      const store = {
+        get: completed().get,
+        board: async (
+          _userId: string,
+          kind: "problem-grouping" | "question-decision" | "idea-mapping",
+        ) =>
+          kind === "problem-grouping"
+            ? {
+                scene: { kind, recordedAt: 123, status: "saved" as const },
+                board: {
+                  ...board,
+                  notes: Array.from({ length: noteCount }, (_, index) => ({
+                    ...board.notes[1],
+                    id: `many-${index}`,
+                    content: content(index, pad),
+                    excluded: false,
+                  })),
+                },
+              }
+            : null,
+      };
+      const storage = new OutcomeReflectionStorage(state, store, generator());
+      const japanese = await storage.readOrGenerate(user.sub, research(), "ja");
+      expect(japanese?.shared.truncated).toBe(true);
+      const english = await storage.readOrGenerate(other, research(1), "en");
+      expect(english?.shared.revision).toBe(1);
+      const reread = await storage.readOrGenerate(user.sub, null, "ja");
+      expect(reread?.shared).toMatchObject({ revision: 1, result: output });
+    });
+  });
+
+  it("AI制作依頼文のキャッシュ・選択・生成回数上限を言語ごとに分ける", async () => {
+    const room = await createRoomAs(user);
+    await runInRoomDO(room.roomId, async (_instance, state) => {
+      const generate = vi.fn(
+        async (_mode: string, input: string, locale: string) => ({
+          artifact: JSON.parse(input).artifact,
+          content:
+            locale === "en"
+              ? "Create an interview guide."
+              : "質問リストを作成してください。",
+        }),
+      );
+      const storage = new OutcomeReflectionStorage(
+        state,
+        completed(),
+        generate,
+      );
+
+      for (let index = 0; index < 20; index++) {
+        await storage.readOrGenerate(user.sub, prompt(`日本語-${index}`), "ja");
+        await storage.readOrGenerate(other, prompt(`English-${index}`), "en");
+      }
+      await expect(
+        storage.readOrGenerate(user.sub, prompt("日本語-追加"), "ja"),
+      ).rejects.toThrow(REFLECTION_LIMIT_ERROR);
+      await expect(
+        storage.readOrGenerate(other, prompt("English-extra"), "en"),
+      ).rejects.toThrow(REFLECTION_LIMIT_ERROR);
+
+      const japanesePrompt = await storage.readOrGenerate(
+        user.sub,
+        prompt("日本語-0"),
+        "ja",
+      );
+      const englishPrompt = await storage.readOrGenerate(
+        other,
+        prompt("English-0"),
+        "en",
+      );
+      expect(japanesePrompt?.prompt?.content).toContain("質問リスト");
+      expect(englishPrompt?.prompt?.content).toContain(
+        "Create an interview guide",
+      );
+      expect(generate).toHaveBeenCalledTimes(40);
+    });
+  });
+
   it("古い参照版で共通の手順を更新せず、推論前に拒否する", async () => {
     const room = await createRoomAs(user);
     await runInRoomDO(room.roomId, async (_instance, state) => {
@@ -397,6 +563,9 @@ describe("ユーザーニーズ調査の準備", () => {
       });
       expect(result?.competitionPrompt).toMatch(/出典URLと確認日/);
       expect(result?.competitionPrompt).toContain("対処法・代替手段");
+      expect(result?.competitionPrompt).toContain(
+        "実際のユーザーに追加で確かめること",
+      );
       expect(result?.competitionPrompt).toContain("decision-3");
       expect(generate).not.toHaveBeenCalled();
     });
@@ -580,6 +749,24 @@ describe("ユーザーニーズ調査の準備", () => {
       });
     }
   });
+  it.each([
+    ["research", "{}"],
+    ["prompt", JSON.stringify({ artifact: "Interview guide" })],
+  ] as const)(
+    "英語の表示では %s の指示から日本語で書かせる記述をなくす",
+    async (mode, input) => {
+      const run = vi.fn().mockResolvedValue({
+        response:
+          mode === "research"
+            ? output
+            : { artifact: "Interview guide", content: "Create a guide." },
+      });
+      await generateReflection({ run } as unknown as Ai, mode, input, "en");
+      const system: string = run.mock.calls[0][1].messages[0].content;
+      expect(system).toContain("English");
+      expect(system).not.toMatch(/Japanese|日本語|してみよう/);
+    },
+  );
   it("制作依頼文の記録・補足・制作物名をJSONデータとして区切り、データ内の命令を無効化する", async () => {
     const room = await createRoomAs(user);
     await runInRoomDO(room.roomId, async (_instance, state) => {

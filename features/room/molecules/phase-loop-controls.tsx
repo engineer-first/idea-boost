@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -41,6 +42,7 @@ export function PhaseLoopControls({
   onCancelSelection,
   onClearDecision,
 }: PhaseLoopControlsProps) {
+  const t = useTranslations("app.boardPhaseLoop");
   const [revoteOpen, setRevoteOpen] = useState(false);
   if (phase.kind !== "step" || !isResultStep(phase)) return null;
   const revoteControl = (
@@ -52,25 +54,25 @@ export function PhaseLoopControls({
           className="h-11 px-3 text-sm"
           disabled={disabled || candidateCount === 0}
         >
-          もう一度投票する
+          {t("revote")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent aria-describedby="revote-description">
         <AlertDialogHeader>
           <AlertDialogTitle>
-            候補{candidateCount}件に投票し直しますか？
+            {t("confirmTitle", { count: candidateCount })}
           </AlertDialogTitle>
           <AlertDialogDescription id="revote-description">
-            付箋は消えません。
+            {t("notesRemain")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+          <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
           <AlertDialogAction
             disabled={disabled || candidateCount === 0}
             onClick={onRevote}
           >
-            前回の票を消して始める
+            {t("confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -99,7 +101,7 @@ export function PhaseLoopControls({
           role="status"
           className="rounded-lg border bg-background px-4 py-2 text-sm"
         >
-          候補がありません。薄く表示された付箋のメニューから「除外を戻す」を選んでください。
+          {t("noCandidates")}
         </p>
       ) : null}
       {/* 上部の操作欄（board HUD）と同じ高さ・角丸・影・ボタンの高さにそろえる。 */}

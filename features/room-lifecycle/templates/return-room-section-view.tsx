@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { GUEST_IDENTITY_UNAVAILABLE_MESSAGE } from "../logic/guest-identity-message";
+
 export type ReturnRoomStatus =
   | "identity_unavailable"
   | "idle"
@@ -25,15 +26,16 @@ export function ReturnRoomSectionView({
   onOpenPrevious,
   historyMessage,
 }: ReturnRoomSectionViewProps) {
+  const t = useTranslations("app.home");
   const title =
     status === "completed"
-      ? "前回の成果を見る"
+      ? t("previousOutcome")
       : status === "active"
-        ? "前のルームに戻る"
-        : "前のルームを開く";
+        ? t("returnPrevious")
+        : t("openPrevious");
   return (
     <section
-      aria-label="前のルーム"
+      aria-label={t("previousRoom")}
       className="rounded-lg border border-border bg-card p-4 sm:p-5"
     >
       {hasCandidate && (
@@ -45,18 +47,18 @@ export function ReturnRoomSectionView({
               className="text-base leading-relaxed text-muted-foreground"
             >
               {status === "identity_unavailable"
-                ? GUEST_IDENTITY_UNAVAILABLE_MESSAGE
+                ? t("identityUnavailable")
                 : status === "checking"
-                  ? "ルームを確認しています…"
+                  ? t("checking")
                   : status === "retry"
-                    ? "前のルームを確認できません。しばらくしてから、もう一度お試しください。"
+                    ? t("retryPrevious")
                     : status === "unavailable"
-                      ? "このルームには戻れません。ルームが終了したか、参加・閲覧できなくなっています。"
+                      ? t("unavailablePrevious")
                       : status === "completed"
-                        ? "前回の会は完了しています。成果を見返せます。"
+                        ? t("completedPrevious")
                         : status === "active"
-                          ? "前のルームに戻って作業を続けられます。"
-                          : "以前のルームを確認して開きます。"}
+                          ? t("activePrevious")
+                          : t("previousDescription")}
             </p>
           </div>
           {status !== "unavailable" && status !== "identity_unavailable" && (
@@ -67,9 +69,9 @@ export function ReturnRoomSectionView({
               onClick={onConfirm}
             >
               {status === "checking"
-                ? "確認中…"
+                ? t("confirming")
                 : status === "retry"
-                  ? "もう一度確認する"
+                  ? t("confirmAgain")
                   : title}
               <ArrowRight className="size-4" aria-hidden />
             </Button>
@@ -83,7 +85,7 @@ export function ReturnRoomSectionView({
           }
         >
           <summary className="cursor-pointer text-base font-medium">
-            以前のルーム
+            {t("previousRooms")}
           </summary>
           <div className="mt-2 flex flex-col gap-2">
             {previousRooms.map((room) => (

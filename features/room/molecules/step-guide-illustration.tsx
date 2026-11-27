@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowDown,
   ArrowRight,
@@ -7,12 +9,13 @@ import {
   MousePointer2,
   Users,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import { type DotVotePhase, DotVoteStickerImage } from "@/features/dot-vote";
 import {
-  STEP_GUIDE_DIAGRAM_COPY as copy,
   SCAMPER_QUESTION_EXAMPLES,
+  STEP_GUIDE_DIAGRAM_COPY,
   type StepGuideDiagramKind,
   stepGuideVoteDiagramCopy,
 } from "../logic/step-guide-copy";
@@ -88,7 +91,27 @@ export function StepGuideIllustration({
   alt,
   votePhase = 1,
 }: StepGuideIllustrationProps) {
-  const voteCopy = stepGuideVoteDiagramCopy(votePhase);
+  const locale = useLocale();
+  const t = useTranslations("app.stepGuide");
+  const copy =
+    locale === "en"
+      ? (t.raw("diagrams") as typeof STEP_GUIDE_DIAGRAM_COPY)
+      : STEP_GUIDE_DIAGRAM_COPY;
+  const scamperExamples =
+    locale === "en"
+      ? (t.raw("scamperExamples") as typeof SCAMPER_QUESTION_EXAMPLES)
+      : SCAMPER_QUESTION_EXAMPLES;
+  const voteCopy =
+    locale === "en"
+      ? {
+          subjective: "Top pick!",
+          objective: votePhase === 3 ? "High potential" : "Like",
+          subjectiveRemaining: "Top pick! · 1 vote left",
+          objectiveRemaining: `${votePhase === 3 ? "High potential" : "Like"} · 3 votes left`,
+          firstVotes: "Top pick: 2 · Potential: 1",
+          secondVotes: "Top pick: 1 · Potential: 2",
+        }
+      : stepGuideVoteDiagramCopy(votePhase);
   let content: ReactNode;
   switch (kind) {
     case "timer":
@@ -268,7 +291,7 @@ export function StepGuideIllustration({
         <div className="space-y-2">
           <p className="text-sm font-semibold">{copy.exampleIssue}</p>
           <div className="grid gap-2">
-            {SCAMPER_QUESTION_EXAMPLES.map((example) => (
+            {scamperExamples.map((example) => (
               <div
                 key={example.perspective}
                 className="grid min-w-0 items-center gap-3 rounded-xl border bg-background p-2 sm:grid-cols-2"

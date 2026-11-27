@@ -1,3 +1,4 @@
+import { AppLocaleSchema } from "../contracts/app-locale";
 import {
   CompletedRoomsCursorSchema,
   type CompletedRoomsResponse,
@@ -13,6 +14,7 @@ import {
   REFLECTION_LIMIT_ERROR,
   REFLECTION_RESEARCH_LIMIT_ERROR,
 } from "./room/outcome-reflection";
+
 export function completedJson(body: unknown, status = 200): Response {
   return Response.json(body, {
     status,
@@ -75,6 +77,10 @@ export async function handleCompletedRooms(
     /^\/api\/completed-rooms\/([^/]+)\/reflection$/,
   );
   if (reflection) {
+    const localeResult = AppLocaleSchema.safeParse(
+      url.searchParams.get("locale") ?? "ja",
+    );
+    const locale = localeResult.success ? localeResult.data : "ja";
     if (!["GET", "POST"].includes(request.method))
       return completedJson({ error: "利用できない操作です。" }, 405);
     if (
@@ -102,7 +108,11 @@ export async function handleCompletedRooms(
     try {
       const result = await env.ROOM_DO.get(
         env.ROOM_DO.idFromName(reflection[1]),
-      ).getOutcomeReflection(userId, parsed?.success ? parsed.data : null);
+      ).getOutcomeReflection(
+        userId,
+        parsed?.success ? parsed.data : null,
+        locale,
+      );
       return result ? completedJson(result) : notFound();
     } catch (cause) {
       if (
@@ -113,17 +123,36 @@ export async function handleCompletedRooms(
           REFLECTION_RESEARCH_LIMIT_ERROR,
           REFLECTION_CONFLICT_ERROR,
         ].includes(cause.message)
-      )
+      ) {
+        const englishErrors: Record<string, string> = {
+          [REFLECTION_BUSY_ERROR]:
+            "Another AI generation is running in this room. Try again when it finishes.",
+          [REFLECTION_LIMIT_ERROR]:
+            "This room has reached the limit for generating production prompts. Previously generated content is still available.",
+          [REFLECTION_RESEARCH_LIMIT_ERROR]:
+            "This room has reached the limit for generating research plans. The saved plan is still available.",
+          [REFLECTION_CONFLICT_ERROR]:
+            "The shared research plan has changed. Refresh it before trying again.",
+        };
         return completedJson(
-          { error: cause.message },
+          {
+            error:
+              locale === "en" ? englishErrors[cause.message] : cause.message,
+          },
           [REFLECTION_LIMIT_ERROR, REFLECTION_RESEARCH_LIMIT_ERROR].includes(
             cause.message,
           )
             ? 429
             : 409,
         );
+      }
       return completedJson(
-        { error: "AIの生成に失敗しました。時間をおいて再試行してください。" },
+        {
+          error:
+            locale === "en"
+              ? "AI generation failed. Please wait a moment and try again."
+              : "AIの生成に失敗しました。時間をおいて再試行してください。",
+        },
         503,
       );
     }

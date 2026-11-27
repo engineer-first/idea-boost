@@ -1,5 +1,8 @@
+"use client";
+
 import "./sticky-note.css";
 import { Check } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type * as React from "react";
 import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import type { NoteColor } from "@/contracts/room-protocol";
@@ -54,6 +57,7 @@ export function StickyNote({
   "data-vote-drop-target": dataVoteDropTarget,
   "data-excluded": dataExcluded,
 }: StickyNoteProps) {
+  const t = useTranslations("app.boardStickyNote");
   return (
     <div
       ref={ref}
@@ -128,8 +132,8 @@ export function StickyNote({
         {onStampClick && decisionPresentation === "board" ? (
           <button
             type="button"
-            title={isDecided ? "確定を取り消す" : undefined}
-            aria-label="決定のはんこ（確定を取り消す）"
+            title={isDecided ? t("undo") : undefined}
+            aria-label={t("stampAria")}
             aria-hidden={!isDecided || undefined}
             tabIndex={isDecided ? 0 : -1}
             disabled={stampDisabled || !isDecided}
@@ -138,20 +142,20 @@ export function StickyNote({
             onPointerDown={(event) => event.stopPropagation()}
             onClick={onStampClick}
           >
-            決定
+            {t("decision")}
           </button>
         ) : (
           <span
             role="status"
             aria-label={
               decisionPresentation === "reference"
-                ? "採用済み"
-                : "取り組む課題に決定済み"
+                ? t("adopted")
+                : t("issueDecision")
             }
             aria-hidden={!isDecided || undefined}
             className="sticky-note-stamp"
           >
-            決定
+            {t("decision")}
           </span>
         )}
         {showDecideHint && !isDecided ? (
@@ -162,7 +166,7 @@ export function StickyNote({
             className="absolute bottom-12 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full border-2 border-state-decided bg-background px-3 py-1.5 text-sm font-bold text-state-decided-text shadow-tool"
           >
             <Check aria-hidden="true" className="size-4" strokeWidth={3} />
-            決定する
+            {t("decideHint")}
           </span>
         ) : null}
       </div>

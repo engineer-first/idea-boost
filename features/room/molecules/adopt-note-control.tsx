@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, MousePointerClick, Undo2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -26,7 +27,7 @@ export type AdoptNoteControlProps = {
   onStartSelection: () => void;
   onCancelSelection: () => void;
   onClearDecision?: () => void;
-  /** 選択中の段で、キャンセルの前に並べるほかの操作（再投票など）。 */
+  /** 選択中の段で、「キャンセル」の前に並べるほかの操作（再投票など）。 */
   selectingActions?: ReactNode;
 };
 
@@ -41,12 +42,19 @@ export function AdoptNoteControl({
   onClearDecision,
   selectingActions,
 }: AdoptNoteControlProps) {
-  const targetLabel = getAdoptionTargetLabel(phaseNumber);
+  const t = useTranslations("app.boardAdopt");
+  const targetLabel = t(
+    phaseNumber === 1
+      ? "targetNote"
+      : phaseNumber === 2
+        ? "targetQuestion"
+        : "targetIdea",
+  );
 
   if (decisionContent !== null) {
     return (
       <section
-        aria-label={`採用する${targetLabel}の確定状態`}
+        aria-label={t("selected", { target: targetLabel })}
         className="pointer-events-auto flex h-14 max-w-xl items-center gap-3 rounded-xl border border-state-decided/40 bg-background p-1.5 pl-4 shadow-tool"
       >
         <CheckCircle2
@@ -55,7 +63,7 @@ export function AdoptNoteControl({
         />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-state-decided-text">
-            {targetLabel}を1件確定済み
+            {t("confirmed", { target: targetLabel })}
           </p>
           <p className="truncate text-sm font-medium" title={decisionContent}>
             {decisionContent}
@@ -70,7 +78,7 @@ export function AdoptNoteControl({
             onClick={onClearDecision}
           >
             <Undo2 aria-hidden="true" />
-            確定を取り消す
+            {t("undo")}
           </Button>
         ) : null}
       </section>
@@ -96,7 +104,7 @@ export function AdoptNoteControl({
         </span>
         <div className="flex-1">
           <p className="whitespace-nowrap text-sm font-bold">
-            採用する{targetLabel}をクリック
+            {t("clickToSelect", { target: targetLabel })}
           </p>
         </div>
         {selectingActions}
@@ -104,11 +112,11 @@ export function AdoptNoteControl({
           type="button"
           variant="outline"
           className="h-11 px-3 text-sm"
-          aria-label="選択をキャンセル"
+          aria-label={t("cancel")}
           onClick={onCancelSelection}
         >
           <X aria-hidden="true" />
-          キャンセル
+          {t("cancelLabel")}
         </Button>
       </div>
     );
@@ -122,7 +130,7 @@ export function AdoptNoteControl({
       onClick={onStartSelection}
     >
       <MousePointerClick aria-hidden="true" />
-      採用する付箋を選ぶ
+      {t("chooseNote")}
     </Button>
   );
 }

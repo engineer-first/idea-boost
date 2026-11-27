@@ -1020,7 +1020,10 @@ describe("メンバー参加・退出の通知", () => {
       }),
     );
     expect(notifyMocks.memberJoined).toHaveBeenCalledTimes(1);
-    expect(notifyMocks.memberJoined).toHaveBeenCalledWith("Taro");
+    expect(notifyMocks.memberJoined).toHaveBeenCalledWith(
+      "Taro",
+      expect.any(Function),
+    );
   });
 
   it("member_left を受信すると members から名前を引き、notify.memberLeft を呼ぶ", () => {
@@ -1050,7 +1053,10 @@ describe("メンバー参加・退出の通知", () => {
       }),
     );
     expect(notifyMocks.memberLeft).toHaveBeenCalledTimes(1);
-    expect(notifyMocks.memberLeft).toHaveBeenCalledWith("Taro");
+    expect(notifyMocks.memberLeft).toHaveBeenCalledWith(
+      "Taro",
+      expect.any(Function),
+    );
   });
 });
 

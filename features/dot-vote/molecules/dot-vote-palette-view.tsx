@@ -1,3 +1,4 @@
+import { useLocale, useTranslations } from "next-intl";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -126,6 +127,8 @@ export function DotVotePaletteView({
   onStickerDragStart,
   onWithdrawOne,
 }: DotVotePaletteViewProps) {
+  const locale = useLocale() === "en" ? "en" : "ja";
+  const t = useTranslations("app.boardVote");
   const paletteId = useId();
   const activeSelectedKind =
     selectedKind !== null &&
@@ -138,7 +141,7 @@ export function DotVotePaletteView({
 
   return (
     <section
-      aria-label="投票パレット"
+      aria-label={t("palette")}
       aria-describedby={`${paletteId}-help`}
       data-vote-palette="true"
       data-return-drop-target={isReturnDropTarget ? "true" : undefined}
@@ -149,14 +152,12 @@ export function DotVotePaletteView({
       }`}
     >
       <div id={`${paletteId}-help`} className="sr-only">
-        <p className="sr-only">投票対象は現在のフェーズの個々の付箋です。</p>
-        <p className="sr-only">{dotVoteGuidance(phase).withdrawal}</p>
-        <p className="sr-only">
-          付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
-        </p>
+        <p className="sr-only">{dotVoteGuidance(phase, locale).target}</p>
+        <p className="sr-only">{dotVoteGuidance(phase, locale).withdrawal}</p>
+        <p className="sr-only">{t("withdrawal")}</p>
       </div>
       <fieldset className="grid w-full min-w-0 grid-cols-2 gap-2">
-        <legend className="sr-only">使用するシールの種類</legend>
+        <legend className="sr-only">{t("kinds")}</legend>
         {DOT_VOTE_KINDS.map((kind) => {
           const isEmpty = voteRemaining[kind] <= 0;
           const isWaiting = isEmpty && (pendingOperationCount > 0 || disabled);
@@ -170,14 +171,14 @@ export function DotVotePaletteView({
           const showsSpinner = isWaiting || disabled;
           // 状態は形（輪郭・破線・灰色・スピナー）で示し、文言は読み上げだけに残す。
           const stateLabel = disabled
-            ? "接続待ち"
+            ? t("connecting")
             : isWaiting
-              ? "確認待ち"
+              ? t("pending")
               : isExhausted
-                ? "使い切りました"
+                ? t("used")
                 : isSelected
-                  ? "選択中"
-                  : "選んで貼る";
+                  ? t("selected")
+                  : t("place");
           return (
             <Button
               key={kind}
@@ -186,6 +187,7 @@ export function DotVotePaletteView({
                 kind,
                 voteRemaining[kind],
                 phase,
+                locale,
               )}
               aria-pressed={isSelected}
               aria-describedby={
@@ -229,7 +231,7 @@ export function DotVotePaletteView({
                 <DotVoteStickerImage kind={kind} size="palette" />
               </span>
               <span className="text-center text-sm leading-snug font-bold">
-                {dotVoteLabels(phase)[kind]}
+                {dotVoteLabels(phase, locale)[kind]}
               </span>
               {showsSpinner ? (
                 <span aria-hidden="true" className="flex h-4 items-center">
@@ -247,7 +249,7 @@ export function DotVotePaletteView({
               </span>
               {canWithdrawOne ? (
                 <span id={`${paletteId}-${kind}-withdraw`} className="sr-only">
-                  押すと、この種類の自分の最新の1票を取り消します。
+                  {t("withdraw")}
                 </span>
               ) : null}
             </Button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useId, useState } from "react";
 import {
   Popover,
@@ -47,6 +48,7 @@ export function BoardContext({
   roomName,
   roomNameLoading = false,
 }: BoardContextProps) {
+  const t = useTranslations("app.boardContext");
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
   // 2軸マップのステップは、前のステップで開いたカードを持ち越さず閉じて入る。
   // 開いたカードがマップの左上と縦軸の「高」を隠すため。
@@ -79,14 +81,14 @@ export function BoardContext({
   const disclosures = [
     {
       id: "hmw",
-      label: "決定した問い",
+      label: t("decidedQuestion"),
       votePhase: 2 as const,
       content: decidedHmw,
       reference: hmwReference,
     },
     {
       id: "issue",
-      label: "決定した課題",
+      label: t("decidedChallenge"),
       votePhase: 1 as const,
       content: hmwDecidedIssue,
       reference: issueReference,
@@ -115,10 +117,10 @@ export function BoardContext({
           {roomNameLoading ? (
             "\u00a0"
           ) : roomName === null ? (
-            <span className="text-muted-foreground">テーマ未設定</span>
+            <span className="text-muted-foreground">{t("unsetTheme")}</span>
           ) : (
             <>
-              <span className="text-muted-foreground">テーマ：</span>
+              <span className="text-muted-foreground">{t("themeLabel")}</span>
               <span className="font-medium">{roomName}</span>
             </>
           )}
@@ -154,7 +156,7 @@ export function BoardContext({
                 <section
                   data-testid={`board-reference-${disclosure.id}-content`}
                   tabIndex={isOpen ? 0 : -1}
-                  aria-label={`${disclosure.label}の本文`}
+                  aria-label={t("contentLabel", { label: disclosure.label })}
                   className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   style={{
                     fontSize:

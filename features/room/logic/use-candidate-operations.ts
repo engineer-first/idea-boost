@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import type { Note } from "@/features/notes";
@@ -27,6 +28,10 @@ export function useCandidateOperations({
   connected: boolean;
   send: (message: ClientMessage) => void;
 }): CandidateOperations {
+  const t = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const [pending, setPending] = useState<PendingCandidate[]>([]);
   const pendingRef = useRef<PendingCandidate[]>([]);
   const notesRef = useRef(notes);
@@ -42,12 +47,9 @@ export function useCandidateOperations({
 
   useEffect(() => {
     if (connected) return;
-    if (pendingRef.current.length)
-      notify.error(
-        "通信が切断されました。再接続後の候補状態を確認してください。",
-      );
+    if (pendingRef.current.length) notify.error(t("connectionLost"));
     clear();
-  }, [connected, clear]);
+  }, [connected, clear, t]);
 
   const change = useCallback(
     (noteId: string, excluded: boolean) => {
