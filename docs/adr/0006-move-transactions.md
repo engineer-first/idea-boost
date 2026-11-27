@@ -32,6 +32,7 @@ date: "2026-10-04"
 
 - [ADR 0017](0017-move-current-groups.md)：通常移動の分類の確定を変更する提案。全体の一括確定は維持する。
 - [ADR 0019](0019-queue-local-note-moves.md)：保存待ち中の入力受付を追加する提案。
+- [ADR 0033](0033-note-move-never-fails.md)：一括確定は維持し、版の不一致で本人にやり直しを求める範囲を狭めていく提案。
 
 ## References
 
