@@ -75,3 +75,16 @@ it("検索エンジンと AI 向けに LP の構造化データを埋め込む",
     data["@graph"].map((node: { "@type": string }) => node["@type"]),
   ).toEqual(expect.arrayContaining(["WebSite", "WebApplication", "FAQPage"]));
 });
+
+it("フッターから解説の一覧へ進める", () => {
+  render(
+    <LandingView
+      locale="ja"
+      isLoggedIn={false}
+      entry={getLandingEntry(false)}
+    />,
+  );
+  expect(
+    screen.getByRole("link", { name: "アイデア出しのガイド" }),
+  ).toHaveAttribute("href", "/guides");
+});
