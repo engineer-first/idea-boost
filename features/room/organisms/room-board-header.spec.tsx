@@ -918,7 +918,7 @@ describe("RoomBoardHeader", () => {
       });
 
       expect(screen.queryByRole("dialog")).toBeNull();
-      expect(dialog).toHaveStyle({ animation: "none", opacity: "0" });
+      expect(dialog).toHaveInlineStyle({ animation: "none", opacity: "0" });
     } finally {
       vi.useRealTimers();
     }

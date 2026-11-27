@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import type { PointerEvent } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { getNoteHeight, NOTE_WIDTH } from "@/contracts/board";
 import type { RoomPhase } from "@/contracts/phase";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
@@ -106,6 +106,12 @@ function setup({
     viewport,
     toolbar,
   };
+}
+
+// computed styleは文書につながった要素でしか読めない。倍率を持たせた要素は文書へ置く。
+function attachToDocument(element: HTMLElement) {
+  document.body.append(element);
+  onTestFinished(() => element.remove());
 }
 
 describe("useRoomBoardInteractions cursor input", () => {
@@ -425,6 +431,7 @@ describe("useRoomBoardInteractions cursor input", () => {
         "--idea-map-note-scale",
         String(100 / (NOTE_WIDTH * getIdeaMapNoteDisplayScale(2))),
       );
+      attachToDocument(plane);
       result.current.ideaMapPlaneRef.current = plane;
 
       act(() =>
@@ -478,6 +485,7 @@ describe("useRoomBoardInteractions cursor input", () => {
         getNoteHeight(buildNote().content, buildNote().fontSize) * scale;
       const plane = document.createElement("div");
       plane.style.setProperty("--idea-map-note-scale", String(responsiveScale));
+      attachToDocument(plane);
       plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
       result.current.ideaMapPlaneRef.current = plane;
       act(() =>
@@ -575,6 +583,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     });
     const mapPositionArea = document.createElement("div");
     mapPositionArea.style.setProperty("--idea-map-note-scale", "0.75");
+    attachToDocument(mapPositionArea);
     mapPositionArea.getBoundingClientRect = () => new DOMRect(0, 0, 600, 500);
     document.body.append(mapPositionArea);
     result.current.ideaMapPlaneRef.current = mapPositionArea;
@@ -642,6 +651,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     });
     const plane = document.createElement("div");
     plane.style.setProperty("--idea-map-note-scale", "0.75");
+    attachToDocument(plane);
     plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
     result.current.ideaMapPlaneRef.current = plane;
     toolbar.getBoundingClientRect = () => new DOMRect(600, 100, 200, 500);
