@@ -1,0 +1,75 @@
+name: Discord Needs Human Notify
+
+on:
+  issues:
+    types: [labeled]
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: discord-needs-human-notify-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    if: github.event.label.name == 'needs-human'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Notify Discord
+        uses: actions/github-script@v9
+        env:
+          # 着手通知と同じチャンネルに送る。質問のスレッドを立てる場所なので、人への依頼もそこに置く。
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL_ISSUE_ASSIGN }}
+          # オーナーの Discord ユーザー ID（公開してよい値なので variable）。未設定ならメンションしない。
+          OWNER_DISCORD_ID: ${{ vars.OWNER_DISCORD_ID }}
+        with:
+          script: |
+            const { buildDiscordNeedsHumanPayload } = require("./.github/scripts/discord-needs-human-notify.js");
+
+            if (context.payload.label?.name !== "needs-human") {
+              core.info("needs-human 以外のラベルのため通知をスキップしました");
+              return;
+            }
+
+            const target = context.payload.pull_request ?? context.payload.issue;
+            if (target.state !== "open") {
+              core.info("open でないため通知をスキップしました");
+              return;
+            }
+
+            const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+            if (!webhookUrl) {
+              core.warning("DISCORD_WEBHOOK_URL_ISSUE_ASSIGN が未設定のため通知をスキップしました");
+              return;
+            }
+
+            if (!/^\d+$/.test(process.env.OWNER_DISCORD_ID ?? "")) {
+              core.warning("OWNER_DISCORD_ID が未設定のため、メンション無しで通知します");
+            }
+
+            const payload = buildDiscordNeedsHumanPayload({
+              kind: context.payload.pull_request ? "PR" : "Issue",
+              number: target.number,
+              title: target.title,
+              url: target.html_url,
+              ownerDiscordId: process.env.OWNER_DISCORD_ID,
+            });
+
+            const response = await fetch(webhookUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+              core.setFailed(
+                `Discord通知に失敗しました: ${response.status} ${await response.text()}`,
+              );
+            }
