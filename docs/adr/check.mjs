@@ -11,7 +11,7 @@ export function validateAdr(name, text) {
     front?.[1].match(new RegExp(`^${key}: (.+)$`, "m"))?.[1];
   if (!id || value("id") !== `"${id}"`)
     errors.push(`${name}: idとファイル名が不一致`);
-  if (value("status") !== undefined)
+  if (/^status\s*:/im.test(front?.[1] ?? ""))
     errors.push(`${name}: statusは置かない（置き換えはSupersession節で示す）`);
   const date = value("date")?.match(/^"(\d{4}-\d{2}-\d{2})"$/)?.[1];
   if (
@@ -31,7 +31,7 @@ export function validateAdr(name, text) {
   if (!/^### 本ADRで決定しないこと$/m.test(decision))
     errors.push(`${name}: Decision末尾の本ADRで決定しないことが必須`);
   const supersession = successorOf(text);
-  if (supersession === null)
+  if (supersession === null || supersession === name)
     errors.push(`${name}: Supersessionに後継ADRへのリンクが必要`);
   const body = text.split(/^## References$/m)[0];
   if (/(?:Issue|PR)?\s*#\d+/.test(body))
@@ -51,6 +51,17 @@ function successorOf(text) {
   return section.match(/\]\((\d{4}-[a-z0-9-]+\.md)\)/)?.[1] ?? null;
 }
 
+/**
+ * 索引で、先頭の列がそのADRへのリンクになっている行。
+ * @param {string} index @param {string} name @returns {string | undefined}
+ */
+export function indexRow(index, name) {
+  const id = name.slice(0, 4);
+  return index
+    .split("\n")
+    .find((line) => line.startsWith(`| [${id}](${name})`));
+}
+
 /** @param {string} directory @returns {string[]} */
 export function checkDirectory(directory) {
   const errors = [];
@@ -61,7 +72,7 @@ export function checkDirectory(directory) {
   for (const name of names) {
     const text = readFileSync(resolve(directory, name), "utf8");
     errors.push(...validateAdr(name, text));
-    const row = index.split("\n").find((line) => line.includes(`](${name})`));
+    const row = indexRow(index, name);
     if (!row) errors.push(`${name}: 索引に行が無い`);
     const successor = successorOf(text);
     if (successor && !names.includes(successor))

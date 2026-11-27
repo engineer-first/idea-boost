@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateAdr } from "./check.mjs";
+import { indexRow, validateAdr } from "./check.mjs";
 
 const valid = `---
 id: "0001"
@@ -30,6 +30,19 @@ describe("ADRの構造検査", () => {
       "statusを持つ",
       valid.replace('id: "0001"\n', 'id: "0001"\nstatus: Accepted\n'),
       "status",
+    ],
+    [
+      "大文字や空のstatusを持つ",
+      valid.replace('id: "0001"\n', 'id: "0001"\nStatus:\n'),
+      "status",
+    ],
+    [
+      "Supersession節が自分自身を指す",
+      valid.replace(
+        "## References",
+        "## Supersession\n[ADR 0001](0001-example.md)が置き換える。\n## References",
+      ),
+      "Supersession",
     ],
     [
       "Supersession節に後継のリンクがない",
@@ -68,5 +81,24 @@ describe("ADRの構造検査", () => {
         ),
       ),
     ).toEqual([]);
+  });
+});
+
+describe("索引の行", () => {
+  const index = [
+    "| ADR | 判断 |",
+    "| [0007](0007-old.md) | 旧判断（[0008](0008-new.md)に置き換え） |",
+    "| [0008](0008-new.md) | 新判断 |",
+  ].join("\n");
+
+  it("先頭のリンクが一致する行を返す", () => {
+    expect(indexRow(index, "0008-new.md")).toBe(
+      "| [0008](0008-new.md) | 新判断 |",
+    );
+  });
+
+  it("後継として別の行に出るだけなら行が無いとみなす", () => {
+    const without = index.split("\n").slice(0, 2).join("\n");
+    expect(indexRow(without, "0008-new.md")).toBeUndefined();
   });
 });
