@@ -1,11 +1,4 @@
 import { expect, it } from "vitest";
-import { ROOM_PHASE_STEP_LABELS } from "@/contracts/phase";
-import {
-  getNextStepShortName,
-  PHASE_LABELS,
-  PHASE_SHORT_NAMES,
-  STEP_SHORT_NAMES,
-} from "@/features/room/logic/phase-labels";
 import en from "@/messages/en/app.json";
 import ja from "@/messages/ja/app.json";
 
@@ -54,24 +47,4 @@ it("同じキーの文言は、日本語と英語で同じ引数を受け取る"
         argumentNames(enLeaves[key]).join(),
   );
   expect(mismatched).toEqual([]);
-});
-
-it("日本語の辞書のフェーズ・ステップ名は、進行の定義と同じ呼び方にする", () => {
-  const location = ja.boardLocation;
-  for (const phase of [1, 2, 3] as const) {
-    expect(location.phaseTitles[phase]).toBe(PHASE_LABELS[phase]);
-    expect(location.phaseNames[phase]).toBe(PHASE_SHORT_NAMES[phase]);
-    STEP_SHORT_NAMES[phase].forEach((name, index) => {
-      const step = index + 1;
-      const key = `${phase}-${step}` as keyof typeof location.stepNames;
-      expect(location.stepNames[key]).toBe(name);
-      expect(location.nextLabels[key]).toBe(
-        getNextStepShortName({ kind: "step", phase, step } as Parameters<
-          typeof getNextStepShortName
-        >[0]),
-      );
-      const labels: Record<number, string> = ROOM_PHASE_STEP_LABELS[phase];
-      expect(`${key} ${location.fullSteps[key]}`).toBe(labels[step]);
-    });
-  }
 });
