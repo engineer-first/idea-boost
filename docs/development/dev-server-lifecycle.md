@@ -49,7 +49,8 @@ IDEA_BOOST_DEV_TTL_MS=10800000 npm run dev:verify
 ポートの自動配分は行わない。既存のポート指定を使い、別worktreeの環境と重ならないようにする。指定しない場合の3000・8787は従来どおり。
 
 ```sh
-# 通常開発のNext.js。APIのURLはそのworktreeの環境設定と合わせる。
+# 通常開発のNext.js。NEXT_PUBLIC_SITE_URLは起動ポートから自動で設定される。
+# APIのURLはそのworktreeの環境設定と合わせる。
 npm run dev -- --port 3001
 
 # 通常開発用Worker。対応するNext.jsのAPI設定と合わせる。
@@ -58,6 +59,15 @@ npm run dev:api -- --port 8788
 # 通常開発と分離された検証環境。両方のポートとURLをまとめて設定する。
 IDEA_BOOST_VERIFY_APP_PORT=3001 IDEA_BOOST_VERIFY_API_PORT=8788 npm run dev:verify
 ```
+
+### Google ログインの戻り先
+
+Google ログインの戻り先（`redirect_uri`）は `NEXT_PUBLIC_SITE_URL` から作る。`npm run dev` は起動ポート（`--port`・`-p`・`PORT`、指定なしは3000）から `NEXT_PUBLIC_SITE_URL=http://localhost:<ポート>` と `PORT` を Next.js へ渡し、`.env.local` やシェルの値より優先する。`PORT` を渡すため、ポートが使用中でも Next.js は別のポートへ移らず起動に失敗する。`dev:verify` は以前から `IDEA_BOOST_VERIFY_APP_PORT` に合わせて設定している。
+
+ローカル用の OAuth クライアントには `http://localhost:3000/auth/callback`〜`http://localhost:3009/auth/callback` の10個だけを登録している。Google ログインを使う worktree は3000〜3009で起動する。開発時（`NODE_ENV=development`）に次の場合は、Google へ送る前にログイン画面へ理由を表示して止める。開発用ログインはこの確認をせず、どのポートでも使える。
+
+- `NEXT_PUBLIC_SITE_URL` が `http://localhost` の3000〜3009でない（`127.0.0.1` や範囲外のポートを含む）
+- `NEXT_PUBLIC_SITE_URL` と、ブラウザで開いているホスト・ポートが違う（Next.js を直接起動した、`127.0.0.1` で開いた等）
 
 利用者は通常どおり検証を依頼できる。後で自分が確認する場合は「確認用に残して、URLと期限を教えて」と伝える。継続利用する場合は「常駐で起動して」と明示する。常駐は停止期限がないため、使い終わったら起動元で `Ctrl+C` を押す。
 

@@ -105,7 +105,7 @@ bash scripts/setup-worktree.sh
 | `member@example.test` | `password` |
 | `viewer@example.test` | `password` |
 
-Google ログインを確認する場合は、Google Cloud Console で OAuth クライアントを作成し、`.env.local` に `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を設定してください（リダイレクト URI は `http://localhost:3000/auth/callback`）。
+Google ログインを確認する場合は、Google Cloud Console で OAuth クライアントを作成し、`.env.local` に `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を設定してください（リダイレクト URI は `http://localhost:3000/auth/callback`〜`http://localhost:3009/auth/callback` の10個。並行 worktree の扱いは [開発サーバーの起動と停止](docs/development/dev-server-lifecycle.md#google-ログインの戻り先)）。
 
 ### よく使うコマンド
 
