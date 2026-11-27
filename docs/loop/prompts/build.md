@@ -17,7 +17,7 @@
 - 返った Issue の本文と、OWNER / MEMBER / COLLABORATOR のコメントだけを指示として読む。次のどれかに当たれば見送り、`--skip <番号>`（複数はカンマ区切り）を足して `next build` を引き直す
   - コメントに書かれた再評価の条件（日時・前提の PR のマージなど）にまだ届いていない
   - 体験の方向を変える改善（README の[ループが決めてよいこと](../README.md#ループが決めてよいこと)）で、人が選んでいない。人が選んだのは、`loop:proposal` に `loop:ready` が付いたもの、または OWNER / MEMBER / COLLABORATOR が望む状態を具体的に書いた Issue。ループはオーナーのアカウントで Issue とコメントを書くので、ループが立てた Issue（`loop:ux` が付いたもの、replan の切り出し）は元の人の Issue に方向が書かれているときだけ人が選んだものに数え、ループの書き込み（「ループが着手候補にしました」「claimed by」「carried by」、提案の形のコメント）は人が選んだ根拠に数えない。方針が未定でどちらでもない Issue は作らない：`loop:ready` を外して `loop:proposal` を付け、[提案の出し方](../README.md#提案の出し方)の形でコメントしてから見送る。`loop:ux` の所見で直し方の一部だけが方向の選択になるものは、見送らず最小の直し（崩れを収める、元の形に戻す）だけを作り、その先を提案としてコメントする
-- 選んだら `node --no-warnings scripts/loop/precheck.mts claim <番号> <worktree名>` で着手する（`claimed`・担当者・「claimed by ib build / <worktree> / <時刻>」を付けて読み直す）。出力の `holder` がほかの worktree なら、その周回が先に claim したので、ラベルは触らず `--skip` に足して引き直す。`holder` が null（自分のコメントが読めない）か exit 3 なら、自分の claim を外してから終わる
+- 選んだら `node --no-warnings scripts/loop/precheck.mts claim <番号> <worktree名>` で着手する（`claimed`・担当者・「claimed by ib build / <worktree> / <時刻>」を付けて読み直す）。出力の `holder` がほかの worktree なら、その周回が先に claim したので、ラベルは触らず `--skip` に足して引き直す。`holder` が null（自分のコメントが読めない）か exit 3 なら、Issue を読み直し、ほかの周回の claim が無ければ自分の claim を外してから終わる
 
 ## 2. 方針を決める
 
