@@ -24,6 +24,7 @@ import {
   type RoomBoardInteractions,
   useRoomBoardInteractions,
 } from "../logic/use-room-board-interactions";
+import { SharingReactionControls } from "../molecules/sharing-reaction-controls";
 import {
   getBoardFitInsets,
   RoomBoardView,
@@ -1561,6 +1562,20 @@ export const MoveHistorySharing: Story = {
     ...Step1_2_Sharing.args,
     ...MoveHistoryPending.args,
     phase: STEP_1_2,
+  },
+};
+// 1-2 で聞く人が発表者をフォロー中。下中央の帯と左下のツールバー（リアクション付き）が並ぶ。
+export const SharingFollowingPresenter: Story = {
+  args: {
+    ...MoveHistorySharing.args,
+    isFollowingPresenterView: true,
+    isPresenterViewOwner: false,
+    presenterViewName: "佐藤 花子",
+    presenterViewColor: "blue",
+    onUnfollowPresenterView: fn(),
+    reactionControls: (disabled) => (
+      <SharingReactionControls disabled={disabled} onSendReaction={fn()} />
+    ),
   },
 };
 export const MoveHistoryMap: Story = {
