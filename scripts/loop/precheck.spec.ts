@@ -105,10 +105,16 @@ describe("isReady: 前提の作業と人の PR", () => {
       true,
     );
   });
-  it("人の open PR が紐づいていれば拾わない（ループのアカウントの PR は数えない）", () => {
+  it("人の open PR が紐づいていれば拾わない（ループの PR だけは数えない）", () => {
     const i = issue(["loop:ready"]);
-    expect(isReady({ ...i, linkedPrAuthors: ["teammate"] }, ACTOR)).toBe(false);
-    expect(isReady({ ...i, linkedPrAuthors: [ACTOR] }, ACTOR)).toBe(true);
+    const linked = (author: string, labels: string[]) => ({
+      ...i,
+      linkedPrs: [{ author, labels }],
+    });
+    expect(isReady(linked("teammate", ["loop"]), ACTOR)).toBe(false);
+    // オーナーが手で出した PR はループと同じアカウントだが、loop ラベルが無いので人の PR
+    expect(isReady(linked(ACTOR, []), ACTOR)).toBe(false);
+    expect(isReady(linked(ACTOR, ["loop"]), ACTOR)).toBe(true);
   });
 });
 
@@ -164,7 +170,7 @@ describe("pickNext: build が流す1件を選ぶ（止まっている PR → P0 
         issues: [
           iss(10, ["claimed"], 9),
           iss(11, [], 8, { openBlockers: 1 }),
-          iss(12, [], 7, { linkedPrAuthors: ["teammate"] }),
+          iss(12, [], 7, { linkedPrs: [{ author: "teammate", labels: [] }] }),
           iss(13, [], 1),
         ],
       }),

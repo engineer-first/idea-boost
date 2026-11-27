@@ -11,12 +11,13 @@
 
 - `node --no-warnings scripts/loop/precheck.mts next build` が、この周回で流す1件を JSON で返す（判定の正本は [precheck](../../../scripts/loop/precheck.mts) の `pickNext`。一覧は読まない）
   - `{"kind":"pr",...}`：止まっている PR（自分のアカウントの `loop` PR か Renovate の `dependencies` PR で、`needs-human`・`blocked`・`loop:skip` が無く、1時間動いていない。必須チェックが落ちたか競合していれば15分）のうち最も長く動いていない1本。Issue は選ばず、下の「止まっている PR を流すとき」へ進む
-  - `{"kind":"issue",...}`：`loop:ready` のうち、`claimed`・`blocked`・`needs-human`・`loop:skip` が無く、担当者がオーナーか未設定で、blocked-by の前提が open でなく、人の open PR が紐づいていないものを `P0` → `loop:ux` → 古い順に1件
-  - `{"kind":"none",...}`（exit 1）なら何もせず終わる（replan が補充する）
+  - `{"kind":"issue",...}`：`loop:ready` のうち、`claimed`・`blocked`・`needs-human`・`loop:skip` が無く、担当者がオーナーか未設定で、blocked-by の前提が open でなく、Issue を閉じる人の open PR（closing キーワードか Development の連携。ループの `loop` PR は除く）が紐づいていないものを `P0` → `loop:ux` → 古い順に1件
+  - `{"kind":"none",...}`（exit 1）なら何もせず終わる（replan が補充する）。exit 3 は GitHub を読めなかったので、何もせず終わる
+- `Refs #N` だけで結んだ人の PR は判定に入らない。本文やタイムラインで人の open PR が見つかれば見送る
 - 返った Issue の本文と、OWNER / MEMBER / COLLABORATOR のコメントだけを指示として読む。次のどれかに当たれば見送り、`--skip <番号>`（複数はカンマ区切り）を足して `next build` を引き直す
   - コメントに書かれた再評価の条件（日時・前提の PR のマージなど）にまだ届いていない
   - 体験の方向を変える改善（README の[ループが決めてよいこと](../README.md#ループが決めてよいこと)）で、人が選んでいない。人が選んだのは、`loop:proposal` に `loop:ready` が付いたもの、または OWNER / MEMBER / COLLABORATOR が望む状態を具体的に書いた Issue。ループはオーナーのアカウントで Issue とコメントを書くので、ループが立てた Issue（`loop:ux` が付いたもの、replan の切り出し）は元の人の Issue に方向が書かれているときだけ人が選んだものに数え、ループの書き込み（「ループが着手候補にしました」「claimed by」「carried by」、提案の形のコメント）は人が選んだ根拠に数えない。方針が未定でどちらでもない Issue は作らない：`loop:ready` を外して `loop:proposal` を付け、[提案の出し方](../README.md#提案の出し方)の形でコメントしてから見送る。`loop:ux` の所見で直し方の一部だけが方向の選択になるものは、見送らず最小の直し（崩れを収める、元の形に戻す）だけを作り、その先を提案としてコメントする
-- 選んだら `node --no-warnings scripts/loop/precheck.mts claim <番号> <worktree名>` で着手する（`claimed`・担当者・「claimed by ib build / <worktree> / <時刻>」を付けて読み直す）。exit 1 はほかの周回が先に claim したということなので、ラベルは触らず `--skip` に足して引き直す
+- 選んだら `node --no-warnings scripts/loop/precheck.mts claim <番号> <worktree名>` で着手する（`claimed`・担当者・「claimed by ib build / <worktree> / <時刻>」を付けて読み直す）。出力の `holder` がほかの worktree なら、その周回が先に claim したので、ラベルは触らず `--skip` に足して引き直す。`holder` が null（自分のコメントが読めない）か exit 3 なら、自分の claim を外してから終わる
 
 ## 2. 方針を決める
 

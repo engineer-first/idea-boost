@@ -56,8 +56,8 @@ export type ReadyIssue = Labels & {
   assignees: string[];
   /** GitHub の blocked-by で結ばれた前提のうち open の数 */
   openBlockers?: number;
-  /** この Issue を閉じる open PR の作者 */
-  linkedPrAuthors?: string[];
+  /** この Issue を閉じる open PR（closing キーワードか Development の連携で結ばれたもの） */
+  linkedPrs?: (Labels & { author: string })[];
 };
 
 /**
@@ -73,7 +73,13 @@ export function isReady(i: ReadyIssue, actor: string): boolean {
   )
     return false;
   if ((i.openBlockers ?? 0) > 0) return false;
-  if ((i.linkedPrAuthors ?? []).some((a) => a !== actor)) return false;
+  // ループはオーナーのアカウントで動くので、作者だけでなく loop ラベルでループの PR を見分ける
+  if (
+    (i.linkedPrs ?? []).some(
+      (p) => !(p.author === actor && p.labels.includes("loop")),
+    )
+  )
+    return false;
   return i.assignees.every((a) => a === actor);
 }
 
@@ -473,7 +479,10 @@ type GqlIssue = {
   labels: Nodes<{ name: string }>;
   assignees: Nodes<{ login: string }>;
   blockedBy: Nodes<{ state: string }>;
-  closedByPullRequestsReferences: Nodes<{ author: { login: string } | null }>;
+  closedByPullRequestsReferences: Nodes<{
+    author: { login: string } | null;
+    labels: Nodes<{ name: string }>;
+  }>;
 };
 
 // gh issue list の --json は blocked-by と紐づく PR を返さないので GraphQL で読む。
@@ -485,7 +494,7 @@ const ISSUES_QUERY = `query($owner: String!, $name: String!) {
         labels(first: 30) { nodes { name } }
         assignees(first: 10) { nodes { login } }
         blockedBy(first: 20) { nodes { state } }
-        closedByPullRequestsReferences(first: 10, includeClosedPrs: false) { nodes { author { login } } }
+        closedByPullRequestsReferences(first: 10, includeClosedPrs: false) { nodes { author { login } labels(first: 30) { nodes { name } } } }
       }
     }
   }
@@ -514,9 +523,10 @@ function readyIssues(): NextIssue[] {
     labels: x.labels.nodes.map((l) => l.name),
     assignees: x.assignees.nodes.map((a) => a.login),
     openBlockers: x.blockedBy.nodes.filter((b) => b.state === "OPEN").length,
-    linkedPrAuthors: x.closedByPullRequestsReferences.nodes.map(
-      (p) => p.author?.login ?? "",
-    ),
+    linkedPrs: x.closedByPullRequestsReferences.nodes.map((p) => ({
+      author: p.author?.login ?? "",
+      labels: p.labels.nodes.map((l) => l.name),
+    })),
   }));
 }
 
