@@ -80,7 +80,7 @@ describe.each(sizes([1280, 800], [1024, 768], [768, 1024]))(
         const controls = await box("board-control-hud");
         expect(overlaps(bubbleBox, controls)).toBe(false);
         // iPad 縦ではステップの道筋を出さない。
-        if (await page.getByTestId("phase-step-trail").first().isVisible()) {
+        if (width >= 1024) {
           const trail = await box("phase-step-trail");
           expect(overlaps(bubbleBox, trail)).toBe(false);
         }

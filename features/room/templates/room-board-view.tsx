@@ -1798,7 +1798,6 @@ export function RoomBoardView({
       '[data-testid="board-help-panel"]',
       characterSelector,
       characterBubbleSelector,
-      '[data-testid="phase-step-trail"]',
       ...referenceSelectors,
     ]) {
       const element = root.querySelector<HTMLElement>(selector);
