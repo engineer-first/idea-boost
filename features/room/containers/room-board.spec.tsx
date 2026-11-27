@@ -61,10 +61,6 @@ const notifyMocks = vi.hoisted(() => ({
   memberLeft: vi.fn(),
   roomDisbanded: vi.fn(),
   error: vi.fn(),
-  noteExcluded: vi.fn(),
-  bulkCandidatesExcluded: vi.fn(),
-  automaticallyExcludedCandidates: vi.fn(),
-  dismissCandidateNotice: vi.fn(),
 }));
 
 vi.mock("@/lib/notify", () => ({
@@ -80,11 +76,6 @@ vi.mock("../logic/room-notify", () => ({
     roomDisbanded: notifyMocks.roomDisbanded,
     roomLeft: vi.fn(),
     roomDisbandedBySelf: vi.fn(),
-    dismissCandidateNotice: notifyMocks.dismissCandidateNotice,
-    noteExcluded: notifyMocks.noteExcluded,
-    bulkCandidatesExcluded: notifyMocks.bulkCandidatesExcluded,
-    automaticallyExcludedCandidates:
-      notifyMocks.automaticallyExcludedCandidates,
   },
 }));
 
@@ -634,7 +625,7 @@ describe("問いの投票中の付箋移動", () => {
     dropTarget = cards[1];
     drag(
       within(cards[0]).getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       450,
       175,
@@ -664,7 +655,7 @@ describe("問いの投票中の付箋移動", () => {
     dropTarget = palette;
     drag(
       within(cards[1]).getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       320,
       700,
@@ -1017,10 +1008,6 @@ afterEach(() => {
   notifyMocks.memberLeft.mockReset();
   notifyMocks.roomDisbanded.mockReset();
   notifyMocks.error.mockReset();
-  notifyMocks.noteExcluded.mockReset();
-  notifyMocks.bulkCandidatesExcluded.mockReset();
-  notifyMocks.automaticallyExcludedCandidates.mockReset();
-  notifyMocks.dismissCandidateNotice.mockReset();
 });
 
 describe("メンバー参加・退出の通知", () => {
@@ -1459,7 +1446,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     fireEvent.click(screen.getByRole("button", { name: "完了して成果を表示" }));
     expect(socket.sent).toEqual([]);
     const confirmation = screen.getByRole("alertdialog", {
-      name: "スプリントを完了しますか？",
+      name: "完了して成果を表示しますか？",
     });
     fireEvent.click(
       within(confirmation).getByRole("button", { name: "完了する" }),
@@ -1546,7 +1533,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("個別候補操作は即時反映し、成功確認後だけUndoを表示する", () => {
+  it("個別候補操作は即時反映し、確定後は通知を出さず盤面の操作で戻せる", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
     });
@@ -1569,7 +1556,6 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(
       screen.queryByRole("button", { name: /採用する付箋:/ }),
     ).not.toBeInTheDocument();
-    expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
     act(() =>
       socket.simulateServerMessage({
         type: "note:updated",
@@ -1580,15 +1566,11 @@ describe("サーバーメッセージ → 画面反映", () => {
         }),
       }),
     );
-    expect(notifyMocks.noteExcluded).toHaveBeenCalledOnce();
-    const undo = notifyMocks.noteExcluded.mock.calls[0]?.[0];
-    act(() => undo?.());
+    for (const mock of Object.values(notifyMocks))
+      expect(mock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "除外を戻す" }));
     expect(socket.sent.map((item) => JSON.parse(item))).toContainEqual(
-      expect.objectContaining({
-        type: "note:restore",
-        noteId: NOTE_ID,
-        expectedExclusionOperationId: message.operationId,
-      }),
+      expect.objectContaining({ type: "note:restore", noteId: NOTE_ID }),
     );
   });
 
@@ -1622,7 +1604,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       left: "300px",
       top: "350px",
     });
-    expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
   });
 
   it("結果ステップの参加者は候補外を復帰できる", () => {
@@ -1634,133 +1615,32 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByRole("button", { name: "除外を戻す" })).toBeVisible();
   });
 
-  it("一括候補外の通知を受け取り、サーバー確定の実件数とoperation IDでUndoする", () => {
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(5),
-    });
-    const operationId = "33333333-3333-4333-8333-333333333333";
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId,
-        count: 1,
-        source: "manual",
-      }),
-    );
-    expect(notifyMocks.bulkCandidatesExcluded).toHaveBeenCalledWith(
-      1,
-      expect.any(Function),
-      expect.any(Function),
-    );
-    const undo = notifyMocks.bulkCandidatesExcluded.mock.calls[0]?.[1];
-    if (typeof undo !== "function") throw new Error("Undo がありません");
-    undo();
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:bulk-restore", operationId }),
-    );
-  });
-
-  it("別の一括操作では元のUndoを失効させず、復帰要求を順に送り0件では通知しない", () => {
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(5),
-    });
-    const firstOperationId = "33333333-3333-4333-8333-333333333333";
-    const secondOperationId = "44444444-4444-4444-8444-444444444444";
-    act(() => {
-      socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId: firstOperationId,
-        count: 1,
-        source: "manual",
+  it.each(["phase-transition", "manual"] as const)(
+    "決定ステップで%sの一括除外を受けても通知を出さず、盤面で除外済みと戻す操作を示す",
+    (source) => {
+      const { socket } = connectWithSnapshot([protocolNote()], {
+        phase: buildPhaseStep(5),
       });
-      socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId: secondOperationId,
-        count: 2,
-        source: "manual",
-      });
-      socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId: "55555555-5555-4555-8555-555555555555",
-        count: 0,
-        source: "manual",
-      });
-    });
-    expect(notifyMocks.bulkCandidatesExcluded).toHaveBeenCalledTimes(2);
-    const firstUndo = notifyMocks.bulkCandidatesExcluded.mock.calls[0]?.[1];
-    const secondUndo = notifyMocks.bulkCandidatesExcluded.mock.calls[1]?.[1];
-    if (typeof firstUndo !== "function" || typeof secondUndo !== "function") {
-      throw new Error("Undo がありません");
-    }
-    act(() => firstUndo());
-    expect(socket.sent).toContain(
-      JSON.stringify({
-        type: "note:bulk-restore",
-        operationId: firstOperationId,
-      }),
-    );
-    act(() => secondUndo());
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:bulk-restored",
-        operationId: firstOperationId,
-        count: 1,
-      }),
-    );
-    expect(socket.sent).toContain(
-      JSON.stringify({
-        type: "note:bulk-restore",
-        operationId: secondOperationId,
-      }),
-    );
-  });
-
-  it("自動整理を全参加者へ案内し、全員にまとめて戻す操作を渡す", () => {
-    const operationId = "33333333-3333-4333-8333-333333333333";
-    const host = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(5),
-    });
-
-    act(() =>
-      host.socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId,
-        count: 1,
-        source: "phase-transition",
-      }),
-    );
-
-    expect(notifyMocks.automaticallyExcludedCandidates).toHaveBeenCalledWith(
-      1,
-      expect.any(Function),
-      expect.any(Function),
-    );
-    const undo = notifyMocks.automaticallyExcludedCandidates.mock.calls[0]?.[1];
-    if (typeof undo !== "function") throw new Error("Undo がありません");
-    undo();
-    expect(host.socket.sent).toContain(
-      JSON.stringify({ type: "note:bulk-restore", operationId }),
-    );
-
-    notifyMocks.automaticallyExcludedCandidates.mockReset();
-    const member = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(5),
-    });
-    act(() =>
-      member.socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId,
-        count: 1,
-        source: "phase-transition",
-      }),
-    );
-
-    expect(notifyMocks.automaticallyExcludedCandidates).toHaveBeenCalledWith(
-      1,
-      expect.any(Function),
-      expect.any(Function),
-    );
-  });
+      act(() =>
+        socket.simulateServerMessage({
+          type: "note:bulk-excluded",
+          operationId: "33333333-3333-4333-8333-333333333333",
+          count: 1,
+          source,
+        }),
+      );
+      act(() =>
+        socket.simulateServerMessage({
+          type: "note:updated",
+          note: protocolNote({ excluded: true }),
+        }),
+      );
+      for (const mock of Object.values(notifyMocks))
+        expect(mock).not.toHaveBeenCalled();
+      expect(screen.getByText("除外済み")).toBeVisible();
+      expect(screen.getByRole("button", { name: "除外を戻す" })).toBeVisible();
+    },
+  );
 
   it("note:inserted で付箋が追加される", () => {
     const { socket } = connectWithSnapshot([]);
@@ -2886,7 +2766,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "「いいね」シール 2票を1票取り消す",
+        name: "「いいね」シール 2票のうち1票を取り消す",
       }),
     );
 
@@ -2918,7 +2798,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
     );
 
@@ -2947,7 +2827,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       { phase: buildPhaseStep(4) },
     );
     const sticker = screen.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     const palette = screen.getByRole("region", { name: "投票パレット" });
     const root = screen.getByTestId("room-board-view-root");
@@ -3001,7 +2881,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     expect(
       screen.queryByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
     ).not.toBeInTheDocument();
     expect(
@@ -3050,7 +2930,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
@@ -3774,116 +3654,6 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       ).not.toContain("note:drag:end");
     },
   );
-});
-
-describe("候補Undoの結果工程内の寿命", () => {
-  it.each([
-    [1, 5, 2, 1],
-    [2, 4, 3, 1],
-    [3, 5, 3, 4],
-  ] as const)(
-    "%i-%iから%i-%iへ移ると自動除外通知とUndoを破棄する",
-    (phase, step, nextPhase, nextStep) => {
-      notifyMocks.automaticallyExcludedCandidates.mockReturnValue(
-        "result-only-toast",
-      );
-      const { socket } = connectWithSnapshot([protocolNote()], {
-        phase: buildPhaseStep(step, phase),
-      });
-      const operationId = "33333333-3333-4333-8333-333333333333";
-      act(() =>
-        socket.simulateServerMessage({
-          type: "note:bulk-excluded",
-          operationId,
-          count: 1,
-          source: "phase-transition",
-        }),
-      );
-      const undo =
-        notifyMocks.automaticallyExcludedCandidates.mock.calls.at(-1)?.[1];
-      expect(undo).toBeTypeOf("function");
-      act(() =>
-        socket.simulateServerMessage({
-          type: "phase:updated",
-          phase: buildPhaseStep(nextStep, nextPhase),
-          phaseRevision: 1,
-          timer: { status: "idle" },
-        }),
-      );
-      expect(notifyMocks.dismissCandidateNotice).toHaveBeenCalledWith(
-        "result-only-toast",
-      );
-      if (typeof undo !== "function") throw new Error("Undoがありません");
-      act(() => undo());
-      expect(
-        socket.sent.map((payload) => JSON.parse(payload).type),
-      ).not.toContain("note:bulk-restore");
-    },
-  );
-  it("採用後は旧Undo/ホストが戻せる通知を消しcallbackも送信しない host=%s", () => {
-    notifyMocks.automaticallyExcludedCandidates.mockReturnValue(
-      "u13-candidate-toast",
-    );
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(5),
-    });
-    const operationId = "33333333-3333-4333-8333-333333333333";
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId,
-        count: 1,
-        source: "phase-transition",
-      }),
-    );
-    const undo =
-      notifyMocks.automaticallyExcludedCandidates.mock.calls.at(-1)?.[1];
-    act(() =>
-      socket.simulateServerMessage({
-        type: "decision:updated",
-        decision: { phase: 1, noteId: NOTE_ID, decidedBy: USER_ID },
-      }),
-    );
-    expect(notifyMocks.dismissCandidateNotice).toHaveBeenCalledWith(
-      "u13-candidate-toast",
-    );
-    if (typeof undo === "function") undo();
-    expect(socket.sent).not.toContain(
-      JSON.stringify({ type: "note:bulk-restore", operationId }),
-    );
-  });
-  it("結果工程を離れたら旧Undo送信を止めるが、結果工程内では有効", () => {
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(5),
-    });
-    const operationId = "33333333-3333-4333-8333-333333333333";
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId,
-        count: 1,
-        source: "manual",
-      }),
-    );
-    const undo = notifyMocks.bulkCandidatesExcluded.mock.calls.at(-1)?.[1];
-    act(() =>
-      socket.simulateServerMessage({
-        type: "phase:updated",
-        phase: buildPhaseStep(4),
-        phaseRevision: 1,
-        timer: {
-          status: "running",
-          endsAt: Date.now() + 60_000,
-          durationMs: 60_000,
-        },
-      }),
-    );
-    if (typeof undo !== "function") throw new Error("Undoがありません");
-    undo();
-    expect(socket.sent).not.toContain(
-      JSON.stringify({ type: "note:bulk-restore", operationId }),
-    );
-  });
 });
 
 describe("ボードの参加者退出", () => {

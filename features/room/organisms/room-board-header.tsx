@@ -64,6 +64,7 @@ import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
 import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import type { Member, PhaseProgressState } from "../logic/room-reducer";
+import { getStepGuideReferenceSlides } from "../logic/step-guide-copy";
 import { useCompletionCue } from "../logic/use-completion-cue";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import { BoardContext } from "../molecules/board-context";
@@ -74,12 +75,16 @@ import { RestartWritingConfirmDialog } from "../molecules/restart-writing-confir
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
 import { SharingPresenter } from "../molecules/sharing-presenter";
-import { StepOneOnboardingSlide } from "../molecules/step-one-onboarding-slide";
+import {
+  type StepGuideController,
+  StepOneOnboardingSlide,
+} from "../molecules/step-one-onboarding-slide";
 import { TimerSoundControl } from "../molecules/timer-sound-control";
 import styles from "./room-board-header.module.css";
 import { RoomTimer } from "./room-timer";
 
 const IDEA_MAP_CONTEXT_GAP = 18;
+const IDEA_MAP_STEP_TRAIL_GAP = 10;
 function getRecommendedTimerDurationMs(phase: RoomPhase): number {
   return (getFacilitationGuide(phase)?.durationMinutes ?? 3) * 60_000;
 }
@@ -120,6 +125,8 @@ export type RoomBoardHeaderProps = {
   isNextPhasePending: boolean;
   onEditSelf?: () => void;
   roomName?: string | null;
+  // ルームの状態が届いたか。届く前の null を「テーマ未設定」と区別する。
+  roomNameLoaded?: boolean;
   onRenameRoom?: () => void;
   roomNameDisabled?: boolean;
   onSelectMember?: (userId: string) => void;
@@ -188,6 +195,7 @@ export function RoomBoardHeader({
   onSelectMember,
   onEditSelf,
   roomName,
+  roomNameLoaded = true,
   onRenameRoom,
   roomNameDisabled,
   isRemovingMember = false,
@@ -293,8 +301,16 @@ export function RoomBoardHeader({
               Number.parseFloat(
                 board.style.getPropertyValue("--board-map-shift-y"),
               ) || 0;
-            const targetTop =
-              context.getBoundingClientRect().bottom + IDEA_MAP_CONTEXT_GAP;
+            // 広い画面は左上の現在地カードを出さず決定事項が上がるため、
+            // 中央のステップバーの下端より上にはマップを上げない。
+            const stepTrail = header.querySelector<HTMLElement>(
+              '[data-testid="phase-step-trail"]',
+            );
+            const targetTop = Math.max(
+              context.getBoundingClientRect().bottom + IDEA_MAP_CONTEXT_GAP,
+              (stepTrail?.getBoundingClientRect().bottom ?? 0) +
+                IDEA_MAP_STEP_TRAIL_GAP,
+            );
             const correction = targetTop - mapPlane.getBoundingClientRect().top;
             board.style.setProperty(
               "--board-map-shift-y",
@@ -352,7 +368,14 @@ export function RoomBoardHeader({
         ? null
         : new ResizeObserver(updateBoardLayoutOffsets);
     observer?.observe(area);
-    if (usesIdeaMapViewport) observer?.observe(header);
+    if (usesIdeaMapViewport) {
+      observer?.observe(header);
+      // テーマの折り返しなどで現在地の欄だけが伸びても、マップを参照欄の下へ測り直す。
+      const contextHud = header.querySelector<HTMLElement>(
+        '[data-testid="board-context-hud"]',
+      );
+      if (contextHud) observer?.observe(contextHud);
+    }
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
@@ -618,6 +641,8 @@ export function RoomBoardHeader({
     sharingDuration,
     onTimerStart,
   ]);
+  const stepGuideRef = useRef<StepGuideController>(null);
+  const trailGuideTriggerRef = useRef<HTMLButtonElement>(null);
   const handleInitialOnboardingReady = useCallback(
     () => handleGuidePhaseReady("1-1"),
     [handleGuidePhaseReady],
@@ -661,8 +686,13 @@ export function RoomBoardHeader({
               decidedHmw={decidedHmw}
               issueReference={issueReference}
               hmwReference={hmwReference}
+              roomName={roomName}
+              roomNameLoading={!roomNameLoaded}
+              locationOnNarrowOnly={phase.kind === "step"}
               guideControl={
                 <StepOneOnboardingSlide
+                  controllerRef={stepGuideRef}
+                  alternateTriggerRef={trailGuideTriggerRef}
                   phaseKey={
                     phase.kind === "step"
                       ? `${phase.phase}-${phase.step}`
@@ -696,7 +726,23 @@ export function RoomBoardHeader({
             data-board-fit-edge="top"
           >
             <div data-board-fit-occupy="true">
-              <PhaseStepTrail phase={phase} />
+              <PhaseStepTrail
+                phase={phase}
+                timeUp={
+                  timer.status === "ended" &&
+                  // 共有は発表者ごとの時間切れでは次へ進めない。一巡して終わったときだけ知らせる。
+                  (activeSharing === null ||
+                    activeSharing.status === "complete")
+                }
+                guideTriggerRef={trailGuideTriggerRef}
+                onOpenGuide={
+                  !isDisconnected &&
+                  getStepGuideReferenceSlides(guidePhaseKey).length > 0
+                    ? () =>
+                        stepGuideRef.current?.open(trailGuideTriggerRef.current)
+                    : undefined
+                }
+              />
             </div>
           </div>
         ) : null}
@@ -1169,8 +1215,10 @@ export function RoomBoardHeader({
                   <MoreHorizontal aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
+              {/* 右端を操作欄の外枠＋円形タイマーの外枠（2px）まで広げ、開いたメニューの横からタイマーがはみ出さないようにする。 */}
               <PopoverContent
                 ref={roomMenuContentRef}
+                alignOffset={-9}
                 className={
                   isPhaseOnePrivateNoteEntry ? "z-[70] w-80 p-2" : "w-80 p-2"
                 }

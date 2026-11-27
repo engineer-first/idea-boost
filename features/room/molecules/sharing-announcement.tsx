@@ -15,6 +15,9 @@ export type SharingAnnouncementProps = {
  * 共有ステップで今の発表者をボード中央上部に出し続ける。
  * 右上の順番の小さな表示だけでは誰の番か気づきにくいため（#661）。
  * 広い幅では中央上部のステップの並び（PhaseStepTrail）の真下に置く。
+ * iPad 幅（640〜900px）では中央だと右のマイ付箋の欄（幅 15rem）に届くため、欄の左に右寄せする。
+ * 名前の下に発表者と聞く人それぞれの今することを1行で添え、
+ * ステップガイドを開かなくても入った直後から動けるようにする（#1388）。
  */
 export function SharingAnnouncement({
   member,
@@ -28,7 +31,7 @@ export function SharingAnnouncement({
       data-testid="sharing-current-presenter"
       data-board-fit-occupy="true"
       data-self={isSelf || undefined}
-      className={`pointer-events-none absolute left-1/2 top-[112px] z-[41] flex max-w-[min(28rem,calc(100%-24px))] -translate-x-1/2 items-center gap-3 rounded-xl border px-4 py-3 text-base font-semibold shadow-tool max-[900px]:top-[156px] max-[639px]:top-[288px] ${isSelf ? "border-primary bg-primary-soft text-primary-strong" : "border-border bg-background"}`}
+      className={`pointer-events-none absolute left-1/2 top-[112px] z-[41] flex max-w-[min(28rem,calc(100%-24px))] -translate-x-1/2 flex-col items-start gap-1 rounded-xl border px-4 py-3 text-base font-semibold shadow-tool max-[900px]:top-[156px] min-[640px]:max-[900px]:left-auto min-[640px]:max-[900px]:right-[calc(15rem+0.75rem)] min-[640px]:max-[900px]:max-w-[min(28rem,calc(100%-15rem-0.75rem))] min-[640px]:max-[900px]:translate-x-0 max-[639px]:top-[288px] ${isSelf ? "border-primary bg-primary-soft text-primary-strong" : "border-border bg-background"}`}
     >
       {/* live region は残したまま中身だけ差し替え、交代を確実に読み上げる。
           発表者が替わったら中身を出し直し、登場の動きで交代に気づけるようにする。 */}
@@ -45,6 +48,14 @@ export function SharingAnnouncement({
         <span className="min-w-0 break-words">
           {isSelf ? t("yourTurn") : t("memberTurn", { name: member.name })}
         </span>
+      </span>
+
+      {/* 左の余白はアバター（32px）と間隔（gap-3）の和で、名前の書き出しに揃える。
+          900px 未満では、この行で案内を広げず名前の幅で折り返し、狭い画面で案内を細く保つ。 */}
+      <span
+        className={`pl-11 text-sm font-normal max-[900px]:self-stretch max-[900px]:[contain:inline-size] ${isSelf ? "text-primary-strong" : "text-muted-foreground"}`}
+      >
+        {isSelf ? t("selfInstruction") : t("listenerInstruction")}
       </span>
     </div>
   );

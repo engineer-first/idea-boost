@@ -1,6 +1,7 @@
 "use client";
 
 import "./sticky-note.css";
+import { Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type * as React from "react";
 import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
@@ -21,6 +22,8 @@ export type StickyNoteProps = {
   onStampClick?: () => void;
   stampDisabled?: boolean;
   isAdoptionFocused?: boolean;
+  /** 押せば決定できる付箋に、はんこと同じ緑の「決定する」の目印を出す。 */
+  showDecideHint?: boolean;
   color?: NoteColor | null;
   children: React.ReactNode;
   height?: number;
@@ -43,6 +46,7 @@ export function StickyNote({
   onStampClick,
   stampDisabled = false,
   isAdoptionFocused = false,
+  showDecideHint = false,
   color = "yellow",
   children,
   height = NOTE_HEIGHT,
@@ -152,6 +156,17 @@ export function StickyNote({
             {t("decision")}
           </span>
         )}
+        {showDecideHint && !isDecided ? (
+          // 当たり判定は付箋全体なので、これは押せる場所の目印だけを担う。
+          // 読み上げは当たり判定の名前に任せる。下端の投票結果の段を隠さない高さに置く。
+          <span
+            aria-hidden="true"
+            className="absolute bottom-12 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full border-2 border-state-decided bg-background px-3 py-1.5 text-sm font-bold text-state-decided-text shadow-tool"
+          >
+            <Check aria-hidden="true" className="size-4" strokeWidth={3} />
+            {t("decideHint")}
+          </span>
+        ) : null}
       </div>
       <div
         data-slot="sticky-note-content"

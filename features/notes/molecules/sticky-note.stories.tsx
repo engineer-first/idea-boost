@@ -41,6 +41,11 @@ export const AdoptionFocused: Story = {
   args: { isAdoptionFocused: true },
 };
 
+/** 採用選択中に自分がポインターかフォーカスを合わせた候補。 */
+export const DecideHint: Story = {
+  args: { isAdoptionFocused: true, showDecideHint: true },
+};
+
 export const Excluded: Story = {
   args: { "data-excluded": true },
 };

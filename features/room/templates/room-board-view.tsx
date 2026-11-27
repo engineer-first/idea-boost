@@ -1603,9 +1603,54 @@ export function RoomBoardView({
         "--board-character-bubble-max-width",
         `${22 * rem}px`,
       );
-      root.style.setProperty("--board-character-bubble-top", "0.25rem");
-      root.style.setProperty("--board-character-bubble-left", "100%");
-      root.style.setProperty("--board-character-bubble-gap", "0.375rem");
+      // 広い画面で右隣に右上の操作群までの余地が無いときは、吹き出しを先生の真下へ出し、
+      // 「◯-1に戻って書き足す」などの操作名を隠さない。操作群の位置は動かさない。
+      // 個人で書く工程は真下に書き込み欄があるため、欄を動かさないよう右隣のままにする。
+      const characterBounds =
+        window.innerWidth >= 640 &&
+        !isPersonalNoteEntryPhase &&
+        characterHint.message
+          ? root
+              .querySelector<HTMLElement>(characterSelector)
+              ?.getBoundingClientRect()
+          : undefined;
+      const characterBubble = characterBounds
+        ? root.querySelector<HTMLElement>(characterBubbleSelector)
+        : null;
+      const controlBounds = root
+        .querySelector<HTMLElement>('[data-testid="board-control-hud"]')
+        ?.getBoundingClientRect();
+      const besideGap = 0.375 * rem;
+      const besideRight =
+        controlBounds && characterBounds
+          ? controlBounds.top < characterBounds.bottom &&
+            controlBounds.right > characterBounds.right
+            ? controlBounds.left - 0.5 * rem
+            : window.innerWidth - 0.75 * rem
+          : Number.POSITIVE_INFINITY;
+      const placesBubbleBelow =
+        characterBounds !== undefined &&
+        characterBubble !== null &&
+        characterBounds.right + besideGap + characterBubble.offsetWidth >
+          besideRight;
+      if (placesBubbleBelow && characterBounds) {
+        const controlBottom =
+          controlBounds &&
+          controlBounds.top < characterBounds.bottom &&
+          controlBounds.right > characterBounds.left
+            ? controlBounds.bottom - characterBounds.top
+            : 0;
+        root.style.setProperty(
+          "--board-character-bubble-top",
+          `${Math.ceil(Math.max(characterBounds.height, controlBottom) + 0.25 * rem)}px`,
+        );
+        root.style.setProperty("--board-character-bubble-left", "0px");
+        root.style.setProperty("--board-character-bubble-gap", "0px");
+      } else {
+        root.style.setProperty("--board-character-bubble-top", "0.25rem");
+        root.style.setProperty("--board-character-bubble-left", "100%");
+        root.style.setProperty("--board-character-bubble-gap", "0.375rem");
+      }
       if (isPersonalNoteEntryPhase) {
         const frame = root.querySelector<HTMLElement>(
           '[data-testid="board-frame"]',
@@ -1642,6 +1687,15 @@ export function RoomBoardView({
             }
             headerBottom = Math.max(headerBottom, bounds.bottom);
           }
+          // 左の列を空けないステップ（1-1）では、現在地の下のテーマ表示と入力欄を重ねない。
+          const reservesContextColumn =
+            isPhaseStep(phase, 2, 1) || isPhaseStep(phase, 3, 1);
+          if (isDesktop && !reservesContextColumn) {
+            headerBottom = Math.max(
+              headerBottom,
+              visibleBounds('[data-testid="board-room-theme"]')?.bottom ?? 0,
+            );
+          }
           if (!isDesktop) {
             const guide = visibleBounds(characterSelector);
             const bubble = characterHint.message
@@ -1664,13 +1718,14 @@ export function RoomBoardView({
             `${Math.ceil(headerBottom + 12)}px`,
           );
           // デスクトップでは参照情報の右側から書き始める。
-          // 2-1は問いのヒントが開いても付箋を動かさないよう、左の列全体を空ける。
+          // 2-1の問いのヒントや3-1の考えるヒントを開閉しても付箋を動かさないよう、
+          // 左の列全体を最初から空ける。開いたヒントは列の内側に収まる。
           const workspace = root.querySelector<HTMLElement>(
             '[data-testid="private-notes-toolbar"]',
           );
           const referenceRight = isDesktop
             ? Math.max(
-                isPhaseStep(phase, 2, 1)
+                reservesContextColumn
                   ? (visibleBounds('[data-testid="board-context-column"]')
                       ?.right ?? 0)
                   : 0,
@@ -2089,6 +2144,7 @@ export function RoomBoardView({
       >
         <RoomBoardHeader
           roomName={roomName?.name}
+          roomNameLoaded={roomName?.loaded}
           onRenameRoom={roomName?.request}
           roomNameDisabled={roomName?.disabled || roomName?.pending}
           loginReturnHref={loginReturnHref}
@@ -2171,30 +2227,6 @@ export function RoomBoardView({
         {canSendSharingReaction(phase) && !outcomePublished
           ? sharingReactionDisplay
           : null}
-        {/* 時間切れの通知を出し切るまで、同じ中央に未開始の案内を重ねない。 */}
-        {timer.status === "idle" &&
-        timerAlert === null &&
-        !isAdditionalWriting &&
-        sharing?.status !== "complete" &&
-        !sharing?.startsAt &&
-        phase.kind === "step" &&
-        !isDisconnected &&
-        decision === null ? (
-          <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center px-4">
-            <div
-              role="status"
-              aria-live="polite"
-              data-testid="timer-work-hint"
-              className="w-full max-w-md rounded-lg border border-border/40 bg-background/75 px-6 py-5 text-center shadow-tool backdrop-blur-[2px]"
-            >
-              <p className="text-lg font-semibold">{t("timerNotStarted")}</p>
-
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t("timerInstruction")}
-              </p>
-            </div>
-          </div>
-        ) : null}
         <TimerAlert kind={timerAlert} />
         {isAdoptMode && interactionTool === "hand" ? (
           <p
@@ -2227,6 +2259,7 @@ export function RoomBoardView({
             canPublishNoteInTurn(phase, sharing, currentUserId)
           }
           privateNotePublishBlocked={privateNotePublishBlocked}
+          sharingComplete={sharing?.status === "complete"}
           expandPrivateNotesRequest={expandPrivateNotesRequest}
           privateNoteAddRef={privateNoteAddRef}
           noteCreationPending={noteCreationPending}
@@ -2387,7 +2420,6 @@ export function RoomBoardView({
               showNudge={hmwHintNudge.showNudge}
               hasBeenShown={hmwHintNudge.hasBeenShown}
               onHintOpen={hmwHintNudge.dismiss}
-              onDismissNudge={hmwHintNudge.dismiss}
               availableHeight={hmwHintAvailableHeight}
               onFadeOutComplete={hmwHintNudge.restart}
               pending={noteCreationPending}

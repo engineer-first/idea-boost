@@ -327,7 +327,7 @@ test("ボード左上の入口から現行ステップを選んだ入力欄に�
     /^[123]-[1-5]$/,
   );
   await page.getByRole("button", { name: "入力欄を閉じる" }).click();
-  expect(await page.getByTestId("board-context-hud").isVisible()).toBe(true);
+  expect(await page.getByTestId("board-control-hud").isVisible()).toBe(true);
 });
 
 test.each(widths(390, 1280))(

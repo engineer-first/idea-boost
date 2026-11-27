@@ -340,6 +340,20 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
+  it("全員の発表が終わったら、マイ付箋の欄で番を待つ案内を出さない", () => {
+    setup({
+      phase: buildPhaseStep(2),
+      permissions: getBoardPermissions(buildPhaseStep(2)),
+      privateNotes: [buildNote({ id: "private-1", visibility: "private" })],
+      canPublishPrivateNote: false,
+      sharingComplete: true,
+    });
+    const toolbar = openPrivateNotesToolbar();
+    const status = within(toolbar).getByRole("status");
+    expect(status).toHaveTextContent("発表は終わりました");
+    expect(status).not.toHaveTextContent("自分の番で発表できます");
+  });
+
   it("ドラッグ権利の応答前もドラッグ中の候補操作を隠し、終了後に選択表示へ戻す", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
@@ -551,6 +565,103 @@ describe("RoomBoardCanvas", () => {
       "data-adopt-mode",
       "true",
     );
+  });
+
+  it("採用選択中に候補へポインターかフォーカスを合わせた間だけ、その付箋に「決定する」を示す", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isAdoptMode: true,
+      notes: [
+        buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+        buildNote({ id: "note-2", content: "候補B", visibility: "shared" }),
+      ],
+    });
+    const cardOf = (id: string) =>
+      screen
+        .getAllByTestId("note-card")
+        .find(
+          (card) => card.getAttribute("data-note-id") === id,
+        ) as HTMLElement;
+    const targetA = screen.getByRole("button", { name: "採用する付箋: 候補A" });
+    const targetB = screen.getByRole("button", { name: "採用する付箋: 候補B" });
+    expect(screen.queryByText("決定する")).not.toBeInTheDocument();
+
+    fireEvent.pointerEnter(targetA);
+    expect(within(cardOf("note-1")).getByText("決定する")).toBeVisible();
+    expect(within(cardOf("note-2")).queryByText("決定する")).toBeNull();
+    fireEvent.pointerLeave(targetA);
+    expect(screen.queryByText("決定する")).not.toBeInTheDocument();
+
+    fireEvent.focus(targetB);
+    expect(within(cardOf("note-2")).getByText("決定する")).toBeVisible();
+    fireEvent.blur(targetB);
+    expect(screen.queryByText("決定する")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["手のひらツールに切り替える", { interactionTool: "hand" as const }],
+    [
+      "ほかの人が別の付箋を決定する",
+      { decision: buildDecision({ noteId: "note-2" }) },
+    ],
+    ["接続が切れる", { isDisconnected: true }],
+  ])(
+    "「決定する」を示した付箋でも、%sと押せないので目印を消す",
+    (_, change) => {
+      const { props, rerender } = setup({
+        phase: buildPhaseStep(5),
+        isAdoptMode: true,
+        notes: [
+          buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+          buildNote({ id: "note-2", content: "候補B", visibility: "shared" }),
+        ],
+      });
+      fireEvent.pointerEnter(
+        screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+      );
+      expect(screen.getByText("決定する")).toBeVisible();
+
+      rerender(<RoomBoardCanvas {...props} {...change} />);
+      expect(screen.queryByText("決定する")).not.toBeInTheDocument();
+    },
+  );
+
+  it("フォーカスしていた候補が除外されたら、ほかの候補へポインターを合わせると「決定する」を示す", () => {
+    const notes = [
+      buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+      buildNote({ id: "note-2", content: "候補B", visibility: "shared" }),
+    ];
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isAdoptMode: true,
+      notes,
+    });
+    fireEvent.focus(
+      screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+    );
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        notes={[{ ...notes[0], excluded: true }, notes[1]]}
+      />,
+    );
+
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "採用する付箋: 候補B" }),
+    );
+    expect(screen.getByText("決定する")).toBeVisible();
+  });
+
+  it("採用選択中でなければ、付箋に「決定する」を示さない", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isAdoptMode: false,
+      notes: [
+        buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+      ],
+    });
+    fireEvent.pointerEnter(screen.getAllByTestId("note-card")[0]);
+    expect(screen.queryByText("決定する")).not.toBeInTheDocument();
   });
 
   it.each([buildPhaseStep(5), buildPhaseStep(4, 2), buildPhaseStep(5, 3)])(

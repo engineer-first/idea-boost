@@ -104,7 +104,7 @@ describe("RoomMembers", () => {
     expect(screen.getAllByTestId("avatar")).toHaveLength(
       ROOM_MEMBERS_MAX_VISIBLE - 1,
     );
-    expect(screen.getByRole("button", { name: "他 2 名" })).toHaveTextContent(
+    expect(screen.getByRole("button", { name: "他 2人" })).toHaveTextContent(
       "+2",
     );
   });
@@ -120,7 +120,7 @@ describe("RoomMembers", () => {
       ROOM_MEMBERS_MAX_VISIBLE,
     );
     expect(
-      screen.queryByRole("button", { name: /他 \d+ 名/ }),
+      screen.queryByRole("button", { name: /他 \d+人/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -134,7 +134,7 @@ describe("RoomMembers", () => {
       />,
     );
     expect(screen.getAllByTestId("avatar")).toHaveLength(3);
-    expect(screen.getByRole("button", { name: "他 3 名" })).toHaveTextContent(
+    expect(screen.getByRole("button", { name: "他 3人" })).toHaveTextContent(
       "+3",
     );
   });
@@ -144,7 +144,7 @@ describe("RoomMembers", () => {
     const members = buildMembers(5, ME);
     // maxVisible=3 → 表示 2 + +3、隠れ index 2-4
     render(<RoomMembers members={members} currentUserId={ME} maxVisible={3} />);
-    await user.click(screen.getByRole("button", { name: "他 3 名" }));
+    await user.click(screen.getByRole("button", { name: "他 3人" }));
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toBeInTheDocument();
     expect(
@@ -171,7 +171,7 @@ describe("RoomMembers", () => {
         maxVisible={3}
       />,
     );
-    expect(screen.queryByLabelText(/他 \d+ 名/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/他 \d+人/)).not.toBeInTheDocument();
   });
 
   it("自分自身も maxVisible の対象として数える（省略対象になる）", () => {
@@ -180,7 +180,7 @@ describe("RoomMembers", () => {
     const members = buildMembers(5, ME);
     render(<RoomMembers members={members} currentUserId={ME} maxVisible={3} />);
     expect(screen.getAllByTestId("avatar")).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "他 3 名" })).toHaveTextContent(
+    expect(screen.getByRole("button", { name: "他 3人" })).toHaveTextContent(
       "+3",
     );
   });

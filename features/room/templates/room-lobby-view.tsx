@@ -1,6 +1,6 @@
 "use client";
 
-import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
+import { DoorOpen, Pencil, Play, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
@@ -99,9 +99,12 @@ export function RoomLobbyView({
       <div className={styles.content}>
         <header className={styles.header}>
           <div className={styles.roomTitle}>
-            <h1>
+            {/* 状態が届く前に「テーマ未設定」と仮表示しない。高さは保って見出しの跳ねを防ぐ。 */}
+            <h1 aria-busy={roomName && !roomName.loaded ? true : undefined}>
               {roomName
-                ? (roomName.name ?? t("unsetTheme"))
+                ? roomName.loaded
+                  ? (roomName.name ?? t("unsetTheme"))
+                  : "\u00a0"
                 : t("roomFallback")}
             </h1>
             {roomName ? (
@@ -124,10 +127,7 @@ export function RoomLobbyView({
             data-testid="room-lobby-view-member-count"
           >
             <Users size={18} aria-hidden="true" />
-            {new Intl.NumberFormat(locale === "en" ? "en-US" : "ja-JP").format(
-              members.length,
-            )}{" "}
-            {t("memberSuffix")}
+            {t("memberCount", { count: members.length })}
           </span>
         </header>
 
@@ -222,7 +222,7 @@ export function RoomLobbyView({
         >
           <div className={styles.inviteHeading}>
             <span className={styles.inviteIcon}>
-              <Link2 size={24} aria-hidden="true" />
+              <UserPlus size={24} aria-hidden="true" />
             </span>
             <div>
               <h2
@@ -239,7 +239,6 @@ export function RoomLobbyView({
                 {locale === "en" ? " " : null}
                 {t("inviteHeadingSecond")}
               </h2>
-              <p>{t("inviteDescription")}</p>
             </div>
           </div>
           <div className={styles.inviteCode}>

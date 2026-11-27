@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { startTransition, useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
-import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { PhaseProgress } from "@/contracts/room-protocol";
 import {
@@ -13,7 +12,6 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import { HMW_EXAMPLES } from "@/features/hmw";
 import { NoteDraftRecovery } from "@/features/notes";
-import { roomNotify } from "../logic/room-notify";
 import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
@@ -200,6 +198,18 @@ export const Phase2Step1FewNotes: Story = {
       ...boardMeta.args.interactions,
       ...Phase2Step1.args?.interactions,
       privateNotes: PRIVATE_NOTES.slice(0, 1),
+    },
+  },
+};
+export const Phase2Step1EightNotes: Story = {
+  ...Phase2Step1FewNotes,
+  name: "問いの下書き8枚",
+  args: {
+    ...Phase2Step1FewNotes.args,
+    interactions: {
+      ...boardMeta.args.interactions,
+      ...Phase2Step1.args?.interactions,
+      privateNotes: PRIVATE_NOTES.slice(0, 8),
     },
   },
 };
@@ -453,48 +463,6 @@ export const MapControls: Story = {
       />
     );
   },
-};
-
-export const UndoNotification: Story = {
-  ...step(1, 5),
-  name: "1-5 決定中の自動除外通知",
-  args: { ...step(1, 5).args },
-  render: function Render(args) {
-    const help = useBoardHelp(args.phase);
-    const [undone, setUndone] = useState(false);
-    return (
-      <>
-        <RoomBoardView
-          {...args}
-          help={help}
-          interactions={{ ...args.interactions, notes: args.notes }}
-        />
-        <Toaster />
-        <button
-          type="button"
-          className="fixed top-3 left-1/2 z-50"
-          onClick={() =>
-            roomNotify.automaticallyExcludedCandidates(1, () => setUndone(true))
-          }
-        >
-          除外通知を再現
-        </button>
-        {undone && <p role="status">通知のUndo操作が届きました</p>}
-      </>
-    );
-  },
-};
-
-export const UndoNotificationHmw: Story = {
-  ...UndoNotification,
-  name: "2-4 決定中の自動除外通知",
-  args: { ...step(2, 4).args },
-};
-
-export const UndoNotificationIdea: Story = {
-  ...UndoNotification,
-  name: "3-5 決定中の自動除外通知",
-  args: { ...step(3, 5).args },
 };
 
 export const AuthRequired: Story = {

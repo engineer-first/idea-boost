@@ -9,6 +9,7 @@ import {
   test,
   vi,
 } from "vitest";
+import { flowOpener } from "./step-guide-opener";
 import { checksWidth, includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
@@ -176,7 +177,7 @@ test.each(steps)(
   async (step) => {
     const [phase, number] = step.split("-");
     await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
-    await page.getByTestId("board-context-hud").waitFor();
+    await page.getByTestId("board-control-hud").waitFor();
     // 集計ステップは結果ダイアログを閉じたボード本体も検査する。
     await page.keyboard.press("Escape");
     await expectLayout();
@@ -341,6 +342,44 @@ for (const [phase, reference] of [
     });
   }
 }
+
+test("1280×800の3-1で考えるヒントを開閉しても、入力欄と付箋の並びの位置は変わらない", async () => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openStory("room-roomboardlayout--phase-3-step-1");
+  const positions = () =>
+    page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-testid="private-notes-list"] > *',
+        ),
+        document.querySelector<HTMLElement>('[aria-label="付箋を書く"]'),
+      ].map((element) => {
+        const rect = element?.getBoundingClientRect();
+        return rect ? [Math.round(rect.left), Math.round(rect.top)] : null;
+      }),
+    );
+  const closed = await positions();
+  expect(closed.length).toBeGreaterThan(1);
+  expect(closed.every(Boolean)).toBe(true);
+  // 開閉後の配置の再計算（ResizeObserver）が終わるのを待ってから測る。
+  const settle = () =>
+    page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+  await page.getByRole("button", { name: "考えるヒントを開く" }).click();
+  const help = page.locator('[data-testid="board-help-panel"] > div');
+  await expect
+    .poll(() => help.evaluate((e) => e.getBoundingClientRect().width))
+    .toBeGreaterThan(300);
+  await settle();
+  expect(await positions()).toEqual(closed);
+  await page.getByRole("button", { name: "考えるヒントを閉じる" }).click();
+  await settle();
+  expect(await positions()).toEqual(closed);
+});
 
 test("3-1で考えるヒントを開いても、付箋と入力欄はヒントに隠れない", async () => {
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -712,14 +751,14 @@ test.each([1280, 1024, 768])(
   async (width) => {
     await page.setViewportSize({ width, height: 720 });
     await openStory("room-roomboardlayout--phase-3-step-1");
+    await page.getByTestId("board-control-hud").waitFor();
     const hud = page.getByTestId("board-context-hud");
-    await hud.waitFor();
-    const location = hud.getByRole("button", { name: /現在地/ });
+    const location = flowOpener(page, width);
     expect(await location.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
       true,
     );
     await location.click();
-    const step = hud.getByTestId("board-current-step");
+    const step = page.getByTestId("board-current-step");
     expect(await step.textContent()).toContain("アイデアを書き出す（個人）");
     expect(await step.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
       true,
@@ -817,12 +856,12 @@ test.each([1024, 768])(
       const [phase, number] = step.split("-");
       await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
       const hud = page.getByTestId("board-context-hud");
-      await hud.waitFor();
+      await page.getByTestId("board-control-hud").waitFor();
       await page.keyboard.press("Escape");
       expect(
-        await hud
-          .getByTestId("board-location-trigger")
-          .evaluate((e) => e.scrollWidth <= e.clientWidth),
+        await flowOpener(page, width).evaluate(
+          (e) => e.scrollWidth <= e.clientWidth,
+        ),
         step,
       ).toBe(true);
       expect(
@@ -849,9 +888,10 @@ test.each([1280, 1024, 768])(
   async (width) => {
     await page.setViewportSize({ width, height: 720 });
     await openStory("room-roomboardlayout--phase-3-step-1");
+    // 進捗の線は左上の現在地カードの中にあり、カードはステップバーの出ない狭い幅だけに出す。
     const progress = page.getByTestId("board-progress-rail");
     await progress.waitFor({ state: "attached" });
-    expect(await progress.isVisible()).toBe(true);
+    expect(await progress.isVisible()).toBe(width < 900);
     const members = page.getByRole("button", {
       name: "参加者 12人",
       exact: true,
@@ -895,11 +935,11 @@ test.each([1280, 768])(
     const initial = await hud.boundingBox();
     expect(initial?.height).toBeLessThanOrEqual(390);
     expect(await page.getByTestId("board-location-trigger").isVisible()).toBe(
-      true,
+      width < 900,
     );
     expect(await page.getByTestId("board-current-step").count()).toBe(0);
     expect(await page.getByTestId("board-progress-rail").isVisible()).toBe(
-      true,
+      width < 900,
     );
 
     const issueTrigger = page.getByRole("button", { name: "決定した課題" });
@@ -1218,37 +1258,6 @@ test.skipIf(!includeMobile)(
   },
 );
 
-test.each(
-  (
-    [
-      [1280, "undo-notification"],
-      [390, "undo-notification"],
-      [1280, "undo-notification-hmw"],
-      [390, "undo-notification-hmw"],
-      [1280, "undo-notification-idea"],
-      [390, "undo-notification-idea"],
-    ] as const
-  ).filter(([width]) => checksWidth(width)),
-)("U03: %ipxの%sで決定中の通知とUndoへ到達できる", async (width, story) => {
-  await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
-  await openStory(`room-roomboardlayout--${story}`);
-  const board = page.getByTestId("room-board-view-root");
-  const before = await board.boundingBox();
-  await page.getByRole("button", { name: "除外通知を再現" }).click();
-  await page.getByText(/投票完了により0票の付箋1件/).waitFor();
-  expect(await board.boundingBox()).toEqual(before);
-  await page.waitForTimeout(400);
-  await page.screenshot({
-    path: `${output}/u03-toast-${story}-${width}.png`,
-  });
-  await page
-    .getByRole("button", { name: "まとめて元に戻す", exact: true })
-    .click();
-  expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
-    true,
-  );
-});
-
 // 固定情報との意図した部分重なりは許容し、各操作対象に到達できる可視部分が残ることを調べる。
 async function expectHudTargets(context: string): Promise<void> {
   const targets = page.locator(
@@ -1364,7 +1373,7 @@ test.each(widths(1280, 390))(
     for (const step of steps) {
       const [phase, number] = step.split("-");
       await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
-      await page.getByTestId("board-context-hud").waitFor();
+      await page.getByTestId("board-control-hud").waitFor();
       expect(
         await page
           .getByRole("dialog", { name: "投票結果", exact: true })

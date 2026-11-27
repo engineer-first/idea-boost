@@ -17,9 +17,6 @@ function message(
   return t ? t(key, values) : fallback;
 }
 
-// 自動整理のお知らせは出しっぱなしにせず、一括で戻す機会を一定時間残して閉じる。
-const AUTO_EXCLUDE_NOTICE_DURATION_MS = 15_000;
-
 export const roomNotify = {
   multipleNoteMoveUnavailable(t?: Translate): void {
     toast(
@@ -55,9 +52,6 @@ export const roomNotify = {
       { id: "canvas-fit-unavailable", duration: 4000, closeButton: true },
     );
   },
-  dismissCandidateNotice(id: string | number): void {
-    toast.dismiss(id);
-  },
   memberJoined(name: string, t?: Translate): void {
     toast(message(t, "memberJoined", `${name} さんが参加しました`, { name }));
   },
@@ -88,61 +82,5 @@ export const roomNotify = {
   // 自分からルームを退出したとき。
   roomLeft(t?: Translate): void {
     toast(message(t, "roomLeft", "ルームから退出しました"));
-  },
-  noteExcluded(onUndo: () => void, t?: Translate): string | number {
-    return toast(message(t, "noteExcluded", "付箋を候補から外しました"), {
-      action: { label: message(t, "undo", "元に戻す"), onClick: onUndo },
-    });
-  },
-  bulkCandidatesExcluded(
-    count: number,
-    onUndo: () => void,
-    t?: Translate,
-  ): string | number {
-    return toast(
-      message(
-        t,
-        "bulkCandidatesExcluded",
-        `${count}件の付箋を候補から外しました`,
-        { count },
-      ),
-      {
-        action: {
-          label: message(t, "bulkUndo", "まとめて元に戻す"),
-          onClick: onUndo,
-        },
-      },
-    );
-  },
-  automaticallyExcludedCandidates(
-    count: number,
-    onUndo?: () => void,
-    t?: Translate,
-  ): string | number {
-    return toast(
-      onUndo
-        ? message(
-            t,
-            "automaticallyExcludedWithUndo",
-            `投票完了により0票の付箋${count}件を候補から外しました。必要なら戻せます`,
-            { count },
-          )
-        : message(
-            t,
-            "automaticallyExcluded",
-            `投票完了により0票の付箋${count}件を候補から外しました`,
-            { count },
-          ),
-      onUndo
-        ? {
-            action: {
-              label: message(t, "bulkUndo", "まとめて元に戻す"),
-              onClick: onUndo,
-            },
-            duration: AUTO_EXCLUDE_NOTICE_DURATION_MS,
-            closeButton: true,
-          }
-        : { duration: AUTO_EXCLUDE_NOTICE_DURATION_MS, closeButton: true },
-    );
   },
 };

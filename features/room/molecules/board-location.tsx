@@ -1,27 +1,10 @@
 "use client";
 
-import { ArrowRight, Check } from "lucide-react";
 import { useTranslations } from "next-intl";
-import {
-  Fragment,
-  type ReactNode,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  PHASE_STEP_COUNTS,
-  ROOM_PHASE_STEP_LABELS,
-  type RoomPhase,
-} from "@/contracts/phase";
-import {
-  getPhaseProgressState,
-  PHASE_MARKERS,
-  PHASE_NUMBERS,
-  type PhaseNumber,
-} from "../logic/phase-labels";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { PHASE_STEP_COUNTS, type RoomPhase } from "@/contracts/phase";
+import { PHASE_MARKERS, PHASE_NUMBERS } from "../logic/phase-labels";
+import { BoardFlowSteps } from "./board-flow-steps";
 import styles from "./board-location.module.css";
 
 const FLOW_STEPS = PHASE_NUMBERS.flatMap((phase) =>
@@ -30,18 +13,26 @@ const FLOW_STEPS = PHASE_NUMBERS.flatMap((phase) =>
     step: index + 1,
   })),
 );
+
+// 中央のステップバーが出る幅。board-location.module.css の narrowOnly の切り替えと揃える。
+const WIDE_QUERY = "(width >= 900px)";
+
 type LocationState = "compact" | "expanded";
 export type BoardLocationProps = {
   phase: RoomPhase;
   outcomePublished?: boolean;
   // 畳んだ現在地ボタンの右に並べる操作（「進め方」）。カードの高さは増やさない。
   action?: ReactNode;
+  // 中央のステップバーが出る広い画面（900px 以上）では、現在のステップ・全体の流れ・進め方を
+  // ステップバーから開けるので、重ねて示さないよう現在地カードごと出さない。
+  narrowOnly?: boolean;
 };
 
 export function BoardLocation({
   phase,
   outcomePublished = false,
   action,
+  narrowOnly = false,
 }: BoardLocationProps) {
   const t = useTranslations("app.boardLocation");
   const translate = (key: string) => t(key as Parameters<typeof t>[0]);
@@ -53,9 +44,6 @@ export function BoardLocation({
   }>({ phaseKey, state: "compact" });
   const state = request.phaseKey === phaseKey ? request.state : "compact";
   if (request.phaseKey !== phaseKey) setRequest({ phaseKey, state: "compact" });
-  const [viewedPhase, setViewedPhase] = useState<PhaseNumber>(
-    phase.kind === "step" ? phase.phase : 1,
-  );
   const card = useRef<HTMLFieldSetElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const lastFocused = useRef<{ element: HTMLElement; phaseKey: string } | null>(
@@ -77,6 +65,17 @@ export function BoardLocation({
       trigger.current?.focus({ preventScroll: true });
     }
   }, [phaseKey]);
+  useEffect(() => {
+    if (!narrowOnly || state === "compact" || !window.matchMedia) return;
+    // 開いたまま広い画面へ変わるとカードは見えなくなるので閉じ、Escape や外側クリックを奪わない。
+    const wide = window.matchMedia(WIDE_QUERY);
+    function closeWhenWide(event: { matches: boolean }): void {
+      if (event.matches) setRequest({ phaseKey, state: "compact" });
+    }
+    closeWhenWide(wide);
+    wide.addEventListener("change", closeWhenWide);
+    return () => wide.removeEventListener("change", closeWhenWide);
+  }, [narrowOnly, state, phaseKey]);
   useEffect(() => {
     if (state === "compact") return;
     function outside(event: Event): void {
@@ -125,7 +124,11 @@ export function BoardLocation({
       ? translate(`fullSteps.${phase.phase}-${phase.step}`)
       : title;
   return (
-    <div className={styles.slot} data-testid="board-location-slot">
+    <div
+      className={styles.slot}
+      data-narrow-only={narrowOnly || undefined}
+      data-testid="board-location-slot"
+    >
       <fieldset
         aria-label={t("currentLocation")}
         ref={card}
@@ -170,7 +173,6 @@ export function BoardLocation({
                 close();
                 return;
               }
-              setViewedPhase(phase.kind === "step" ? phase.phase : 1);
               setRequest({ phaseKey, state: "expanded" });
             }}
           >
@@ -254,111 +256,7 @@ export function BoardLocation({
             aria-label={t("flowAria")}
             className={styles.detail}
           >
-            <Tabs
-              value={String(viewedPhase)}
-              onValueChange={(value) =>
-                setViewedPhase(Number(value) as PhaseNumber)
-              }
-              className="min-h-0 gap-0"
-            >
-              <TabsList
-                aria-label={t("phaseTabs")}
-                data-testid="board-phase-progress"
-                variant="line"
-                className={styles.phases}
-              >
-                {PHASE_NUMBERS.map((number, index) => (
-                  <Fragment key={number}>
-                    <TabsTrigger
-                      value={String(number)}
-                      aria-label={t("phaseTabLabel", {
-                        phase: translate(`phaseNames.${number}`),
-                      })}
-                      aria-current={
-                        phase.kind === "step" && phase.phase === number
-                          ? "step"
-                          : undefined
-                      }
-                      data-phase-state={getPhaseProgressState(phase, number)}
-                      data-testid={`board-phase-${number}`}
-                      className={styles.phaseTab}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={styles.phaseNumber}
-                        data-current={
-                          phase.kind === "step" && phase.phase === number
-                        }
-                      >
-                        {number}
-                      </span>
-                      <span>{translate(`phaseNames.${number}`)}</span>
-                    </TabsTrigger>
-                    {index < 2 ? (
-                      <ArrowRight
-                        aria-hidden="true"
-                        className="size-3 shrink-0 text-muted-foreground"
-                      />
-                    ) : null}
-                  </Fragment>
-                ))}
-              </TabsList>
-              {PHASE_NUMBERS.map((number) => (
-                <TabsContent
-                  key={number}
-                  value={String(number)}
-                  className={styles.stepScroll}
-                >
-                  <ol aria-label={t("allPhaseSteps")} className={styles.steps}>
-                    {Object.keys(ROOM_PHASE_STEP_LABELS[number]).map((step) => {
-                      const current =
-                        phase.kind === "step" &&
-                        phase.phase === number &&
-                        phase.step === Number(step);
-                      const completed =
-                        phase.kind === "step" &&
-                        (number < phase.phase ||
-                          (number === phase.phase &&
-                            Number(step) < phase.step));
-                      return (
-                        <li
-                          key={step}
-                          aria-current={current ? "step" : undefined}
-                          data-testid={
-                            current ? "board-current-step" : undefined
-                          }
-                        >
-                          {completed ? (
-                            <span
-                              role="img"
-                              aria-label={t("completed")}
-                              className={styles.stepMarker}
-                            >
-                              <Check aria-hidden="true" className="size-3.5" />
-                            </span>
-                          ) : (
-                            <span
-                              aria-hidden="true"
-                              className={styles.stepMarker}
-                            >
-                              {step}
-                            </span>
-                          )}
-                          <span className="min-w-0 flex-1 break-words">
-                            {translate(`fullSteps.${number}-${step}`)}
-                          </span>
-                          {current ? (
-                            <span className={styles.currentLabel}>
-                              {t("current")}
-                            </span>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </TabsContent>
-              ))}
-            </Tabs>
+            <BoardFlowSteps phase={phase} />
           </section>
         ) : null}
       </fieldset>

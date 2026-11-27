@@ -26,9 +26,6 @@
     "tooLong": "表示名は{max}文字以内で入力してください。"
   },
   "home": {
-    "headingFirst": "そのひらめき、",
-    "headingSecond": "みんなで育てよう。",
-    "description": "ルームを作って、仲間とアイデア出しを始めましょう。",
     "history": "過去の成果を見る",
     "historyAria": "過去の成果",
     "recent": "最近のルーム",
@@ -55,15 +52,14 @@
     "expiresAtTitle": "{date}に自動削除",
     "autoDeleteRemaining": "自動削除まで",
     "expiresInDays": "あと{days}日",
-    "expiresSoon": "まもなく"
+    "expiresSoon": "まもなく",
+    "title": "ホーム"
   },
   "createRoom": {
     "title": "ルームを作成",
-    "description": "新しいルームを開き、メンバーを招待します。",
     "label": "テーマ（任意）",
     "tooLong": "テーマは{max}文字以内で入力してください。",
-    "placeholder": "例：通学で困っていること",
-    "hint": "困りごとの形で書くと、課題を出しやすくなります。",
+    "placeholder": "例：アプリをもっと使ってもらうには",
     "pending": "準備中…",
     "retry": "もう一度試す",
     "submit": "新しいルームを作成"
@@ -115,14 +111,12 @@
     "roomFallback": "ルーム待機室",
     "unsetTheme": "テーマ未設定",
     "editTheme": "テーマを変更",
-    "memberSuffix": "名",
     "readyHeadingFirst": "メンバーが揃ったら、",
     "readyHeadingSecond": "はじめよう。",
     "memberHeading": "参加メンバー",
     "waiting": "メンバーの参加を待っています。",
     "inviteHeadingFirst": "メンバーを",
     "inviteHeadingSecond": "招待",
-    "inviteDescription": "リンクやコードを送って、仲間を呼ぼう。",
     "inviteCode": "招待コード",
     "starting": "開始中…",
     "start": "スタート",
@@ -130,7 +124,8 @@
     "privacyDescription": "途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了した成果は180日間、ホームから見返せます。",
     "privacyLink": "保存とプライバシーについて（別タブ）",
     "leaving": "退出中…",
-    "leave": "退出する"
+    "leave": "退出する",
+    "memberCount": "{count}人"
   },
   "connection": {
     "disconnected": "接続が切れました",
@@ -243,7 +238,7 @@
     "completionWaitingReconnect": "再接続中…",
     "completionWaitingAdoption": "採用すると完了",
     "completionWaitingMembers": "あと{count}人で完了",
-    "completeSprint": "スプリントを完了しますか？",
+    "completeSprint": "完了して成果を表示しますか？",
     "cancel": "キャンセル",
     "complete": "完了する",
     "openRoomMenu": "ルームメニューを開く",
@@ -313,7 +308,7 @@
       "2-3": "決定",
       "2-4": "アイデア",
       "3-1": "共有",
-      "3-2": "評価",
+      "3-2": "2軸評価",
       "3-3": "投票",
       "3-4": "決定",
       "3-5": "成果"
@@ -333,7 +328,12 @@
       "3-3": "価値×実現のしやすさで評価",
       "3-4": "ドット投票",
       "3-5": "アイデアを決定"
-    }
+    },
+    "trailOpenFlow": "{phase}：全体の流れを開く",
+    "trailSteps": "{phase}のステップ",
+    "openGuide": "「{step}」の進め方を開く",
+    "guideTitle": "このステップの進め方を見る",
+    "nextAvailable": "次の「{step}」へ進めます"
   },
   "boardPrivateNotes": {
     "title": "マイ付箋",
@@ -408,7 +408,8 @@
     "body": "付箋の本文",
     "excludedNote": "除外済みの付箋",
     "note": "付箋",
-    "voteOnNote": "付箋（{sticker}を貼る）"
+    "voteOnNote": "付箋（{sticker}を貼る）",
+    "decideHint": "決定する"
   },
   "boardVote": {
     "palette": "投票パレット",
@@ -668,7 +669,9 @@
     "participantConnected": "{name}さんは接続中です。次の人の発表に進みます。",
     "cancel": "キャンセル",
     "pass": "パスする",
-    "otherParticipants": "ほかの参加者"
+    "otherParticipants": "ほかの参加者",
+    "selfInstruction": "マイ付箋をボードに出して説明しよう",
+    "listenerInstruction": "話を聞いて、リアクションを送ろう"
   },
   "boardRollback": {
     "button": "直前のステップに戻る",
@@ -889,7 +892,8 @@
     "sharedNoteContentAria": "共有付箋の全文",
     "sharedNoteReadOnly": "共有付箋・閲覧のみ",
     "closeSharedNoteContent": "共有付箋の全文を閉じる",
-    "noSharedNoteBody": "本文はありません"
+    "noSharedNoteBody": "本文はありません",
+    "sharingFinished": "発表は終わりました"
   },
   "boardMapSize": {
     "ariaLabel": "2軸マップの広さ操作",
@@ -923,7 +927,9 @@
   "boardContext": {
     "decidedQuestion": "決定した問い",
     "decidedChallenge": "決定した課題",
-    "contentLabel": "{label}の本文"
+    "contentLabel": "{label}の本文",
+    "unsetTheme": "テーマ未設定",
+    "themeLabel": "テーマ："
   },
   "boardMap": {
     "ariaLabel": "価値と実現のしやすさの2軸マップ",

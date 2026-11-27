@@ -85,9 +85,18 @@ export const Starting: Story = {
   args: { isStarting: true },
 };
 
+// 接続直後は snapshot 前なので、テーマ見出しは高さだけ保った空欄になる。
 export const Connecting: Story = {
   name: "接続中",
-  args: { connectionStatus: "connecting" },
+  args: {
+    connectionStatus: "connecting",
+    roomName: buildRoomNameControls({
+      loaded: false,
+      name: null,
+      draft: "",
+      disabled: true,
+    }),
+  },
 };
 
 export const Reconnecting: Story = {

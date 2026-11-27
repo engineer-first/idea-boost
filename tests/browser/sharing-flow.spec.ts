@@ -1,6 +1,6 @@
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { widths } from "./viewports";
+import { MOBILE_MAX_WIDTH, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -90,13 +90,13 @@ describe("共有する人の表示", () => {
   });
 
   it.each(
-    widths(1440, 900, 390).flatMap((width) =>
+    widths(1440, 900, 768, 390).flatMap((width) =>
       ["sharing-transition", "sharing-active", "my-sharing-turn"].map(
         (story) => [width, story] as const,
       ),
     ),
   )(
-    "%ipxの%sで発表者の案内が現在地と発表者カードを覆わない",
+    "%ipxの%sで発表者の案内が現在地・発表者カード・マイ付箋の欄を覆わない",
     async (width, story) => {
       const page = await browser.newPage({
         viewport: { width, height: 900 },
@@ -110,12 +110,17 @@ describe("共有する人の表示", () => {
         await notice.waitFor();
         const box = await notice.boundingBox();
         if (!box) throw new Error("発表者の案内がない");
-        for (const target of [
+        // スマホ縦ではマイ付箋の欄が発表者の案内の上に重なる配置のため、マイ付箋の欄は PC・iPad 幅だけ確かめる。
+        const targets = [
           page.getByTestId("board-context-hud"),
           page.getByTestId("board-control-hud"),
-        ]) {
+          ...(width >= MOBILE_MAX_WIDTH
+            ? [page.getByTestId("private-notes-dock")]
+            : []),
+        ];
+        for (const target of targets) {
           const hud = await target.boundingBox();
-          if (!hud) throw new Error("共有HUDがない");
+          if (!hud) throw new Error("重なりを確かめる表示がない");
           const overlaps =
             box.x < hud.x + hud.width &&
             box.x + box.width > hud.x &&

@@ -104,6 +104,8 @@ export type RoomBoardCanvasProps = {
   canPublishPrivateNote?: boolean;
   /** 自分の番でない人がマイ付箋を一覧の外へ運ぼうとしている間 true。 */
   privateNotePublishBlocked?: boolean;
+  /** 共有ステップで全員の発表が終わった後 true。番を待つ案内を出さない。 */
+  sharingComplete?: boolean;
   isSavingBeforeShare?: boolean;
   selectedNoteId: string | null;
   selectedNoteIds?: string[];
@@ -229,6 +231,7 @@ export function RoomBoardCanvas({
   exampleNotes = [],
   canPublishPrivateNote = false,
   privateNotePublishBlocked = false,
+  sharingComplete = false,
   isSavingBeforeShare = false,
   selectedNoteId,
   selectedNoteIds,
@@ -469,6 +472,21 @@ export function RoomBoardCanvas({
     null,
   );
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
+  // 自分が今クリック（Enter）すれば決定できる付箋。キーボードの選択をポインターより優先する。
+  const [adoptionKeyboardFocusNoteId, setAdoptionKeyboardFocusNoteId] =
+    useState<string | null>(null);
+  // 除外などで当たり判定ごと消えた付箋には blur が届かないので、候補に残る間だけ優先する。
+  const keyboardDecideHintNoteId = notes.some(
+    (note) =>
+      note.id === adoptionKeyboardFocusNoteId &&
+      note.visibility === "shared" &&
+      !note.excluded,
+  )
+    ? adoptionKeyboardFocusNoteId
+    : null;
+  const decideHintNoteId = isAdoptMode
+    ? (keyboardDecideHintNoteId ?? adoptionHoverNoteId)
+    : null;
   const selectedNote = [...notes, ...privateNotes].find(
     (note) => note.id === selectedNoteId,
   );
@@ -493,9 +511,11 @@ export function RoomBoardCanvas({
       presenterViewName !== null) ||
     (isPresenterViewOwner && isPresenterViewFollowedByOthers);
 
-  const waitingTurnHint = privateNotePublishBlocked
-    ? publishBlockedHint
-    : canvasMessages("waitingYourTurn");
+  const waitingTurnHint = sharingComplete
+    ? canvasMessages("sharingFinished")
+    : privateNotePublishBlocked
+      ? publishBlockedHint
+      : canvasMessages("waitingYourTurn");
   const privateNotesSharingHint = isSavingBeforeShare
     ? canvasMessages("savingBeforeShare")
     : isPhaseStep(phase, 3, 2)
@@ -542,6 +562,7 @@ export function RoomBoardCanvas({
     adoptionPointerNoteIdRef.current = null;
     adoptionKeyboardNoteIdRef.current = null;
     setAdoptionHoverNoteId(null);
+    setAdoptionKeyboardFocusNoteId(null);
   }, [isAdoptMode]);
 
   function publishAdoptionFocus(): void {
@@ -566,6 +587,7 @@ export function RoomBoardCanvas({
 
   function handleAdoptionFocus(noteId: string): void {
     adoptionKeyboardNoteIdRef.current = noteId;
+    setAdoptionKeyboardFocusNoteId(noteId);
     publishAdoptionFocus();
   }
 
@@ -573,6 +595,9 @@ export function RoomBoardCanvas({
     if (adoptionKeyboardNoteIdRef.current === noteId) {
       adoptionKeyboardNoteIdRef.current = null;
     }
+    setAdoptionKeyboardFocusNoteId((current) =>
+      current === noteId ? null : current,
+    );
     publishAdoptionFocus();
   }
 
@@ -670,6 +695,7 @@ export function RoomBoardCanvas({
     note: Note,
     maxDisplayHeight?: number,
     displayScale: number | "responsive-map" = 1,
+    isAdoptTarget = false,
   ) {
     return (
       <NoteCard
@@ -726,6 +752,8 @@ export function RoomBoardCanvas({
           adoptionFocusNoteId === note.id && decision?.noteId !== note.id
         }
         isAdoptionTargetHovered={adoptionHoverNoteId === note.id}
+        // 当たり判定が消えると leave / blur が届かないので、押せる間だけに絞る。
+        showDecideHint={isAdoptTarget && decideHintNoteId === note.id}
         disabled={isDisconnected}
         onSelect={(id, options) => {
           if (writingCollapsed && id) setPreviewNoteId(id);
@@ -890,6 +918,7 @@ export function RoomBoardCanvas({
           note,
           ideaMapNoteMetrics?.unscaledHeight,
           usesIdeaMapViewport ? "responsive-map" : 1,
+          isAdoptTarget,
         )}
         {isAdoptTarget ? (
           <button
@@ -1483,14 +1512,9 @@ export function RoomBoardCanvas({
             update="private-notes-area-morph"
           >
             <div
-              className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
-              style={
-                isPhaseStep(phase, 2, 1) && !isAdditionalWritingStep
-                  ? {
-                      bottom: "7rem",
-                    }
-                  : undefined
-              }
+              // 2-1の問いのヒントは、PC・iPad では左の空き列に重ねるので付箋欄を下まで使う。
+              // スマホ幅だけは付箋欄の下に入口の高さを空ける。
+              className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""} ${isPhaseStep(phase, 2, 1) && !isAdditionalWritingStep ? "max-[639px]:bottom-28" : ""}`}
               data-testid={
                 isPersonalNoteEntryPhase
                   ? "private-notes-workspace"

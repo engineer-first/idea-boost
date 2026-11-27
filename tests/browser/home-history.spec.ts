@@ -102,9 +102,20 @@ function expectEntryLayout(
     .soft(join.card.y, `${context}: 参加は作成の下段`)
     .toBeGreaterThanOrEqual(create.card.y + create.card.height);
   if (width >= 1024) {
+    // 作成も参加も左に見出し、右に入力を置き、入力の左端を揃える。
+    expectClose(
+      create.card.width,
+      join.card.width,
+      `${context}: 作成と参加の幅`,
+    );
+    expectClose(
+      create.input.x,
+      join.input.x,
+      `${context}: 作成と参加の入力の左端`,
+    );
     expect
-      .soft(join.card.width, `${context}: 参加は横幅を使う`)
-      .toBeGreaterThan(create.card.width);
+      .soft(create.input.x, `${context}: 作成の入力は見出しの右`)
+      .toBeGreaterThanOrEqual(create.header.x + create.header.width);
     expect
       .soft(join.button.x, `${context}: 参加操作はコードの右`)
       .toBeGreaterThanOrEqual(join.input.x + join.input.width);
@@ -767,9 +778,11 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         });
       });
       await inviteButton.click();
-      const inviteUrl = await inviter.evaluate(
+      // 「リンクをコピー」は招待文ごとコピーするので、参加リンクの行からURLを取り出す。
+      const copiedInvite = await inviter.evaluate(
         () => document.documentElement.dataset.copiedInviteUrl,
       );
+      const inviteUrl = copiedInvite?.match(/^参加リンク: (\S+)$/m)?.[1];
       if (!inviteUrl) throw new Error("招待URLなし");
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.goto(inviteUrl);
@@ -929,7 +942,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
     },
     90_000,
   );
-  it("1280×632で最近のルームがあっても作成・参加を初期画面に表示する", async () => {
+  it("1280×632で最近のルームがあっても作成・参加を初期画面に表示し、1280×800では全体をスクロールせず見渡せる", async () => {
     const browser = await chromium.launch();
     try {
       const page = await browser.newPage({
@@ -982,6 +995,15 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: /^高さ確認の会/ })
         .waitFor();
       await checkEntry("with-recent-rooms");
+      // 標準的なノートPCの高さでは、最近のルームから過去の成果までスクロールせずに見渡せる。
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.getByRole("link", { name: /過去の成果を見る/ }).waitFor();
+      expect(
+        await page
+          .getByTestId("home-view")
+          .evaluate((el) => el.scrollHeight <= el.clientHeight),
+      ).toBe(true);
+      await capture(page, "home-1280x800-with-recent-rooms");
     } finally {
       await browser.close();
     }

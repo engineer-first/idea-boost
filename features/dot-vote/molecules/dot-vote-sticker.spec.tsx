@@ -16,7 +16,7 @@ describe("DotVoteSticker", () => {
     );
 
     const sticker = screen.getByRole("button", {
-      name: "「需要ありそう」シール 2票を1票取り消す",
+      name: "「需要ありそう」シール 2票のうち1票を取り消す",
     });
     const image = within(sticker).getByTestId(
       "dot-vote-sticker-image-objective",
@@ -53,7 +53,7 @@ describe("DotVoteSticker", () => {
       );
 
       const sticker = screen.getByRole("button", {
-        name: `「${label}」シール 1票を1票取り消す`,
+        name: `「${label}」シールを取り消す`,
       });
       expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
       act(() => sticker.focus());
@@ -63,6 +63,26 @@ describe("DotVoteSticker", () => {
       expect(shown.textContent).not.toMatch(
         /激しく共感する|自分以外の人にも価値がありそう/,
       );
+    },
+  );
+
+  it.each([
+    [1, "「いいね」シールを取り消す"],
+    [3, "「いいね」シール 3票のうち1票を取り消す"],
+  ])(
+    "%i票のシールの取り消しは「%s」と読み上げ、票数を重ねない",
+    (count, name) => {
+      render(
+        <DotVoteSticker
+          phase={1}
+          kind="objective"
+          count={count}
+          state="confirmed"
+          onRemove={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
     },
   );
 
@@ -160,7 +180,7 @@ describe("DotVoteSticker", () => {
 
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "「需要ありそう」シール 1票を1票取り消す",
+        name: "「需要ありそう」シールを取り消す",
       }),
       { pointerId: 7, clientX: 20, clientY: 30 },
     );
@@ -184,7 +204,7 @@ describe("DotVoteSticker", () => {
     );
 
     const sticker = screen.getByRole("button", {
-      name: "「需要ありそう」シール 1票を1票取り消す",
+      name: "「需要ありそう」シールを取り消す",
     });
     fireEvent.pointerDown(sticker, {
       pointerId: 8,

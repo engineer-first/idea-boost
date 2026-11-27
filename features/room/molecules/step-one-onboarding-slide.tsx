@@ -1,8 +1,14 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import type { CSSProperties } from "react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties, Ref, RefObject } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,12 +27,24 @@ import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { StepGuideIllustration } from "./step-guide-illustration";
 import styles from "./step-one-onboarding-slide.module.css";
 
+export type StepGuideController = {
+  open: (from?: HTMLElement | null) => void;
+};
+
 export type StepOneOnboardingSlideProps = {
   phaseKey: string;
   userId: string;
   isReady: boolean;
   onReady?: () => void;
+  // 「進め方」ボタンの外（中央のステップバー）から開くための操作。
+  controllerRef?: Ref<StepGuideController>;
+  // 「進め方」ボタンが画面に無いときに、閉じる動きの行き先とフォーカスの戻り先にする要素。
+  alternateTriggerRef?: RefObject<HTMLElement | null>;
 };
+
+function isRendered(element: HTMLElement | null | undefined): boolean {
+  return !!element && element.getClientRects().length > 0;
+}
 
 type GuideClosingStyle = CSSProperties & {
   "--guide-target-x": string;
@@ -251,6 +269,8 @@ export function StepOneOnboardingSlide({
   userId,
   isReady,
   onReady,
+  controllerRef,
+  alternateTriggerRef,
 }: StepOneOnboardingSlideProps) {
   const locale = useLocale();
   const t = useTranslations("app.stepGuide");
@@ -270,6 +290,7 @@ export function StepOneOnboardingSlide({
   );
   const dialogRef = useRef<HTMLDivElement>(null);
   const guideButtonRef = useRef<HTMLButtonElement>(null);
+  const openedFromRef = useRef<HTMLElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const pendingSlideIndexRef = useRef(0);
   const activeVisitRef = useRef<string | null>(null);
@@ -358,7 +379,8 @@ export function StepOneOnboardingSlide({
     [],
   );
 
-  const openGuide = () => {
+  const openGuide = (from: HTMLElement | null = guideButtonRef.current) => {
+    openedFromRef.current = from;
     if (closeTimerRef.current !== null) {
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
@@ -369,6 +391,28 @@ export function StepOneOnboardingSlide({
     pendingSlideIndexRef.current = 0;
     setSlideIndex(0);
     setOpen(true);
+  };
+
+  useImperativeHandle(controllerRef, () => ({
+    open: (from) => openGuide(from ?? alternateTriggerRef?.current ?? null),
+  }));
+
+  // 開いた部品へ戻す。開いている間に画面幅が変わってその部品が隠れたときや、
+  // 自動で開いたときは、画面に出ている方の入口へ戻す。
+  const returnTarget = (): HTMLElement | null => {
+    const openedFrom = openedFromRef.current?.isConnected
+      ? openedFromRef.current
+      : null;
+    const candidates = [
+      openedFrom,
+      guideButtonRef.current,
+      alternateTriggerRef?.current ?? null,
+    ];
+    return (
+      candidates.find((element) => isRendered(element)) ??
+      openedFrom ??
+      guideButtonRef.current
+    );
   };
 
   const transitionToSlide = (
@@ -456,7 +500,7 @@ export function StepOneOnboardingSlide({
 
   const start = () => {
     const dialogElement = dialogRef.current;
-    const guideButton = guideButtonRef.current;
+    const guideButton = returnTarget();
     if (!dialogElement || !guideButton) {
       setOpen(false);
       return;
@@ -507,7 +551,7 @@ export function StepOneOnboardingSlide({
           type="button"
           variant="outline"
           className="pointer-events-auto h-auto shrink-0 rounded-none rounded-r-xl border-0 border-l border-border bg-transparent px-3 text-sm shadow-none transition hover:bg-muted"
-          onClick={openGuide}
+          onClick={() => openGuide()}
         >
           {t("ui.openGuide")}
         </Button>
@@ -529,9 +573,11 @@ export function StepOneOnboardingSlide({
           <DialogContent
             ref={dialogRef}
             onCloseAutoFocus={(event) => {
-              if (!guideButtonRef.current) return;
+              const target = returnTarget();
+              openedFromRef.current = null;
+              if (!target) return;
               event.preventDefault();
-              guideButtonRef.current.focus();
+              target.focus();
             }}
             data-closing-to-guide={isClosingToGuide ? "true" : undefined}
             className={`${styles.dialog} gap-0 rounded-xl border-border bg-background text-foreground shadow-tool data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 ${isClosingToGuide ? styles.flyToGuide : ""}`}

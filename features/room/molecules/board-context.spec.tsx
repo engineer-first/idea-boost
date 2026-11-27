@@ -515,3 +515,96 @@ it("全体の流れを開いている間は「進め方」を出さず、Tabで�
     screen.queryByRole("button", { name: "進め方" }),
   ).not.toBeInTheDocument();
 });
+
+describe("2軸マップのステップへ入るときの参照カード", () => {
+  it("3-1で問いのカードを開いたまま3-2へ進むと、カードを閉じて入りマップの左上を隠さない", () => {
+    const props = {
+      hmwDecidedIssue: "決定した課題",
+      decidedHmw: "決定した問い",
+    };
+    const { rerender } = render(
+      <BoardContext phase={buildPhaseStep(1, 3)} {...props} />,
+    );
+    expect(
+      screen.getByRole("button", { name: "決定した問い" }),
+    ).toHaveAttribute("aria-expanded", "true");
+
+    rerender(<BoardContext phase={buildPhaseStep(2, 3)} {...props} />);
+
+    expect(
+      screen.getByRole("button", { name: "決定した問い" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("2-1で閉じた課題のカードは、2-2へ進んでも閉じたままにする", () => {
+    const props = {
+      hmwDecidedIssue: "決定した課題",
+      decidedHmw: null,
+    };
+    const { rerender } = render(
+      <BoardContext phase={buildPhaseStep(1, 2)} {...props} />,
+    );
+    const issue = screen.getByRole("button", { name: "決定した課題" });
+    expect(issue).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(issue);
+
+    rerender(<BoardContext phase={buildPhaseStep(2, 2)} {...props} />);
+
+    expect(
+      screen.getByRole("button", { name: "決定した課題" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
+describe("作業中のテーマ表示", () => {
+  it("メニューを開かなくても現在のテーマを常に表示する", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(1, 1)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+        roomName="文化祭の来場者が迷うこと"
+      />,
+    );
+    const theme = screen.getByTestId("board-room-theme");
+    expect(theme).toHaveTextContent("テーマ：文化祭の来場者が迷うこと");
+    expect(theme).toHaveAttribute("title", "文化祭の来場者が迷うこと");
+  });
+  it("テーマが未入力なら「テーマ未設定」と出す", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(2, 1)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+        roomName={null}
+      />,
+    );
+    expect(screen.getByTestId("board-room-theme")).toHaveTextContent(
+      "テーマ未設定",
+    );
+  });
+  it("ルームの状態が届く前は「テーマ未設定」と仮表示せず、枠だけ残す", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(1, 1)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+        roomName={null}
+        roomNameLoading
+      />,
+    );
+    const theme = screen.getByTestId("board-room-theme");
+    expect(theme).not.toHaveTextContent("テーマ未設定");
+    expect(theme).toHaveAttribute("aria-busy", "true");
+  });
+  it("テーマを渡さない画面では表示しない", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(1, 1)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+      />,
+    );
+    expect(screen.queryByTestId("board-room-theme")).not.toBeInTheDocument();
+  });
+});

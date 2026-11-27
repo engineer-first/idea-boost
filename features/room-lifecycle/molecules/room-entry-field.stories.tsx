@@ -8,7 +8,7 @@ const meta = {
   args: {
     id: "room-name",
     label: "テーマ（任意）",
-    placeholder: "例：通学で困っていること",
+    placeholder: "例：アプリをもっと使ってもらうには",
   },
   decorators: [
     (Story) => (
@@ -22,16 +22,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const RoomName: Story = {
-  args: { description: "困りごとの形で書くと、課題を出しやすくなります。" },
-};
+export const RoomName: Story = {};
 
-// エラーが出ると、補足と同じ枠をエラーに置き換える。
+// エラーは入力の下の確保済みの枠に出し、ボタンの位置を動かさない。
 export const RoomNameTooLong: Story = {
   args: {
-    ...RoomName.args,
-    defaultValue: "あ".repeat(16),
-    error: "テーマは15文字以内で入力してください。",
+    defaultValue: "あ".repeat(31),
+    error: "テーマは30文字以内で入力してください。",
   },
 };
 

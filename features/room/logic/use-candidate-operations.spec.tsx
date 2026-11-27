@@ -4,16 +4,15 @@ import type { ClientMessage } from "@/contracts/room-protocol";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { useCandidateOperations } from "./use-candidate-operations";
 
-const excluded = vi.hoisted(() =>
-  vi.fn<(undo: () => void) => string>(() => "notice"),
-);
-vi.mock("./room-notify", () => ({
-  roomNotify: { noteExcluded: excluded, dismissCandidateNotice: vi.fn() },
+// 右下の通知（sonner）が出ないことを、通知の呼び出し口ではなく toast で確かめる。
+const toast = vi.hoisted(() => vi.fn());
+vi.mock("sonner", () => ({
+  toast: Object.assign(toast, { error: vi.fn(), dismiss: vi.fn() }),
 }));
 vi.mock("@/lib/notify", () => ({ notify: { error: vi.fn() } }));
 
 function setup() {
-  excluded.mockClear();
+  toast.mockClear();
   const send = vi.fn<(message: ClientMessage) => void>();
   const notes = [buildNote({ id: "a", x: 10 }), buildNote({ id: "b", x: 20 })];
   return {
@@ -26,7 +25,7 @@ function setup() {
 }
 
 describe("候補操作", () => {
-  it("一括操作待ちで押した別付箋の個別Undoも消費せず送信する", () => {
+  it("除外が確定しても通知は出さず、盤面の除外表示だけを残す", () => {
     const { result, send, notes, rerender } = setup();
     act(() => result.current.exclude("a"));
     const request = send.mock.calls[0][0];
@@ -44,58 +43,9 @@ describe("候補操作", () => {
       }),
     );
     rerender({ notes: [note, notes[1]], connected: true });
-    const bulkId = crypto.randomUUID();
-    act(() => result.current.bulkRestore(bulkId));
-    act(() => excluded.mock.calls[0][0]());
-    expect(send).toHaveBeenCalledTimes(2);
-    act(() =>
-      result.current.applyMessage({
-        type: "note:bulk-restored",
-        operationId: bulkId,
-        count: 1,
-      }),
-    );
-    expect(send).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: "note:restore",
-        noteId: "a",
-        expectedExclusionOperationId: request.operationId,
-      }),
-    );
-  });
-
-  it("別付箋の個別操作待ちで押した一括UndoをACK後に送信する", () => {
-    const { result, send, notes } = setup();
-    const bulkId = crypto.randomUUID();
-    act(() => result.current.exclude("b"));
-    const request = send.mock.calls[0][0];
-    if (!("operationId" in request)) throw new Error("IDが必要です");
-    act(() => result.current.bulkRestore(bulkId));
-    expect(send).toHaveBeenCalledOnce();
-    act(() =>
-      result.current.applyMessage({
-        type: "note:updated",
-        note: {
-          ...notes[1],
-          excluded: true,
-          exclusionOperationId: request.operationId,
-        },
-        operationId: request.operationId,
-      }),
-    );
-    expect(send).toHaveBeenLastCalledWith({
-      type: "note:bulk-restore",
-      operationId: bulkId,
-    });
-    expect(result.current.isPending).toBe(true);
-    act(() =>
-      result.current.applyMessage({
-        type: "note:bulk-restored",
-        operationId: bulkId,
-        count: 1,
-      }),
-    );
+    expect(result.current.notes[0].excluded).toBe(true);
     expect(result.current.isPending).toBe(false);
+    expect(toast).not.toHaveBeenCalled();
   });
 
   it("新しい位置更新の後に届いた古い成功応答は確定処理だけ行い盤面へ再適用しない", () => {
@@ -131,7 +81,7 @@ describe("候補操作", () => {
     expect(handled).toBe(true);
     expect(result.current.isPending).toBe(false);
     expect(result.current.notes[0].x).toBe(95);
-    expect(excluded).toHaveBeenCalledOnce();
+    expect(toast).not.toHaveBeenCalled();
   });
 
   it("同じ付箋の二重送信を止め、別付箋と移動は独立させる", () => {
@@ -145,7 +95,7 @@ describe("候補操作", () => {
     expect(result.current.pendingNoteIds).toEqual(["a", "b"]);
     rerender({ notes: [{ ...notes[0], x: 90 }, notes[1]], connected: true });
     expect(result.current.notes[0]).toMatchObject({ excluded: true, x: 90 });
-    expect(excluded).not.toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
   });
   it("拒否時には最新状態を使い、位置を戻さず成功通知も出さない", () => {
     const { result, send, notes, rerender } = setup();
@@ -163,70 +113,7 @@ describe("候補操作", () => {
     );
     expect(result.current.notes[0]).toMatchObject({ excluded: false, x: 90 });
     expect(result.current.isPending).toBe(false);
-    expect(excluded).not.toHaveBeenCalled();
-  });
-  it("別付箋の操作と移動では元のUndoを失効させない", () => {
-    const { result, send, notes, rerender } = setup();
-    act(() => result.current.exclude("a"));
-    const request = send.mock.calls[0][0];
-    if (!("operationId" in request)) throw new Error("操作IDが必要です");
-    const note = {
-      ...notes[0],
-      excluded: true,
-      exclusionOperationId: request.operationId,
-    };
-    act(() =>
-      result.current.applyMessage({
-        type: "note:updated",
-        note,
-        operationId: request.operationId,
-      }),
-    );
-    rerender({ notes: [{ ...note, x: 95 }, notes[1]], connected: true });
-    act(() => result.current.exclude("b"));
-    const undo = excluded.mock.calls[0]?.[0] as () => void;
-    act(() => undo());
-    expect(send).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: "note:restore",
-        noteId: "a",
-        expectedExclusionOperationId: request.operationId,
-      }),
-    );
-    expect(result.current.notes[0].x).toBe(95);
-  });
-  it("別タブで再除外された候補を古いUndoで戻さない", () => {
-    const { result, send, notes, rerender } = setup();
-    act(() => result.current.exclude("a"));
-    const request = send.mock.calls[0][0];
-    if (!("operationId" in request)) throw new Error("操作IDが必要です");
-    act(() =>
-      result.current.applyMessage({
-        type: "note:updated",
-        note: {
-          ...notes[0],
-          excluded: true,
-          exclusionOperationId: request.operationId,
-        },
-        operationId: request.operationId,
-      }),
-    );
-    rerender({
-      notes: [
-        {
-          ...notes[0],
-          excluded: true,
-          exclusionOperationId: crypto.randomUUID(),
-        },
-        notes[1],
-      ],
-      connected: true,
-    });
-    const undo = excluded.mock.calls[0]?.[0];
-    expect(undo).toBeTypeOf("function");
-    if (!undo) throw new Error("取り消し操作が通知されていません");
-    act(() => undo());
-    expect(send).toHaveBeenCalledOnce();
+    expect(toast).not.toHaveBeenCalled();
   });
   it("切断で停止し、遅れた成功応答では通知や旧状態を復活させない", () => {
     const { result, send, notes, rerender } = setup();
@@ -246,6 +133,6 @@ describe("候補操作", () => {
       });
     });
     expect(ignored).toBe(true);
-    expect(excluded).not.toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
   });
 });

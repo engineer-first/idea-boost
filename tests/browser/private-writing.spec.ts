@@ -7,6 +7,7 @@ import {
   expect,
   test,
 } from "vitest";
+import { stepGuideOpener } from "./step-guide-opener";
 import { byViewport, includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
@@ -214,7 +215,7 @@ test.each(widths(1440, 1280, 390))(
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardview--private-note-addition-before-timer&viewMode=story`,
     );
-    const guide = page.getByRole("button", { name: "進め方", exact: true });
+    const guide = stepGuideOpener(page, width);
     await guide.waitFor();
 
     await guide.click();
@@ -303,7 +304,7 @@ test.each(widths(390, 1280))(
     await dialog.getByRole("button", { name: "次へ" }).click();
     await dialog.getByRole("button", { name: "はじめる" }).click();
     await dialog.waitFor({ state: "hidden" });
-    const guide = page.getByRole("button", { name: "進め方", exact: true });
+    const guide = stepGuideOpener(page, width);
     await expect
       .poll(() =>
         guide.evaluate((element) => document.activeElement === element),

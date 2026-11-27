@@ -492,3 +492,53 @@ it("開始成功後は移動が完了するまで開始中を維持する", () =
   expect(screen.getByTestId("start-phase-button")).toBeDisabled();
   expect(screen.getByTestId("start-phase-button")).toHaveTextContent("開始中…");
 });
+
+describe("開始待ちのテーマ見出し", () => {
+  it("ルームの状態が届く前は「テーマ未設定」を出さず、届いたテーマを表示する", () => {
+    const { socket } = renderStart({ open: false });
+    expect(screen.queryByText("テーマ未設定")).not.toBeInTheDocument();
+    act(() => {
+      socket.simulateOpen();
+      socket.simulateServerMessage({
+        type: "snapshot",
+        phaseRevision: 0,
+        notes: [],
+        members: [],
+        phase: buildLobbyPhase(),
+        decision: null,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+        roomName: "J05",
+      });
+    });
+    expect(
+      screen.getByRole("heading", { level: 1, name: "J05" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("テーマ未設定")).not.toBeInTheDocument();
+  });
+
+  it("テーマを付けずに作ったルームは、状態が届いた後に「テーマ未設定」と表示する", () => {
+    const { socket } = renderStart({ open: false });
+    act(() => {
+      socket.simulateOpen();
+      socket.simulateServerMessage({
+        type: "snapshot",
+        phaseRevision: 0,
+        notes: [],
+        members: [],
+        phase: buildLobbyPhase(),
+        decision: null,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+        roomName: null,
+      });
+    });
+    expect(
+      screen.getByRole("heading", { level: 1, name: "テーマ未設定" }),
+    ).toBeInTheDocument();
+  });
+});

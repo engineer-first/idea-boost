@@ -55,7 +55,7 @@ async function openStory(id: string): Promise<void> {
   if (id === "room-roomboardlayout--completed") {
     await page.getByRole("heading", { name: "チームで決めた成果" }).waitFor();
   } else {
-    await page.getByTestId("board-context-hud").waitFor();
+    await page.getByTestId("board-control-hud").waitFor();
   }
   await page.evaluate(() => document.fonts.ready);
 }
@@ -96,15 +96,24 @@ for (const { phase, count } of phases) {
       await openStory(`room-roomboardlayout--phase-${phase}-step-${step}`);
       const isResult = step === count;
       const context = page.getByTestId("board-context-hud");
-      await expectReadable(context);
-      const location = page.getByRole("button", { name: /現在地/ });
-      expect(await location.isVisible()).toBe(true);
+      // 広い画面の現在地は中央のステップバーだけで示し、左上の現在地カードは出さない。
+      const trail = page.getByTestId("phase-step-trail");
+      await expectReadable(trail);
+      expect(
+        await page.getByRole("button", { name: /現在地/ }).isVisible(),
+      ).toBe(false);
+      expect(
+        await trail
+          .locator("ol > li")
+          .evaluateAll(
+            (items) =>
+              items.findIndex(
+                (item) => item.getAttribute("aria-current") === "step",
+              ) + 1,
+          ),
+      ).toBe(step);
+      const location = page.getByTestId("phase-step-trail-phase");
       expect(await location.getAttribute("aria-expanded")).toBe("false");
-      const progress = page.getByTestId("board-progress-rail");
-      expect(await progress.getAttribute("aria-valuenow")).toBe(
-        String(step + (phase === 1 ? 0 : phase === 2 ? 5 : 9)),
-      );
-      expect(await progress.getAttribute("aria-valuemax")).toBe("14");
       expect(await page.getByTestId("board-current-step").count()).toBe(0);
       expect(
         await page.getByRole("button", { name: "ゴールと進行" }).count(),

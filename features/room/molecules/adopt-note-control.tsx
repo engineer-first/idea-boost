@@ -92,12 +92,18 @@ export function AdoptNoteControl({
       <div
         role="status"
         aria-live="polite"
+        // 投票パレットに並ぶ存在感にするため、段を高くし、主色の丸で今の操作を示す。
         // 狭い幅では文言の行とボタンの行に折り返し、文言を縦に潰さない。
-        className="pointer-events-auto flex min-h-14 max-w-xl flex-wrap items-center justify-center gap-x-3 gap-y-1.5 rounded-xl border-2 border-primary bg-background p-1.5 pl-4 shadow-tool"
+        className="pointer-events-auto flex min-h-16 max-w-2xl flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-xl border-2 border-primary bg-background p-2 pl-3 shadow-tool"
       >
-        <MousePointerClick aria-hidden="true" className="size-5 shrink-0" />
+        <span
+          aria-hidden="true"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+        >
+          <MousePointerClick className="size-5" />
+        </span>
         <div className="flex-1">
-          <p className="whitespace-nowrap text-sm font-semibold">
+          <p className="whitespace-nowrap text-sm font-bold">
             {t("clickToSelect", { target: targetLabel })}
           </p>
         </div>
@@ -105,7 +111,7 @@ export function AdoptNoteControl({
         <Button
           type="button"
           variant="outline"
-          className="h-10 px-3 text-sm"
+          className="h-11 px-3 text-sm"
           aria-label={t("cancel")}
           onClick={onCancelSelection}
         >

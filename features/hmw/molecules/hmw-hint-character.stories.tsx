@@ -28,13 +28,11 @@ export const Default: Story = {
   args: { showNudge: false },
 };
 export const Nudge: Story = { args: { showNudge: true } };
-export const BubbleOpensWords: Story = {
+export const EntryOpensWords: Story = {
   ...Nudge,
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("button", {
-        name: /困ったらここから.*作ってみよう/,
-      }),
+      within(canvasElement).getByRole("button", { name: "問いのヒント" }),
     );
   },
 };

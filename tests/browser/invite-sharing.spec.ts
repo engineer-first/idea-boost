@@ -123,7 +123,7 @@ for (const width of widths(390, 1280)) {
           await page.evaluate(
             () => document.documentElement.dataset.copiedValue,
           ),
-        ).toBe(inviteUrl);
+        ).toContain(`参加リンク: ${inviteUrl}\n招待コード: AB12CD`);
         // 画面にはURLの全文を出さない。
         expect(await copy.textContent()).toBe("リンクをコピー");
         expect(
@@ -216,19 +216,20 @@ for (const width of widths(390, 1280)) {
         await expect
           .poll(() => share.getAttribute("data-share-state"), { timeout: 3000 })
           .toBe("idle");
-        // 招待コード → 招待文をコピー → リンクをコピー → 共有の順に並ぶ。
-        const message = page.getByRole("button", { name: "招待文をコピー" });
+        // 招待コード → リンクをコピー → 共有の順に並び、別の「招待文をコピー」は出さない。
+        expect(
+          await page.getByRole("button", { name: "招待文をコピー" }).count(),
+        ).toBe(0);
         await share.focus();
         await page.keyboard.press("Shift+Tab");
-        await page.keyboard.press("Shift+Tab");
-        expect(
-          await message.evaluate((el) => el === document.activeElement),
-        ).toBe(true);
+        expect(await copy.evaluate((el) => el === document.activeElement)).toBe(
+          true,
+        );
         await page.keyboard.press("Shift+Tab");
         expect(await code.evaluate((el) => el === document.activeElement)).toBe(
           true,
         );
-        for (const control of [copy, code, message, share]) {
+        for (const control of [copy, code, share]) {
           const box = await control.boundingBox();
           expect(box).not.toBeNull();
           expect(box?.x).toBeGreaterThanOrEqual(0);

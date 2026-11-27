@@ -27,6 +27,12 @@ export type BoardContextProps = {
   hmwReference?: Carryover | null;
   // 現在地カードの中、現在地ボタンの右に並べる操作（「進め方」）。
   guideControl?: ReactNode;
+  // 広い画面では現在のステップと「進め方」を中央のステップバーで示すため、現在地カードごと出さない。
+  locationOnNarrowOnly?: boolean;
+  // 作業中に「テーマ何だっけ」とメニューを開かずに済むよう常に見せる。渡さない画面では出さない。
+  roomName?: string | null;
+  // ルームの状態が届く前は「テーマ未設定」と仮表示せず、高さだけ保つ。
+  roomNameLoading?: boolean;
 };
 
 export function BoardContext({
@@ -38,12 +44,22 @@ export function BoardContext({
   issueReference,
   hmwReference,
   guideControl,
+  locationOnNarrowOnly,
+  roomName,
+  roomNameLoading = false,
 }: BoardContextProps) {
   const t = useTranslations("app.boardContext");
-  const phaseKey = phase.kind === "step" ? String(phase.phase) : "lobby";
   const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
+  // 2軸マップのステップは、前のステップで開いたカードを持ち越さず閉じて入る。
+  // 開いたカードがマップの左上と縦軸の「高」を隠すため。
+  const phaseKey =
+    phase.kind !== "step"
+      ? "lobby"
+      : usesIdeaMapViewport
+        ? `${phase.phase}-${phase.step}`
+        : String(phase.phase);
   const defaultInitialId =
-    phase.kind === "step"
+    phase.kind === "step" && !usesIdeaMapViewport
       ? phase.phase === 3
         ? "hmw"
         : phase.phase === 2
@@ -89,7 +105,27 @@ export function BoardContext({
         phase={phase}
         outcomePublished={outcomePublished}
         action={guideControl}
+        narrowOnly={locationOnNarrowOnly}
       />
+      {roomName !== undefined ? (
+        <p
+          data-testid="board-room-theme"
+          title={roomName ?? undefined}
+          aria-busy={roomNameLoading || undefined}
+          className="board-hud pointer-events-auto mt-2 line-clamp-2 w-fit max-w-full min-w-0 break-words rounded-xl border border-border bg-background px-3 py-1 text-sm shadow-tool max-[639px]:hidden"
+        >
+          {roomNameLoading ? (
+            "\u00a0"
+          ) : roomName === null ? (
+            <span className="text-muted-foreground">{t("unsetTheme")}</span>
+          ) : (
+            <>
+              <span className="text-muted-foreground">{t("themeLabel")}</span>
+              <span className="font-medium">{roomName}</span>
+            </>
+          )}
+        </p>
+      ) : null}
       {disclosures.length > 0 ? (
         <div
           className={`${styles.references} board-hud pointer-events-auto pt-2 ${usesIdeaMapViewport ? "grid w-full grid-cols-2 items-stretch gap-2 max-[639px]:grid-cols-1" : "w-[200px] space-y-2"}`}

@@ -226,3 +226,8 @@ export const DraftAwaitingConfirmation: Story = {
     },
   },
 };
+
+export const EmptyWritingWorkspaceWithExamples: Story = {
+  ...WritingWorkspaceWithExamples,
+  args: { ...WritingWorkspaceWithExamples.args, notes: [] },
+};

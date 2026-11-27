@@ -26,6 +26,7 @@ import {
   NOTE_WIDTH,
 } from "@/contracts/board";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { cn } from "@/lib/utils";
 import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
@@ -76,8 +77,9 @@ export type PrivateNotesToolbarProps = {
   ) => void;
 };
 
+// 参照情報を避けて列が5つ入らないときも、余りを左右に分けて入力欄と同じ中心に並べる。
 const workspaceGrid =
-  "max-w-[var(--private-notes-grid-width)] grid-cols-[repeat(auto-fill,var(--private-note-width))] justify-start gap-x-[var(--private-note-column-gap)] gap-y-6";
+  "max-w-[var(--private-notes-grid-width)] grid-cols-[repeat(auto-fill,var(--private-note-width))] justify-center-safe gap-x-[var(--private-note-column-gap)] gap-y-6";
 const workspaceComposer =
   "mx-auto w-full max-w-[var(--private-note-composer-width)]";
 const composerTextLayout =
@@ -663,6 +665,25 @@ export function PrivateNotesToolbar({
     return () => observer.disconnect();
   }, [workspaceCollapsible, workspaceExpanded, notes]);
 
+  useLayoutEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    const toolbar = scrollContainer?.closest<HTMLElement>(
+      '[data-testid="private-notes-toolbar"]',
+    );
+    if (!isWorkspace || !scrollContainer || !toolbar) return;
+    // Windows などでスクロールバーが一覧の右を狭めても、入力欄の右にも同じ幅を空けて中心をそろえる。
+    const measure = () =>
+      toolbar.style.setProperty(
+        "--private-notes-scrollbar-width",
+        `${scrollContainer.offsetWidth - scrollContainer.clientWidth}px`,
+      );
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(scrollContainer);
+    return () => observer.disconnect();
+  }, [isWorkspace]);
+
   useEffect(() => {
     if (addRequest <= 0 || addRequest === lastAddRequestRef.current) return;
     lastAddRequestRef.current = addRequest;
@@ -1058,26 +1079,48 @@ export function PrivateNotesToolbar({
           }}
         >
           {isWorkspace && !workspaceCollapsible && exampleNotes.length > 0 ? (
-            <section
-              aria-label={t("questionExamples")}
-              className={cn("mb-6 grid", workspaceGrid)}
-            >
-              {exampleNotes.map((example, index) => (
-                <StickyNote
-                  key={example}
-                  noteId={`example-note-${index}`}
-                  color="blue"
-                  height={getNoteHeight(example, NOTE_DEFAULT_FONT_SIZE)}
-                  testId={`example-note-${index + 1}`}
-                >
-                  <div className="flex h-full flex-col p-2">
-                    <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-base">
-                      {example}
-                    </p>
+            notes.length > 0 ? (
+              // 書き始めた後は、例を1行の参照に縮めて自分の付箋に場所を譲る。
+              <section
+                aria-label={t("questionExamples")}
+                className="mx-auto mb-4 flex max-w-[var(--private-notes-grid-width)] flex-wrap justify-center gap-2"
+              >
+                {exampleNotes.map((example, index) => (
+                  <div
+                    key={example}
+                    data-testid={`example-note-${index + 1}`}
+                    className="min-w-0 rounded-note px-2 py-1"
+                    style={{
+                      backgroundColor: NOTE_COLOR_STYLES.blue.backgroundColor,
+                      color: NOTE_COLOR_STYLES.blue.foregroundColor,
+                    }}
+                  >
+                    <p className="text-sm leading-5">{example}</p>
                   </div>
-                </StickyNote>
-              ))}
-            </section>
+                ))}
+              </section>
+            ) : (
+              <section
+                aria-label={t("questionExamples")}
+                className={cn("mb-6 grid", workspaceGrid)}
+              >
+                {exampleNotes.map((example, index) => (
+                  <StickyNote
+                    key={example}
+                    noteId={`example-note-${index}`}
+                    color="blue"
+                    height={getNoteHeight(example, NOTE_DEFAULT_FONT_SIZE)}
+                    testId={`example-note-${index + 1}`}
+                  >
+                    <div className="flex h-full flex-col p-2">
+                      <p className="min-h-0 flex-1 whitespace-pre-wrap break-words text-base">
+                        {example}
+                      </p>
+                    </div>
+                  </StickyNote>
+                ))}
+              </section>
+            )
           ) : null}
           <div
             ref={listRef}

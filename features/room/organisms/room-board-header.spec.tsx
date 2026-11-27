@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildMembers,
@@ -768,6 +768,68 @@ describe("RoomBoardHeader", () => {
     ).toBeVisible();
   });
 
+  it("タイマーが時間切れの間だけ、中央のステップバーに次への矢印を出す", () => {
+    const props = setupProps({
+      phase: buildPhaseStep(1, 1),
+      timer: { status: "ended", durationMs: 180_000 },
+    });
+    const { rerender } = render(<RoomBoardHeader {...props} />);
+    const trail = screen.getByTestId("phase-step-trail");
+    expect(
+      within(trail).getByRole("img", {
+        name: "次の「共有」へ進めます",
+      }),
+    ).toBeVisible();
+
+    rerender(
+      <RoomBoardHeader
+        {...props}
+        timer={{
+          status: "running",
+          endsAt: Date.now() + 60_000,
+          durationMs: 60_000,
+        }}
+      />,
+    );
+    expect(
+      within(trail).queryByRole("img", { name: /へ進めます$/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("共有の途中で発表者の時間が切れても、次のステップへの矢印は出さない", () => {
+    setup({
+      phase: buildPhaseStep(2, 1),
+      sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+      timer: { status: "ended", durationMs: 180_000 },
+    });
+
+    expect(
+      within(screen.getByTestId("phase-step-trail")).queryByRole("img", {
+        name: /へ進めます$/,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("中央のステップバーの今のステップから進め方を開き、閉じるとそのステップへフォーカスを戻す", async () => {
+    localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
+    setup({ inviteCode: "TRAIL-GUIDE", phase: buildPhaseStep(1, 1) });
+
+    const stepButton = within(screen.getByTestId("phase-step-trail")).getByRole(
+      "button",
+      { name: "「個人」の進め方を開く" },
+    );
+    fireEvent.click(stepButton);
+    expect(
+      await screen.findByRole("dialog", {
+        name: "最近あった困ったことを付箋に書き出そう。",
+      }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(stepButton).toHaveFocus();
+  });
+
   it("スライドの進捗から前のスライドへ戻れる", async () => {
     const inviteCode = "ONBOARD-BACK";
     localStorage.setItem(stepGuideSeenStorageKey(ME, "1-1"), "seen");
@@ -939,7 +1001,24 @@ describe("RoomBoardHeader", () => {
       ).toHaveTextContent("AB12CD");
     });
 
-    it("ルームメニューの招待から、テーマ・参加リンク・招待コードを含む招待文をコピーできる", async () => {
+    it("作業画面ではメニューを開かなくてもテーマを確認できる", () => {
+      setup({ roomName: "J05" });
+      expect(screen.getByTestId("board-room-theme")).toHaveTextContent(
+        "テーマ：J05",
+      );
+      expect(
+        screen.queryByRole("dialog", { name: "ルームメニュー" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("作業画面ではルームの状態が届くまで「テーマ未設定」と出さない", () => {
+      setup({ roomName: null, roomNameLoaded: false });
+      expect(screen.getByTestId("board-room-theme")).not.toHaveTextContent(
+        "テーマ未設定",
+      );
+    });
+
+    it("ルームメニューの招待の「リンクをコピー」1つで、テーマ・参加リンク・招待コードを含む招待文をコピーできる", async () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
       const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
       Object.defineProperty(navigator, "clipboard", {
@@ -951,9 +1030,12 @@ describe("RoomBoardHeader", () => {
         openRoomMenu();
         fireEvent.click(screen.getByRole("button", { name: "招待" }));
         const invite = screen.getByTestId("board-view-invite");
+        expect(
+          within(invite).queryByRole("button", { name: "招待文をコピー" }),
+        ).not.toBeInTheDocument();
         await act(async () =>
           fireEvent.click(
-            within(invite).getByRole("button", { name: "招待文をコピー" }),
+            within(invite).getByRole("button", { name: "招待リンクをコピー" }),
           ),
         );
         expect(writeText).toHaveBeenCalledExactlyOnceWith(
@@ -1802,6 +1884,41 @@ describe("共有の進行欄", () => {
     expect(banner).toHaveTextContent("あなたのターンです");
     expect(banner).toHaveAttribute("data-self", "true");
   });
+  it.each([
+    [
+      "発表者",
+      0,
+      "マイ付箋をボードに出して説明しよう",
+      "話を聞いて、リアクションを送ろう",
+    ],
+    [
+      "聞く人",
+      1,
+      "話を聞いて、リアクションを送ろう",
+      "マイ付箋をボードに出して説明しよう",
+    ],
+  ])(
+    "発表中は%sに今することを発表者の表示の中で示す",
+    (_role, index, text, otherText) => {
+      const active = { ...sharing, status: "active" as const, currentIndex: 0 };
+      render(
+        <RoomBoardHeader
+          {...setupProps({
+            phase: buildPhaseStep(2),
+            currentUserId: active.order[index].userId,
+          })}
+          {...{
+            sharing: active,
+            onSharingStart: vi.fn(),
+            onSharingAdvance: vi.fn(),
+          }}
+        />,
+      );
+      const banner = screen.getByTestId("sharing-current-presenter");
+      expect(banner).toHaveTextContent(text);
+      expect(banner).not.toHaveTextContent(otherText);
+    },
+  );
   it("共有が終わったら発表者の表示を消す", () => {
     render(
       <RoomBoardHeader
@@ -2109,9 +2226,12 @@ it("参加者はルームメニューで現在名と変更入口を確認でき�
   const onRenameRoom = vi.fn();
   const props = setupProps({ roomName: "J05", onRenameRoom });
   const { rerender } = render(<RoomBoardHeader {...props} />);
-  expect(screen.queryByText("J05")).not.toBeInTheDocument();
   openRoomMenu();
-  expect(screen.getByText("J05")).toBeInTheDocument();
+  expect(
+    within(screen.getByRole("dialog", { name: "ルームメニュー" })).getByText(
+      "J05",
+    ),
+  ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "テーマを変更" }));
   expect(onRenameRoom).toHaveBeenCalledOnce();
   rerender(<RoomBoardHeader {...props} outcomePublished />);
@@ -2325,4 +2445,23 @@ describe("今のフェーズのステップの並び", () => {
     expect(within(trail).getAllByRole("img", { name: "完了" })).toHaveLength(2);
     expect(items[2].getAttribute("aria-current")).toBe("step");
   });
+});
+
+it("2軸マップのステップでは、テーマの折り返しで現在地の欄が伸びたらマップ位置を測り直す", () => {
+  const observed: Element[] = [];
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe(element: Element): void {
+        observed.push(element);
+      }
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  );
+  onTestFinished(() => {
+    vi.unstubAllGlobals();
+  });
+  setup({ phase: buildPhaseStep(2, 3), roomName: "J05" });
+  expect(observed).toContain(screen.getByTestId("board-context-hud"));
 });

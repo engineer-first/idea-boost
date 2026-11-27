@@ -12,6 +12,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 const controls = {
   name: "J05",
+  loaded: true,
   onClosed: () => {},
   open: true,
   draft: "J05",
@@ -65,5 +66,5 @@ export const Interactive: Story = {
 };
 
 export const TooLong: Story = {
-  args: { controls: { ...controls, draft: "あ".repeat(16) } },
+  args: { controls: { ...controls, draft: "あ".repeat(31) } },
 };

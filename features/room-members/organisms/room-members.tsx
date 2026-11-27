@@ -125,7 +125,7 @@ export function RoomMembers({
         {hidden > 0 ? (
           <button
             type="button"
-            aria-label={`他 ${hidden} 名`}
+            aria-label={`他 ${hidden}人`}
             data-testid="room-members-overflow"
             onClick={() => setOverflowOpen(true)}
             className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center justify-self-center self-center rounded-full border-2 border-background bg-muted text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

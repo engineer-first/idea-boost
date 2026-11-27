@@ -78,6 +78,23 @@ function stickerLabel(
     : `${dotVoteStickerName(kind, phase, locale)} ${count}票`;
 }
 
+// 取り消しは常に1票ずつ。2票以上貼ったときだけ、何票のうちの1票かを添える。
+function removeLabel(
+  kind: DotVoteKind,
+  phase: DotVotePhase,
+  count: number,
+  locale: "ja" | "en",
+): string {
+  const name = dotVoteStickerName(kind, phase, locale);
+  if (locale === "en")
+    return count > 1
+      ? `Withdraw one of ${count} ${name} votes`
+      : `Withdraw ${name}`;
+  return count > 1
+    ? `${name} ${count}票のうち1票を取り消す`
+    : `${name}を取り消す`;
+}
+
 function displayCount(count: number): string {
   return count > 99 ? "99+" : String(count);
 }
@@ -220,9 +237,7 @@ export function DotVoteSticker({
         <button
           type="button"
           data-state={state}
-          aria-label={
-            locale === "en" ? `Withdraw one ${label}` : `${label}を1票取り消す`
-          }
+          aria-label={removeLabel(kind, phase, count, locale)}
           className={`inline-flex transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${DOT_VOTE_SHAPE[kind]} ${
             onDragStart ? "touch-none cursor-grab active:cursor-grabbing" : ""
           } ${state === "pending" ? "animate-pulse" : ""}`}

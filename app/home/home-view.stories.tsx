@@ -90,28 +90,20 @@ export const AllStates: Story = {
             <div className={styles.home}>
               <div aria-hidden className={styles.art} />
               <div className={styles.content}>
+                <h1 className="sr-only">ホーム</h1>
                 {error ? <HomeErrorAlert message={error} /> : null}
-                <div className={styles.hero}>
-                  <header className={styles.intro}>
-                    <h1>
-                      <span>そのひらめき、</span>
-                      <span>みんなで育てよう。</span>
-                    </h1>
-                    <p>ルームを作って、仲間とアイデア出しを始めましょう。</p>
-                  </header>
-                  <CreateRoomSectionView
-                    pending={false}
-                    onSubmit={fn()}
-                    message={
-                      label === "Recovering"
-                        ? "ルームを開けませんでした。もう一度お試しください。"
-                        : undefined
-                    }
-                    intentName={
-                      label === "Recovering" ? "サービスの相談" : undefined
-                    }
-                  />
-                </div>
+                <CreateRoomSectionView
+                  pending={false}
+                  onSubmit={fn()}
+                  message={
+                    label === "Recovering"
+                      ? "ルームを開けませんでした。もう一度お試しください。"
+                      : undefined
+                  }
+                  intentName={
+                    label === "Recovering" ? "サービスの相談" : undefined
+                  }
+                />
                 <JoinRoomSectionView
                   canSubmit={false}
                   code=""

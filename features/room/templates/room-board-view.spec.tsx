@@ -11,6 +11,7 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import type { Note } from "@/features/notes";
+import { buildRoomNameControls } from "../logic/room-name.fixture";
 import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
@@ -85,8 +86,8 @@ describe("タイマーの画面中央の通知", () => {
   });
 });
 
-describe("時間切れの通知と未開始の案内", () => {
-  it("延長後の自動進行で未開始に戻っても、時間切れの通知が消えるまで未開始の案内を重ねない", () => {
+describe("時間切れの通知と未開始のタイマー", () => {
+  it("延長後の自動進行で未開始に戻っても、時間切れの通知を出し切った後に中央へ案内を重ねない", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     onTestFinished(() => {
@@ -102,10 +103,31 @@ describe("時間切れの通知と未開始の案内", () => {
     expect(screen.getByTestId("timer-alert")).toHaveTextContent(
       "時間になりました！",
     );
-    expect(screen.queryByTestId("timer-work-hint")).not.toBeInTheDocument();
     act(() => vi.advanceTimersByTime(3_000));
     expect(screen.queryByTestId("timer-alert")).not.toBeInTheDocument();
-    expect(screen.getByTestId("timer-work-hint")).toBeInTheDocument();
+    expect(
+      screen.queryByText("タイマーが開始されていません"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("ステップ遷移直後に自動開始を待つ間、未開始の案内で付箋エリアを覆わない", () => {
+    const { rerender, props } = setup({
+      phase: buildPhaseStep(2, 1),
+      timer: { status: "running", endsAt: 60_000, durationMs: 60_000 },
+    });
+    rerender(
+      <TestBoardView
+        {...props}
+        phase={buildPhaseStep(3, 1)}
+        timer={{ status: "idle" }}
+      />,
+    );
+    expect(
+      screen.queryByText("タイマーが開始されていません"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /未開始.*規定時間で開始/ }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -765,7 +787,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
           : source === "パレット"
             ? palette
             : screen.getByRole("button", {
-                name: "「いいね」シール 1票を1票取り消す",
+                name: "「いいね」シールを取り消す",
               });
       if (source === "付箋押下") fireEvent.click(palette);
       fireEvent.pointerDown(owner, {
@@ -861,7 +883,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
         name:
           source === "パレット"
             ? "「いいね」シール 残り2票"
-            : "「いいね」シール 1票を1票取り消す",
+            : "「いいね」シールを取り消す",
       });
       const surface = getNoteSurface(screen.getByTestId("note-card"));
       fireEvent.pointerDown(owner, {
@@ -919,7 +941,7 @@ describe("問いの投票シールと付箋移動の排他", () => {
       const owner =
         source === "配置済み"
           ? screen.getByRole("button", {
-              name: "「いいね」シール 1票を1票取り消す",
+              name: "「いいね」シールを取り消す",
             })
           : palette;
       if (source === "選択") fireEvent.click(palette);
@@ -1823,9 +1845,48 @@ describe("RoomBoardView", () => {
     },
   );
 
+  it("640px以上の1-1では、現在地の下のテーマ表示より下からマイ付箋エリアを始める", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        switch (this.dataset.testid) {
+          case "board-frame":
+            return new DOMRect(0, 100, 1280, 700);
+          case "board-location-slot":
+            return new DOMRect(0, 110, 200, 40);
+          case "board-room-theme":
+            return new DOMRect(0, 158, 200, 50);
+          case "board-control-hud":
+            return new DOMRect(900, 110, 300, 56);
+          default:
+            return new DOMRect(0, 0, 0, 0);
+        }
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(
+      function (this: HTMLElement) {
+        return [
+          "board-location-slot",
+          "board-room-theme",
+          "board-control-hud",
+        ].includes(this.dataset.testid ?? "")
+          ? ([this.getBoundingClientRect()] as unknown as DOMRectList)
+          : ([] as unknown as DOMRectList);
+      },
+    );
+
+    setup({ phase: buildPhaseStep(1, 1), roomName: buildRoomNameControls() });
+
+    const root = screen.getByTestId("room-board-view-root");
+    // テーマ表示の下端（158 + 50）から12px空け、テーマとマイ付箋の入力欄を重ねない。
+    expect(root.style.getPropertyValue("--board-private-expanded-top")).toBe(
+      "220px",
+    );
+  });
+
   type PersonalWorkspaceGeometry = {
     contextHeight: number;
     helpPanel: DOMRect | null;
+    contextColumn: DOMRect | null;
   };
   function mockPersonalWorkspaceGeometry(
     overrides: Partial<PersonalWorkspaceGeometry> = {},
@@ -1833,6 +1894,7 @@ describe("RoomBoardView", () => {
     const geometry: PersonalWorkspaceGeometry = {
       contextHeight: 250,
       helpPanel: null,
+      contextColumn: null,
       ...overrides,
     };
     const rectOf = (element: HTMLElement): DOMRect | null => {
@@ -1841,6 +1903,8 @@ describe("RoomBoardView", () => {
       switch (element.dataset.testid) {
         case "board-frame":
           return new DOMRect(0, 100, 1280, 700);
+        case "board-context-column":
+          return geometry.contextColumn;
         case "board-context-hud":
           return new DOMRect(0, 110, 200, geometry.contextHeight);
         case "board-context-references":
@@ -1905,23 +1969,32 @@ describe("RoomBoardView", () => {
     }
   });
 
-  it("640px以上の3-1で考えるヒントを開くと、付箋一覧をヒントの右端から16px離して始める", () => {
-    mockPersonalWorkspaceGeometry({
-      helpPanel: new DOMRect(12, 372, 320, 330),
-    });
-    setup({
-      phase: buildPhaseStep(1, 3),
-      hmwDecidedIssue: "決定した課題",
-      decidedHmw: "決定した問い",
-      help: openIdeaHelp,
-    });
+  it.each([
+    ["開いた", true],
+    ["閉じた", false],
+  ])(
+    "640px以上の3-1で考えるヒントを%sときも、付箋一覧を左の列の右端から16px離して始める",
+    (_label, isOpen) => {
+      mockPersonalWorkspaceGeometry({
+        helpPanel: isOpen
+          ? new DOMRect(12, 372, 320, 330)
+          : new DOMRect(12, 372, 200, 36),
+        contextColumn: new DOMRect(12, 110, 360, 590),
+      });
+      setup({
+        phase: buildPhaseStep(1, 3),
+        hmwDecidedIssue: "決定した課題",
+        decidedHmw: "決定した問い",
+        help: { ...openIdeaHelp, isOpen },
+      });
 
-    const root = screen.getByTestId("room-board-view-root");
-    // ヒントの右端332px − マイ付箋エリアの左端20px + 16px。
-    expect(root.style.getPropertyValue("--board-private-reference-inset")).toBe(
-      "328px",
-    );
-  });
+      const root = screen.getByTestId("room-board-view-root");
+      // 左の列の右端372px − マイ付箋エリアの左端20px + 16px。開閉で変えない。
+      expect(
+        root.style.getPropertyValue("--board-private-reference-inset"),
+      ).toBe("368px");
+    },
+  );
 
   it("640px未満の3-1で考えるヒントを開くと、ヒントの下からマイ付箋エリアを始める", () => {
     const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(390);
@@ -2787,7 +2860,7 @@ describe("RoomBoardView", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
@@ -2867,7 +2940,7 @@ describe("RoomBoardView", () => {
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
@@ -2889,7 +2962,7 @@ describe("RoomBoardView", () => {
     ).toBeEnabled();
     expect(
       screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       }),
     ).toBeInTheDocument();
     expect(notify).toHaveBeenCalledWith(
@@ -2921,7 +2994,7 @@ describe("RoomBoardView", () => {
     });
 
     const sticker = screen.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     const palette = screen.getByRole("region", { name: "投票パレット" });
     const root = screen.getByTestId("room-board-view-root");
@@ -2978,7 +3051,7 @@ describe("RoomBoardView", () => {
     });
 
     const sticker = screen.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     const root = screen.getByTestId("room-board-view-root");
     Object.defineProperty(document, "elementFromPoint", {
@@ -4465,7 +4538,7 @@ describe("投票pointer所有と取消", () => {
     });
     const { props } = setup({ phase: buildPhaseStep(4), notes: [note] });
     const sticker = screen.getByRole("button", {
-      name: "「いいね」シール 1票を1票取り消す",
+      name: "「いいね」シールを取り消す",
     });
     fireEvent.pointerDown(sticker, {
       pointerId: 41,
@@ -4595,7 +4668,7 @@ describe("AT-004: 所有gestureの取消経路", () => {
         name:
           source === "palette"
             ? "「いいね」シール 残り2票"
-            : "「いいね」シール 1票を1票取り消す",
+            : "「いいね」シールを取り消す",
       });
       const root = screen.getByTestId("room-board-view-root");
       const hand = screen.getByRole("button", { name: "手のひらツール" });
@@ -4637,7 +4710,7 @@ describe("AT-004: 所有gestureの取消経路", () => {
       expect(props.onNoteVoteRemove).not.toHaveBeenCalled();
       expect(
         screen.getByRole("button", {
-          name: "「いいね」シール 1票を1票取り消す",
+          name: "「いいね」シールを取り消す",
         }),
       ).toBeInTheDocument();
       const palette = screen.getByRole("button", {
@@ -4937,7 +5010,7 @@ it("AT-023: hand toolでも本人シールnative keyboard clickは1回取消す"
     detail: 0,
   });
   const sticker = screen.getByRole("button", {
-    name: "「いいね」シール 1票を1票取り消す",
+    name: "「いいね」シールを取り消す",
   });
   fireEvent.click(sticker, { detail: 0 });
   expect(props.onNoteVoteStickerRemove).toHaveBeenCalledTimes(1);
@@ -4998,7 +5071,7 @@ describe("CI-IN002: active gesture中のnote custom semantic key", () => {
         value: () => cards[2],
       });
       const owner = screen.getByRole("button", {
-        name: "「いいね」シール 1票を1票取り消す",
+        name: "「いいね」シールを取り消す",
       });
       fireEvent.pointerDown(owner, {
         pointerId: 301,
@@ -5235,15 +5308,6 @@ it("作者の退出・表示名更新後も共有付箋に作者名のホバー�
     />,
   );
   expect(screen.queryByTitle(/^作者:/)).not.toBeInTheDocument();
-});
-
-it("追加執筆中は停止中タイマーの中央案内で付箋エリアを覆わない", () => {
-  setup({
-    phase: buildPhaseStep(1),
-    isAdditionalWriting: true,
-    timer: { status: "idle" },
-  });
-  expect(screen.queryByTestId("timer-work-hint")).not.toBeInTheDocument();
 });
 
 it.each([1, 3] as const)(

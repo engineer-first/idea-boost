@@ -420,7 +420,7 @@ describe("キャラクターの一言", () => {
     rerender({ timer: { ...running, endsAt: Date.now() + 180_000 } });
     expect(result.current.message).toBeNull();
   });
-  it("共有が終わった時間切れは、全員に次の工程の確認を案内する", () => {
+  it("全員の発表が終わったら、時間切れと言わずに次のステップへ進むよう案内する", () => {
     const { result } = renderHook(() =>
       useCharacterHint({
         phase: { ...phase, step: 2 },
@@ -431,7 +431,49 @@ describe("キャラクターの一言", () => {
       }),
     );
     expect(result.current.message).toBe(
-      "時間になったよ、次の工程をみんなで確認しよう。",
+      "みんな発表したよ、次のステップへ進もう。",
+    );
+  });
+  it("最後の人が持ち時間を過ぎてから発表を終えても、全員の発表が終わった一言に替える", () => {
+    const { result, rerender } = renderHook(
+      ({ sharingRole }: { sharingRole: "presenter" | "finished" }) =>
+        useCharacterHint({
+          phase: { ...phase, step: 2 },
+          timer: { status: "ended", durationMs: 180_000 },
+          serverOffsetMs: 0,
+          noteCount: 1,
+          sharingRole,
+        }),
+      {
+        initialProps: { sharingRole: "presenter" as "presenter" | "finished" },
+      },
+    );
+    expect(result.current.message).toBe(
+      "時間になったよ、次の人にバトンを渡そう。",
+    );
+    rerender({ sharingRole: "finished" });
+    expect(result.current.message).toBe(
+      "みんな発表したよ、次のステップへ進もう。",
+    );
+  });
+  it("全員の発表が終わった後に途中参加で共有が戻っても、時間切れの一言を出さない", () => {
+    const { result, rerender } = renderHook(
+      ({ sharingRole }: { sharingRole: "presenter" | "finished" }) =>
+        useCharacterHint({
+          phase: { ...phase, step: 2 },
+          timer: { status: "ended", durationMs: 180_000 },
+          serverOffsetMs: 0,
+          noteCount: 1,
+          sharingRole,
+        }),
+      { initialProps: { sharingRole: "finished" as "presenter" | "finished" } },
+    );
+    expect(result.current.message).toBe(
+      "みんな発表したよ、次のステップへ進もう。",
+    );
+    rerender({ sharingRole: "presenter" });
+    expect(result.current.message).toBe(
+      "みんな発表したよ、次のステップへ進もう。",
     );
   });
   it("個人作業の時間切れは発表者かどうかで変えない", () => {

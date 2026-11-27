@@ -26,9 +26,6 @@
     "tooLong": "The display name must be {max} characters or fewer."
   },
   "home": {
-    "headingFirst": "Let's turn that spark",
-    "headingSecond": "into something we can build together.",
-    "description": "Create a room and start ideating with your team.",
     "history": "View past outcomes",
     "historyAria": "Past outcomes",
     "recent": "Recent rooms",
@@ -55,15 +52,14 @@
     "expiresAtTitle": "Scheduled for deletion on {date}",
     "autoDeleteRemaining": "Time until automatic deletion:",
     "expiresInDays": "{days} days left",
-    "expiresSoon": "soon"
+    "expiresSoon": "soon",
+    "title": "Home"
   },
   "createRoom": {
     "title": "Create a room",
-    "description": "Open a new room and invite your teammates.",
     "label": "Topic (optional)",
     "tooLong": "The topic must be {max} characters or fewer.",
-    "placeholder": "e.g. Challenges with commuting to school",
-    "hint": "Describe a real difficulty to help your team identify a problem.",
+    "placeholder": "e.g. How can we get more people to use our app?",
     "pending": "Preparing…",
     "retry": "Try again",
     "submit": "Create a new room"
@@ -115,14 +111,12 @@
     "roomFallback": "Room lobby",
     "unsetTheme": "No topic set",
     "editTheme": "Edit topic",
-    "memberSuffix": "members",
     "readyHeadingFirst": "Once everyone is here,",
     "readyHeadingSecond": "let's get started.",
     "memberHeading": "Participants",
     "waiting": "Waiting for participants to join.",
     "inviteHeadingFirst": "Invite",
     "inviteHeadingSecond": "your team",
-    "inviteDescription": "Send the link or code to invite your teammates.",
     "inviteCode": "Invitation code",
     "starting": "Starting…",
     "start": "Start",
@@ -130,7 +124,8 @@
     "privacyDescription": "Shared boards, published vote totals, progress times, and completed outcomes are saved automatically. Completed outcomes are available from Home for 180 days.",
     "privacyLink": "Storage and privacy (opens in a new tab)",
     "leaving": "Leaving…",
-    "leave": "Leave room"
+    "leave": "Leave room",
+    "memberCount": "{count, plural, one {# participant} other {# participants}}"
   },
   "connection": {
     "disconnected": "Connection lost",
@@ -243,7 +238,7 @@
     "completionWaitingReconnect": "Reconnecting…",
     "completionWaitingAdoption": "Adopt an idea to finish",
     "completionWaitingMembers": "Waiting for {count} more to be ready",
-    "completeSprint": "Complete this sprint?",
+    "completeSprint": "Finish and show the outcome?",
     "cancel": "Cancel",
     "complete": "Complete",
     "openRoomMenu": "Open room menu",
@@ -333,7 +328,12 @@
       "3-3": "Evaluate value and feasibility",
       "3-4": "Vote on ideas",
       "3-5": "Choose an idea"
-    }
+    },
+    "trailOpenFlow": "{phase}: open the full roadmap",
+    "trailSteps": "Steps in {phase}",
+    "openGuide": "Open the guide for “{step}”",
+    "guideTitle": "See how this step works",
+    "nextAvailable": "You can move on to “{step}”"
   },
   "boardPrivateNotes": {
     "title": "My notes",
@@ -408,7 +408,8 @@
     "body": "Sticky note content",
     "excludedNote": "Excluded sticky note",
     "note": "Sticky note",
-    "voteOnNote": "Sticky note (place {sticker})"
+    "voteOnNote": "Sticky note (place {sticker})",
+    "decideHint": "Select this"
   },
   "boardVote": {
     "palette": "Voting palette",
@@ -902,7 +903,9 @@
     "participantConnected": "{name} is connected. Move on to the next presenter.",
     "cancel": "Cancel",
     "pass": "Pass",
-    "otherParticipants": "Other participants"
+    "otherParticipants": "Other participants",
+    "selfInstruction": "Put your notes on the board and explain them",
+    "listenerInstruction": "Listen and send a reaction"
   },
   "boardRollback": {
     "button": "Back to previous step",
@@ -1123,7 +1126,8 @@
     "sharedNoteContentAria": "Full text of shared sticky note",
     "sharedNoteReadOnly": "Shared sticky note · Read only",
     "closeSharedNoteContent": "Close shared sticky note text",
-    "noSharedNoteBody": "No text"
+    "noSharedNoteBody": "No text",
+    "sharingFinished": "Sharing is finished"
   },
   "boardMapSize": {
     "ariaLabel": "Idea map size controls",
@@ -1157,7 +1161,9 @@
   "boardContext": {
     "decidedQuestion": "Selected question",
     "decidedChallenge": "Selected challenge",
-    "contentLabel": "{label} content"
+    "contentLabel": "{label} content",
+    "unsetTheme": "No topic set",
+    "themeLabel": "Topic: "
   },
   "boardMap": {
     "ariaLabel": "Value and feasibility map",

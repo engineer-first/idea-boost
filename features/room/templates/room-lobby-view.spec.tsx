@@ -103,7 +103,7 @@ describe("RoomLobbyView", () => {
     renderView({ members: buildMembers(4, ME) });
     expect(
       screen.getByTestId("room-lobby-view-member-count"),
-    ).toHaveTextContent("4 名");
+    ).toHaveTextContent("4人");
   });
 
   it("見出しは語の途中で折り返さず、読点の後だけで改行できる", () => {
@@ -231,32 +231,7 @@ describe("招待リンク/コード", () => {
     expect(invite.innerHTML).not.toContain("https://example/invite/ZZ99XX");
   });
 
-  it("「リンクをコピー」で招待URLをコピーする", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
-    try {
-      renderView();
-      await act(async () =>
-        fireEvent.click(
-          screen.getByRole("button", { name: "招待リンクをコピー" }),
-        ),
-      );
-      expect(writeText).toHaveBeenCalledWith(
-        "https://idea-flow.example/invite/AB12CD",
-      );
-    } finally {
-      if (original) Object.defineProperty(navigator, "clipboard", original);
-      else Reflect.deleteProperty(navigator, "clipboard");
-    }
-  });
-});
-
-describe("招待文", () => {
-  it("開始待ちの招待から、テーマ・参加リンク・招待コードを含む招待文をコピーできる", async () => {
+  it("「リンクをコピー」1つで、テーマ・参加リンク・招待コードを含む招待文をコピーする", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
     Object.defineProperty(navigator, "clipboard", {
@@ -266,9 +241,12 @@ describe("招待文", () => {
     try {
       renderView({ roomName: buildRoomNameControls({ name: "J05" }) });
       const invite = screen.getByTestId("room-lobby-view-invite");
+      expect(
+        within(invite).queryByRole("button", { name: "招待文をコピー" }),
+      ).not.toBeInTheDocument();
       await act(async () =>
         fireEvent.click(
-          within(invite).getByRole("button", { name: "招待文をコピー" }),
+          within(invite).getByRole("button", { name: "招待リンクをコピー" }),
         ),
       );
       expect(writeText).toHaveBeenCalledExactlyOnceWith(
@@ -283,6 +261,13 @@ describe("招待文", () => {
       if (original) Object.defineProperty(navigator, "clipboard", original);
       else Reflect.deleteProperty(navigator, "clipboard");
     }
+  });
+
+  it("招待欄に補助の説明文を出さない", () => {
+    renderView();
+    expect(screen.getByTestId("room-lobby-view-invite")).not.toHaveTextContent(
+      "リンクやコードを送って",
+    );
   });
 });
 

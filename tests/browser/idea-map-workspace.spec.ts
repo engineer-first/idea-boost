@@ -38,7 +38,7 @@ async function openMapOnly(page: Page): Promise<void> {
 
 async function openStory(page: Page, storyId: string): Promise<void> {
   await page.goto(`${origin}/iframe.html?id=${storyId}&viewMode=story`);
-  await page.getByTestId("board-location-card").waitFor();
+  await page.getByTestId("board-control-hud").waitFor();
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -198,7 +198,7 @@ test.each([
         .toBe(1);
       await note
         .getByRole("button", {
-          name: `${label}シール 1票を1票取り消す`,
+          name: `${label}シールを取り消す`,
           exact: true,
         })
         .click();
@@ -449,9 +449,17 @@ test.each([
         "idea-value-feasibility-map-x-axis-label",
       );
 
+      // 上の情報は決定事項と中央のステップバーのうち下にあるほう。どちらとも重ねない。
+      const trail = await readBounds(page, "phase-step-trail");
+      const aboveBottom = Math.max(
+        context.y + context.height,
+        trail.y + trail.height,
+      );
       expect(plane.y - (context.y + context.height)).toBeGreaterThanOrEqual(16);
-      expect(plane.y - (context.y + context.height)).toBeLessThanOrEqual(24);
-      expect(plane.width).toBeCloseTo(phase === "3-2" ? 1124 : 1348, 1);
+      expect(plane.y - aboveBottom).toBeGreaterThanOrEqual(8);
+      expect(plane.y - aboveBottom).toBeLessThanOrEqual(24);
+      // 3-3はマイ付箋の欄の幅224pxからタイマーの分80pxを除いた144pxだけ広がる。
+      expect(plane.width).toBeCloseTo(phase === "3-2" ? 1124 : 1268, 1);
       expect(plane.height).toBeCloseTo(639.09375, 1);
       const valueLine = await readBounds(
         page,
@@ -1126,8 +1134,9 @@ test.each(
         ).toBeCloseTo(0, 1);
       }
       expect(sharing.mapPlane.x).toBe(mapOnly.mapPlane.x);
+      // 900px以上は右上のタイマーの分（80px）を広げずに残す。
       expect(mapOnly.mapPlane.width - sharing.mapPlane.width).toBe(
-        width >= 640 ? 224 : 0,
+        width >= 900 ? 144 : width >= 640 ? 224 : 0,
       );
       expect(sharing.mapPlane.height).toBe(mapOnly.mapPlane.height);
       if (width >= 900) expect(sharing.mapPlane.y).toBe(mapOnly.mapPlane.y);
@@ -1355,8 +1364,9 @@ test("上部は共通HUDを使い、決定事項を横並びにしてもマッ�
     await openWorkspace(page);
     const plane = page.getByTestId("idea-value-feasibility-map-plane");
     const initialPlane = await plane.boundingBox();
+    // 広い画面は現在地カードを出さないため、左の欄の幅を予約する枠で測る。
     const location = await page
-      .getByTestId("board-location-card")
+      .getByTestId("board-location-slot")
       .boundingBox();
     const question = await page
       .getByTestId("board-reference-hmw")
@@ -1520,7 +1530,7 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
   try {
     await openStory(page, "room-roomboardview--step-1-2-sharing");
     const sharedAnchors = {
-      location: await readBounds(page, "board-location-card"),
+      location: await readBounds(page, "board-location-slot"),
       controls: await readBounds(page, "board-control-hud"),
       tools: await readBounds(page, "board-tools-hud"),
       privateNotes: await readBounds(page, "private-notes-dock"),
@@ -1528,7 +1538,7 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
 
     await openWorkspace(page);
     const workspaceAnchors = {
-      location: await readBounds(page, "board-location-card"),
+      location: await readBounds(page, "board-location-slot"),
       controls: await readBounds(page, "board-control-hud"),
       tools: await readBounds(page, "board-tools-hud"),
       privateNotes: await readBounds(page, "private-notes-dock"),
@@ -1727,7 +1737,8 @@ test.each(
       const original = await note.elementHandle();
       for (const step of ["3", "4", "5", "2"]) {
         const expanded = step !== "2" && width >= 640;
-        const expectedWidth = map2.width + (expanded ? 224 : 0);
+        const expansion = width >= 900 ? 144 : 224;
+        const expectedWidth = map2.width + (expanded ? expansion : 0);
         await phase.selectOption(step);
         await page.evaluate(
           () =>
@@ -1749,8 +1760,11 @@ test.each(
         if (width >= 640) expect(current.y).toBeCloseTo(map2.y, 1);
         expect(current.height).toBeCloseTo(map2.height, 1);
         expect(current.x + current.width).toBeLessThanOrEqual(width);
+        // 900px以上は右上のタイマーの分を空け、その手前まで広げる。
         if (expanded)
-          expect(width - current.x - current.width).toBeLessThan(24);
+          expect(width - current.x - current.width).toBeLessThan(
+            width >= 900 ? 24 + 80 : 24,
+          );
         expect(
           await note.evaluate(
             (element, previous) => element === previous,
@@ -1764,7 +1778,10 @@ test.each(
         expect(after.width).toBeCloseTo(before.width, 1);
         expect(after.height).toBeCloseTo(before.height, 1);
         expect(after.y - current.y).toBeCloseTo(before.y - map2.y, 1);
-        expect(after.x - before.x).toBeCloseTo(expanded ? 224 * 0.7 : 0, 1);
+        expect(after.x - before.x).toBeCloseTo(
+          expanded ? expansion * 0.7 : 0,
+          1,
+        );
         expect(await page.getByTestId("private-notes-toolbar").count()).toBe(
           step === "2" ? 1 : 0,
         );
@@ -1772,9 +1789,41 @@ test.each(
       await phase.selectOption("3");
       await expect
         .poll(async () => (await plane.boundingBox())?.width)
-        .toBeCloseTo(map2.width + (width >= 640 ? 224 : 0), 1);
+        .toBeCloseTo(
+          map2.width + (width >= 900 ? 144 : width >= 640 ? 224 : 0),
+          1,
+        );
       await page.screenshot({
         path: `${output}/expanded-right-${width}-${reducedMotion}.png`,
+      });
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test.each([
+  { width: 900, height: 720 },
+  { width: 1280, height: 800 },
+  { width: 1440, height: 1000 },
+])(
+  "3-3（3-4・3-5も同じ広がり方、$width×$height）ではタイマーがマップの右上の角に重ならない",
+  async ({ width, height }) => {
+    const page = await browser.newPage({ viewport: { width, height } });
+    try {
+      await openMapOnly(page);
+      const plane = page.getByTestId("idea-value-feasibility-map-plane");
+      await waitForLayoutAnimations(plane);
+      const map = await readBounds(page, "idea-value-feasibility-map-plane");
+      const timer = await readBounds(page, "timer-floating");
+      const overlapsHorizontally =
+        timer.x < map.x + map.width && map.x < timer.x + timer.width;
+      const overlapsVertically =
+        timer.y < map.y + map.height && map.y < timer.y + timer.height;
+      expect(overlapsHorizontally && overlapsVertically).toBe(false);
+      expect(timer.x - (map.x + map.width)).toBeGreaterThanOrEqual(8);
+      await page.screenshot({
+        path: `${output}/map-only-timer-${width}.png`,
       });
     } finally {
       await page.close();
