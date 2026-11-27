@@ -61,7 +61,7 @@ describe("CIのChromium準備", () => {
   ) as {
     jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
   };
-  const install = workflow.jobs.browser.steps.find(
+  const install = workflow.jobs.shard.steps.find(
     (step) => step.name === "Install Chromium",
   );
   it("ブラウザ本体を先に入れ、起動できないときだけaptからOSの依存を入れる", () => {

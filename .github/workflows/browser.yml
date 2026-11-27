@@ -1,6 +1,7 @@
 name: Browser
 
-# 実ブラウザでの配置・到達性の検査（約10分）。CI から分け、PR Preview が待たないようにする。
+# 実ブラウザでの配置・到達性の検査。CI から分け、PR Preview が待たないようにする。
+# 検査は3つに分けて並列に回し（1本だと約7分）、同名の集約ジョブ browser が必須チェックを報告する（ADR 0036）。
 # - PR: 画面に関わる変更があるときだけ回す（判定は scripts/ci-scope.mts）。
 #   スマホ幅（600px 未満）は `mobile` ラベルがある PR だけ回す。
 # - develop へのマージ後: 毎回 PC・iPad 幅を回し、PR で回さなかった変更の影響も拾う。
@@ -26,8 +27,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  browser:
+  shard:
+    name: browser (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -91,7 +97,7 @@ jobs:
 
       - name: Check board layout in Chromium
         if: steps.scope.outputs.browser == 'true'
-        run: npm run test:browser
+        run: npm run test:browser -- --shard=${{ matrix.shard }}/3
         env:
           BROWSER_MOBILE: ${{ steps.scope.outputs.mobile == 'true' && '1' || '' }}
 
@@ -99,7 +105,21 @@ jobs:
         if: always() && steps.scope.outputs.browser == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: board-layout
+          name: board-layout-${{ matrix.shard }}
           path: |
             test-results/board-layout/
             storybook-test.log
+
+  # 必須チェック browser。名前を変えずに、分割した検査の結果をまとめて報告する。
+  # 分割が落ちても飛んでも必ず走り、成功以外を失敗にする（skipped で失敗を隠さない）。
+  browser:
+    needs: [shard]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all browser shards to succeed
+        run: |
+          echo "shard=$SHARD"
+          [ "$SHARD" = success ]
+        env:
+          SHARD: ${{ needs.shard.result }}

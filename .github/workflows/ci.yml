@@ -85,7 +85,34 @@ jobs:
       - name: Lint database schemas (tbls)
         run: npm run db:schema:lint
 
-  test:
+  # 必須チェック test の中身。unit を分割して並列に回し、worker 系は別ジョブで同時に回す。
+  # 律速だった test（約4分）を短くし、ループの PR が早く auto-merge されるようにする（ADR 0036）。
+  unit:
+    name: unit (${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 後続ステップに git push/fetch はないため、トークンを workspace に残さない
+          persist-credentials: false
+
+      - uses: jdx/mise-action@v5
+        with:
+          install: true
+          install_args: node
+          cache_max_age_days: 1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test -- --shard=${{ matrix.shard }}/2
+
+  workers:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -101,9 +128,6 @@ jobs:
           install_args: node
           cache_max_age_days: 1
 
-      - name: Install dependencies
-        run: npm ci
-
       # worker 系のテストは workerd を起動するため、関係する変更がある PR と develop へのマージ後だけ回す。
       # 判定は scripts/ci-scope.mts。本番リリース前は deploy の gate でも test:workers を回す。
       - name: Decide worker test scope
@@ -118,8 +142,9 @@ jobs:
           EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
-      - name: Run unit tests
-        run: npm run test
+      - name: Install dependencies
+        if: steps.scope.outputs.workers == 'true'
+        run: npm ci
 
       - name: Run worker tests (Durable Objects / D1)
         if: steps.scope.outputs.workers == 'true'
@@ -132,6 +157,21 @@ jobs:
       - name: Run local verification worker tests
         if: steps.scope.outputs.workers == 'true'
         run: npm run test:verification
+
+  # 必須チェック test。名前を変えずに、分割した unit と worker 系の結果をまとめて報告する。
+  # 分割が落ちても飛んでも必ず走り、成功以外を失敗にする（skipped で失敗を隠さない）。
+  test:
+    needs: [unit, workers]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all test jobs to succeed
+        run: |
+          echo "unit=$UNIT workers=$WORKERS"
+          [ "$UNIT" = success ] && [ "$WORKERS" = success ]
+        env:
+          UNIT: ${{ needs.unit.result }}
+          WORKERS: ${{ needs.workers.result }}
 
   build:
     runs-on: ubuntu-latest

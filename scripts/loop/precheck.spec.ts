@@ -12,6 +12,7 @@ import {
   decidePolish,
   decideRelease,
   decideReplan,
+  isFailingPr,
   isReady,
   isStalledPr,
   isStopped,
@@ -189,6 +190,20 @@ describe("isStalledPr: ループが流す PR が1時間動いていなければ�
     ).toBe(false);
     expect(isStalledPr(pr({ labels: [] }), ACTOR, NOW)).toBe(false);
   });
+  it("必須チェックが落ちたか競合した PR は、15分動きが無ければすぐ止まっているとみなす", () => {
+    // 周回は auto-merge を予約して抜けるので、落ちた PR を直す周回は残っていない。
+    // 1時間待たずに次の build で拾う。直している周回の push を奪わないよう15分は待つ。
+    const hours = (h: number) => hoursAgo(h);
+    expect(
+      isStalledPr(pr({ updatedAt: hours(0.3), failing: true }), ACTOR, NOW),
+    ).toBe(true);
+    expect(
+      isStalledPr(pr({ updatedAt: hours(0.2), failing: true }), ACTOR, NOW),
+    ).toBe(false);
+    expect(
+      isStalledPr(pr({ updatedAt: hours(0.3), failing: false }), ACTOR, NOW),
+    ).toBe(false);
+  });
   it.each(["needs-human", "blocked", "loop:skip"])(
     "%s が付いた PR は数えない（同じ PR で起こし続けない）",
     (label) => {
@@ -197,6 +212,29 @@ describe("isStalledPr: ループが流す PR が1時間動いていなければ�
       );
     },
   );
+});
+
+describe("isFailingPr: auto-merge が進まない PR を見分ける", () => {
+  it("必須チェックが落ちたか、develop と競合していれば進まない", () => {
+    expect(
+      isFailingPr({
+        statusCheckRollup: [{ name: "browser", conclusion: "FAILURE" }],
+      }),
+    ).toBe(true);
+    expect(isFailingPr({ mergeable: "CONFLICTING" })).toBe(true);
+  });
+  it("必須でないチェックの失敗と、実行中・成功は数えない（auto-merge はそのまま進む）", () => {
+    expect(
+      isFailingPr({
+        mergeable: "MERGEABLE",
+        statusCheckRollup: [
+          { name: "chromatic", conclusion: "FAILURE" },
+          { name: "test", conclusion: "" },
+          { name: "lint", conclusion: "SUCCESS" },
+        ],
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("decidePolish: 前回から2時間以上たち、develop が緑のとき起こす", () => {

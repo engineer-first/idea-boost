@@ -10,7 +10,12 @@ type Step = {
   run?: string;
   env?: Record<string, string>;
 };
-type Job = { if?: string; needs?: string; steps: Step[] };
+type Job = {
+  if?: string;
+  needs?: string | string[];
+  strategy?: { "fail-fast"?: boolean; matrix: Record<string, unknown[]> };
+  steps: Step[];
+};
 type Workflow = {
   name: string;
   on: Record<string, unknown>;
@@ -36,26 +41,57 @@ describe("PRごとのCIで待つ検査", () => {
   it("必須チェック名 browser は別 workflow の同名ジョブが常に報告する", () => {
     // 必須チェックは workflow ごと起動しないと pending のまま残る。
     // workflow は常に起動し、対象外の PR ではステップだけを飛ばしてジョブを成功で終える。
-    expect(Object.keys(browser.jobs)).toEqual(["browser"]);
-    expect(browser.jobs.browser.if).toBeUndefined();
+    expect(Object.keys(browser.jobs).sort()).toEqual(["browser", "shard"]);
     expect(browser.on).toHaveProperty("pull_request");
     expect(browser.on).not.toHaveProperty("pull_request.paths");
+    expect(browser.jobs.shard.if).toBeUndefined();
+  });
+
+  it("browser は分割して並列に回し、同名の集約ジョブが全分割の成功を報告する", () => {
+    // 律速だった browser（約7分）を分けて待ち時間を縮める。必須チェックの名前は変えない。
+    const shard = browser.jobs.shard;
+    expect(shard.strategy?.["fail-fast"]).toBe(false);
+    expect(shard.strategy?.matrix.shard?.length).toBeGreaterThanOrEqual(3);
+    const check = shard.steps.find(
+      (s) => s.name === "Check board layout in Chromium",
+    );
+    expect(check?.run).toContain("--shard=");
+    // 集約ジョブは分割が落ちても・飛んでも必ず走り、成功以外を失敗として報告する。
+    const gate = browser.jobs.browser;
+    expect(gate.needs).toEqual(["shard"]);
+    expect(gate.if).toContain("!cancelled()");
+    expect(JSON.stringify(gate.steps)).toContain("needs.shard.result");
   });
 
   it("browser は develop へのマージ後と、画面に関わる PR・mobile ラベルの PR で回す", () => {
     expect(browser.on).toHaveProperty("push.branches", ["develop"]);
-    const scope = browser.jobs.browser.steps.find((s) => s.id === "scope");
+    const scope = browser.jobs.shard.steps.find((s) => s.id === "scope");
     expect(scope?.run).toContain("scripts/ci-scope.mts");
     expect(scope?.run).toContain("mobile");
-    const check = browser.jobs.browser.steps.find(
+    const check = browser.jobs.shard.steps.find(
       (s) => s.name === "Check board layout in Chromium",
     );
     expect(check?.if).toContain("steps.scope.outputs.browser == 'true'");
     expect(check?.env?.BROWSER_MOBILE).toContain("steps.scope.outputs.mobile");
   });
 
+  it("unit は分割して並列に回し、必須チェック test は unit と worker 系の成功を集約する", () => {
+    const unit = ci.jobs.unit;
+    expect(unit.strategy?.["fail-fast"]).toBe(false);
+    expect(unit.strategy?.matrix.shard?.length).toBeGreaterThanOrEqual(2);
+    const run = unit.steps.find((s) => s.name === "Run unit tests");
+    expect(run?.run).toContain("--shard=");
+    expect(run?.if).toBeUndefined();
+    const gate = ci.jobs.test;
+    expect(gate.needs).toEqual(["unit", "workers"]);
+    expect(gate.if).toContain("!cancelled()");
+    const script = JSON.stringify(gate.steps);
+    expect(script).toContain("needs.unit.result");
+    expect(script).toContain("needs.workers.result");
+  });
+
   it("worker 系のテストは関係する変更がある PR と develop へのマージ後だけ回す", () => {
-    const steps = ci.jobs.test.steps;
+    const steps = ci.jobs.workers.steps;
     expect(steps.find((s) => s.id === "scope")?.run).toContain(
       "scripts/ci-scope.mts",
     );
@@ -68,7 +104,6 @@ describe("PRごとのCIで待つ検査", () => {
         "steps.scope.outputs.workers == 'true'",
       );
     }
-    expect(steps.find((s) => s.name === "Run unit tests")?.if).toBeUndefined();
   });
 
   it("smoke は PR では build 内の preview-smoke に任せ、develop へのマージ後だけ回す", () => {
