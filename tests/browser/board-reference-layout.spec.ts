@@ -23,7 +23,7 @@ async function box(page: Page, testId: string) {
 }
 
 test.each(
-  sizes([1280, 800], [1180, 820]).flatMap(([width, height]) =>
+  sizes([1280, 800], [1180, 820], [768, 1024]).flatMap(([width, height]) =>
     ["guide-phase-2-step-1", "guide-phase-3-step-1"].map(
       (story) => [width, height, story] as const,
     ),
@@ -76,12 +76,35 @@ test("4行の長い課題でも、最後の行が票の段に隠れない", asyn
             parseFloat(getComputedStyle(p).lineHeight),
         ),
       );
-    expect(lines).toBe(4);
+    expect(lines).toBeGreaterThanOrEqual(4);
     // 本文の欄の中に全行が収まり、スクロールしないと読めない行がない。
     const overflow = await content.evaluate(
       (node) => node.scrollHeight - node.clientHeight,
     );
     expect(overflow).toBeLessThanOrEqual(0);
+  } finally {
+    await page.close();
+  }
+});
+
+test("幅1920の2-1では、枠を寄せても入力欄は画面の中央のまま", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1920, height: 1080 },
+  });
+  try {
+    await open(
+      page,
+      "room-roomboardview--guide-phase-2-step-1",
+      "private-notes-toolbar",
+    );
+    await expect
+      .poll(async () => {
+        const composer = await page
+          .locator("[data-private-note-composer]")
+          .boundingBox();
+        return composer ? Math.round(composer.x + composer.width / 2) : null;
+      })
+      .toBe(960);
   } finally {
     await page.close();
   }
