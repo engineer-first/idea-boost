@@ -49,6 +49,9 @@ type Member = {
   inject: (message: Record<string, unknown>) => void;
   // 本人の接続を切る（RoomDO の再起動や回線の瞬断と同じ形）。画面は自分で接続し直す。
   drop: () => Promise<void>;
+  // 本人の接続から RoomDO へメッセージを1件送る（進行の操作など、画面を通すと手順が長いもの用）。
+  // 画面の送信と同じ遅延・順序で届く。
+  send: (message: Record<string, unknown>) => void;
 };
 type Box = { x: number; y: number; width: number; height: number };
 type Attempt = {
@@ -90,6 +93,7 @@ async function openMember(
   const frames: Frame[] = [];
   let deliver: ((payload: string) => void) | null = null;
   let drop: (() => Promise<void>) | null = null;
+  let forward: ((payload: string) => void) | null = null;
   // 本番に近い往復遅延を入れる。ローカルの 1ms では競合の窓が開かない。
   await page.routeWebSocket(/\/ws(?:\?|$)/, (socket) => {
     const server = socket.connectToServer();
@@ -109,11 +113,11 @@ async function openMember(
       });
       socket.send(payload);
     };
-    socket.onMessage((payload) => {
+    forward = (payload) => {
       frames.push({
         at: Date.now(),
         direction: "sent",
-        message: JSON.parse(String(payload)) as Wire,
+        message: JSON.parse(payload) as Wire,
       });
       setTimeout(() => {
         if (!open) return;
@@ -123,7 +127,8 @@ async function openMember(
           // 終了処理中の送信は捨てる。
         }
       }, latencyMs);
-    });
+    };
+    socket.onMessage((payload) => forward?.(String(payload)));
     server.onMessage((payload) => {
       setTimeout(() => {
         // 切った後に届いた分は本人へ渡らない。
@@ -156,6 +161,7 @@ async function openMember(
     drop: async () => {
       await drop?.();
     },
+    send: (message) => forward?.(JSON.stringify(message)),
   };
 }
 
@@ -456,6 +462,66 @@ async function judge(
     reason,
     detail: `${detail} / 期待${at(expected)} 本人${at(mine)} 相手${at(theirs)}`,
   };
+}
+
+// 本人の接続に最後に届いた、ステップの版。
+function latestPhaseRevision(member: Member): number | null {
+  for (const frame of [...member.frames].reverse()) {
+    const message = frame.message as Wire & { phaseRevision?: number };
+    if (
+      frame.direction === "received" &&
+      (message.type === "snapshot" || message.type === "phase:updated") &&
+      typeof message.phaseRevision === "number"
+    )
+      return message.phaseRevision;
+  }
+  return null;
+}
+
+// 共有の発表順を全員パスで一巡させ、次のステップへ進める状態にする。
+async function completeSharing(member: Member): Promise<boolean> {
+  type Sharing = {
+    revision: string;
+    status: string;
+    startsAt: number | null;
+  };
+  const latest = (): Sharing | null => {
+    for (const frame of [...member.frames].reverse()) {
+      const message = frame.message as Wire & { sharing?: Sharing | null };
+      if (
+        frame.direction === "received" &&
+        (message.type === "sharing:updated" || message.type === "snapshot") &&
+        message.sharing
+      )
+        return message.sharing;
+    }
+    return null;
+  };
+  const deadline = Date.now() + 15_000;
+  let sent: string | null = null;
+  while (Date.now() < deadline) {
+    const sharing = latest();
+    if (sharing?.status === "complete") {
+      await wait(600);
+      await closeDialogs(member);
+      return true;
+    }
+    // 次の発表が始まる前（startsAt が先の時刻）のパスは受け付けられない。
+    if (
+      sharing?.status === "active" &&
+      sharing.startsAt === null &&
+      sharing.revision !== sent
+    ) {
+      sent = sharing.revision;
+      member.send({
+        type: "sharing:advance",
+        revision: sharing.revision,
+        outcome: "passed",
+      });
+    }
+    await wait(100);
+  }
+  return false;
 }
 
 type Scenario = {
@@ -938,6 +1004,108 @@ const scenarios: Scenario[] = [
             ),
           );
       }
+    },
+  },
+  {
+    id: "step-advance-while-queued",
+    description:
+      "共有（1-2）で2枚を続けて離した直後、保存の結果が返る前にグループ化（1-3）へ進む",
+    checkpoint: "1-2",
+    // ステップは1ルームで1回しか進められない。
+    rooms: 4,
+    async run(actor, peer, record) {
+      if (!(await completeSharing(actor))) return;
+      const ids = await draggableNotes(actor);
+      const peerIds = new Set(await draggableNotes(peer));
+      const [first, second] = ids.filter((id) => peerIds.has(id));
+      if (!first || !second) return;
+      const phaseRevision = latestPhaseRevision(actor);
+      if (phaseRevision === null) return;
+      const since = Date.now();
+      const dragFirst = await dragNote(actor, first, {
+        ...offsets[0],
+        steps: 3,
+      });
+      const dragSecond = await dragNote(actor, second, {
+        ...offsets[1],
+        steps: 3,
+      });
+      // 2枚目は1枚目の結果を待って並んでいて、まだ送っていない。そうなっていない回は数えない
+      // （1枚目の結果が先に返ると、2枚目がステップより先に保存され、この場面にならない）。
+      const recent = actor.frames.filter((frame) => frame.at >= since);
+      const commits = recent.filter(
+        (frame) =>
+          frame.direction === "sent" &&
+          frame.message.type === "note:move:commit",
+      );
+      if (
+        !dragFirst ||
+        !dragSecond ||
+        commits.length !== 1 ||
+        recent.some(
+          (frame) =>
+            frame.direction === "received" &&
+            frame.message.type === "note:move:result" &&
+            frame.message.operationId === commits[0].message.operationId &&
+            frame.message.status !== "active",
+        )
+      ) {
+        console.error(
+          "step-advance-while-queued: 2枚目が並ぶ前に1枚目の結果が返ったため、この回は数えません。",
+        );
+        return;
+      }
+      // 進んだ後も、離した2枚が両方保存されるかを見る。
+      actor.send({
+        type: "phase:next",
+        expectedPhase: { kind: "step", phase: 1, step: 2 },
+        expectedRevision: phaseRevision,
+      });
+      const deadline = Date.now() + 8_000;
+      while (
+        Date.now() < deadline &&
+        !actor.frames.some(
+          (frame) =>
+            frame.at >= since &&
+            frame.direction === "received" &&
+            frame.message.type === "phase:updated",
+        )
+      )
+        await wait(50);
+      const advanced = actor.frames.some(
+        (frame) =>
+          frame.at >= since &&
+          frame.direction === "received" &&
+          frame.message.type === "phase:updated",
+      );
+      if (!advanced) {
+        const error = actor.frames.find(
+          (frame) =>
+            frame.at >= since &&
+            frame.direction === "received" &&
+            frame.message.type === "error" &&
+            !frame.message.operationId,
+        );
+        console.error(
+          `step-advance-while-queued: ステップが進まなかったため、この回は数えません。${error?.message.message ?? ""}`,
+        );
+        return;
+      }
+      await settle([actor, peer], since);
+      for (const [id, drag] of [
+        [first, dragFirst],
+        [second, dragSecond],
+      ] as const)
+        record(
+          await judge(
+            "step-advance-while-queued",
+            actor,
+            peer,
+            id,
+            since,
+            drag?.expected ?? null,
+          ),
+        );
     },
   },
   {

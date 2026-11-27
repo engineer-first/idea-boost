@@ -14,6 +14,7 @@
     "timer-ends-while-dragging": { "minLandedRate": 1 },
     "map-parallel": { "minLandedRate": 1 },
     "queued-other-note-conflict": { "minLandedRate": 1 },
-    "reconnect-while-queued": { "minLandedRate": 1 }
+    "reconnect-while-queued": { "minLandedRate": 1 },
+    "step-advance-while-queued": { "minLandedRate": 0.5 }
   }
 }
