@@ -46,54 +46,32 @@ describe("キャラクターの問いヒント", () => {
     );
   });
 
-  it("2-1ではキャラクターと呼びかけの吹き出しを常に表示する", async () => {
-    const onDismissNudge = vi.fn();
-    const { rerender } = render(
-      <HmwHintCharacter
-        decidedIssue="忘れ物が多い"
-        onUseQuestion={vi.fn()}
-        onDismissNudge={onDismissNudge}
-      />,
+  it("閉じている間は小さな「問いのヒント」の入口だけを出し、雲の呼びかけは出さない", async () => {
+    render(
+      <HmwHintCharacter decidedIssue="忘れ物が多い" onUseQuestion={vi.fn()} />,
     );
-    // 呼びかけ条件を待たずに、キャラクターと吹き出しを最初から出す。
+    // 困っていない人の作業を狭めないよう、雲の吹き出しや閉じるボタンは置かない。
+    expect(screen.queryByText(/困ったらここから/)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
+      screen.queryByRole("button", { name: "呼びかけを閉じる" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "問いのヒント" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "問いのヒントを開く" }),
     ).toBeInTheDocument();
-    // 吹き出しから開いた popover が閉じれば、吹き出しは表示に戻る。
-    await userEvent.click(
-      screen.getByRole("button", { name: "問いのヒントを開く" }),
-    );
+    // 入口から開いた popover が閉じれば、入口は表示に戻る。
+    await userEvent.click(screen.getByRole("button", { name: "問いのヒント" }));
     expect(
-      screen.queryByRole("button", { name: /困ったらここから.*作ってみよう/ }),
+      screen.getByRole("dialog", { name: "問いのヒント" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "問いのヒント" }),
     ).not.toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     expect(
-      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
-    ).toBeInTheDocument();
-    rerender(
-      <HmwHintCharacter
-        decidedIssue="忘れ物が多い"
-        onUseQuestion={vi.fn()}
-        onDismissNudge={onDismissNudge}
-        showNudge
-      />,
-    );
-    expect(
-      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
-    ).toBeInTheDocument();
-    // 閉じたら次の書き出し周期まで消えたままにする。
-    await userEvent.click(
-      screen.getByRole("button", { name: "呼びかけを閉じる" }),
-    );
-    expect(onDismissNudge).toHaveBeenCalledOnce();
-    expect(
-      screen.queryByRole("button", { name: /困ったらここから.*作ってみよう/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "問いのヒントを開く" }),
+      screen.getByRole("button", { name: "問いのヒント" }),
     ).toBeInTheDocument();
   });
 
@@ -116,7 +94,7 @@ describe("キャラクターの問いヒント", () => {
     ).toHaveStyle({ height: `${expected}px` });
   });
 
-  it("呼びかけの吹き出しからも3ワードを開き、例題から同じワード選択へ戻れる", async () => {
+  it("小さな入口からも3ワードを開き、例題から同じワード選択へ戻れる", async () => {
     const onHintOpen = vi.fn();
     const onUseQuestion = vi.fn();
     render(
@@ -127,9 +105,7 @@ describe("キャラクターの問いヒント", () => {
         showNudge
       />,
     );
-    await userEvent.click(
-      screen.getByRole("button", { name: /困ったらここから.*作ってみよう/ }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "問いのヒント" }));
     const dialog = screen.getByRole("dialog", { name: "問いのヒント" });
     expect(onHintOpen).toHaveBeenCalledOnce();
     expect(
@@ -318,25 +294,5 @@ describe("キャラクターの問いヒント", () => {
     expect(
       within(dialog).getByRole("button", { name: "この問いにする" }),
     ).toBeDisabled();
-  });
-
-  it("呼びかけを閉じてもワード選択を開かない", async () => {
-    const onDismissNudge = vi.fn();
-    render(
-      <HmwHintCharacter
-        decidedIssue="忘れ物が多い"
-        onUseQuestion={vi.fn()}
-        onDismissNudge={onDismissNudge}
-        showNudge
-      />,
-    );
-    await userEvent.click(
-      screen.getByRole("button", { name: "呼びかけを閉じる" }),
-    );
-    expect(onDismissNudge).toHaveBeenCalledOnce();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /困ったらここから.*作ってみよう/ }),
-    ).not.toBeInTheDocument();
   });
 });

@@ -1498,14 +1498,9 @@ export function RoomBoardCanvas({
             update="private-notes-area-morph"
           >
             <div
-              className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""}`}
-              style={
-                isPhaseStep(phase, 2, 1) && !isAdditionalWritingStep
-                  ? {
-                      bottom: "7rem",
-                    }
-                  : undefined
-              }
+              // 2-1の問いのヒントは、PC・iPad では左の空き列に重ねるので付箋欄を下まで使う。
+              // スマホ幅だけは付箋欄の下に入口の高さを空ける。
+              className={`${privateNotesContainerClassName} ${isIdeaMapWorkspaceStep ? "min-[640px]:w-56" : ""} ${isPhaseStep(phase, 2, 1) && !isAdditionalWritingStep ? "max-[639px]:bottom-28" : ""}`}
               data-testid={
                 isPersonalNoteEntryPhase
                   ? "private-notes-workspace"
