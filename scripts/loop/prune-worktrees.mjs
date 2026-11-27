@@ -19,7 +19,7 @@
 //      5・6 で残ったものは「要確認」と表示する
 //   5. 未 commit の変更が無い（untracked も含む。.gitignore 済みのものは数えない）
 //      .gitignore 済みでも .env*・.dev.vars* は残す。ただし setup-worktree.sh が example から作ったまま
-//      （SESSION_SECRET 行以外が example と同じ）のものは作り直せるので数えない。
+//      （SESSION_SECRET 行と .env.tpl が 1Password から入れる行以外が example と同じ）のものは作り直せるので数えない。
 //      これを数えると setup を走らせる run の worktree がすべて残り、1個 1.7GB ずつたまる
 //   6. HEAD の commit がすべて origin/develop に入っている（git cherry で patch 単位に確かめる）。
 //      複数 commit の squash マージは patch が一致しないので、HEAD を head とする PR がマージ済みなら入ったとみなす
@@ -82,18 +82,32 @@ const orcaJson = (...argv) =>
   JSON.parse(run(ORCA, [...argv, "--json"], 120_000)).result;
 const git = (dir, ...argv) => tryRun("git", ["-C", dir, ...argv], 60_000);
 
-// scripts/setup-worktree.sh が example から作った設定ファイルか。
-// setup は example の SESSION_SECRET 行だけを乱数に差し替えて書くので、その行を除いて
-// この worktree の HEAD の example と一致すれば、消しても setup で同じものが作り直せる。
+// scripts/setup-worktree.sh（中身は scripts/worktree-env.sh）が example から作った設定ファイルか。
+// setup は example の SESSION_SECRET 行を乱数に、.env.tpl にある名前の行を 1Password の値に差し替えて書くので、
+// それらの行を除いてこの worktree の HEAD の example と一致すれば、消しても setup で同じものが作り直せる。
 // 1行でも手で足した・変えたものは「その worktree にしか無い設定」として残す。
+// .env.tpl にある名前の行は手で書き換えていても無視する（mini では setup が 1Password の値で作り直すため）。
 const GENERATED_FROM = {
   ".env.local": ".env.example",
   "workers/.dev.vars": "workers/.dev.vars.example",
 };
-const withoutSecret = (text) =>
+const injectedNames = (dir) => {
+  const template = git(dir, "show", "HEAD:.env.tpl");
+  const names = new Set(["SESSION_SECRET"]);
+  if (!template.ok) return names;
+  for (const line of template.out.split("\n")) {
+    const match = /^([A-Z][A-Z0-9_]*)=op:\/\//.exec(line);
+    if (match) names.add(match[1]);
+  }
+  return names;
+};
+const withoutInjected = (text, names) =>
   text
     .split("\n")
-    .filter((line) => !line.startsWith("SESSION_SECRET="))
+    .filter((line) => {
+      const at = line.indexOf("=");
+      return at < 0 || !names.has(line.slice(0, at));
+    })
     .join("\n");
 const isGeneratedConfig = (dir, path) => {
   const example = GENERATED_FROM[path];
@@ -106,7 +120,11 @@ const isGeneratedConfig = (dir, path) => {
   } catch {
     return false;
   }
-  return withoutSecret(current).trim() === withoutSecret(original.out).trim();
+  const names = injectedNames(dir);
+  return (
+    withoutInjected(current, names).trim() ===
+    withoutInjected(original.out, names).trim()
+  );
 };
 
 // squash マージ済みの PR の head が、この worktree の HEAD と同じか

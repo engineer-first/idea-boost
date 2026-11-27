@@ -89,6 +89,10 @@ bash scripts/setup-worktree.sh
 専用の `SESSION_SECRET` を設定した環境ファイルを作成して、ローカル D1 migration
 を適用します。再実行時は既存の環境ファイルを保持します。
 
+1Password のサービスアカウントを使える Mac（ループの Mac mini）では、
+[.env.tpl](.env.tpl) の参照を `op inject` で埋めて `GOOGLE_CLIENT_ID` などの値も入れます。
+トークンや `op` が無い環境では今までどおり example の値で作ります（[秘密の置き場](docs/loop/README.md#秘密の置き場)）。
+
 ### 認証のローカル開発
 
 本番のログインは Google 認証（OIDC）のみを想定しています。ローカル開発では、固定のメール/パスワードユーザーでログインできます（`NEXT_PUBLIC_ENABLE_DEV_AUTH=true` かつ production 以外の環境でだけ表示されます）。
