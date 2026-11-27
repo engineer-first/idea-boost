@@ -1043,5 +1043,47 @@
   "roomEntryPreview": {
     "participantCount": "参加者 {count}人",
     "loadingNotes": "入室を確認してから、このルームの付箋を読み込みます。"
+  },
+  "hmwHint": {
+    "open": "問いのヒントを開く",
+    "title": "問いのヒント",
+    "close": "問いのヒントを閉じる",
+    "questionCaption": "こんな問いはどうかな？",
+    "questionExample": "問いの文例",
+    "tooLong": "{max}文字を超えるため使えません。問いを付箋に直接書くこともできます。",
+    "wordsCaption": "こんなのはどうかな？",
+    "words": "考え方のワード",
+    "missingIssue": "決定した課題を確認できません。接続後にもう一度確認してください。",
+    "useQuestion": "この問いにする",
+    "chooseAnother": "別のワードを選択する",
+    "otherThree": "別の3つ",
+    "writing": "いっしょに書き出そう"
+  },
+  "common": {
+    "close": "閉じる"
+  },
+  "members": {
+    "unknown": "不明なメンバー",
+    "disconnected": "{name}（接続切れ）",
+    "withStatus": "{name}（{status}）",
+    "votingComplete": "投票完了",
+    "unnamed": "名前未設定",
+    "participants": "参加者",
+    "editName": "{name}：表示名を変更",
+    "others": "他 {count}人",
+    "otherMembers": "他のメンバー"
+  },
+  "inviteActions": {
+    "defaultItem": "招待URL",
+    "copy": "{item}をコピー",
+    "copyValue": "{item}をコピー: {value}",
+    "copied": "{item}をコピーしました",
+    "copyFailed": "{item}をコピーできませんでした。もう一度お試しください。",
+    "link": "招待リンク",
+    "copyLink": "リンクをコピー",
+    "shareLink": "招待リンクを共有",
+    "shareFailed": "共有できませんでした。リンクをコピーして送ってください。",
+    "openShareMenu": "端末の共有メニューを開く",
+    "share": "共有"
   }
 }

@@ -1277,5 +1277,47 @@
   "roomEntryPreview": {
     "participantCount": "{count, plural, one {# participant} other {# participants}}",
     "loadingNotes": "Sticky notes will load after you confirm entry to this room."
+  },
+  "hmwHint": {
+    "open": "Open question hints",
+    "title": "Question hints",
+    "close": "Close question hints",
+    "questionCaption": "How about a question like this?",
+    "questionExample": "Example question",
+    "tooLong": "This is longer than {max} characters and cannot be used. You can also write your question directly on a note.",
+    "wordsCaption": "How about one of these?",
+    "words": "Thinking prompts",
+    "missingIssue": "The selected challenge is unavailable. Check again once you are connected.",
+    "useQuestion": "Use this question",
+    "chooseAnother": "Choose another prompt",
+    "otherThree": "Show 3 more",
+    "writing": "Let’s write it together"
+  },
+  "common": {
+    "close": "Close"
+  },
+  "members": {
+    "unknown": "Unknown participant",
+    "disconnected": "{name} (disconnected)",
+    "withStatus": "{name} ({status})",
+    "votingComplete": "Voting complete",
+    "unnamed": "No name set",
+    "participants": "Participants",
+    "editName": "{name}: change display name",
+    "others": "{count} more",
+    "otherMembers": "Other participants"
+  },
+  "inviteActions": {
+    "defaultItem": "Invitation URL",
+    "copy": "Copy {item}",
+    "copyValue": "Copy {item}: {value}",
+    "copied": "{item} copied",
+    "copyFailed": "Couldn’t copy {item}. Please try again.",
+    "link": "Invitation link",
+    "copyLink": "Copy link",
+    "shareLink": "Share invitation link",
+    "shareFailed": "Couldn’t share. Copy the link and send it instead.",
+    "openShareMenu": "Open your device’s share menu",
+    "share": "Share"
   }
 }

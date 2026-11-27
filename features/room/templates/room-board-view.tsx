@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 // ルームボードの表示用コンポーネント。データ層には一切依存せず、
 // 付箋の配列と各種コールバックをpropsで受け取る。
 // WebSocket接続・スロットル・プロトコル送信はroom-board.tsx（コンテナ）の責務。
@@ -441,6 +441,7 @@ export function RoomBoardView({
   onTimerStop,
 }: RoomBoardViewProps) {
   const t = useTranslations("app.boardFlow");
+  const locale = useLocale() === "en" ? "en" : "ja";
   const notifications = useTranslations("app.notifications") as (
     key: string,
     values?: Record<string, string | number>,
@@ -928,6 +929,7 @@ export function RoomBoardView({
     // 2-1の通常の発想支援は問いヒントに任せ、残り時間の通知は維持する。
     tipsEnabled: !isPhaseStep(phase, 2, 1),
     sharingRole: getSharingTimeUpRole(sharing, currentUserId),
+    locale,
   });
   const timerAlert = useTimerAlert({
     timer,

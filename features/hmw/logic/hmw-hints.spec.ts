@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildHmwHintQuestion, HMW_HINT_GROUPS } from "./hmw-hints";
+import {
+  buildHmwHintQuestion,
+  HMW_HINT_GROUPS,
+  localizeHmwHint,
+} from "./hmw-hints";
 
 describe("問いのヒント", () => {
   it("異なる観点の3語を提示し、一巡するまで12語を重複させない", () => {
@@ -87,4 +91,25 @@ describe("問いのヒント", () => {
       expect(buildHmwHintQuestion("朝起きれない", hint)).toBe(hint.template);
     }
   });
+});
+
+it("英語の表示では、すべてのヒントの語と文型を英語にし、課題は原文のまま差し込む", () => {
+  const japanese = /[\u3040-\u30ff\u4e00-\u9fff]/;
+  for (const hint of HMW_HINT_GROUPS.flat()) {
+    const english = localizeHmwHint(hint, "en");
+    expect(english.word).not.toMatch(japanese);
+    expect(english.template).not.toMatch(japanese);
+    expect(english.template.includes("{issue}")).toBe(
+      hint.template.includes("{issue}"),
+    );
+  }
+  expect(localizeHmwHint(HMW_HINT_GROUPS[0][0], "ja")).toBe(
+    HMW_HINT_GROUPS[0][0],
+  );
+  expect(
+    buildHmwHintQuestion(
+      "朝の準備が間に合わない",
+      localizeHmwHint(HMW_HINT_GROUPS[1][0], "en"),
+    ),
+  ).toBe("How might we reduce how often “朝の準備が間に合わない” happens?");
 });

@@ -252,6 +252,7 @@ export function RoomLobbyView({
                 roomName: roomName?.name,
                 inviteCode,
                 inviteUrl,
+                locale: locale === "en" ? "en" : "ja",
               })}
               layout="inline"
             />

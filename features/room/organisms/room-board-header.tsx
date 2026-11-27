@@ -12,7 +12,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   type ReactNode,
   useCallback,
@@ -214,6 +214,7 @@ export function RoomBoardHeader({
   onTimerExtend,
 }: RoomBoardHeaderProps) {
   const t = useTranslations("app.boardHeader");
+  const locale = useLocale() === "en" ? "en" : "ja";
   const controlsAreaRef = useRef<HTMLDivElement>(null);
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
@@ -1352,6 +1353,7 @@ export function RoomBoardHeader({
                                 roomName,
                                 inviteCode,
                                 inviteUrl,
+                                locale,
                               })}
                             />
                           </div>

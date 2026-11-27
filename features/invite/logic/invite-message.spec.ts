@@ -46,3 +46,21 @@ describe("buildInviteMessage", () => {
     ).toBe("テーマ: J05");
   });
 });
+
+it("英語の表示では、招待文の案内を英語にし、テーマは原文のまま載せる", () => {
+  expect(
+    buildInviteMessage({
+      roomName: "通学の困りごと",
+      inviteCode: "ABC123",
+      inviteUrl: "https://example.test/invite/ABC123",
+      locale: "en",
+    }),
+  ).toBe(
+    [
+      "You're invited to an Idea Boost room.",
+      "Topic: 通学の困りごと",
+      "Join link: https://example.test/invite/ABC123",
+      "Invitation code: ABC123",
+    ].join("\n"),
+  );
+});

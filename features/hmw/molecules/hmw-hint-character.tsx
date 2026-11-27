@@ -2,6 +2,7 @@
 
 import { ArrowRight, Lightbulb, PencilLine, RefreshCw, X } from "lucide-react";
 import Image from "next/image";
+import { useLocale, useTranslations } from "next-intl";
 import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +12,11 @@ import {
 } from "@/components/ui/popover";
 import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
-import { buildHmwHintQuestion, HMW_HINT_GROUPS } from "../logic/hmw-hints";
+import {
+  buildHmwHintQuestion,
+  HMW_HINT_GROUPS,
+  localizeHmwHint,
+} from "../logic/hmw-hints";
 import styles from "./hmw-hint-character.module.css";
 
 export type HmwHintCharacterProps = {
@@ -50,6 +55,8 @@ export function HmwHintCharacter({
   availableHeight,
   onFadeOutComplete,
 }: HmwHintCharacterProps) {
+  const t = useTranslations("app.hmwHint");
+  const locale = useLocale() === "en" ? "en" : "ja";
   const titleId = useId();
   const [open, setOpen] = useState(false);
   const [groupIndex, setGroupIndex] = useState(0);
@@ -112,7 +119,7 @@ export function HmwHintCharacter({
           <button
             type="button"
             disabled={submitting}
-            aria-label="問いのヒントを開く"
+            aria-label={t("open")}
             className={styles.trigger}
           >
             <span className={styles.characterHalo} aria-hidden="true" />
@@ -161,14 +168,14 @@ export function HmwHintCharacter({
           }}
         >
           <h2 id={titleId} className="sr-only">
-            問いのヒント
+            {t("title")}
           </h2>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             className={styles.cloudClose}
-            aria-label="問いのヒントを閉じる"
+            aria-label={t("close")}
             onClick={() => setOpen(false)}
           >
             <X aria-hidden="true" />
@@ -184,11 +191,11 @@ export function HmwHintCharacter({
                 question ? (
                   <div className={styles.example}>
                     <p className={styles.cloudCaption}>
-                      こんな問いはどうかな？
+                      {t("questionCaption")}
                     </p>
                     <section
                       ref={questionRef}
-                      aria-label="問いの文例"
+                      aria-label={t("questionExample")}
                       // biome-ignore lint/a11y/noNoninteractiveTabindex: 長い文例のスクロールをキーボードでも操作できるようにする。
                       tabIndex={0}
                       className={styles.question}
@@ -201,45 +208,44 @@ export function HmwHintCharacter({
                     </section>
                     {tooLong ? (
                       <p role="alert" className={styles.error}>
-                        {NOTE_CONTENT_MAX_LENGTH}文字を超えるため使えません。
-                        問いを付箋に直接書くこともできます。
+                        {t("tooLong", { max: NOTE_CONTENT_MAX_LENGTH })}
                       </p>
                     ) : null}
                   </div>
                 ) : (
                   <div className={styles.wordsContent}>
-                    <p className={styles.cloudCaption}>こんなのはどうかな？</p>
-                    <fieldset
-                      aria-label="考え方のワード"
-                      className={styles.words}
-                    >
-                      {HMW_HINT_GROUPS[groupIndex].map((hint, index) => (
-                        <button
-                          key={hint.id}
-                          ref={index === 0 ? firstWordRef : undefined}
-                          type="button"
-                          className={styles.word}
-                          onClick={() => {
-                            const text = buildHmwHintQuestion(
-                              decidedIssue,
-                              hint,
-                            );
-                            if (text)
-                              setSelection({
-                                issue: decidedIssue,
-                                question: text,
-                              });
-                          }}
-                        >
-                          {hint.word}
-                        </button>
-                      ))}
+                    <p className={styles.cloudCaption}>{t("wordsCaption")}</p>
+                    <fieldset aria-label={t("words")} className={styles.words}>
+                      {HMW_HINT_GROUPS[groupIndex].map((definition, index) => {
+                        const hint = localizeHmwHint(definition, locale);
+                        return (
+                          <button
+                            key={hint.id}
+                            ref={index === 0 ? firstWordRef : undefined}
+                            type="button"
+                            className={styles.word}
+                            onClick={() => {
+                              const text = buildHmwHintQuestion(
+                                decidedIssue,
+                                hint,
+                              );
+                              if (text)
+                                setSelection({
+                                  issue: decidedIssue,
+                                  question: text,
+                                });
+                            }}
+                          >
+                            {hint.word}
+                          </button>
+                        );
+                      })}
                     </fieldset>
                   </div>
                 )
               ) : (
                 <p role="status" className={styles.missingIssue}>
-                  決定した課題を確認できません。接続後にもう一度確認してください。
+                  {t("missingIssue")}
                 </p>
               )}
               <span aria-hidden="true" className={styles.thoughtTrail} />
@@ -264,7 +270,7 @@ export function HmwHintCharacter({
                   }}
                 >
                   <PencilLine aria-hidden="true" />
-                  この問いにする
+                  {t("useQuestion")}
                   <ArrowRight aria-hidden="true" />
                 </Button>
                 <Button
@@ -273,7 +279,7 @@ export function HmwHintCharacter({
                   className={styles.chooseAgain}
                   onClick={() => setSelection(null)}
                 >
-                  別のワードを選択する
+                  {t("chooseAnother")}
                 </Button>
               </>
             ) : hasIssue ? (
@@ -290,7 +296,7 @@ export function HmwHintCharacter({
                 }}
               >
                 <RefreshCw aria-hidden="true" />
-                別の3つ
+                {t("otherThree")}
               </Button>
             ) : null}
           </div>
@@ -308,7 +314,7 @@ export function HmwHintCharacter({
           onClick={() => handleOpenChange(true)}
         >
           <Lightbulb aria-hidden="true" />
-          問いのヒント
+          {t("title")}
         </Button>
       ) : null}
       {writing ? (
@@ -319,7 +325,7 @@ export function HmwHintCharacter({
             <span />
             <PencilLine className={styles.pencil} />
           </div>
-          <span role="status">いっしょに書き出そう</span>
+          <span role="status">{t("writing")}</span>
         </div>
       ) : null}
     </div>

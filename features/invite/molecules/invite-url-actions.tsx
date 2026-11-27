@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleAlert, Share2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CopyInviteButton } from "./copy-invite-button";
@@ -33,6 +34,7 @@ function InviteUrlActionsContent({
   message,
   layout = "stacked",
 }: InviteUrlActionsProps) {
+  const t = useTranslations("app.inviteActions");
   const [supported, setSupported] = useState(false);
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -90,8 +92,8 @@ function InviteUrlActionsContent({
       {/* URLの全文は見せない。招待文があれば、リンクを含む招待文ごとコピーして1つのボタンで済ませる。 */}
       <CopyInviteButton
         value={message ?? value}
-        itemLabel="招待リンク"
-        label="リンクをコピー"
+        itemLabel={t("link")}
+        label={t("copyLink")}
       />
       {supported ? (
         <>
@@ -102,19 +104,15 @@ function InviteUrlActionsContent({
             onClick={handleShare}
             disabled={pending}
             aria-busy={pending}
-            aria-label="招待リンクを共有"
-            title={
-              failed
-                ? "共有できませんでした。リンクをコピーして送ってください。"
-                : "端末の共有メニューを開く"
-            }
+            aria-label={t("shareLink")}
+            title={failed ? t("shareFailed") : t("openShareMenu")}
             data-share-state={failed ? "error" : "idle"}
           >
             <ShareIcon
               aria-hidden="true"
               className={failed ? "text-destructive" : undefined}
             />
-            共有
+            {t("share")}
           </Button>
           <span
             role="status"
@@ -122,9 +120,7 @@ function InviteUrlActionsContent({
             aria-atomic="true"
             className="sr-only"
           >
-            {failed
-              ? "共有できませんでした。リンクをコピーして送ってください。"
-              : ""}
+            {failed ? t("shareFailed") : ""}
           </span>
         </>
       ) : null}

@@ -9,6 +9,7 @@
 
 import { Check, WifiOff } from "lucide-react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 import {
   Tooltip,
@@ -47,18 +48,30 @@ export function MemberAvatar({
   style,
   isMe = false,
   isVotingComplete = false,
-  completionLabel = "投票完了",
+  completionLabel,
 }: MemberAvatarProps) {
+  const t = useTranslations("app.members");
   const face = avatarId ?? MEMBER_AVATAR_IDS[NOTE_COLOR_PALETTE.indexOf(color)];
   // 自分は ring（枠）で識別する。文言の「（あなた）」は付けない。
-  const tooltipText = `${name || "不明なメンバー"}${isConnected === false ? "（接続切れ）" : ""}`;
+  const displayName = name || t("unknown");
+  const tooltipText =
+    isConnected === false
+      ? t("disconnected", { name: displayName })
+      : displayName;
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <div
           role="img"
-          aria-label={`${tooltipText}${isVotingComplete ? `（${completionLabel}）` : ""}`}
+          aria-label={
+            isVotingComplete
+              ? t("withStatus", {
+                  name: tooltipText,
+                  status: completionLabel ?? t("votingComplete"),
+                })
+              : tooltipText
+          }
           data-testid="avatar"
           data-self={isMe ? "true" : undefined}
           className={`relative inline-flex shrink-0 items-center justify-center rounded-full border ${NOTE_COLOR_STYLES[color].avatarClassName} ${

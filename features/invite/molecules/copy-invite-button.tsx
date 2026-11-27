@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, CircleAlert, Copy } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -23,10 +24,12 @@ export function CopyInviteButton(props: CopyInviteButtonProps) {
 
 function CopyInviteButtonContent({
   value,
-  itemLabel = "招待URL",
+  itemLabel,
   label,
   className,
 }: CopyInviteButtonProps) {
+  const t = useTranslations("app.inviteActions");
+  const item = itemLabel ?? t("defaultItem");
   const [state, setState] = useState<CopyState>("idle");
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
@@ -68,9 +71,9 @@ function CopyInviteButtonContent({
     state === "success" ? Check : state === "error" ? CircleAlert : Copy;
   const resultMessage =
     state === "success"
-      ? `${itemLabel}をコピーしました`
+      ? t("copied", { item })
       : state === "error"
-        ? `${itemLabel}をコピーできませんでした。もう一度お試しください。`
+        ? t("copyFailed", { item })
         : "";
 
   return (
@@ -80,10 +83,10 @@ function CopyInviteButtonContent({
         onClick={handleCopy}
         disabled={pending}
         aria-busy={pending}
-        aria-label={`${itemLabel}をコピー`}
+        aria-label={t("copy", { item })}
         title={
           resultMessage ||
-          (label ? `${itemLabel}をコピー` : `${itemLabel}をコピー: ${value}`)
+          (label ? t("copy", { item }) : t("copyValue", { item, value }))
         }
         data-copy-state={state}
         className={cn(
