@@ -24,6 +24,8 @@ export function NoteDraftRecovery({
         return t("reasons.sendFailed");
       case "result-unknown":
         return t("reasons.resultUnknown");
+      case "storage-unreadable":
+        return t("reasons.storageUnreadable");
       case "storage-failure":
         return t("reasons.storageFailure");
       default:

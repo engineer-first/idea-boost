@@ -53,7 +53,8 @@
     "autoDeleteRemaining": "自動削除まで",
     "expiresInDays": "あと{days}日",
     "expiresSoon": "まもなく",
-    "title": "ホーム"
+    "title": "ホーム",
+    "previousRoom": "前のルーム"
   },
   "createRoom": {
     "title": "ルームを作成",
@@ -148,64 +149,6 @@
     "phase1": "課題整理",
     "phase2": "問いの整理",
     "phase3": "アイデア決定",
-    "steps": {
-      "1-1": {
-        "name": "自分の課題（個人）",
-        "action": "困ったことを書く"
-      },
-      "1-2": {
-        "name": "付箋を共有する",
-        "action": "一人ずつ発表する"
-      },
-      "1-3": {
-        "name": "似た付箋を集める",
-        "action": "付箋をグループに分ける"
-      },
-      "1-4": {
-        "name": "課題に投票する",
-        "action": "付箋を選んで投票する"
-      },
-      "1-5": {
-        "name": "課題を決める",
-        "action": "課題を1つに決める"
-      },
-      "2-1": {
-        "name": "課題を問いに変える",
-        "action": "課題を質問に変える"
-      },
-      "2-2": {
-        "name": "問いを共有する",
-        "action": "一人ずつ発表する"
-      },
-      "2-3": {
-        "name": "問いに投票する",
-        "action": "問いに投票する"
-      },
-      "2-4": {
-        "name": "問いを決める",
-        "action": "問いを1つに決める"
-      },
-      "3-1": {
-        "name": "解決策を書く",
-        "action": "解決策を書き出す"
-      },
-      "3-2": {
-        "name": "解決策を共有する",
-        "action": "一人ずつ発表する"
-      },
-      "3-3": {
-        "name": "解決策を比べる",
-        "action": "付箋を動かして比べる"
-      },
-      "3-4": {
-        "name": "解決策に投票する",
-        "action": "解決策に投票する"
-      },
-      "3-5": {
-        "name": "アイデアを決定",
-        "action": "解決策を1つに決める"
-      }
-    },
     "flowTitle": "全体の流れ",
     "minuteSuffix": "分"
   },
@@ -626,7 +569,8 @@
     "errorLoad": "保存された内容を読み込めませんでした。最新版を取得してください。",
     "errorUnknown": "読み込めませんでした。",
     "mockup": "モックアップ",
-    "presentationSlides": "説明するスライド"
+    "presentationSlides": "説明するスライド",
+    "backActionsShort": "次のアクション"
   },
   "boardFlow": {
     "followingView": "あなたの視点がフォローされています",
@@ -664,20 +608,22 @@
     "pass": "パスする",
     "otherParticipants": "ほかの参加者",
     "selfInstruction": "マイ付箋をボードに出して説明しよう",
-    "listenerInstruction": "話を聞いて、リアクションを送ろう"
+    "listenerInstruction": "話を聞いて、リアクションを送ろう",
+    "passShort": "パス"
   },
   "boardRollback": {
     "button": "直前のステップに戻る",
     "warning": "この操作は取り消せません。",
     "confirm": "本当に実行しますか？",
     "description": "次のステップへ進む直前の状態に、全員を戻します。",
-    "changes": "それ以降に全員が操作したものを取り消します",
+    "changes": "それ以降に全員が操作したものを",
     "from": "{phase} から",
     "to": "{phase} へ戻る",
     "cancel": "キャンセル",
     "return": "{step}へ戻る",
     "lobby": "開始待ち",
-    "changesEnd": "取り消します"
+    "changesEnd": "取り消します",
+    "period": "。"
   },
   "boardRestart": {
     "action": "{step}に戻って書き足す",
@@ -685,7 +631,8 @@
     "aria": "全員で{step}に戻って、付箋を書き足しますか？",
     "title": "付箋を書き足しますか？",
     "description": "共有済みの付箋と下書きは残ります。",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "lead": "全員で{step}に戻って、"
   },
   "boardTimer": {
     "oneMinute": "あと1分！",
@@ -707,10 +654,12 @@
     "extend": "＋1分",
     "resumeAnnouncement": "タイマーを再開すると残り{time}から計時します。",
     "timeUpCheckConditions": "時間になりました。進行条件を確認してください。",
-    "timeUpExtend": "時間になりました。1分延長できます。"
+    "timeUpExtend": "時間になりました。1分延長できます。",
+    "circleLabel": "{label}。{action}",
+    "circleTitle": "{label}（{instructions}）"
   },
   "boardIdeaGuide": {
-    "heading": "問いを実現する方法を書こう",
+    "heading": "問いに答える方法を書こう",
     "description": "思いついた方法を、1枚に1つ。",
     "hintDescription": "選ぶとマイ付箋を1枚作ります。続きに自分の方法を書こう。",
     "hint1": "もっと簡単に",
@@ -805,7 +754,7 @@
   },
   "boardMoveHistory": {
     "label": "付箋の移動履歴",
-    "description": "自分が行った付箋の移動だけを元に戻します。本文編集中は通常の文字入力の取り消しです。",
+    "description": "本人の付箋移動だけを元に戻します。本文編集中は通常の文字入力の取り消しです。",
     "undo": "移動を元に戻す",
     "redo": "移動をやり直す",
     "unavailable": "現在この操作はできません。",
@@ -1015,7 +964,8 @@
       "interruptedComposition": "変換中に中断されました。",
       "sendFailed": "送信できませんでした。接続が戻ると安全を確認して再送します。",
       "resultUnknown": "保存結果を確認できていません。再認証後に結果を確認します。",
-      "storageFailure": "このタブの再読込に備えて保存できません。"
+      "storageFailure": "このタブの再読込に備えて保存できません。",
+      "storageUnreadable": "保存領域を読み取れません。"
     },
     "storageReadFailed": "保存領域を読み取れませんでした。",
     "storageWriteFailed": "このタブの再読込に備えて文章を残せません。必要ならコピーしてください。"

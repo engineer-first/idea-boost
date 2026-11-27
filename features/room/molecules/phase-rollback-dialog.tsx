@@ -82,7 +82,7 @@ export function PhaseRollbackDialog({
                   <strong className="font-semibold text-foreground">
                     {t("changesEnd")}
                   </strong>
-                  。
+                  {t("period")}
                 </span>
               </>
             )}

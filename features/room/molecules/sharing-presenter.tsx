@@ -35,7 +35,7 @@ export type SharingPresenterProps = {
   selectionDisabled?: boolean;
   members?: ProtocolMember[];
   connectedUserIds?: readonly string[];
-  /** 今の発表者を{t("pass")}。渡したときだけ発表中の行に{t("pass")}を出す。 */
+  /** 今の発表者をパスする。渡したときだけ発表中の行に「パス」を出す。 */
   onPassPresenter?: () => void;
   passDisabled?: boolean;
 };
@@ -62,7 +62,7 @@ export function SharingPresenter({
   const currentStatusLabel =
     sharing.startsAt !== null ? t("startingSoon") : t("presenting");
   const currentPresenterId = current?.userId;
-  // 確認中に交代したら別の人を{t("pass")}しないよう、確認を開いた時点の番と照合する。
+  // 確認中に交代したら別の人をパスしないよう、確認を開いた時点の番と照合する。
   const [passTarget, setPassTarget] = useState<{
     userId: string;
     revision: string;
@@ -271,7 +271,7 @@ export function SharingPresenter({
                   disabled={passDisabled}
                   onClick={requestPass}
                 >
-                  {t("pass")}
+                  {t("passShort")}
                 </Button>
               ) : null}
             </li>

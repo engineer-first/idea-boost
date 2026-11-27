@@ -46,14 +46,15 @@
     "confirmAgain": "Check again",
     "previousRooms": "Previous rooms",
     "roomErrorTitle": "The action couldn't be completed",
-    "identityUnavailable": "Guest identity is unavailable in this browser.",
+    "identityUnavailable": "Your identity information is missing or has expired. If you start again, you will join as a different participant, and your earlier notes and votes will not carry over.",
     "createdAt": "Created {date}",
     "createdAtTitle": "Created on {date}",
     "expiresAtTitle": "Scheduled for deletion on {date}",
     "autoDeleteRemaining": "Time until automatic deletion:",
     "expiresInDays": "{days} days left",
     "expiresSoon": "soon",
-    "title": "Home"
+    "title": "Home",
+    "previousRoom": "Previous room"
   },
   "createRoom": {
     "title": "Create a room",
@@ -148,64 +149,6 @@
     "phase1": "Frame the problem",
     "phase2": "Frame the question",
     "phase3": "Choose an idea",
-    "steps": {
-      "1-1": {
-        "name": "Write down challenges",
-        "action": "Write down challenges"
-      },
-      "1-2": {
-        "name": "Share your notes",
-        "action": "Take turns sharing"
-      },
-      "1-3": {
-        "name": "Group similar notes",
-        "action": "Group similar notes"
-      },
-      "1-4": {
-        "name": "Vote on the problem",
-        "action": "Vote on notes"
-      },
-      "1-5": {
-        "name": "Choose the problem",
-        "action": "Choose one problem"
-      },
-      "2-1": {
-        "name": "Turn the problem into a question",
-        "action": "Reframe the problem as a question"
-      },
-      "2-2": {
-        "name": "Share your questions",
-        "action": "Take turns sharing"
-      },
-      "2-3": {
-        "name": "Vote on questions",
-        "action": "Vote on questions"
-      },
-      "2-4": {
-        "name": "Choose the question",
-        "action": "Choose one question"
-      },
-      "3-1": {
-        "name": "Write solutions",
-        "action": "Write down solutions"
-      },
-      "3-2": {
-        "name": "Share solutions",
-        "action": "Take turns sharing"
-      },
-      "3-3": {
-        "name": "Compare solutions",
-        "action": "Move notes to compare"
-      },
-      "3-4": {
-        "name": "Vote on solutions",
-        "action": "Vote on solutions"
-      },
-      "3-5": {
-        "name": "Choose a solution",
-        "action": "Choose one solution"
-      }
-    },
     "flowTitle": "Overall flow",
     "minuteSuffix": " min"
   },
@@ -250,7 +193,7 @@
     "invite": "Invite",
     "inviteToRoom": "Invite people to the room",
     "inviteDescription": "Share the link or code so others can join.",
-    "inviteCode": "Invite code",
+    "inviteCode": "Invitation code",
     "feedback": "Feedback",
     "backHome": "Back to home",
     "renameMember": "Change {name}'s display name"
@@ -272,12 +215,12 @@
     "current": "Current",
     "waiting": "Waiting to start",
     "phaseNames": {
-      "1": "Problem",
+      "1": "Challenge",
       "2": "Question",
       "3": "Ideas"
     },
     "phaseTitles": {
-      "1": "Frame the problem",
+      "1": "Define the challenge",
       "2": "Frame the question",
       "3": "Choose an idea"
     },
@@ -433,7 +376,7 @@
   "notifications": {
     "multipleNoteMoveUnavailable": "Moving multiple notes is not available yet. Select and move one note at a time.",
     "cannotVoteExcludedNote": "You cannot vote on an excluded note. Your remaining votes have not changed. Place a sticker on an eligible note.",
-    "canvasFitUnavailable": "Close Hints and My notes, then select “Fit all notes” again.",
+    "canvasFitUnavailable": "Close Hints and My notes, then select “Fit all sticky notes” again.",
     "memberJoined": "{name} joined the room",
     "memberLeft": "{name} left the room",
     "memberRemovedByMe": "You removed {name} from the room",
@@ -741,7 +684,7 @@
   },
   "roomOutcome": {
     "title": "Team results",
-    "unavailableAuth": "You do not have permission to view these results. Reopen them from “Past results” on the home page.",
+    "unavailableAuth": "You do not have permission to view these results. Reopen them from “View past outcomes” on the home page.",
     "unavailableConnection": "You are disconnected. The previously received results may be out of date. Reconnect before viewing or saving them.",
     "unavailableOutcome": "We could not retrieve all decisions. Reconnect before viewing or saving the results.",
     "adoptedIdea": "Selected idea",
@@ -767,7 +710,7 @@
     "pageNav": "Page navigation",
     "backBoard": "Back to board",
     "backHome": "Back to home",
-    "retention": "You can revisit completed rooms from “Past results” on the home page. Results are kept for 180 days after completion.",
+    "retention": "You can revisit completed rooms from “View past outcomes” on the home page. Results are kept for 180 days after completion.",
     "feedback": "Feedback"
   },
   "outcomeReflection": {
@@ -860,7 +803,8 @@
     "errorLoad": "Could not load the saved content. Get the latest version and try again.",
     "errorUnknown": "Could not load the content.",
     "mockup": "Mockup",
-    "presentationSlides": "Presentation slides"
+    "presentationSlides": "Presentation slides",
+    "backActionsShort": "Next actions"
   },
   "boardFlow": {
     "followingView": "Your view is being followed",
@@ -898,28 +842,31 @@
     "pass": "Pass",
     "otherParticipants": "Other participants",
     "selfInstruction": "Put your notes on the board and explain them",
-    "listenerInstruction": "Listen and send a reaction"
+    "listenerInstruction": "Listen and send a reaction",
+    "passShort": "Pass"
   },
   "boardRollback": {
     "button": "Back to previous step",
     "warning": "This action cannot be undone.",
     "confirm": "Are you sure?",
     "description": "Everyone will return to the state just before moving to the next step.",
-    "changes": "Changes made by everyone after that point will be discarded.",
+    "changes": "Everything everyone did after that point ",
     "from": "From {phase}",
     "to": "Return to {phase}",
     "cancel": "Cancel",
     "return": "Back to {step}",
     "lobby": "Waiting to start",
-    "changesEnd": "will be discarded."
+    "changesEnd": "will be discarded",
+    "period": "."
   },
   "boardRestart": {
     "action": "Go back to {step} and add notes",
     "switching": "Switching…",
-    "aria": "Move everyone back to {step} and add notes?",
-    "title": "Would you like to add notes?",
+    "aria": "Move everyone back to {step} and add more notes?",
+    "title": "and add more notes?",
     "description": "Shared notes and drafts will be kept.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "lead": "Move everyone back to {step}"
   },
   "boardTimer": {
     "oneMinute": "1 minute left!",
@@ -941,10 +888,12 @@
     "extend": "+1 min",
     "resumeAnnouncement": "The timer will resume with {time} remaining.",
     "timeUpCheckConditions": "Time is up. Check the conditions for continuing.",
-    "timeUpExtend": "Time is up. You can add one minute."
+    "timeUpExtend": "Time is up. You can add one minute.",
+    "circleLabel": "{label}. {action}",
+    "circleTitle": "{label} ({instructions})"
   },
   "boardIdeaGuide": {
-    "heading": "Find ways to bring the question to life",
+    "heading": "Write ways to answer the question",
     "description": "Write one possible solution on each note.",
     "hintDescription": "Selecting a hint creates one private note. Add your own idea to it.",
     "hint1": "Make it easier",
@@ -1053,7 +1002,7 @@
     "notesRemain": "Your notes will not be deleted.",
     "cancel": "Cancel",
     "confirm": "Clear previous votes and start again",
-    "noCandidates": "There are no candidates. Open a dimmed note's menu and choose “Restore to candidates.”"
+    "noCandidates": "There are no candidates. Open a dimmed note's menu and choose “Restore candidate.”"
   },
   "boardTimerSound": {
     "playbackError": "Timer sound could not be played. Select the sound button to try again (this device only).",
@@ -1249,7 +1198,8 @@
       "interruptedComposition": "Text input was interrupted before composition finished.",
       "sendFailed": "The text could not be sent. It will be checked and resent safely when the connection returns.",
       "resultUnknown": "The save result could not be confirmed. It will be checked after reauthentication.",
-      "storageFailure": "The text could not be saved for recovery if this tab reloads."
+      "storageFailure": "The text could not be saved for recovery if this tab reloads.",
+      "storageUnreadable": "The recovery storage cannot be read."
     },
     "storageReadFailed": "Could not read the local recovery storage.",
     "storageWriteFailed": "This tab could not save your text for recovery after a reload. Copy it if you still need it."

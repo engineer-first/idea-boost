@@ -98,6 +98,76 @@ describe("ユーザーニーズ調査の準備", () => {
     });
   });
 
+  it("記録が入力上限を超えるルームでも、日英が同じ条件で生成して revision を上げ合わない", async () => {
+    // ラベルの長さが言語で違うため、上限の境目では残る記録の数が日英で変わる。
+    const noteCount = 300;
+    const content = (index: number, pad: number) =>
+      `昼休みに席を探すだけで疲れてしまう${"。".repeat(pad)}${index % 10}`;
+    const decisions = completedRoomFixture().decisions;
+    const kept = (locale: "ja" | "en", pad: number) =>
+      buildReflectionInput(
+        [
+          ...decisions.map((decision) => ({
+            id: `decision-${decision.phase}`,
+            label: (locale === "ja"
+              ? ["", "確定した課題", "確定した問い", "採用したアイデア"]
+              : [
+                  "",
+                  "Confirmed challenge",
+                  "Confirmed question",
+                  "Adopted idea",
+                ])[decision.phase],
+            content: decision.content,
+            scene: null,
+          })),
+          ...Array.from({ length: noteCount }, (_, index) => ({
+            id: `problem-grouping:many-${index}`,
+            label:
+              locale === "ja" ? "課題の共有付箋" : "Shared challenge notes",
+            content: content(index, pad),
+            scene: "problem-grouping" as const,
+          })),
+        ],
+        { context: { audience: "", situation: "" } },
+      ).sources.length;
+    const pad = Array.from({ length: 60 }, (_, index) => index).find(
+      (candidate) => kept("ja", candidate) !== kept("en", candidate),
+    );
+    if (pad === undefined) throw new Error("境目の長さが見つかりません");
+    const room = await createRoomAs(user);
+    await runInRoomDO(room.roomId, async (_instance, state) => {
+      const board = completedSceneBoardFixture("problem-grouping");
+      const store = {
+        get: completed().get,
+        board: async (
+          _userId: string,
+          kind: "problem-grouping" | "question-decision" | "idea-mapping",
+        ) =>
+          kind === "problem-grouping"
+            ? {
+                scene: { kind, recordedAt: 123, status: "saved" as const },
+                board: {
+                  ...board,
+                  notes: Array.from({ length: noteCount }, (_, index) => ({
+                    ...board.notes[1],
+                    id: `many-${index}`,
+                    content: content(index, pad),
+                    excluded: false,
+                  })),
+                },
+              }
+            : null,
+      };
+      const storage = new OutcomeReflectionStorage(state, store, generator());
+      const japanese = await storage.readOrGenerate(user.sub, research(), "ja");
+      expect(japanese?.shared.truncated).toBe(true);
+      const english = await storage.readOrGenerate(other, research(1), "en");
+      expect(english?.shared.revision).toBe(1);
+      const reread = await storage.readOrGenerate(user.sub, null, "ja");
+      expect(reread?.shared).toMatchObject({ revision: 1, result: output });
+    });
+  });
+
   it("AI制作依頼文のキャッシュ・選択・生成回数上限を言語ごとに分ける", async () => {
     const room = await createRoomAs(user);
     await runInRoomDO(room.roomId, async (_instance, state) => {

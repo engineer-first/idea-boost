@@ -1323,7 +1323,7 @@ export function RoomBoardHeader({
                     {t("timerSound")}
                     <TimerSoundControl {...timerSoundControls} />
                   </div>
-                  {/* 成果公開後のルームには参加できないため{t("invite")}を出さない。 */}
+                  {/* 成果公開後のルームには参加できないため招待を出さない。 */}
                   {!outcomePublished ? (
                     <Popover>
                       <PopoverTrigger asChild>

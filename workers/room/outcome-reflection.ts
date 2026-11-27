@@ -155,10 +155,32 @@ const ResearchCacheSchema = z.object({
 });
 const SHARED_KEY = "v5:shared";
 const localePrefix = (locale: AppLocale) => (locale === "ja" ? "v5" : "v6:en");
+const promptAttemptPattern = (locale: AppLocale) =>
+  locale === "ja" ? "%:prompt:%" : "v6:en:%:prompt:%";
 const researchResultKey = (revision: number, locale: AppLocale) =>
   `${localePrefix(locale)}:result:${revision}`;
 const selectionStorageKey = (userId: string, locale: AppLocale) =>
   `${localePrefix(locale)}:selection:${userId}`;
+
+// 出典のラベル。保存する記録は日本語のラベルを正とし、表示する人の言語へ付け替える。
+const SOURCE_LABELS = {
+  "decision-1": { ja: "確定した課題", en: "Confirmed challenge" },
+  "decision-2": { ja: "確定した問い", en: "Confirmed question" },
+  "decision-3": { ja: "採用したアイデア", en: "Adopted idea" },
+  "problem-grouping": { ja: "課題の共有付箋", en: "Shared challenge notes" },
+  "question-decision": { ja: "問いの共有付箋", en: "Shared question notes" },
+  "idea-mapping": { ja: "アイデアの共有付箋", en: "Shared idea notes" },
+} as const;
+function labelSources(
+  sources: ReflectionSource[],
+  locale: AppLocale,
+): ReflectionSource[] {
+  return sources.map((source) => {
+    const key = source.id.split(":")[0] as keyof typeof SOURCE_LABELS;
+    const label = SOURCE_LABELS[key]?.[locale];
+    return label ? { ...source, label } : source;
+  });
+}
 
 export function buildReflectionInput(
   original: ReflectionSource[],
@@ -203,36 +225,23 @@ export class OutcomeReflectionStorage {
   ): Promise<ReflectionResponse | null> {
     const room = await this.completed.get(userId);
     if (!room) return null;
-    const sources: ReflectionSource[] = room.decisions.map((decision) => ({
-      id: `decision-${decision.phase}`,
-      label:
-        locale === "ja"
-          ? ["", "確定した課題", "確定した問い", "採用したアイデア"][
-              decision.phase
-            ]
-          : ["", "Confirmed problem", "Confirmed question", "Adopted idea"][
-              decision.phase
-            ],
-      content: decision.content,
-      scene: null,
-    }));
+    // 記録は日本語のラベルで組み立て、言語で件数や順序が変わらないようにする。
+    const canonicalSources: ReflectionSource[] = room.decisions.map(
+      (decision) => ({
+        id: `decision-${decision.phase}`,
+        label: SOURCE_LABELS[`decision-${decision.phase as 1 | 2 | 3}`].ja,
+        content: decision.content,
+        scene: null,
+      }),
+    );
     const records: ReflectionSource[][] = [];
     const decidedIds = new Set(
       room.decisions.map((decision) => decision.noteId),
     );
-    for (const { kind, label } of [
-      {
-        kind: "problem-grouping",
-        label: locale === "ja" ? "課題の共有付箋" : "Shared problem notes",
-      },
-      {
-        kind: "question-decision",
-        label: locale === "ja" ? "問いの共有付箋" : "Shared question notes",
-      },
-      {
-        kind: "idea-mapping",
-        label: locale === "ja" ? "アイデアの共有付箋" : "Shared idea notes",
-      },
+    for (const kind of [
+      "problem-grouping",
+      "question-decision",
+      "idea-mapping",
     ] as const) {
       if (
         !room.scenes.some(
@@ -249,7 +258,7 @@ export class OutcomeReflectionStorage {
           )
           .map((note) => ({
             id: `${kind}:${note.id}`,
-            label,
+            label: SOURCE_LABELS[kind].ja,
             content: note.content,
             scene: kind,
           })),
@@ -257,7 +266,9 @@ export class OutcomeReflectionStorage {
     }
     const count = Math.max(0, ...records.map((notes) => notes.length));
     for (let index = 0; index < count; index++)
-      for (const notes of records) if (notes[index]) sources.push(notes[index]);
+      for (const notes of records)
+        if (notes[index]) canonicalSources.push(notes[index]);
+    const sources = labelSources(canonicalSources, locale);
     if (!(await this.completed.get(userId))) return null;
     const prepared = buildReflectionInput(sources);
     let shared = this.shared(prepared.sources, prepared.truncated, locale);
@@ -308,7 +319,7 @@ export class OutcomeReflectionStorage {
     if (this.busy.has(locale)) throw new Error(REFLECTION_BUSY_ERROR);
     if (
       request.action === "artifact" &&
-      this.attempts("prompt", `${localePrefix(locale)}:%:prompt:%`, locale) >=
+      this.attempts("prompt", promptAttemptPattern(locale), locale) >=
         REFLECTION_PROMPT_LIMIT
     )
       throw new Error(REFLECTION_LIMIT_ERROR);
@@ -316,6 +327,9 @@ export class OutcomeReflectionStorage {
     try {
       if (request.action === "research") {
         const input = buildReflectionInput(sources, { context });
+        // 共有する記録は言語によらず同じ切り詰めにする。ラベルの長さの違いで
+        // 残る件数が変わると、日英が交互に生成するたびに revision が上がる。
+        const canonical = buildReflectionInput(canonicalSources, { context });
         const digest = await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(input.input),
@@ -353,26 +367,23 @@ export class OutcomeReflectionStorage {
           result.questions.some((question) => context[question.field])
         )
           throw new Error("回答済みの項目を再質問しています。");
+        const generatedAt = previous?.generatedAt ?? Date.now();
         if (!(await this.completed.get(userId))) return null;
+        // 別の言語の生成と重なって下の照合で断られても、押し直しで同じ推論を繰り返さない。
+        if (!previous) this.write(cacheKey, { result, generatedAt });
         this.assertRevision(request.revision, locale);
-        const sourceChanged =
+        const storedCommon = this.read(SHARED_KEY);
+        const comparable = (items: ReflectionSource[]) =>
           JSON.stringify(
-            input.sources.map(({ id, content, scene }) => ({
-              id,
-              content,
-              scene,
-            })),
-          ) !==
-          JSON.stringify(
-            shared.sources.map(({ id, content, scene }) => ({
-              id,
-              content,
-              scene,
-            })),
+            items.map(({ id, content, scene }) => ({ id, content, scene })),
           );
+        // 生成が一度も無いルームは revision が必ず上がるので、比較は保存済みの記録とだけ行う。
+        const sourceChanged =
+          storedCommon !== null &&
+          comparable(canonical.sources) !==
+            comparable(ReflectionSharedSchema.parse(storedCommon).sources);
         const contextChanged =
           JSON.stringify(context) !== JSON.stringify(shared.context);
-        const storedCommon = this.read(SHARED_KEY);
         const legacyJapaneseResult = storedCommon
           ? ReflectionSharedSchema.parse(storedCommon).result
           : null;
@@ -385,13 +396,12 @@ export class OutcomeReflectionStorage {
           sourceChanged || contextChanged || !hasResultForRevision
             ? shared.revision + 1
             : shared.revision;
-        const generatedAt = previous?.generatedAt ?? Date.now();
         const common = {
           revision,
           context,
           result: null,
-          sources: input.sources,
-          truncated: input.truncated,
+          sources: canonical.sources,
+          truncated: canonical.truncated,
           generatedAt: null,
         };
         if (
@@ -404,13 +414,17 @@ export class OutcomeReflectionStorage {
             generatedAt: legacy.generatedAt ?? Date.now(),
           });
         }
-        if (!previous) this.write(cacheKey, { result, generatedAt });
         this.write(SHARED_KEY, common);
         this.write(researchResultKey(revision, locale), {
           result,
           generatedAt,
         });
-        shared = { ...common, result, generatedAt };
+        shared = {
+          ...common,
+          sources: labelSources(common.sources, locale),
+          result,
+          generatedAt,
+        };
         return this.response(userId, shared, locale);
       }
       const plan = shared.result?.kind === "plan" ? shared.result : null;
@@ -442,11 +456,7 @@ export class OutcomeReflectionStorage {
       );
       if (!(await this.completed.get(userId))) return null;
       this.assertRevision(request.revision, locale);
-      this.recordAttempt(
-        "prompt",
-        `${localePrefix(locale)}:%:prompt:%`,
-        locale,
-      );
+      this.recordAttempt("prompt", promptAttemptPattern(locale), locale);
       const output = PromptContentSchema.parse(
         await this.generate("prompt", input.input, locale),
       );
@@ -497,22 +507,7 @@ export class OutcomeReflectionStorage {
     const cached = localizedResult
       ? ResearchCacheSchema.parse(localizedResult)
       : null;
-    const localizedSources = common.sources.map((source) => {
-      let label = source.label;
-      if (source.id === "decision-1")
-        label = locale === "ja" ? "確定した課題" : "Confirmed problem";
-      else if (source.id === "decision-2")
-        label = locale === "ja" ? "確定した問い" : "Confirmed question";
-      else if (source.id === "decision-3")
-        label = locale === "ja" ? "採用したアイデア" : "Adopted idea";
-      else if (source.id.startsWith("problem-grouping:"))
-        label = locale === "ja" ? "課題の共有付箋" : "Shared problem notes";
-      else if (source.id.startsWith("question-decision:"))
-        label = locale === "ja" ? "問いの共有付箋" : "Shared question notes";
-      else if (source.id.startsWith("idea-mapping:"))
-        label = locale === "ja" ? "アイデアの共有付箋" : "Shared idea notes";
-      return { ...source, label };
-    });
+    const localizedSources = labelSources(common.sources, locale);
     return {
       ...common,
       sources: localizedSources,
@@ -576,7 +571,8 @@ export class OutcomeReflectionStorage {
     const recorded = typeof stored === "number" ? stored : 0;
     const saved = this.ctx.storage.sql
       .exec<{ count: number }>(
-        "SELECT COUNT(*) AS count FROM outcome_reflections WHERE cache_key LIKE ?",
+        // 日本語は鍵の版が変わっても数え続ける。英語用の鍵だけは英語の回数として数える。
+        `SELECT COUNT(*) AS count FROM outcome_reflections WHERE cache_key LIKE ?${locale === "ja" ? " AND cache_key NOT LIKE 'v6:en:%'" : ""}`,
         pattern,
       )
       .toArray()[0].count;

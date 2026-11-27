@@ -28,7 +28,8 @@ type ServerState = {
 
 export type RecoveryReason =
   | NonNullable<NoteDraft["recoveryReason"]>
-  | "storage-failure";
+  | "storage-failure"
+  | "storage-unreadable";
 
 export type RecoveryItem = {
   noteId: string;
@@ -721,7 +722,7 @@ export function useNoteAutosave(options: {
     recoveries.push({
       noteId: "storage-failure",
       text: storageFailure,
-      reason: "storage-failure",
+      reason: "storage-unreadable",
     });
   void revision;
   return {

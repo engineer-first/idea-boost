@@ -119,11 +119,9 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                       </span>
                       <span className={styles.name}>
                         <span className={styles.number}>{step.number}</span>{" "}
-                        {translate(`steps.${step.number}.name`)}
+                        {step.name}
                       </span>
-                      <span className={styles.action}>
-                        {translate(`steps.${step.number}.action`)}
-                      </span>
+                      <span className={styles.action}>{step.action}</span>
                       <span className={styles.minutes}>
                         {step.minutes}
                         {t("minuteSuffix")}

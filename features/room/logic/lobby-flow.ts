@@ -90,7 +90,7 @@ const LOBBY_FLOW_OVERVIEW: LobbyFlowOverview = (() => {
 })();
 
 const ENGLISH_PHASE_TITLES: Record<PhaseNumber, string> = {
-  1: "Frame the problem",
+  1: "Define the challenge",
   2: "Frame the question",
   3: "Choose an idea",
 };
@@ -98,11 +98,11 @@ const ENGLISH_STEPS: Record<string, { name: string; action: string }> = {
   "1-1": { name: "Write down challenges", action: "Write down challenges" },
   "1-2": { name: "Share your notes", action: "Take turns sharing" },
   "1-3": { name: "Group similar notes", action: "Group similar notes" },
-  "1-4": { name: "Vote on the problem", action: "Vote on notes" },
-  "1-5": { name: "Choose the problem", action: "Choose one problem" },
+  "1-4": { name: "Vote on challenges", action: "Vote on notes" },
+  "1-5": { name: "Choose the challenge", action: "Choose one challenge" },
   "2-1": {
-    name: "Turn the problem into a question",
-    action: "Reframe the problem as a question",
+    name: "Turn the challenge into a question",
+    action: "Reframe the challenge as a question",
   },
   "2-2": { name: "Share your questions", action: "Take turns sharing" },
   "2-3": { name: "Vote on questions", action: "Vote on questions" },

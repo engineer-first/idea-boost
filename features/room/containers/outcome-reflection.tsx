@@ -89,7 +89,7 @@ export function OutcomeReflection({ roomId }: { roomId: string }) {
         if (response.status === 409 || response.status === 429) {
           const problem = await response.json();
           throw new Error(
-            locale === "ja" && typeof problem.error === "string"
+            typeof problem.error === "string"
               ? problem.error
               : messages("errorRefresh"),
           );

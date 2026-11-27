@@ -223,7 +223,7 @@ export function OutcomeReflectionView(props: OutcomeReflectionViewProps) {
               onClick={props.onClose}
               className={styles.backButton}
             >
-              <ArrowLeft aria-hidden="true" /> {messages("backActions")}
+              <ArrowLeft aria-hidden="true" /> {messages("backActionsShort")}
             </Button>
             <Button
               variant="ghost"

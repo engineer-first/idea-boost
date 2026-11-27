@@ -35,7 +35,7 @@ export function ReturnRoomSectionView({
         : t("openPrevious");
   return (
     <section
-      aria-label={t("openPrevious")}
+      aria-label={t("previousRoom")}
       className="rounded-lg border border-border bg-card p-4 sm:p-5"
     >
       {hasCandidate && (

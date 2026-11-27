@@ -27,7 +27,7 @@ export type AdoptNoteControlProps = {
   onStartSelection: () => void;
   onCancelSelection: () => void;
   onClearDecision?: () => void;
-  /** 選択中の段で、{t("cancelLabel")}の前に並べるほかの操作（再投票など）。 */
+  /** 選択中の段で、「キャンセル」の前に並べるほかの操作（再投票など）。 */
   selectingActions?: ReactNode;
 };
 

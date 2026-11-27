@@ -1,7 +1,7 @@
 "use client";
 
 import { CornerUpLeft } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -35,6 +35,7 @@ export function RestartWritingConfirmDialog({
   onConfirm,
 }: RestartWritingConfirmDialogProps) {
   const t = useTranslations("app.boardRestart");
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [requested, setRequested] = useState(false);
   const waiting = requested && pending;
@@ -75,9 +76,9 @@ export function RestartWritingConfirmDialog({
             aria-label={t("aria", { step: `${phaseNumber}-1` })}
           >
             <span className="inline-block">
-              {t("aria", { step: `${phaseNumber}-1` })}
+              {t("lead", { step: `${phaseNumber}-1` })}
             </span>
-            <wbr />
+            {locale === "en" ? " " : <wbr />}
             <span className="inline-block">{t("title")}</span>
           </AlertDialogTitle>
           <AlertDialogDescription>{t("description")}</AlertDialogDescription>

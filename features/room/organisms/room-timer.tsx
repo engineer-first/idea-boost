@@ -159,8 +159,18 @@ export function RoomTimer({
             data-status={ended ? "ended" : timer.status}
             className={styles.circle}
             disabled={disabled}
-            aria-label={`${label}. ${hasActions ? t("openActions") : timer.status === "idle" ? t("startAction") : t("dragAction")}`}
-            title={`${label} (${t("dragInstructions")})`}
+            aria-label={t("circleLabel", {
+              label,
+              action: hasActions
+                ? t("openActions")
+                : timer.status === "idle"
+                  ? t("startAction")
+                  : t("dragAction"),
+            })}
+            title={t("circleTitle", {
+              label,
+              instructions: t("dragInstructions"),
+            })}
             onClick={(event) => {
               if (event.currentTarget === document.activeElement && hasActions)
                 focusTarget.current = "actions";
