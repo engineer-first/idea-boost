@@ -657,12 +657,25 @@ export function RoomBoardHeader({
   );
   const leaveLabel = t(isLeaving ? "leaving" : "leave");
 
+  // 接続の状態を受け取る前と、自分が切れて手元の接続一覧が古い間は、発表者の切断と言わない。
+  const isPresenterDisconnected =
+    presenter !== null &&
+    !isDisconnected &&
+    progress.progressRevision > 0 &&
+    !progress.connectedUserIds.includes(presenter.userId);
   // 交代の瞬間だけでなく発表中ずっと出し、誰の番かをボードを見たまま分かるようにする。
   const sharingAnnouncement =
     activeSharing?.status === "active" && presenter ? (
       <SharingAnnouncement
         member={presenter}
         isSelf={presenter.userId === currentUserId}
+        isDisconnected={isPresenterDisconnected}
+        onPass={
+          canAdvanceSharing && onSharingAdvance
+            ? () => onSharingAdvance("passed")
+            : undefined
+        }
+        passDisabled={isDisconnected || transitioning || isRemovingMember}
       />
     ) : null;
 

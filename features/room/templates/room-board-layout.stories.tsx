@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { startTransition, useState } from "react";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { PhaseProgress } from "@/contracts/room-protocol";
 import {
@@ -396,6 +396,21 @@ export const SharingActive: Story = {
       currentIndex: 1,
       results: ["done"],
     }),
+  },
+};
+/** 聞く人から見て発表者の接続が切れている。中央の表示で知らせ、その場でパスできる（#1431）。 */
+export const SharingPresenterDisconnected: Story = {
+  ...SharingActive,
+  name: "発表者の接続切れ・聞く人",
+  args: {
+    ...SharingActive.args,
+    onSharingAdvance: fn(),
+    progress: {
+      ...allReadyProgress(SharingActive.args?.members ?? []),
+      connectedUserIds: (SharingActive.args?.members ?? [])
+        .map(({ userId }) => userId)
+        .filter((userId) => userId !== buildSharingState().order[1]?.userId),
+    },
   },
 };
 export const MySharingTurn: Story = {

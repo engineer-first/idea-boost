@@ -827,6 +827,7 @@
   "boardSharing": {
     "yourTurn": "It’s your turn",
     "memberTurn": "It’s {name}’s turn",
+    "memberDisconnected": "{name}’s connection was lost",
     "startingSoon": "Starting soon",
     "presenting": "Presenting",
     "presenterOrderAria": "Check the presenter and the order of turns",
