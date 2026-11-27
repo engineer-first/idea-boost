@@ -204,7 +204,7 @@ describe("NoteCard", () => {
     expect(getCard()).toHaveAttribute("data-adoption-focused", "true");
     expect(
       getCard().querySelector('[data-slot="sticky-note-paper"]'),
-    ).toHaveStyle({ outline: "3px dashed var(--ib-color-state-focus)" });
+    ).toHaveInlineStyle({ outline: "3px dashed var(--ib-color-state-focus)" });
   });
 
   it("候補外付箋を同じ座標のゴーストとして表示し、本文を読める", () => {
@@ -1197,7 +1197,9 @@ describe("NoteCard", () => {
       expect(getCard()).toHaveAttribute("data-decided", "true");
       expect(
         getCard().querySelector('[data-slot="sticky-note-paper"]'),
-      ).toHaveStyle({ outline: "4px solid var(--ib-color-state-decided)" });
+      ).toHaveInlineStyle({
+        outline: "4px solid var(--ib-color-state-decided)",
+      });
       expect(
         screen.getByRole("status", { name: "取り組む課題に決定済み" }),
       ).toHaveTextContent("決定");
