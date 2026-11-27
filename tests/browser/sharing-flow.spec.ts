@@ -39,7 +39,7 @@ describe("共有HUD", () => {
       await page.close();
     },
   );
-  it.each([1280, 768, 390])(
+  it.each(widths(1280, 768, 390))(
     "%ipxで発表者の接続が切れたら、中央の表示の「パスする」をそのまま押せる",
     async (width) => {
       const page = await browser.newPage({
