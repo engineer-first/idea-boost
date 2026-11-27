@@ -30,6 +30,8 @@ type Operation = {
   // 古い版で断られ、送り直しを待っている。サーバーはこのidを知らない。
   blocked?: boolean;
   retries?: number;
+  // 再接続の前に確定を送った先頭。切断で RoomDO が取り消していた・届いていなかったら、新しいidで送り直す。
+  reconnected?: true;
 };
 type Capability = {
   enabled: boolean;
@@ -272,6 +274,35 @@ export function useNoteMove({
     },
     [send, previewSender, publish],
   );
+  // 盤面が掴みを取り消したとき。その付箋を掴んでいる途中でなければ（切断などで先に外れた）何もしない。
+  const cancelDrag = useCallback(
+    (noteId?: string) => {
+      const last = operationsRef.current.at(-1);
+      if (noteId && (last?.status !== "preview" || last.anchorId !== noteId))
+        return;
+      cancel(noteId);
+    },
+    [cancel],
+  );
+  // 接続が切れたら、掴んでいる途中の移動だけを外す。離し終えた移動は再接続の後に送る。
+  // 切断したか。次の snapshot だけを再接続として扱う（接続中の snapshot は従来どおり取り消す）。
+  const suspendedRef = useRef(false);
+  const suspend = useCallback(() => {
+    suspendedRef.current = true;
+    const queue = operationsRef.current;
+    const last = queue.at(-1);
+    if (last?.status !== "preview") return;
+    previewSender.cancel();
+    if (queue.length === 1 && !last.waitingShare && !last.blocked)
+      send({ type: "note:move:cancel", operationId: last.id });
+    publish(queue.slice(0, -1), true);
+  }, [previewSender, publish, send]);
+  // 再接続の snapshot の後、送信できるようになったら、切れる前に確定を送った先頭の結果を照会する。
+  const resume = useCallback(() => {
+    const head = operationsRef.current[0];
+    if (head?.reconnected && head.status === "pending")
+      send({ type: "note:move:status", operationId: head.id });
+  }, [send]);
   useEffect(() => {
     const timer = setInterval(() => {
       const current = operationsRef.current[0];
@@ -467,6 +498,8 @@ export function useNoteMove({
           message.type === "phase:updated") &&
         message.mapRevision !== undefined &&
         message.mapRevision !== capability.current.mapRevision;
+      let resumed: Operation | undefined;
+      let reconnecting = false;
       if (mapChanged) {
         const id = operationsRef.current.at(-1)?.id;
         cancel();
@@ -489,7 +522,34 @@ export function useNoteMove({
               ? "map"
               : "canvas",
         };
-        cancel();
+        const cap = capability.current;
+        const queue = operationsRef.current;
+        const wasSuspended = suspendedRef.current;
+        suspendedRef.current = false;
+        if (
+          !wasSuspended ||
+          queue.some(
+            (operation) =>
+              operation.phaseRevision !== cap.phaseRevision ||
+              operation.mapRevision !== cap.mapRevision ||
+              operation.space !== cap.space,
+          )
+        )
+          cancel();
+        else if (queue.length > 0) {
+          // 再接続。離し終えた移動は残し、掴んでいた途中の移動だけを外す。
+          const kept = queue.filter(
+            (operation) => operation.status !== "preview",
+          );
+          if (kept.length !== queue.length) previewSender.cancel();
+          const [head, ...rest] = kept;
+          resumed =
+            head?.status === "pending" && !head.blocked && !head.waitingShare
+              ? { ...head, reconnected: true }
+              : undefined;
+          reconnecting = true;
+          publish(resumed ? [resumed, ...rest] : kept, true);
+        }
       }
       if (message.type === "notes:moved")
         capability.current.groupRevision = message.groupRevision;
@@ -554,12 +614,22 @@ export function useNoteMove({
           ),
         ]);
       }
+      // 再接続の先頭が動かす付箋は、先頭の結果で版を進める。後ろで同じ付箋を動かす移動もその行き先を起点にする。
+      const chained = new Set(resumed?.before.map((note) => note.id));
       const changedNotes =
         message.type === "note:updated"
           ? [message.note]
           : message.type === "notes:moved" && !ownBatch
             ? message.notes
-            : [];
+            : message.type === "snapshot" && reconnecting
+              ? message.notes.filter((note) => !chained.has(note.id))
+              : [];
+      const gone = (id: string) =>
+        (message.type === "note:deleted" && message.noteId === id) ||
+        (message.type === "snapshot" &&
+          reconnecting &&
+          !chained.has(id) &&
+          !message.notes.some((note) => note.id === id));
       const conflicting = (operation: Operation, index: number) =>
         !(
           index === 0 &&
@@ -570,7 +640,7 @@ export function useNoteMove({
         !operation.waitingShare &&
         operation.before.some(
           (note) =>
-            (message.type === "note:deleted" && message.noteId === note.id) ||
+            gone(note.id) ||
             changedNotes.some(
               (changed) =>
                 changed.id === note.id &&
@@ -590,9 +660,7 @@ export function useNoteMove({
         // 同じ付箋を動かす移動も、その付箋が直前にある位置と版（null は消えた）へ付け直す。
         const bases = new Map<string, ProtocolNote | null>();
         const latestNote = (id: string): ProtocolNote | null | undefined =>
-          message.type === "note:deleted" && message.noteId === id
-            ? null
-            : changedNotes.find((note) => note.id === id);
+          gone(id) ? null : changedNotes.find((note) => note.id === id);
         let dropped: Operation | undefined;
         const next = queue.flatMap((operation, index): Operation[] => {
           const tainted = operation.before.some((note) => bases.has(note.id));
@@ -659,6 +727,18 @@ export function useNoteMove({
       if (message.status === "active") return;
 
       previewSender.cancel();
+      // 切断で RoomDO が取り消した（cancelled）・確定が届かなかった（unknown）・
+      // 古い接続の操作が期限切れになった（expired）。どれも確定は適用されていない。
+      if (
+        (message.status === "cancelled" ||
+          message.status === "unknown" ||
+          message.status === "expired") &&
+        current.reconnected
+      ) {
+        const { reconnected: _, ...head } = current;
+        restart([head, ...operationsRef.current.slice(1)], false);
+        return;
+      }
       const latest = getNotes().find(
         (note) => note.id === current.before[0]?.id,
       );
@@ -784,11 +864,14 @@ export function useNoteMove({
     receipt,
     enabled,
     owns,
+    suspend,
+    resume,
     applyMessage,
     clearPeerMoves: peerMoves.clear,
     start,
     move,
     end,
     cancel,
+    cancelDrag,
   };
 }

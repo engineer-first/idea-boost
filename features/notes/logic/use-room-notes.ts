@@ -104,6 +104,8 @@ export type UseRoomNotesResult = {
   moveNote: (noteId: string, x: number, y: number) => void;
   endNoteDrag: (noteId: string, x: number, y: number) => void;
   cancelNoteDrag: (noteId?: string) => void;
+  // 接続が切れたとき。掴んでいる途中の移動だけを外し、離し終えた移動は再接続の後に送る。
+  suspendNoteDrag: () => void;
   excludeNote: (noteId: string) => void;
   restoreNote: (noteId: string) => void;
   bulkExcludeZeroVoteCandidates: () => void;
@@ -248,8 +250,9 @@ export function useRoomNotes({
     updateNotes,
   });
   useEffect(() => {
-    if (!connected) transactionMove.cancel();
-  }, [connected, transactionMove.cancel]);
+    if (connected) transactionMove.resume();
+    else transactionMove.suspend();
+  }, [connected, transactionMove.resume, transactionMove.suspend]);
 
   const updatePendingVoteOperations = useCallback(
     (update: (current: PendingVoteOperation[]) => PendingVoteOperation[]) => {
@@ -651,7 +654,7 @@ export function useRoomNotes({
 
   const moveNote = transactionMove.move;
   const endNoteDrag = transactionMove.end;
-  const cancelNoteDrag = transactionMove.cancel;
+  const cancelNoteDrag = transactionMove.cancelDrag;
 
   const excludeNote = useCallback(
     (noteId: string) => send({ type: "note:exclude", noteId }),
@@ -919,6 +922,7 @@ export function useRoomNotes({
     moveNote,
     endNoteDrag,
     cancelNoteDrag,
+    suspendNoteDrag: transactionMove.suspend,
     excludeNote,
     restoreNote,
     bulkExcludeZeroVoteCandidates,

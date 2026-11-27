@@ -849,7 +849,10 @@ export function RoomBoard({
       connectionStatus === "unavailable"
     )
       drafts.recoverDisconnected();
-    notes.cancelNoteDrag();
+    // 接続し直せる切断では、離し終えた移動を再接続の後に送る。
+    if (connectionStatus === "closed" || connectionStatus === "reconnecting")
+      notes.suspendNoteDrag();
+    else notes.cancelNoteDrag();
     notes.clearPeerMoves();
     moveHistory.clear(notifications("moveHistoryCleared"));
     boardInteractions.cancelCurrentNoteDrag(true);
@@ -857,6 +860,7 @@ export function RoomBoard({
     boardInteractions.cancelCurrentNoteDrag,
     connectionStatus,
     notes.cancelNoteDrag,
+    notes.suspendNoteDrag,
     notes.clearPeerMoves,
     moveHistory.clear,
     drafts.setConnected,
