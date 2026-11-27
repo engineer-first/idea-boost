@@ -137,6 +137,25 @@ describe("AppHeader", () => {
     },
   );
 
+  it.each(["/guides", "/guides/brainstorming"])(
+    "解説ページ（%s）では解説ページ自身のヘッダーを使うため共通ヘッダーを表示しない",
+    async (pathname) => {
+      navigationMocks.pathname = pathname;
+
+      await renderHeader(<AppHeader userName="田中太郎" />);
+
+      expect(screen.queryByTestId("app-header")).not.toBeInTheDocument();
+    },
+  );
+
+  it("/guides で始まるだけの別の画面では共通ヘッダーを表示する", async () => {
+    navigationMocks.pathname = "/guidesx";
+
+    await renderHeader(<AppHeader userName="田中太郎" />);
+
+    expect(screen.getByTestId("app-header")).toBeInTheDocument();
+  });
+
   it("スプリント開始前のロビーでは共通ヘッダーを表示する", async () => {
     navigationMocks.pathname =
       "/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/start";
