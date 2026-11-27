@@ -224,5 +224,5 @@ export const howMightWeGuide: Guide = {
       url: "https://hbr.org/2012/09/the-secret-phrase-top-innovato",
     },
   ],
-  related: ["hackathon-idea"],
+  related: ["hackathon-idea", "design-sprint"],
 };
