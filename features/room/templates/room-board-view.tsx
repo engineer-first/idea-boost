@@ -1635,16 +1635,31 @@ export function RoomBoardView({
         characterBubble !== null &&
         characterBounds.right + besideGap + characterBubble.offsetWidth >
           besideRight;
-      if (placesBubbleBelow && characterBounds) {
+      if (placesBubbleBelow && characterBounds && characterBubble) {
         const controlBottom =
           controlBounds &&
           controlBounds.top < characterBounds.bottom &&
           controlBounds.right > characterBounds.left
             ? controlBounds.bottom - characterBounds.top
             : 0;
+        // 上部中央のステップの道筋（現在地）も隠さないよう、横に重なるならその下へ出す。
+        const trail = root.querySelector<HTMLElement>(
+          '[data-testid="phase-step-trail"]',
+        );
+        const trailBounds =
+          trail && trail.getClientRects().length > 0
+            ? trail.getBoundingClientRect()
+            : undefined;
+        const trailBottom =
+          trailBounds &&
+          trailBounds.left <
+            characterBounds.left + characterBubble.offsetWidth &&
+          trailBounds.right > characterBounds.left
+            ? trailBounds.bottom - characterBounds.top
+            : 0;
         root.style.setProperty(
           "--board-character-bubble-top",
-          `${Math.ceil(Math.max(characterBounds.height, controlBottom) + 0.25 * rem)}px`,
+          `${Math.ceil(Math.max(characterBounds.height, controlBottom, trailBottom) + 0.25 * rem)}px`,
         );
         root.style.setProperty("--board-character-bubble-left", "0px");
         root.style.setProperty("--board-character-bubble-gap", "0px");
@@ -1783,6 +1798,7 @@ export function RoomBoardView({
       '[data-testid="board-help-panel"]',
       characterSelector,
       characterBubbleSelector,
+      '[data-testid="phase-step-trail"]',
       ...referenceSelectors,
     ]) {
       const element = root.querySelector<HTMLElement>(selector);
