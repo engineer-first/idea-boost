@@ -565,21 +565,25 @@ export function useNoteMove({
           ? undefined
           : changedNotes.find((note) => note.id === operation.before[0]?.id);
       const conflicting = (operation: Operation, index: number) =>
-        !(index === 0 && operation.status === "pending" && !operation.blocked) &&
+        !(
+          index === 0 &&
+          operation.status === "pending" &&
+          !operation.blocked
+        ) &&
         // 共有の応答待ちの付箋はまだ非共有で届く（本文の保存の通知など）。競合と数えない。
         !operation.waitingShare &&
         operation.before.some(
-            (note) =>
-              (message.type === "note:deleted" && message.noteId === note.id) ||
-              changedNotes.some(
-                (changed) =>
-                  changed.id === note.id &&
-                  (changed.visibility !== "shared" ||
-                    (changed.positionRevision ?? 0) !==
-                      (note.positionRevision ?? 0) ||
-                    (changed.visibilityRevision ?? 0) !==
-                      (note.visibilityRevision ?? 0)),
-              ),
+          (note) =>
+            (message.type === "note:deleted" && message.noteId === note.id) ||
+            changedNotes.some(
+              (changed) =>
+                changed.id === note.id &&
+                (changed.visibility !== "shared" ||
+                  (changed.positionRevision ?? 0) !==
+                    (note.positionRevision ?? 0) ||
+                  (changed.visibilityRevision ?? 0) !==
+                    (note.visibilityRevision ?? 0)),
+            ),
         );
       const queue = operationsRef.current;
       const conflict = queue.find(conflicting);
