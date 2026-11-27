@@ -134,7 +134,17 @@ export function useFloatingTimer(
         window.innerWidth < 640 &&
         workspaceBottom - rowBottom >=
           PRIVATE_WRITING_HEADER_SPACE + NOTE_HEIGHT;
-      const needsTimerRow = hasRoomBelowTimer || !fitsBesideTimer;
+      // 640px 以上ではマイ付箋の枠が右端まで広がり、上端がタイマーの下端より上に来る。
+      // 枠の右上角にタイマーがかからないよう、枠はタイマーの段の下から始める。
+      const panel = header?.parentElement?.getBoundingClientRect();
+      const overlapsPanelCorner =
+        window.innerWidth >= 640 &&
+        !!panel &&
+        timerLeft < panel.right &&
+        initial.right > panel.left &&
+        initial.top < panel.bottom;
+      const needsTimerRow =
+        hasRoomBelowTimer || !fitsBesideTimer || overlapsPanelCorner;
       root.style.setProperty(
         "--board-private-timer-inset",
         `${needsTimerRow ? 0 : endInset}px`,

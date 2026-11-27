@@ -268,6 +268,46 @@ test.each(widths(1280, 1024))(
   },
 );
 
+test.each(
+  [
+    "step-1-1-personal-writing",
+    "guide-phase-2-step-1",
+    "guide-phase-3-step-1",
+  ].flatMap((id) => [
+    [id, 1280, 800],
+    [id, 1180, 820],
+  ]) as [string, number, number][],
+)(
+  "%s（%d×%d）で円形タイマーがマイ付箋の枠に重ならない",
+  async (id, width, height) => {
+    const page = await browser.newPage({
+      viewport: { width, height },
+      reducedMotion: "reduce",
+    });
+    try {
+      await story(page, `room-roomboardview--${id}`);
+      await page.getByTestId("private-notes-toolbar").waitFor();
+      // 枠の上端は配置計算のあとで決まる。落ち着いた位置で比べる
+      await expect
+        .poll(async () => {
+          const [timer, notes] = await Promise.all([
+            rect(page, "timer-floating"),
+            rect(page, "private-notes-toolbar"),
+          ]);
+          const apart =
+            timer.y + timer.height <= notes.y ||
+            timer.x >= notes.x + notes.width ||
+            timer.x + timer.width <= notes.x ||
+            timer.y >= notes.y + notes.height;
+          return apart;
+        })
+        .toBe(true);
+    } finally {
+      await page.close();
+    }
+  },
+);
+
 test("幅982pxでマイ付箋を開いてもタイマーを右上HUDの下に保つ", async () => {
   const page = await browser.newPage({
     viewport: { width: 982, height: 390 },
