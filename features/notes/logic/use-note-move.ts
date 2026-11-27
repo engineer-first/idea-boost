@@ -121,6 +121,29 @@ export type SharedPosition = {
   positionRevision: number;
   visibilityRevision: number;
 };
+// snapshot で取り消すとき、列の移動が前提にした工程・マップと比べて理由の種類を選ぶ。
+function snapshotCancelReason(
+  queue: readonly Operation[],
+  cap: {
+    phaseRevision: number;
+    mapRevision: number;
+    space: Operation["space"];
+  },
+  message: Extract<ServerMessage, { type: "snapshot" }>,
+): MoveCancelReason {
+  if (queue.some((operation) => operation.phaseRevision !== cap.phaseRevision))
+    return "phase-changed";
+  if (
+    queue.some(
+      (operation) =>
+        operation.mapRevision !== cap.mapRevision ||
+        operation.space !== cap.space,
+    )
+  )
+    return "map-changed";
+  return message.decision !== null ? "decided" : "resynced";
+}
+
 export function useNoteMove({
   notes,
   getNotes,
@@ -544,7 +567,8 @@ export function useNoteMove({
               operation.space !== cap.space,
           )
         )
-          cancel(undefined, "resynced");
+          // 工程を変える・決めるとき、RoomDO は phase:updated などより先に snapshot を送り直す。
+          cancel(undefined, snapshotCancelReason(queue, cap, message));
         else if (queue.length > 0) {
           // 再接続。離し終えた移動は残し、掴んでいた途中の移動だけを外す。
           const kept = queue.filter(

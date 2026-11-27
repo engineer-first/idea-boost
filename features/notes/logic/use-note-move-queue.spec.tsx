@@ -1137,6 +1137,23 @@ describe("本人側の取消の理由", () => {
       },
     ],
     ["resynced", snapshot],
+    // RoomDO は工程を変える・決めるとき、phase:updated より先に snapshot を送り直す。
+    ["phase-changed", { ...snapshot, phaseRevision: 1 }],
+    [
+      "map-changed",
+      { ...snapshot, phase: { kind: "step", phase: 3, step: 3 } },
+    ],
+    [
+      "decided",
+      { ...snapshot, decision: { phase: 1, noteId: N, decidedBy: M } },
+    ],
+    [
+      "decided",
+      {
+        type: "decision:updated",
+        decision: { phase: 1, noteId: N, decidedBy: M },
+      },
+    ],
   ] as Array<[string, ServerMessage]>)(
     "掴んでいる途中に通知で取り消すとき %s を添える",
     (reason, message) => {
