@@ -9,7 +9,7 @@
     "share-then-move": { "minLandedRate": 1 },
     "parallel-different-notes": { "minLandedRate": 1 },
     "queued-while-peer-moves": { "minLandedRate": 1 },
-    "after-peer-moved-same-note": { "minLandedRate": 0 },
+    "after-peer-moved-same-note": { "minLandedRate": 1 },
     "same-note-contention": { "minLandedRate": 0.4 },
     "timer-ends-while-dragging": { "minLandedRate": 1 },
     "map-parallel": { "minLandedRate": 1 }
