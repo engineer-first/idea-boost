@@ -26,10 +26,8 @@ const toCssProperty = (name: string) =>
 expect.extend({
   toHaveInlineStyle(received: unknown, styles: Record<string, string>) {
     if (!(received instanceof HTMLElement || received instanceof SVGElement)) {
-      return {
-        pass: false,
-        message: () => "toHaveInlineStyle には要素を渡してください",
-      };
+      // .not でも黙って通さないよう、結果を返さずに落とす。
+      throw new TypeError("toHaveInlineStyle には要素を渡してください");
     }
     // 期待値も同じCSS実装に通し、キーワードの順序などの書き方の差を吸収する。
     const normalizer = document.createElement("div");
@@ -39,6 +37,11 @@ expect.extend({
       const property = toCssProperty(name);
       normalizer.style.setProperty(property, value);
       expected[property] = normalizer.style.getPropertyValue(property);
+      // 解釈できない期待値は空になり、未設定の要素と空どうしで一致してしまう。
+      if (value !== "" && expected[property] === "")
+        throw new TypeError(
+          `toHaveInlineStyle: ${property} の期待値 "${value}" をCSSとして解釈できません`,
+        );
       actual[property] = received.style.getPropertyValue(property);
     }
     return {
