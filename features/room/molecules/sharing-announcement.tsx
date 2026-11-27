@@ -47,7 +47,7 @@ export function SharingAnnouncement({
       </span>
 
       {/* 左の余白はアバター（32px）と間隔（gap-3）の和で、名前の書き出しに揃える。
-          iPad 幅以下では右のマイ付箋の欄に届かないよう、この行で案内を広げず名前の幅で折り返す。 */}
+          900px 未満では、この行で案内を広げず名前の幅で折り返し、狭い画面で案内を細く保つ。 */}
       <span
         className={`pl-11 text-sm font-normal max-[900px]:self-stretch max-[900px]:[contain:inline-size] ${isSelf ? "text-primary-strong" : "text-muted-foreground"}`}
       >
