@@ -27,10 +27,25 @@
 }
 
 .personalWorkspacePanel {
+  /* 左端は inset-x の余白（0.75rem / sm 1rem / lg 1.25rem）と同じ。左上の決定事項を避ける分だけ右へ寄せる。 */
+  --private-panel-edge: 0.75rem;
   top: max(
     var(--board-private-expanded-top, 5rem),
     var(--board-private-timer-top, 0px)
   );
+  left: max(var(--private-panel-edge), var(--board-private-panel-left, 0px));
+}
+
+@media (min-width: 40rem) {
+  .personalWorkspacePanel {
+    --private-panel-edge: 1rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .personalWorkspacePanel {
+    --private-panel-edge: 1.25rem;
+  }
 }
 
 .personalWorkspace [data-testid="private-notes-header"] {
@@ -118,6 +133,8 @@
 }
 /* ボードの寸法・カメラには触れず、前面のパネルだけを下へスライドする。 */
 .additionalWritingPanel {
+  /* 下から出すパネルは左上の決定事項と離れているので、左端を寄せない。 */
+  left: var(--private-panel-edge);
   transform: translateY(max(0px, calc(100% - var(--writing-panel-height))));
   clip-path: inset(0 0 calc(100% - var(--writing-panel-height)) 0 round 12px);
   transition:

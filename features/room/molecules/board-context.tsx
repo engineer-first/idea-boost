@@ -8,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { getNoteHeight, NOTE_LEGACY_FONT_SIZE } from "@/contracts/board";
+import { NOTE_HEIGHT, NOTE_LEGACY_FONT_SIZE } from "@/contracts/board";
 import { isPhaseStep, type RoomPhase } from "@/contracts/phase";
 import type { Carryover } from "@/contracts/room-protocol";
 import { DotVoteSticker } from "@/features/dot-vote";
@@ -144,14 +144,10 @@ export function BoardContext({
                 color={disclosure.reference?.color ?? null}
                 isDecided
                 decisionPresentation="reference"
-                height={Math.min(
-                  240,
-                  getNoteHeight(
-                    disclosure.content ?? "",
-                    disclosure.reference?.fontSize ?? NOTE_LEGACY_FONT_SIZE,
-                  ),
-                )}
-                className={styles.referenceNote}
+                // 盤面の付箋の高さの見積もりは下の票の段（64px）を数えないため、
+                // 中身に合わせて伸ばし、長い本文だけを上限の中でスクロールさせる。
+                style={{ height: "auto", minHeight: NOTE_HEIGHT }}
+                className={`${styles.referenceNote} max-h-60`}
               >
                 <section
                   data-testid={`board-reference-${disclosure.id}-content`}
