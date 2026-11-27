@@ -228,7 +228,7 @@
       "capability": "共有付箋を掴んで、動かしたとおりに置ける",
       "acceptance": [
         "付箋移動の計測（npm run probe:note-move）で、docs/loop/note-move-baseline.json の下限を下回る場面が無い",
-        "計測の場面のうち、同じ付箋を2人が同時に掴む場面（same-note-contention）を除くすべての下限が 1 になっている",
+        "docs/loop/note-move-baseline.json の各場面の下限が、same-note-contention（同じ付箋を2人が同時に掴む。片方が負けるのは設計どおり）を除いて 1 になっている",
         "docs/loop/note-move-reliability.md の原因の台帳に、状態が open の行が無い"
       ],
       "journey": "J2",

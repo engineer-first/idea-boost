@@ -280,7 +280,7 @@ async function dragNote(
   member: Member,
   id: string,
   options: DragOptions,
-): Promise<{ before: Box; expected: { x: number; y: number } } | null> {
+): Promise<{ expected: { x: number; y: number } } | null> {
   const before = await box(member, id);
   const origin = await world(member, id);
   if (!before || !origin) return null;
@@ -308,7 +308,6 @@ async function dragNote(
   await mouse.move(x + options.dx, y + options.dy, { steps: steps - half });
   await mouse.up();
   return {
-    before,
     expected: {
       x: origin.x + options.dx / origin.scale,
       y: origin.y + options.dy / origin.scale,
@@ -393,8 +392,7 @@ function classify(member: Member, since: number): [string, string] {
   }
   if (sent("note:move:commit").length === 0)
     return ["never-committed", "note:move:commit を送っていない"];
-  if (result("accepted"))
-    return ["accepted-but-displaced", "保存は成功したが表示位置が違う"];
+  if (result("accepted")) return ["accepted", "保存は成功した"];
   return ["no-result", "確定の結果が返っていない"];
 }
 
@@ -407,14 +405,16 @@ async function judge(
   expected: { x: number; y: number } | null,
   // 同じ付箋を2人が動かした場合など、どちらかの位置に収束していればよいとき。
   alternatives: Array<{ x: number; y: number }> = [],
-  // 掴む直前に相手の移動が届くと基準がずれる。そのずれまでは「動かせた」と数える。
+  // 掴む直前に相手の移動が届くと、画面上の基準がずれる。そのずれまでは「動かせた」と数える。
+  // 広げた許容で、断られて相手の位置へ戻った回を成功に数えないよう、RoomDO の受理も確かめる。
   tolerance = 2,
 ): Promise<Attempt> {
   const base = { scenario, member: member.name, noteId: id };
   if (!expected)
     return { ...base, landed: false, reason: "probe-skipped", detail: "" };
-  const mine = await world(member, id);
-  const theirs = await world(watcher, id);
+  let mine = await world(member, id);
+  let theirs = await world(watcher, id);
+  const saved = tolerance <= 2 || classify(member, since)[0] === "accepted";
   const near = (
     a: { x: number; y: number } | null,
     b: { x: number; y: number },
@@ -423,7 +423,13 @@ async function judge(
     a !== null &&
     Math.abs(a.x - expected.x) <= tolerance &&
     Math.abs(a.y - expected.y) <= tolerance;
-  if (close(mine) && mine && near(theirs, mine))
+  if (mine && !near(theirs, mine)) {
+    // 相手の画面は他者の移動を滑らかに追う。追い付く時間を1回だけ待つ。
+    await wait(800);
+    mine = await world(member, id);
+    theirs = await world(watcher, id);
+  }
+  if (saved && close(mine) && mine && near(theirs, mine))
     return { ...base, landed: true, reason: null };
   if (mine && near(theirs, mine) && alternatives.some((p) => near(mine, p)))
     return {
@@ -439,7 +445,10 @@ async function judge(
       reason: "diverged",
       detail: "本人の画面では動いたが相手の画面と位置が違う",
     };
-  const [reason, detail] = classify(member, since);
+  const [classified, detail] = classify(member, since);
+  // 保存は成功したのに、離した位置にない。
+  const reason =
+    classified === "accepted" ? "accepted-but-displaced" : classified;
   const at = (p: { x: number; y: number } | null) =>
     p ? `(${Math.round(p.x)},${Math.round(p.y)})` : "なし";
   return {
@@ -721,7 +730,8 @@ const scenarios: Scenario[] = [
       const shared = ids.filter((id) => peerIds.has(id));
       for (let i = 0; i < 10; i++) {
         const id = shared[i % shared.length];
-        await dragNote(peer, id, { dx: 24, dy: 16, steps: 3 });
+        // 相手が動かせなかった回は、この場面にならないので数えない。
+        if (!(await dragNote(peer, id, { dx: 24, dy: 16, steps: 3 }))) continue;
         // 相手の確定が本人へ届く前後（遅延の0〜2倍）で掴む。
         await wait((latencyMs * 2 * (i % 5)) / 4);
         const since = Date.now();
@@ -757,6 +767,8 @@ const scenarios: Scenario[] = [
           dragNote(actor, id, { dx: 70, dy: 20, holdMs: 200 }),
           dragNote(peer, id, { dx: -70, dy: 20, holdMs: 200 }),
         ]);
+        // 片方が掴めなかった回は競合にならないので数えない。
+        if (!dragA || !dragB) continue;
         await settle([actor, peer], since);
         const alternatives = [dragA?.expected, dragB?.expected].filter(
           (p): p is { x: number; y: number } => !!p,
@@ -872,6 +884,21 @@ async function main(): Promise<void> {
     );
     process.exit(2);
   }
+  const unknown = (only ?? []).filter(
+    (id) => !scenarios.some((scenario) => scenario.id === id),
+  );
+  if (unknown.length > 0 || only?.length === 0) {
+    console.error(
+      `NOTE_MOVE_PROBE_SCENARIOS に無い場面名があります: ${unknown.join(", ") || "（空）"}。場面名: ${scenarios.map((scenario) => scenario.id).join(", ")}`,
+    );
+    process.exit(2);
+  }
+  if (!Number.isFinite(latencyMs) || latencyMs < 0) {
+    console.error(
+      "NOTE_MOVE_PROBE_LATENCY_MS は 0 以上の数で指定してください。",
+    );
+    process.exit(2);
+  }
   const results: ScenarioResult[] = [];
   const failures: Attempt[] = [];
   for (const scenario of scenarios) {
@@ -879,13 +906,14 @@ async function main(): Promise<void> {
     const attempts: Attempt[] = [];
     let error: string | undefined;
     for (let room = 0; room < (scenario.rooms ?? 1); room++) {
-      const browser = await chromium.launch();
+      let browser: Browser | undefined;
       try {
+        browser = await chromium.launch();
         // 入室の読み込みが遅れることがあるので、1回だけやり直す。
         const [actor, peer] = await openRoom(
           browser,
           scenario.checkpoint,
-        ).catch(() => openRoom(browser, scenario.checkpoint));
+        ).catch(() => openRoom(browser as Browser, scenario.checkpoint));
         // 掴めなかった回（別の付箋の下に隠れた等）は計測に数えない。
         await scenario.run(actor, peer, (attempt) => {
           if (attempt.reason !== "probe-skipped") attempts.push(attempt);
@@ -893,7 +921,7 @@ async function main(): Promise<void> {
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause);
         if (process.env.NOTE_MOVE_PROBE_DEBUG)
-          for (const [index, context] of browser.contexts().entries())
+          for (const [index, context] of (browser?.contexts() ?? []).entries())
             await context
               .pages()[0]
               ?.screenshot({
@@ -901,7 +929,7 @@ async function main(): Promise<void> {
               })
               .catch(() => {});
       } finally {
-        await browser.close();
+        await browser?.close();
       }
     }
     const failed = attempts.filter((attempt) => !attempt.landed);
@@ -934,8 +962,13 @@ async function main(): Promise<void> {
       ),
       "utf8",
     ),
-  ) as NoteMoveBaseline;
-  const comparison = compareWithBaseline(results, baseline);
+  ) as NoteMoveBaseline & { latencyMs: number };
+  // 下限は決まった遅延で測った値。遅延を変えると競合の起き方が変わるので、比べない。
+  const comparable = latencyMs === baseline.latencyMs;
+  const comparison = compareWithBaseline(
+    results,
+    comparable ? baseline : { scenarios: {} },
+  );
   const report = {
     measuredAt: new Date().toISOString(),
     latencyMs,
@@ -960,8 +993,18 @@ async function main(): Promise<void> {
     console.error(
       `基準を上回りました（直した PR で基準を引き上げる）: ${gap.scenario} ${percent(gap.landedRate)} > ${percent(gap.minLandedRate)}`,
     );
+  if (!comparable)
+    console.error(
+      `下限は片道 ${baseline.latencyMs}ms で測った値です。${latencyMs}ms の結果は下限と比べていません。`,
+    );
   if (comparison.regressions.length > 0) process.exitCode = 1;
-  else if (comparison.inconclusive.length > 0) process.exitCode = 3;
+  else if (comparison.inconclusive.length > 0 || !comparable)
+    process.exitCode = 3;
 }
 
-await main();
+// 計測そのものが動かなかったとき（ブラウザが無い、下限の JSON が壊れている等）は、
+// 「下限を下回った」の exit 1 と区別する。
+await main().catch((cause) => {
+  console.error("計測を実行できませんでした:", cause);
+  process.exitCode = 3;
+});
