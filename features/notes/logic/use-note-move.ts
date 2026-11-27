@@ -560,10 +560,6 @@ export function useNoteMove({
           : message.type === "notes:moved" && !ownBatch
             ? message.notes
             : [];
-      const latestOf = (operation: Operation) =>
-        message.type === "note:deleted"
-          ? undefined
-          : changedNotes.find((note) => note.id === operation.before[0]?.id);
       const conflicting = (operation: Operation, index: number) =>
         !(
           index === 0 &&
@@ -586,30 +582,56 @@ export function useNoteMove({
             ),
         );
       const queue = operationsRef.current;
-      const conflict = queue.find(conflicting);
-      if (
-        conflict &&
-        queue.every(
-          (operation, index) =>
-            !conflicting(operation, index) ||
-            rebaseable(operation, latestOf(operation)),
-        )
-      ) {
-        const rebased = queue.map((operation, index) => {
-          const latest = latestOf(operation);
-          return conflicting(operation, index) && latest
-            ? rebase(operation, latest)
-            : operation;
+      const [first] = queue;
+      if (first && queue.some(conflicting)) {
+        // 成立しなくなった移動だけを外す。1枚の移動は最新の版へ載せ替え、
+        // 関係のない移動（離し終えた未送信分・掴んでいる移動）は残す。
+        // 後ろの移動は、前に並んだ移動の行き先を起点にしている。外した・載せ替えた移動の後ろで
+        // 同じ付箋を動かす移動も、その付箋が直前にある位置と版（null は消えた）へ付け直す。
+        const bases = new Map<string, ProtocolNote | null>();
+        const latestNote = (id: string): ProtocolNote | null | undefined =>
+          message.type === "note:deleted" && message.noteId === id
+            ? null
+            : changedNotes.find((note) => note.id === id);
+        let dropped: Operation | undefined;
+        const next = queue.flatMap((operation, index): Operation[] => {
+          const tainted = operation.before.some((note) => bases.has(note.id));
+          if (!conflicting(operation, index) && !tainted) return [operation];
+          const [note] = operation.before;
+          const base =
+            (bases.has(note.id) ? bases.get(note.id) : latestNote(note.id)) ??
+            undefined;
+          if (rebaseable(operation, base)) {
+            bases.set(note.id, {
+              ...base,
+              x: note.x + operation.delta.x,
+              y: note.y + operation.delta.y,
+            });
+            return [rebase(operation, base)];
+          }
+          dropped ??= operation;
+          for (const target of operation.before)
+            if (!bases.has(target.id)) {
+              const latest = latestNote(target.id);
+              bases.set(target.id, latest === undefined ? target : latest);
+            }
+          return [];
         });
-        const [first] = queue;
-        if (first && conflicting(first, 0)) restart(rebased, !first.blocked);
-        else publish(rebased, true);
-      } else if (conflict) {
-        cancel();
-        setFeedback({
-          operationId: conflict.id,
-          message: "移動対象が変更されました。もう一度操作してください。",
-        });
+        if (!conflicting(first, 0)) publish(next, true);
+        else if (next[0]?.id === first.id) restart(next, !first.blocked);
+        else {
+          // 先頭は掴んでいる途中か、送り直し待ち。送り直し待ちのidはサーバーが知らない。
+          previewSender.cancel();
+          if (!first.blocked)
+            send({ type: "note:move:cancel", operationId: first.id });
+          publish(next, true);
+          if (next[0]) launch(next[0]);
+        }
+        if (dropped)
+          setFeedback({
+            operationId: dropped.id,
+            message: "移動対象が変更されました。もう一度操作してください。",
+          });
       }
       const current = operationsRef.current[0];
       if (
@@ -722,6 +744,7 @@ export function useNoteMove({
       launch,
       publish,
       restart,
+      send,
       updateNotes,
       previewSender,
       peerMoves.applyMessage,
