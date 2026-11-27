@@ -78,7 +78,7 @@ replan が `loop:ready` に整える材料。上ほど優先する。
 
 ## マージの決まり
 
-ループの PR は次を全部満たしたときだけ、ループ自身が `gh pr merge --squash` でマージする。満たせなければマージせず、PR を draft に戻して理由をコメントし、Issue に `blocked` を付ける。
+ループの PR は次を全部満たしたときだけ、ループ自身が `gh pr merge --squash` でマージする。満たせなければマージせず、理由を PR にコメントする。残った PR は次の build が拾い直し（[人の判断待ちにしない PR](#人の判断待ちにしない-pr)）、同じ PR で3周失敗したら PR と Issue に `blocked` を付ける。
 
 - 必須チェック（lint / test / browser / build / smoke）がすべて成功。チェックを skip・削除する変更、検査の設定を緩める変更を含まない。
 - 作った context とは別のサブエージェントによる `code-review`（R2 は加えて `authz-security-reviewer`、UI は `ui-review`）で、直すべき指摘が 0。指摘は直してから再レビューする。
@@ -105,11 +105,11 @@ replan が `loop:ready` に整える材料。上ほど優先する。
 
 - 同じ Issue・同じ PR で3周失敗 → `blocked` と理由1〜3行、claim を外して次へ。`blocked` の PR は build が起きる理由に数えない。
 - 権限が無くて進めない（secret・ruleset・課金・学外のアカウント）→ `needs-human` を付け、どこで何の権限が無いかを書く。ほかの仕事は続ける。
-- 1回の起動で扱うのは build が Issue 1件、polish が改善3件、patrol が新規所見3件まで。暴走と費用の上限を兼ねる。
+- 1回の起動で扱うのは build が PR 1本か Issue 1件、polish が改善3件、patrol が新規所見3件まで。暴走と費用の上限を兼ねる。
 
 ## チームとの約束
 
-- **ループの成果はすべて PR と Issue で見える。** PR には `loop` ラベルを付け、本文に `Loop: <名前>` と `Risk: R0〜R2` を書く。マージは Discord のマージ通知に流れる。
+- **ループの成果はすべて PR と Issue で見える。** PR には `loop` ラベルを付け、本文に `Loop: <名前>` と `Risk: R0〜R2` を書く。マージは Discord のマージ通知に流れる（Renovate の PR は通知から外している）。
 - **人の作業を奪わない。** 担当者がオーナー以外の Issue、人の open PR がある Issue、人の PR・ブランチには触らない。Renovate の PR は人の PR ではなく、ループが流す。人がループの PR を直したいときは、コメントか `loop:stop` で止めてから。
 - **ループに拾わせたくない Issue** は `loop:ready` を外すか、`loop:skip` を付ける。
 - **ループ全体を止めたいとき**は open の Issue か PR に `loop:stop` を付ける。次の起動から全ループが止まる。
@@ -117,18 +117,18 @@ replan が `loop:ready` に整える材料。上ほど優先する。
 
 ### ラベル
 
-| ラベル        | 意味                                                              | 付けるのは          |
-| ------------- | ----------------------------------------------------------------- | ------------------- |
-| `loop:ready`  | build が拾ってよい改善。本文か コメントに受け入れ条件とリスク段階 | replan・人          |
-| `loop:skip`   | ループに拾わせない                                                | 人                  |
-| `loop:ux`     | 巡回の所見（S1/S2）                                               | patrol              |
-| `loop`        | ループが作った PR                                                 | build・polish・mend |
-| `claimed`     | 着手中。コメントに automation 名・worktree・開始時刻              | build               |
-| `blocked`     | 3周失敗か前提待ち。理由をコメントに1〜3行                         | build・replan       |
-| `needs-human` | 権限が無くて進めない（R3）                                        | 全ループ            |
-| `loop:log`    | ループの記録用 Issue（閉じてロックしたまま使う）                  | —                   |
-| `loop:stop`   | open の Issue か PR に付いている間、全ループを止める              | 誰でも              |
-| `P0`          | 本番で利用者が進めない、非公開の内容が漏れる（既存）              | patrol・人          |
+| ラベル        | 意味                                                                               | 付けるのは                                |
+| ------------- | ---------------------------------------------------------------------------------- | ----------------------------------------- |
+| `loop:ready`  | build が拾ってよい改善。本文か コメントに受け入れ条件とリスク段階                  | replan・人                                |
+| `loop:skip`   | ループに拾わせない                                                                 | 人                                        |
+| `loop:ux`     | 巡回の所見（S1/S2）                                                                | patrol                                    |
+| `loop`        | ループが流す PR（ループが作った PR と、オーナーのセッションがマージまで進める PR） | build・polish・mend・オーナーのセッション |
+| `claimed`     | 着手中。コメントに automation 名・worktree・開始時刻                               | build                                     |
+| `blocked`     | 3周失敗か前提待ち。理由をコメントに1〜3行                                          | build・replan                             |
+| `needs-human` | 権限が無くて進めない（R3）                                                         | 全ループ                                  |
+| `loop:log`    | ループの記録用 Issue（閉じてロックしたまま使う）                                   | —                                         |
+| `loop:stop`   | open の Issue か PR に付いている間、全ループを止める                               | 誰でも                                    |
+| `P0`          | 本番で利用者が進めない、非公開の内容が漏れる（既存）                               | patrol・人                                |
 
 ## Orca automation の登録
 
