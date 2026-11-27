@@ -33,7 +33,14 @@ type Operation = {
   retries?: number;
   // 再接続の前に確定を送った先頭。切断で RoomDO が取り消していた・届いていなかったら、新しいidで送り直す。
   reconnected?: true;
+  // ステップが進む直前に離した移動。離したときの工程の版を添えて送る（#1442）。
+  releasedPhaseRevision?: number;
+  // 進む前に送った先頭。進んだ後に届いて RoomDO が保存していなかったら（unknown）、
+  // 進んだ後の工程の版（この値）と離したときの版を添えて送り直す（#1442）。
+  stepAdvanced?: number;
 };
+// ステップが進む直前に離した移動を、進んだ通知まで預かる時間。RoomDO の受付時間（5秒）より短くする。
+const RELEASED_CARRY_MS = 3_000;
 type Capability = {
   enabled: boolean;
   phaseRevision: number;
@@ -209,6 +216,9 @@ export function useNoteMove({
           positionRevision: note.positionRevision ?? 0,
           visibilityRevision: note.visibilityRevision ?? 0,
         })),
+        ...(operation.releasedPhaseRevision === undefined
+          ? {}
+          : { releasedPhaseRevision: operation.releasedPhaseRevision }),
       });
     },
     [send],
@@ -262,6 +272,15 @@ export function useNoteMove({
       message: "移動を確認できませんでした。もう一度操作してください。",
     });
   };
+  // ステップが進む（工程の版・タイマーの通知）ときに外した、離し終えた未送信の移動。
+  // 進んだ通知（phase:updated）が離したときの工程の次の版なら、列へ戻して送る（#1442）。
+  const carriedRef = useRef<{ at: number; operations: Operation[] } | null>(
+    null,
+  );
+  // 同じく、進む通知で表示を戻す前の、保存待ちの先頭。
+  const carriedHeadRef = useRef<{ at: number; operation: Operation } | null>(
+    null,
+  );
   // 通知を受けて取り消すときは reason を添え、RoomDO が本番で数える（#1401）。
   const cancel = useCallback(
     (noteId?: string, reason?: MoveCancelReason) => {
@@ -290,6 +309,17 @@ export function useNoteMove({
         return;
       }
       if (head.status === "pending") {
+        const released = queue
+          .slice(1)
+          .filter(
+            (operation) =>
+              operation.status === "pending" && !operation.waitingShare,
+          );
+        if (
+          released.length > 0 &&
+          (reason === "phase-changed" || reason === "timer-stopped")
+        )
+          carriedRef.current = { at: Date.now(), operations: released };
         publish([head], true);
         send({ type: "note:move:status", operationId: head.id });
       } else {
@@ -627,7 +657,57 @@ export function useNoteMove({
               : "decided",
         );
         const head = operationsRef.current[0];
+        if (
+          head?.status === "pending" &&
+          !head.waitingShare &&
+          (message.type === "phase:updated" ||
+            message.type === "timer:updated") &&
+          carriedHeadRef.current?.operation.id !== head.id
+        )
+          carriedHeadRef.current = { at: Date.now(), operation: head };
         if (head) publish([{ ...head, delta: { x: 0, y: 0 } }], true);
+      }
+      if (message.type === "phase:updated") {
+        const carried = carriedRef.current;
+        const carriedHead = carriedHeadRef.current;
+        carriedRef.current = null;
+        carriedHeadRef.current = null;
+        const cap = capability.current;
+        const fresh = (at: number) => Date.now() - at <= RELEASED_CARRY_MS;
+        const releasable = (operation: Operation) =>
+          operation.phaseRevision + 1 === message.phaseRevision &&
+          operation.mapRevision === cap.mapRevision &&
+          operation.space === cap.space;
+        const [head, ...rest] = operationsRef.current;
+        if (
+          head &&
+          carriedHead &&
+          head.id === carriedHead.operation.id &&
+          fresh(carriedHead.at) &&
+          releasable(carriedHead.operation)
+        )
+          publish(
+            [
+              { ...carriedHead.operation, stepAdvanced: message.phaseRevision },
+              ...rest,
+            ],
+            true,
+          );
+        const resent =
+          carried && fresh(carried.at)
+            ? carried.operations.filter(releasable).map(
+                ({ blocked: _, ...operation }): Operation => ({
+                  ...operation,
+                  phaseRevision: message.phaseRevision,
+                  releasedPhaseRevision: operation.phaseRevision,
+                }),
+              )
+            : [];
+        if (resent.length > 0) {
+          const queue = operationsRef.current;
+          publish([...queue, ...resent], true);
+          if (queue.length === 0) launch(resent[0]);
+        }
       }
       const head = operationsRef.current[0];
       const ownBatch =
@@ -783,6 +863,21 @@ export function useNoteMove({
         restart([head, ...operationsRef.current.slice(1)], false);
         return;
       }
+      if (message.status === "unknown" && current.stepAdvanced !== undefined) {
+        const { stepAdvanced, ...head } = current;
+        restart(
+          [
+            {
+              ...head,
+              phaseRevision: stepAdvanced,
+              releasedPhaseRevision: head.phaseRevision,
+            },
+            ...operationsRef.current.slice(1),
+          ],
+          false,
+        );
+        return;
+      }
       const latest = getNotes().find(
         (note) => note.id === current.before[0]?.id,
       );
@@ -848,16 +943,21 @@ export function useNoteMove({
             message.reason ??
             "移動を確認できませんでした。もう一度操作してください。",
         });
-      const waiting =
-        message.status === "accepted" &&
-        message.receipt &&
-        capability.current.phaseRevision === message.receipt.phaseRevision
-          ? advanceVersions(
-              operationsRef.current.slice(1),
-              message.receipt.before,
-              message.receipt.after,
-            )
-          : [];
+      // 工程が進んでいたら、進む直前に離した移動（#1442）だけを続けて送る。
+      const saved = message.status === "accepted" ? message.receipt : undefined;
+      const waiting = saved
+        ? advanceVersions(
+            operationsRef.current
+              .slice(1)
+              .filter(
+                (operation) =>
+                  capability.current.phaseRevision === saved.phaseRevision ||
+                  operation.releasedPhaseRevision === saved.phaseRevision,
+              ),
+            saved.before,
+            saved.after,
+          )
+        : [];
       publish(waiting, true);
       if (waiting[0]) launch(waiting[0]);
     },

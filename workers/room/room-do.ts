@@ -110,6 +110,7 @@ import {
 } from "./members";
 import {
   expireMoveOperations,
+  isReleasedBeforeStepAdvance,
   moveHandlers,
   moveRevisions,
   releaseConnectionMoves,
@@ -1736,7 +1737,9 @@ export class RoomDO extends DurableObject {
       message.type !== "note:update-font-size" &&
       message.type !== "idea-map:resize" &&
       !isTimerExemptPersonalNoteMutation(phase, message) &&
-      !["running", "ended"].includes(getTimerState(this.sql).status);
+      !["running", "ended"].includes(getTimerState(this.sql).status) &&
+      // ステップが進む直前に離した移動は、進んだ直後に限り保存する（#1442）。
+      !isReleasedBeforeStepAdvance(this.sql, message);
 
     // inverse の拒否は専用ハンドラで終端結果として保存する。
     if (timerBlocked && message.type !== "note:move:inverse") {

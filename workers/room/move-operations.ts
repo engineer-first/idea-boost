@@ -82,6 +82,37 @@ export function moveRevisions(sql: SqlStorage): {
     mapRevision: Number(row.map_revision),
   };
 }
+// ステップが進む直前に離した移動（#1442）。進んだ直後のこの時間だけ、止まったタイマーを待たずに保存する。
+// 離してから進むまでの窓は約0.2秒で、送るのは先の移動の結果を待った後なので数秒で足りる。
+export const RELEASED_MOVE_GRACE_MS = 5_000;
+// 前の工程の版で離した移動の start / preview / commit か。新しいステップで始めた移動は含めない。
+export function isReleasedBeforeStepAdvance(
+  sql: SqlStorage,
+  message: ClientMessage,
+  now = Date.now(),
+): boolean {
+  let released: number | undefined;
+  if (message.type === "note:move:start")
+    released = message.releasedPhaseRevision;
+  else if (
+    message.type === "note:move:preview" ||
+    message.type === "note:move:commit"
+  ) {
+    const op = readOperation(sql, message.operationId);
+    if (op?.state !== "active") return false;
+    released = (JSON.parse(op.request_json) as StoredRequest).start
+      .releasedPhaseRevision;
+  }
+  if (released === undefined || released + 1 !== getPhaseRevision(sql))
+    return false;
+  const entered = sql
+    .exec(
+      "SELECT entered_at FROM progress_history WHERE exited_at IS NULL ORDER BY sequence DESC LIMIT 1",
+    )
+    .toArray()[0]?.entered_at;
+  if (typeof entered !== "number") return false;
+  return now >= entered && now - entered <= RELEASED_MOVE_GRACE_MS;
+}
 function readOperation(sql: SqlStorage, id: string): Operation | undefined {
   return sql
     .exec("SELECT * FROM note_move_operations WHERE operation_id=?1", id)

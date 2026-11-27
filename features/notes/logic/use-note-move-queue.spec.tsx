@@ -270,7 +270,8 @@ describe("保存待ち中の連続移動", () => {
       expect(h.result.current.moveFeedback).not.toBeNull();
     },
   );
-  // 再接続（切断・snapshot）は離し終えた移動を残す。「再接続」の describe で確かめる。
+  // 再接続（切断・snapshot）は離し終えた移動を残す。「再接続」の describe で、
+  // ステップが進んだ直後は「ステップが進む直前に離した移動」の describe で確かめる。
   it.each(["cancel", "phase", "pause"])(
     "%sで未送信分を破棄し、遅延成功で再開しない",
     (reason) => {
@@ -287,11 +288,12 @@ describe("保存待ち中の連続移動", () => {
           serverNow: 0,
         });
       if (reason === "cancel") act(() => h.result.current.cancelNoteDrag());
+      // 工程が2つ進んだ（離したときの工程の次ではない）ときは捨てる。
       if (reason === "phase")
         h.apply({
           type: "phase:updated",
-          phase: { kind: "step", phase: 1, step: 3 },
-          phaseRevision: 1,
+          phase: { kind: "step", phase: 1, step: 4 },
+          phaseRevision: 2,
         });
       h.accept(0, 100, 150);
       expect(
@@ -1176,5 +1178,117 @@ describe("本人側の取消の理由", () => {
       { type: "note:move:cancel", operationId: ids[0] },
       { type: "note:move:cancel", operationId: ids[1] },
     ]);
+  });
+});
+
+describe("ステップが進む直前に離した移動", () => {
+  const advanced: Array<[string, ServerMessage[]]> = [
+    // RoomDO は進むとき、snapshot か timer:updated を phase:updated より先に送る。
+    [
+      "snapshot を送り直す",
+      [
+        {
+          ...snapshot,
+          phase: { kind: "step", phase: 1, step: 3 },
+          phaseRevision: 1,
+          timer: { status: "idle" },
+        },
+      ],
+    ],
+    [
+      "タイマーを止める",
+      [{ type: "timer:updated", timer: { status: "idle" }, serverNow: 0 }],
+    ],
+  ];
+  const phaseUpdated: ServerMessage = {
+    type: "phase:updated",
+    phase: { kind: "step", phase: 1, step: 3 },
+    phaseRevision: 1,
+  };
+  it.each(advanced)(
+    "進む前に離した後ろの移動は捨てず、離したときの工程の版を添えて送る（%s）",
+    (_label, before) => {
+      const h = setup();
+      h.start();
+      h.end(150);
+      h.start(M);
+      h.end(500, M);
+      for (const message of before) h.apply(message);
+      h.apply(phaseUpdated);
+      h.accept(0, 100, 150);
+      expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+        operationId: ids[1],
+        expectedPhaseRevision: 1,
+        releasedPhaseRevision: 0,
+        targets: [{ noteId: M }],
+      });
+      expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+        operationId: ids[1],
+        delta: { x: 100, y: 0 },
+      });
+      expect(h.result.current.notes.find((n) => n.id === M)?.x).toBe(500);
+    },
+  );
+  it.each(advanced)(
+    "進む前に送った移動が進んだ後に届いて保存されなかったら、離した位置へ送り直す（%s）",
+    (_label, before) => {
+      const h = setup();
+      h.start();
+      h.end(150);
+      h.start(M);
+      h.end(500, M);
+      h.accept(0, 100, 150);
+      // 2枚目の開始は進む前に送ったが、RoomDO には進んだ後に届いた。
+      expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+        operationId: ids[1],
+        expectedPhaseRevision: 0,
+      });
+      for (const message of before) h.apply(message);
+      h.apply(phaseUpdated);
+      expect(h.result.current.notes.find((n) => n.id === M)?.x).toBe(500);
+      h.apply({
+        type: "error",
+        code: "forbidden",
+        message: "タイマーが動作していないため、ボードを操作できません。",
+        operationId: ids[1],
+      });
+      h.apply({
+        type: "note:move:result",
+        operationId: ids[1],
+        status: "unknown",
+      });
+      expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+        operationId: ids[2],
+        expectedPhaseRevision: 1,
+        releasedPhaseRevision: 0,
+        targets: [{ noteId: M }],
+      });
+      expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+        operationId: ids[2],
+        delta: { x: 100, y: 0 },
+      });
+      expect(h.result.current.moveFeedback).toBeNull();
+    },
+  );
+  it("進んでから時間がたって届いた工程の通知では、離した移動を送らない", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    h.start(M);
+    h.end(500, M);
+    h.apply({ type: "timer:updated", timer: { status: "idle" }, serverNow: 0 });
+    act(() => vi.advanceTimersByTime(10_000));
+    h.apply(phaseUpdated);
+    h.accept(0, 100, 150);
+    expect(sent(h, "note:move:start")).toHaveLength(1);
+  });
+  it("新しいステップで始めた移動には、離したときの工程の版を添えない", () => {
+    const h = setup();
+    h.apply(phaseUpdated);
+    h.start(M);
+    h.end(500, M);
+    expect(sent(h, "note:move:start").at(-1)).not.toHaveProperty(
+      "releasedPhaseRevision",
+    );
   });
 });

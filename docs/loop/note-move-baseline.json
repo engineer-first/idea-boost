@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-27",
+  "updated": "2026-11-28",
   "note": "付箋移動の計測（npm run probe:note-move）で、場面ごとに「動かしたとおりに保存できた割合」が下回ってはいけない下限。原因を直した PR で引き上げ、下げない。場面と原因の対応は docs/loop/note-move-reliability.md。",
   "latencyMs": 80,
   "scenarios": {
@@ -15,6 +15,6 @@
     "map-parallel": { "minLandedRate": 1 },
     "queued-other-note-conflict": { "minLandedRate": 1 },
     "reconnect-while-queued": { "minLandedRate": 1 },
-    "step-advance-while-queued": { "minLandedRate": 0.5 }
+    "step-advance-while-queued": { "minLandedRate": 1 }
   }
 }

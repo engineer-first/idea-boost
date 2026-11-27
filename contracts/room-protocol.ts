@@ -493,6 +493,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     expectedMapRevision: z.int().nonnegative(),
     coordinateSpace: z.enum(["canvas", "map"]),
     targets: z.array(MoveTargetSchema).min(1).max(256),
+    // ステップが進む直前に離した移動だけ、離したときの工程の版を添える（#1442）。
+    // RoomDO は進んだ直後に限り、タイマーが止まっていても保存する。
+    releasedPhaseRevision: z.int().nonnegative().optional(),
   }),
   z.strictObject({
     type: z.literal("note:move:preview"),
