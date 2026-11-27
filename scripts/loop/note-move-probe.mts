@@ -1030,7 +1030,32 @@ const scenarios: Scenario[] = [
         ...offsets[1],
         steps: 3,
       });
-      // 2枚目はまだ送っていない。進んだ後も、離した2枚が両方保存されるかを見る。
+      // 2枚目は1枚目の結果を待って並んでいて、まだ送っていない。そうなっていない回は数えない
+      // （1枚目の結果が先に返ると、2枚目がステップより先に保存され、この場面にならない）。
+      const recent = actor.frames.filter((frame) => frame.at >= since);
+      const commits = recent.filter(
+        (frame) =>
+          frame.direction === "sent" &&
+          frame.message.type === "note:move:commit",
+      );
+      if (
+        !dragFirst ||
+        !dragSecond ||
+        commits.length !== 1 ||
+        recent.some(
+          (frame) =>
+            frame.direction === "received" &&
+            frame.message.type === "note:move:result" &&
+            frame.message.operationId === commits[0].message.operationId &&
+            frame.message.status !== "active",
+        )
+      ) {
+        console.error(
+          "step-advance-while-queued: 2枚目が並ぶ前に1枚目の結果が返ったため、この回は数えません。",
+        );
+        return;
+      }
+      // 進んだ後も、離した2枚が両方保存されるかを見る。
       actor.send({
         type: "phase:next",
         expectedPhase: { kind: "step", phase: 1, step: 2 },
@@ -1047,6 +1072,25 @@ const scenarios: Scenario[] = [
         )
       )
         await wait(50);
+      const advanced = actor.frames.some(
+        (frame) =>
+          frame.at >= since &&
+          frame.direction === "received" &&
+          frame.message.type === "phase:updated",
+      );
+      if (!advanced) {
+        const error = actor.frames.find(
+          (frame) =>
+            frame.at >= since &&
+            frame.direction === "received" &&
+            frame.message.type === "error" &&
+            !frame.message.operationId,
+        );
+        console.error(
+          `step-advance-while-queued: ステップが進まなかったため、この回は数えません。${error?.message.message ?? ""}`,
+        );
+        return;
+      }
       await settle([actor, peer], since);
       for (const [id, drag] of [
         [first, dragFirst],
