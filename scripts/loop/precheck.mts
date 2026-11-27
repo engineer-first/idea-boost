@@ -85,13 +85,16 @@ const RED: Decision = {
 // gh CLI が返す Renovate（GitHub App）の author.login。
 const RENOVATE = "app/renovate";
 const STALLED_AFTER_MS = 3_600_000;
+const FAILING_STALLED_AFTER_MS = 900_000;
 
 /**
  * ループが流す PR（ループのアカウントの `loop` PR と、Renovate の `dependencies` PR）が1時間動いていない。
- * 通る PR は周回の中か auto-merge でマージされるので、open のまま動かない PR は誰も進めていない。
+ * 通る PR は auto-merge でマージされるので、open のまま動かない PR は誰も進めていない。
+ * 周回は auto-merge を予約して CI を待たずに抜けるため、必須チェックが落ちたか競合した PR（failing）は
+ * 15分動きが無ければ止まっているとみなし、次の build ですぐ拾う。
  */
 export function isStalledPr(
-  pr: Labels & { author: string; updatedAt: string },
+  pr: Labels & { author: string; updatedAt: string; failing?: boolean },
   actor: string,
   now: number,
 ): boolean {
@@ -102,7 +105,37 @@ export function isStalledPr(
   const carried =
     (pr.labels.includes("loop") && pr.author === actor) ||
     (pr.labels.includes("dependencies") && pr.author === RENOVATE);
-  return carried && now - Date.parse(pr.updatedAt) >= STALLED_AFTER_MS;
+  const after = pr.failing ? FAILING_STALLED_AFTER_MS : STALLED_AFTER_MS;
+  return carried && now - Date.parse(pr.updatedAt) >= after;
+}
+
+type CheckRun = {
+  name?: string;
+  conclusion?: string | null;
+  startedAt?: string;
+};
+
+// develop の ruleset が求める必須チェック。auto-merge はこれが全部成功するまで待つ。
+const REQUIRED_CHECKS = ["lint", "test", "browser", "build", "smoke"];
+const FAILED = ["FAILURE", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED"];
+
+/**
+ * 必須チェックのどれかが落ちたか、develop と競合していて、auto-merge が進まない。
+ * 同じ commit の再実行は古い結果も残るので、名前ごとに最後に始まった実行だけを見る。
+ */
+export function isFailingPr(pr: {
+  mergeable?: string;
+  statusCheckRollup?: CheckRun[];
+}): boolean {
+  if (pr.mergeable === "CONFLICTING") return true;
+  const latest = new Map<string, CheckRun>();
+  for (const c of pr.statusCheckRollup ?? []) {
+    if (!REQUIRED_CHECKS.includes(c.name ?? "")) continue;
+    const seen = latest.get(c.name ?? "");
+    if (!seen || (c.startedAt ?? "") >= (seen.startedAt ?? ""))
+      latest.set(c.name ?? "", c);
+  }
+  return [...latest.values()].some((c) => FAILED.includes(c.conclusion ?? ""));
 }
 
 export type BuildState = {
@@ -306,7 +339,14 @@ const openLoopPrs = () =>
 
 const stalledPrs = () =>
   (
-    ghJson<(Labeled & { author: { login: string }; updatedAt: string })[]>([
+    ghJson<
+      (Labeled & {
+        author: { login: string };
+        updatedAt: string;
+        mergeable?: string;
+        statusCheckRollup?: CheckRun[];
+      })[]
+    >([
       "pr",
       "list",
       "-R",
@@ -316,7 +356,7 @@ const stalledPrs = () =>
       "-L",
       "100",
       "--json",
-      "labels,author,updatedAt",
+      "labels,author,updatedAt,mergeable,statusCheckRollup",
     ]) ?? []
   ).filter((pr) =>
     isStalledPr(
@@ -324,6 +364,7 @@ const stalledPrs = () =>
         labels: pr.labels.map((l) => l.name),
         author: pr.author?.login ?? "",
         updatedAt: pr.updatedAt,
+        failing: isFailingPr(pr),
       },
       ACTOR,
       Date.now(),
