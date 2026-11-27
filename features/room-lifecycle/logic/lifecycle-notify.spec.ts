@@ -1,6 +1,9 @@
 // lifecycleNotify ヘルパの単体テスト。sonner の toast 関数をモックして、
 // 作成・参加フローの通知文言と呼び出しが期待通りであることを検証する。
+import { createTranslator } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import appEn from "@/messages/en/app.json";
+import appJa from "@/messages/ja/app.json";
 
 const mocks = vi.hoisted(() => ({
   toast: vi.fn(),
@@ -16,6 +19,19 @@ vi.mock("sonner", () => ({
 
 import { lifecycleNotify } from "./lifecycle-notify";
 
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
+function translator(locale: "ja" | "en"): Translate {
+  return createTranslator({
+    locale,
+    messages: { app: locale === "en" ? appEn : appJa },
+    namespace: "app.notifications",
+  }) as Translate;
+}
+const ja = translator("ja");
+
 describe("lifecycleNotify", () => {
   beforeEach(() => {
     mocks.toast.mockReset();
@@ -23,13 +39,13 @@ describe("lifecycleNotify", () => {
   });
 
   it("roomCreated は toast.success を「ルームを作成しました」で呼ぶ", () => {
-    lifecycleNotify.roomCreated();
+    lifecycleNotify.roomCreated(ja);
     expect(mocks.success).toHaveBeenCalledTimes(1);
     expect(mocks.success).toHaveBeenCalledWith("ルームを作成しました");
   });
 
   it("joinedAsGuest は toast.success で「ルームに参加しました」を呼ぶ", () => {
-    lifecycleNotify.joinedAsGuest();
+    lifecycleNotify.joinedAsGuest(ja);
     expect(mocks.success).toHaveBeenCalledTimes(1);
     expect(mocks.success).toHaveBeenCalledWith("ルームに参加しました");
   });
@@ -42,15 +58,15 @@ it("退出通知は到着後に元ルーム名で1回にまとめ、再送・Str
     "昼の相談",
   ]);
   expect(mocks.success).not.toHaveBeenCalled();
-  lifecycleNotify.arrived("other");
+  lifecycleNotify.arrived("other", ja);
   expect(mocks.success).not.toHaveBeenCalled();
-  lifecycleNotify.arrived("destination");
-  lifecycleNotify.arrived("destination");
+  lifecycleNotify.arrived("destination", ja);
+  lifecycleNotify.arrived("destination", ja);
   lifecycleNotify.rememberDeparture("destination", "operation", [
     "朝の相談",
     "昼の相談",
   ]);
-  lifecycleNotify.arrived("destination");
+  lifecycleNotify.arrived("destination", ja);
   expect(mocks.success).toHaveBeenCalledExactlyOnceWith(
     "朝の相談ほか1件から退出しました",
   );
@@ -58,18 +74,12 @@ it("退出通知は到着後に元ルーム名で1回にまとめ、再送・Str
 it("元ルームがなければ退出通知を出さない", () => {
   mocks.success.mockReset();
   lifecycleNotify.rememberDeparture("destination", "normal", []);
-  lifecycleNotify.arrived("destination");
+  lifecycleNotify.arrived("destination", ja);
   expect(mocks.success).not.toHaveBeenCalled();
 });
 
-it("翻訳を渡すと、作成・参加・退出の通知をその言語で出す", async () => {
-  const { createTranslator } = await import("next-intl");
-  const appEn = (await import("@/messages/en/app.json")).default;
-  const t = createTranslator({
-    locale: "en",
-    messages: { app: appEn },
-    namespace: "app.notifications",
-  }) as (key: string, values?: Record<string, string | number>) => string;
+it("翻訳を渡すと、作成・参加・退出の通知をその言語で出す", () => {
+  const t = translator("en");
   mocks.success.mockReset();
   lifecycleNotify.roomCreated(t);
   lifecycleNotify.joinedAsGuest(t);

@@ -31,8 +31,8 @@ export const lifecycleNotify = {
       /* 画面内の控えを使う。 */
     }
   },
-  // t は app.notifications の翻訳。渡さないときは日本語で知らせる。
-  arrived(roomId: string, t?: Translate): void {
+  // t は app.notifications の翻訳。文言は messages/ に置き、ここには持たない。
+  arrived(roomId: string, t: Translate): void {
     let departure = pending.get(roomId);
     try {
       const raw = sessionStorage.getItem(`room-departure:${roomId}`);
@@ -71,17 +71,15 @@ export const lifecycleNotify = {
     delivered.add(departure.operationId);
     const [first, ...rest] = departure.names;
     toast.success(
-      t
-        ? rest.length
-          ? t("leftRoomsWithOthers", { name: first, count: rest.length })
-          : t("leftRoom", { name: first })
-        : `${first}${rest.length ? `ほか${rest.length}件` : ""}から退出しました`,
+      rest.length
+        ? t("leftRoomsWithOthers", { name: first, count: rest.length })
+        : t("leftRoom", { name: first }),
     );
   },
-  roomCreated(t?: Translate): void {
-    toast.success(t ? t("roomCreated") : "ルームを作成しました");
+  roomCreated(t: Translate): void {
+    toast.success(t("roomCreated"));
   },
-  joinedAsGuest(t?: Translate): void {
-    toast.success(t ? t("roomJoined") : "ルームに参加しました");
+  joinedAsGuest(t: Translate): void {
+    toast.success(t("roomJoined"));
   },
 };
