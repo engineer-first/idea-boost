@@ -5,7 +5,7 @@ import { landingUrl, SITE_ORIGIN } from "./landing-metadata";
 
 type StructuredData = Record<string, unknown>;
 
-/** 「Ideaboost」など同名の別サービスと区別するため、表記ゆれを別名として示す。 */
+/** 表記ゆれ（IdeaBoost）で探されても、同じサービスだと分かるよう別名として示す。 */
 const ALTERNATE_NAMES = ["IdeaBoost"];
 
 /**

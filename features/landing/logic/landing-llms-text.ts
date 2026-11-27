@@ -20,7 +20,6 @@ export function getLandingLlmsText(): string {
   const sections = [
     `# ${ja.brand}`,
     `> ${ja.description}`,
-    ja.introduction,
     `${ja.background.description}${ja.background.scope}`,
     ja.disclaimer,
     `**進め方**\n\n${list(ja.steps)}`,
@@ -29,7 +28,7 @@ export function getLandingLlmsText(): string {
     `**よくある質問**\n\n${ja.faq.items
       .map((item) => `- ${item.question} ${item.answer}`)
       .join("\n")}`,
-    `**English**\n\n${en.description} ${en.introduction}\n\n${list(en.features.items, ": ")}`,
+    `**English**\n\n${en.description}\n\n${list(en.features.items, ": ")}`,
     [
       "## リンク",
       "",

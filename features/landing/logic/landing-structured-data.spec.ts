@@ -62,7 +62,7 @@ it("script 要素を閉じる文字列を含んでも HTML として壊れない
 describe.each<AppLocale>(["ja", "en"])(
   "%s の LP が示すアプリの素性",
   (locale) => {
-    it("同名の別サービスと区別できるよう、表記ゆれの別名を WebSite と WebApplication に示す", () => {
+    it("表記ゆれの IdeaBoost を、WebSite と WebApplication の別名に示す", () => {
       expect(nodeOf(locale, "WebSite").alternateName).toContain("IdeaBoost");
       expect(nodeOf(locale, "WebApplication").alternateName).toContain(
         "IdeaBoost",

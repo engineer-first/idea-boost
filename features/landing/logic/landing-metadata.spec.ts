@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AppLocale } from "@/lib/i18n/locale";
 import { getLandingMetadata } from "./landing-metadata";
 
-// 検索結果の title は日本語で約30字・英語で約60字を超えると末尾が省かれる。
+// 検索結果の title は、日本語で約40字・英語で約65字を超えると末尾が省かれやすい。
 const TITLE_LIMIT: Record<AppLocale, number> = { ja: 40, en: 65 };
 
 describe.each<[AppLocale, string[], string[]]>([
