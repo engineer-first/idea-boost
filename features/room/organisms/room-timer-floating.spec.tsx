@@ -229,9 +229,14 @@ describe("フローティングタイマー", () => {
       vi.restoreAllMocks();
     }
   });
-  it("個人ステップでマイ付箋の作業面が広がっていても、中央や入力欄の上で離すと入力欄・付箋を避けて端へ寄る", () => {
+  it("個人ステップでマイ付箋の作業面が広がっていても、中央・入力欄・左のヒントの上で離すと、それらを避けて端へ寄る", () => {
     const composer = new DOMRect(340, 96, 680, 48);
     const note = new DOMRect(340, 200, 160, 150);
+    // 作業面の下に重なる左列のヒントと、左下の問いのヒントのキャラクター
+    const help = new DOMRect(12, 160, 320, 420);
+    const hint = new DOMRect(12, 620, 80, 88);
+    // キャラクターの吹き出しは HUD の矩形の外へはみ出して開く
+    const cloud = new DOMRect(16, 480, 290, 190);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
       function (this: HTMLElement) {
         if (this.dataset.testid === "room-board-view-root")
@@ -243,6 +248,9 @@ describe("フローティングタイマー", () => {
           return new DOMRect(0, 80, 1280, 640);
         if (this.dataset.privateNoteComposer === "true") return composer;
         if (this.dataset.testid === "note-card") return note;
+        if (this.dataset.testid === "help-panel-body") return help;
+        if (this.dataset.testid === "hmw-hint-hud") return hint;
+        if (this.dataset.testid === "hmw-thought-cloud") return cloud;
         return new DOMRect(0, 0, 0, 0);
       },
     );
@@ -267,9 +275,17 @@ describe("フローティングタイマー", () => {
           <textarea data-private-note-composer="true" />
           <div data-testid="note-card" />
         </div>
+        <div data-testid="board-help-panel">
+          <div data-testid="help-panel-body" />
+        </div>
+        <div data-testid="hmw-hint-hud" />
         <RoomTimer {...props()} />
       </div>,
     );
+    // 吹き出しは portal でボードの外に描かれる
+    const portal = render(<div data-testid="hmw-thought-cloud" />, {
+      container: document.body.appendChild(document.createElement("div")),
+    });
     const drop = (clientX: number, clientY: number) => {
       const floating = screen.getByTestId("timer-floating");
       const left = Number.parseFloat(floating.style.left);
@@ -302,7 +318,19 @@ describe("フローティングタイマー", () => {
       expect(onEdge(onComposer)).toBe(true);
       expect(overlaps(onComposer, composer)).toBe(false);
       expect(overlaps(onComposer, note)).toBe(false);
+      // 左列のヒントや左下のキャラクターの上で離しても、それらに重ならない端へ寄る
+      for (const [x, y] of [
+        [120, 400],
+        [80, 660],
+      ] as const) {
+        const onLeft = drop(x, y);
+        expect(onEdge(onLeft)).toBe(true);
+        expect(overlaps(onLeft, help)).toBe(false);
+        expect(overlaps(onLeft, hint)).toBe(false);
+        expect(overlaps(onLeft, cloud)).toBe(false);
+      }
     } finally {
+      portal.unmount();
       view.unmount();
       vi.restoreAllMocks();
     }
