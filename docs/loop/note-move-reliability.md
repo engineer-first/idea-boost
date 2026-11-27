@@ -56,21 +56,24 @@ AUTH_APP_TEST_URL=http://localhost:3147 NOTE_MOVE_PROBE_OUT=/tmp/note-move.json 
 
 ### 本番で数える
 
-RoomDO が移動を断った・期限切れにしたときに、理由の種類だけを Workers Logs に1行残す（#1401、`workers/room/move-failure-log.ts`）。付箋の本文・ルーム・利用者・操作の ID は含めない。Workers Logs の保持は最大7日。
+RoomDO が移動を断った・期限切れにしたとき、通知を受けた本人側が移動を取り消したときに、理由の種類だけを Workers Logs に1行残す（#1401、`workers/room/move-failure-log.ts`）。付箋の本文・ルーム・利用者・操作の ID は含めない。Workers Logs の保持は最大7日。
 
 ```json
 { "event": "note_move_failed", "operation": "start", "status": "rejected", "kind": "note-revision" }
+{ "event": "note_move_failed", "operation": "cancel", "status": "cancelled", "kind": "note-changed" }
 ```
 
 見方：Cloudflare ダッシュボードの Workers & Pages → `idea-flow-api` → Observability（または Durable Objects → `RoomDO` → Observability）で、期間を最大7日にし、`event = note_move_failed` で絞って `kind`（と `operation`）ごとに数える。授業やハッカソンの日だけを見るときは期間をその時間帯に絞る。
 
-| 項目        | 値                                                                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `operation` | `start`（掴んだ）・`preview`（動かしている途中）・`commit`（離した）・`inverse`（移動を元に戻す・やり直す）・`lease`（期限）          |
-| `status`    | `rejected`（断った）・`expired`（期限切れ）                                                                                           |
-| `kind`      | 理由の種類。一覧と意味は `move-failure-log.ts` の `MoveFailureKind`。M3 の当たり方は `start` の `note-revision`・`note-locked` で見る |
+| 項目        | 値                                                                                                                                                     |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `operation` | `start`（掴んだ）・`preview`（動かしている途中）・`commit`（離した）・`inverse`（移動を元に戻す・やり直す）・`lease`（期限）・`cancel`（本人側の取消） |
+| `status`    | `rejected`（断った）・`expired`（期限切れ）・`cancelled`（本人側が取り消した）                                                                         |
+| `kind`      | 理由の種類。一覧と意味は `move-failure-log.ts` の `MoveFailureKind`。M3 の当たり方は `start` の `note-revision`・`note-locked` で見る                  |
 
-まだ数えていないもの：ルームにいない人の移動のように、移動の処理に届く前に RoomDO の入口で断ったもの。通知を受けた本人側が自分から取り消した回数（計測の `client-cancelled`）。RoomDO には届かないので、このログには出ない。送り方は、利用分析（PostHog）へ送るより、RoomDO へ理由の種類つきで知らせて同じログに残す（見る場所が1つで済み、学外のサービスへ新しく送らない）。M6 の残りとして作る。上の計測は「この場面で失敗するか」を数え、このログは「利用者が実際にどの理由にどれだけ当たるか」を数える。
+本人側の取消（計測の `client-cancelled`）は、画面が通知を受けて掴んでいる移動を取り消すときに、`note:move:cancel` に理由の種類（`contracts/room-protocol.ts` の `MoveCancelReason`）を添えて RoomDO へ知らせ、RoomDO が同じログに残す。種類は `note-changed`（掴んでいる付箋が相手の操作で消えた・非公開になった）・`phase-changed`・`map-changed`・`timer-stopped`（一時停止・停止）・`decided`（アイデアが決まった・成果の公開）・`resynced`（接続中に盤面の全体を受け取り直した）。利用分析（PostHog）へ送るより、見る場所が1つで済み、学外のサービスへ新しく送らない形を選んだ。本人の操作（Escape・ウィンドウを離れる・指を離せない）と、相手の移動の後に最新の版で掴み直すときは理由を添えず、残さない。RoomDO が移動を押さえている間に届いた取消だけを残す。理由は画面の自己申告なので、種類ごとの数は目安として読む。RoomDO は押さえている付箋の削除・非公開化とマップの広さの変更を断るので、`note-changed`・`map-changed` はほぼ 0 件が正常。工程の切り替え・決定では先に届く snapshot で取り消すので、列の移動が前提にした工程・マップと比べて `phase-changed`・`map-changed`・`decided` を選び、どれでもないときだけ `resynced` にする。
+
+まだ数えていないもの：ルームにいない人の移動のように、移動の処理に届く前に RoomDO の入口で断ったもの。接続が切れて外れた移動（RoomDO が接続の終わりで取り消し、記録しない。切れたことに気づけなかったときだけ `lease-expired` に出る）。上の計測は「この場面で失敗するか」を数え、このログは「利用者が実際にどの理由にどれだけ当たるか」を数える。
 
 ## 原因の台帳
 

@@ -8,6 +8,7 @@ import {
 import { isPhaseStep } from "@/contracts/phase";
 import type {
   ClientMessage,
+  MoveCancelReason,
   MoveReceipt,
   ProtocolNote,
   ServerMessage,
@@ -120,6 +121,29 @@ export type SharedPosition = {
   positionRevision: number;
   visibilityRevision: number;
 };
+// snapshot で取り消すとき、列の移動が前提にした工程・マップと比べて理由の種類を選ぶ。
+function snapshotCancelReason(
+  queue: readonly Operation[],
+  cap: {
+    phaseRevision: number;
+    mapRevision: number;
+    space: Operation["space"];
+  },
+  message: Extract<ServerMessage, { type: "snapshot" }>,
+): MoveCancelReason {
+  if (queue.some((operation) => operation.phaseRevision !== cap.phaseRevision))
+    return "phase-changed";
+  if (
+    queue.some(
+      (operation) =>
+        operation.mapRevision !== cap.mapRevision ||
+        operation.space !== cap.space,
+    )
+  )
+    return "map-changed";
+  return message.decision !== null ? "decided" : "resynced";
+}
+
 export function useNoteMove({
   notes,
   getNotes,
@@ -238,8 +262,9 @@ export function useNoteMove({
       message: "移動を確認できませんでした。もう一度操作してください。",
     });
   };
+  // 通知を受けて取り消すときは reason を添え、RoomDO が本番で数える（#1401）。
   const cancel = useCallback(
-    (noteId?: string) => {
+    (noteId?: string, reason?: MoveCancelReason) => {
       const queue = operationsRef.current;
       const head = queue[0];
       if (
@@ -268,7 +293,11 @@ export function useNoteMove({
         publish([head], true);
         send({ type: "note:move:status", operationId: head.id });
       } else {
-        send({ type: "note:move:cancel", operationId: head.id });
+        send(
+          reason
+            ? { type: "note:move:cancel", operationId: head.id, reason }
+            : { type: "note:move:cancel", operationId: head.id },
+        );
         publish([], true);
       }
     },
@@ -502,7 +531,10 @@ export function useNoteMove({
       let reconnecting = false;
       if (mapChanged) {
         const id = operationsRef.current.at(-1)?.id;
-        cancel();
+        cancel(
+          undefined,
+          message.type === "phase:updated" ? "phase-changed" : "map-changed",
+        );
         if (id)
           setFeedback({
             operationId: id,
@@ -535,7 +567,8 @@ export function useNoteMove({
               operation.space !== cap.space,
           )
         )
-          cancel();
+          // 工程を変える・決めるとき、RoomDO は phase:updated などより先に snapshot を送り直す。
+          cancel(undefined, snapshotCancelReason(queue, cap, message));
         else if (queue.length > 0) {
           // 再接続。離し終えた移動は残し、掴んでいた途中の移動だけを外す。
           const kept = queue.filter(
@@ -585,7 +618,14 @@ export function useNoteMove({
           message.timer.status !== "ended") ||
         (message.type === "decision:updated" && message.decision !== null)
       ) {
-        cancel();
+        cancel(
+          undefined,
+          message.type === "phase:updated"
+            ? "phase-changed"
+            : message.type === "timer:updated"
+              ? "timer-stopped"
+              : "decided",
+        );
         const head = operationsRef.current[0];
         if (head) publish([{ ...head, delta: { x: 0, y: 0 } }], true);
       }
@@ -691,7 +731,11 @@ export function useNoteMove({
           // 先頭は掴んでいる途中か、送り直し待ち。送り直し待ちのidはサーバーが知らない。
           previewSender.cancel();
           if (!first.blocked)
-            send({ type: "note:move:cancel", operationId: first.id });
+            send({
+              type: "note:move:cancel",
+              operationId: first.id,
+              reason: "note-changed",
+            });
           publish(next, true);
           if (next[0]) launch(next[0]);
         }

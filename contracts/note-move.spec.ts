@@ -118,3 +118,27 @@ it("inverse accepts only a receipt ID and expected versions, rejecting client-ow
       parseClientMessage(JSON.stringify({ ...message, ...extra })),
     ).toBeNull();
 });
+
+// 本番で本人側の取消を理由の種類ごとに数える（#1401）。決まった語だけを受け付ける。
+it("移動の取消に、取り消した理由の種類を付けられる", () => {
+  for (const reason of [
+    "note-changed",
+    "phase-changed",
+    "map-changed",
+    "timer-stopped",
+    "decided",
+    "resynced",
+  ]) {
+    const message = { type: "note:move:cancel", operationId, reason };
+    expect(parseClientMessage(JSON.stringify(message))).toEqual(message);
+  }
+  expect(
+    parseClientMessage(
+      JSON.stringify({
+        type: "note:move:cancel",
+        operationId,
+        reason: "付箋の本文",
+      }),
+    ),
+  ).toBeNull();
+});

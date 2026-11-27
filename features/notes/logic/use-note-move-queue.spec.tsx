@@ -1108,3 +1108,73 @@ describe("共有の応答待ち中の移動", () => {
     expect(h.result.current.movePending).toBe(false);
   });
 });
+// 本番で本人側の取消を数えるため、通知を受けて取り消すときは理由の種類を RoomDO へ添える（#1401）。
+describe("本人側の取消の理由", () => {
+  it("掴んでいる付箋が消されたら note-changed を添えて取り消す", () => {
+    const h = setup();
+    h.start();
+    act(() => h.result.current.moveNote(N, 220, 100));
+    h.apply({ type: "note:deleted", noteId: N });
+    expect(sent(h, "note:move:cancel")).toEqual([
+      { type: "note:move:cancel", operationId: ids[0], reason: "note-changed" },
+    ]);
+  });
+  it.each([
+    [
+      "phase-changed",
+      {
+        type: "phase:updated",
+        phase: { kind: "step", phase: 1, step: 3 },
+        phaseRevision: 1,
+      },
+    ],
+    [
+      "timer-stopped",
+      {
+        type: "timer:updated",
+        timer: { status: "paused", remainingMs: 30000, durationMs: 60000 },
+        serverNow: 0,
+      },
+    ],
+    ["resynced", snapshot],
+    // RoomDO は工程を変える・決めるとき、phase:updated より先に snapshot を送り直す。
+    ["phase-changed", { ...snapshot, phaseRevision: 1 }],
+    [
+      "map-changed",
+      { ...snapshot, phase: { kind: "step", phase: 3, step: 3 } },
+    ],
+    [
+      "decided",
+      { ...snapshot, decision: { phase: 1, noteId: N, decidedBy: M } },
+    ],
+    [
+      "decided",
+      {
+        type: "decision:updated",
+        decision: { phase: 1, noteId: N, decidedBy: M },
+      },
+    ],
+  ] as Array<[string, ServerMessage]>)(
+    "掴んでいる途中に通知で取り消すとき %s を添える",
+    (reason, message) => {
+      const h = setup();
+      h.start();
+      act(() => h.result.current.moveNote(N, 220, 100));
+      h.apply(message);
+      expect(sent(h, "note:move:cancel")).toEqual([
+        { type: "note:move:cancel", operationId: ids[0], reason },
+      ]);
+    },
+  );
+  it("本人の操作（Escape など）と、最新の版で掴み直すときは理由を添えない", () => {
+    const h = setup();
+    h.start();
+    act(() => h.result.current.moveNote(N, 220, 100));
+    h.apply(peerMoved(300, 1));
+    act(() => h.result.current.cancelNoteDrag());
+    expect(sent(h, "note:move:cancel")).toEqual([
+      { type: "note:move:cancel", operationId: ids[0] },
+      { type: "note:move:cancel", operationId: ids[1] },
+    ]);
+  });
+});
