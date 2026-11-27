@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CANVAS_COORDINATE_LIMIT } from "../../contracts/board";
 import { RESULT_STEP_BY_PHASE } from "../../contracts/phase";
 import type {
@@ -1515,3 +1515,158 @@ it("unrelated regrouping preserves the related group revision", () =>
     inverse(ctx, responses);
     expect(responses.at(-1)).toMatchObject({ status: "accepted" });
   }));
+
+// 本番で移動の失敗を理由の種類ごとに数える（#1401）。付箋の本文・ルーム・利用者・操作の ID は残さない。
+describe("移動の失敗の記録", () => {
+  afterEach(() => vi.restoreAllMocks());
+  function recordFailures() {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    return () =>
+      spy.mock.calls
+        .filter(
+          ([entry]) =>
+            typeof entry === "object" &&
+            entry !== null &&
+            (entry as { event?: unknown }).event === "note_move_failed",
+        )
+        .map((args) => args);
+  }
+  it("相手が先に動かした付箋の開始を断ったとき、理由の種類だけを1行残す", () =>
+    setup("move-failure-log-revision", (ctx) => {
+      const failures = recordFailures();
+      moveHandlers["note:move:start"](ctx, {
+        type: "note:move:start",
+        operationId: OP,
+        expectedPhaseRevision: Number(
+          ctx.sql.exec("SELECT phase_revision FROM room_state").one()
+            .phase_revision,
+        ),
+        expectedGroupRevision: 0,
+        expectedMapRevision: 0,
+        coordinateSpace: "canvas",
+        targets: [{ noteId: N2, positionRevision: 99, visibilityRevision: 0 }],
+      });
+      expect(failures().at(-1)).toEqual([
+        {
+          event: "note_move_failed",
+          operation: "start",
+          status: "rejected",
+          kind: "note-revision",
+        },
+      ]);
+      const logged = JSON.stringify(failures());
+      for (const secret of [A, B, N1, N2, OP, OP2, "test"])
+        expect(logged).not.toContain(secret);
+    }));
+  it("相手の移動が保存待ちの付箋の開始を断ったとき note-locked を残す", () =>
+    setup("move-failure-log-lock", (ctx) => {
+      const failures = recordFailures();
+      start(ctx, OP, [N2]);
+      let attachment: SocketAttachment = {
+        userId: B,
+        sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+      };
+      const ws = {
+        deserializeAttachment: () => attachment,
+        serializeAttachment: (next: SocketAttachment) => {
+          attachment = next;
+        },
+        readyState: 1,
+        send: () => {},
+      } as unknown as WebSocket;
+      start({ ...ctx, userId: B, ws }, OP2);
+      expect(failures()).toEqual([
+        [
+          {
+            event: "note_move_failed",
+            operation: "start",
+            status: "rejected",
+            kind: "note-locked",
+          },
+        ],
+      ]);
+    }));
+  it("開始の上限を超えたとき rate-limited を残す", () =>
+    setup("move-failure-log-rate", (ctx) => {
+      for (let index = 0; index < MOVE_OPERATIONS_PER_MINUTE; index += 1)
+        ctx.sql.exec(
+          "INSERT INTO note_move_operations(operation_id,user_id,connection_id,request_json,state,lease_until,created_at) VALUES (?1,?2,'old','{}','accepted',0,?3)",
+          crypto.randomUUID(),
+          A,
+          Date.now(),
+        );
+      const failures = recordFailures();
+      start(ctx, OP, [N1]);
+      expect(failures().map(([entry]) => entry)).toEqual([
+        expect.objectContaining({ operation: "start", kind: "rate-limited" }),
+      ]);
+    }));
+  it("期限切れは期限が来たときに1回だけ残し、後の commit では重ねない", () =>
+    setup("move-failure-log-lease", (ctx) => {
+      const failures = recordFailures();
+      start(ctx);
+      ctx.sql.exec(
+        "UPDATE note_move_operations SET lease_until=0 WHERE operation_id=?1",
+        OP,
+      );
+      expireMoveOperations(ctx.sql);
+      commit(ctx);
+      expect(failures()).toEqual([
+        [
+          {
+            event: "note_move_failed",
+            operation: "lease",
+            status: "expired",
+            kind: "lease-expired",
+          },
+        ],
+      ]);
+    }));
+  it("保存に失敗した commit は save-failed を残す", () =>
+    setup("move-failure-log-save", (ctx) => {
+      ctx.sql.exec(
+        "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'分類',?2,'now','now')",
+        OP2,
+        JSON.stringify([N1, N2]),
+      );
+      start(ctx, OP, [N1]);
+      ctx.sql.exec(
+        "CREATE TRIGGER reject_move_group BEFORE DELETE ON groups BEGIN SELECT RAISE(ABORT, 'injected'); END",
+      );
+      const failures = recordFailures();
+      moveHandlers["note:move:commit"](ctx, {
+        type: "note:move:commit",
+        operationId: OP,
+        delta: { x: 600, y: 0 },
+      });
+      expect(failures().map(([entry]) => entry)).toEqual([
+        expect.objectContaining({ operation: "commit", kind: "save-failed" }),
+      ]);
+    }));
+  it("タイマーが止まった後の取り消しは inverse の timer-stopped を残す", () =>
+    setup("move-failure-log-inverse", (ctx, responses) => {
+      start(ctx);
+      commit(ctx);
+      saveTimerState(ctx.sql, { status: "idle" });
+      const failures = recordFailures();
+      inverse(ctx, responses);
+      expect(failures().map(([entry]) => entry)).toEqual([
+        expect.objectContaining({
+          operation: "inverse",
+          kind: "timer-stopped",
+        }),
+      ]);
+    }));
+  it("受理と本人の取消は記録しない", () =>
+    setup("move-failure-log-none", (ctx) => {
+      const failures = recordFailures();
+      start(ctx);
+      commit(ctx);
+      start(ctx, OP2, [N1]);
+      moveHandlers["note:move:cancel"](ctx, {
+        type: "note:move:cancel",
+        operationId: OP2,
+      });
+      expect(failures()).toEqual([]);
+    }));
+});

@@ -56,7 +56,21 @@ AUTH_APP_TEST_URL=http://localhost:3147 NOTE_MOVE_PROBE_OUT=/tmp/note-move.json 
 
 ### 本番で数える
 
-まだ無い。本番の失敗の頻度は分かっていない（#1401）。上の計測は「この場面で失敗するか」は数えられるが、「利用者が実際にどの場面にどれだけ当たるか」は数えられない。
+RoomDO が移動を断った・期限切れにしたときに、理由の種類だけを Workers Logs に1行残す（#1401、`workers/room/move-failure-log.ts`）。付箋の本文・ルーム・利用者・操作の ID は含めない。Workers Logs の保持は最大7日。
+
+```json
+{ "event": "note_move_failed", "operation": "start", "status": "rejected", "kind": "note-revision" }
+```
+
+見方：Cloudflare ダッシュボードの Workers & Pages → `idea-flow-api` → Observability（または Durable Objects → `RoomDO` → Observability）で、期間を最大7日にし、`event = note_move_failed` で絞って `kind`（と `operation`）ごとに数える。授業やハッカソンの日だけを見るときは期間をその時間帯に絞る。
+
+| 項目        | 値                                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `operation` | `start`（掴んだ）・`preview`（動かしている途中）・`commit`（離した）・`inverse`（移動を元に戻す・やり直す）・`lease`（期限）          |
+| `status`    | `rejected`（断った）・`expired`（期限切れ）                                                                                           |
+| `kind`      | 理由の種類。一覧と意味は `move-failure-log.ts` の `MoveFailureKind`。M3 の当たり方は `start` の `note-revision`・`note-locked` で見る |
+
+まだ数えていないもの：通知を受けた本人側が自分から取り消した回数（計測の `client-cancelled`）。RoomDO には届かないので、このログには出ない。送り方は、利用分析（PostHog）へ送るより、RoomDO へ理由の種類つきで知らせて同じログに残す（見る場所が1つで済み、学外のサービスへ新しく送らない）。M6 の残りとして作る。上の計測は「この場面で失敗するか」を数え、このログは「利用者が実際にどの理由にどれだけ当たるか」を数える。
 
 ## 原因の台帳
 
