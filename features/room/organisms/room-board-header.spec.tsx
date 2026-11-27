@@ -1884,6 +1884,41 @@ describe("共有の進行欄", () => {
     expect(banner).toHaveTextContent("あなたのターンです");
     expect(banner).toHaveAttribute("data-self", "true");
   });
+  it.each([
+    [
+      "発表者",
+      0,
+      "マイ付箋をボードに出して説明しよう",
+      "話を聞いて、リアクションを送ろう",
+    ],
+    [
+      "聞く人",
+      1,
+      "話を聞いて、リアクションを送ろう",
+      "マイ付箋をボードに出して説明しよう",
+    ],
+  ])(
+    "発表中は%sに今することを発表者の表示の中で示す",
+    (_role, index, text, otherText) => {
+      const active = { ...sharing, status: "active" as const, currentIndex: 0 };
+      render(
+        <RoomBoardHeader
+          {...setupProps({
+            phase: buildPhaseStep(2),
+            currentUserId: active.order[index].userId,
+          })}
+          {...{
+            sharing: active,
+            onSharingStart: vi.fn(),
+            onSharingAdvance: vi.fn(),
+          }}
+        />,
+      );
+      const banner = screen.getByTestId("sharing-current-presenter");
+      expect(banner).toHaveTextContent(text);
+      expect(banner).not.toHaveTextContent(otherText);
+    },
+  );
   it("共有が終わったら発表者の表示を消す", () => {
     render(
       <RoomBoardHeader
