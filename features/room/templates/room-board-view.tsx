@@ -2492,7 +2492,9 @@ export function RoomBoardView({
 
         {!isIdeaMapWorkspaceStep || presenterViewStatusControl !== null ? (
           <div
-            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
+            // フォローの帯が下中央にあると、PC 幅未満では左下のツールバーの右端
+            // （リアクションなど）に重なる。帯があるときだけツールバーの上へ逃がす。
+            className={`pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)] ${presenterViewStatusControl !== null ? "min-[640px]:max-[1279px]:bottom-[5.25rem]" : ""}`}
             data-testid={
               !isIdeaMapWorkspaceStep ? "phase-loop-hud" : "presenter-view-hud"
             }
