@@ -13,49 +13,30 @@ afterEach(() => server.resetHandlers());
 afterEach(() => cleanup());
 afterAll(() => server.close());
 
-// UI components use the Japanese messages by default in unit tests.
-// Individual tests can override these mocks when they need another locale.
+// 単体テストの画面は日本語で描く。本番と同じ next-intl の翻訳処理を通すので、
+// 辞書に無いキーや書式の誤りはテストで分かる。別の言語が要るテストは個別に差し替える。
 const testMessages = { app: appMessages, landing: landingMessages };
 vi.mock("next-intl", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next-intl")>();
-  type TestTranslator = ((
-    key: string,
-    values?: Record<string, string | number>,
-  ) => string) & {
-    raw: (key: string) => unknown;
-  };
-  const translators = new Map<string, TestTranslator>();
-  const resolveMessage = (namespace: string, key: string): unknown => {
-    const value = namespace.split(".").reduce<unknown>((current, part) => {
-      if (typeof current !== "object" || current === null) return undefined;
-      return (current as Record<string, unknown>)[part];
-    }, testMessages);
-    return key.split(".").reduce<unknown>((current, part) => {
-      if (typeof current !== "object" || current === null) return undefined;
-      return (current as Record<string, unknown>)[part];
-    }, value);
-  };
+  // フックの依存配列に入れても再実行が続かないよう、名前空間ごとに同じ関数を返す。
+  const translators = new Map<string, unknown>();
   return {
     ...actual,
     useLocale: () => "ja",
-    useTranslations: (namespace: string): TestTranslator => {
-      const cached = translators.get(namespace);
+    useTranslations: (namespace?: string) => {
+      const key = namespace ?? "";
+      const cached = translators.get(key);
       if (cached) return cached;
-      const translate = ((
-        key: string,
-        values?: Record<string, string | number>,
-      ) => {
-        const message = resolveMessage(namespace, key);
-        if (typeof message !== "string") return key;
-        return Object.entries(values ?? {}).reduce(
-          (text, [name, replacement]) =>
-            text.replaceAll(`{${name}}`, String(replacement)),
-          message,
-        );
-      }) as TestTranslator;
-      translate.raw = (key) => resolveMessage(namespace, key);
-      translators.set(namespace, translate);
-      return translate;
+      const translator = actual.createTranslator({
+        locale: "ja",
+        messages: testMessages,
+        namespace: namespace as never,
+        onError: (error) => {
+          throw error;
+        },
+      });
+      translators.set(key, translator);
+      return translator;
     },
   };
 });
