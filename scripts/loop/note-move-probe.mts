@@ -7,10 +7,10 @@
 //
 // 環境変数: NOTE_MOVE_PROBE_LATENCY_MS（片道の遅延、既定 80）、
 // NOTE_MOVE_PROBE_SCENARIOS（カンマ区切りで絞る）、NOTE_MOVE_PROBE_OUT（JSON の出力先）、
-// NOTE_MOVE_PROBE_DEBUG（準備に失敗した場面の画面を保存するディレクトリ）。
-// 終了コード: 0 基準どおり / 1 基準を下回った場面がある / 2 使い方の誤り / 3 計測できなかった場面がある。
-// page.evaluate に渡す関数はブラウザの中で動くので、このファイルだけ DOM の型を読む。
-/// <reference lib="dom" />
+// NOTE_MOVE_PROBE_DEBUG（準備に失敗した場面の画面を保存するディレクトリ）、
+// NOTE_MOVE_PROBE_VIDEO（操作の動画を保存するディレクトリ。PR に添える変更前後の資料用）。
+// 終了コード: 0 基準どおり / 1 基準を下回った場面がある / 2 使い方の誤り /
+// 3 計測できなかった（数えられなかった場面がある、計測が動かなかった、下限と違う遅延で測った）。
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +19,13 @@ import {
   compareWithBaseline,
   type NoteMoveBaseline,
 } from "./note-move-baseline.mts";
+import {
+  draggableNoteIds,
+  fontsReady,
+  noteIdAtPoint,
+  noteWorldPosition,
+  showPointerDot,
+} from "./note-move-probe-page.mjs";
 
 const app = process.env.AUTH_APP_TEST_URL;
 const latencyMs = Number(process.env.NOTE_MOVE_PROBE_LATENCY_MS ?? 80);
@@ -68,9 +75,14 @@ async function openMember(
   name: string,
   email: string,
 ): Promise<Member> {
+  const videoDir = process.env.NOTE_MOVE_PROBE_VIDEO;
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
+    ...(videoDir
+      ? { recordVideo: { dir: videoDir, size: { width: 1440, height: 900 } } }
+      : {}),
   });
+  if (videoDir) await context.addInitScript(showPointerDot);
   const page = await context.newPage();
   page.setDefaultTimeout(10_000);
   const frames: Frame[] = [];
@@ -155,7 +167,7 @@ async function openRoom(
   for (const member of [actor, peer]) {
     await member.page.goto(`${app}${href}`);
     await member.page.getByTestId("board-canvas").waitFor();
-    await member.page.evaluate(() => document.fonts.ready);
+    await member.page.evaluate(fontsReady);
     await member.page
       .getByRole("button", { name: "ズームを100%に戻す" })
       .click();
@@ -218,52 +230,14 @@ async function world(
 ): Promise<{ x: number; y: number; scale: number } | null> {
   const card = member.page.locator(noteSelector(id)).first();
   if ((await card.count()) === 0) return null;
-  return card.evaluate((element) => {
-    const placed = element.closest<HTMLElement>(
-      '[data-testid^="board-note-"], [data-testid^="idea-value-feasibility-map-note-"]',
-    );
-    if (!placed) return null;
-    const style = getComputedStyle(placed);
-    return {
-      x: Number.parseFloat(style.left),
-      y: Number.parseFloat(style.top),
-      // left / top の座標系（親）の拡大率。2軸マップは付箋自身も縮むので親で測る。
-      scale:
-        placed.offsetParent instanceof HTMLElement &&
-        placed.offsetParent.offsetWidth > 0
-          ? placed.offsetParent.getBoundingClientRect().width /
-            placed.offsetParent.offsetWidth
-          : 1,
-    };
-  });
+  const position: { x: number; y: number; scale: number } | null =
+    await card.evaluate(noteWorldPosition);
+  return position;
 }
 
 // 画面の中央寄りにあり、ほかの付箋やHUDに隠れていない共有付箋を選ぶ。
 async function draggableNotes(member: Member): Promise<string[]> {
-  return member.page.evaluate(() => {
-    const cards = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-testid="note-card"][data-note-id]',
-      ),
-    ).filter((card) => !card.closest('[data-testid="private-notes-toolbar"]'));
-    const ids: string[] = [];
-    for (const card of cards) {
-      const rect = card.getBoundingClientRect();
-      const x = rect.left + rect.width * 0.4;
-      const y = rect.top + rect.height * 0.4;
-      if (
-        rect.left < 160 ||
-        rect.top < 200 ||
-        rect.right > window.innerWidth - 300 ||
-        rect.bottom > window.innerHeight - 160
-      )
-        continue;
-      const hit = document.elementFromPoint(x, y)?.closest("[data-note-id]");
-      const id = card.dataset.noteId;
-      if (id && hit?.getAttribute("data-note-id") === id) ids.push(id);
-    }
-    return ids;
-  });
+  return member.page.evaluate<string[]>(draggableNoteIds);
 }
 
 type DragOptions = {
@@ -287,12 +261,8 @@ async function dragNote(
   const x = before.x + before.width * 0.4;
   const y = before.y + before.height * 0.4;
   // 先の操作で別の付箋が重なった場合は、計測の対象から外す（別の付箋を掴んでしまうため）。
-  const hit = await member.page.evaluate(
-    ([px, py]) =>
-      document
-        .elementFromPoint(px, py)
-        ?.closest("[data-note-id]")
-        ?.getAttribute("data-note-id") ?? null,
+  const hit = await member.page.evaluate<string | null, [number, number]>(
+    noteIdAtPoint,
     [x, y],
   );
   if (hit !== id || x < 160 || y < 200 || x > 1440 - 300 || y > 900 - 160)
@@ -767,9 +737,9 @@ const scenarios: Scenario[] = [
           dragNote(actor, id, { dx: 70, dy: 20, holdMs: 200 }),
           dragNote(peer, id, { dx: -70, dy: 20, holdMs: 200 }),
         ]);
+        await settle([actor, peer], since);
         // 片方が掴めなかった回は競合にならないので数えない。
         if (!dragA || !dragB) continue;
-        await settle([actor, peer], since);
         const alternatives = [dragA?.expected, dragB?.expected].filter(
           (p): p is { x: number; y: number } => !!p,
         );
