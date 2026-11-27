@@ -303,3 +303,144 @@ describe("保存待ち中の連続移動", () => {
     },
   );
 });
+
+const P = "66666666-6666-4666-8666-666666666666";
+describe("時間切れの通知", () => {
+  it("掴んでいる移動も、離し終えた未送信の移動も取り消さない", () => {
+    // 時間切れの後も RoomDO は共有付箋の移動を受け付ける。
+    const h = setup();
+    h.start();
+    h.end(150);
+    h.start();
+    act(() => h.result.current.moveNote(N, 220, 100));
+    h.apply({
+      type: "timer:updated",
+      timer: { status: "ended", durationMs: 60000 },
+      serverNow: 0,
+    });
+    expect(h.result.current.draggingNoteId).toBe(N);
+    h.end(220);
+    expect(h.x()).toBe(220);
+    expect(h.result.current.moveFeedback).toBeNull();
+    h.accept(0, 100, 150);
+    expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:commit",
+      operationId: ids[1],
+      delta: { x: 70, y: 0 },
+    });
+  });
+});
+describe("共有の応答待ち中の移動", () => {
+  const shared = buildNote({
+    id: P,
+    visibility: "shared",
+    x: 300,
+    y: 200,
+    positionRevision: 1,
+    visibilityRevision: 1,
+  });
+  function shareSetup() {
+    const h = setup();
+    h.apply({
+      ...snapshot,
+      shareProtocolVersion: 1,
+      notes: [
+        ...snapshot.notes,
+        buildNote({ id: P, visibility: "private", x: 0, y: 0 }),
+      ],
+    });
+    // 共有の操作IDが ids[0]、続く移動が ids[1] になる。
+    act(() => h.result.current.publishNote(P, 300, 200));
+    const note = () => h.result.current.notes.find((n) => n.id === P);
+    const sent = (type: ClientMessage["type"]) =>
+      h.send.mock.calls.map(([m]) => m).filter((m) => m.type === type);
+    const commitShare = () => {
+      h.apply({ type: "note:updated", note: shared });
+      h.apply({
+        type: "note:share:result",
+        operationId: ids[0],
+        status: "committed",
+        receipt: {
+          operationId: ids[0],
+          noteId: P,
+          phaseRevision: 0,
+          before: {
+            visibility: "private",
+            x: 0,
+            y: 0,
+            positionRevision: 0,
+            visibilityRevision: 0,
+          },
+          after: {
+            visibility: "shared",
+            x: 300,
+            y: 200,
+            positionRevision: 1,
+            visibilityRevision: 1,
+          },
+        },
+      });
+    };
+    return { ...h, note, sent, commitShare };
+  }
+  it("置いた直後の付箋を応答を待たずに動かせ、共有の確定後にその位置を保存する", () => {
+    const h = shareSetup();
+    h.start(P);
+    act(() => h.result.current.endNoteDrag(P, 340, 220));
+    expect(h.note()).toMatchObject({ visibility: "shared", x: 340, y: 220 });
+    expect(h.sent("note:move:start")).toHaveLength(0);
+    h.commitShare();
+    expect(h.note()).toMatchObject({ visibility: "shared", x: 340, y: 220 });
+    expect(h.send.mock.calls.at(-2)?.[0]).toMatchObject({
+      type: "note:move:start",
+      operationId: ids[1],
+      targets: [{ noteId: P, positionRevision: 1, visibilityRevision: 1 }],
+    });
+    expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:commit",
+      operationId: ids[1],
+      delta: { x: 40, y: 20 },
+    });
+    expect(h.result.current.moveFeedback).toBeNull();
+  });
+  it("掴んでいる途中に共有が確定したら、そのまま掴み続けて離した位置を保存する", () => {
+    const h = shareSetup();
+    h.start(P);
+    act(() => h.result.current.moveNote(P, 320, 210));
+    h.commitShare();
+    expect(h.result.current.draggingNoteId).toBe(P);
+    expect(h.sent("note:move:start")).toHaveLength(1);
+    expect(h.sent("note:move:commit")).toHaveLength(0);
+    act(() => h.result.current.endNoteDrag(P, 360, 240));
+    expect(h.note()).toMatchObject({ visibility: "shared", x: 360, y: 240 });
+    expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:commit",
+      operationId: ids[1],
+      delta: { x: 60, y: 40 },
+    });
+  });
+  it("応答を待つ間は照会も途中位置も送らず、結果不明の失敗にしない", () => {
+    const h = shareSetup();
+    h.start(P);
+    act(() => h.result.current.endNoteDrag(P, 340, 220));
+    act(() => vi.advanceTimersByTime(4_100));
+    expect(h.sent("note:move:status")).toHaveLength(0);
+    expect(h.sent("note:move:preview")).toHaveLength(0);
+    expect(h.sent("note:move:commit")).toHaveLength(0);
+    expect(h.note()).toMatchObject({ x: 340, y: 220 });
+  });
+  it("共有が拒否されたら、待たせていた移動を送らずに捨てる", () => {
+    const h = shareSetup();
+    h.start(P);
+    act(() => h.result.current.endNoteDrag(P, 340, 220));
+    h.apply({
+      type: "note:share:result",
+      operationId: ids[0],
+      status: "rejected",
+      reason: "共有できませんでした。",
+    });
+    expect(h.note()).toMatchObject({ visibility: "private", x: 0, y: 0 });
+    expect(h.sent("note:move:start")).toHaveLength(0);
+    expect(h.result.current.movePending).toBe(false);
+  });
+});

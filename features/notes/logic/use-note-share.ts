@@ -7,6 +7,12 @@ import type {
   ShareReceipt,
 } from "@/contracts/room-protocol";
 
+/** 応答が返って終わった共有。shared は共有が確定した位置と版、できなかったときは null。 */
+export type ShareResolution = {
+  noteId: string;
+  shared: ShareReceipt["after"] | null;
+};
+
 export function useNoteShare({
   send,
   notes,
@@ -87,7 +93,8 @@ export function useNoteShare({
     [send, createId, query],
   );
   const applyMessage = useCallback(
-    (message: ServerMessage) => {
+    (message: ServerMessage): ShareResolution | null => {
+      let resolved: ShareResolution | null = null;
       if (message.type === "snapshot") {
         capability.current = {
           enabled: message.shareProtocolVersion === 1,
@@ -101,6 +108,15 @@ export function useNoteShare({
         message.type === "note:share:result" &&
         pendingRef.current.has(message.operationId)
       ) {
+        const operation = pendingRef.current.get(message.operationId);
+        const after =
+          message.status === "committed" ? message.receipt?.after : undefined;
+        resolved = operation
+          ? {
+              noteId: operation.noteId,
+              shared: after?.visibility === "shared" ? after : null,
+            }
+          : null;
         pendingRef.current.delete(message.operationId);
         setPending(pendingRef.current.size > 0);
         if (message.status === "committed") {
@@ -127,6 +143,7 @@ export function useNoteShare({
           message: message.message,
         });
       }
+      return resolved;
     },
     [query],
   );
@@ -135,22 +152,42 @@ export function useNoteShare({
   // 応答待ちの共有・戻しは本人の画面だけ行き先へ置く。ドロップした付箋が
   // 応答までマイ付箋へ戻って見えないようにし、拒否・結果不明では最新の値へ戻す。
   // 他の参加者へは RoomDO の確定後にだけ配信される。
-  const renderNotes = (source: ProtocolNote[]): ProtocolNote[] =>
+  // 置いた直後に動かした付箋（movedNoteIds）は、移動の表示が決めた位置を保つ。
+  const renderNotes = (
+    source: ProtocolNote[],
+    movedNoteIds?: ReadonlySet<string>,
+  ): ProtocolNote[] =>
     source.map((note) => {
       const operation = [...pendingRef.current.values()].find(
         (item) => item.noteId === note.id,
       );
-      return operation && operation.visibility !== note.visibility
-        ? {
-            ...note,
-            visibility: operation.visibility,
-            x: operation.x ?? note.x,
-            y: operation.y ?? note.y,
-          }
-        : note;
+      if (!operation || operation.visibility === note.visibility) return note;
+      const moved = movedNoteIds?.has(note.id) === true;
+      return {
+        ...note,
+        visibility: operation.visibility,
+        x: moved ? note.x : (operation.x ?? note.x),
+        y: moved ? note.y : (operation.y ?? note.y),
+      };
     });
+  // 共有の応答待ちの付箋が、本人の画面でボードに出ている姿。待ちが無ければ null。
+  const pendingSharedNote = useCallback((noteId: string) => {
+    const operation = [...pendingRef.current.values()].find(
+      (item) => item.noteId === noteId,
+    );
+    const note = notesRef.current.find((note) => note.id === noteId);
+    return operation?.visibility === "shared" && note
+      ? {
+          ...note,
+          visibility: "shared" as const,
+          x: operation.x ?? note.x,
+          y: operation.y ?? note.y,
+        }
+      : null;
+  }, []);
   return {
     commit,
+    pendingSharedNote,
     applyMessage,
     pending,
     receipt,

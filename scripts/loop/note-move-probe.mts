@@ -580,6 +580,8 @@ const scenarios: Scenario[] = [
       await wait(60);
       const since = Date.now();
       const drag = await dragNote(sharer, id, { dx: 70, dy: 40 });
+      if (process.env.NOTE_MOVE_PROBE_VIDEO)
+        console.error(`動画: ${await sharer.page.video()?.path()}`);
       await settle([sharer, watcher], since);
       await wait(600);
       const attempt = await judge(

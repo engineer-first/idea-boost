@@ -25,6 +25,8 @@ type Operation = {
   mapRevision: number;
   space: "canvas" | "map";
   status: "preview" | "pending";
+  // 共有の応答待ちの付箋を動かした操作。対象の版が決まる共有の確定まで RoomDO へ送らない。
+  waitingShare?: true;
 };
 type Capability = {
   enabled: boolean;
@@ -77,6 +79,13 @@ function advanceVersions(
 }
 
 export type MoveFeedback = { operationId: string; message: string };
+/** 共有が確定した付箋の、RoomDO 上の位置と版。 */
+export type SharedPosition = {
+  x: number;
+  y: number;
+  positionRevision: number;
+  visibilityRevision: number;
+};
 export function useNoteMove({
   notes,
   getNotes,
@@ -146,6 +155,21 @@ export function useNoteMove({
     },
     [send],
   );
+  // 列の先頭になった操作を RoomDO へ送り始める。
+  const launch = useCallback(
+    (operation: Operation) => {
+      if (operation.waitingShare) return;
+      sendStart(operation);
+      if (operation.status === "pending")
+        send({
+          type: "note:move:commit",
+          operationId: operation.id,
+          delta: operation.delta,
+        });
+      else previewSender(operation);
+    },
+    [previewSender, send, sendStart],
+  );
   const cancel = useCallback(
     (noteId?: string) => {
       const queue = operationsRef.current;
@@ -167,6 +191,11 @@ export function useNoteMove({
         publish(queue.slice(0, -1), true);
         return;
       }
+      if (head.waitingShare) {
+        // RoomDO へ何も送っていないので、本人の表示から外すだけでよい。
+        publish([], true);
+        return;
+      }
       if (head.status === "pending") {
         publish([head], true);
         send({ type: "note:move:status", operationId: head.id });
@@ -180,7 +209,7 @@ export function useNoteMove({
   useEffect(() => {
     const timer = setInterval(() => {
       const current = operationsRef.current[0];
-      if (!current) return;
+      if (!current || current.waitingShare) return;
       if (current.status === "pending")
         send({ type: "note:move:status", operationId: current.id });
       else
@@ -195,12 +224,17 @@ export function useNoteMove({
       previewSender.cancel();
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       const current = operationsRef.current[0];
-      if (current?.status === "preview")
+      if (current?.status === "preview" && !current.waitingShare)
         send({ type: "note:move:cancel", operationId: current.id });
     };
   }, [send, previewSender]);
   const start = useCallback(
-    (noteId: string, selectedIds: readonly string[] = [noteId]) => {
+    (
+      noteId: string,
+      selectedIds: readonly string[] = [noteId],
+      // 共有の応答待ちの付箋を掴んだとき、本人の画面に出ている共有後の姿を渡す。
+      pendingShare?: ProtocolNote,
+    ) => {
       if (operationsRef.current.at(-1)?.status === "preview") return;
       if (!capability.current.enabled) {
         setFeedback({
@@ -209,11 +243,19 @@ export function useNoteMove({
         });
         return;
       }
-      const ids = selectedIds.includes(noteId)
-        ? [...new Set(selectedIds)]
-        : [noteId];
+      const ids =
+        !pendingShare && selectedIds.includes(noteId)
+          ? [...new Set(selectedIds)]
+          : [noteId];
       // 確定通知と次の入力が同じ描画にまとまっても、受信済みの版を使う。
-      const displayed = renderMoves(getNotes(), operationsRef.current);
+      const displayed = renderMoves(
+        pendingShare
+          ? getNotes().map((note) =>
+              note.id === pendingShare.id ? pendingShare : note,
+            )
+          : getNotes(),
+        operationsRef.current,
+      );
       const before = ids.flatMap((id) => {
         const note = displayed.find((note) => note.id === id);
         return note ? [note] : [];
@@ -233,11 +275,12 @@ export function useNoteMove({
         mapRevision: cap.mapRevision,
         space: cap.space,
         status: "preview",
+        ...(pendingShare ? { waitingShare: true as const } : {}),
       };
       const queue = operationsRef.current;
       publish([...queue, next], true);
       setFeedback(null);
-      if (queue.length === 0) sendStart(next);
+      if (queue.length === 0 && !next.waitingShare) sendStart(next);
     },
     [createId, getNotes, publish, sendStart],
   );
@@ -273,7 +316,7 @@ export function useNoteMove({
       };
       const next = { ...current, delta };
       publish([...queue.slice(0, -1), next]);
-      if (queue.length === 1) previewSender(next);
+      if (queue.length === 1 && !next.waitingShare) previewSender(next);
     },
     [previewSender, publish],
   );
@@ -294,7 +337,7 @@ export function useNoteMove({
         status: "pending",
       };
       publish([...queue.slice(0, -1), next], true);
-      if (queue.length === 1)
+      if (queue.length === 1 && !next.waitingShare)
         send({
           type: "note:move:commit",
           operationId: current.id,
@@ -302,6 +345,47 @@ export function useNoteMove({
         });
     },
     [move, previewSender, publish, send],
+  );
+  // 共有の結果が出たら、待たせていた移動を確定した版へ付け替えて送る。
+  // 本人が離した位置を保つ。共有できなかったときは送らずに捨てる。
+  const resolveShare = useCallback(
+    (noteId: string, shared: SharedPosition | null) => {
+      const queue = operationsRef.current;
+      const waits = (operation: Operation) =>
+        operation.waitingShare === true && operation.anchorId === noteId;
+      if (!queue.some(waits)) return;
+      const headWaited = waits(queue[0]);
+      let first = true;
+      const next = queue.flatMap((operation): Operation[] => {
+        if (!waits(operation)) return [operation];
+        if (!shared) return [];
+        const { waitingShare: _, ...ready } = operation;
+        const rebased = first;
+        first = false;
+        return [
+          {
+            ...ready,
+            before: operation.before.map((note) => ({
+              ...note,
+              ...(rebased ? { x: shared.x, y: shared.y } : {}),
+              visibility: "shared" as const,
+              positionRevision: shared.positionRevision,
+              visibilityRevision: shared.visibilityRevision,
+            })),
+            delta: rebased
+              ? {
+                  x: operation.before[0].x + operation.delta.x - shared.x,
+                  y: operation.before[0].y + operation.delta.y - shared.y,
+                }
+              : operation.delta,
+          },
+        ];
+      });
+      if (!shared) previewSender.cancel();
+      publish(next, true);
+      if (headWaited && next[0]) launch(next[0]);
+    },
+    [launch, previewSender, publish],
   );
   const applyMessage = useCallback(
     (message: ServerMessage) => {
@@ -363,8 +447,10 @@ export function useNoteMove({
       if (
         message.type === "phase:updated" ||
         message.type === "outcome:published" ||
+        // 時間切れの後も RoomDO は共有付箋の移動を受け付ける。掴んでいる付箋を戻さない。
         (message.type === "timer:updated" &&
-          message.timer.status !== "running") ||
+          message.timer.status !== "running" &&
+          message.timer.status !== "ended") ||
         (message.type === "decision:updated" && message.decision !== null)
       ) {
         cancel();
@@ -405,6 +491,8 @@ export function useNoteMove({
       const conflict = operationsRef.current.find(
         (operation, index) =>
           !(index === 0 && operation.status === "pending") &&
+          // 共有の応答待ちは、共有そのものの確定通知を競合と数えない。
+          !operation.waitingShare &&
           operation.before.some(
             (note) =>
               (message.type === "note:deleted" && message.noteId === note.id) ||
@@ -498,26 +586,15 @@ export function useNoteMove({
             )
           : [];
       publish(waiting, true);
-      const next = waiting[0];
-      if (next) {
-        sendStart(next);
-        if (next.status === "pending")
-          send({
-            type: "note:move:commit",
-            operationId: next.id,
-            delta: next.delta,
-          });
-        else previewSender(next);
-      }
+      if (waiting[0]) launch(waiting[0]);
     },
     [
-      send,
       cancel,
+      launch,
       publish,
       updateNotes,
       previewSender,
       peerMoves.applyMessage,
-      sendStart,
     ],
   );
   const renderedNotes = useMemo(
@@ -532,9 +609,21 @@ export function useNoteMove({
       ),
     [],
   );
+  // 位置を移動の表示が決めている付箋。共有の応答待ちの表示が位置を上書きしないために使う。
+  const movedNoteIds = useMemo(
+    () =>
+      new Set(
+        operations.flatMap((operation) =>
+          operation.before.map((note) => note.id),
+        ),
+      ),
+    [operations],
+  );
   const last = operations.at(-1);
   return {
     notes: renderedNotes,
+    movedNoteIds,
+    resolveShare,
     draggingNoteId: last?.status === "preview" ? last.anchorId : null,
     frontNoteId: last?.anchorId ?? null,
     pending: operations.some((operation) => operation.status === "pending"),

@@ -697,8 +697,8 @@ export function RoomBoard({
   );
   const boardInteractions = useRoomBoardInteractions({
     movePending: notes.movePending || moveHistory.pending,
-    // 通常移動は先の保存待ちでも入力を保持する。共有境界・逆操作とは重ねない。
-    moveBlocked: notes.sharePending || moveHistory.pending,
+    // 通常移動は先の保存待ちでも、共有の応答待ちでも入力を保持する。逆操作とは重ねない。
+    moveBlocked: moveHistory.pending,
     onPendingMoveInterrupt: notes.cancelNoteDrag,
     getFitInsets: getBoardFitInsets,
     notes: boardNotes,

@@ -136,7 +136,7 @@ describe("useRoomBoardInteractions cursor input", () => {
   });
 
   it.each([false, true])(
-    "保存待ち中も共有移動を開始でき、逆操作や共有待ちは止める blocked=%s",
+    "保存待ち中も共有移動を開始でき、逆操作の待ちは止める blocked=%s",
     (moveBlocked) => {
       const { result, onNoteDragStart } = setup({
         withSharedDrag: true,
