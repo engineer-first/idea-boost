@@ -629,6 +629,26 @@ describe("再接続", () => {
     });
     expect(h.result.current.moveFeedback).toBeNull();
   });
+  it("離し終えた付箋を掴み直している途中で切れ、盤面がその掴みを取り消しても、離し終えた移動は残す", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    act(() => h.result.current.startNoteDrag(M));
+    h.end(430, M);
+    act(() => h.result.current.startNoteDrag(M));
+    act(() => h.result.current.moveNote(M, 480, 100));
+    // 切断の effect は、先に移動の列から掴み途中を外し、続いて盤面が掴んでいた付箋の取消を呼ぶ。
+    h.rerender({ connected: false });
+    act(() => h.result.current.cancelNoteDrag(M));
+    expect(h.result.current.notes.find((n) => n.id === M)?.x).toBe(430);
+    h.apply(snapshot);
+    h.rerender({ connected: true });
+    h.accept(0, 100, 150);
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: 30, y: 0 },
+    });
+  });
   it("先頭の確定が届く前に切れていたら、離した位置のまま新しい移動として送り直す", () => {
     const h = setup();
     h.start();
@@ -656,6 +676,33 @@ describe("再接続", () => {
       delta: { x: 30, y: 0 },
     });
     expect(h.result.current.moveFeedback).toBeNull();
+  });
+  it("切れている間に先頭の操作が期限切れになっていたら（expired）、送り直す", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    act(() => h.result.current.startNoteDrag(M));
+    h.end(430, M);
+    reconnect(h, snapshot.notes);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "expired",
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[2],
+      delta: { x: 50, y: 0 },
+    });
+    expect(h.result.current.moveFeedback).toBeNull();
+  });
+  it("接続が切れていない snapshot では、掴んでいる移動の取消を RoomDO へ送る", () => {
+    const h = setup();
+    h.start();
+    act(() => h.result.current.moveNote(N, 150, 100));
+    h.apply(snapshot);
+    expect(sent(h, "note:move:cancel")).toMatchObject([
+      { operationId: ids[0] },
+    ]);
   });
   it("先頭の確定が RoomDO に届いていなかったら（unknown）、送り直す", () => {
     const h = setup();
@@ -978,6 +1025,8 @@ describe("共有の応答待ち中の移動", () => {
       h.start(P);
       act(() => h.result.current.moveNote(P, 340, 220));
       if (reason === "escape") act(() => h.result.current.cancelNoteDrag());
+      if (reason === "disconnect") h.rerender({ connected: false });
+      if (reason === "snapshot") h.apply(snapshot);
       if (reason === "unmount") h.unmount();
       else {
         act(() => h.result.current.endNoteDrag(P, 360, 240));
@@ -993,6 +1042,33 @@ describe("共有の応答待ち中の移動", () => {
         expect(h.sent(type)).toHaveLength(0);
     },
   );
+  it("共有の応答待ちの移動は、切れて戻っても共有の確定まで送らず、確定したら送る", () => {
+    const h = shareSetup();
+    h.start(P);
+    act(() => h.result.current.endNoteDrag(P, 360, 240));
+    h.rerender({ connected: false });
+    h.apply({
+      ...snapshot,
+      shareProtocolVersion: 1,
+      notes: [
+        ...snapshot.notes,
+        buildNote({ id: P, visibility: "private", x: 0, y: 0 }),
+      ],
+    });
+    h.rerender({ connected: true });
+    for (const type of [
+      "note:move:start",
+      "note:move:cancel",
+      "note:move:status",
+      "note:move:commit",
+    ] as const)
+      expect(h.sent(type)).toHaveLength(0);
+    h.commitShare();
+    expect(h.sent("note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: 60, y: 40 },
+    });
+  });
   it("掴んでいる途中に共有が拒否されたら、離しても何も送らない", () => {
     const h = shareSetup();
     h.start(P);

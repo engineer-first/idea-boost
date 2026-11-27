@@ -654,7 +654,7 @@ export function useRoomNotes({
 
   const moveNote = transactionMove.move;
   const endNoteDrag = transactionMove.end;
-  const cancelNoteDrag = transactionMove.cancel;
+  const cancelNoteDrag = transactionMove.cancelDrag;
 
   const excludeNote = useCallback(
     (noteId: string) => send({ type: "note:exclude", noteId }),

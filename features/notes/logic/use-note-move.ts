@@ -274,8 +274,21 @@ export function useNoteMove({
     },
     [send, previewSender, publish],
   );
+  // 盤面が掴みを取り消したとき。その付箋を掴んでいる途中でなければ（切断などで先に外れた）何もしない。
+  const cancelDrag = useCallback(
+    (noteId?: string) => {
+      const last = operationsRef.current.at(-1);
+      if (noteId && (last?.status !== "preview" || last.anchorId !== noteId))
+        return;
+      cancel(noteId);
+    },
+    [cancel],
+  );
   // 接続が切れたら、掴んでいる途中の移動だけを外す。離し終えた移動は再接続の後に送る。
+  // 切断したか。次の snapshot だけを再接続として扱う（接続中の snapshot は従来どおり取り消す）。
+  const suspendedRef = useRef(false);
   const suspend = useCallback(() => {
+    suspendedRef.current = true;
     const queue = operationsRef.current;
     const last = queue.at(-1);
     if (last?.status !== "preview") return;
@@ -511,7 +524,10 @@ export function useNoteMove({
         };
         const cap = capability.current;
         const queue = operationsRef.current;
+        const wasSuspended = suspendedRef.current;
+        suspendedRef.current = false;
         if (
+          !wasSuspended ||
           queue.some(
             (operation) =>
               operation.phaseRevision !== cap.phaseRevision ||
@@ -711,9 +727,12 @@ export function useNoteMove({
       if (message.status === "active") return;
 
       previewSender.cancel();
-      // 切断で RoomDO が取り消した（cancelled）か、確定が届かなかった（unknown）。
+      // 切断で RoomDO が取り消した（cancelled）・確定が届かなかった（unknown）・
+      // 古い接続の操作が期限切れになった（expired）。どれも確定は適用されていない。
       if (
-        (message.status === "cancelled" || message.status === "unknown") &&
+        (message.status === "cancelled" ||
+          message.status === "unknown" ||
+          message.status === "expired") &&
         current.reconnected
       ) {
         const { reconnected: _, ...head } = current;
@@ -853,5 +872,6 @@ export function useNoteMove({
     move,
     end,
     cancel,
+    cancelDrag,
   };
 }
