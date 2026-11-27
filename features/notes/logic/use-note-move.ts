@@ -23,6 +23,8 @@ type Operation = {
   before: ProtocolNote[];
   delta: { x: number; y: number };
   phaseRevision: number;
+  // 離したときのフェーズ（ロビーは0）。進んだ先が別のフェーズなら送り直さない（#1442）。
+  phase: number;
   mapRevision: number;
   space: "canvas" | "map";
   status: "preview" | "pending";
@@ -35,7 +37,7 @@ type Operation = {
   reconnected?: true;
   // ステップが進む直前に離した移動。離したときの工程の版を添えて送る（#1442）。
   releasedPhaseRevision?: number;
-  // 進む前に送った先頭。進んだ後に届いて RoomDO が保存していなかったら（unknown）、
+  // 進む前に送った先頭。進んだ後に届いて RoomDO が保存しなかったら（取消・期限切れ・不明・拒否）、
   // 進んだ後の工程の版（この値）と離したときの版を添えて送り直す（#1442）。
   stepAdvanced?: number;
 };
@@ -44,6 +46,7 @@ const RELEASED_CARRY_MS = 3_000;
 type Capability = {
   enabled: boolean;
   phaseRevision: number;
+  phase: number;
   groupRevision: number;
   mapRevision: number;
   space: "canvas" | "map";
@@ -168,6 +171,7 @@ export function useNoteMove({
   const capability = useRef<Capability>({
     enabled: false,
     phaseRevision: 0,
+    phase: 0,
     groupRevision: 0,
     mapRevision: 0,
     space: "canvas",
@@ -433,6 +437,7 @@ export function useNoteMove({
         before,
         delta: { x: 0, y: 0 },
         phaseRevision: cap.phaseRevision,
+        phase: cap.phase,
         mapRevision: cap.mapRevision,
         space: cap.space,
         status: "preview",
@@ -552,6 +557,12 @@ export function useNoteMove({
   const applyMessage = useCallback(
     (message: ServerMessage) => {
       peerMoves.applyMessage(message);
+      // 工程の通知は進む通知（snapshot・timer:updated）の直後に続けて届く。間に移動の結果が
+      // 届いたら、一時停止などで外した移動なので持ち越さない（#1442）。
+      if (message.type === "note:move:result") {
+        carriedRef.current = null;
+        carriedHeadRef.current = null;
+      }
       const mapChanged =
         (message.type === "idea-map:state" ||
           message.type === "phase:updated") &&
@@ -575,6 +586,7 @@ export function useNoteMove({
         capability.current = {
           enabled: message.moveProtocolVersion === 1,
           phaseRevision: message.phaseRevision,
+          phase: message.phase.kind === "step" ? message.phase.phase : 0,
           groupRevision: message.groupRevision ?? 0,
           mapRevision: message.mapRevision ?? 0,
           space:
@@ -632,6 +644,8 @@ export function useNoteMove({
         capability.current.mapRevision = message.mapRevision;
       if (message.type === "phase:updated") {
         capability.current.phaseRevision = message.phaseRevision;
+        capability.current.phase =
+          message.phase.kind === "step" ? message.phase.phase : 0;
         capability.current.space =
           isPhaseStep(message.phase, 3, 2) ||
           isPhaseStep(message.phase, 3, 3) ||
@@ -676,6 +690,7 @@ export function useNoteMove({
         const fresh = (at: number) => Date.now() - at <= RELEASED_CARRY_MS;
         const releasable = (operation: Operation) =>
           operation.phaseRevision + 1 === message.phaseRevision &&
+          operation.phase === cap.phase &&
           operation.mapRevision === cap.mapRevision &&
           operation.space === cap.space;
         const [head, ...rest] = operationsRef.current;
@@ -863,7 +878,7 @@ export function useNoteMove({
         restart([head, ...operationsRef.current.slice(1)], false);
         return;
       }
-      if (message.status === "unknown" && current.stepAdvanced !== undefined) {
+      if (message.status !== "accepted" && current.stepAdvanced !== undefined) {
         const { stepAdvanced, ...head } = current;
         restart(
           [
@@ -876,6 +891,16 @@ export function useNoteMove({
           ],
           false,
         );
+        return;
+      }
+      if (
+        message.status !== "accepted" &&
+        current.releasedPhaseRevision !== undefined
+      ) {
+        // 送り直した移動が断られたら、進んだ先で動かせない。前と同じく知らせずに外す。
+        const rest = operationsRef.current.slice(1);
+        publish(rest, true);
+        if (rest[0]) launch(rest[0]);
         return;
       }
       const latest = getNotes().find(

@@ -1270,6 +1270,72 @@ describe("ステップが進む直前に離した移動", () => {
       expect(h.result.current.moveFeedback).toBeNull();
     },
   );
+  it.each(["cancelled", "expired"] as const)(
+    "1枚だけ離した直後に進み、確定が断られて照会が %s でも、離した位置へ送り直す",
+    (status) => {
+      const h = setup();
+      h.start();
+      h.end(150);
+      h.apply({
+        type: "timer:updated",
+        timer: { status: "idle" },
+        serverNow: 0,
+      });
+      h.apply(phaseUpdated);
+      expect(h.x()).toBe(150);
+      h.apply({ type: "note:move:result", operationId: ids[0], status });
+      expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+        operationId: ids[1],
+        expectedPhaseRevision: 1,
+        releasedPhaseRevision: 0,
+      });
+      expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+        operationId: ids[1],
+        delta: { x: 50, y: 0 },
+      });
+    },
+  );
+  it("一時停止で外した移動は、その後にステップが進んでも送らない", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    h.start(M);
+    h.end(500, M);
+    h.apply({ type: "timer:updated", timer: { status: "idle" }, serverNow: 0 });
+    h.accept(0, 100, 150);
+    act(() => vi.advanceTimersByTime(1_000));
+    h.apply(phaseUpdated);
+    expect(sent(h, "note:move:start")).toHaveLength(1);
+    expect(h.result.current.notes.find((n) => n.id === M)?.x).toBe(400);
+  });
+  it("別のフェーズへ進んだときは、離した移動を送らない", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    h.start(M);
+    h.end(500, M);
+    h.apply({ type: "timer:updated", timer: { status: "idle" }, serverNow: 0 });
+    h.apply({ ...phaseUpdated, phase: { kind: "step", phase: 2, step: 1 } });
+    h.accept(0, 100, 150);
+    expect(sent(h, "note:move:start")).toHaveLength(1);
+  });
+  it("送り直した移動が断られたら、知らせを出さずに外す", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    h.start(M);
+    h.end(500, M);
+    h.apply({ type: "timer:updated", timer: { status: "idle" }, serverNow: 0 });
+    h.apply(phaseUpdated);
+    h.accept(0, 100, 150);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[1],
+      status: "unknown",
+    });
+    expect(h.result.current.moveFeedback).toBeNull();
+    expect(h.result.current.movePending).toBe(false);
+  });
   it("進んでから時間がたって届いた工程の通知では、離した移動を送らない", () => {
     const h = setup();
     h.start();
