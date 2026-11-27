@@ -819,6 +819,57 @@ const scenarios: Scenario[] = [
     },
   },
   {
+    id: "queued-other-note-conflict",
+    description:
+      "3枚を続けて動かしている間に、先に離した別の1枚が消され、その移動だけが成立しなくなる",
+    checkpoint: "1-3",
+    // 消した付箋は本人の画面から外れるので、1ルームで試せる回数が少ない。
+    rooms: 3,
+    async run(actor, peer, record) {
+      const ids = await draggableNotes(actor);
+      const peerIds = new Set(await draggableNotes(peer));
+      const shared = ids.filter((id) => peerIds.has(id));
+      for (let i = 0; i < 4; i++) {
+        const [first, gone, last] = [0, 1, 2].map(
+          (k) => shared[3 * i + k] as string | undefined,
+        );
+        if (!first || !gone || !last) break;
+        const since = Date.now();
+        const dragFirst = await dragNote(actor, first, {
+          ...offsets[i % 4],
+          steps: 3,
+        });
+        if (
+          !(await dragNote(actor, gone, { ...offsets[(i + 1) % 4], steps: 3 }))
+        )
+          continue;
+        // 先の保存の結果が返る前に、並んでいる2枚目だけを成立しなくする。
+        // 相手が消した通知だけを本人へ差し込み、関係のない1枚目・3枚目を本人側が捨てないかを見る。
+        const dragLast = await dragNote(actor, last, {
+          ...offsets[(i + 2) % 4],
+          steps: 4,
+          during: async () =>
+            actor.inject({ type: "note:deleted", noteId: gone }),
+        });
+        await settle([actor, peer], since);
+        for (const [id, drag] of [
+          [first, dragFirst],
+          [last, dragLast],
+        ] as const)
+          record(
+            await judge(
+              "queued-other-note-conflict",
+              actor,
+              peer,
+              id,
+              since,
+              drag?.expected ?? null,
+            ),
+          );
+      }
+    },
+  },
+  {
     id: "map-parallel",
     description: "2軸マップで2人が同時に別々の付箋を動かす",
     checkpoint: "3-2",

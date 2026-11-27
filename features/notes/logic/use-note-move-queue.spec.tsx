@@ -456,6 +456,48 @@ describe("相手が動かし終えた直後の同じ付箋の移動", () => {
   });
 });
 
+describe("別の付箋の競合", () => {
+  it("並んだ移動の1件が成立しなくなっても、離し終えた別の移動と掴んでいる移動は捨てない", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    act(() => h.result.current.startNoteDrag(M));
+    h.end(430, M);
+    h.start();
+    act(() => h.result.current.moveNote(N, 220, 100));
+    h.apply({ type: "note:deleted", noteId: M });
+    expect(h.result.current.draggingNoteId).toBe(N);
+    expect(h.x()).toBe(220);
+    h.end(220);
+    h.accept(0, 100, 150);
+    expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+      operationId: ids[2],
+      targets: [{ noteId: N, positionRevision: 1 }],
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[2],
+      delta: { x: 70, y: 0 },
+    });
+  });
+  it("掴んでいる途中の移動だけが成立しなくなったら、それだけを取り消して先の移動は保存する", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    h.start();
+    h.end(220);
+    act(() => h.result.current.startNoteDrag(M));
+    act(() => h.result.current.moveNote(M, 460, 100));
+    h.apply({ type: "note:deleted", noteId: M });
+    expect(h.result.current.draggingNoteId).toBeNull();
+    expect(h.result.current.moveFeedback).not.toBeNull();
+    h.accept(0, 100, 150);
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: 70, y: 0 },
+    });
+  });
+});
+
 const P = "66666666-6666-4666-8666-666666666666";
 describe("時間切れの通知", () => {
   it("掴んでいる移動も、離し終えた未送信の移動も取り消さない", () => {
