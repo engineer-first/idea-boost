@@ -245,5 +245,5 @@ export const hackathonIdeaGuide: Guide = {
       url: "https://doi.org/10.1037/0022-3514.53.3.497",
     },
   ],
-  related: [],
+  related: ["how-might-we"],
 };
