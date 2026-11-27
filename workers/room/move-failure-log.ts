@@ -35,6 +35,8 @@ export type MoveFailureKind =
   | "connection-busy"
   | "other-connection"
   | "save-failed"
+  // 確定すると、本人に見えない分類まで組み替わってしまう
+  | "invisible-group"
   | "timer-stopped"
   // 取り消し（Undo/Redo）の前提が、ほかの人の変更で崩れた
   | "history-conflict"

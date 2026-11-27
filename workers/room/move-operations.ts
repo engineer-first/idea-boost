@@ -555,6 +555,8 @@ function activeOperation(
   }
   return { op, request, rows };
 }
+// 見えない分類を巻き込む確定は、保存の障害と分けて数える。
+class InvisibleGroupSideEffect extends Error {}
 function startFailure(
   ctx: HandlerCtx,
   rows: NoteRow[] | MoveFailureKind,
@@ -687,15 +689,34 @@ export const moveHandlers: MessageHandlers<
     if (
       !sourceReceipt?.changed ||
       source?.user_id !== ctx.userId ||
-      source.connection_id !== connectionId(ctx) ||
       !expected ||
-      !sameTargets ||
-      !permitted(ctx) ||
-      phase.kind !== "step" ||
-      sourceReceipt.phaseRevision !== getPhaseRevision(ctx.sql) ||
-      sourceReceipt.mapRevision !== revisions.mapRevision ||
-      sourceReceipt.coordinateSpace !==
-        (usesIdeaMapCoordinates(phase) ? "map" : "canvas") ||
+      !sameTargets
+    ) {
+      denied("invalid-request");
+      return;
+    }
+    if (source.connection_id !== connectionId(ctx)) {
+      denied("other-connection");
+      return;
+    }
+    if (!permitted(ctx) || phase.kind !== "step") {
+      denied("not-permitted");
+      return;
+    }
+    const sourceFailure: MoveFailureKind | null =
+      sourceReceipt.phaseRevision !== getPhaseRevision(ctx.sql)
+        ? "phase-revision"
+        : sourceReceipt.mapRevision !== revisions.mapRevision
+          ? "map-revision"
+          : sourceReceipt.coordinateSpace !==
+              (usesIdeaMapCoordinates(phase) ? "map" : "canvas")
+            ? "coordinate-space"
+            : null;
+    if (sourceFailure) {
+      denied(sourceFailure);
+      return;
+    }
+    if (
       !Object.entries(expected.groups).every(
         ([id, revision]) => (currentGroupVersions[id] ?? 0) === revision,
       ) ||
@@ -712,21 +733,24 @@ export const moveHandlers: MessageHandlers<
     const affected = expected.targets.map((target) =>
       findNote(ctx.sql, target.noteId),
     );
-    if (
-      affected.some(
-        (row, index) =>
-          row?.visibility !== "shared" ||
-          row.phase !== phase.phase ||
-          (row.position_revision ?? 0) !==
-            expected.targets[index].positionRevision ||
-          (row.visibility_revision ?? 0) !==
-            expected.targets[index].visibilityRevision ||
-          hasMoveLock(ctx.sql, row.id) ||
-          ctx.broadcaster.findActiveDrag(row.id),
-      )
-    ) {
-      denied("history-conflict");
-      return;
+    for (const [index, row] of affected.entries()) {
+      const kind: MoveFailureKind | null =
+        row?.visibility !== "shared" || row.phase !== phase.phase
+          ? "note-unavailable"
+          : (row.position_revision ?? 0) !==
+                expected.targets[index].positionRevision ||
+              (row.visibility_revision ?? 0) !==
+                expected.targets[index].visibilityRevision
+            ? "note-revision"
+            : hasMoveLock(ctx.sql, row.id)
+              ? "note-locked"
+              : ctx.broadcaster.findActiveDrag(row.id)
+                ? "note-dragging"
+                : null;
+      if (kind) {
+        denied(kind);
+        return;
+      }
     }
     if (
       !sourceReceipt.after.every((target) => {
@@ -900,18 +924,19 @@ export const moveHandlers: MessageHandlers<
         });
         return;
       }
-      if (
-        previous.state === "active" &&
-        (previous.connection_id !== connectionId(ctx) ||
-          JSON.stringify(
-            (JSON.parse(previous.request_json) as StoredRequest).start,
-          ) !== JSON.stringify(message))
-      ) {
-        reject(ctx, message.operationId, {
-          operation: "start",
-          kind: "invalid-request",
-        });
-        return;
+      if (previous.state === "active") {
+        const kind: MoveFailureKind | null =
+          previous.connection_id !== connectionId(ctx)
+            ? "other-connection"
+            : JSON.stringify(
+                  (JSON.parse(previous.request_json) as StoredRequest).start,
+                ) !== JSON.stringify(message)
+              ? "invalid-request"
+              : null;
+        if (kind) {
+          reject(ctx, message.operationId, { operation: "start", kind });
+          return;
+        }
       }
       ctx.reply(resultFor(ctx, previous));
       return;
@@ -1127,7 +1152,7 @@ export const moveHandlers: MessageHandlers<
               ),
           )
         )
-          throw new Error("invisible group side effect");
+          throw new InvisibleGroupSideEffect();
         const affectedIds = new Set([
           ...rows.map((row) => row.id),
           ...changes.before.flatMap((group) => group.noteIds),
@@ -1185,11 +1210,17 @@ export const moveHandlers: MessageHandlers<
         });
         return result;
       });
-    } catch {
+    } catch (error) {
       reject(
         ctx,
         message.operationId,
-        { operation: "commit", kind: "save-failed" },
+        {
+          operation: "commit",
+          kind:
+            error instanceof InvisibleGroupSideEffect
+              ? "invisible-group"
+              : "save-failed",
+        },
         "移動を保存できませんでした。もう一度操作してください。",
         true,
       );

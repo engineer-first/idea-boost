@@ -1522,14 +1522,12 @@ describe("移動の失敗の記録", () => {
   function recordFailures() {
     const spy = vi.spyOn(console, "info").mockImplementation(() => {});
     return () =>
-      spy.mock.calls
-        .filter(
-          ([entry]) =>
-            typeof entry === "object" &&
-            entry !== null &&
-            (entry as { event?: unknown }).event === "note_move_failed",
-        )
-        .map((args) => args);
+      spy.mock.calls.filter(
+        ([entry]) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          (entry as { event?: unknown }).event === "note_move_failed",
+      );
   }
   it("相手が先に動かした付箋の開始を断ったとき、理由の種類だけを1行残す", () =>
     setup("move-failure-log-revision", (ctx) => {
@@ -1654,6 +1652,81 @@ describe("移動の失敗の記録", () => {
         expect.objectContaining({
           operation: "inverse",
           kind: "timer-stopped",
+        }),
+      ]);
+    }));
+  it("見えない分類を巻き込む確定は save-failed ではなく invisible-group を残す", () =>
+    setup("move-failure-log-invisible-group", (ctx) => {
+      ctx.sql.exec(
+        "UPDATE notes SET visibility='private',author_id=?1 WHERE id=?2",
+        B,
+        N2,
+      );
+      ctx.sql.exec(
+        "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'secret classification',?2,'now','now')",
+        OP2,
+        JSON.stringify([N1, N2]),
+      );
+      start(ctx, OP, [N1]);
+      const failures = recordFailures();
+      moveHandlers["note:move:commit"](ctx, {
+        type: "note:move:commit",
+        operationId: OP,
+        delta: { x: 600, y: 0 },
+      });
+      expect(failures()).toEqual([
+        [
+          {
+            event: "note_move_failed",
+            operation: "commit",
+            status: "rejected",
+            kind: "invisible-group",
+          },
+        ],
+      ]);
+      expect(JSON.stringify(failures())).not.toContain("secret");
+    }));
+  it("再接続した後の送り直しと取り消しは other-connection を残す", () =>
+    setup("move-failure-log-reconnect", (ctx, responses) => {
+      start(ctx);
+      const attachment = ctx.ws.deserializeAttachment() as SocketAttachment;
+      ctx.ws.serializeAttachment({
+        ...attachment,
+        moveConnectionId: crypto.randomUUID(),
+        activeMoveOperationId: undefined,
+      });
+      const failures = recordFailures();
+      start(ctx);
+      ctx.ws.serializeAttachment(attachment);
+      commit(ctx);
+      ctx.ws.serializeAttachment({
+        ...attachment,
+        moveConnectionId: crypto.randomUUID(),
+        activeMoveOperationId: undefined,
+      });
+      inverse(ctx, responses);
+      expect(failures().map(([entry]) => entry)).toEqual([
+        expect.objectContaining({
+          operation: "start",
+          kind: "other-connection",
+        }),
+        expect.objectContaining({
+          operation: "inverse",
+          kind: "other-connection",
+        }),
+      ]);
+    }));
+  it("退室した人の取り消しは history-conflict ではなく not-permitted を残す", () =>
+    setup("move-failure-log-inverse-member", (ctx, responses) => {
+      start(ctx);
+      commit(ctx);
+      ctx.sql.exec("DELETE FROM members WHERE user_id=?1", A);
+      const failures = recordFailures();
+      inverse(ctx, responses);
+      expect(failures().map(([entry]) => entry)).toEqual([
+        expect.objectContaining({
+          operation: "inverse",
+          kind: "not-permitted",
         }),
       ]);
     }));
