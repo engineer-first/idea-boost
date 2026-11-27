@@ -21,6 +21,12 @@ import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { isMember } from "./members";
 import {
+  logMoveFailure,
+  type MoveFailure,
+  type MoveFailureKind,
+  type MoveFailureOperation,
+} from "./move-failure-log";
+import {
   broadcastNoteUpdated,
   findNote,
   isVisibleTo,
@@ -97,6 +103,7 @@ export function expireMoveOperations(sql: SqlStorage, now = Date.now()): void {
       now,
     )
     .toArray()) {
+    logMoveFailure({ operation: "lease", kind: "lease-expired" }, "expired");
     finish(sql, String(row.operation_id), {
       type: "note:move:result",
       operationId: String(row.operation_id),
@@ -421,9 +428,11 @@ function groupMatches(
 function reject(
   ctx: HandlerCtx,
   operationId: string,
+  failure: MoveFailure,
   reason = "移動対象の権限・位置・分類が変更されています。もう一度操作してください。",
   existing = false,
 ): void {
+  logMoveFailure(failure);
   const result: Result = {
     type: "note:move:result",
     operationId,
@@ -468,29 +477,34 @@ function usesIdeaMapCoordinates(phase: ReturnType<typeof getPhase>): boolean {
   );
 }
 
-function validate(ctx: HandlerCtx, request: StoredRequest): NoteRow[] | null {
+// 受け付けられなければ、記録する理由の種類を返す。
+function validate(
+  ctx: HandlerCtx,
+  request: StoredRequest,
+): NoteRow[] | MoveFailureKind {
   const { start } = request;
   const phase = getPhase(ctx.sql);
   const revisions = moveRevisions(ctx.sql);
+  if (!permitted(ctx) || phase.kind !== "step") return "not-permitted";
+  if (start.expectedPhaseRevision !== getPhaseRevision(ctx.sql))
+    return "phase-revision";
+  if (start.expectedMapRevision !== revisions.mapRevision)
+    return "map-revision";
   if (
-    !permitted(ctx) ||
-    phase.kind !== "step" ||
-    start.expectedPhaseRevision !== getPhaseRevision(ctx.sql) ||
-    start.expectedMapRevision !== revisions.mapRevision ||
     start.coordinateSpace !== (usesIdeaMapCoordinates(phase) ? "map" : "canvas")
   )
-    return null;
+    return "coordinate-space";
   const rows: NoteRow[] = [];
   for (const target of start.targets) {
     const row = findNote(ctx.sql, target.noteId);
+    if (row?.visibility !== "shared" || row.phase !== phase.phase)
+      return "note-unavailable";
     if (
-      row?.visibility !== "shared" ||
-      row.phase !== phase.phase ||
       (row.position_revision ?? 0) !== target.positionRevision ||
-      (row.visibility_revision ?? 0) !== target.visibilityRevision ||
-      ctx.broadcaster.findActiveDrag(row.id)
+      (row.visibility_revision ?? 0) !== target.visibilityRevision
     )
-      return null;
+      return "note-revision";
+    if (ctx.broadcaster.findActiveDrag(row.id)) return "note-dragging";
     rows.push(row);
   }
   return rows;
@@ -498,6 +512,7 @@ function validate(ctx: HandlerCtx, request: StoredRequest): NoteRow[] | null {
 function activeOperation(
   ctx: HandlerCtx,
   id: string,
+  operation: MoveFailureOperation,
 ): { op: Operation; request: StoredRequest; rows: NoteRow[] } | null {
   expireMoveOperations(ctx.sql);
   const op = readOperation(ctx.sql, id);
@@ -510,7 +525,12 @@ function activeOperation(
     return null;
   }
   if (op.connection_id !== connectionId(ctx)) {
-    reject(ctx, id, "別の接続からこの移動を確定できません。");
+    reject(
+      ctx,
+      id,
+      { operation, kind: "other-connection" },
+      "別の接続からこの移動を確定できません。",
+    );
     return null;
   }
   const request = JSON.parse(op.request_json) as StoredRequest;
@@ -518,17 +538,41 @@ function activeOperation(
   const locks = ctx.sql
     .exec("SELECT note_id FROM note_move_locks WHERE operation_id=?1", id)
     .toArray();
-  if (
-    !rows ||
+  const lockLost =
     locks.length !== request.start.targets.length ||
     !request.start.targets.every((target) =>
       locks.some((lock) => lock.note_id === target.noteId),
-    )
-  ) {
-    reject(ctx, id, undefined, true);
+    );
+  if (typeof rows === "string" || lockLost) {
+    reject(
+      ctx,
+      id,
+      { operation, kind: typeof rows === "string" ? rows : "lock-lost" },
+      undefined,
+      true,
+    );
     return null;
   }
   return { op, request, rows };
+}
+// 見えない分類を巻き込む確定は、保存の障害と分けて数える。
+class InvisibleGroupSideEffect extends Error {}
+function startFailure(
+  ctx: HandlerCtx,
+  rows: NoteRow[] | MoveFailureKind,
+  checks: { rateLimited: boolean; duplicated: boolean },
+): MoveFailureKind | null {
+  if (checks.rateLimited) return "rate-limited";
+  if (checks.duplicated) return "invalid-request";
+  if (typeof rows === "string") return rows;
+  return rows.some(
+    (row) =>
+      ctx.sql
+        .exec("SELECT 1 FROM note_move_locks WHERE note_id=?1", row.id)
+        .toArray().length > 0,
+  )
+    ? "note-locked"
+    : null;
 }
 function clampDelta(
   rows: NoteRow[],
@@ -567,7 +611,10 @@ export const moveHandlers: MessageHandlers<
         previous.user_id !== ctx.userId ||
         JSON.stringify(saved.inverse) !== JSON.stringify(message)
       )
-        reject(ctx, message.operationId);
+        reject(ctx, message.operationId, {
+          operation: "inverse",
+          kind: "invalid-request",
+        });
       else ctx.reply(resultFor(ctx, previous));
       return;
     }
@@ -584,8 +631,10 @@ export const moveHandlers: MessageHandlers<
     const revisions = moveRevisions(ctx.sql);
     const currentGroupVersions = groupVersions(ctx.sql);
     const denied = (
+      kind: MoveFailureKind,
       reason = "ほかの人の変更があるため、この移動は戻せません",
     ) => {
+      logMoveFailure({ operation: "inverse", kind });
       // 拒否も保存し、結果照会で同じ要求の終端を返す。本文/対象は返信しない。
       ctx.sql.exec(
         "INSERT INTO note_move_operations(operation_id,user_id,connection_id,request_json,state,lease_until,created_at) VALUES (?1,?2,?3,?4,'rejected',0,?5)",
@@ -605,7 +654,10 @@ export const moveHandlers: MessageHandlers<
       if (saved) ctx.reply(resultFor(ctx, saved));
     };
     if (getTimerState(ctx.sql).status !== "running") {
-      denied("タイマーが動作していないため、ボードを操作できません。");
+      denied(
+        "timer-stopped",
+        "タイマーが動作していないため、ボードを操作できません。",
+      );
       return;
     }
     const recent = Number(
@@ -630,19 +682,41 @@ export const moveHandlers: MessageHandlers<
             item.visibilityRevision === target.visibilityRevision,
         ),
       );
+    if (recent >= MOVE_OPERATIONS_PER_MINUTE) {
+      denied("rate-limited");
+      return;
+    }
     if (
-      recent >= MOVE_OPERATIONS_PER_MINUTE ||
       !sourceReceipt?.changed ||
       source?.user_id !== ctx.userId ||
-      source.connection_id !== connectionId(ctx) ||
       !expected ||
-      !sameTargets ||
-      !permitted(ctx) ||
-      phase.kind !== "step" ||
-      sourceReceipt.phaseRevision !== getPhaseRevision(ctx.sql) ||
-      sourceReceipt.mapRevision !== revisions.mapRevision ||
-      sourceReceipt.coordinateSpace !==
-        (usesIdeaMapCoordinates(phase) ? "map" : "canvas") ||
+      !sameTargets
+    ) {
+      denied("invalid-request");
+      return;
+    }
+    if (source.connection_id !== connectionId(ctx)) {
+      denied("other-connection");
+      return;
+    }
+    if (!permitted(ctx) || phase.kind !== "step") {
+      denied("not-permitted");
+      return;
+    }
+    const sourceFailure: MoveFailureKind | null =
+      sourceReceipt.phaseRevision !== getPhaseRevision(ctx.sql)
+        ? "phase-revision"
+        : sourceReceipt.mapRevision !== revisions.mapRevision
+          ? "map-revision"
+          : sourceReceipt.coordinateSpace !==
+              (usesIdeaMapCoordinates(phase) ? "map" : "canvas")
+            ? "coordinate-space"
+            : null;
+    if (sourceFailure) {
+      denied(sourceFailure);
+      return;
+    }
+    if (
       !Object.entries(expected.groups).every(
         ([id, revision]) => (currentGroupVersions[id] ?? 0) === revision,
       ) ||
@@ -653,27 +727,30 @@ export const moveHandlers: MessageHandlers<
           ) && !(group.id in expected.groups),
       )
     ) {
-      denied();
+      denied("history-conflict");
       return;
     }
     const affected = expected.targets.map((target) =>
       findNote(ctx.sql, target.noteId),
     );
-    if (
-      affected.some(
-        (row, index) =>
-          row?.visibility !== "shared" ||
-          row.phase !== phase.phase ||
-          (row.position_revision ?? 0) !==
-            expected.targets[index].positionRevision ||
-          (row.visibility_revision ?? 0) !==
-            expected.targets[index].visibilityRevision ||
-          hasMoveLock(ctx.sql, row.id) ||
-          ctx.broadcaster.findActiveDrag(row.id),
-      )
-    ) {
-      denied();
-      return;
+    for (const [index, row] of affected.entries()) {
+      const kind: MoveFailureKind | null =
+        row?.visibility !== "shared" || row.phase !== phase.phase
+          ? "note-unavailable"
+          : (row.position_revision ?? 0) !==
+                expected.targets[index].positionRevision ||
+              (row.visibility_revision ?? 0) !==
+                expected.targets[index].visibilityRevision
+            ? "note-revision"
+            : hasMoveLock(ctx.sql, row.id)
+              ? "note-locked"
+              : ctx.broadcaster.findActiveDrag(row.id)
+                ? "note-dragging"
+                : null;
+      if (kind) {
+        denied(kind);
+        return;
+      }
     }
     if (
       !sourceReceipt.after.every((target) => {
@@ -681,7 +758,7 @@ export const moveHandlers: MessageHandlers<
         return row && row.x === target.x && row.y === target.y;
       })
     ) {
-      denied();
+      denied("history-conflict");
       return;
     }
     const currentGroups = listGroups(ctx.sql);
@@ -695,7 +772,7 @@ export const moveHandlers: MessageHandlers<
           currentGroups.some((g) => g.id === group.id),
       )
     ) {
-      denied();
+      denied("history-conflict");
       return;
     }
     let receipt: MoveReceipt;
@@ -786,7 +863,7 @@ export const moveHandlers: MessageHandlers<
         return result;
       });
     } catch {
-      denied();
+      denied("save-failed");
       return;
     }
     ctx.broadcaster.broadcastMoveBatch((viewerId) => ({
@@ -841,18 +918,25 @@ export const moveHandlers: MessageHandlers<
     const previous = readOperation(ctx.sql, message.operationId);
     if (previous) {
       if (previous.user_id !== ctx.userId) {
-        reject(ctx, message.operationId);
+        reject(ctx, message.operationId, {
+          operation: "start",
+          kind: "invalid-request",
+        });
         return;
       }
-      if (
-        previous.state === "active" &&
-        (previous.connection_id !== connectionId(ctx) ||
-          JSON.stringify(
-            (JSON.parse(previous.request_json) as StoredRequest).start,
-          ) !== JSON.stringify(message))
-      ) {
-        reject(ctx, message.operationId);
-        return;
+      if (previous.state === "active") {
+        const kind: MoveFailureKind | null =
+          previous.connection_id !== connectionId(ctx)
+            ? "other-connection"
+            : JSON.stringify(
+                  (JSON.parse(previous.request_json) as StoredRequest).start,
+                ) !== JSON.stringify(message)
+              ? "invalid-request"
+              : null;
+        if (kind) {
+          reject(ctx, message.operationId, { operation: "start", kind });
+          return;
+        }
       }
       ctx.reply(resultFor(ctx, previous));
       return;
@@ -861,7 +945,10 @@ export const moveHandlers: MessageHandlers<
     syncMovePresence(ctx.sql, ctx.broadcaster);
     const attached = ctx.ws.deserializeAttachment() as SocketAttachment;
     if (attached.activeMoveOperationId) {
-      reject(ctx, message.operationId);
+      reject(ctx, message.operationId, {
+        operation: "start",
+        kind: "connection-busy",
+      });
       return;
     }
     const recent = Number(
@@ -876,18 +963,15 @@ export const moveHandlers: MessageHandlers<
     const unique = new Set(message.targets.map((t) => t.noteId));
     const request: StoredRequest = { start: message, before: [] };
     const rows = validate(ctx, request);
-    if (
-      recent >= MOVE_OPERATIONS_PER_MINUTE ||
-      unique.size !== message.targets.length ||
-      !rows ||
-      rows.some(
-        (row) =>
-          ctx.sql
-            .exec("SELECT 1 FROM note_move_locks WHERE note_id=?1", row.id)
-            .toArray().length > 0,
-      )
-    ) {
-      reject(ctx, message.operationId);
+    const failure = startFailure(ctx, rows, {
+      rateLimited: recent >= MOVE_OPERATIONS_PER_MINUTE,
+      duplicated: unique.size !== message.targets.length,
+    });
+    if (failure || typeof rows === "string") {
+      reject(ctx, message.operationId, {
+        operation: "start",
+        kind: failure ?? "invalid-request",
+      });
       return;
     }
     request.before = rows.map(position);
@@ -921,7 +1005,7 @@ export const moveHandlers: MessageHandlers<
     });
   },
   "note:move:preview": (ctx, message) => {
-    const active = activeOperation(ctx, message.operationId);
+    const active = activeOperation(ctx, message.operationId, "preview");
     if (!active) {
       syncMovePresence(ctx.sql, ctx.broadcaster);
       return;
@@ -1012,7 +1096,7 @@ export const moveHandlers: MessageHandlers<
     );
   },
   "note:move:commit": (ctx, message) => {
-    const active = activeOperation(ctx, message.operationId);
+    const active = activeOperation(ctx, message.operationId, "commit");
     if (!active) return;
     const { request, rows } = active;
     const delta = clampDelta(
@@ -1068,7 +1152,7 @@ export const moveHandlers: MessageHandlers<
               ),
           )
         )
-          throw new Error("invisible group side effect");
+          throw new InvisibleGroupSideEffect();
         const affectedIds = new Set([
           ...rows.map((row) => row.id),
           ...changes.before.flatMap((group) => group.noteIds),
@@ -1126,10 +1210,17 @@ export const moveHandlers: MessageHandlers<
         });
         return result;
       });
-    } catch {
+    } catch (error) {
       reject(
         ctx,
         message.operationId,
+        {
+          operation: "commit",
+          kind:
+            error instanceof InvisibleGroupSideEffect
+              ? "invisible-group"
+              : "save-failed",
+        },
         "移動を保存できませんでした。もう一度操作してください。",
         true,
       );
