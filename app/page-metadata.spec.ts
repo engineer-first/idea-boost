@@ -126,22 +126,37 @@ describe("LP の言語別 URL", () => {
 });
 
 describe("LP 以外の画面の title", () => {
-  const pages: [string, () => Promise<{ metadata: Metadata }>][] = [
-    ["/home", () => import("./home/page")],
-    ["/rooms/[id]", () => import("./rooms/[id]/page")],
-    ["/rooms/[id]/start", () => import("./rooms/[id]/start/page")],
-    ["/completed-rooms", () => import("./completed-rooms/page")],
-    ["/completed-rooms/[id]", () => import("./completed-rooms/[id]/page")],
-    ["/privacy", () => import("./privacy/page")],
-    ["/auth/resume", () => import("./auth/resume/page")],
-    ["/invite/[inviteCode]", () => import("./invite/[inviteCode]/page")],
+  // 表示言語でタブ名を変える画面は generateMetadata で返す。
+  const pages: [string, () => Promise<Metadata>][] = [
+    ["/home", async () => (await import("./home/page")).generateMetadata()],
+    [
+      "/rooms/[id]",
+      async () => (await import("./rooms/[id]/page")).generateMetadata(),
+    ],
+    [
+      "/rooms/[id]/start",
+      async () => (await import("./rooms/[id]/start/page")).generateMetadata(),
+    ],
+    [
+      "/completed-rooms",
+      async () => (await import("./completed-rooms/page")).metadata,
+    ],
+    [
+      "/completed-rooms/[id]",
+      async () => (await import("./completed-rooms/[id]/page")).metadata,
+    ],
+    ["/privacy", async () => (await import("./privacy/page")).metadata],
+    ["/auth/resume", async () => (await import("./auth/resume/page")).metadata],
+    [
+      "/invite/[inviteCode]",
+      async () => (await import("./invite/[inviteCode]/page")).metadata,
+    ],
   ];
 
   it.each(pages)(
     "%s は画面名の title を持ち、noindex になる",
     async (_path, load) => {
-      const { metadata } = await load();
-      const resolved = resolve(metadata);
+      const resolved = resolve(await load());
       expect(resolved.title).toMatch(/^.+ \| Idea Boost$/);
       expect(isIndexed(resolved)).toBe(false);
     },

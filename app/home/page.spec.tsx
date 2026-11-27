@@ -2,10 +2,15 @@ import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  locale: vi.fn(async () => "ja"),
   user: vi.fn(),
   redirect: vi.fn((path: string) => {
     throw new Error(`redirect:${path}`);
   }),
+}));
+vi.mock("next-intl/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next-intl/server")>()),
+  getLocale: mocks.locale,
 }));
 vi.mock("@/lib/session/current-user", () => ({ getCurrentUser: mocks.user }));
 vi.mock("@/lib/session/env", () => ({
@@ -22,7 +27,7 @@ vi.mock("@/features/room-lifecycle/logic/room-creation-storage", () => ({
   subscribeRoomCreations: () => () => {},
 }));
 
-import HomePage from "./page";
+import HomePage, { generateMetadata } from "./page";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -98,3 +103,11 @@ it.each(["invalid", ["google_account_in_use", "failed"]])(
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   },
 );
+
+it.each([
+  ["ja", "ホーム | Idea Boost"],
+  ["en", "Home | Idea Boost"],
+])("ホームのタブ名を表示言語 %s で返す", async (locale, title) => {
+  mocks.locale.mockResolvedValue(locale);
+  await expect(generateMetadata()).resolves.toEqual({ title });
+});

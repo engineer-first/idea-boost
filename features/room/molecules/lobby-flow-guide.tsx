@@ -22,6 +22,8 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
     values?: Record<string, string | number>,
   ) => string;
   const overview = getLobbyFlowOverview(locale === "en" ? "en" : "ja");
+  // 押すボタンの名前を読み上げで区切る引用符。英語表示に日本語のかぎ括弧を混ぜない。
+  const [quoteOpen, quoteClose] = locale === "en" ? ["“", "”"] : ["「", "」"];
   const howToTitleId = useId();
   const flowTitleId = useId();
   return (
@@ -56,9 +58,9 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
                 <span aria-hidden="true" className={styles.readyMark}>
                   <Check className="size-3.5" strokeWidth={2.5} />
                 </span>
-                <span className="sr-only">「</span>
+                <span className="sr-only">{quoteOpen}</span>
                 {t("ready")}
-                <span className="sr-only">」</span>
+                <span className="sr-only">{quoteClose}</span>
               </span>
               {t("press")}
             </span>
@@ -70,9 +72,9 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
             <span className={styles.howToText}>
               {t("allReady")}
               <span className={styles.nextSample}>
-                <span className="sr-only">「</span>
+                <span className="sr-only">{quoteOpen}</span>
                 {t("next")}
-                <span className="sr-only">」</span>
+                <span className="sr-only">{quoteClose}</span>
               </span>
             </span>
           </li>

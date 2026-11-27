@@ -1,8 +1,29 @@
 import { render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { ROOM_PHASE_STEP_LABELS } from "@/contracts/phase";
+import appEn from "@/messages/en/app.json";
+import appJa from "@/messages/ja/app.json";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
 import { LobbyFlowGuide } from "./lobby-flow-guide";
+
+const language = vi.hoisted(() => ({ value: "ja" as "ja" | "en" }));
+vi.mock("next-intl", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next-intl")>();
+  return {
+    ...actual,
+    useLocale: () => language.value,
+    useTranslations: (namespace?: string) =>
+      actual.createTranslator({
+        locale: language.value,
+        messages: { app: language.value === "en" ? appEn : appJa },
+        namespace: namespace as never,
+      }),
+  };
+});
+
+afterEach(() => {
+  language.value = "ja";
+});
 
 it("全体の流れのステップ名とやることは、進行の定義と同じ文言で示す", () => {
   render(<LobbyFlowGuide />);
@@ -20,3 +41,18 @@ it("全体の流れのステップ名とやることは、進行の定義と同�
     }
   }
 });
+
+it.each([
+  ["ja", "「できた！」", "「次のステップへ」"],
+  ["en", "“Done!”", "“Next step”"],
+] as const)(
+  "押すボタンの名前を、表示言語 %s の引用符で読み上げる",
+  (locale, ready, next) => {
+    language.value = locale;
+    render(<LobbyFlowGuide />);
+    const guide = screen.getByTestId("lobby-flow-guide");
+    expect(guide).toHaveTextContent(ready);
+    expect(guide).toHaveTextContent(next);
+    if (locale === "en") expect(guide.textContent).not.toMatch(/[「」]/);
+  },
+);
