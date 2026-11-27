@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { MemberAvatar } from "@/features/room-members";
@@ -37,14 +38,32 @@ export function SharingAnnouncement({
 }: SharingAnnouncementProps) {
   const t = useTranslations("app.boardSharing");
   const showsDisconnected = isDisconnected && !isSelf;
+  const showsPass = showsDisconnected && onPass !== undefined;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const passedFromButtonRef = useRef(false);
+  // 押した「パスする」が送信中に押せなくなったり、番が移って消えたりすると、
+  // フォーカスが body に落ちて次の Tab が画面の先頭から始まる。押した本人だけ中央の表示へ移す（#1453）。
+  useEffect(() => {
+    if (!passedFromButtonRef.current) return;
+    if (showsPass && !passDisabled) return;
+    passedFromButtonRef.current = false;
+    const root = rootRef.current;
+    const active = document.activeElement;
+    if (!root) return;
+    if (active === null || active === document.body || root.contains(active)) {
+      root.focus({ preventScroll: true });
+    }
+  });
   return (
     <div
+      ref={rootRef}
+      tabIndex={-1}
       role="status"
       aria-live="polite"
       data-testid="sharing-current-presenter"
       data-board-fit-occupy="true"
       data-self={isSelf || undefined}
-      className={`pointer-events-none absolute left-1/2 top-[112px] z-[41] flex max-w-[min(28rem,calc(100%-24px))] -translate-x-1/2 flex-col items-start gap-1 rounded-xl border px-4 py-3 text-base font-semibold shadow-tool max-[900px]:top-[156px] min-[640px]:max-[900px]:left-auto min-[640px]:max-[900px]:right-[calc(15rem+0.75rem)] min-[640px]:max-[900px]:max-w-[min(28rem,calc(100%-15rem-0.75rem))] min-[640px]:max-[900px]:translate-x-0 max-[639px]:top-[288px] ${isSelf ? "border-primary bg-primary-soft text-primary-strong" : "border-border bg-background"}`}
+      className={`pointer-events-none absolute outline-none focus-visible:ring-3 focus-visible:ring-ring/50 left-1/2 top-[112px] z-[41] flex max-w-[min(28rem,calc(100%-24px))] -translate-x-1/2 flex-col items-start gap-1 rounded-xl border px-4 py-3 text-base font-semibold shadow-tool max-[900px]:top-[156px] min-[640px]:max-[900px]:left-auto min-[640px]:max-[900px]:right-[calc(15rem+0.75rem)] min-[640px]:max-[900px]:max-w-[min(28rem,calc(100%-15rem-0.75rem))] min-[640px]:max-[900px]:translate-x-0 max-[639px]:top-[288px] ${isSelf ? "border-primary bg-primary-soft text-primary-strong" : "border-border bg-background"}`}
     >
       {/* live region は残したまま中身だけ差し替え、交代を確実に読み上げる。
           発表者が替わったら中身を出し直し、登場の動きで交代に気づけるようにする。 */}
@@ -67,7 +86,7 @@ export function SharingAnnouncement({
         </span>
       </span>
 
-      {showsDisconnected && onPass ? (
+      {showsPass ? (
         // 枠は押せない層（pointer-events-none）なので、ボタンだけ押せるようにする。
         // 接続が切れた人のパスは確認を挟まない（順番のメニューの「パス」と同じ）。
         <span className="pl-11">
@@ -77,7 +96,10 @@ export function SharingAnnouncement({
             className="pointer-events-auto min-h-11 px-3 text-sm"
             aria-label={t("passMember", { name: member.name })}
             disabled={passDisabled}
-            onClick={onPass}
+            onClick={() => {
+              passedFromButtonRef.current = true;
+              onPass?.();
+            }}
           >
             {t("pass")}
           </Button>
