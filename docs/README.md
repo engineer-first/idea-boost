@@ -18,6 +18,7 @@
 | PRの変更版をローカル起動なしで試したい     | [PR Preview](operations/preview.md)                                                                         |
 | 流入元・利用の計測を有効にしたい           | [利用分析](operations/analytics.md)                                                                         |
 | 本番を公開・復旧したい                     | [リリース運用](operations/release.md)                                                                       |
+| Discord への通知を設定したい               | [Discord への通知](operations/discord-notify.md)                                                            |
 | 成果・意見の保存や削除を確認したい         | [共有成果](operations/shared-outcomes.md)、[意見](operations/feedback.md)                                   |
 | 現在の構成とデータ責務を知りたい           | [構成概要](architecture/overview.md)                                                                        |
 | なぜこの設計を選んだか                     | [ADR](adr/README.md)                                                                                        |

@@ -41,42 +41,43 @@ ADRはチームで共有する記録なので、Referencesにはチームの誰�
 
 置き換えたADRは、判断の後ろに後継を示す。
 
-| ADR                                              | 判断                                                                                               |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| [0001](0001-cloudflare-room-authority.md)        | Cloudflare構成でRoomDOを共有状態の権威にする                                                       |
-| [0002](0002-feature-boundaries.md)               | 機能単位で分割し公開境界を持つ                                                                     |
-| [0003](0003-feature-bands.md)                    | feature内部を依存方向の5帯にする                                                                   |
-| [0004](0004-custom-board.md)                     | 付箋ボードを自前で実装する                                                                         |
-| [0005](0005-shared-skills.md)                    | 共有スキルの正本を .agents/skills に統一する                                                       |
-| [0006](0006-move-transactions.md)                | 共有付箋の移動をRoomDOのtransactionとして確定する                                                  |
-| [0007](0007-room-creation-retries.md)            | ルーム作成要求を削除後も保持する（[0008](0008-room-creation-expiry.md)に置き換え）                 |
-| [0008](0008-room-creation-expiry.md)             | 作成受付と回復情報の寿命を分ける                                                                   |
-| [0009](0009-websocket-session-expiry.md)         | WebSocketにも署名検証済みセッション期限を適用する                                                  |
-| [0010](0010-room-entry-authentication.md)        | 入室前だけ認証を準備し、元操作を一度引き継ぐ                                                       |
-| [0011](0011-pr-preview-identity.md)              | PR PreviewをAccess本人ログインと共通APIで動かす（[0012](0012-pr-preview-full-stack.md)に置き換え） |
-| [0012](0012-pr-preview-full-stack.md)            | PR Previewの画面・API・保存先をPRごとに分ける                                                      |
-| [0013](0013-pr-preview-migration-reset.md)       | PR Previewはmigration変更時に保存先を作り直す                                                      |
-| [0014](0014-account-display-name.md)             | 認証名から独立した共通の表示名                                                                     |
-| [0015](0015-account-room-participation.md)       | アカウント単位でルーム参加の切り替えを管理する                                                     |
-| [0016](0016-account-participation-index.md)      | 参加候補を索引化し、WS操作から全ルーム照合を外す                                                   |
-| [0017](0017-move-current-groups.md)              | 付箋移動はドロップ時の分類から確定する                                                             |
-| [0018](0018-websocket-message-order.md)          | 同じ接続のWS操作を受信順に処理する                                                                 |
-| [0019](0019-queue-local-note-moves.md)           | 保存待ちの共有付箋移動をローカルで受け付ける                                                       |
-| [0020](0020-sprint-review-day-policy.md)         | Sprintのreview日を含む割当期間をversionで区別する                                                  |
-| [0021](0021-guest-session-identity.md)           | ゲスト本人を署名付きCookieで保持する                                                               |
-| [0022](0022-guest-session-refresh.md)            | ゲストは入室前に同じ本人のCookieを更新する                                                         |
-| [0023](0023-guest-google-link-same-identity.md)  | ゲストの本人IDへGoogleを後付けで連携する                                                           |
-| [0024](0024-pbi-shared-manual-order.md)          | PBIの優先順をProjectの共通手動順で管理する                                                         |
-| [0025](0025-room-without-host.md)                | ルームにホストを置かず、退出を本人だけの操作にする                                                 |
-| [0026](0026-account-session-refresh-on-entry.md) | Googleの本人も入室時にCookieを自動で更新する                                                       |
-| [0027](0027-color-tokens-and-lint.md)            | 色と角丸はDESIGN.mdの名前で書き、色の直書きはBiome公式の2ルールだけで止める                        |
-| [0028](0028-vote-sticker-display-names.md)       | 投票シールの画面の名前を「イチオシ！」「需要ありそう」にし、内部の種別名は変えない                 |
-| [0029](0029-step-guide-seen-per-user.md)         | ステップガイドの既読は本人×ステップ×案内の版で端末に残し、ルームをまたいで再表示しない             |
-| [0030](0030-ci-release-fatal-bug-bar.md)         | CIはリリース時の致命的な不具合を止めることを基準にし、PRでは変更範囲に応じて検査を絞る             |
-| [0031](0031-loop-development.md)                 | エージェントのループで改善から本番公開までを回し続ける                                             |
-| [0032](0032-vote-sticker-label-by-phase.md)      | 3票のシールは課題・問いでは「いいね」、アイデアでは「需要ありそう」と呼ぶ                          |
-| [0033](0033-note-move-never-fails.md)            | 共有付箋の移動は本人の操作を優先し、失敗を数えて減らし続ける                                       |
-| [0034](0034-loop-work-queue-on-issues.md)        | ループの作業の待ち行列は GitHub Issue に置き、beads へは移さない                                   |
+| ADR                                                          | 判断                                                                                               |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| [0001](0001-cloudflare-room-authority.md)                    | Cloudflare構成でRoomDOを共有状態の権威にする                                                       |
+| [0002](0002-feature-boundaries.md)                           | 機能単位で分割し公開境界を持つ                                                                     |
+| [0003](0003-feature-bands.md)                                | feature内部を依存方向の5帯にする                                                                   |
+| [0004](0004-custom-board.md)                                 | 付箋ボードを自前で実装する                                                                         |
+| [0005](0005-shared-skills.md)                                | 共有スキルの正本を .agents/skills に統一する                                                       |
+| [0006](0006-move-transactions.md)                            | 共有付箋の移動をRoomDOのtransactionとして確定する                                                  |
+| [0007](0007-room-creation-retries.md)                        | ルーム作成要求を削除後も保持する（[0008](0008-room-creation-expiry.md)に置き換え）                 |
+| [0008](0008-room-creation-expiry.md)                         | 作成受付と回復情報の寿命を分ける                                                                   |
+| [0009](0009-websocket-session-expiry.md)                     | WebSocketにも署名検証済みセッション期限を適用する                                                  |
+| [0010](0010-room-entry-authentication.md)                    | 入室前だけ認証を準備し、元操作を一度引き継ぐ                                                       |
+| [0011](0011-pr-preview-identity.md)                          | PR PreviewをAccess本人ログインと共通APIで動かす（[0012](0012-pr-preview-full-stack.md)に置き換え） |
+| [0012](0012-pr-preview-full-stack.md)                        | PR Previewの画面・API・保存先をPRごとに分ける                                                      |
+| [0013](0013-pr-preview-migration-reset.md)                   | PR Previewはmigration変更時に保存先を作り直す                                                      |
+| [0014](0014-account-display-name.md)                         | 認証名から独立した共通の表示名                                                                     |
+| [0015](0015-account-room-participation.md)                   | アカウント単位でルーム参加の切り替えを管理する                                                     |
+| [0016](0016-account-participation-index.md)                  | 参加候補を索引化し、WS操作から全ルーム照合を外す                                                   |
+| [0017](0017-move-current-groups.md)                          | 付箋移動はドロップ時の分類から確定する                                                             |
+| [0018](0018-websocket-message-order.md)                      | 同じ接続のWS操作を受信順に処理する                                                                 |
+| [0019](0019-queue-local-note-moves.md)                       | 保存待ちの共有付箋移動をローカルで受け付ける                                                       |
+| [0020](0020-sprint-review-day-policy.md)                     | Sprintのreview日を含む割当期間をversionで区別する                                                  |
+| [0021](0021-guest-session-identity.md)                       | ゲスト本人を署名付きCookieで保持する                                                               |
+| [0022](0022-guest-session-refresh.md)                        | ゲストは入室前に同じ本人のCookieを更新する                                                         |
+| [0023](0023-guest-google-link-same-identity.md)              | ゲストの本人IDへGoogleを後付けで連携する                                                           |
+| [0024](0024-pbi-shared-manual-order.md)                      | PBIの優先順をProjectの共通手動順で管理する                                                         |
+| [0025](0025-room-without-host.md)                            | ルームにホストを置かず、退出を本人だけの操作にする                                                 |
+| [0026](0026-account-session-refresh-on-entry.md)             | Googleの本人も入室時にCookieを自動で更新する                                                       |
+| [0027](0027-color-tokens-and-lint.md)                        | 色と角丸はDESIGN.mdの名前で書き、色の直書きはBiome公式の2ルールだけで止める                        |
+| [0028](0028-vote-sticker-display-names.md)                   | 投票シールの画面の名前を「イチオシ！」「需要ありそう」にし、内部の種別名は変えない                 |
+| [0029](0029-step-guide-seen-per-user.md)                     | ステップガイドの既読は本人×ステップ×案内の版で端末に残し、ルームをまたいで再表示しない             |
+| [0030](0030-ci-release-fatal-bug-bar.md)                     | CIはリリース時の致命的な不具合を止めることを基準にし、PRでは変更範囲に応じて検査を絞る             |
+| [0031](0031-loop-development.md)                             | エージェントのループで改善から本番公開までを回し続ける                                             |
+| [0032](0032-vote-sticker-label-by-phase.md)                  | 3票のシールは課題・問いでは「いいね」、アイデアでは「需要ありそう」と呼ぶ                          |
+| [0033](0033-note-move-never-fails.md)                        | 共有付箋の移動は本人の操作を優先し、失敗を数えて減らし続ける                                       |
+| [0034](0034-loop-work-queue-on-issues.md)                    | ループの作業の待ち行列は GitHub Issue に置き、beads へは移さない                                   |
+| [0035](0035-loop-asks-humans-for-what-only-humans-can-do.md) | ループは人にしかできない作業だけを人に頼み、頼んだことを確実に届ける                               |
 
 ## 検証
 

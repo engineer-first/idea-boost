@@ -1,7 +1,7 @@
 # ループ開発
 
 エージェントが「1周1仕事」の短いループを、人が起動しなくても回し、**改善 → develop へのマージ → 本番（ideaboost.dev）への公開**までを自走させる進め方。
-判断は [ADR 0031](../adr/0031-loop-development.md) に記録する。チームの Issue・PR・リリースの仕組み（[Issue運用](../team/issues.md)、[リリース運用](../operations/release.md)）は置き換えず、その上で回す。
+判断は [ADR 0031](../adr/0031-loop-development.md) と、人に頼む範囲を決めた [ADR 0035](../adr/0035-loop-asks-humans-for-what-only-humans-can-do.md) に記録する。チームの Issue・PR・リリースの仕組み（[Issue運用](../team/issues.md)、[リリース運用](../operations/release.md)）は置き換えず、その上で回す。
 
 | 文書                                                 | 中身                                                                                                 |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -35,7 +35,24 @@
 | R0 戻せる   | 文言、見た目、レイアウト、文書、テスト追加                                                                                    | 変更に近い Vitest、`typecheck`、変更ファイルの `biome check`、PR の必須チェック、別 context のレビュー   | 列車の品質ゲート |
 | R1 振る舞い | 画面の導線、操作、表示ロジック、クライアント状態                                                                              | 上記＋`verify` skill でローカルを PC 幅で実際に操作（必要なら3人）                                       | 同上＋次の巡回   |
 | R2 境界     | `contracts/`、`workers/`（RoomDO・api-worker）、可視性・認可・セッション、D1 / RoomDO migration、Server Action・Route Handler | 上記＋`npm run test:workers`＋`authz-security-reviewer` の独立レビューで指摘 0。migration は expand のみ | 同上             |
-| R3 人の判断 | 課金・契約、ruleset・secret・environment・認証方式の変更、学外への連絡                                                        | 行わない。`needs-human` に積む                                                                           | —                |
+| R3 人の判断 | 課金・契約、ruleset・environment・認証方式の変更、secret・トークンの値の発行、学外への連絡（公開アカウントでの投稿を含む）    | 行わない。`needs-human` に積む（[R3 の線引き](#r3-の線引き)）                                            | —                |
+
+### R3 の線引き
+
+R3 は、人の本人確認・支払い・判断が要るもの。値を人が用意すれば AI が登録できる作業は R3 に含めない（[ADR 0035](../adr/0035-loop-asks-humans-for-what-only-humans-can-do.md)）。次の作業はループも行ってよい。release ループは対象外で、[release.md](prompts/release.md) のとおり行わない。
+
+- **repository の Actions variables の追加・変更。** 公開してよい値で、名前と意味が `docs/operations/` に書かれている変数に限る。
+- **repository secret の登録・差し替え。** environment・org の secret は R3 に残す。値はオーナーが macOS のキーチェーンに `idea-boost/<secret 名>` の名前で置く。ループは `set -o pipefail` のうえで `security find-generic-password -s idea-boost/<名前> >/dev/null`（値は出ない）で項目があるのを確かめてから、`security find-generic-password -s idea-boost/<名前> -w | gh secret set <名前>` で登録する。値を表示・ログ・ファイルに出さない。項目が無い、または許可の画面が出て進めないときは `needs-human` にする。値の発行（トークンの作成・権限の変更）は人が行う。
+- **所有確認のための DNS の TXT レコードの追加。** SPF・DKIM・DMARC は含めない。既存のレコードを変えない、消さない。
+- **外部サービスの設定のうち、手順が `docs/operations/` に書かれている操作。** 例：[利用分析](../operations/analytics.md)の PostHog のプロジェクト設定。
+
+どれも、変えたものの名前と理由（値は書かない）を PR か Issue のコメントに残す。
+
+### 人に頼むとき
+
+人に頼むのは、R3 に当たって進めないときだけにする。`needs-human` を付けて、止まった場所、足りない権限、人にしてほしいこと（手順と目安の時間）、それを用意すれば次から AI ができるかを、コメントに書く。
+
+`needs-human` が付くと、[通知の workflow](../../.github/workflows/discord-needs-human-notify.yml)（[設定](../operations/discord-notify.md)）が Discord の Issue のチャンネルでオーナーをメンションする。ループはオーナーの GitHub アカウントで動くので、GitHub の通知はオーナーに届かない。人が済ませたら `needs-human` を外し、ループが続きを拾う。
 
 段階は検証の重さを決める。ループが自分で決めて作ってよい変更かどうかは段階と別に、次の節で決める。R0 の文言・見た目でも、体験の方向を変えるものは人が選ぶまで作らない。
 
@@ -157,7 +174,7 @@ replan が `loop:ready` に整える材料。上ほど優先する。どの種�
 ## 止まり方
 
 - 同じ Issue・同じ PR で3周失敗 → `blocked` と理由1〜3行、claim を外して次へ。`blocked` の PR は build が起きる理由に数えない。
-- 権限が無くて進めない（secret・ruleset・課金・学外のアカウント）→ `needs-human` を付け、どこで何の権限が無いかを書く。ほかの仕事は続ける。
+- 権限が無くて進めない（secret の値・ruleset・課金・学外のアカウント）→ [人に頼むとき](#人に頼むとき)のとおり `needs-human` を付ける。ほかの仕事は続ける。
 - 1回の起動で扱うのは build が PR 1本か Issue 1件、polish が欠陥3件、patrol が新規所見3件まで。提案は patrol・polish・replan がそれぞれ2件まで。暴走と費用と、人が読む量の上限を兼ねる。
 
 ## チームとの約束
