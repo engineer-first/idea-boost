@@ -29,7 +29,7 @@ async function isTopmostAtCenter(page: Page, target: Locator) {
 }
 
 test.each(sizes([1180, 820], [1024, 768], [768, 1024], [1280, 800]))(
-  "%i × %i : 発表者をフォロー中でも、リアクションとフォローを外すの中心を押せる",
+  "%i × %i : 発表者をフォロー中でも、帯がツールバーに重ならず、リアクションとフォローを外すを押せる",
   async (width, height) => {
     const page = await browser.newPage({ viewport: { width, height } });
     try {
@@ -47,12 +47,32 @@ test.each(sizes([1180, 820], [1024, 768], [768, 1024], [1280, 800]))(
       await reaction.waitFor();
       await unfollow.waitFor();
       await page.evaluate(() => document.fonts.ready);
+      // 帯がツールバーの端に少しでもかかると、端のボタンの一部が押せなくなる。
+      const toolbar = await page
+        .getByTestId("canvas-zoom-controls")
+        .boundingBox();
+      const banner = await unfollow.locator("..").boundingBox();
+      if (!toolbar || !banner)
+        throw new Error("ツールバーか帯が表示されていません");
+      const separated =
+        banner.x >= toolbar.x + toolbar.width ||
+        banner.x + banner.width <= toolbar.x ||
+        banner.y >= toolbar.y + toolbar.height ||
+        banner.y + banner.height <= toolbar.y;
+      expect(separated).toBe(true);
       expect(await isTopmostAtCenter(page, reaction)).toBe(true);
       expect(await isTopmostAtCenter(page, unfollow)).toBe(true);
       await reaction.click();
-      await page
-        .getByRole("dialog", { name: "リアクションを選ぶ" })
-        .waitFor({ state: "visible" });
+      const bar = page.getByRole("dialog", { name: "リアクションを選ぶ" });
+      await bar.waitFor({ state: "visible" });
+      await bar.evaluate(async (element) => {
+        await Promise.all(
+          element.getAnimations().map((animation) => animation.finished),
+        );
+      });
+      // 開いたリアクションの選択肢も、上へ逃がした帯に覆われない。
+      for (const choice of await bar.getByRole("button").all())
+        expect(await isTopmostAtCenter(page, choice)).toBe(true);
     } finally {
       await page.close();
     }

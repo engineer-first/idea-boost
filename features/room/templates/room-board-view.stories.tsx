@@ -1564,13 +1564,15 @@ export const MoveHistorySharing: Story = {
     phase: STEP_1_2,
   },
 };
+
 // 1-2 で聞く人が発表者をフォロー中。下中央の帯と左下のツールバー（リアクション付き）が並ぶ。
+// 名前は表示名の上限（15文字）にして、帯がいちばん広い場合を再現する。
 export const SharingFollowingPresenter: Story = {
   args: {
     ...MoveHistorySharing.args,
     isFollowingPresenterView: true,
     isPresenterViewOwner: false,
-    presenterViewName: "佐藤 花子",
+    presenterViewName: "たかはし みさき（企画チーム）",
     presenterViewColor: "blue",
     onUnfollowPresenterView: fn(),
     reactionControls: (disabled) => (
