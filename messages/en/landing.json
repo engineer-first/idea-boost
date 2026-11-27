@@ -2,20 +2,19 @@
   "LANDING_CONTACT_URL": "https://forms.gle/Adq3ZMyEVGEnxb169",
   "landingCopy": {
     "brand": "Idea Boost",
-    "title": "Idea Boost | From “What should we make?” to “Let's go with this.”",
-    "description": "No facilitator needed. Everyone shares their thinking and agrees on one idea. A web app for team ideation.",
-    "heading": ["From “What should we make?”", "to “Let's go with this.”"],
+    "title": "Idea Boost | Great ideas come from teams.",
+    "description": "A web app where everyone shares their thinking and the team settles on one great idea.",
+    "heading": ["Great ideas", "come from teams."],
     "subheading": [
-      "No facilitator needed.",
-      "Everyone shares their thinking",
-      "and agrees on one idea.",
-      "A web app for team ideation."
+      "AI made building fast.",
+      "Decide what to build",
+      "with Idea Boost."
     ],
     "promisesLabel": "What Idea Boost promises",
     "promises": [
-      "Your next step is always on screen",
-      "Everyone writes first, at their own pace",
-      "Choose without being swayed by others' votes, then talk and decide"
+      "The screen shows your next step",
+      "Write on your own first",
+      "Choose without seeing others' votes"
     ],
     "heroNote": {
       "text": "Free · Just a browser · About 2 hours to one idea",
@@ -90,7 +89,7 @@
       "Bring ideas together.",
       "Talk and decide."
     ],
-    "headingAccent": "to “Let's go with this.”",
+    "headingAccent": "Great ideas",
     "closing": ["When you're stuck for ideas,", "start here."],
     "examples": {
       "heading": "What teams decided using Idea Boost",
@@ -154,33 +153,33 @@
       "items": [
         {
           "title": "Gather",
-          "description": "No one has to run the meeting. Once you join a room, the screen shows you what to do, one step at a time."
+          "description": "No one has to run it. The screen shows what to do."
         },
         {
           "title": "Write",
-          "description": "Start on your own. Your notes stay visible only to you until you share them, so you can write down rough thoughts freely.",
+          "description": "Your notes stay visible only to you until you share them.",
           "evidence": "In spoken brainstorming, waiting to speak can reduce the number of ideas generated.",
           "source": "Source: Diehl & Stroebe (1987)",
           "url": "https://doi.org/10.1037/0022-3514.53.3.497"
         },
         {
           "title": "Share",
-          "description": "Take turns talking through your notes. Ideas from people who find it hard to speak up get the same space."
+          "description": "Take turns, so everyone's thinking comes out."
         },
         {
           "title": "Explore",
-          "description": "Before jumping to ideas, turn a problem into a “How might we…?” question. When you get stuck, you get a new angle, not an answer.",
+          "description": "Turn the problem into a “How might we…?” question first.",
           "evidence": "Lack of market fit is one reason startups fail. Check the problem before the ideas.",
           "source": "Source: CB Insights",
           "url": "https://www.cbinsights.com/research/report/startup-failure-reasons-top/"
         },
         {
           "title": "Choose",
-          "description": "Without seeing others' votes, place two kinds of stickers: a favorite (what you want to do) and “likely needed” (what others may need). Then talk through the votes and decide on one as a team."
+          "description": "Choose without seeing others' votes, then talk and decide."
         },
         {
           "title": "Take it home",
-          "description": "Copy the problem, question, and idea you chose, or save them as text or a PNG image."
+          "description": "Save the problem, question, and idea, and move on."
         }
       ]
     },
