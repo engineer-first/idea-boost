@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, PencilLine, RefreshCw, X } from "lucide-react";
+import { ArrowRight, Lightbulb, PencilLine, RefreshCw, X } from "lucide-react";
 import Image from "next/image";
 import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,6 @@ export type HmwHintCharacterProps = {
   showNudge?: boolean;
   hasBeenShown?: boolean;
   onHintOpen?: () => void;
-  onDismissNudge?: () => void;
   availableHeight?: number;
   onFadeOutComplete?: () => void;
 };
@@ -48,7 +47,6 @@ export function HmwHintCharacter({
   pending = false,
   showNudge = false,
   onHintOpen,
-  onDismissNudge,
   availableHeight,
   onFadeOutComplete,
 }: HmwHintCharacterProps) {
@@ -63,13 +61,12 @@ export function HmwHintCharacter({
   const questionRef = useRef<HTMLElement>(null);
   const firstWordRef = useRef<HTMLButtonElement>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [teaserDismissed, setTeaserDismissed] = useState(false);
   const [writing, setWriting] = useState(false);
   const question = selection?.issue === decidedIssue ? selection.question : "";
   const tooLong = question.length > NOTE_CONTENT_MAX_LENGTH;
   const hasIssue = Boolean(decidedIssue?.trim());
-  // 吹き出しも2-1の間は常に表示し、開いた popover が閉じれば戻る。
-  const teaserVisible = !open && !writing && !teaserDismissed;
+  // 困った人だけが開けばよいので、閉じている間は小さな入口だけを常に出す。
+  const teaserVisible = !open && !writing;
 
   useEffect(
     () => () => {
@@ -105,47 +102,11 @@ export function HmwHintCharacter({
     <div
       className={styles.character}
       data-testid="hmw-hint-character"
-      data-engaged={open || teaserVisible || writing}
+      data-engaged={open || writing}
       data-nudge={showNudge}
       data-writing={writing}
       data-expanded={open}
     >
-      {teaserVisible ? (
-        <div
-          className={styles.teaser}
-          data-nudge={showNudge}
-          data-testid="hmw-hint-nudge"
-        >
-          <ThoughtCloud />
-          <button
-            type="button"
-            className={styles.teaserButton}
-            aria-haspopup="dialog"
-            aria-expanded={false}
-            onClick={() => handleOpenChange(true)}
-          >
-            <span>
-              困ったらここから
-              <br />
-              作ってみよう
-            </span>
-          </button>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            className={styles.teaserClose}
-            aria-label="呼びかけを閉じる"
-            onClick={() => {
-              setTeaserDismissed(true);
-              onDismissNudge?.();
-            }}
-          >
-            <X aria-hidden="true" />
-          </Button>
-          <span aria-hidden="true" className={styles.thoughtTrail} />
-        </div>
-      ) : null}
       <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <button
@@ -335,6 +296,22 @@ export function HmwHintCharacter({
           </div>
         </PopoverContent>
       </Popover>
+      {teaserVisible ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={styles.teaser}
+          data-nudge={showNudge}
+          data-testid="hmw-hint-nudge"
+          aria-haspopup="dialog"
+          aria-expanded={false}
+          onClick={() => handleOpenChange(true)}
+        >
+          <Lightbulb aria-hidden="true" />
+          問いのヒント
+        </Button>
+      ) : null}
       {writing ? (
         <div className={styles.writing}>
           <div className={styles.writingPaper} aria-hidden="true">

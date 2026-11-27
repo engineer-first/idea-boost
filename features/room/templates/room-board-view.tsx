@@ -2414,7 +2414,6 @@ export function RoomBoardView({
               showNudge={hmwHintNudge.showNudge}
               hasBeenShown={hmwHintNudge.hasBeenShown}
               onHintOpen={hmwHintNudge.dismiss}
-              onDismissNudge={hmwHintNudge.dismiss}
               availableHeight={hmwHintAvailableHeight}
               onFadeOutComplete={hmwHintNudge.restart}
               pending={noteCreationPending}

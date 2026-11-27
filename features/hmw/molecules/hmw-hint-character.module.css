@@ -1,6 +1,10 @@
+/* 閉じている間はキャラクターと小さな入口だけを横に並べ、付箋欄の左の空き列に収める。 */
 .character {
   position: relative;
-  width: 80px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  width: max-content;
 }
 
 .trigger {
@@ -18,7 +22,6 @@
 }
 
 .trigger:focus-visible,
-.teaserButton:focus-visible,
 .word:focus-visible {
   outline: 3px solid var(--ring);
   outline-offset: 4px;
@@ -67,15 +70,12 @@
 }
 
 .teaser {
-  position: absolute;
-  bottom: 0;
-  left: 88px;
-  width: min(18rem, calc(100vw - 112px));
-  height: 88px;
-  transform-origin: 40px bottom;
-  animation:
-    cloud-arrive 440ms ease-out both,
-    cloud-float 4.5s 440ms ease-in-out infinite;
+  margin-bottom: 16px;
+  border-color: var(--ib-color-line-strong);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .cloudShape {
@@ -89,30 +89,6 @@
   stroke: var(--border);
   stroke-width: 1.5px;
   filter: drop-shadow(var(--elevation-tool));
-}
-
-.teaserButton {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 16px 20px;
-  border-radius: 50%;
-  color: var(--foreground);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.8;
-  cursor: pointer;
-}
-
-.teaserButton:hover {
-  color: var(--primary);
-}
-
-.teaserClose {
-  position: absolute;
-  top: 13px;
-  right: 19px;
-  color: var(--muted-foreground);
 }
 
 .thoughtTrail {
@@ -255,8 +231,7 @@
 }
 
 .cloud:hover,
-.cloud:hover .word,
-.teaser:hover {
+.cloud:hover .word {
   animation-play-state: paused;
 }
 
@@ -403,17 +378,6 @@
   height: 28px;
   color: var(--primary);
   animation: pencil-write 350ms ease-in-out 3 alternate;
-}
-
-@keyframes cloud-arrive {
-  from {
-    opacity: 0;
-    transform: scale(0.55);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 @keyframes cloud-expand {
@@ -631,10 +595,6 @@
     bottom: -19px;
     left: 42px;
   }
-  .teaser .thoughtTrail {
-    bottom: 12px;
-    left: -22px;
-  }
   .popover[data-compact="true"] .cloud {
     padding: 12px;
   }
@@ -654,7 +614,6 @@
   .character,
   .characterHalo,
   .characterImage,
-  .teaser,
   .cloudEntrance,
   .cloud[data-stage="words"],
   .word,
