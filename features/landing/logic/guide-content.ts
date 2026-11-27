@@ -1,3 +1,4 @@
+import { brainstormingGuide } from "./guide-brainstorming";
 import { designSprintGuide } from "./guide-design-sprint";
 import { hackathonIdeaGuide } from "./guide-hackathon-idea";
 import { howMightWeGuide } from "./guide-how-might-we";
@@ -8,6 +9,7 @@ export const GUIDES: readonly Guide[] = [
   hackathonIdeaGuide,
   howMightWeGuide,
   designSprintGuide,
+  brainstormingGuide,
 ];
 
 export function getGuide(slug: string): Guide | undefined {
