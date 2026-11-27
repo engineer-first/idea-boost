@@ -1,7 +1,7 @@
 # 利用分析（PostHog）
 
 流入元ごとの LP 訪問と、アプリの利用へ進んだ数を見るための計測（[#1043](https://github.com/engineer-first/idea-boost/issues/1043)、検討は [#636](https://github.com/engineer-first/idea-boost/issues/636)）。
-コードは入っているが、**PostHog のプロジェクトキーを設定するまで何も読み込まず、何も送らない。**
+本番では 2026-11-27 から有効（下の「今の設定」）。**PostHog のプロジェクトキーが無いビルドでは何も読み込まず、何も送らない。**
 
 ## 有効にする手順
 
