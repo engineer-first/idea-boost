@@ -164,7 +164,7 @@ it("通常のGoogleログイン開始時に連携intent Cookieを消してから
 it("開発時に戻り先がずれていれば、Cookieを消さずにGoogleへ送らず、理由をログイン画面に出す", async () => {
   vi.stubEnv("PREVIEW_ENABLED", undefined);
   mocks.googleConfigured = true;
-  mocks.redirectIssue.mockResolvedValue("戻り先が別のworktreeになります");
+  mocks.redirectIssue.mockResolvedValueOnce("戻り先が別のworktreeになります");
   await expect(signInWithGoogle("/rooms")).rejects.toThrow(
     `redirect:/login?next=%2Frooms&error=${encodeURIComponent("戻り先が別のworktreeになります")}`,
   );

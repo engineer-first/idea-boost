@@ -150,9 +150,11 @@ describe("同じタブの再ログイン", () => {
 
 describe("開発時の戻り先の確認", () => {
   it("戻り先がずれていれば、再開Cookieを触らずにGoogleへ送らず、使えない結果へ戻す", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     await grant();
-    mocks.redirectIssue.mockResolvedValue("戻り先が別のworktreeになります");
+    mocks.redirectIssue.mockResolvedValueOnce("戻り先が別のworktreeになります");
     await expect(startRoomReauthentication(operation, tabId)).rejects.toThrow(
       "redirect:/auth/resume?error=unavailable",
     );

@@ -192,8 +192,10 @@ describe("Google連携の開始", () => {
 
 describe("開発時の戻り先の確認", () => {
   it("戻り先がずれていれば、Cookieを書かずにGoogleへ送らず、連携できない結果へ戻す", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.redirectIssue.mockResolvedValue("戻り先が別のworktreeになります");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.redirectIssue.mockResolvedValueOnce("戻り先が別のworktreeになります");
     await expect(startGoogleAccountLink(next)).rejects.toThrow(
       `redirect:${accountLinkResultPath(next, "unavailable")}`,
     );
