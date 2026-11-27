@@ -30,7 +30,7 @@ it("/en はブラウザの言語によらず英語のLPを英語として表示�
     const { unmount } = render(await EnglishRootPage());
     expect(screen.getByRole("main")).toHaveAttribute("lang", "en");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "From “What should we make?”",
+      "Great ideas",
     );
     for (const link of screen.getAllByRole("link", {
       name: "Start for free",

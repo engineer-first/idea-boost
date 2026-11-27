@@ -95,7 +95,7 @@ describe("LP の言語別 URL", () => {
     const about = await import("./en/about/page");
     for (const { metadata } of [top, about]) {
       expect(isIndexed(resolve(metadata))).toBe(true);
-      expect(metadata.title).toContain("What should we make?");
+      expect(metadata.title).toContain("Great ideas come from teams.");
       expect(metadata.alternates).toEqual({
         canonical: "https://ideaboost.dev/en",
         languages,
