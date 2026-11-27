@@ -268,6 +268,100 @@ test.each(widths(1280, 1024))(
   },
 );
 
+test.each(
+  [
+    "step-1-1-personal-writing",
+    "guide-phase-2-step-1",
+    "guide-phase-3-step-1",
+  ].flatMap((id) => [
+    [id, 1280, 800],
+    [id, 1180, 820],
+  ]) as [string, number, number][],
+)(
+  "%s（%d×%d）で円形タイマーがマイ付箋の枠に重ならない",
+  async (id, width, height) => {
+    const page = await browser.newPage({
+      viewport: { width, height },
+      reducedMotion: "reduce",
+    });
+    try {
+      await story(page, `room-roomboardview--${id}`);
+      await page.getByTestId("private-notes-toolbar").waitFor();
+      // 枠の上端は配置計算のあとで決まる。落ち着いた位置で比べる
+      await expect
+        .poll(async () => {
+          const [timer, notes] = await Promise.all([
+            rect(page, "timer-floating"),
+            rect(page, "private-notes-toolbar"),
+          ]);
+          const apart =
+            timer.y + timer.height <= notes.y ||
+            timer.x >= notes.x + notes.width ||
+            timer.x + timer.width <= notes.x ||
+            timer.y >= notes.y + notes.height;
+          return apart;
+        })
+        .toBe(true);
+      // 重なりはタイマーではなく枠の側で避ける。タイマーは右上（HUD の下）のまま
+      const [root, hud, timer] = await Promise.all([
+        rect(page, "room-board-view-root"),
+        rect(page, "board-control-hud"),
+        rect(page, "timer-floating"),
+      ]);
+      expect(
+        Math.abs(root.x + root.width - 12 - timer.x - timer.width),
+      ).toBeLessThanOrEqual(1);
+      expect(Math.abs(hud.y + hud.height + 12 - timer.y)).toBeLessThanOrEqual(
+        1,
+      );
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test.each([
+  [1280, 800],
+  [1180, 820],
+] as [number, number][])(
+  "2-1（%d×%d）でタイマーを一時停止しても、マイ付箋の枠は同じ位置で重ならない",
+  async (width, height) => {
+    const page = await browser.newPage({
+      viewport: { width, height },
+      reducedMotion: "reduce",
+    });
+    try {
+      const settledTop = async (id: string) => {
+        await story(page, `room-roomboardview--${id}`);
+        await page.getByTestId("private-notes-toolbar").waitFor();
+        let top = Number.NaN;
+        await expect
+          .poll(async () => {
+            const [timer, notes] = await Promise.all([
+              rect(page, "timer-floating"),
+              rect(page, "private-notes-toolbar"),
+            ]);
+            top = notes.y;
+            return (
+              timer.y + timer.height <= notes.y ||
+              timer.x >= notes.x + notes.width ||
+              timer.x + timer.width <= notes.x ||
+              timer.y >= notes.y + notes.height
+            );
+          })
+          .toBe(true);
+        return top;
+      };
+      const running = await settledTop("guide-phase-2-step-1");
+      const paused = await settledTop("guide-phase-2-step-1-paused");
+      // 一時停止と再開で枠と付箋一覧が上下に跳ねない
+      expect(Math.abs(paused - running)).toBeLessThanOrEqual(1);
+    } finally {
+      await page.close();
+    }
+  },
+);
+
 test("幅982pxでマイ付箋を開いてもタイマーを右上HUDの下に保つ", async () => {
   const page = await browser.newPage({
     viewport: { width: 982, height: 390 },
