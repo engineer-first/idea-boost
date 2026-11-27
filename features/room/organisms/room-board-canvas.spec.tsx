@@ -1122,11 +1122,12 @@ describe("RoomBoardCanvas", () => {
           notes={[props.notes[0], { ...props.notes[1], x: 900 }]}
         />,
       );
-      expect(screen.getByText("課題A")).toBeInTheDocument();
-      expect(screen.getByTestId("note-group-card")).toHaveStyle({
-        left: "84px",
-        width: "1032px",
-      });
+      // 離れた付箋まで枠を伸ばさず、まとまりごとに同じ名前の枠を描く。
+      expect(screen.getAllByText("課題A")).toHaveLength(2);
+      const frames = screen.getAllByTestId("note-group-card");
+      expect(frames).toHaveLength(2);
+      expect(frames[0]).toHaveStyle({ left: "84px" });
+      expect(frames[1]).toHaveStyle({ left: "884px" });
     },
   );
 
