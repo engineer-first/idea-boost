@@ -3,14 +3,14 @@
 エージェントが「1周1仕事」の短いループを、人が起動しなくても回し、**改善 → develop へのマージ → 本番（ideaboost.dev）への公開**までを自走させる進め方。
 判断は [ADR 0031](../adr/0031-loop-development.md) と、人に頼む範囲を決めた [ADR 0035](../adr/0035-loop-asks-humans-for-what-only-humans-can-do.md) に記録する。チームの Issue・PR・リリースの仕組み（[Issue運用](../team/issues.md)、[リリース運用](../operations/release.md)）は置き換えず、その上で回す。
 
-| 文書                                                 | 中身                                                                                                 |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| この README                                          | なぜループか、原則、ループの一覧、マージと公開の決まり、チームとの約束（正本）                       |
-| [completion.json](completion.json)                   | 完成台帳。壊れていたら困る約束と、その確かめ方                                                       |
-| [ux-rubric.md](ux-rubric.md)                         | 利用者の旅、所見の重大度、分かりやすさの原則                                                         |
-| [note-move-reliability.md](note-move-reliability.md) | 付箋の移動の失敗を数える方法、原因の台帳、下限（[note-move-baseline.json](note-move-baseline.json)） |
-| [prompts/](prompts/)                                 | 各ループが毎回読む指示書（1周＝1ファイルを読んで1仕事）                                              |
-| [scripts/loop/](../../scripts/loop/)                 | 起こすかどうかの判定（precheck）と worktree の後片付け                                               |
+| 文書                                                 | 中身                                                                                                  |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| この README                                          | なぜループか、原則、ループの一覧、マージと公開の決まり、チームとの約束（正本）                        |
+| [completion.json](completion.json)                   | 完成台帳。壊れていたら困る約束と、その確かめ方                                                        |
+| [ux-rubric.md](ux-rubric.md)                         | 利用者の旅、所見の重大度、分かりやすさの原則                                                          |
+| [note-move-reliability.md](note-move-reliability.md) | 付箋の移動の失敗を数える方法、原因の台帳、下限（[note-move-baseline.json](note-move-baseline.json)）  |
+| [prompts/](prompts/)                                 | 各ループが毎回読む指示書（1周＝1ファイルを読んで1仕事）                                               |
+| [scripts/loop/](../../scripts/loop/)                 | 起こすかどうかの判定（precheck）、build が流す1件と着手（`next build`・`claim`）、worktree の後片付け |
 
 ## なぜループで進めるか
 

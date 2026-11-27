@@ -1,6 +1,8 @@
 // Orca automation の precheck。exit 0 のときだけ agent を起こし、やることが無い周回の起動と課金を避ける。
 // 条件の正本は docs/loop/README.md。ここは判定と、GitHub から状態を集める処理だけを持つ。
 // 使い方: node scripts/loop/precheck.mts <build|polish|patrol|mend|release|replan>
+//         node scripts/loop/precheck.mts next build [--skip N,N]   build が流す1件を JSON で返す
+//         node scripts/loop/precheck.mts claim <Issue番号> <worktree>  着手し、ほかの周回と重なっていないか確かめる
 //   automation からは origin/develop の precheck.mts を一時ディレクトリへ書き出して実行する。
 //   ほかのファイルを import しない（1ファイルだけを書き出して動かすため）。
 import { execFileSync } from "node:child_process";
@@ -50,11 +52,19 @@ export function decidePatrol(s: PatrolState): Decision {
 
 type Labels = { labels: string[] };
 
-/** build が拾ってよい Issue：`loop:ready` があり、着手中・詰まり・除外が無く、担当者がオーナーか未設定 */
-export function isReady(
-  i: Labels & { assignees: string[] },
-  actor: string,
-): boolean {
+export type ReadyIssue = Labels & {
+  assignees: string[];
+  /** GitHub の blocked-by で結ばれた前提のうち open の数 */
+  openBlockers?: number;
+  /** この Issue を閉じる open PR の作者 */
+  linkedPrAuthors?: string[];
+};
+
+/**
+ * build が拾ってよい Issue：`loop:ready` があり、着手中・詰まり・除外が無く、担当者がオーナーか未設定。
+ * blocked-by の前提が open のものと、人の open PR が紐づくものは拾わない。
+ */
+export function isReady(i: ReadyIssue, actor: string): boolean {
   if (!i.labels.includes("loop:ready")) return false;
   if (
     ["claimed", "blocked", "needs-human", "loop:skip"].some((l) =>
@@ -62,6 +72,8 @@ export function isReady(
     )
   )
     return false;
+  if ((i.openBlockers ?? 0) > 0) return false;
+  if ((i.linkedPrAuthors ?? []).some((a) => a !== actor)) return false;
   return i.assignees.every((a) => a === actor);
 }
 
@@ -136,6 +148,83 @@ export function isFailingPr(pr: {
       latest.set(c.name ?? "", c);
   }
   return [...latest.values()].some((c) => FAILED.includes(c.conclusion ?? ""));
+}
+
+type Item = { number: number; title: string; url: string };
+export type NextPr = Item &
+  Labels & {
+    author: string;
+    updatedAt: string;
+    failing?: boolean;
+  };
+export type NextIssue = Item & ReadyIssue & { createdAt: string };
+export type Next =
+  | ({ kind: "pr" } & Item)
+  | ({ kind: "issue"; labels: string[] } & Item)
+  | { kind: "none"; reason: string };
+
+const issueRank = (i: Labels) =>
+  i.labels.includes("P0") ? 0 : i.labels.includes("loop:ux") ? 1 : 2;
+
+/**
+ * build がこの周回で流す1件。止まっている PR（いちばん長く動いていないもの）を先に、
+ * 無ければ拾える Issue を P0 → loop:ux → 古い順で1件。skip は本文を読んで見送った番号。
+ */
+export function pickNext(s: {
+  prs: NextPr[];
+  issues: NextIssue[];
+  actor: string;
+  now: number;
+  skip?: number[];
+}): Next {
+  const skip = new Set(s.skip ?? []);
+  const pr = s.prs
+    .filter((p) => !skip.has(p.number) && isStalledPr(p, s.actor, s.now))
+    .sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt))[0];
+  if (pr)
+    return { kind: "pr", number: pr.number, title: pr.title, url: pr.url };
+  const issue = s.issues
+    .filter((i) => !skip.has(i.number) && isReady(i, s.actor))
+    .sort(
+      (a, b) =>
+        issueRank(a) - issueRank(b) ||
+        Date.parse(a.createdAt) - Date.parse(b.createdAt),
+    )[0];
+  if (issue)
+    return {
+      kind: "issue",
+      number: issue.number,
+      title: issue.title,
+      url: issue.url,
+      labels: issue.labels,
+    };
+  return { kind: "none", reason: "止まっている PR も拾える loop:ready も無い" };
+}
+
+const CLAIM = /^claimed by ib build \/ (\S+)/;
+const CLAIM_RACE_MS = 15 * 60_000;
+
+/**
+ * ラベルでの着手は原子的でないので、claim を書いた後に読み直して持ち主を決める。
+ * 自分の claim の前後15分にある、ループのアカウントの claim のうち最も早い周回が持つ。
+ * それより前の claim は、その周回が claimed を付けていたので今回の選択に残らない（外された後の古い claim）。
+ */
+export function claimHolder(
+  comments: Comment[],
+  actor: string,
+  mine: string,
+): string | undefined {
+  const claims = comments
+    .filter((c) => c.author === actor)
+    .flatMap((c) => {
+      const wt = CLAIM.exec(c.body)?.[1];
+      return wt ? [{ wt, at: Date.parse(c.createdAt) }] : [];
+    });
+  const own = claims.filter((c) => c.wt === mine).at(-1);
+  if (!own) return undefined;
+  return claims
+    .filter((c) => Math.abs(c.at - own.at) <= CLAIM_RACE_MS)
+    .sort((a, b) => a.at - b.at)[0]?.wt;
 }
 
 export type BuildState = {
@@ -337,10 +426,13 @@ const openLoopPrs = () =>
     ]) ?? []
   ).length;
 
-const stalledPrs = () =>
-  (
+function openPrs(): NextPr[] {
+  return (
     ghJson<
       (Labeled & {
+        number: number;
+        title: string;
+        url: string;
         author: { login: string };
         updatedAt: string;
         mergeable?: string;
@@ -356,41 +448,80 @@ const stalledPrs = () =>
       "-L",
       "100",
       "--json",
-      "labels,author,updatedAt,mergeable,statusCheckRollup",
+      "number,title,url,labels,author,updatedAt,mergeable,statusCheckRollup",
     ]) ?? []
-  ).filter((pr) =>
-    isStalledPr(
-      {
-        labels: pr.labels.map((l) => l.name),
-        author: pr.author?.login ?? "",
-        updatedAt: pr.updatedAt,
-        failing: isFailingPr(pr),
-      },
-      ACTOR,
-      Date.now(),
+  ).map((pr) => ({
+    number: pr.number,
+    title: pr.title,
+    url: pr.url,
+    labels: pr.labels.map((l) => l.name),
+    author: pr.author?.login ?? "",
+    updatedAt: pr.updatedAt,
+    failing: isFailingPr(pr),
+  }));
+}
+
+const stalledPrs = () =>
+  openPrs().filter((pr) => isStalledPr(pr, ACTOR, Date.now())).length;
+
+type Nodes<T> = { nodes: T[] };
+type GqlIssue = {
+  number: number;
+  title: string;
+  url: string;
+  createdAt: string;
+  labels: Nodes<{ name: string }>;
+  assignees: Nodes<{ login: string }>;
+  blockedBy: Nodes<{ state: string }>;
+  closedByPullRequestsReferences: Nodes<{ author: { login: string } | null }>;
+};
+
+// gh issue list の --json は blocked-by と紐づく PR を返さないので GraphQL で読む。
+const ISSUES_QUERY = `query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    issues(first: 100, states: OPEN, labels: ["loop:ready"], orderBy: {field: CREATED_AT, direction: ASC}) {
+      nodes {
+        number title url createdAt
+        labels(first: 30) { nodes { name } }
+        assignees(first: 10) { nodes { login } }
+        blockedBy(first: 20) { nodes { state } }
+        closedByPullRequestsReferences(first: 10, includeClosedPrs: false) { nodes { author { login } } }
+      }
+    }
+  }
+}`;
+
+function readyIssues(): NextIssue[] {
+  const [owner, name] = REPO.split("/");
+  const xs =
+    ghJson<GqlIssue[]>([
+      "api",
+      "graphql",
+      "-f",
+      `query=${ISSUES_QUERY}`,
+      "-F",
+      `owner=${owner}`,
+      "-F",
+      `name=${name}`,
+      "-q",
+      ".data.repository.issues.nodes",
+    ]) ?? [];
+  return xs.map((x) => ({
+    number: x.number,
+    title: x.title,
+    url: x.url,
+    createdAt: x.createdAt,
+    labels: x.labels.nodes.map((l) => l.name),
+    assignees: x.assignees.nodes.map((a) => a.login),
+    openBlockers: x.blockedBy.nodes.filter((b) => b.state === "OPEN").length,
+    linkedPrAuthors: x.closedByPullRequestsReferences.nodes.map(
+      (p) => p.author?.login ?? "",
     ),
-  ).length;
+  }));
+}
 
 function loopIssues() {
-  const xs =
-    ghJson<{ labels: { name: string }[]; assignees: { login: string }[] }[]>([
-      "issue",
-      "list",
-      "-R",
-      REPO,
-      "--state",
-      "open",
-      "--label",
-      "loop:ready",
-      "-L",
-      "200",
-      "--json",
-      "labels,assignees",
-    ]) ?? [];
-  const issues = xs.map((x) => ({
-    labels: x.labels.map((l) => l.name),
-    assignees: x.assignees.map((a) => a.login),
-  }));
+  const issues = readyIssues();
   return {
     ready: issues.filter((i) => isReady(i, ACTOR)).length,
     blocked: issues.filter((i) => i.labels.includes("blocked")).length,
@@ -533,7 +664,90 @@ const isMain = (() => {
   }
 })();
 
-if (isMain) {
+const jstNow = () =>
+  `${new Date().toLocaleString("sv-SE", { timeZone: "Asia/Tokyo" }).slice(0, 16)} JST`;
+
+/** `next build [--skip N,N]`：流す1件を JSON で出す。exit 0＝ある、1＝無い */
+function runNext(args: string[]): number {
+  const i = args.indexOf("--skip");
+  const skip =
+    i >= 0 ? (args[i + 1] ?? "").split(",").filter(Boolean).map(Number) : [];
+  const next = pickNext({
+    prs: openPrs(),
+    issues: readyIssues(),
+    actor: ACTOR,
+    now: Date.now(),
+    skip,
+  });
+  console.log(JSON.stringify(next));
+  return next.kind === "none" ? 1 : 0;
+}
+
+/** `claim <Issue番号> <worktree>`：claimed と担当者とコメントを付け、読み直して持ち主か確かめる。exit 0＝持った、1＝ほかの周回が先 */
+function runClaim(args: string[]): number {
+  const [n, worktree] = args;
+  if (!/^\d+$/.test(n ?? "") || !worktree) {
+    console.error("usage: precheck.mts claim <Issue番号> <worktree>");
+    return 2;
+  }
+  const num = String(n);
+  gh([
+    "issue",
+    "edit",
+    num,
+    "-R",
+    REPO,
+    "--add-label",
+    "claimed",
+    "--add-assignee",
+    ACTOR,
+  ]);
+  gh([
+    "issue",
+    "comment",
+    num,
+    "-R",
+    REPO,
+    "--body",
+    `claimed by ib build / ${worktree} / ${jstNow()}`,
+  ]);
+  const comments = (
+    ghJson<{ author: { login: string }; body: string; createdAt: string }[]>([
+      "issue",
+      "view",
+      num,
+      "-R",
+      REPO,
+      "--json",
+      "comments",
+      "-q",
+      ".comments",
+    ]) ?? []
+  ).map((c) => ({
+    author: c.author?.login ?? "",
+    body: c.body,
+    createdAt: c.createdAt,
+  }));
+  const holder = claimHolder(comments, ACTOR, worktree);
+  console.log(
+    JSON.stringify({ claimed: holder === worktree, holder: holder ?? null }),
+  );
+  return holder === worktree ? 0 : 1;
+}
+
+if (isMain && (process.argv[2] === "next" || process.argv[2] === "claim")) {
+  const [cmd, ...rest] = process.argv.slice(2);
+  if (cmd === "next" && rest[0] !== "build") {
+    console.error("usage: precheck.mts next build [--skip N,N]");
+    process.exit(2);
+  }
+  try {
+    process.exit(cmd === "next" ? runNext(rest.slice(1)) : runClaim(rest));
+  } catch (e) {
+    console.log(JSON.stringify({ error: (e as Error).message.split("\n")[0] }));
+    process.exit(3);
+  }
+} else if (isMain) {
   const loop = process.argv[2] ?? "";
   if (!Object.hasOwn(LOOPS, loop)) {
     console.error(`usage: precheck.mts <${Object.keys(LOOPS).join("|")}>`);
