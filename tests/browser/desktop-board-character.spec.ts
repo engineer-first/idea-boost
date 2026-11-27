@@ -11,6 +11,7 @@ import {
 import { sizes } from "./viewports";
 
 // 広い画面で先生の吹き出しが右上の操作（「◯-1に戻って書き足す」など）を隠さないこと（#1310）。
+// 真下へ出すときも、上部中央のステップの道筋（現在地）を隠さないこと。
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
 let page: Page;
@@ -57,7 +58,7 @@ describe.each(sizes([1280, 800], [1024, 768], [768, 1024]))(
   "%i×%i",
   (width, height) => {
     test.each(STORIES)(
-      "%s で先生の吹き出しが右上の操作を隠さず、文言がはみ出さない",
+      "%s で先生の吹き出しが右上の操作とステップの道筋を隠さず、文言がはみ出さない",
       async (story) => {
         await page.setViewportSize({ width, height });
         await page.goto(
@@ -78,6 +79,11 @@ describe.each(sizes([1280, 800], [1024, 768], [768, 1024]))(
         const bubbleBox = await box("board-character-bubble");
         const controls = await box("board-control-hud");
         expect(overlaps(bubbleBox, controls)).toBe(false);
+        // iPad 縦ではステップの道筋を出さない。
+        if (width >= 1024) {
+          const trail = await box("phase-step-trail");
+          expect(overlaps(bubbleBox, trail)).toBe(false);
+        }
         expect(
           await bubble.evaluate(
             (element) => element.scrollWidth <= element.clientWidth,
