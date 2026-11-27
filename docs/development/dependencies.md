@@ -22,14 +22,15 @@ Node.jsはビルドと検証のホスト。公開先はworkerdであり、Node�
 
 まとめPRの対象は `package.json` の依存（dependencies・devDependencies）、npm本体（`packageManager`）、`mise.toml` の開発ツール（tbls等）。
 
-| 更新                 | 扱い                                                                                                                                                                                                |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0以上のパッチ      | 1つのPRにまとめる。developの必須チェック（`ci.yml` の lint・test・build・smoke と `browser.yml` の browser）が最新headで成功した後に取り込む                                                        |
-| 1.0以上のマイナー    | パッチとは別の1つのPRにまとめ、パッチと同じく必須チェックの成功後に取り込む。CIで分からない破壊的変更・挙動変更は、本番公開時にreleaseスキルがリリースノートから確かめる                            |
-| 0.xの更新            | 部品ごとのPR。0.xはマイナーでも破壊的変更を含みうるため自動マージせず、エージェントが下の「エージェントによるレビュー」の手順で取り込む                                                             |
-| メジャー             | 承認を待たずに部品ごとのPRを作り、自動マージせずエージェントがレビューして取り込む。TypeScript 6/7だけは #738 の条件を満たすまでDependency Dashboard（Renovateが作るIssue）で承認した時だけPRを作る |
-| `overrides` の固定版 | Dashboard で承認した時だけPRを作る。lockfile にある別の版と比べるため、メジャーをまたぐ更新もパッチと誤判定されることがある。削除・更新は下の「限定override」の条件で判断する                       |
-| 脆弱性の修正         | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま                                                                                   |
+| 更新                               | 扱い                                                                                                                                                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0以上のパッチ                    | 1つのPRにまとめる。developの必須チェック（`ci.yml` の lint・test・build・smoke と `browser.yml` の browser）が最新headで成功した後に取り込む                                                        |
+| 1.0以上のマイナー                  | パッチとは別の1つのPRにまとめ、パッチと同じく必須チェックの成功後に取り込む。CIで分からない破壊的変更・挙動変更は、本番公開時にreleaseスキルがリリースノートから確かめる                            |
+| 0.xの更新                          | 部品ごとのPR。0.xはマイナーでも破壊的変更を含みうるため自動マージせず、エージェントが下の「エージェントによるレビュー」の手順で取り込む                                                             |
+| メジャー                           | 承認を待たずに部品ごとのPRを作り、自動マージせずエージェントがレビューして取り込む。TypeScript 6/7だけは #738 の条件を満たすまでDependency Dashboard（Renovateが作るIssue）で承認した時だけPRを作る |
+| Wrangler・Vitest plugin・Miniflare | 3つを1つのPRにまとめ、パッチ・マイナーは必須チェックの成功後に取り込む。直接のMiniflareはbetaの版にも追従する（下の「Miniflareの版」）                                                              |
+| `overrides` の固定版               | Dashboard で承認した時だけPRを作る。lockfile にある別の版と比べるため、メジャーをまたぐ更新もパッチと誤判定されることがある。削除・更新は下の「限定override」の条件で判断する                       |
+| 脆弱性の修正                       | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま                                                                                   |
 
 依存更新PRには `dependencies` ラベルが付く。CIが失敗したPRと、自動マージしない0.x・メジャーのPRは、1時間動きが無ければbuildループが拾い、下の「エージェントによるレビュー」の手順でマージまで進める（[ループ開発の「人の判断待ちにしない PR」](../loop/README.md#人の判断待ちにしない-pr)）。Renovateのマージはdevelopへのマージ通知（Discord）から外す。developへの取り込みと本番公開は別で、本番公開は既存のリリース手順で人が行う。
 
@@ -58,14 +59,7 @@ jsdom 31（#1076）は2026-11-22に「上流の修正待ち」として残した
 
 ## 限定override
 
-アプリ全体への強制置換はせず、次の親パッケージ配下だけへ適用する。削除を判断するときは、そのルールだけを別worktreeで外して再解決し、`npm explain`、`npm ls --all`、全件auditと関連テストを確認する。
-
-| 親と対象             | 採用値・理由                                                                                                                                                                                             | 上流と削除条件                                                                                                                                                                                                                                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `miniflare → sharp`  | `0.35.5`。直接採用のMiniflare 4.20260730.0は0.35.2を固定し、[libheif](https://github.com/advisories/GHSA-rgj7-g3m4-5g8c)・[librsvg](https://github.com/advisories/GHSA-wq5f-xc86-pv6w)の修正を含まない。 | Wrangler/plugin内のMiniflare 5.20261123.0-betaはすでに0.35.5。2026-11-27時点でも直接採用の最新安定版Miniflare 4.20260730.0は0.35.2を固定し、外すとauditのhighが戻る。Miniflare 4を含む全経路が修正版へ移り、画像処理・Preview検証が通ったら削除。                                                                     |
-| `miniflare → undici` | `7.30.1`。Miniflare 4は7.28.0を固定する（Wrangler/plugin内のMiniflare 5.20261123.0-betaは7.30.2へ移った）。同じ7系の修正版へ揃える。                                                                     | 7.28.0は10月15日の[共有cache/redirect](https://github.com/nodejs/undici/security/advisories/GHSA-4w7w-5xrc-9h26)・[decompress](https://github.com/nodejs/undici/security/advisories/GHSA-55wc-3pg8-jfw6)の対象。2026-11-27時点でもMiniflare 4が残る。全経路が7.30.1以上へ移り、Worker・Preview・smokeが通ったら削除。 |
-
-Miniflareのルールは親名に限定する。版別の2ルールを同時に追加した再解決ではnpm 11.19.1が4側のoverrideを落としたため、4/5双方の実際の解決結果を確認する。現時点の直接Miniflareは最新安定版4.20260730.0であり、5 betaを直接採用しない。Wrangler/pluginが内部固定するbetaはその上流構成として検査する。
+2026-11-28時点で `overrides` は無い。脆弱な推移依存を修正版へ置き換える必要が出たら、アプリ全体への強制置換はせず、親パッケージ配下だけへ適用し、採用値・理由・削除条件をこの節に書く。削除を判断するときは、そのルールだけを別worktreeで外して再解決し、`npm explain`、`npm ls --all`、全件auditと関連テストを確認する。
 
 `@node-minify/core → glob`（10.5.0）は2026-11-27に外した（#739）。OpenNext AWS 4.2.0が使うcore 10.5.0はglobに依存しなくなり、適用先が無くなった。外す前後でlockfileの解決結果とauditは変わらない。
 
@@ -74,6 +68,12 @@ OpenNext 1.20.12のpeer条件はNext `>=15.5.28 <16 || >=16.4.1`、Wrangler `^4.
 Biome 2.6からMarkdownも整形・lint対象になったが、Markdownはこれまでどおり `npm run format:md`（remark）に任せ、`biome.json` の `markdown` で無効にする。2つの整形が同じファイルを別の形へ書き換え合うのを避けるため。YAML・CSSはBiomeの整形に揃える。
 
 `diff` はアプリから直接使わないが、devDependenciesに `^9.0.0` を置く。OpenNext 1.20.16 と同梱の `@opennextjs/aws` 4.1.15 は `diff ^9.0.0` を optional peer に持ち、shadcn・Storybook が使う diff 8 がルートに置かれると `npm ls --all` がinvalidで失敗するため。peer条件の書換え・検査の省略では通さない。shadcnとStorybookがdiff 9へ移るか、OpenNextがこのpeerを外したら削除する。
+
+## Miniflareの版
+
+Miniflare配下の `sharp`（0.35.5）・`undici`（7.30.1）は2026-11-28に外した（#739）。直接採用していたMiniflare 4.20260730.0は脆弱な版（sharp 0.35.2・undici 7.28.0）を固定していたが、Miniflare 4は2026-07以降更新が無く、Wrangler・Cloudflare Vitest pluginはすでにMiniflare 5を同梱しているため、上流を待っても解けなかった。直接依存のMiniflareをWrangler 4.168.0・Vitest plugin 1.9.2が固定する版（5.20261123.1-beta）へ揃え、lockfileのMiniflareを1つにした。Miniflare 5は修正版のsharp 0.35.5・undici 7.30.2を指す。外す前後でauditはhigh 2・moderate 15のまま。
+
+直接のMiniflareは [scripts/preview-smoke.mts](../../scripts/preview-smoke.mts) だけが使う。Miniflare 5は設定の形が変わったため、4の形の設定を `convertV4MiniflareOptions` で変換し、廃止された `createFetchMock` の代わりに `outboundService` でテストIdPの公開鍵だけに答える。直接のMiniflareは、WranglerとVitest pluginの `dependencies.miniflare` と同じ版へ揃える。Miniflare 5はnpmのbetaタグで公開されるため、[renovate.json](../../renovate.json) ではbetaへ追従させ、Wrangler・Vitest pluginと同じPRにまとめる。版のずれは [miniflare-version.spec.ts](../../.github/scripts/miniflare-version.spec.ts) で検査する。
 
 ## auditの残件と到達性
 
