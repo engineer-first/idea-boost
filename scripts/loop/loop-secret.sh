@@ -36,17 +36,24 @@ fi
 source_name=""
 value=""
 missing_reason="1Password の ${VAULT} 保管庫に項目「${item}」（フィールド ${FIELD}）が無い"
+# 予備へ進むのは、1Password が「項目・フィールドが無い」と答えたときだけ。
+# それ以外（トークンが無い・切れた、op が無い、通信・権限）は、古い予備を黙って使わずに止める。
 if [ -z "$token" ]; then
-  missing_reason="1Password のサービスアカウントのトークン（環境変数 OP_SERVICE_ACCOUNT_TOKEN、またはキーチェーンの op-service-account-token）が無い"
+  echo "${name} を 1Password から読めない（予備は使わない）: サービスアカウントのトークン（環境変数 OP_SERVICE_ACCOUNT_TOKEN、またはキーチェーンの op-service-account-token）が無い（needs-human）。" >&2
+  exit 3
 elif ! command -v op >/dev/null 2>&1; then
-  missing_reason="1Password CLI（op）が入っていない"
+  echo "${name} を 1Password から読めない（予備は使わない）: 1Password CLI（op）が入っていない。" >&2
+  exit 3
 else
   err_file=$(mktemp)
   trap 'rm -f "$err_file"' EXIT
-  if value=$(OP_SERVICE_ACCOUNT_TOKEN="$token" op read --no-newline "$ref" 2>"$err_file") && [ -n "$value" ]; then
+  if value=$(OP_SERVICE_ACCOUNT_TOKEN="$token" op read --no-newline "$ref" 2>"$err_file"); then
+    if [ -z "$value" ]; then
+      echo "${name} を 1Password から読めない（予備は使わない）: 「${item}」の ${FIELD} が空（needs-human）。" >&2
+      exit 3
+    fi
     source_name="1password"
-  elif ! grep -qE "isn't an item|does not have a field" "$err_file"; then
-    # 項目が無い以外の失敗（トークン切れ・通信・権限）は、古い予備を黙って使わずに止める。
+  elif ! grep -qE "isn't an item|isn't a field|does not have a field" "$err_file"; then
     echo "${name} を 1Password から読めない（予備は使わない）: $(tr '\n' ' ' <"$err_file")" >&2
     exit 3
   else

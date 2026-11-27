@@ -224,6 +224,18 @@ describe("scripts/loop/loop-secret.sh", () => {
     expect(result.stderr).toContain("op-service-account-token");
   });
 
+  it("トークンが無ければ、キーチェーンに予備があっても使わずに止まる", () => {
+    const { run } = setup({
+      keychain: { "idea-boost/CLOUDFLARE_API_TOKEN_LOOP": "stale-keychain" },
+    });
+
+    const result = run("gh-secret", "CLOUDFLARE_API_TOKEN_LOOP");
+
+    expect(result.status).toBe(3);
+    expect(result.stdout).toBe("");
+    expect(result.stdout + result.stderr).not.toContain("stale-keychain");
+  });
+
   it("環境にあるサービスアカウントのトークンを上書きしない", () => {
     const { run, read } = setup({
       op: { [REF]: "from-1password" },
