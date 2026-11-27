@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   type BuildState,
+  claimHolder,
   decideBuild,
   decideMend,
   decidePatrol,
@@ -19,6 +20,7 @@ import {
   lastLog,
   latestConclusionFailed,
   type PatrolState,
+  pickNext,
   type ReleaseState,
 } from "./precheck.mts";
 
@@ -91,6 +93,130 @@ describe("isReady: build が拾ってよい Issue", () => {
   it("オーナー以外の担当者がいる Issue は人の作業なので拾わない", () => {
     expect(isReady(issue(["loop:ready"], [ACTOR]), ACTOR)).toBe(true);
     expect(isReady(issue(["loop:ready"], ["teammate"]), ACTOR)).toBe(false);
+  });
+});
+
+describe("isReady: 前提の作業と人の PR", () => {
+  it("blocked-by の前提が open なら着手できない（閉じていれば数えない）", () => {
+    expect(isReady({ ...issue(["loop:ready"]), openBlockers: 1 }, ACTOR)).toBe(
+      false,
+    );
+    expect(isReady({ ...issue(["loop:ready"]), openBlockers: 0 }, ACTOR)).toBe(
+      true,
+    );
+  });
+  it("人の open PR が紐づいていれば拾わない（ループの PR だけは数えない）", () => {
+    const i = issue(["loop:ready"]);
+    const linked = (author: string, labels: string[]) => ({
+      ...i,
+      linkedPrs: [{ author, labels }],
+    });
+    expect(isReady(linked("teammate", ["loop"]), ACTOR)).toBe(false);
+    // オーナーが手で出した PR はループと同じアカウントだが、loop ラベルが無いので人の PR
+    expect(isReady(linked(ACTOR, []), ACTOR)).toBe(false);
+    expect(isReady(linked(ACTOR, ["loop"]), ACTOR)).toBe(true);
+  });
+});
+
+describe("pickNext: build が流す1件を選ぶ（止まっている PR → P0 → loop:ux → 古い順）", () => {
+  const pr = (number: number, h: number, labels = ["loop"]) => ({
+    number,
+    title: `PR ${number}`,
+    url: `u/${number}`,
+    labels,
+    author: ACTOR,
+    updatedAt: hoursAgo(h),
+  });
+  const iss = (number: number, labels: string[], h: number, over = {}) => ({
+    number,
+    title: `Issue ${number}`,
+    url: `u/${number}`,
+    labels: ["loop:ready", ...labels],
+    assignees: [],
+    createdAt: hoursAgo(h),
+    ...over,
+  });
+  const pick = (over: Partial<Parameters<typeof pickNext>[0]> = {}) =>
+    pickNext({ prs: [], issues: [], actor: ACTOR, now: NOW, ...over });
+
+  it("止まっている PR があれば、Issue より先に、いちばん長く動いていない1本を返す", () => {
+    expect(
+      pick({
+        prs: [pr(1, 2), pr(2, 5), pr(3, 0.5)],
+        issues: [iss(10, ["P0"], 1)],
+      }),
+    ).toMatchObject({ kind: "pr", number: 2 });
+  });
+
+  it("PR が無ければ P0 → loop:ux → 古い順で Issue を1件返す", () => {
+    const issues = [
+      iss(10, [], 50),
+      iss(11, ["loop:ux"], 1),
+      iss(12, ["P0"], 0.1),
+    ];
+    expect(pick({ issues })).toMatchObject({ kind: "issue", number: 12 });
+    expect(pick({ issues: issues.slice(0, 2) })).toMatchObject({
+      kind: "issue",
+      number: 11,
+    });
+    expect(pick({ issues: [iss(20, [], 1), iss(21, [], 3)] })).toMatchObject({
+      number: 21,
+    });
+  });
+
+  it("着手できない Issue（claimed・前提が open・人の PR）は飛ばす", () => {
+    expect(
+      pick({
+        issues: [
+          iss(10, ["claimed"], 9),
+          iss(11, [], 8, { openBlockers: 1 }),
+          iss(12, [], 7, { linkedPrs: [{ author: "teammate", labels: [] }] }),
+          iss(13, [], 1),
+        ],
+      }),
+    ).toMatchObject({ number: 13 });
+  });
+
+  it("エージェントが本文を読んで見送った番号を skip すると、次の1件を返す", () => {
+    const issues = [iss(10, [], 9), iss(11, [], 1)];
+    expect(pick({ issues, skip: [10] })).toMatchObject({ number: 11 });
+    expect(pick({ prs: [pr(1, 2)], issues, skip: [1] })).toMatchObject({
+      kind: "issue",
+      number: 10,
+    });
+  });
+
+  it("何も無ければ none と理由を返す", () => {
+    expect(pick({ prs: [pr(3, 0.5)] })).toEqual({
+      kind: "none",
+      reason: "止まっている PR も拾える loop:ready も無い",
+    });
+  });
+});
+
+describe("claimHolder: 同時に着手した周回のうち、先に claim を書いた周回が持つ", () => {
+  const claim = (wt: string, minAgo: number, author = ACTOR) => ({
+    author,
+    body: `claimed by ib build / ${wt} / 時刻`,
+    createdAt: new Date(NOW - minAgo * 60_000).toISOString(),
+  });
+  it("自分より先の、近い時刻のほかの周回の claim があれば、その周回が持つ", () => {
+    expect(claimHolder([claim("a", 2), claim("me", 1)], ACTOR, "me")).toBe("a");
+    expect(claimHolder([claim("me", 2), claim("b", 1)], ACTOR, "me")).toBe(
+      "me",
+    );
+  });
+  it("前の周回が昔に書いた claim と、ほかの人のコメントは数えない", () => {
+    expect(
+      claimHolder(
+        [claim("old", 120), claim("x", 3, "someone"), claim("me", 1)],
+        ACTOR,
+        "me",
+      ),
+    ).toBe("me");
+  });
+  it("自分の claim が読めなければ持っていない", () => {
+    expect(claimHolder([claim("a", 1)], ACTOR, "me")).toBeUndefined();
   });
 });
 
