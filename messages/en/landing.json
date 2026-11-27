@@ -2,19 +2,18 @@
   "LANDING_CONTACT_URL": "https://forms.gle/Adq3ZMyEVGEnxb169",
   "landingCopy": {
     "brand": "Idea Boost",
-    "title": "Great ideas come from teams. Free brainstorming tool | Idea Boost",
-    "description": "Free team ideation for hackathons and projects. Turn problems into “How might we…?” questions, vote privately, and settle on one great idea with the design sprint method. No facilitator needed.",
-    "heading": ["Great ideas", "come from teams."],
+    "title": "Find ideas people will use. Free brainstorming | Idea Boost",
+    "description": "Free ideation for hackathons and projects. Turn everyday problems into “How might we…?” questions, widen the ideas, vote privately, and look for ideas people will use with the design sprint method. No facilitator needed.",
+    "heading": ["How to find ideas", "people will use."],
     "subheading": [
       "AI made building fast.",
-      "Decide what to build",
-      "with Idea Boost."
+      "So what you build is what counts."
     ],
     "promisesLabel": "What Idea Boost promises",
     "promises": [
-      "The screen shows your next step",
-      "Write on your own first",
-      "Choose without seeing others' votes"
+      "Starting from real problems keeps you on track",
+      "The screen guides the way",
+      "Take home how to test it"
     ],
     "heroNote": {
       "text": "Free · Just a browser · About 2 hours to one idea",
@@ -89,7 +88,7 @@
       "Bring ideas together.",
       "Talk and decide."
     ],
-    "headingAccent": "Great ideas",
+    "headingAccent": "How to find ideas",
     "closing": ["When you're stuck for ideas,", "start here."],
     "examples": {
       "heading": "What teams decided using Idea Boost",
@@ -149,26 +148,26 @@
       ]
     },
     "scenes": {
-      "heading": ["What your time", "will look like."],
+      "heading": ["Six steps to", "an idea people will use."],
       "items": [
         {
           "title": "Gather",
-          "description": "No one has to run it. The screen shows what to do."
+          "description": "Leave the process to the screen."
         },
         {
           "title": "Write",
-          "description": "Your notes stay visible only to you until you share them.",
+          "description": "First, write down everyday problems.",
           "evidence": "In spoken brainstorming, waiting to speak can reduce the number of ideas generated.",
           "source": "Source: Diehl & Stroebe (1987)",
           "url": "https://doi.org/10.1037/0022-3514.53.3.497"
         },
         {
           "title": "Share",
-          "description": "Take turns, so everyone's thinking comes out."
+          "description": "Show them, and pick the real problem."
         },
         {
           "title": "Explore",
-          "description": "Turn the problem into a “How might we…?” question first.",
+          "description": "Turn it into “How might we…?” and widen the ideas.",
           "evidence": "Lack of market fit is one reason startups fail. Check the problem before the ideas.",
           "source": "Source: CB Insights",
           "url": "https://www.cbinsights.com/research/report/startup-failure-reasons-top/"
@@ -179,7 +178,7 @@
         },
         {
           "title": "Take it home",
-          "description": "Save the problem, question, and idea, and move on."
+          "description": "Take home the idea and how to test it."
         }
       ]
     },

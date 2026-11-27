@@ -2036,3 +2036,18 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* LP の短い文は語の途中で折らず、1〜2文字だけ次の行に落とさない。
+   word-break と text-wrap は継承されるので、まとまりの親に置く（auto-phrase 非対応の環境は pretty だけ効く） */
+.heroHeading,
+.heroPromises,
+.heroNote,
+.scene {
+  word-break: auto-phrase;
+  text-wrap: pretty;
+}
+/* サブは文ごとに1行にし、狭い画面で折れるときも行の長さをそろえる */
+.heroSubheading {
+  word-break: auto-phrase;
+  text-wrap: balance;
+}

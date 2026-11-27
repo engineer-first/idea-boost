@@ -80,7 +80,7 @@ export function LandingHeroSection({
           {copy.subheading.map((phrase, index) => (
             <Fragment key={phrase}>
               {locale === "en" && index > 0 ? " " : null}
-              <span className="inline-block">{phrase}</span>
+              <span className="block">{phrase}</span>
             </Fragment>
           ))}
         </p>
