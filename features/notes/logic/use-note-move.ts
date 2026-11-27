@@ -491,7 +491,7 @@ export function useNoteMove({
       const conflict = operationsRef.current.find(
         (operation, index) =>
           !(index === 0 && operation.status === "pending") &&
-          // 共有の応答待ちは、共有そのものの確定通知を競合と数えない。
+          // 共有の応答待ちの付箋はまだ非共有で届く（本文の保存の通知など）。競合と数えない。
           !operation.waitingShare &&
           operation.before.some(
             (note) =>
