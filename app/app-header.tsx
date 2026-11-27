@@ -41,6 +41,8 @@ export function AppHeader({
   if (/^\/rooms\/[^/]+$/.test(pathname)) return null;
   // LP は独自の配色を持つため、ログイン中も LP 自身のヘッダーを使う。
   if (pathname === "/about" || pathname === "/en/about") return null;
+  // 解説ページも LP と同じく自身のヘッダーにロゴを持つため、ロゴを2段に並べない。
+  if (pathname === "/guides" || pathname.startsWith("/guides/")) return null;
 
   return (
     <header
