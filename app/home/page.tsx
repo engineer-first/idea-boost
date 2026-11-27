@@ -2,6 +2,7 @@
 // 認証・searchParams・Server Action 配線のみ。UI は同ディレクトリの home-view。
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -16,7 +17,14 @@ import { isAuthConfigured } from "@/lib/session/env";
 import { HomeView } from "./home-view";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "ホーム | Idea Boost" };
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title:
+      (await getLocale()) === "en"
+        ? "Home | Idea Boost"
+        : "ホーム | Idea Boost",
+  };
+}
 
 type HomePageProps = {
   searchParams: Promise<{ error?: string; account_link?: string | string[] }>;

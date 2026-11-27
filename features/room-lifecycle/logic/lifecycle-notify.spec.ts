@@ -61,3 +61,30 @@ it("元ルームがなければ退出通知を出さない", () => {
   lifecycleNotify.arrived("destination");
   expect(mocks.success).not.toHaveBeenCalled();
 });
+
+it("翻訳を渡すと、作成・参加・退出の通知をその言語で出す", async () => {
+  const { createTranslator } = await import("next-intl");
+  const appEn = (await import("@/messages/en/app.json")).default;
+  const t = createTranslator({
+    locale: "en",
+    messages: { app: appEn },
+    namespace: "app.notifications",
+  }) as (key: string, values?: Record<string, string | number>) => string;
+  mocks.success.mockReset();
+  lifecycleNotify.roomCreated(t);
+  lifecycleNotify.joinedAsGuest(t);
+  lifecycleNotify.rememberDeparture("translated", "translated-one", ["Lab"]);
+  lifecycleNotify.arrived("translated", t);
+  lifecycleNotify.rememberDeparture("translated", "translated-many", [
+    "Lab",
+    "Club",
+    "Class",
+  ]);
+  lifecycleNotify.arrived("translated", t);
+  expect(mocks.success.mock.calls).toEqual([
+    ["Room created"],
+    ["Joined the room"],
+    ["Left Lab"],
+    ["Left Lab and 2 more"],
+  ]);
+});

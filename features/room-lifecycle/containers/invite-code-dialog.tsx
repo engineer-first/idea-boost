@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type {
   ParticipationConfirmation,
@@ -36,6 +37,10 @@ export function InviteCodeDialog({
   hostName,
 }: InviteCodeDialogProps) {
   const router = useRouter();
+  const t = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const operationId = useRef<string | undefined>(undefined);
   const [switching, setSwitching] = useState<
     | ParticipationConfirmation
@@ -103,7 +108,7 @@ export function InviteCodeDialog({
         result.operationId,
         result.exitedRoomNames,
       );
-      if (!result.exitedRoomNames?.length) lifecycleNotify.joinedAsGuest();
+      if (!result.exitedRoomNames?.length) lifecycleNotify.joinedAsGuest(t);
       router.push(href);
     });
   }

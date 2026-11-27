@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
 import {
   RoomInfoResponseSchema,
   RoomMembersResponseSchema,
@@ -9,7 +10,11 @@ import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { getLoginPath, signOut } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
-import { RoomBoard, RoomEntryPreview } from "@/features/room";
+import {
+  getRoomPageMetadata,
+  RoomBoard,
+  RoomEntryPreview,
+} from "@/features/room";
 import {
   GuestIdentityUnavailable,
   ParticipationSwitch,
@@ -27,7 +32,9 @@ import { getRequestBaseUrl } from "@/lib/session/request-base-url";
 import { hasRoomEntryTime } from "@/lib/session/room-entry";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "ルーム | Idea Boost" };
+export async function generateMetadata(): Promise<Metadata> {
+  return getRoomPageMetadata((await getLocale()) === "en" ? "en" : "ja");
+}
 
 type RoomPageProps = {
   params: Promise<{ id: string }>;

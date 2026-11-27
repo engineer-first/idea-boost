@@ -5,6 +5,11 @@
 
 import { toast } from "sonner";
 
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
+
 type Departure = { operationId: string; names: string[] };
 const pending = new Map<string, Departure>();
 const delivered = new Set<string>();
@@ -26,7 +31,8 @@ export const lifecycleNotify = {
       /* 画面内の控えを使う。 */
     }
   },
-  arrived(roomId: string): void {
+  // t は app.notifications の翻訳。渡さないときは日本語で知らせる。
+  arrived(roomId: string, t?: Translate): void {
     let departure = pending.get(roomId);
     try {
       const raw = sessionStorage.getItem(`room-departure:${roomId}`);
@@ -65,13 +71,17 @@ export const lifecycleNotify = {
     delivered.add(departure.operationId);
     const [first, ...rest] = departure.names;
     toast.success(
-      `${first}${rest.length ? `ほか${rest.length}件` : ""}から退出しました`,
+      t
+        ? rest.length
+          ? t("leftRoomsWithOthers", { name: first, count: rest.length })
+          : t("leftRoom", { name: first })
+        : `${first}${rest.length ? `ほか${rest.length}件` : ""}から退出しました`,
     );
   },
-  roomCreated(): void {
-    toast.success("ルームを作成しました");
+  roomCreated(t?: Translate): void {
+    toast.success(t ? t("roomCreated") : "ルームを作成しました");
   },
-  joinedAsGuest(): void {
-    toast.success("ルームに参加しました");
+  joinedAsGuest(t?: Translate): void {
+    toast.success(t ? t("roomJoined") : "ルームに参加しました");
   },
 };

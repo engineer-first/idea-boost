@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   consumeRoomEntry,
@@ -46,6 +47,10 @@ export function RoomAdmissionGate({
   freshAdmission,
   allowFreshEntry = false,
 }: RoomAdmissionGateProps) {
+  const t = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const [result, setResult] = useState<{
     ok: boolean;
     admission?: string;
@@ -99,9 +104,9 @@ export function RoomAdmissionGate({
         departure?.operationId,
         departure?.exitedRoomNames,
       );
-      lifecycleNotify.arrived(roomId);
+      lifecycleNotify.arrived(roomId, t);
     }
-  }, [admission?.ok, roomId, departure]);
+  }, [admission?.ok, roomId, departure, t]);
 
   if (!result && entryToken) {
     return (

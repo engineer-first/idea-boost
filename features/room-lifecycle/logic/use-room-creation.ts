@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { RoomEntryOperation } from "@/contracts/room-entry";
 import type {
@@ -44,6 +45,10 @@ export type RoomCreationControls = {
 
 export function useRoomCreation(currentUserId?: string): RoomCreationControls {
   const router = useRouter();
+  const t = useTranslations("app.notifications") as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
   const [switching, setSwitching] =
     useState<RoomCreationControls["switching"]>();
   const [reauthentication, setReauthentication] =
@@ -359,7 +364,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
           departure?.operationId,
           departure?.exitedRoomNames,
         );
-        if (!departure?.exitedRoomNames?.length) lifecycleNotify.roomCreated();
+        if (!departure?.exitedRoomNames?.length) lifecycleNotify.roomCreated(t);
         router.push(href);
         navigationTimer.current = setTimeout(() => {
           if (!sameActor()) return;
