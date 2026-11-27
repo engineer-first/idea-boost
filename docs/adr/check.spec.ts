@@ -3,7 +3,6 @@ import { validateAdr } from "./check.mjs";
 
 const valid = `---
 id: "0001"
-status: Proposed
 date: "2026-11-03"
 ---
 # ADR 0001: 判断
@@ -27,7 +26,19 @@ describe("ADRの構造検査", () => {
   it.each([
     ["idを欠く", valid.replace('id: "0001"\n', ""), "id"],
     ["ファイル名とidが違う", valid.replace('id: "0001"', 'id: "0002"'), "id"],
-    ["不明な状態", valid.replace("status: Proposed", "status: 採用"), "status"],
+    [
+      "statusを持つ",
+      valid.replace('id: "0001"\n', 'id: "0001"\nstatus: Accepted\n'),
+      "status",
+    ],
+    [
+      "Supersession節に後継のリンクがない",
+      valid.replace(
+        "## References",
+        "## Supersession\n後継へ置き換えた。\n## References",
+      ),
+      "Supersession",
+    ],
     ["存在しない日付", valid.replace("2026-11-03", "2026-02-30"), "date"],
     ["判断を欠く", valid.replace("## Decision\n方針。\n", ""), "Decision"],
     ["出典を欠く", valid.replace("## References\n出典。\n", ""), "References"],
@@ -47,11 +58,14 @@ describe("ADRの構造検査", () => {
     );
   });
 
-  it("後継状態を受理する", () => {
+  it("Supersession節に後継のリンクがあれば受理する", () => {
     expect(
       validateAdr(
         "0001-example.md",
-        valid.replace("status: Proposed", "status: Superseded by ADR 0002"),
+        valid.replace(
+          "## References",
+          "## Supersession\n[ADR 0002](0002-example.md)が置き換える。\n## References",
+        ),
       ),
     ).toEqual([]);
   });
