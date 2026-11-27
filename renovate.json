@@ -36,6 +36,21 @@
       "automerge": true
     },
     {
+      "description": "WranglerとVitest pluginはMiniflareの版を固定する。直接のMiniflare（preview-smoke用）も同じ版へ揃えるため、3つを同じPRで更新する。ずれると lockfile にMiniflareとworkerdが2つずつ残る（docs/development/dependencies.md のMiniflareの版、.github/scripts/miniflare-version.spec.ts）",
+      "matchPackageNames": [
+        "wrangler",
+        "@cloudflare/vitest-plugin",
+        "miniflare"
+      ],
+      "groupName": "wrangler and miniflare"
+    },
+    {
+      "description": "Wranglerが同梱するMiniflareはnpmのbetaタグで公開され、latestは更新の止まった4のまま。既定ではbeta間の更新PRが出ないため、betaにも追従する",
+      "matchPackageNames": ["miniflare"],
+      "ignoreUnstable": false,
+      "respectLatest": false
+    },
+    {
       "description": "overridesは脆弱性対応で固定した版。lockfileの別の版と比べてパッチと誤判定されるため、Dashboardで承認した時だけ更新する（docs/development/dependencies.md の限定override）",
       "matchDepTypes": ["overrides"],
       "dependencyDashboardApproval": true,

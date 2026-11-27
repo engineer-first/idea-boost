@@ -7,20 +7,13 @@ import { afterEach, expect, it, vi } from "vitest";
 
 const runtime = vi.hoisted(() => ({
   dispose: vi.fn(async () => {}),
-  close: vi.fn(async () => {}),
   options: vi.fn(),
 }));
 vi.mock("@cloudflare/vitest-plugin", () => ({
   readD1Migrations: async () => [],
 }));
 vi.mock("miniflare", () => ({
-  createFetchMock: () => ({
-    disableNetConnect() {},
-    get: () => ({
-      intercept: () => ({ reply: () => ({ persist() {} }) }),
-    }),
-    close: runtime.close,
-  }),
+  convertV4MiniflareOptions: (options: unknown) => options,
   Miniflare: class {
     ready = Promise.resolve(new URL("https://127.0.0.1:44321"));
     constructor(options: unknown) {
@@ -109,7 +102,7 @@ it("UI検証では別々の本人証明を持つ2ブラウザへ、実bundleの�
   expect(runtime.options.mock.calls[0][0]).toMatchObject({ https: true });
 });
 
-it("UI検証が失敗してもMiniflareとテストIdPを停止し、成功扱いにしない", async () => {
+it("UI検証が失敗してもMiniflareを停止し、成功扱いにしない", async () => {
   const failure = new Error("参加者へ私有付箋が届きました");
   await expect(
     smokePreviewBundle(fixture(), {
@@ -120,5 +113,24 @@ it("UI検証が失敗してもMiniflareとテストIdPを停止し、成功扱�
     }),
   ).rejects.toThrow(failure.message);
   expect(runtime.dispose).toHaveBeenCalledOnce();
-  expect(runtime.close).toHaveBeenCalledOnce();
+});
+
+it("Workerの外向き通信はテストIdPの公開鍵だけに答え、ほかの宛先には出さない", async () => {
+  await smokePreviewBundle(fixture());
+  const { workers } = runtime.options.mock.calls[0][0] as {
+    workers: { outboundService: (request: Request) => Promise<Response> }[];
+  };
+  for (const { outboundService } of workers) {
+    const certs = await outboundService(
+      new Request(
+        "https://preview-smoke-test.cloudflareaccess.com/cdn-cgi/access/certs",
+      ),
+    );
+    expect(certs.status).toBe(200);
+    const { keys } = (await certs.json()) as { keys: { kid: string }[] };
+    expect(keys.map(({ kid }) => kid)).toEqual(["smoke-test-key"]);
+    await expect(
+      outboundService(new Request("https://example.com/")),
+    ).rejects.toThrow();
+  }
 });

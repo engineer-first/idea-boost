@@ -12,7 +12,7 @@ npm 11.20は依存パッケージのinstall scriptを既定で実行せず、`al
 
 完全固定は更新のたびに設定変更が必要になり、`lts` だけでは将来のLTSメジャー切替で `engines.node` と検証対象から外れる。このため26系の範囲指定を採用する。ローカルに古い26系がある場合は `mise upgrade node` で更新し、`mise exec -- node --version` で最低条件以上を確認する。将来のLTSメジャー移行は依存のengine・peer条件とCIを確認する別の変更として扱う。[miseの版指定](https://mise.jdx.dev/lang/node.html#choosing-a-version)と[NodeのLTS方針](https://nodejs.org/en/about/previous-releases)も参照。
 
-jsdom 31.0.1のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する26系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、PR・pushで動く `ci.yml`・`browser.yml`・`chromatic.yml` は `jdx/mise-action@v5` の `cache_max_age_days: 1` でtool cacheを毎日作り直す。毎回GitHubのリリースからダウンロードすると配布側の一時障害（HTTP 5xx）でジョブが落ちるため、修正版への追従を最大1日遅らせる代わりにダウンロードを減らす。デプロイ・リリース記録・`pull_request_target` / `workflow_run` のworkflowは、低信頼の実行が書いたcacheを取り込まないようcacheを使わない。tblsを使わないジョブは `install_args: node` でNodeだけを入れる。この方針は `.github/scripts/node-runtime-workflow.spec.ts` で検査する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)と[mise-actionのcache設定](https://github.com/jdx/mise-action#cache-configuration)も参照。
+jsdom 31.0.1のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.168.0は `>=22.12.0`であり、採用する26系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、PR・pushで動く `ci.yml`・`browser.yml`・`chromatic.yml` は `jdx/mise-action@v5` の `cache_max_age_days: 1` でtool cacheを毎日作り直す。毎回GitHubのリリースからダウンロードすると配布側の一時障害（HTTP 5xx）でジョブが落ちるため、修正版への追従を最大1日遅らせる代わりにダウンロードを減らす。デプロイ・リリース記録・`pull_request_target` / `workflow_run` のworkflowは、低信頼の実行が書いたcacheを取り込まないようcacheを使わない。tblsを使わないジョブは `install_args: node` でNodeだけを入れる。この方針は `.github/scripts/node-runtime-workflow.spec.ts` で検査する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)と[mise-actionのcache設定](https://github.com/jdx/mise-action#cache-configuration)も参照。
 
 Node.jsはビルドと検証のホスト。公開先はworkerdであり、Nodeのバージョン指定でWorkersの互換性を保証したことにはしない。App/APIの `compatibility_date: 2026-06-01` と `nodejs_compat` を維持し、Workerテストとコンパイル済みPreviewでサービスバインディング・D1・RoomDOを検査する。[OpenNextの前提](https://opennext.js.org/cloudflare/get-started)は互換日付2024-09-23以降と `nodejs_compat`。
 
@@ -22,14 +22,15 @@ Node.jsはビルドと検証のホスト。公開先はworkerdであり、Node�
 
 まとめPRの対象は `package.json` の依存（dependencies・devDependencies）、npm本体（`packageManager`）、`mise.toml` の開発ツール（tbls等）。
 
-| 更新                 | 扱い                                                                                                                                                                                                |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0以上のパッチ      | 1つのPRにまとめる。developの必須チェック（`ci.yml` の lint・test・build・smoke と `browser.yml` の browser）が最新headで成功した後に取り込む                                                        |
-| 1.0以上のマイナー    | パッチとは別の1つのPRにまとめ、パッチと同じく必須チェックの成功後に取り込む。CIで分からない破壊的変更・挙動変更は、本番公開時にreleaseスキルがリリースノートから確かめる                            |
-| 0.xの更新            | 部品ごとのPR。0.xはマイナーでも破壊的変更を含みうるため自動マージせず、エージェントが下の「エージェントによるレビュー」の手順で取り込む                                                             |
-| メジャー             | 承認を待たずに部品ごとのPRを作り、自動マージせずエージェントがレビューして取り込む。TypeScript 6/7だけは #738 の条件を満たすまでDependency Dashboard（Renovateが作るIssue）で承認した時だけPRを作る |
-| `overrides` の固定版 | Dashboard で承認した時だけPRを作る。lockfile にある別の版と比べるため、メジャーをまたぐ更新もパッチと誤判定されることがある。削除・更新は下の「限定override」の条件で判断する                       |
-| 脆弱性の修正         | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま                                                                                   |
+| 更新                               | 扱い                                                                                                                                                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0以上のパッチ                    | 1つのPRにまとめる。developの必須チェック（`ci.yml` の lint・test・build・smoke と `browser.yml` の browser）が最新headで成功した後に取り込む                                                        |
+| 1.0以上のマイナー                  | パッチとは別の1つのPRにまとめ、パッチと同じく必須チェックの成功後に取り込む。CIで分からない破壊的変更・挙動変更は、本番公開時にreleaseスキルがリリースノートから確かめる                            |
+| 0.xの更新                          | 部品ごとのPR。0.xはマイナーでも破壊的変更を含みうるため自動マージせず、エージェントが下の「エージェントによるレビュー」の手順で取り込む                                                             |
+| メジャー                           | 承認を待たずに部品ごとのPRを作り、自動マージせずエージェントがレビューして取り込む。TypeScript 6/7だけは #738 の条件を満たすまでDependency Dashboard（Renovateが作るIssue）で承認した時だけPRを作る |
+| Wrangler・Vitest plugin・Miniflare | 3つを1つのPRにまとめ、パッチ・マイナーは必須チェックの成功後に取り込む。直接のMiniflareはbetaの版にも追従する（下の「Miniflareの版」）                                                              |
+| `overrides` の固定版               | Dashboard で承認した時だけPRを作る。lockfile にある別の版と比べるため、メジャーをまたぐ更新もパッチと誤判定されることがある。削除・更新は下の「限定override」の条件で判断する                       |
+| 脆弱性の修正                       | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま                                                                                   |
 
 依存更新PRには `dependencies` ラベルが付く。CIが失敗したPRと、自動マージしない0.x・メジャーのPRは、1時間動きが無ければbuildループが拾い、下の「エージェントによるレビュー」の手順でマージまで進める（[ループ開発の「人の判断待ちにしない PR」](../loop/README.md#人の判断待ちにしない-pr)）。Renovateのマージはdevelopへのマージ通知（Discord）から外す。developへの取り込みと本番公開は別で、本番公開は既存のリリース手順で人が行う。
 
@@ -58,14 +59,7 @@ jsdom 31（#1076）は2026-11-22に「上流の修正待ち」として残した
 
 ## 限定override
 
-アプリ全体への強制置換はせず、次の親パッケージ配下だけへ適用する。削除を判断するときは、そのルールだけを別worktreeで外して再解決し、`npm explain`、`npm ls --all`、全件auditと関連テストを確認する。
-
-| 親と対象             | 採用値・理由                                                                                                                                                                                             | 上流と削除条件                                                                                                                                                                                                                                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `miniflare → sharp`  | `0.35.5`。直接採用のMiniflare 4.20260730.0は0.35.2を固定し、[libheif](https://github.com/advisories/GHSA-rgj7-g3m4-5g8c)・[librsvg](https://github.com/advisories/GHSA-wq5f-xc86-pv6w)の修正を含まない。 | Wrangler/plugin内のMiniflare 5.20261123.0-betaはすでに0.35.5。2026-11-27時点でも直接採用の最新安定版Miniflare 4.20260730.0は0.35.2を固定し、外すとauditのhighが戻る。Miniflare 4を含む全経路が修正版へ移り、画像処理・Preview検証が通ったら削除。                                                                     |
-| `miniflare → undici` | `7.30.1`。Miniflare 4は7.28.0を固定する（Wrangler/plugin内のMiniflare 5.20261123.0-betaは7.30.2へ移った）。同じ7系の修正版へ揃える。                                                                     | 7.28.0は10月15日の[共有cache/redirect](https://github.com/nodejs/undici/security/advisories/GHSA-4w7w-5xrc-9h26)・[decompress](https://github.com/nodejs/undici/security/advisories/GHSA-55wc-3pg8-jfw6)の対象。2026-11-27時点でもMiniflare 4が残る。全経路が7.30.1以上へ移り、Worker・Preview・smokeが通ったら削除。 |
-
-Miniflareのルールは親名に限定する。版別の2ルールを同時に追加した再解決ではnpm 11.19.1が4側のoverrideを落としたため、4/5双方の実際の解決結果を確認する。現時点の直接Miniflareは最新安定版4.20260730.0であり、5 betaを直接採用しない。Wrangler/pluginが内部固定するbetaはその上流構成として検査する。
+2026-11-28時点で `overrides` は無い。脆弱な推移依存を修正版へ置き換える必要が出たら、アプリ全体への強制置換はせず、親パッケージ配下だけへ適用し、採用値・理由・削除条件をこの節に書く。削除を判断するときは、そのルールだけを別worktreeで外して再解決し、`npm explain`、`npm ls --all`、全件auditと関連テストを確認する。
 
 `@node-minify/core → glob`（10.5.0）は2026-11-27に外した（#739）。OpenNext AWS 4.2.0が使うcore 10.5.0はglobに依存しなくなり、適用先が無くなった。外す前後でlockfileの解決結果とauditは変わらない。
 
@@ -75,15 +69,21 @@ Biome 2.6からMarkdownも整形・lint対象になったが、Markdownはこれ
 
 `diff` はアプリから直接使わないが、devDependenciesに `^9.0.0` を置く。OpenNext 1.20.16 と同梱の `@opennextjs/aws` 4.1.15 は `diff ^9.0.0` を optional peer に持ち、shadcn・Storybook が使う diff 8 がルートに置かれると `npm ls --all` がinvalidで失敗するため。peer条件の書換え・検査の省略では通さない。shadcnとStorybookがdiff 9へ移るか、OpenNextがこのpeerを外したら削除する。
 
+## Miniflareの版
+
+Miniflare配下の `sharp`（0.35.5）・`undici`（7.30.1）は2026-11-28に外した（#739）。直接採用していたMiniflare 4.20260730.0は脆弱な版（sharp 0.35.2・undici 7.28.0）を固定していたが、Miniflare 4は2026-07以降更新が無く、Wrangler・Cloudflare Vitest pluginはすでにMiniflare 5を同梱しているため、上流を待っても解けなかった。直接依存のMiniflareをWrangler 4.168.0・Vitest plugin 1.9.2が固定する版（5.20261123.1-beta）へ揃え、lockfileのMiniflareを1つにした。Miniflare 5は修正版のsharp 0.35.5・undici 7.30.2を指す。外す前後でauditはhigh 2・moderate 15のまま。
+
+直接のMiniflareは [scripts/preview-smoke.mts](../../scripts/preview-smoke.mts) だけが使う。Miniflare 5は設定の形が変わったため、4の形の設定を `convertV4MiniflareOptions` で変換し、廃止された `createFetchMock` の代わりに `outboundService` でテストIdPの公開鍵だけに答える。直接のMiniflareは、WranglerとVitest pluginの `dependencies.miniflare` と同じ版へ揃える。Miniflare 5はnpmのbetaタグで公開されるため、[renovate.json](../../renovate.json) ではbetaへ追従させ、Wrangler・Vitest pluginと同じPRにまとめる。版のずれは [miniflare-version.spec.ts](../../.github/scripts/miniflare-version.spec.ts) で検査する。
+
 ## auditの残件と到達性
 
 2026-11-21時点で `--omit=dev` は0件、全件auditはhigh 2・moderate 15。10月に残件だった[bracesの再帰DoS](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)は10月23日に取り下げられた。同じ日に、範囲内で直せるbody-parser 2.4.0・fast-uri 3.1.9・systeminformation 5.33.23・glob 13.0.7へlockfileを更新した。残りは次の3系統で、どれも依存元の対応を待つ。
 
-| 対象と経路                                                                                                                           | 残る理由                                                                                                                                                                          | 到達性                                                                                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| [zodの配列検証のメモリ枯渇](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)。`@google/design.md 0.4.0 → zod 3.25.76`              | 修正は4.6.6以降だけで3系の修正版はない。design.mdの最新版も `zod ^3.24.0` のまま                                                                                                  | `lint:design`・`gen:design-tokens` がリポジトリ内のDESIGN.mdだけを検証する。アプリの `contracts/` は修正済みのzod 4.6.7を使う |
-| [minimatchのパターン増幅DoS](https://github.com/advisories/GHSA-g3hv-75wg-m249)。shadcn・remark-cli配下の9.0.9・10.2.6               | 修正は11.0.1以降だけで9・10系の修正版はない                                                                                                                                       | 影響は利用側が `optimizationLevel` 2以上で未信頼のパターンを渡した場合。CLIへ渡すのはリポジトリ内の固定パターンだけ           |
-| [globの中断後の走査継続](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4)。OpenNext・Storybook配下の13.0.7、remark-cli配下の10.5.0 | 13.0.7は修正コミット[d94a8c8](https://github.com/isaacs/node-glob/commit/d94a8c8d0a)を取り込み済みだが、advisoryの範囲（`<=14.0.1`）が未更新のためauditに残る。10系は修正版がない | 影響は `signal` で走査を打ち切る呼出し。ビルド・整形ツールが信頼するリポジトリを走査するだけで、アプリ入力から到達しない      |
+| 対象と経路                                                                                                                           | 残る理由                                                                                                                                                                                                                                                                              | 到達性                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| [zodの配列検証のメモリ枯渇](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)。`@google/design.md 0.4.0 → zod 3.25.76`              | 修正は4.6.6以降だけで3系の修正版はない。上流はzod 4へ移した0.4.1をマージ済み（[#185](https://github.com/google-labs-code/design.md/pull/185)）だが、2026-11-28時点でnpmは0.4.0のまま（[#200](https://github.com/google-labs-code/design.md/issues/200)）。0.4.1が公開されたら更新する | `lint:design`・`gen:design-tokens` がリポジトリ内のDESIGN.mdだけを検証する。アプリの `contracts/` は修正済みのzod 4.6.7を使う |
+| [minimatchのパターン増幅DoS](https://github.com/advisories/GHSA-g3hv-75wg-m249)。shadcn・remark-cli配下の9.0.9・10.2.6               | 修正は11.0.1以降だけで9・10系の修正版はない                                                                                                                                                                                                                                           | 影響は利用側が `optimizationLevel` 2以上で未信頼のパターンを渡した場合。CLIへ渡すのはリポジトリ内の固定パターンだけ           |
+| [globの中断後の走査継続](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4)。OpenNext・Storybook配下の13.0.7、remark-cli配下の10.5.0 | 13.0.7は修正コミット[d94a8c8](https://github.com/isaacs/node-glob/commit/d94a8c8d0a)を取り込み済みだが、advisoryの範囲（`<=14.0.1`）が未更新のためauditに残る。10系は修正版がない                                                                                                     | 影響は `signal` で走査を打ち切る呼出し。ビルド・整形ツールが信頼するリポジトリを走査するだけで、アプリ入力から到達しない      |
 
 shadcnはCSSをビルド時にimportするためdevDependenciesへ分類する。`--omit=dev` の0件だけでは安全と判断しない。Miniflare/Wrangler/Storybook等も開発端末やCIでコードを実行する。auditが返さないadvisoryもあるため、上流のsecurity情報と実際のlockfileを突き合わせる。
 

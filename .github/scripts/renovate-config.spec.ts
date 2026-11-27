@@ -10,6 +10,8 @@ type PackageRule = {
   matchCurrentVersion?: string;
   groupName?: string;
   automerge?: boolean;
+  ignoreUnstable?: boolean;
+  respectLatest?: boolean;
 };
 
 type RenovateConfig = {
@@ -110,6 +112,27 @@ describe("Renovateの更新方針 (#395)", () => {
         expect(rule.matchCurrentVersion).toBe("!/^0/");
       }
     }
+  });
+
+  it("Wrangler・Vitest plugin・直接のMiniflareは同じPRで更新し、Miniflareの版がずれないようにする (#739)", () => {
+    const groups = ["wrangler", "@cloudflare/vitest-plugin", "miniflare"].map(
+      (name) =>
+        rules.findLast(
+          (rule) => rule.matchPackageNames?.includes(name) && rule.groupName,
+        )?.groupName,
+    );
+    expect(groups[0]).toBeTruthy();
+    expect(new Set(groups).size).toBe(1);
+  });
+
+  it("Wranglerが同梱するMiniflareはbetaタグの版なので、beta間の更新にも追従する (#739)", () => {
+    const miniflare = rules.findLast(
+      (rule) =>
+        rule.matchPackageNames?.includes("miniflare") &&
+        rule.ignoreUnstable !== undefined,
+    );
+    expect(miniflare?.ignoreUnstable).toBe(false);
+    expect(miniflare?.respectLatest).toBe(false);
   });
 
   it("まとめPRが1時間あたりの作成数の上限で翌朝へ持ち越されないようにする", () => {

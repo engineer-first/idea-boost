@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readD1Migrations } from "@cloudflare/vitest-plugin";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
-import { createFetchMock, Miniflare } from "miniflare";
+import { convertV4MiniflareOptions, Miniflare } from "miniflare";
 import englishLandingMessages from "../messages/en/landing.json" with {
   type: "json",
 };
@@ -43,22 +43,23 @@ export async function smokePreviewBundle(
   const issuer = "https://preview-smoke-test.cloudflareaccess.com";
   const master = "preview-smoke-only-master-not-a-real-secret";
   const { privateKey, publicKey } = await generateKeyPair("RS256");
-  const mock = createFetchMock();
-  mock.disableNetConnect();
-  mock
-    .get(issuer)
-    .intercept({ path: "/cdn-cgi/access/certs" })
-    .reply(200, {
-      keys: [
-        {
-          ...(await exportJWK(publicKey)),
-          kid: "smoke-test-key",
-          alg: "RS256",
-          use: "sig",
-        },
-      ],
-    })
-    .persist();
+  const certsUrl = `${issuer}/cdn-cgi/access/certs`;
+  const jwks = {
+    keys: [
+      {
+        ...(await exportJWK(publicKey)),
+        kid: "smoke-test-key",
+        alg: "RS256",
+        use: "sig",
+      },
+    ],
+  };
+  // Workerの外向き通信はテストIdPの公開鍵だけに答え、ほかの宛先には出さない。
+  const outboundService = async (request: Request): Promise<Response> => {
+    if (request.method === "GET" && request.url === certsUrl)
+      return Response.json(jwks);
+    throw new Error(`Preview smokeは外部へ通信しません: ${request.url}`);
+  };
   const identities = [
     { email: "allowed@example.test", sub: "smoke-test-owner" },
     { email: "member@example.test", sub: "smoke-test-member" },
@@ -99,7 +100,7 @@ export async function smokePreviewBundle(
         invoke_user_worker_ahead_of_assets: true,
       },
     },
-    fetchMock: mock,
+    outboundService,
     bindings: {
       PREVIEW_ENABLED: "true",
       PREVIEW_ACCESS_ISSUER: issuer,
@@ -114,7 +115,9 @@ export async function smokePreviewBundle(
       PREVIEW_API_COMMIT: sha,
     },
   }));
-  const mf = new Miniflare({ workers, https: options.browser === true });
+  const mf = new Miniflare(
+    convertV4MiniflareOptions({ workers, https: options.browser === true }),
+  );
   // 一時サーバーは標準2時間で停止。通常はfinallyで検証直後に停止する。
   const deadline = setTimeout(() => void mf.dispose(), 7_200_000);
   deadline.unref();
@@ -245,11 +248,7 @@ export async function smokePreviewBundle(
     );
   } finally {
     clearTimeout(deadline);
-    try {
-      await mf.dispose();
-    } finally {
-      await mock.close();
-    }
+    await mf.dispose();
   }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
