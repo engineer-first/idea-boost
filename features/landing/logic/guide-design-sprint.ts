@@ -155,5 +155,5 @@ export const designSprintGuide: Guide = {
       url: "https://designsprintkit.withgoogle.com/",
     },
   ],
-  related: ["how-might-we", "hackathon-idea", "brainstorming"],
+  related: ["how-might-we", "hackathon-idea", "idea-voting", "brainstorming"],
 };

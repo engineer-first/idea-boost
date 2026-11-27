@@ -135,5 +135,5 @@ export const brainstormingGuide: Guide = {
       url: "https://archive.org/details/appliedimaginati00osbo",
     },
   ],
-  related: ["how-might-we", "hackathon-idea"],
+  related: ["idea-voting", "how-might-we", "hackathon-idea"],
 };

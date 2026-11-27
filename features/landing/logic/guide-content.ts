@@ -2,6 +2,7 @@ import { brainstormingGuide } from "./guide-brainstorming";
 import { designSprintGuide } from "./guide-design-sprint";
 import { hackathonIdeaGuide } from "./guide-hackathon-idea";
 import { howMightWeGuide } from "./guide-how-might-we";
+import { ideaVotingGuide } from "./guide-idea-voting";
 import type { Guide } from "./guide-types";
 
 /** 公開している解説ページ。一覧・サイトマップ・llms.txt はこの順に並べる。 */
@@ -10,6 +11,7 @@ export const GUIDES: readonly Guide[] = [
   howMightWeGuide,
   designSprintGuide,
   brainstormingGuide,
+  ideaVotingGuide,
 ];
 
 export function getGuide(slug: string): Guide | undefined {
