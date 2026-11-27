@@ -4,7 +4,7 @@ import styles from "./sharing-announcement.module.css";
 
 export type SharingAnnouncementProps = {
   member: ProtocolMember;
-  /** 発表者が自分のとき、主色の淡い面で強調し「あなたのターンです」と示す。 */
+  /** 発表者が自分のとき、主色の淡い面で強調し「あなたの順番です」と示す。 */
   isSelf?: boolean;
 };
 
@@ -42,7 +42,7 @@ export function SharingAnnouncement({
           size={32}
         />
         <span className="min-w-0 break-words">
-          {isSelf ? "あなたのターンです" : `${member.name}さんのターンです`}
+          {isSelf ? "あなたの順番です" : `${member.name}さんの順番です`}
         </span>
       </span>
 

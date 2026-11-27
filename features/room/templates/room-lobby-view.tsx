@@ -98,26 +98,29 @@ export function RoomLobbyView({
           <div className={styles.roomTitle}>
             {/* 状態が届く前に「テーマ未設定」と仮表示しない。高さは保って見出しの跳ねを防ぐ。 */}
             <h1 aria-busy={roomName && !roomName.loaded ? true : undefined}>
-              {roomName
-                ? roomName.loaded
-                  ? (roomName.name ?? "テーマ未設定")
-                  : "\u00a0"
-                : "ルーム待機室"}
+              {roomName ? (
+                roomName.loaded ? (
+                  <button
+                    type="button"
+                    className={styles.editRoomTrigger}
+                    // aria-label は付けない。付けると見出しの読み上げからテーマ名が消える。
+                    title="テーマを変更"
+                    disabled={roomName.disabled || roomName.pending}
+                    onClick={roomName.request}
+                  >
+                    <span>{roomName.name ?? "テーマ未設定"}</span>
+                    <Pencil
+                      className={`size-4 ${styles.editRoomIcon}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                ) : (
+                  "\u00a0"
+                )
+              ) : (
+                "ルーム待機室"
+              )}
             </h1>
-            {roomName ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className={styles.editRoom}
-                aria-label="テーマを変更"
-                title="テーマを変更"
-                disabled={roomName.disabled || roomName.pending}
-                onClick={roomName.request}
-              >
-                <Pencil className="size-4" aria-hidden="true" />
-              </Button>
-            ) : null}
           </div>
           <span
             className={styles.memberCount}

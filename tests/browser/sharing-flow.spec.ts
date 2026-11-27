@@ -46,7 +46,7 @@ describe("共有HUD", () => {
     );
     const notice = page
       .getByRole("status")
-      .filter({ hasText: "さんのターンです" });
+      .filter({ hasText: "さんの順番です" });
     await notice.waitFor();
     expect(
       await notice.evaluate((element) =>

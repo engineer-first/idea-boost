@@ -66,6 +66,26 @@ describe("AppHeader", () => {
     );
   });
 
+  it("ホームでは左上の Idea Boost ロゴから LP（/about）へ移動できる", async () => {
+    navigationMocks.pathname = "/home";
+    await renderHeader(<AppHeader userName="田中太郎" />);
+    const link = screen.getByRole("link", { name: "Idea Boost" });
+    expect(link).toHaveAttribute("href", "/about");
+    expect(link).toBe(screen.getByTestId("app-header-brand"));
+  });
+
+  it("開始待ち画面では左上の Idea Boost ロゴをリンクにしない", async () => {
+    navigationMocks.pathname =
+      "/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/start";
+    await renderHeader(<AppHeader userName="田中太郎" />);
+    expect(
+      screen.queryByRole("link", { name: "Idea Boost" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("app-header-brand")).toHaveTextContent(
+      "Idea Boost",
+    );
+  });
+
   it("ブランド名の前に LP と同じアイコンを添える", async () => {
     await renderHeader(<AppHeader userName="田中太郎" />);
     const icon = screen

@@ -1840,7 +1840,7 @@ describe("共有の進行欄", () => {
       />,
     );
     expect(
-      screen.getByText(`${sharing.order[1].name}さんのターンです`),
+      screen.getByText(`${sharing.order[1].name}さんの順番です`),
     ).toBeInTheDocument();
     expect(screen.getByRole("timer")).toHaveTextContent("03:00");
     expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
@@ -1862,10 +1862,10 @@ describe("共有の進行欄", () => {
       />,
     );
     expect(screen.getByTestId("sharing-current-presenter")).toHaveTextContent(
-      `${active.order[1].name}さんのターンです`,
+      `${active.order[1].name}さんの順番です`,
     );
   });
-  it("自分の番なら発表者の表示を「あなたのターンです」にする", () => {
+  it("自分の番なら発表者の表示を「あなたの順番です」にする", () => {
     const active = { ...sharing, status: "active" as const, currentIndex: 0 };
     render(
       <RoomBoardHeader
@@ -1881,7 +1881,7 @@ describe("共有の進行欄", () => {
       />,
     );
     const banner = screen.getByTestId("sharing-current-presenter");
-    expect(banner).toHaveTextContent("あなたのターンです");
+    expect(banner).toHaveTextContent("あなたの順番です");
     expect(banner).toHaveAttribute("data-self", "true");
   });
   it.each([
