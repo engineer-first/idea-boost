@@ -36,9 +36,14 @@ const snapshot: Extract<ServerMessage, { type: "snapshot" }> = {
   timer: { status: "running", endsAt: 9999999999999, durationMs: 60000 },
   serverNow: 0,
 };
-function receipt(index: number, beforeX: number, afterX: number): MoveReceipt {
+function receipt(
+  index: number,
+  beforeX: number,
+  afterX: number,
+  noteId = N,
+): MoveReceipt {
   const before = {
-    noteId: N,
+    noteId,
     x: beforeX,
     y: 100,
     positionRevision: index,
@@ -468,6 +473,8 @@ describe("別の付箋の競合", () => {
     h.apply({ type: "note:deleted", noteId: M });
     expect(h.result.current.draggingNoteId).toBe(N);
     expect(h.x()).toBe(220);
+    expect(h.result.current.moveFeedback).not.toBeNull();
+    expect(sent(h, "note:move:cancel")).toHaveLength(0);
     h.end(220);
     h.accept(0, 100, 150);
     expect(sent(h, "note:move:start").at(-1)).toMatchObject({
@@ -495,6 +502,80 @@ describe("別の付箋の競合", () => {
       operationId: ids[1],
       delta: { x: 70, y: 0 },
     });
+  });
+  it("外した移動の後ろで同じ付箋を動かした移動は、外した移動の前の位置から離した位置へ保存する", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    act(() => h.result.current.startNoteDrag(M, [M, N]));
+    h.end(430, M);
+    act(() => h.result.current.startNoteDrag(M));
+    h.end(500, M);
+    h.apply(peerMoved(300, 1));
+    expect(h.result.current.notes.find((n) => n.id === M)?.x).toBe(500);
+    expect(h.result.current.moveFeedback).not.toBeNull();
+    h.accept(0, 100, 150);
+    expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+      operationId: ids[2],
+      targets: [{ noteId: M, positionRevision: 0 }],
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[2],
+      delta: { x: 100, y: 0 },
+    });
+  });
+  it("同じ付箋の移動が2件並んで相手の確定で載せ替わっても、2件目は1件目の行き先から離した位置へ保存する", () => {
+    const h = setup();
+    act(() => h.result.current.startNoteDrag(M));
+    h.end(430, M);
+    h.start();
+    h.end(150);
+    h.start();
+    h.end(220);
+    h.apply(peerMoved(300, 1));
+    expect(h.x()).toBe(220);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "accepted",
+      receipt: { ...receipt(0, 400, 430, M), operationId: ids[0] },
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: -150, y: 0 },
+    });
+    h.accept(1, 300, 150);
+    expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+      operationId: ids[2],
+      targets: [{ noteId: N, positionRevision: 2 }],
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[2],
+      delta: { x: 70, y: 0 },
+    });
+  });
+  it("送り直し待ちの先頭が成立しなくなったら、取消を送らずに次の移動を送り始める", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    act(() => h.result.current.startNoteDrag(M));
+    h.end(430, M);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "rejected",
+    });
+    h.apply({ type: "note:deleted", noteId: N });
+    expect(sent(h, "note:move:cancel")).toHaveLength(0);
+    expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+      operationId: ids[1],
+      targets: [{ noteId: M, positionRevision: 0 }],
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: 30, y: 0 },
+    });
+    expect(h.result.current.moveFeedback?.operationId).toBe(ids[2]);
   });
 });
 
