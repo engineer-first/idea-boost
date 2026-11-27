@@ -1852,6 +1852,62 @@ describe("サーバーメッセージ → 画面反映", () => {
     ).toBe(false);
   });
 
+  it("共有の応答を待つ間も、ボードの別の付箋を掴んで動かせる", () => {
+    const privateNote = protocolNote({ visibility: "private" });
+    const boardNote = protocolNote({
+      id: "0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f",
+      content: "ボードの付箋",
+      x: 320,
+      y: 260,
+    });
+    const { socket } = connectWithSnapshot([privateNote, boardNote], {
+      phase: buildPhaseStep(2, 1),
+      moveProtocolVersion: 1,
+      shareProtocolVersion: 1,
+    });
+    const canvas = screen.getByTestId("board-canvas");
+    const scroller = canvas.parentElement;
+    if (!scroller) throw new Error("ボードスクローラーがありません");
+    Object.defineProperty(scroller, "getBoundingClientRect", {
+      value: () => ({ left: 0, top: 0, right: 500, bottom: 400 }),
+    });
+    const toolbar = openPrivateNotesToolbar();
+    const handle = within(toolbar).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 600, clientY: 20 });
+    fireEvent.pointerMove(handle, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 605,
+      clientY: 25,
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 180,
+      clientY: 200,
+    });
+    fireEvent.pointerUp(root, { pointerId: 1, clientX: 200, clientY: 220 });
+    // 共有の結果はまだ返っていない。
+    expectSent(socket, { type: "note:publish", noteId: NOTE_ID });
+
+    const surface = within(
+      screen.getByTestId(`board-note-${boardNote.id}`),
+    ).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(surface, {
+      pointerId: 2,
+      clientX: 330,
+      clientY: 270,
+    });
+    fireEvent.pointerMove(surface, {
+      buttons: 1,
+      pointerId: 2,
+      clientX: 350,
+      clientY: 290,
+    });
+    expectSent(socket, { type: "note:move:start" });
+  });
+
   it("マイ付箋previewの位置はACKを待たず更新し、pointerup一件で確定する", () => {
     const privateNote = protocolNote({ visibility: "private" });
     const { socket } = connectWithSnapshot([privateNote], {

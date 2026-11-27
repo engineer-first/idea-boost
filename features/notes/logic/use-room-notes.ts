@@ -307,7 +307,9 @@ export function useRoomNotes({
         finishNoteCreation();
       }
       transactionMove.applyMessage(message);
-      transactionShare.applyMessage(message);
+      const share = transactionShare.applyMessage(message);
+      // 置いた直後に動かした付箋の移動は、共有が確定した版で送り始める。
+      if (share) transactionMove.resolveShare(share.noteId, share.shared);
       if (message.type === "snapshot")
         setSnapshotVersion((version) => version + 1);
       if (
@@ -529,6 +531,7 @@ export function useRoomNotes({
       updatePendingNoteFront,
       updatePendingVoteOperations,
       transactionMove.applyMessage,
+      transactionMove.resolveShare,
       transactionShare.applyMessage,
       finishNoteCreation,
     ],
@@ -617,10 +620,20 @@ export function useRoomNotes({
 
   const startNoteDrag = useCallback(
     (noteId: string, selectedNoteIds?: readonly string[]) => {
-      if (transactionShare.owns(noteId)) return;
+      if (transactionShare.owns(noteId)) {
+        // ボードへ置いた直後の付箋は、共有の応答を待たずに動かせる。
+        // マイ付箋へ戻している途中の付箋は動かさない。
+        const pending = transactionShare.pendingSharedNote(noteId);
+        if (pending) transactionMove.start(noteId, [noteId], pending);
+        return;
+      }
       transactionMove.start(noteId, selectedNoteIds);
     },
-    [transactionMove.start, transactionShare.owns],
+    [
+      transactionMove.start,
+      transactionShare.owns,
+      transactionShare.pendingSharedNote,
+    ],
   );
 
   const bringNoteToFront = useCallback(
@@ -878,7 +891,10 @@ export function useRoomNotes({
   );
 
   return {
-    notes: transactionShare.renderNotes(transactionMove.notes),
+    notes: transactionShare.renderNotes(
+      transactionMove.notes,
+      transactionMove.movedNoteIds,
+    ),
     clearPeerMoves: transactionMove.clearPeerMoves,
     movePending: transactionMove.pending || transactionShare.pending,
     sharePending: transactionShare.pending,
