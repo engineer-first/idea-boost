@@ -24,12 +24,12 @@ push後に古いrunを見ていないか、`pull_request` のマージ結果とh
 [package.json](../../../package.json) を読む。検査の目的は
 [テスト方針](../../../docs/development/testing.md) に照らす。
 
-| 失敗箇所      | 確認すること                                                                                                            |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| lint          | Biome、Markdown、境界、配置、共有スキル、型、migration、DB lintのどのステップか。整形hookの発火だけでlint成功とはしない |
-| test          | unit / Worker / Preview / verification のどこで失敗したか。Worker・D1・DOの再現には対象のWorker用configを使う           |
-| browser       | Storybook build・配信の失敗か、実ブラウザの操作・寸法の失敗か。`board-layout` artifactの画像とログを確認する            |
-| build / smoke | buildログとサービスバインディングの起動・疎通を分けて確認する                                                           |
+| 失敗箇所      | 確認すること                                                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| lint          | Biome、Markdown、境界、配置、共有スキル、型、migration、DB lintのどのステップか。整形hookの発火だけでlint成功とはしない                                                         |
+| test          | 集約ジョブなので、`unit (N/2)`・`workers` のどれが落ちたかを見る。unit / Worker / Preview / verification のどこで失敗したか。Worker・D1・DOの再現には対象のWorker用configを使う |
+| browser       | Storybook build・配信の失敗か、実ブラウザの操作・寸法の失敗か。集約ジョブなので `browser (N/3)` のどれが落ちたかを見て、`board-layout-N` artifactの画像とログを確認する         |
+| build / smoke | buildログとサービスバインディングの起動・疎通を分けて確認する                                                                                                                   |
 
 原因に応じて、次を調べる。
 

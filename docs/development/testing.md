@@ -115,8 +115,8 @@ PR の待ち時間を短くするため、重い検査は変更範囲で回す�
 - [CI](../../.github/workflows/ci.yml) は lint・test・build・smoke、
   [Browser](../../.github/workflows/browser.yml) は browser を実行する。
   browser を分けるのは、PR Preview が CI の成功を待つため。
-- unit は2つ、browser は3つに分けて並列に回し、同名の集約ジョブ `test`・`browser` が
-  全部の成功を必須チェックとして報告する（[ADR 0036](../adr/0036-loop-auto-merge-parallel-ci.md)）。
+- unit は2つ（`unit (1/2)`・`unit (2/2)`）、Worker 系は `workers`、browser は3つに分けて並列に回す。
+  必須チェック `test` は unit と Worker 系、`browser` は3つの分割の成功をまとめて報告する（[ADR 0036](../adr/0036-loop-auto-merge-parallel-ci.md)）。
   分けた先で落ちたときは、`unit (1/2)` や `browser (2/3)` のジョブのログを読む。
   手元で同じ分け方を再現するときは `npm run test -- --shard=1/2` のように渡す。
 - ループの PR は必須チェックを待たずに auto-merge を予約し、落ちた PR は次の build が拾う

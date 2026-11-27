@@ -109,23 +109,33 @@ export function isStalledPr(
   return carried && now - Date.parse(pr.updatedAt) >= after;
 }
 
-type CheckRun = { name?: string; conclusion?: string | null };
+type CheckRun = {
+  name?: string;
+  conclusion?: string | null;
+  startedAt?: string;
+};
 
 // develop の ruleset が求める必須チェック。auto-merge はこれが全部成功するまで待つ。
 const REQUIRED_CHECKS = ["lint", "test", "browser", "build", "smoke"];
 const FAILED = ["FAILURE", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED"];
 
-/** 必須チェックのどれかが落ちたか、develop と競合していて、auto-merge が進まない */
+/**
+ * 必須チェックのどれかが落ちたか、develop と競合していて、auto-merge が進まない。
+ * 同じ commit の再実行は古い結果も残るので、名前ごとに最後に始まった実行だけを見る。
+ */
 export function isFailingPr(pr: {
   mergeable?: string;
   statusCheckRollup?: CheckRun[];
 }): boolean {
   if (pr.mergeable === "CONFLICTING") return true;
-  return (pr.statusCheckRollup ?? []).some(
-    (c) =>
-      REQUIRED_CHECKS.includes(c.name ?? "") &&
-      FAILED.includes(c.conclusion ?? ""),
-  );
+  const latest = new Map<string, CheckRun>();
+  for (const c of pr.statusCheckRollup ?? []) {
+    if (!REQUIRED_CHECKS.includes(c.name ?? "")) continue;
+    const seen = latest.get(c.name ?? "");
+    if (!seen || (c.startedAt ?? "") >= (seen.startedAt ?? ""))
+      latest.set(c.name ?? "", c);
+  }
+  return [...latest.values()].some((c) => FAILED.includes(c.conclusion ?? ""));
 }
 
 export type BuildState = {

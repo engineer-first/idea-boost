@@ -37,7 +37,7 @@
 - `write-pr` skill で本文を作り、`gh pr create --base develop --label loop`。UI の変更は `github-media` skill で変更前後を PR に添える
 - 別 context のレビュー：Agent ツールで `code-review` 相当のサブエージェント（UI は `ui-conventions-reviewer`、R2 は加えて `authz-security-reviewer`）に PR の差分を渡す。直すべき指摘は直して push し、指摘が 0 になるまで繰り返す
 - 必須チェックの完了は待たない。レビューの間に落ちていれば `ci-triage` skill で直して push する
-- README の「マージの決まり」を必須チェック以外すべて満たしたら `gh pr merge <PR> --squash --auto --delete-branch` で auto-merge を予約し、`gh pr view <PR> --json autoMergeRequest` で予約できたことを確かめて周回を終える。必須チェックが通れば GitHub がマージし、落ちたら次の build が[止まっている PR](#止まっている-pr-を流すとき)として拾う。満たせなければ予約せず draft に戻し、理由をコメントする
+- README の「マージの決まり」を必須チェック以外すべて満たしたら `gh pr merge <PR> --squash --auto --delete-branch` で auto-merge を予約し、`gh pr view <PR> --json state,autoMergeRequest` で予約できたこと（必須チェックがすでに通っていればマージ済み）を確かめて周回を終える。必須チェックが通れば GitHub がマージし、落ちたら次の build が[止まっている PR](#止まっている-pr-を流すとき)として拾う。満たせなければ予約せず draft に戻し、理由をコメントする
 
 ## 止まっている PR を流すとき
 
@@ -52,7 +52,7 @@
 
 ## 5. 閉じる
 
-- auto-merge を予約できたことを確かめる。claim はマージで Issue が閉じるまで残す（PR が落ちたら、次の build が Issue ではなく PR を拾う）
+- auto-merge を予約できたか、マージ済みかを確かめる。claim はマージで Issue が閉じるまで残す（PR が落ちたら、次の build が Issue ではなく PR を拾う）
 - 次の周回が同じ失敗をしそうなら、この指示書か AGENTS.md に1行だけ足す（別の PR で）
 - 同じ Issue で3周失敗したら `blocked` を付け、理由を1〜3行書いて claim を外す
 - 最後に `orca worktree set --worktree active --comment "<PR番号と結果1行>"`。2件目に進まない

@@ -223,6 +223,24 @@ describe("isFailingPr: auto-merge が進まない PR を見分ける", () => {
     ).toBe(true);
     expect(isFailingPr({ mergeable: "CONFLICTING" })).toBe(true);
   });
+  it("同じ名前のチェックは最後に始まった実行だけを見る（再実行で通った失敗は数えない）", () => {
+    expect(
+      isFailingPr({
+        statusCheckRollup: [
+          {
+            name: "browser",
+            conclusion: "FAILURE",
+            startedAt: "2026-11-27T03:00:00Z",
+          },
+          {
+            name: "browser",
+            conclusion: "SUCCESS",
+            startedAt: "2026-11-27T03:10:00Z",
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
   it("必須でないチェックの失敗と、実行中・成功は数えない（auto-merge はそのまま進む）", () => {
     expect(
       isFailingPr({
