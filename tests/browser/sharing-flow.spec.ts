@@ -62,6 +62,32 @@ describe("共有HUD", () => {
       }
     },
   );
+  it("キーボードで中央の「パスする」を押して送信中に押せなくなり番が移っても、フォーカスを中央の表示に残す", async () => {
+    const page = await browser.newPage({ reducedMotion: "reduce" });
+    try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-sharingannouncement--presenter-disconnected-passed&viewMode=story`,
+      );
+      const pass = page.getByRole("button", { name: /をパス$/ });
+      await pass.focus();
+      const focused = () =>
+        page.evaluate(
+          () =>
+            (document.activeElement as HTMLElement | null)?.dataset.testid ??
+            document.activeElement?.tagName,
+        );
+      await page.keyboard.press("Enter");
+      // 送信中に押せなくなったボタンから、ブラウザがフォーカスを外す場面。
+      await page.waitForSelector("button[disabled]");
+      await page.waitForTimeout(100);
+      expect(await focused()).toBe("sharing-current-presenter");
+      // 番が移ってボタンが消えた後も残る。
+      await page.getByText("さんの順番です").waitFor();
+      expect(await focused()).toBe("sharing-current-presenter");
+    } finally {
+      await page.close();
+    }
+  });
   it("動きを減らす設定では交代案内を静止表示する", async () => {
     const page = await browser.newPage({ reducedMotion: "reduce" });
     await page.goto(

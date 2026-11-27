@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { buildSharingState } from "@/contracts/room-protocol.fixture";
 import { SharingAnnouncement } from "./sharing-announcement";
@@ -24,4 +25,27 @@ export const Self: Story = { args: { isSelf: true } };
 /** 聞く人から見て発表者の接続が切れているとき。その場でパスできる（#1431）。 */
 export const PresenterDisconnected: Story = {
   args: { isDisconnected: true, onPass: () => {} },
+};
+/**
+ * 接続切れの発表者を「パスする」と、送信中はボタンが押せなくなり、少しして次の人の番に移る。
+ * 押した後のフォーカスを実ブラウザで確かめる（#1453）。
+ */
+export const PresenterDisconnectedPassed: Story = {
+  render: function Render() {
+    const [first, second] = buildSharingState().order;
+    const [state, setState] = useState<"waiting" | "sending" | "passed">(
+      "waiting",
+    );
+    return (
+      <SharingAnnouncement
+        member={state === "passed" ? second : first}
+        isDisconnected={state !== "passed"}
+        passDisabled={state === "sending"}
+        onPass={() => {
+          setState("sending");
+          setTimeout(() => setState("passed"), 500);
+        }}
+      />
+    );
+  },
 };
