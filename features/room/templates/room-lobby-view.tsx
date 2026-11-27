@@ -103,7 +103,7 @@ export function RoomLobbyView({
                   <button
                     type="button"
                     className={styles.editRoomTrigger}
-                    aria-label="テーマを変更"
+                    // aria-label は付けない。付けると見出しの読み上げからテーマ名が消える。
                     title="テーマを変更"
                     disabled={roomName.disabled || roomName.pending}
                     onClick={roomName.request}

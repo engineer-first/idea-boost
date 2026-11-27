@@ -353,8 +353,18 @@ it("待機画面でホスト=%sも現在名を確認して変更を開ける", (
   const request = vi.fn();
   renderView({ roomName: buildRoomNameControls({ request }) });
   expect(screen.getByText("J05")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "テーマを変更" }));
+  fireEvent.click(screen.getByTitle("テーマを変更"));
   expect(request).toHaveBeenCalledOnce();
+});
+
+it("テーマ名をボタンにしても、見出しとボタンはテーマ名で読まれる", () => {
+  renderView({ roomName: buildRoomNameControls() });
+  expect(
+    screen.getByRole("heading", { level: 1, name: "J05" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "J05" }),
+  ).toHaveAccessibleDescription("テーマを変更");
 });
 
 it("待機画面でテーマ名のテキストをクリックしても変更を開ける", () => {
