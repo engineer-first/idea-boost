@@ -56,6 +56,7 @@ import { getBoardPermissions } from "../logic/board-permissions";
 import type { CanvasFitInsets } from "../logic/canvas-camera";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
+import { isOwnSharingTurnOver } from "../logic/own-sharing-turn";
 import { roomNotify } from "../logic/room-notify";
 import type { Decision, Member } from "../logic/room-reducer";
 import { getSharingTimeUpRole } from "../logic/sharing-time-up-role";
@@ -2276,7 +2277,7 @@ export function RoomBoardView({
             canPublishNoteInTurn(phase, sharing, currentUserId)
           }
           privateNotePublishBlocked={privateNotePublishBlocked}
-          sharingComplete={sharing?.status === "complete"}
+          sharingTurnOver={isOwnSharingTurnOver(sharing, currentUserId)}
           expandPrivateNotesRequest={expandPrivateNotesRequest}
           privateNoteAddRef={privateNoteAddRef}
           noteCreationPending={noteCreationPending}

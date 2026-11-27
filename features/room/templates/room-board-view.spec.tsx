@@ -344,6 +344,54 @@ function setup(
   return { ...renderResult, props: resolvedProps };
 }
 
+describe("共有ステップのマイ付箋の欄の案内", () => {
+  const privateNote = buildNote({
+    id: "private",
+    authorId: ME,
+    visibility: "private",
+  });
+  const sharingStatus = () =>
+    within(screen.getByTestId("private-notes-toolbar")).getByRole("status");
+
+  it.each([
+    ["パスされた", "passed"],
+    ["発表し終えた", "done"],
+  ] as const)(
+    "自分の番が%s後は、ほかの人が発表中でも番を待つ案内を出さない",
+    (_label, result) => {
+      setup({
+        phase: buildPhaseStep(2),
+        notes: [],
+        interactions: buildInteractions([], [privateNote]),
+        sharing: buildSharingState({
+          status: "active",
+          currentIndex: 1,
+          results: [result],
+        }),
+      });
+
+      expect(sharingStatus()).toHaveTextContent("発表は終わりました");
+      expect(sharingStatus()).not.toHaveTextContent("自分の番で発表できます");
+    },
+  );
+
+  it("自分の番がまだ来ていなければ、番を待つ案内を出す", () => {
+    setup({
+      phase: buildPhaseStep(2),
+      notes: [],
+      interactions: buildInteractions([], [privateNote]),
+      sharing: buildSharingState({
+        status: "active",
+        order: [...buildSharingState().order].reverse(),
+        currentIndex: 0,
+        results: [],
+      }),
+    });
+
+    expect(sharingStatus()).toHaveTextContent("自分の番で発表できます");
+  });
+});
+
 describe("共有中のいいねの表示", () => {
   it.each([1, 2, 3] as const)(
     "%i-2で受信したいいねを表示し、対象外工程へ進むと消す",

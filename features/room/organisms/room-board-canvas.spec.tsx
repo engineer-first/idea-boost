@@ -346,7 +346,7 @@ describe("RoomBoardCanvas", () => {
       permissions: getBoardPermissions(buildPhaseStep(2)),
       privateNotes: [buildNote({ id: "private-1", visibility: "private" })],
       canPublishPrivateNote: false,
-      sharingComplete: true,
+      sharingTurnOver: true,
     });
     const toolbar = openPrivateNotesToolbar();
     const status = within(toolbar).getByRole("status");

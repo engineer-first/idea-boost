@@ -104,8 +104,8 @@ export type RoomBoardCanvasProps = {
   canPublishPrivateNote?: boolean;
   /** 自分の番でない人がマイ付箋を一覧の外へ運ぼうとしている間 true。 */
   privateNotePublishBlocked?: boolean;
-  /** 共有ステップで全員の発表が終わった後 true。番を待つ案内を出さない。 */
-  sharingComplete?: boolean;
+  /** 共有ステップで自分にもう番が来ない（全員の発表が終わった、自分が発表し終えた・パスされた）とき true。番を待つ案内を出さない。 */
+  sharingTurnOver?: boolean;
   isSavingBeforeShare?: boolean;
   selectedNoteId: string | null;
   selectedNoteIds?: string[];
@@ -231,7 +231,7 @@ export function RoomBoardCanvas({
   exampleNotes = [],
   canPublishPrivateNote = false,
   privateNotePublishBlocked = false,
-  sharingComplete = false,
+  sharingTurnOver = false,
   isSavingBeforeShare = false,
   selectedNoteId,
   selectedNoteIds,
@@ -535,7 +535,7 @@ export function RoomBoardCanvas({
       presenterViewName !== null) ||
     (isPresenterViewOwner && isPresenterViewFollowedByOthers);
 
-  const waitingTurnHint = sharingComplete
+  const waitingTurnHint = sharingTurnOver
     ? canvasMessages("sharingFinished")
     : privateNotePublishBlocked
       ? publishBlockedHint
