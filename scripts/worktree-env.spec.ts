@@ -220,6 +220,19 @@ describe("scripts/worktree-env.sh", () => {
     expect(result.stderr).toContain("credential が空");
   });
 
+  it("複数行の値は入れず、空のままにする", () => {
+    const { run, read, value } = setup({
+      op: { [ID_REF]: "line1\nINJECTED=1", [SECRET_REF]: "s" },
+      env: { OP_SERVICE_ACCOUNT_TOKEN: "sa" },
+    });
+
+    const result = run();
+
+    expect(result.status).toBe(0);
+    expect(value(".env.local", "GOOGLE_CLIENT_ID")).toBe("");
+    expect(read(".env.local")).not.toContain("INJECTED=1");
+  });
+
   it("1Password を読めなくても setup を止めず、空のまま作る", () => {
     const { run, value } = setup({
       opError: "[ERROR] error initializing client: failed to parseToken",

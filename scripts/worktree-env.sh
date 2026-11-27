@@ -76,7 +76,7 @@ inject_from_1password() {
 
   local line name item resolved filled=0
   while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ "$line" =~ ^([A-Z][A-Z0-9_]*)=op://[^/]+/([^/]+)/[^/]+$ ]] || continue
+    [[ "$line" =~ ^([A-Z][A-Z0-9_]*)=op://Automation/(idea-boost-[A-Z][A-Z0-9_]*)/credential$ ]] || continue
     name="${BASH_REMATCH[1]}"
     item="${BASH_REMATCH[2]}"
     if resolved="$(printf '%s\n' "$line" | OP_SERVICE_ACCOUNT_TOKEN="$token" op inject 2>"$err_file")"; then
