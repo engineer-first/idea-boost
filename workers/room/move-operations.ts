@@ -1058,12 +1058,18 @@ export const moveHandlers: MessageHandlers<
       });
       return;
     }
-    if (op.state === "active" && op.connection_id === connectionId(ctx))
+    if (op.state === "active" && op.connection_id === connectionId(ctx)) {
       finish(ctx.sql, message.operationId, {
         type: "note:move:result",
         operationId: message.operationId,
         status: "cancelled",
       });
+      if (message.reason)
+        logMoveFailure(
+          { operation: "cancel", kind: message.reason },
+          "cancelled",
+        );
+    }
     syncMovePresence(ctx.sql, ctx.broadcaster);
     ctx.reply(
       resultFor(ctx, readOperation(ctx.sql, message.operationId) ?? op),

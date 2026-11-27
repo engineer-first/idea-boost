@@ -2,6 +2,8 @@
 // 決まった語だけを残し、付箋の本文・ルーム・利用者・操作の ID は含めない。
 // Workers Logs はオブジェクト1つを渡すと項目ごとに絞り込める。
 
+import type { MoveCancelReason } from "../../contracts/room-protocol";
+
 export const MOVE_FAILURE_EVENT = "note_move_failed";
 
 export type MoveFailureOperation =
@@ -9,7 +11,9 @@ export type MoveFailureOperation =
   | "preview"
   | "commit"
   | "inverse"
-  | "lease";
+  | "lease"
+  // 通知を受けて本人側が取り消した（理由は MoveCancelReason）
+  | "cancel";
 
 export type MoveFailureKind =
   // 退室・閉鎖・工程の種類で、ボードを動かせない
@@ -40,7 +44,8 @@ export type MoveFailureKind =
   | "timer-stopped"
   // 取り消し（Undo/Redo）の前提が、ほかの人の変更で崩れた
   | "history-conflict"
-  | "lease-expired";
+  | "lease-expired"
+  | MoveCancelReason;
 
 export type MoveFailure = {
   operation: MoveFailureOperation;
@@ -49,7 +54,7 @@ export type MoveFailure = {
 
 export function logMoveFailure(
   failure: MoveFailure,
-  status: "rejected" | "expired" = "rejected",
+  status: "rejected" | "expired" | "cancelled" = "rejected",
 ): void {
   console.info({
     event: MOVE_FAILURE_EVENT,

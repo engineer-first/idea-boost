@@ -1742,4 +1742,42 @@ describe("移動の失敗の記録", () => {
       });
       expect(failures()).toEqual([]);
     }));
+  it("通知を受けて本人側が取り消したとき、理由の種類だけを1行残す", () =>
+    setup("move-failure-log-client-cancel", (ctx) => {
+      const failures = recordFailures();
+      start(ctx);
+      moveHandlers["note:move:cancel"](ctx, {
+        type: "note:move:cancel",
+        operationId: OP,
+        reason: "note-changed",
+      });
+      expect(failures().map(([entry]) => entry)).toEqual([
+        {
+          event: "note_move_failed",
+          operation: "cancel",
+          status: "cancelled",
+          kind: "note-changed",
+        },
+      ]);
+      const logged = JSON.stringify(failures());
+      for (const secret of [A, B, N1, N2, OP, OP2, "test"])
+        expect(logged).not.toContain(secret);
+    }));
+  it("取り消す移動が無い・終わっているときは、理由が付いていても残さない", () =>
+    setup("move-failure-log-client-cancel-none", (ctx) => {
+      const failures = recordFailures();
+      moveHandlers["note:move:cancel"](ctx, {
+        type: "note:move:cancel",
+        operationId: OP,
+        reason: "phase-changed",
+      });
+      start(ctx);
+      commit(ctx);
+      moveHandlers["note:move:cancel"](ctx, {
+        type: "note:move:cancel",
+        operationId: OP,
+        reason: "phase-changed",
+      });
+      expect(failures()).toEqual([]);
+    }));
 });

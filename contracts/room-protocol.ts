@@ -368,6 +368,22 @@ export const RoomDisplayNameSchema = z
     `表示名は${ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。`,
   );
 
+// 本人側が移動を取り消した理由の種類。決まった語だけで、付箋やルームの情報を含めない。
+export const MoveCancelReasonSchema = z.enum([
+  // 掴んでいる付箋が、相手の操作で消えた・非公開になった・載せ替えられなくなった
+  "note-changed",
+  "phase-changed",
+  // マップの広さが変わった
+  "map-changed",
+  // タイマーが一時停止・停止した
+  "timer-stopped",
+  // アイデアが決まった・成果が公開された
+  "decided",
+  // 接続中に盤面の全体（snapshot）を受け取り直した
+  "resynced",
+]);
+export type MoveCancelReason = z.infer<typeof MoveCancelReasonSchema>;
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("member:cycle-avatar"),
@@ -491,6 +507,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("note:move:cancel"),
     operationId: OptimisticOperationIdSchema,
+    // 通知を受けて本人側が取り消したときだけ理由の種類を添える（本番で数える、#1401）。
+    // 本人の操作（Escape など）と、最新の版で掴み直すときは添えない。
+    reason: MoveCancelReasonSchema.optional(),
   }),
   z.strictObject({
     type: z.literal("note:move:inverse"),
