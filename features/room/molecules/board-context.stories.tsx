@@ -95,3 +95,18 @@ export const WithoutTheme: Story = {
 export const ThemeLoading: Story = {
   args: { roomName: null, roomNameLoading: true },
 };
+
+// 2-1 で4行に折り返す長い課題。最後の行が下の票の段に隠れない。
+export const LongIssueWithVotes: Story = {
+  args: {
+    phase: buildPhaseStep(1, 2),
+    issueReference: buildCarryover({
+      fontSize: 14,
+      dotVotes: { subjective: 3, objective: 2 },
+    }),
+    hmwReference: null,
+    hmwDecidedIssue:
+      "部室の鍵の受け渡しがいつも面倒で、誰が持っているのか分からず待たされる。誰にも注意できない",
+    decidedHmw: null,
+  },
+};

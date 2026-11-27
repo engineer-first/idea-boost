@@ -1735,6 +1735,17 @@ export function RoomBoardView({
             "--board-private-expanded-top",
             `${Math.ceil(headerBottom + 12)}px`,
           );
+          // デスクトップの2-1・3-1では、左上の決定事項のカードが枠の左上角に
+          // かからないよう、枠の左端をカードの右から始める。ヒントの開閉では動かさない。
+          const panelLeft =
+            isDesktop && reservesContextColumn
+              ? (visibleBounds('[data-testid="board-context-references"]')
+                  ?.right ?? 0)
+              : 0;
+          root.style.setProperty(
+            "--board-private-panel-left",
+            panelLeft > 0 ? `${Math.ceil(panelLeft + 12)}px` : "0px",
+          );
           // デスクトップでは参照情報の右側から書き始める。
           // 2-1の問いのヒントや3-1の考えるヒントを開閉しても付箋を動かさないよう、
           // 左の列全体を最初から空ける。開いたヒントは列の内側に収まる。

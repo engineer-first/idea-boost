@@ -10,8 +10,9 @@
 
 .personalWorkspace {
   --private-workspace-padding: 0.75rem;
+  /* 枠を寄せた分（--private-panel-shift）を除き、付箋の並びを寄せる前と同じ位置に置く。 */
   --private-workspace-grid-inset: calc(
-    (100% - var(--private-notes-grid-width)) /
+    (100% - var(--private-notes-grid-width) - var(--private-panel-shift, 0px)) /
     2
   );
   --private-workspace-reference-inset: var(
@@ -27,10 +28,39 @@
 }
 
 .personalWorkspacePanel {
+  /* 左右の余白は inset-x（0.75rem / sm 1rem / lg 1.25rem）と同じ。 */
+  --private-panel-edge: 0.75rem;
+  /* 枠（最大 80rem）を中央に置いたときの左右の端。 */
+  --private-panel-natural-inset: max(
+    var(--private-panel-edge),
+    calc((100vw - 80rem) / 2)
+  );
+  /* 左上の決定事項のカードにかかる分だけ、枠の左端を右へ寄せる。右端は動かさない。 */
+  --private-panel-shift: max(
+    0px,
+    calc(
+      var(--board-private-panel-left, 0px) -
+      var(--private-panel-natural-inset)
+    )
+  );
   top: max(
     var(--board-private-expanded-top, 5rem),
     var(--board-private-timer-top, 0px)
   );
+  left: calc(var(--private-panel-natural-inset) + var(--private-panel-shift));
+  right: var(--private-panel-natural-inset);
+}
+
+@media (min-width: 40rem) {
+  .personalWorkspacePanel {
+    --private-panel-edge: 1rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .personalWorkspacePanel {
+    --private-panel-edge: 1.25rem;
+  }
 }
 
 .personalWorkspace [data-testid="private-notes-header"] {
@@ -118,6 +148,8 @@
 }
 /* ボードの寸法・カメラには触れず、前面のパネルだけを下へスライドする。 */
 .additionalWritingPanel {
+  /* 下から出すパネルは左上の決定事項と離れているので、左端を寄せない。 */
+  --private-panel-shift: 0px;
   transform: translateY(max(0px, calc(100% - var(--writing-panel-height))));
   clip-path: inset(0 0 calc(100% - var(--writing-panel-height)) 0 round 12px);
   transition:
