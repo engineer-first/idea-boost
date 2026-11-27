@@ -1,6 +1,6 @@
 ---
 id: "0030"
-status: Proposed
+status: Accepted
 date: "2026-11-19"
 ---
 
@@ -60,11 +60,11 @@ CIで縛らない分は、エージェントへの指示で担保する。push�
 ## References
 
 - 委譲先：[scripts/ci-scope.mts](../../scripts/ci-scope.mts)、[テスト方針](../development/testing.md)、[tests/browser/viewports.ts](../../tests/browser/viewports.ts)、[AGENTS.md](../../AGENTS.md)、[リリース運用](../operations/release.md)。
-- [PR #1053](https://github.com/engineer-first/idea-boost/pull/1053)（2026-11-19時点で未マージ）：実行タイミングの見直し、browserの分離と間引き、全14工程の統合テスト、smokeと公開後の確認の追加。
+- [PR #1053](https://github.com/engineer-first/idea-boost/pull/1053)（2026-11-19にマージ）：実行タイミングの見直し、browserの分離と間引き、全14工程の統合テスト、smokeと公開後の確認の追加。
 - [#709](https://github.com/engineer-first/idea-boost/issues/709)・[#710](https://github.com/engineer-first/idea-boost/issues/710)：testとbrowserがよく落ちる問題。
 - 人が報告した工程の不具合：[#423](https://github.com/engineer-first/idea-boost/issues/423)、[#438](https://github.com/engineer-first/idea-boost/issues/438)、[#653](https://github.com/engineer-first/idea-boost/issues/653)、[#657](https://github.com/engineer-first/idea-boost/issues/657)、[#658](https://github.com/engineer-first/idea-boost/issues/658)、[#660](https://github.com/engineer-first/idea-boost/issues/660)、[#665](https://github.com/engineer-first/idea-boost/issues/665)、[#717](https://github.com/engineer-first/idea-boost/issues/717)。見た目の不具合の例：[#330](https://github.com/engineer-first/idea-boost/issues/330)、[#431](https://github.com/engineer-first/idea-boost/issues/431)。
 - 実測（2026-11-19）：GitHub Actionsの `CI` workflowの直近300回（2026-11-01〜）の結論と再実行、直近150回の失敗ジョブ、PR #1053のジョブ・ステップ・テストファイルごとの所要時間、マージ済みの直近40件のPRの変更ファイル。
 - 2026-11-14：オーナーが対応端末をPC・iPad・スマホ縦（幅360以上）とし、スマホ専用の画面ができるまでスマホ幅のbrowser検査を入口に絞る方針を示した。
 - 2026-11-19：オーナーが、CIの実行タイミングの見直し、スマホ幅の検査はスマホ対応のPRだけにすること、CIで縛るよりエージェントへの指示で担保することを求めた。続けて「リリースの時に致命的なバグがないなら大丈夫」と述べ、価値の低いtest・browserの検査を消してよいとした。
 - AIの提案：タイミングはAntigravity CLI（Gemini 4 Argon）、検査の中身と最終差分のレビューはAntigravity CLI（Gemini 4 Neon）に提案を求め、採否はAIが判断した。
-- 状態の根拠：基準と方向はオーナーの発言に基づく。3段の配置、ステップを飛ばす方式、全14工程の統合テスト、間引く検査の選定、採用しなかった案の判断はAIの判断で、オーナーの個別の採用は記録にないため、Proposedとする。実装はPR #1053。`date` は基準が示された日。
+- 状態の根拠：基準と方向はオーナーの発言に基づく。3段の配置、ステップを飛ばす方式、全14工程の統合テスト、間引く検査の選定、採用しなかった案の判断はAIの判断で、2026-11-25にオーナーがこれらを含めて本ADRをAcceptedとした（[Issue #1124](https://github.com/engineer-first/idea-boost/issues/1124)）。実装はPR #1053。`date` は基準が示された日。
