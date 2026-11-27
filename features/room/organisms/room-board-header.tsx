@@ -1225,7 +1225,7 @@ export function RoomBoardHeader({
                       type="button"
                       variant="ghost"
                       className="h-auto min-h-10 w-full items-center justify-between gap-2 px-2 py-2 text-left font-normal"
-                      aria-label="テーマを変更"
+                      // aria-label は付けない。付けると今のテーマ名が読み上げから消える。
                       title="テーマを変更"
                       disabled={isDisconnected || isLeaving || roomNameDisabled}
                       onClick={() => {

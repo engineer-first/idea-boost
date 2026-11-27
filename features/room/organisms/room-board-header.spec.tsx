@@ -2235,6 +2235,10 @@ it("参加者はルームメニューで現在名と変更入口を確認でき�
     screen.getByRole("dialog", { name: "ルームメニュー" }),
   ).getByText("J05");
   expect(roomNameText).toBeInTheDocument();
+  // 行全体をボタンにしても、今のテーマ名が読み上げに残る。
+  expect(
+    screen.getByRole("button", { name: "テーマ：J05" }),
+  ).toHaveAccessibleDescription("テーマを変更");
   // テーマのテキスト自体をクリックしても変更モーダルを開ける。
   fireEvent.click(roomNameText);
   expect(onRenameRoom).toHaveBeenCalledOnce();
@@ -2245,9 +2249,7 @@ it("参加者はルームメニューで現在名と変更入口を確認でき�
   expect(selfButton).not.toHaveClass("pb-3");
   rerender(<RoomBoardHeader {...props} outcomePublished />);
   openRoomMenu();
-  expect(
-    screen.queryByRole("button", { name: /テーマを変更/ }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByTitle("テーマを変更")).not.toBeInTheDocument();
 });
 
 describe("全員のチェック", () => {
