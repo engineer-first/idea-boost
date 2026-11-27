@@ -5,12 +5,19 @@
 
 ## 有効にする手順
 
-1. PostHog Cloud でプロジェクトを作り、プロジェクトキー（`phc_...`）を控える。US / EU のどちらに置くかを決める。プロジェクト設定で IP アドレスを保存しない設定（Discard client IP data）を有効にする。
-2. [保存とプライバシー](../../app/privacy/privacy-view.tsx)に、送る情報・送り先・目的を書く（下の「送る情報」をもとにする。記載済み。US / EU を決めたら送信先の地域を書き足し、下の表を変えたときはページも合わせる）。
-3. GitHub の Actions variables に `NEXT_PUBLIC_POSTHOG_KEY` を入れる。EU に置くときは `NEXT_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com` も入れる（既定は US）。
+1. PostHog Cloud でプロジェクトを作り、プロジェクトキー（`phc_...`）を控える。プロジェクト設定で IP アドレスを保存しない設定（Discard client IP data）を有効にする。
+2. [保存とプライバシー](../../app/privacy/privacy-view.tsx)に、送る情報・送り先・目的を書く（下の「送る情報」をもとにする。記載済み。下の表や送信先の地域を変えたときはページも合わせる）。
+3. GitHub の Actions variables に `NEXT_PUBLIC_POSTHOG_KEY` と `NEXT_PUBLIC_POSTHOG_HOST` を入れる。
 4. 次の本番公開（Deploy の `build:cf`）から有効になる。ブラウザの開発者ツールで `i.posthog.com` への送信と、送られた URL に招待コード・ルーム ID が無いことを確かめる。
 
-止めるときは variable を消して公開し直す。開発環境・PR プレビューでは、キーがあっても送らない（本番ビルドだけ）。
+止めるときは `NEXT_PUBLIC_POSTHOG_KEY` を消して公開し直す。開発環境・PR プレビューでは、キーがあっても送らない（本番ビルドだけ）。
+
+## 今の設定（2026-11-27 に有効化）
+
+- PostHog Cloud **US**（`https://us.i.posthog.com`）のプロジェクト「Idea Boost」（ID 771180）。オーナーが作った組織に1つだけあったプロジェクトを使う。US にしたのは、オーナーが作った時点の組織が US で、EU へは組織ごと作り直しになるため。送る情報は匿名の画面閲覧だけで、地域による差が小さい。プライバシーのページにも米国のサーバーと書いている。
+- プロジェクト側でも、IP の破棄・タイムゾーン Asia/Tokyo を設定し、自動収集・録画・ヒートマップ・アンケート・コンソールログ・性能計測・例外・Web Vitals を切っている（コード側でも止めている）。
+- Actions variables：`NEXT_PUBLIC_POSTHOG_KEY`（公開のプロジェクトキー）と `NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com`。秘密の値は使わない。
+- PostHog のダッシュボード「流入元から完了まで」で、流入元別の LP 訪問と、LP → ルーム作成・参加 → 完了の進み具合を見る（画面閲覧のパスで数える）。
 
 ## 送る情報と送らない情報
 

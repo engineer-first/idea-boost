@@ -55,7 +55,7 @@ export function PrivacyView() {
           <h2 className="font-semibold">利用状況の計測にPostHogを使います</h2>
           <p className="leading-relaxed">
             どこから訪れた人がどれだけ利用を始めたかを知り、紹介の仕方を改善するため、画面の閲覧と離脱をPostHog,
-            Inc.（米国）が提供する計測サービス「PostHog」へ送ります。送るのは、閲覧した画面のパス、URLに付いた流入元の情報（utm_source・utm_medium・utm_campaignなど）、参照元サイトのドメイン、ブラウザ・OS・画面サイズ・おおよその地域です。
+            Inc.（米国）が提供する計測サービス「PostHog」の米国のサーバーへ送ります。送るのは、閲覧した画面のパス、URLに付いた流入元の情報（utm_source・utm_medium・utm_campaignなど）、参照元サイトのドメイン、ブラウザ・OS・画面サイズ・おおよその地域です。
           </p>
           <p className="leading-relaxed">
             招待コード・ルームID・成果IDはパスから取り除いて送ります。ほかのURLのクエリやハッシュ、参照元の検索語も送りません。名前・メール・アカウントID、付箋や意見の本文、クリックした場所、画面の録画は送らないため、計測の記録から誰の操作かは分かりません。IPアドレスは保存しない設定にしています。
