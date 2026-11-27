@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getGuide } from "../logic/guide-content";
+import { GUIDE_INDEX, GUIDE_UI, getGuide } from "../logic/guide-content";
 import {
   GUIDES_PATH,
   getGuideStructuredData,
@@ -104,7 +104,7 @@ export function GuideArticleView({ guide }: { guide: Guide }) {
           __html: serializeStructuredData(getGuideStructuredData(guide)),
         }}
       />
-      <nav aria-label="パンくずリスト" className="text-sm">
+      <nav aria-label={GUIDE_UI.breadcrumb} className="text-sm">
         <ol className="flex flex-wrap items-center gap-x-2 text-[var(--lp-body)]">
           <li>
             <Link href="/" className={landingLinkClass}>
@@ -114,9 +114,11 @@ export function GuideArticleView({ guide }: { guide: Guide }) {
           <li aria-hidden="true">/</li>
           <li>
             <Link href={GUIDES_PATH} className={landingLinkClass}>
-              ガイド
+              {GUIDE_INDEX.heading}
             </Link>
           </li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page">{guide.heading}</li>
         </ol>
       </nav>
       <article className="mt-4 space-y-12">
@@ -127,8 +129,10 @@ export function GuideArticleView({ guide }: { guide: Guide }) {
           <p className="rounded-xl border border-[var(--lp-line)] bg-[var(--lp-paper)] px-5 py-4 text-base leading-8">
             {guide.summary}
           </p>
-          <nav aria-label="目次">
-            <p className="text-sm font-bold text-[var(--lp-body)]">目次</p>
+          <nav aria-label={GUIDE_UI.toc}>
+            <p className="text-sm font-bold text-[var(--lp-body)]">
+              {GUIDE_UI.toc}
+            </p>
             <ol className="mt-2 list-decimal space-y-1 pl-6 text-base">
               {guide.sections.map((section) => (
                 <li key={section.id}>
@@ -164,7 +168,7 @@ export function GuideArticleView({ guide }: { guide: Guide }) {
         ))}
         <section aria-labelledby="faq" className="space-y-4">
           <h2 id="faq" className="text-xl font-bold leading-snug sm:text-2xl">
-            よくある質問
+            {GUIDE_UI.faq}
           </h2>
           {guide.faq.map((item) => (
             <div key={item.question} className="space-y-1">
@@ -178,25 +182,22 @@ export function GuideArticleView({ guide }: { guide: Guide }) {
           className="space-y-4 rounded-2xl bg-[var(--lp-paper)] px-6 py-8 text-center"
         >
           <h2 id="start" className="text-xl font-bold leading-snug sm:text-2xl">
-            この進め方を、Idea Boostで試す
+            {GUIDE_UI.start.heading}
           </h2>
-          <p className="text-base leading-8">
-            Idea
-            Boostは、課題・問い・案の順にチームのアイデアを決めるWebアプリです。画面のガイドとタイマーに沿って進めるので、進行役がいなくても使えます。無料です。
-          </p>
+          <p className="text-base leading-8">{GUIDE_UI.start.description}</p>
           <Link href={entry.href} className={landingCtaClass}>
             {entry.label}
           </Link>
           <p>
             <Link href="/" className={landingLinkClass}>
-              Idea Boostについて
+              {GUIDE_UI.start.about}
             </Link>
           </p>
         </section>
         {related.length > 0 ? (
           <section aria-labelledby="related" className="space-y-2">
             <h2 id="related" className="text-xl font-bold leading-snug">
-              関連するガイド
+              {GUIDE_UI.related}
             </h2>
             <ul className="space-y-1">
               {related.map((item) => (
@@ -214,7 +215,7 @@ export function GuideArticleView({ guide }: { guide: Guide }) {
         ) : null}
         <section aria-labelledby="sources" className="space-y-2">
           <h2 id="sources" className="text-base font-bold">
-            出典
+            {GUIDE_UI.sources}
           </h2>
           <ul className="space-y-1 text-sm">
             {guide.sources.map((source) => (
@@ -231,7 +232,8 @@ export function GuideArticleView({ guide }: { guide: Guide }) {
             ))}
           </ul>
           <p className="text-sm text-[var(--lp-body)]">
-            公開 {guide.datePublished}・更新 {guide.dateModified}
+            {GUIDE_UI.published} {guide.datePublished}・{GUIDE_UI.modified}{" "}
+            {guide.dateModified}
           </p>
         </section>
       </article>

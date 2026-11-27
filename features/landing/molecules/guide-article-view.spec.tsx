@@ -40,10 +40,9 @@ it("パンくずで LP と解説の一覧へ戻れる", () => {
     "href",
     "/",
   );
-  expect(within(nav).getByRole("link", { name: "ガイド" })).toHaveAttribute(
-    "href",
-    "/guides",
-  );
+  expect(
+    within(nav).getByRole("link", { name: "アイデア出しのガイド" }),
+  ).toHaveAttribute("href", "/guides");
 });
 
 it("検索エンジンと AI 向けに記事の構造化データを埋め込む", () => {

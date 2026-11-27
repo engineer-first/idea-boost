@@ -21,8 +21,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// 検索に出すのは LP だけ。LP 以外の画面は既定で noindex にし、
-// LP の説明文も引き継がない（#993）。LP は landingMetadata で index を許可する。
+// 検索に出すのは LP と解説ページ（/guides）だけ。ほかの画面は既定で noindex にし、
+// LP の説明文も引き継がない（#993）。LP と解説ページは各自の metadata で index を許可する。
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
   applicationName: "Idea Boost",

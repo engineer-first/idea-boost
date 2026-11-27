@@ -1,6 +1,6 @@
 // 解説ページ（/guides）は、利用者が実際に探す言葉で見つかり、AI が引用できる形にする。
 import { describe, expect, it } from "vitest";
-import { GUIDES, getGuide } from "./guide-content";
+import { GUIDE_RESERVED_IDS, GUIDES, getGuide } from "./guide-content";
 
 it("slug は重複せず、URL に使える文字だけにする", () => {
   const slugs = GUIDES.map((guide) => guide.slug);
@@ -30,6 +30,7 @@ describe.each(GUIDES.map((guide) => [guide.slug, guide] as const))(
       expect(guide.summary.length).toBeGreaterThan(40);
       const ids = guide.sections.map((section) => section.id);
       expect(new Set(ids).size).toBe(ids.length);
+      for (const id of ids) expect(GUIDE_RESERVED_IDS).not.toContain(id);
     });
 
     it("よくある質問と、https の出典を持つ", () => {
