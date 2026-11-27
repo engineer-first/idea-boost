@@ -27,25 +27,43 @@ case "$command" in read | check | gh-secret) ;; *) usage ;; esac
 item="idea-boost-${name}"
 ref="op://${VAULT}/${item}/${FIELD}"
 
-# op はサービスアカウントで読む。対話シェルの関数に頼らず、キーチェーンのトークンを渡す。
-if [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
+# op はサービスアカウントで読む。対話シェルの関数に頼らず、キーチェーンのトークンを op にだけ渡す。
+token="${OP_SERVICE_ACCOUNT_TOKEN:-}"
+if [ -z "$token" ]; then
   token=$(security find-generic-password -s op-service-account-token -w 2>/dev/null) || token=""
-  [ -n "$token" ] && export OP_SERVICE_ACCOUNT_TOKEN="$token"
-  unset token
 fi
 
 source_name=""
 value=""
-if command -v op >/dev/null 2>&1 && value=$(op read --no-newline "$ref" 2>/dev/null) && [ -n "$value" ]; then
-  source_name="1password"
-elif value=$(security find-generic-password -s "idea-boost/${name}" -w 2>/dev/null) && [ -n "$value" ]; then
-  source_name="keychain"
+missing_reason="1Password の ${VAULT} 保管庫に項目「${item}」（フィールド ${FIELD}）が無い"
+if [ -z "$token" ]; then
+  missing_reason="1Password のサービスアカウントのトークン（環境変数 OP_SERVICE_ACCOUNT_TOKEN、またはキーチェーンの op-service-account-token）が無い"
+elif ! command -v op >/dev/null 2>&1; then
+  missing_reason="1Password CLI（op）が入っていない"
 else
-  value=""
-  cat >&2 <<EOF
-${name} が見つからない。オーナーに 1Password の ${VAULT} 保管庫へ項目「${item}」（フィールド ${FIELD}）を保存してもらう（needs-human）。
-EOF
-  exit 3
+  err_file=$(mktemp)
+  trap 'rm -f "$err_file"' EXIT
+  if value=$(OP_SERVICE_ACCOUNT_TOKEN="$token" op read --no-newline "$ref" 2>"$err_file") && [ -n "$value" ]; then
+    source_name="1password"
+  elif ! grep -qE "isn't an item|does not have a field" "$err_file"; then
+    # 項目が無い以外の失敗（トークン切れ・通信・権限）は、古い予備を黙って使わずに止める。
+    echo "${name} を 1Password から読めない（予備は使わない）: $(tr '\n' ' ' <"$err_file")" >&2
+    exit 3
+  else
+    value=""
+  fi
+  rm -f "$err_file"
+fi
+unset token
+
+if [ -z "$source_name" ]; then
+  if value=$(security find-generic-password -s "idea-boost/${name}" -w 2>/dev/null) && [ -n "$value" ]; then
+    source_name="keychain"
+    echo "${missing_reason}ため、移行期間の予備（キーチェーン idea-boost/${name}）を使った。1Password の ${VAULT} 保管庫へ「${item}」として移す。" >&2
+  else
+    echo "${name} を読めない。${missing_reason}。キーチェーンの予備 idea-boost/${name} も無い（needs-human）。" >&2
+    exit 3
+  fi
 fi
 
 case "$command" in

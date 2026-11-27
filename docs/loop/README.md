@@ -50,12 +50,12 @@ R3 は、人の本人確認・支払い・判断が要るもの。値を人が�
 
 ### 秘密の置き場
 
-ループが使う秘密（トークン・API キー）の正本は、1Password の **Automation** 保管庫に置く。オーナーは手元の Mac（MacBook Air）の 1Password アプリで保存するだけでよく、同期でループの動く Mac mini から読める。mini はサービスアカウント（Automation 保管庫の読み書き）で読む。
+ループが使う秘密（トークン・API キー）の正本は、1Password の **Automation** 保管庫に置く。オーナーは手元の Mac（MacBook Air）の 1Password アプリで保存するだけでよく、保存すればループの動く Mac mini から読める。mini は Automation 保管庫だけを扱えるサービスアカウントで読み、そのトークンは mini のキーチェーンの `op-service-account-token` にある。
 
 - 項目名は `idea-boost-<名前>`、種類は API 認証情報、値はフィールド `credential` に入れる。`<名前>` は使う側の名前をそのまま書く（例：`idea-boost-CLOUDFLARE_API_TOKEN_LOOP`）。repository secret なら secret 名と同じにする。メモに用途と権限を書く。
 - ループは `scripts/loop/loop-secret.sh` で読む。`check <名前>` は置き場所だけを示し、`read <名前>` は値を標準出力に出すので変数への代入かパイプにだけ使う（例：`CLOUDFLARE_API_TOKEN="$(scripts/loop/loop-secret.sh read CLOUDFLARE_API_TOKEN_LOOP)" npx wrangler ...`）。`gh-secret <名前>` は値を標準入力で `gh secret set` に渡す。中では `op read op://Automation/idea-boost-<名前>/credential` を使う。値を表示・ログ・ファイル・コメントに出さない。
-- 移行期間の予備として、1Password に無ければ mini のキーチェーンの `idea-boost/<名前>` を読む。新しい値はキーチェーンに置かない。
-- どちらにも無い、または読めないときは `needs-human` にし、Automation 保管庫に置いてほしい項目名を書く。
+- 移行期間の予備として、1Password に項目が無いときだけ mini のキーチェーンの `idea-boost/<名前>` を読み、予備を使ったことを標準エラーに出す。トークン切れ・通信などで 1Password を読めないときは、古い値を使わないよう予備に落ちずに止まる。新しい値はキーチェーンに置かない。
+- 読めないとき（終了コード 3）は、標準エラーの理由を添えて `needs-human` にする。項目が無いなら Automation 保管庫に置いてほしい項目名を、トークンが無い・切れたならサービスアカウントの作り直しを頼む。
 
 | 名前                        | 用途                                                                                                          |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------- |

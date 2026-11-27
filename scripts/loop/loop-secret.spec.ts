@@ -23,6 +23,10 @@ type Stubs = {
   op?: Record<string, string>;
   /** キーチェーンの service 名ごとの値。 */
   keychain?: Record<string, string>;
+  /** 指定すると op は項目の有無にかかわらずこのエラーで失敗する。 */
+  opError?: string;
+  /** 指定すると gh はこの終了コードで失敗する。 */
+  ghStatus?: number;
   env?: Record<string, string>;
 };
 
@@ -50,10 +54,11 @@ function setup(stubs: Stubs) {
   stub(
     "op",
     `printf '%s|%s\\n' "\${OP_SERVICE_ACCOUNT_TOKEN:-}" "$*" >> "${dir}/op.log"
+${stubs.opError ? `echo "${stubs.opError}" >&2; exit 1` : ""}
 ref=""
 for a in "$@"; do case "$a" in op://*) ref="$a";; esac; done
 f="${dir}/op/$(printf '%s' "$ref" | tr -c 'A-Za-z0-9_-' '_')"
-[ -f "$f" ] || { echo "[ERROR] item not found" >&2; exit 1; }
+[ -f "$f" ] || { echo "[ERROR] could not read secret '$ref': x isn't an item in the Automation vault." >&2; exit 1; }
 cat "$f"`,
   );
   stub(
@@ -68,7 +73,8 @@ exit 0`,
   stub(
     "gh",
     `printf '%s\\n' "$*" >> "${dir}/gh.log"
-cat > "${dir}/gh.stdin"`,
+cat > "${dir}/gh.stdin"
+exit ${stubs.ghStatus ?? 0}`,
   );
 
   const run = (...args: string[]) =>
@@ -177,6 +183,69 @@ describe("scripts/loop/loop-secret.sh", () => {
 
     expect(result.status).toBe(3);
     expect(read("gh.log")).toBe("");
+  });
+
+  it("1Password が項目の無さ以外で失敗したら予備に落ちずに止まる", () => {
+    const { run } = setup({
+      opError: "[ERROR] error initializing client: failed to parseToken",
+      keychain: { "idea-boost/CLOUDFLARE_API_TOKEN_LOOP": "stale-keychain" },
+      env: { OP_SERVICE_ACCOUNT_TOKEN: "expired" },
+    });
+
+    const result = run("read", "CLOUDFLARE_API_TOKEN_LOOP");
+
+    expect(result.status).toBe(3);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("failed to parseToken");
+  });
+
+  it("予備のキーチェーンを使ったときは値を出さずに知らせる", () => {
+    const { run } = setup({
+      keychain: { "idea-boost/CLOUDFLARE_API_TOKEN_LOOP": "from-keychain" },
+      env: { OP_SERVICE_ACCOUNT_TOKEN: "sa" },
+    });
+
+    const result = run("check", "CLOUDFLARE_API_TOKEN_LOOP");
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("keychain\n");
+    expect(result.stderr).toContain("idea-boost-CLOUDFLARE_API_TOKEN_LOOP");
+    expect(result.stdout + result.stderr).not.toContain("from-keychain");
+  });
+
+  it("サービスアカウントのトークンがどこにも無ければ op を呼ばずに案内する", () => {
+    const { run, read } = setup({ op: { [REF]: "from-1password" } });
+
+    const result = run("read", "CLOUDFLARE_API_TOKEN_LOOP");
+
+    expect(result.status).toBe(3);
+    expect(result.stdout).toBe("");
+    expect(read("op.log")).toBe("");
+    expect(result.stderr).toContain("op-service-account-token");
+  });
+
+  it("環境にあるサービスアカウントのトークンを上書きしない", () => {
+    const { run, read } = setup({
+      op: { [REF]: "from-1password" },
+      keychain: { "op-service-account-token": "sa-from-keychain" },
+      env: { OP_SERVICE_ACCOUNT_TOKEN: "sa-from-env" },
+    });
+
+    run("read", "CLOUDFLARE_API_TOKEN_LOOP");
+
+    expect(read("op.log")).toContain("sa-from-env|");
+  });
+
+  it("gh secret set の失敗を終了コードで返す", () => {
+    const { run } = setup({
+      op: { [REF]: "from-1password" },
+      env: { OP_SERVICE_ACCOUNT_TOKEN: "sa" },
+      ghStatus: 1,
+    });
+
+    const result = run("gh-secret", "CLOUDFLARE_API_TOKEN_LOOP");
+
+    expect(result.status).not.toBe(0);
   });
 
   it("secret 名の形でない名前を拒む", () => {
