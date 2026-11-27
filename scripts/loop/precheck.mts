@@ -82,17 +82,48 @@ const RED: Decision = {
   reason: "develop の CI が赤（先に mend が直す）",
 };
 
+// gh CLI が返す Renovate（GitHub App）の author.login。
+const RENOVATE = "app/renovate";
+const STALLED_AFTER_MS = 3_600_000;
+
+/**
+ * ループが流す PR（ループのアカウントの `loop` PR と、Renovate の `dependencies` PR）が1時間動いていない。
+ * 通る PR は周回の中か auto-merge でマージされるので、open のまま動かない PR は誰も進めていない。
+ */
+export function isStalledPr(
+  pr: Labels & { author: string; updatedAt: string },
+  actor: string,
+  now: number,
+): boolean {
+  if (
+    ["needs-human", "blocked", "loop:skip"].some((l) => pr.labels.includes(l))
+  )
+    return false;
+  const carried =
+    (pr.labels.includes("loop") && pr.author === actor) ||
+    (pr.labels.includes("dependencies") && pr.author === RENOVATE);
+  return carried && now - Date.parse(pr.updatedAt) >= STALLED_AFTER_MS;
+}
+
 export type BuildState = {
   stopped: boolean;
   developRed: boolean;
   openLoopPrs: number;
   maxOpenLoopPrs: number;
   ready: number;
+  /** 止まっている PR（isStalledPr）の数。新しい Issue より先に流す */
+  stalledPrs: number;
 };
 
 export function decideBuild(s: BuildState): Decision {
   if (s.stopped) return STOPPED;
   if (s.developRed) return RED;
+  // 上限より先に見る。止まった PR が上限を埋めると、流す周回まで起きなくなるため。
+  if (s.stalledPrs > 0)
+    return {
+      run: true,
+      reason: `止まっている PR が ${s.stalledPrs} 本（先に流す）`,
+    };
   if (s.openLoopPrs >= s.maxOpenLoopPrs)
     return {
       run: false,
@@ -103,7 +134,7 @@ export function decideBuild(s: BuildState): Decision {
     : { run: false, reason: "拾える loop:ready が無い" };
 }
 
-export type PolishState = Omit<BuildState, "ready"> & {
+export type PolishState = Omit<BuildState, "ready" | "stalledPrs"> & {
   lastAt: string | undefined;
   now: number;
 };
@@ -273,6 +304,32 @@ const openLoopPrs = () =>
     ]) ?? []
   ).length;
 
+const stalledPrs = () =>
+  (
+    ghJson<(Labeled & { author: { login: string }; updatedAt: string })[]>([
+      "pr",
+      "list",
+      "-R",
+      REPO,
+      "--state",
+      "open",
+      "-L",
+      "100",
+      "--json",
+      "labels,author,updatedAt",
+    ]) ?? []
+  ).filter((pr) =>
+    isStalledPr(
+      {
+        labels: pr.labels.map((l) => l.name),
+        author: pr.author?.login ?? "",
+        updatedAt: pr.updatedAt,
+      },
+      ACTOR,
+      Date.now(),
+    ),
+  ).length;
+
 function loopIssues() {
   const xs =
     ghJson<{ labels: { name: string }[]; assignees: { login: string }[] }[]>([
@@ -407,6 +464,7 @@ const LOOPS = {
       openLoopPrs: openLoopPrs(),
       maxOpenLoopPrs: MAX_OPEN_LOOP_PRS,
       ready: loopIssues().ready,
+      stalledPrs: stalledPrs(),
     }),
   polish: () =>
     decidePolish({

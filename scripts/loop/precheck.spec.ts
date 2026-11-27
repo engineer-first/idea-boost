@@ -13,6 +13,7 @@ import {
   decideRelease,
   decideReplan,
   isReady,
+  isStalledPr,
   isStopped,
   lastLog,
   latestConclusionFailed,
@@ -117,6 +118,7 @@ describe("decideBuild: 拾える改善があり、develop が緑で、ループ�
     openLoopPrs: 0,
     maxOpenLoopPrs: 2,
     ready: 1,
+    stalledPrs: 0,
     ...over,
   });
   it("条件がそろえば起こす", () => {
@@ -128,6 +130,73 @@ describe("decideBuild: 拾える改善があり、develop が緑で、ループ�
     expect(decideBuild(build({ openLoopPrs: 2 })).run).toBe(false);
     expect(decideBuild(build({ ready: 0 })).run).toBe(false);
   });
+});
+
+describe("decideBuild: 止まっている PR があれば、新しい Issue より先に流すために起こす", () => {
+  const base: BuildState = {
+    stopped: false,
+    developRed: false,
+    openLoopPrs: 0,
+    maxOpenLoopPrs: 2,
+    ready: 0,
+    stalledPrs: 1,
+  };
+  it("拾える Issue が無くても、ループの PR が上限でも起こす", () => {
+    expect(decideBuild(base)).toEqual({
+      run: true,
+      reason: "止まっている PR が 1 本（先に流す）",
+    });
+    expect(decideBuild({ ...base, openLoopPrs: 2 }).run).toBe(true);
+  });
+  it("止められている・develop が赤なら起こさない", () => {
+    expect(decideBuild({ ...base, stopped: true }).run).toBe(false);
+    expect(decideBuild({ ...base, developRed: true }).run).toBe(false);
+  });
+});
+
+describe("isStalledPr: ループが流す PR が1時間動いていなければ止まっている", () => {
+  const pr = (over: Partial<Parameters<typeof isStalledPr>[0]> = {}) => ({
+    labels: ["loop"],
+    author: ACTOR,
+    updatedAt: hoursAgo(2),
+    ...over,
+  });
+  it("ループの PR（loop ラベル・ループのアカウント）が1時間動いていなければ止まっている", () => {
+    expect(isStalledPr(pr(), ACTOR, NOW)).toBe(true);
+  });
+  it("Renovate の依存更新 PR も同じ（メジャー・0.x・CI が落ちたまとめ PR）", () => {
+    expect(
+      isStalledPr(
+        pr({ labels: ["dependencies"], author: "app/renovate" }),
+        ACTOR,
+        NOW,
+      ),
+    ).toBe(true);
+  });
+  it("動きがあって1時間たっていなければ、周回が作業中とみなす", () => {
+    expect(isStalledPr(pr({ updatedAt: hoursAgo(0.5) }), ACTOR, NOW)).toBe(
+      false,
+    );
+  });
+  it("人の PR は、ラベルが付いていても数えない", () => {
+    expect(isStalledPr(pr({ author: "teammate" }), ACTOR, NOW)).toBe(false);
+    expect(
+      isStalledPr(
+        pr({ labels: ["dependencies"], author: "teammate" }),
+        ACTOR,
+        NOW,
+      ),
+    ).toBe(false);
+    expect(isStalledPr(pr({ labels: [] }), ACTOR, NOW)).toBe(false);
+  });
+  it.each(["needs-human", "blocked", "loop:skip"])(
+    "%s が付いた PR は数えない（同じ PR で起こし続けない）",
+    (label) => {
+      expect(isStalledPr(pr({ labels: ["loop", label] }), ACTOR, NOW)).toBe(
+        false,
+      );
+    },
+  );
 });
 
 describe("decidePolish: 前回から2時間以上たち、develop が緑のとき起こす", () => {
