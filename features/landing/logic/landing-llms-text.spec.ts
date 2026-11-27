@@ -37,6 +37,10 @@ describe("llms.txt", () => {
     expect(text).toContain("](https://ideaboost.dev/privacy): ");
   });
 
+  it("解説ページへのリンクを示す", () => {
+    expect(text).toContain("](https://ideaboost.dev/guides/hackathon-idea): ");
+  });
+
   it("英語で読む AI のために英語の要約も載せる", () => {
     expect(text).toContain("**English**");
     expect(text).toContain(en.description);

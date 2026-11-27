@@ -149,6 +149,11 @@ export function LandingView({
           <nav aria-label={copy.footerNav}>
             <ul className="flex flex-wrap gap-x-8 gap-y-2">
               <li>
+                <Link href="/guides" hrefLang="ja" className={landingLinkClass}>
+                  {copy.guides}
+                </Link>
+              </li>
+              <li>
                 <Link href="/privacy" className={landingLinkClass}>
                   {copy.privacy}
                 </Link>

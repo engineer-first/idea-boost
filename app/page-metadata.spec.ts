@@ -1,5 +1,5 @@
 // @vitest-environment node
-// 検索・共有に出す画面の境界（#993）。LP だけを検索に出し、
+// 検索・共有に出す画面の境界（#993）。LP と解説ページを検索に出し、
 // ほかの画面は noindex にして画面ごとの title を付ける。
 import type { Metadata } from "next";
 import { describe, expect, it, vi } from "vitest";
@@ -27,7 +27,12 @@ function isIndexed(metadata: Metadata): boolean {
 }
 
 describe("検索に出す画面", () => {
-  it("LP（/ と /about）だけを検索に出す", async () => {
+  it("解説の一覧と解説ページも検索に出す", async () => {
+    const index = await import("./guides/page");
+    expect(isIndexed(resolve(index.metadata))).toBe(true);
+  });
+
+  it("LP（/ と /about）を検索に出す", async () => {
     const top = await import("./page");
     const about = await import("./about/page");
     expect(isIndexed(resolve(top.metadata))).toBe(true);

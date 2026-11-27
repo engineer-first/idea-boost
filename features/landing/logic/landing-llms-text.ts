@@ -1,3 +1,5 @@
+import { GUIDES } from "./guide-content";
+import { guideUrl } from "./guide-metadata";
 import { getLandingContent } from "./landing-content";
 import { landingUrl, SITE_ORIGIN } from "./landing-metadata";
 
@@ -34,6 +36,10 @@ export function getLandingLlmsText(): string {
       "",
       `- [Idea Boost（日本語）](${landingUrl("ja")}): 紹介ページ。ここから無料で始められる`,
       `- [Idea Boost (English)](${landingUrl("en")}): 英語の紹介ページ`,
+      ...GUIDES.map(
+        (guide) =>
+          `- [${guide.heading}](${guideUrl(guide.slug)}): ${guide.summary}`,
+      ),
       `- [${ja.privacy}](${SITE_ORIGIN}/privacy): 保存期間と扱う情報`,
       `- [${ja.background.source}](${ja.background.sourceUrl}): デザインスプリントの出典`,
     ].join("\n"),
