@@ -42,11 +42,24 @@
 R3 は、人の本人確認・支払い・判断が要るもの。値を人が用意すれば AI が登録できる作業は R3 に含めない（[ADR 0035](../adr/0035-loop-asks-humans-for-what-only-humans-can-do.md)）。次の作業はループも行ってよい。release ループは対象外で、[release.md](prompts/release.md) のとおり行わない。
 
 - **repository の Actions variables の追加・変更。** 公開してよい値で、名前と意味が `docs/operations/` に書かれている変数に限る。
-- **repository secret の登録・差し替え。** environment・org の secret は R3 に残す。値はオーナーが macOS のキーチェーンに `idea-boost/<secret 名>` の名前で置く。ループは `set -o pipefail` のうえで `security find-generic-password -s idea-boost/<名前> >/dev/null`（値は出ない）で項目があるのを確かめてから、`security find-generic-password -s idea-boost/<名前> -w | gh secret set <名前>` で登録する。値を表示・ログ・ファイルに出さない。項目が無い、または許可の画面が出て進めないときは `needs-human` にする。値の発行（トークンの作成・権限の変更）は人が行う。
+- **repository secret の登録・差し替え。** environment・org の secret は R3 に残す。値は[秘密の置き場](#秘密の置き場)から `scripts/loop/loop-secret.sh gh-secret <名前>` で登録する。値の発行（トークンの作成・権限の変更）は人が行う。
 - **所有確認のための DNS の TXT レコードの追加。** SPF・DKIM・DMARC は含めない。既存のレコードを変えない、消さない。
 - **外部サービスの設定のうち、手順が `docs/operations/` に書かれている操作。** 例：[利用分析](../operations/analytics.md)の PostHog のプロジェクト設定。
 
 どれも、変えたものの名前と理由（値は書かない）を PR か Issue のコメントに残す。
+
+### 秘密の置き場
+
+ループが使う秘密（トークン・API キー）の正本は、1Password の **Automation** 保管庫に置く。オーナーは手元の Mac（MacBook Air）の 1Password アプリで保存するだけでよく、保存すればループの動く Mac mini から読める。mini は Automation 保管庫だけを扱えるサービスアカウントで読み、そのトークンは mini のキーチェーンの `op-service-account-token` にある。
+
+- 項目名は `idea-boost-<名前>`、種類は API 認証情報、値はフィールド `credential` に入れる。`<名前>` は使う側の名前をそのまま書く（例：`idea-boost-CLOUDFLARE_API_TOKEN_LOOP`）。repository secret なら secret 名と同じにする。メモに用途と権限を書く。
+- ループは `scripts/loop/loop-secret.sh` で読む。`check <名前>` は置き場所だけを示し、`read <名前>` は値を標準出力に出すので変数への代入かパイプにだけ使う（例：`CLOUDFLARE_API_TOKEN="$(scripts/loop/loop-secret.sh read CLOUDFLARE_API_TOKEN_LOOP)" npx wrangler ...`）。`gh-secret <名前>` は値を標準入力で `gh secret set` に渡す。中では `op read op://Automation/idea-boost-<名前>/credential` を使う。値を表示・ログ・ファイル・コメントに出さない。
+- 移行期間の予備として、1Password に項目が無いときだけ mini のキーチェーンの `idea-boost/<名前>` を読み、予備を使ったことを標準エラーに出す。サービスアカウントのトークンが無い・切れた、op が無い、通信の失敗など、ほかの理由で 1Password を読めないときは、古い値を使わないよう予備に落ちずに止まる。新しい値はキーチェーンに置かない。
+- 読めないとき（終了コード 3）は、標準エラーの理由を添えて `needs-human` にする。項目が無いなら Automation 保管庫に置いてほしい項目名を、トークンが無い・切れたならサービスアカウントの作り直しを頼む。
+
+| 名前                        | 用途                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN_LOOP` | ideaboost アカウントの D1 編集・Workers スクリプト読み取り・アカウント設定読み取り・ideaboost.dev の DNS 編集 |
 
 ### 人に頼むとき
 

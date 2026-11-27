@@ -21,6 +21,8 @@ npx wrangler whoami
 
 ブラウザログインを使わないCI等では、対象アカウントのD1操作権限を持つAPI tokenを`CLOUDFLARE_API_TOKEN`に設定する。値は秘密として管理し、文書やGitへ保存しない。設定方法は[Cloudflare公式のAPI token作成手順](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)を参照する。
 
+ループが使うtokenは、1PasswordのAutomation保管庫に置き、`scripts/loop/loop-secret.sh`で読む（[秘密の置き場](../loop/README.md#秘密の置き場)）。
+
 ## 必要な権限を選ぶ
 
 | 権限                            | できること                                         | 確認する画面       |
