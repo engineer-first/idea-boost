@@ -36,17 +36,22 @@ export function getBoardRenderGroups(
       (note) => !note.excluded && group.noteIds.includes(note.id),
     );
     const hue = Math.floor((index * 360) / sortedGroups.length);
-    return calculateClusters(members)
-      .map((ids) => members.filter((note) => ids.includes(note.id)))
-      .sort((a, b) => b.length - a.length)
-      .map((cluster, clusterIndex) => ({
+    return calculateClusters(members).map((ids) => {
+      const cluster = members.filter((note) => ids.includes(note.id));
+      // key をまとまりの中身だけで決め、他の人が付箋を動かしても枠どうしで入れ替えない。
+      // グループで最も小さい付箋 ID を含むまとまりは、所属の ID のまま描く。
+      const anchorId = [...ids].sort()[0];
+      return {
         ...frameAround(cluster),
-        // 最も大きいまとまりは所属の ID のまま、残りは付箋の ID で区別する。
-        id: clusterIndex === 0 ? group.id : `${group.id}:${cluster[0].id}`,
+        id:
+          anchorId === members.map((note) => note.id).sort()[0]
+            ? group.id
+            : `${group.id}:${anchorId}`,
         persistentGroupId: group.id,
         name: group.name,
         hue,
-      }));
+      };
+    });
   });
 }
 

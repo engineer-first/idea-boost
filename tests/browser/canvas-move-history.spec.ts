@@ -372,7 +372,7 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
     }
   }, 90_000);
 
-  test("1-5で所属付箋を離してもグループ枠が追従し、他者・再接続・Undoでも所属を保つ", async () => {
+  test("1-5で所属付箋を離すと同じグループ名の枠が分かれ、他者・再接続・Undoでも所属を保つ", async () => {
     const browser = await chromium.launch();
     try {
       const actor = await browser.newPage({
@@ -400,11 +400,16 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
         page
           .getByTestId("note-group-card")
           .filter({ hasText: "学び合う相手探し" });
+      // 離れた所属付箋は同じ名前の枠で別々に囲む（#1444）。左から順に並べて比べる。
       const bounds = (page: Page) =>
-        frame(page).evaluate((element) => ({
-          x: Number.parseFloat((element as HTMLElement).style.left),
-          width: Number.parseFloat((element as HTMLElement).style.width),
-        }));
+        frame(page).evaluateAll((elements) =>
+          elements
+            .map((element) => ({
+              x: Number.parseFloat((element as HTMLElement).style.left),
+              width: Number.parseFloat((element as HTMLElement).style.width),
+            }))
+            .sort((a, b) => a.x - b.x),
+        );
       const initial = await bounds(actor);
       const before = await position(note);
       if (evidence)
@@ -415,12 +420,13 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
       expect(moved.x).toBeLessThan(before.x);
       if (evidence)
         await actor.screenshot({ path: `${evidence}/group-after-move.png` });
-      await expect
-        .poll(async () => (await bounds(actor)).x)
-        .toBeLessThan(initial.x);
-      await expect.poll(() => bounds(peer)).toEqual(await bounds(actor));
+      expect(initial).toHaveLength(1);
+      await expect.poll(async () => (await bounds(actor)).length).toBe(2);
       const after = await bounds(actor);
-      expect(after.width).toBeGreaterThan(initial.width);
+      // 離した付箋の枠は元の枠より左に小さく付き、盤面いっぱいに伸びない。
+      expect(after[0].x).toBeLessThan(initial[0].x);
+      expect(after[0].width).toBeLessThan(initial[0].width);
+      await expect.poll(() => bounds(peer)).toEqual(after);
       await peer.reload();
       await expect.poll(() => bounds(peer)).toEqual(after);
       await undo(actor).click();
