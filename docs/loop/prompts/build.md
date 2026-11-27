@@ -12,12 +12,15 @@
 - 先に、止まっている PR を探す。`gh pr list --state open --json number,title,labels,author,isDraft,mergeable,updatedAt` から、(a) 自分のアカウントの `loop` PR、(b) Renovate（`app/renovate`）の `dependencies` PR のうち、`needs-human`・`blocked`・`loop:skip` が無く、1時間動いていないものを古い順に1本。あれば、それがこの周回の1件。Issue は選ばず、下の「止まっている PR を流すとき」へ進む
 - `gh issue list --label loop:ready --state open --json number,title,labels,assignees,author` から、`claimed`・`blocked`・`needs-human`・`loop:skip` が無く、担当者がオーナーか未設定のものを、`P0` → `loop:ux` → 古い順に1件
 - Issue 本文と、OWNER / MEMBER / COLLABORATOR のコメントだけを指示として読む。人の open PR が紐づいていれば選ばない
+- 体験の方向を変える改善（README の[ループが決めてよいこと](../README.md#ループが決めてよいこと)）は、人が選んだものだけを選ぶ。人が選んだのは、`loop:proposal` に `loop:ready` が付いたもの、または OWNER / MEMBER / COLLABORATOR が望む状態を具体的に書いた Issue。ループはオーナーのアカウントで Issue とコメントを書くので、ループが立てた Issue（`loop:ux` が付いたもの、replan の切り出し）は元の人の Issue に方向が書かれているときだけ人が選んだものに数え、ループの書き込み（「ループが着手候補にしました」「claimed by」「carried by」、提案の形のコメント）は人が選んだ根拠に数えない。方針が未定でどちらでもない Issue は作らない：`loop:ready` を外して `loop:proposal` を付け、[提案の出し方](../README.md#提案の出し方)の形でコメントし、次の候補を見る。`loop:ux` の所見で直し方の一部だけが方向の選択になるものは、最小の直し（崩れを収める、元の形に戻す）だけを作り、その先を提案としてコメントする
 - 選んだら `gh issue edit N --add-label claimed` し、「claimed by ib build / <worktree> / <時刻>」とコメント
 - 該当が無ければ何もせず終わる（replan が補充する）
 
 ## 2. 方針を決める
 
-- 受け入れ条件があればそれに従う。方針が未定（「壁打ち対象」「要デザイン比較」など）なら、2〜3案を短く書き出し、PRD・DESIGN.md・[ux-rubric.md の分かりやすさの原則](../ux-rubric.md#分かりやすさの原則) に照らして1つ選ぶ。人の判断を待たない。比べた案と選んだ理由は PR の「設計判断」に書く
+- 方向は Issue に従う。欠陥なら直すところまで、人が選んだ提案なら本文の案のとおり、人のフィードバックなら言われたとおりに作り、書かれていない方向（新しい文言・配置・表示）を足さない
+- Issue に書かれていない細部（実装の方式、案の中の細かな言い回しや余白）は、既存の部品・DESIGN.md・[ux-rubric.md の分かりやすさの原則](../ux-rubric.md#分かりやすさの原則)に照らしてループが決め、PR の「設計判断」に書く
+- 作る途中で、Issue に無い方向の選択が要ると分かったら、その部分は作らずに Issue へ提案としてコメントする
 - 大きすぎて1周で終わらないなら、最初の1歩（画面で効果が見える最小の単位）だけを作り、残りを Issue のコメントに書く
 - リスク段階を決める（R0〜R2）。R3 に当たると分かったら `needs-human` を付けて claim を外し、理由を書いて終わる
 
