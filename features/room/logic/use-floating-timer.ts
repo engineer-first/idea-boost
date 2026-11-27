@@ -30,6 +30,8 @@ const SNAP_OBSTACLES =
  */
 const WORKSPACE_TOOLBAR =
   '[data-testid="private-notes-toolbar"][data-presentation="workspace"]:not([data-expanded="false"])';
+/** 円形タイマーの段の高さ（タイマーと下の余白） */
+const TIMER_ROW_HEIGHT = 84;
 const WORKSPACE_CONTENT =
   '[data-testid="private-notes-controls"], [data-private-note-composer], [data-testid="note-card"], [data-testid="private-note-placeholder"], [data-testid^="example-note-"]';
 const WORKSPACE_UNDERLAY =
@@ -107,7 +109,7 @@ export function useFloatingTimer(
         .map((node) => node.getBoundingClientRect()),
     );
     // 狭幅で楕円が現在地の下へ移る場合も、マイ付箋はその下から開く。
-    const rowBottom = initial.top + 84;
+    const rowBottom = initial.top + TIMER_ROW_HEIGHT;
     root?.style.setProperty(
       "--board-timer-row-bottom",
       `${rowBottom - bounds.top}px`,
@@ -139,8 +141,11 @@ export function useFloatingTimer(
       // 640px 以上ではマイ付箋の枠が右端まで広がり、上端がタイマーの下端より上に来る。
       // 枠の右上角にタイマーがかからないよう、枠はタイマーの段の下から始める。
       // 接続の案内でタイマーが一時的に下がっても枠が跳ねないよう、段は HUD の下の定位置で測る。
-      // 判定は枠の上端を見ない（横に重なり枠がタイマーより下まで続くか）。枠を下げた後に測り直しても結果が変わらない。
-      const panel = header?.parentElement?.getBoundingClientRect();
+      // 判定は枠の上端を見ず、固定の下端だけを見る（横に重なり枠がタイマーより下まで続くか）。枠を下げた後に測り直しても結果が変わらない。
+      // 一時停止中など入力欄が無いときも枠は同じ位置に置く。枠は入力欄の有無に関係なく取る。
+      const panel = root
+        .querySelector<HTMLElement>(WORKSPACE_TOOLBAR)
+        ?.getBoundingClientRect();
       const overlapsPanelCorner =
         window.innerWidth >= 640 &&
         !!panel &&
@@ -157,7 +162,7 @@ export function useFloatingTimer(
         hasRoomBelowTimer || !fitsBesideTimer
           ? rowBottom
           : overlapsPanelCorner
-            ? homeTop + 84
+            ? homeTop + TIMER_ROW_HEIGHT
             : 0;
       root.style.setProperty("--board-private-timer-top", `${timerTop}px`);
     }

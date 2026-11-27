@@ -369,6 +369,15 @@ export const GuidePhase1Step3: Story = guideStory(1, 3);
 export const GuidePhase1Step4: Story = guideStory(1, 4);
 export const GuidePhase1Step5: Story = guideStory(1, 5);
 export const GuidePhase2Step1: Story = guideStory(2, 1);
+// 2-1 でタイマーを一時停止した状態。付箋は書けず、マイ付箋の入力欄が消える。
+export const GuidePhase2Step1Paused: Story = {
+  ...guideStory(2, 1),
+  name: "フェーズ2 Step 1 / タイマー一時停止中",
+  args: {
+    ...guideStory(2, 1).args,
+    timer: { status: "paused", remainingMs: 60_000, durationMs: 60_000 },
+  },
+};
 export const GuidePhase2Step2: Story = guideStory(2, 2);
 export const GuidePhase2Step3: Story = guideStory(2, 3);
 export const GuidePhase2Step4: Story = guideStory(2, 4);
