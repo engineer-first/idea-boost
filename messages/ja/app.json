@@ -593,6 +593,7 @@
   "boardSharing": {
     "yourTurn": "あなたの順番です",
     "memberTurn": "{name}さんの順番です",
+    "memberDisconnected": "{name}さんの接続が切れています",
     "startingSoon": "まもなく発表",
     "presenting": "発表中",
     "presenterOrderAria": "発表者と全体の順番を確認",

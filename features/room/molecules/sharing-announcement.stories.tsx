@@ -21,3 +21,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Self: Story = { args: { isSelf: true } };
+/** 聞く人から見て発表者の接続が切れているとき。その場でパスできる（#1431）。 */
+export const PresenterDisconnected: Story = {
+  args: { isDisconnected: true, onPass: () => {} },
+};

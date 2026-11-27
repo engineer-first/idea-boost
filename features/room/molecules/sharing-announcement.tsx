@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { MemberAvatar } from "@/features/room-members";
 import styles from "./sharing-announcement.module.css";
@@ -9,6 +10,14 @@ export type SharingAnnouncementProps = {
   member: ProtocolMember;
   /** 発表者が自分のとき、主色の淡い面で強調し「あなたの順番です」と示す。 */
   isSelf?: boolean;
+  /**
+   * 聞く人から見て発表者の接続が切れているとき、名前の行を接続切れの知らせに替える。
+   * 戻らない発表者を待って止まらないよう、右上の順番のメニューを開かずにパスできる（#1431）。
+   */
+  isDisconnected?: boolean;
+  /** 接続切れのときだけ、案内の行の代わりに「パスする」を出す。 */
+  onPass?: () => void;
+  passDisabled?: boolean;
 };
 
 /**
@@ -22,8 +31,12 @@ export type SharingAnnouncementProps = {
 export function SharingAnnouncement({
   member,
   isSelf = false,
+  isDisconnected = false,
+  onPass,
+  passDisabled = false,
 }: SharingAnnouncementProps) {
   const t = useTranslations("app.boardSharing");
+  const showsDisconnected = isDisconnected && !isSelf;
   return (
     <div
       role="status"
@@ -46,17 +59,38 @@ export function SharingAnnouncement({
           size={32}
         />
         <span className="min-w-0 break-words">
-          {isSelf ? t("yourTurn") : t("memberTurn", { name: member.name })}
+          {isSelf
+            ? t("yourTurn")
+            : showsDisconnected
+              ? t("memberDisconnected", { name: member.name })
+              : t("memberTurn", { name: member.name })}
         </span>
       </span>
 
-      {/* 左の余白はアバター（32px）と間隔（gap-3）の和で、名前の書き出しに揃える。
-          900px 未満では、この行で案内を広げず名前の幅で折り返し、狭い画面で案内を細く保つ。 */}
-      <span
-        className={`pl-11 text-sm font-normal max-[900px]:self-stretch max-[900px]:[contain:inline-size] ${isSelf ? "text-primary-strong" : "text-muted-foreground"}`}
-      >
-        {isSelf ? t("selfInstruction") : t("listenerInstruction")}
-      </span>
+      {showsDisconnected && onPass ? (
+        // 枠は押せない層（pointer-events-none）なので、ボタンだけ押せるようにする。
+        // 接続が切れた人のパスは確認を挟まない（順番のメニューの「パス」と同じ）。
+        <span className="pl-11">
+          <Button
+            type="button"
+            variant="outline"
+            className="pointer-events-auto min-h-11 px-3 text-sm"
+            aria-label={t("passMember", { name: member.name })}
+            disabled={passDisabled}
+            onClick={onPass}
+          >
+            {t("pass")}
+          </Button>
+        </span>
+      ) : showsDisconnected ? null : (
+        // 左の余白はアバター（32px）と間隔（gap-3）の和で、名前の書き出しに揃える。
+        // 900px 未満では、この行で案内を広げず名前の幅で折り返し、狭い画面で案内を細く保つ。
+        <span
+          className={`pl-11 text-sm font-normal max-[900px]:self-stretch max-[900px]:[contain:inline-size] ${isSelf ? "text-primary-strong" : "text-muted-foreground"}`}
+        >
+          {isSelf ? t("selfInstruction") : t("listenerInstruction")}
+        </span>
+      )}
     </div>
   );
 }

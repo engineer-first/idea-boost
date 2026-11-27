@@ -39,6 +39,29 @@ describe("共有HUD", () => {
       await page.close();
     },
   );
+  it.each([1280, 768, 390])(
+    "%ipxで発表者の接続が切れたら、中央の表示の「パスする」をそのまま押せる",
+    async (width) => {
+      const page = await browser.newPage({
+        viewport: { width, height: 900 },
+        reducedMotion: "reduce",
+      });
+      try {
+        await page.goto(
+          `${origin}/iframe.html?id=room-roomboardlayout--sharing-presenter-disconnected&viewMode=story`,
+        );
+        const notice = page.getByTestId("sharing-current-presenter");
+        await notice.waitFor();
+        expect(await notice.textContent()).toContain(
+          "さんの接続が切れています",
+        );
+        // 押せない層の上に重なる他の表示に遮られず、実際の操作で届くことを確かめる。
+        await notice.getByRole("button", { name: /をパス$/ }).click();
+      } finally {
+        await page.close();
+      }
+    },
+  );
   it("動きを減らす設定では交代案内を静止表示する", async () => {
     const page = await browser.newPage({ reducedMotion: "reduce" });
     await page.goto(
@@ -91,9 +114,12 @@ describe("共有する人の表示", () => {
 
   it.each(
     widths(1440, 900, 768, 390).flatMap((width) =>
-      ["sharing-transition", "sharing-active", "my-sharing-turn"].map(
-        (story) => [width, story] as const,
-      ),
+      [
+        "sharing-transition",
+        "sharing-active",
+        "my-sharing-turn",
+        "sharing-presenter-disconnected",
+      ].map((story) => [width, story] as const),
     ),
   )(
     "%ipxの%sで発表者の案内が現在地・発表者カード・マイ付箋の欄を覆わない",

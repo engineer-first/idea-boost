@@ -2476,3 +2476,83 @@ it("2軸マップのステップでは、テーマの折り返しで現在地の
   setup({ phase: buildPhaseStep(2, 3), roomName: "J05" });
   expect(observed).toContain(screen.getByTestId("board-context-hud"));
 });
+
+describe("発表者の接続が切れたときの中央の表示（#1431）", () => {
+  const sharing = buildSharingState({ status: "active", currentIndex: 1 });
+  const presenter = sharing.order[1];
+  const progressWith = (connectedUserIds: string[]) => ({
+    ...allReadyProgress(sharing.order),
+    connectedUserIds,
+  });
+  it("聞く人の中央に接続が切れたことを出し、その場でパスできる", () => {
+    const onSharingAdvance = vi.fn();
+    render(
+      <RoomBoardHeader
+        {...setupProps({
+          phase: buildPhaseStep(2),
+          progress: progressWith([ME]),
+        })}
+        sharing={sharing}
+        onSharingAdvance={onSharingAdvance}
+      />,
+    );
+    const banner = screen.getByTestId("sharing-current-presenter");
+    expect(banner).toHaveTextContent(
+      `${presenter.name}さんの接続が切れています`,
+    );
+    expect(banner).not.toHaveTextContent("話を聞いて、リアクションを送ろう");
+    fireEvent.click(
+      within(banner).getByRole("button", {
+        name: `${presenter.name}をパス`,
+      }),
+    );
+    expect(onSharingAdvance).toHaveBeenCalledExactlyOnceWith("passed");
+  });
+  it("発表者が戻ったら元の表示に戻す", () => {
+    const props = {
+      ...setupProps({
+        phase: buildPhaseStep(2),
+        progress: progressWith([ME]),
+      }),
+      sharing,
+      onSharingAdvance: vi.fn(),
+    };
+    const { rerender } = render(<RoomBoardHeader {...props} />);
+    rerender(
+      <RoomBoardHeader
+        {...props}
+        progress={{
+          ...progressWith([ME, presenter.userId]),
+          progressRevision: 3,
+        }}
+      />,
+    );
+    const banner = screen.getByTestId("sharing-current-presenter");
+    expect(banner).toHaveTextContent(`${presenter.name}さんの順番です`);
+    expect(
+      within(banner).queryByRole("button", { name: /パス/ }),
+    ).not.toBeInTheDocument();
+  });
+  it.each([
+    ["自分の接続が切れている間", { isDisconnected: true }],
+    ["接続の状態をまだ受け取っていない間", {}],
+  ])("%sは、発表者の接続切れを出さない", (_label, overrides) => {
+    render(
+      <RoomBoardHeader
+        {...setupProps({
+          phase: buildPhaseStep(2),
+          progress:
+            "isDisconnected" in overrides
+              ? progressWith([ME])
+              : { ...progressWith([]), progressRevision: 0 },
+          ...overrides,
+        })}
+        sharing={sharing}
+        onSharingAdvance={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("sharing-current-presenter")).toHaveTextContent(
+      `${presenter.name}さんの順番です`,
+    );
+  });
+});
