@@ -90,7 +90,7 @@ describe("共有する人の表示", () => {
   });
 
   it.each(
-    widths(1440, 900, 390).flatMap((width) =>
+    widths(1440, 900, 768, 390).flatMap((width) =>
       ["sharing-transition", "sharing-active", "my-sharing-turn"].map(
         (story) => [width, story] as const,
       ),
@@ -133,28 +133,6 @@ describe("共有する人の表示", () => {
       }
     },
   );
-
-  it("768pxの自分の番では、今することの行で発表者の案内を名前の行より広げない", async () => {
-    const page = await browser.newPage({
-      viewport: { width: 768, height: 900 },
-      reducedMotion: "reduce",
-    });
-    try {
-      await page.goto(
-        `${origin}/iframe.html?id=room-roomboardlayout--my-sharing-turn&viewMode=story`,
-      );
-      const notice = page.getByTestId("sharing-current-presenter");
-      await notice.waitFor();
-      const [name, role] = await notice.evaluate((element) =>
-        [...element.children].map(
-          (child) => child.getBoundingClientRect().width,
-        ),
-      );
-      expect(role).toBeLessThanOrEqual(name);
-    } finally {
-      await page.close();
-    }
-  });
 
   it("人数が多くても今の発表者を枠内に見せ、並びを手で送るスクロール領域にしない", async () => {
     const page = await browser.newPage({
