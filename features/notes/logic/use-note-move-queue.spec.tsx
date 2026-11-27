@@ -270,7 +270,8 @@ describe("保存待ち中の連続移動", () => {
       expect(h.result.current.moveFeedback).not.toBeNull();
     },
   );
-  it.each(["cancel", "snapshot", "phase", "disconnect", "pause"])(
+  // 再接続（切断・snapshot）は離し終えた移動を残す。「再接続」の describe で確かめる。
+  it.each(["cancel", "phase", "pause"])(
     "%sで未送信分を破棄し、遅延成功で再開しない",
     (reason) => {
       const h = setup();
@@ -279,7 +280,6 @@ describe("保存待ち中の連続移動", () => {
       h.start();
       h.end(220);
       expect(h.x()).toBe(220);
-      if (reason === "disconnect") h.rerender({ connected: false });
       if (reason === "pause")
         h.apply({
           type: "timer:updated",
@@ -287,7 +287,6 @@ describe("保存待ち中の連続移動", () => {
           serverNow: 0,
         });
       if (reason === "cancel") act(() => h.result.current.cancelNoteDrag());
-      if (reason === "snapshot") h.apply(snapshot);
       if (reason === "phase")
         h.apply({
           type: "phase:updated",
@@ -579,6 +578,165 @@ describe("別の付箋の競合", () => {
   });
 });
 
+describe("再接続", () => {
+  const reconnect = (
+    h: ReturnType<typeof setup>,
+    notes: Extract<ServerMessage, { type: "snapshot" }>["notes"],
+  ) => {
+    // 送信できるようになるのは snapshot を受けた後。
+    h.rerender({ connected: false });
+    h.apply({ ...snapshot, notes });
+    h.rerender({ connected: true });
+  };
+  const saved = (
+    operationId: string,
+    noteId: string,
+    from: number,
+    to: number,
+    revision: number,
+  ): ServerMessage => ({
+    type: "note:move:result",
+    operationId,
+    status: "accepted",
+    receipt: {
+      ...receipt(revision, from, to, noteId),
+      operationId,
+    },
+  });
+  it("接続が切れて戻っても、離し終えた後ろの移動は捨てずに保存する", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    act(() => h.result.current.startNoteDrag(M));
+    h.end(430, M);
+    // 先頭の確定は切れる前に RoomDO へ届き、保存されていた。
+    reconnect(h, [
+      buildNote({ id: N, x: 150, y: 100, positionRevision: 1 }),
+      buildNote({ id: M, x: 400, y: 100 }),
+    ]);
+    expect(h.result.current.notes.find((n) => n.id === M)?.x).toBe(430);
+    expect(sent(h, "note:move:status").at(-1)).toMatchObject({
+      operationId: ids[0],
+    });
+    h.accept(0, 100, 150);
+    expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+      operationId: ids[1],
+      targets: [{ noteId: M, positionRevision: 0 }],
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: 30, y: 0 },
+    });
+    expect(h.result.current.moveFeedback).toBeNull();
+  });
+  it("先頭の確定が届く前に切れていたら、離した位置のまま新しい移動として送り直す", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    act(() => h.result.current.startNoteDrag(M));
+    h.end(430, M);
+    reconnect(h, snapshot.notes);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "cancelled",
+    });
+    expect(h.x()).toBe(150);
+    expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+      operationId: ids[2],
+      targets: [{ noteId: N, positionRevision: 0 }],
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[2],
+      delta: { x: 50, y: 0 },
+    });
+    h.apply(saved(ids[2], N, 100, 150, 0));
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: 30, y: 0 },
+    });
+    expect(h.result.current.moveFeedback).toBeNull();
+  });
+  it("先頭の確定が RoomDO に届いていなかったら（unknown）、送り直す", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    reconnect(h, snapshot.notes);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "unknown",
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: 50, y: 0 },
+    });
+    expect(h.result.current.moveFeedback).toBeNull();
+  });
+  it("送り直した移動がまた結果不明なら、送り直さずに知らせる", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    reconnect(h, snapshot.notes);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "unknown",
+    });
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[1],
+      status: "unknown",
+    });
+    expect(sent(h, "note:move:commit")).toHaveLength(2);
+    expect(h.result.current.moveFeedback).not.toBeNull();
+  });
+  it("同じ付箋を続けて動かしていても、送り直した先頭の行き先から後ろの移動を保存する", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    h.start();
+    h.end(220);
+    reconnect(h, snapshot.notes);
+    expect(h.x()).toBe(220);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "cancelled",
+    });
+    h.apply(saved(ids[2], N, 100, 150, 0));
+    expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+      operationId: ids[1],
+      targets: [{ noteId: N, positionRevision: 1 }],
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: 70, y: 0 },
+    });
+  });
+  it("切れている間に相手が後ろの付箋を動かしていても、離した位置へ保存する", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    act(() => h.result.current.startNoteDrag(M));
+    h.end(430, M);
+    reconnect(h, [
+      buildNote({ id: N, x: 150, y: 100, positionRevision: 1 }),
+      buildNote({ id: M, x: 300, y: 100, positionRevision: 1 }),
+    ]);
+    expect(h.result.current.notes.find((n) => n.id === M)?.x).toBe(430);
+    h.accept(0, 100, 150);
+    expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+      operationId: ids[1],
+      targets: [{ noteId: M, positionRevision: 1 }],
+    });
+    expect(sent(h, "note:move:commit").at(-1)).toMatchObject({
+      operationId: ids[1],
+      delta: { x: 130, y: 0 },
+    });
+  });
+});
+
 const P = "66666666-6666-4666-8666-666666666666";
 describe("時間切れの通知", () => {
   it("掴んでいる移動も、離し終えた未送信の移動も取り消さない", () => {
@@ -820,8 +978,6 @@ describe("共有の応答待ち中の移動", () => {
       h.start(P);
       act(() => h.result.current.moveNote(P, 340, 220));
       if (reason === "escape") act(() => h.result.current.cancelNoteDrag());
-      if (reason === "snapshot") h.apply(snapshot);
-      if (reason === "disconnect") h.rerender({ connected: false });
       if (reason === "unmount") h.unmount();
       else {
         act(() => h.result.current.endNoteDrag(P, 360, 240));

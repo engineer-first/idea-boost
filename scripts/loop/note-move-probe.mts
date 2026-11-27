@@ -47,6 +47,8 @@ type Member = {
   name: string;
   // サーバーからの通知を1件、本人の接続へ差し込む（時間切れなど、起こすのに時間がかかる通知用）。
   inject: (message: Record<string, unknown>) => void;
+  // 本人の接続を切る（RoomDO の再起動や回線の瞬断と同じ形）。画面は自分で接続し直す。
+  drop: () => Promise<void>;
 };
 type Box = { x: number; y: number; width: number; height: number };
 type Attempt = {
@@ -87,9 +89,18 @@ async function openMember(
   page.setDefaultTimeout(10_000);
   const frames: Frame[] = [];
   let deliver: ((payload: string) => void) | null = null;
+  let drop: (() => Promise<void>) | null = null;
   // 本番に近い往復遅延を入れる。ローカルの 1ms では競合の窓が開かない。
   await page.routeWebSocket(/\/ws(?:\?|$)/, (socket) => {
     const server = socket.connectToServer();
+    let open = true;
+    drop = async () => {
+      open = false;
+      await Promise.all([
+        socket.close({ code: 1012, reason: "probe reconnect" }),
+        server.close({ code: 1012, reason: "probe reconnect" }),
+      ]);
+    };
     deliver = (payload) => {
       frames.push({
         at: Date.now(),
@@ -105,6 +116,7 @@ async function openMember(
         message: JSON.parse(String(payload)) as Wire,
       });
       setTimeout(() => {
+        if (!open) return;
         try {
           server.send(payload);
         } catch {
@@ -114,6 +126,8 @@ async function openMember(
     });
     server.onMessage((payload) => {
       setTimeout(() => {
+        // 切った後に届いた分は本人へ渡らない。
+        if (!open) return;
         frames.push({
           at: Date.now(),
           direction: "received",
@@ -139,6 +153,9 @@ async function openMember(
     frames,
     name,
     inject: (message) => deliver?.(JSON.stringify(message)),
+    drop: async () => {
+      await drop?.();
+    },
   };
 }
 
@@ -859,6 +876,60 @@ const scenarios: Scenario[] = [
           record(
             await judge(
               "queued-other-note-conflict",
+              actor,
+              peer,
+              id,
+              since,
+              drag?.expected ?? null,
+            ),
+          );
+      }
+    },
+  },
+  {
+    id: "reconnect-while-queued",
+    description:
+      "2枚を続けて離した直後、先の保存の結果が返る前に接続が切れて戻る",
+    checkpoint: "1-3",
+    async run(actor, peer, record) {
+      const ids = await draggableNotes(actor);
+      const peerIds = new Set(await draggableNotes(peer));
+      const shared = ids.filter((id) => peerIds.has(id));
+      for (let i = 0; i < 4; i++) {
+        const first = shared[(2 * i) % shared.length];
+        const second = shared[(2 * i + 1) % shared.length];
+        if (!first || !second || first === second) continue;
+        const since = Date.now();
+        const dragFirst = await dragNote(actor, first, {
+          ...offsets[i % 4],
+          steps: 3,
+        });
+        const dragSecond = await dragNote(actor, second, {
+          ...offsets[(i + 1) % 4],
+          steps: 3,
+        });
+        // 2枚目はまだ送っていない。切れて戻った後に、離した2枚が両方保存されるかを見る。
+        const dropped = Date.now();
+        await actor.drop();
+        const deadline = Date.now() + 8_000;
+        while (
+          Date.now() < deadline &&
+          !actor.frames.some(
+            (frame) =>
+              frame.at >= dropped &&
+              frame.direction === "received" &&
+              frame.message.type === "snapshot",
+          )
+        )
+          await wait(50);
+        await settle([actor, peer], dropped);
+        for (const [id, drag] of [
+          [first, dragFirst],
+          [second, dragSecond],
+        ] as const)
+          record(
+            await judge(
+              "reconnect-while-queued",
               actor,
               peer,
               id,

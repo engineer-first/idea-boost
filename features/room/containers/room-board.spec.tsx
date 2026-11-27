@@ -1653,6 +1653,67 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByDisplayValue("あとから届いた付箋")).toBeInTheDocument();
   });
 
+  it("保存待ちの後ろに離した付箋は、接続が切れても元の位置へ戻さない", () => {
+    const first = protocolNote({ content: "先に動かす", x: 100, y: 100 });
+    const second = protocolNote({
+      id: TARGET_NOTE_ID,
+      content: "後に動かす",
+      x: 300,
+      y: 100,
+    });
+    const { socket } = connectWithSnapshot([first, second], {
+      phase: buildPhaseStep(2),
+    });
+    const scroller = screen.getByTestId("board-canvas").parentElement;
+    if (!scroller) throw new Error("ボードスクローラーがありません");
+    Object.defineProperty(scroller, "getBoundingClientRect", {
+      value: () => ({
+        left: 0,
+        top: 0,
+        right: 600,
+        bottom: 600,
+        width: 600,
+        height: 600,
+      }),
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    const drag = (content: string, from: number, to: number) => {
+      const card = screen
+        .getByDisplayValue(content)
+        .closest("[data-testid='note-card']");
+      if (!(card instanceof HTMLElement)) throw new Error("付箋がありません");
+      const surface = within(card).getByRole("button", { name: "付箋" });
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        clientX: from,
+        clientY: 110,
+      });
+      fireEvent.pointerMove(surface, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: from + 10,
+        clientY: 120,
+      });
+      fireEvent.pointerMove(root, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: to,
+        clientY: 210,
+      });
+      fireEvent.pointerUp(root, { pointerId: 1, clientX: to, clientY: 210 });
+    };
+    drag("先に動かす", 110, 160);
+    drag("後に動かす", 310, 360);
+    const moved = screen.getByTestId(`board-note-${TARGET_NOTE_ID}`).style.left;
+    expect(moved).not.toBe("300px");
+
+    act(() => socket.simulateUnexpectedClose());
+
+    expect(screen.getByTestId(`board-note-${TARGET_NOTE_ID}`)).toHaveStyle({
+      left: moved,
+    });
+  });
+
   it("移動の確定応答後は選択中でも永続順へ戻る", () => {
     const dragged = protocolNote({
       content: "移動する付箋",
