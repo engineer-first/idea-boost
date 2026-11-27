@@ -72,7 +72,7 @@
 - タイトルは変えた後の状態（「〜を〜にする」）。本文は3つだけ：**何が問題か**（旅・場面・誰がどこで迷うか、1〜3文）、**どう変えるか**（1案。好みが割れそうなら2案まで、違いを1行ずつ）、**変える前の画面**（ローカルの架空データのスクリーンショットを `github-media` skill で添付）。末尾にリスク段階と、1周で作れる大きさか
 - 本文の最後に「作ってほしければ `loop:ready` を、要らなければ not planned で閉じてください」と書く
 - 先に重複を探す（`gh issue list --label loop:proposal --state all --search "<語>"`）。閉じた提案と同じものは出し直さない。open の提案に同じ場面の新しい根拠があれば、コメントで足す
-- 1回に出すのは patrol・polish・replan がそれぞれ2件まで。open の `loop:proposal` が10件あるあいだは新しく出さず、各 log に一覧だけ書く（人が読む量の上限）
+- 1回に出すのは patrol・polish・replan がそれぞれ2件まで。open の `loop:proposal` が10件あるあいだは新しく出さず、各 log に一覧だけ書く（人が読む量の上限）。既存の `loop:ready` を提案に替える分（build・replan）は、新しい提案ではないので上限に数えない
 - **`loop:proposal` に `loop:ready` を付けるのは人だけ。** ループはオーナーと同じアカウントで動き、ラベルの付け手では見分けられないので、ループは提案の Issue に `loop:ready` を付けない。人が `loop:ready` を付けた提案は、build が本文の案のとおりに作る
 
 ## ループ
@@ -134,7 +134,7 @@ replan が `loop:ready` に整える材料。上ほど優先する。どの種�
 
 - 必須チェック（lint / test / browser / build / smoke）がすべて成功。チェックを skip・削除する変更、検査の設定を緩める変更を含まない。
 - 作った context とは別のサブエージェントによる `code-review`（R2 は加えて `authz-security-reviewer`、UI は `ui-review`）で、直すべき指摘が 0。指摘は直してから再レビューする。
-- PR 本文は [write-pr](../../.agents/skills/write-pr/SKILL.md) の形で、Why・設計判断（方針が未定だった Issue は、比べた案と選んだ理由）・確認結果を書く。UI の変更は変更前後の画面を添える。
+- PR 本文は [write-pr](../../.agents/skills/write-pr/SKILL.md) の形で、Why・設計判断（Issue に書かれていない細部をどう決めたか）・確認結果を書く。UI の変更は変更前後の画面を添える。
 - 付箋の移動に関わるコードを変えた PR は、[計測](#付箋の移動を数える)の数字を本文に書き、どの場面も下限を下回っていない。
 - develop の最新に rebase 済みで、ほかのループ PR と同じファイルを奪い合っていない。
 
@@ -174,7 +174,7 @@ replan が `loop:ready` に整える材料。上ほど優先する。どの種�
 | ラベル          | 意味                                                                               | 付けるのは                                |
 | --------------- | ---------------------------------------------------------------------------------- | ----------------------------------------- |
 | `loop:ready`    | build が拾ってよい Issue。本文か コメントに受け入れ条件とリスク段階                | 欠陥は replan・patrol・人、提案は人だけ   |
-| `loop:proposal` | ループの提案（体験の方向を変える改善）。人が `loop:ready` を付けるまで作らない     | patrol・polish・replan                    |
+| `loop:proposal` | ループの提案（体験の方向を変える改善）。人が `loop:ready` を付けるまで作らない     | patrol・polish・replan・build             |
 | `loop:skip`     | ループに拾わせない                                                                 | 人                                        |
 | `loop:ux`       | 巡回の所見（S1/S2 の欠陥）                                                         | patrol                                    |
 | `loop`          | ループが流す PR（ループが作った PR と、オーナーのセッションがマージまで進める PR） | build・polish・mend・オーナーのセッション |
