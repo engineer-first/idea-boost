@@ -302,6 +302,18 @@ test.each(
           return apart;
         })
         .toBe(true);
+      // 重なりはタイマーではなく枠の側で避ける。タイマーは右上（HUD の下）のまま
+      const [root, hud, timer] = await Promise.all([
+        rect(page, "room-board-view-root"),
+        rect(page, "board-control-hud"),
+        rect(page, "timer-floating"),
+      ]);
+      expect(
+        Math.abs(root.x + root.width - 12 - timer.x - timer.width),
+      ).toBeLessThanOrEqual(1);
+      expect(Math.abs(hud.y + hud.height + 12 - timer.y)).toBeLessThanOrEqual(
+        1,
+      );
     } finally {
       await page.close();
     }

@@ -96,8 +96,10 @@ export function useFloatingTimer(
     const obstacleNodes = Array.from(
       root?.querySelectorAll<HTMLElement>(OBSTACLES) ?? [],
     ).filter((node) => node.offsetWidth > 0 && node.offsetHeight > 0);
+    /** 障害物が無いときのタイマーの上端（右上 HUD の下） */
+    const homeTop = hudBottom + 12;
     const initial = placeRoomTimer(
-      { right: bounds.right - 12, top: hudBottom + 12 },
+      { right: bounds.right - 12, top: homeTop },
       width,
       bounds,
       obstacleNodes
@@ -137,6 +139,7 @@ export function useFloatingTimer(
       // 640px 以上ではマイ付箋の枠が右端まで広がり、上端がタイマーの下端より上に来る。
       // 枠の右上角にタイマーがかからないよう、枠はタイマーの段の下から始める。
       // 接続の案内でタイマーが一時的に下がっても枠が跳ねないよう、段は HUD の下の定位置で測る。
+      // 判定は枠の上端を見ない（横に重なり枠がタイマーより下まで続くか）。枠を下げた後に測り直しても結果が変わらない。
       const panel = header?.parentElement?.getBoundingClientRect();
       const overlapsPanelCorner =
         window.innerWidth >= 640 &&
@@ -154,7 +157,7 @@ export function useFloatingTimer(
         hasRoomBelowTimer || !fitsBesideTimer
           ? rowBottom
           : overlapsPanelCorner
-            ? hudBottom + 12 + 84
+            ? homeTop + 84
             : 0;
       root.style.setProperty("--board-private-timer-top", `${timerTop}px`);
     }
