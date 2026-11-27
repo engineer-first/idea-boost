@@ -62,7 +62,7 @@ describe("共有HUD", () => {
       }
     },
   );
-  it("キーボードで中央の「パスする」を押して番が移っても、フォーカスを中央の表示に残す", async () => {
+  it("キーボードで中央の「パスする」を押して送信中に押せなくなり番が移っても、フォーカスを中央の表示に残す", async () => {
     const page = await browser.newPage({ reducedMotion: "reduce" });
     try {
       await page.goto(
@@ -70,15 +70,20 @@ describe("共有HUD", () => {
       );
       const pass = page.getByRole("button", { name: /をパス$/ });
       await pass.focus();
-      await page.keyboard.press("Enter");
-      await page.getByText("さんの順番です").waitFor();
-      expect(
-        await page.evaluate(
+      const focused = () =>
+        page.evaluate(
           () =>
             (document.activeElement as HTMLElement | null)?.dataset.testid ??
             document.activeElement?.tagName,
-        ),
-      ).toBe("sharing-current-presenter");
+        );
+      await page.keyboard.press("Enter");
+      // 送信中に押せなくなったボタンから、ブラウザがフォーカスを外す場面。
+      await page.waitForSelector("button[disabled]");
+      await page.waitForTimeout(100);
+      expect(await focused()).toBe("sharing-current-presenter");
+      // 番が移ってボタンが消えた後も残る。
+      await page.getByText("さんの順番です").waitFor();
+      expect(await focused()).toBe("sharing-current-presenter");
     } finally {
       await page.close();
     }

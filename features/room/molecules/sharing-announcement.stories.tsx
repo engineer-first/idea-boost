@@ -26,16 +26,25 @@ export const Self: Story = { args: { isSelf: true } };
 export const PresenterDisconnected: Story = {
   args: { isDisconnected: true, onPass: () => {} },
 };
-/** 接続切れの発表者を「パスする」と、次の人の番に移る。押した後のフォーカスを確かめる（#1453）。 */
+/**
+ * 接続切れの発表者を「パスする」と、送信中はボタンが押せなくなり、少しして次の人の番に移る。
+ * 押した後のフォーカスを実ブラウザで確かめる（#1453）。
+ */
 export const PresenterDisconnectedPassed: Story = {
   render: function Render() {
     const [first, second] = buildSharingState().order;
-    const [passed, setPassed] = useState(false);
+    const [state, setState] = useState<"waiting" | "sending" | "passed">(
+      "waiting",
+    );
     return (
       <SharingAnnouncement
-        member={passed ? second : first}
-        isDisconnected={!passed}
-        onPass={() => setPassed(true)}
+        member={state === "passed" ? second : first}
+        isDisconnected={state !== "passed"}
+        passDisabled={state === "sending"}
+        onPass={() => {
+          setState("sending");
+          setTimeout(() => setState("passed"), 500);
+        }}
       />
     );
   },
