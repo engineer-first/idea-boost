@@ -24,6 +24,16 @@ const OBSTACLES =
  */
 const SNAP_OBSTACLES =
   '[data-testid="phase-step-trail"], [data-testid="board-character"], [data-testid="board-character-bubble"], [data-testid="sharing-current-presenter"], [data-testid="phase-loop-hud"] > *';
+/**
+ * 個人ステップのマイ付箋は作業領域のほぼ全体を占める。面ごと避けるとどの端にも空きが無いので、
+ * 動かした後は面の代わりに、入力欄・見出し・付箋（例を含む）と、面の下に重なる左のヒント（吹き出しを含む）を避ける。
+ */
+const WORKSPACE_TOOLBAR =
+  '[data-testid="private-notes-toolbar"][data-presentation="workspace"]:not([data-expanded="false"])';
+const WORKSPACE_CONTENT =
+  '[data-testid="private-notes-controls"], [data-private-note-composer], [data-testid="note-card"], [data-testid="private-note-placeholder"], [data-testid^="example-note-"]';
+const WORKSPACE_UNDERLAY =
+  '[data-testid="board-context-references"], [data-testid="board-help-panel"] > div, [data-testid="hmw-hint-hud"], [data-testid="hmw-thought-cloud"], [data-testid="hmw-hint-nudge"]';
 const MIN_PRIVATE_COMPOSER_WIDTH = 192;
 const PRIVATE_WRITING_HEADER_SPACE = 136;
 /** 端へ寄る動きの印を外すまでの時間。room-timer.module.css の transition（200ms）より少し長くする */
@@ -135,10 +145,16 @@ export function useFloatingTimer(
       );
     }
     const obstacles: TimerRect[] = obstacleNodes
-      .filter(
-        (node) =>
-          moved.current || node.dataset.testid !== "private-notes-toolbar",
-      )
+      .flatMap((node) => {
+        if (node.dataset.testid !== "private-notes-toolbar") return [node];
+        if (!moved.current) return [];
+        if (!node.matches(WORKSPACE_TOOLBAR)) return [node];
+        return [
+          ...node.querySelectorAll<HTMLElement>(WORKSPACE_CONTENT),
+          // 問いのヒントの吹き出しは portal でボードの外に描かれるので、文書全体から探す
+          ...document.querySelectorAll<HTMLElement>(WORKSPACE_UNDERLAY),
+        ].filter((item) => item.offsetWidth > 0 && item.offsetHeight > 0);
+      })
       .map((node) => node.getBoundingClientRect());
     const snap =
       settle && moved.current && (dropped || snappedEdge.current !== null);

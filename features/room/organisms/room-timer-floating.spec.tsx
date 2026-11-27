@@ -229,6 +229,112 @@ describe("フローティングタイマー", () => {
       vi.restoreAllMocks();
     }
   });
+  it("個人ステップでマイ付箋の作業面が広がっていても、中央・入力欄・左のヒントの上で離すと、それらを避けて端へ寄る", () => {
+    const composer = new DOMRect(340, 96, 680, 48);
+    const note = new DOMRect(340, 200, 160, 150);
+    // 作業面の下に重なる左列のヒントと、左下の問いのヒントのキャラクター
+    const help = new DOMRect(12, 160, 320, 420);
+    const hint = new DOMRect(12, 620, 80, 88);
+    // キャラクターの吹き出しは HUD の矩形の外へはみ出して開く
+    const cloud = new DOMRect(16, 480, 290, 190);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.dataset.testid === "room-board-view-root")
+          return new DOMRect(0, 0, 1280, 720);
+        if (this.dataset.testid === "board-control-hud")
+          return new DOMRect(900, 12, 368, 56);
+        // 個人ステップでは作業面が作業領域のほぼ全体を占める
+        if (this.dataset.testid === "private-notes-toolbar")
+          return new DOMRect(0, 80, 1280, 640);
+        if (this.dataset.privateNoteComposer === "true") return composer;
+        if (this.dataset.testid === "note-card") return note;
+        if (this.dataset.testid === "help-panel-body") return help;
+        if (this.dataset.testid === "hmw-hint-hud") return hint;
+        if (this.dataset.testid === "hmw-thought-cloud") return cloud;
+        return new DOMRect(0, 0, 0, 0);
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().width;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getBoundingClientRect().height;
+      },
+    );
+    const view = render(
+      <div data-testid="room-board-view-root">
+        <div data-testid="board-control-hud" />
+        <div
+          data-testid="private-notes-toolbar"
+          data-presentation="workspace"
+          data-expanded="true"
+        >
+          <textarea data-private-note-composer="true" />
+          <div data-testid="note-card" />
+        </div>
+        <div data-testid="board-help-panel">
+          <div data-testid="help-panel-body" />
+        </div>
+        <div data-testid="hmw-hint-hud" />
+        <RoomTimer {...props()} />
+      </div>,
+    );
+    // 吹き出しは portal でボードの外に描かれる
+    const portal = render(<div data-testid="hmw-thought-cloud" />, {
+      container: document.body.appendChild(document.createElement("div")),
+    });
+    const drop = (clientX: number, clientY: number) => {
+      const floating = screen.getByTestId("timer-floating");
+      const left = Number.parseFloat(floating.style.left);
+      const top = Number.parseFloat(floating.style.top);
+      fireEvent.pointerDown(floating, {
+        pointerId: 1,
+        button: 0,
+        clientX: left + 36,
+        clientY: top + 36,
+      });
+      fireEvent.pointerMove(floating, { pointerId: 1, clientX, clientY });
+      fireEvent.pointerUp(floating, { pointerId: 1 });
+      return {
+        left: Number.parseFloat(floating.style.left),
+        top: Number.parseFloat(floating.style.top),
+      };
+    };
+    const overlaps = (p: { left: number; top: number }, r: DOMRect) =>
+      p.left < r.right &&
+      p.left + 72 > r.left &&
+      p.top < r.bottom &&
+      p.top + 72 > r.top;
+    const onEdge = (p: { left: number; top: number }) =>
+      p.left === 12 || p.left === 1196 || p.top === 12 || p.top === 636;
+    try {
+      // ボード中央で離すと、下端が最も近いので横位置を保って下端へ寄る
+      expect(drop(700, 610)).toEqual({ left: 664, top: 636 });
+      // 入力欄の右寄りで離しても、入力欄に重ならない端へ寄る
+      const onComposer = drop(1010, 120);
+      expect(onEdge(onComposer)).toBe(true);
+      expect(overlaps(onComposer, composer)).toBe(false);
+      expect(overlaps(onComposer, note)).toBe(false);
+      // 左列のヒントや左下のキャラクターの上で離しても、それらに重ならない端へ寄る
+      for (const [x, y] of [
+        [120, 400],
+        [80, 660],
+      ] as const) {
+        const onLeft = drop(x, y);
+        expect(onEdge(onLeft)).toBe(true);
+        expect(overlaps(onLeft, help)).toBe(false);
+        expect(overlaps(onLeft, hint)).toBe(false);
+        expect(overlaps(onLeft, cloud)).toBe(false);
+      }
+    } finally {
+      portal.unmount();
+      view.unmount();
+      vi.restoreAllMocks();
+    }
+  });
   it("端へ寄せた後に作業領域が広がっても、同じ辺に付け直す。寄る途中に掴み直すと動きの印を外す", () => {
     let rootRect = new DOMRect(0, 0, 1280, 720);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
