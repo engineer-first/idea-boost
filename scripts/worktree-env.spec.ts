@@ -139,6 +139,7 @@ describe("scripts/worktree-env.sh", () => {
 
     expect(result.status).toBe(0);
     expect(opLog()).toBe("");
+    expect(result.stdout).toContain("1Password を使わずに作ります");
     const secret = value(".env.local", "SESSION_SECRET");
     expect(secret).toMatch(/^[0-9a-f]{64}$/);
     expect(value("workers/.dev.vars", "SESSION_SECRET")).toBe(secret);
@@ -191,6 +192,32 @@ describe("scripts/worktree-env.sh", () => {
     expect(value(".env.local", "GOOGLE_CLIENT_ID")).toBe("client-id-value");
     expect(value(".env.local", "GOOGLE_CLIENT_SECRET")).toBe("");
     expect(result.stderr).toContain("idea-boost-GOOGLE_CLIENT_SECRET");
+  });
+
+  it("環境変数のトークンをキーチェーンより先に使う", () => {
+    const { run, opLog } = setup({
+      op: { [ID_REF]: "i", [SECRET_REF]: "s" },
+      keychain: { "op-service-account-token": "sa-from-keychain" },
+      env: { OP_SERVICE_ACCOUNT_TOKEN: "sa-from-env" },
+    });
+
+    run();
+
+    expect(opLog()).toContain("sa-from-env|inject");
+    expect(opLog()).not.toContain("sa-from-keychain");
+  });
+
+  it("1Password の値が空なら空のままにし、空であることを案内する", () => {
+    const { run, value } = setup({
+      op: { [ID_REF]: "", [SECRET_REF]: "s" },
+      env: { OP_SERVICE_ACCOUNT_TOKEN: "sa" },
+    });
+
+    const result = run();
+
+    expect(result.status).toBe(0);
+    expect(value(".env.local", "GOOGLE_CLIENT_ID")).toBe("");
+    expect(result.stderr).toContain("credential が空");
   });
 
   it("1Password を読めなくても setup を止めず、空のまま作る", () => {

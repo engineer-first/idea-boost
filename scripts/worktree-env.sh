@@ -70,6 +70,7 @@ inject_from_1password() {
     token="$(security find-generic-password -s op-service-account-token -w 2>/dev/null)" || token=""
   fi
   if [[ -z "$token" ]] || ! command -v op >/dev/null 2>&1; then
+    echo "==> 1Password を使わずに作ります（サービスアカウントのトークンか op が無い）"
     return 0
   fi
 
@@ -78,10 +79,13 @@ inject_from_1password() {
     [[ "$line" =~ ^([A-Z][A-Z0-9_]*)=op://[^/]+/([^/]+)/[^/]+$ ]] || continue
     name="${BASH_REMATCH[1]}"
     item="${BASH_REMATCH[2]}"
-    if resolved="$(printf '%s\n' "$line" | OP_SERVICE_ACCOUNT_TOKEN="$token" op inject 2>"$err_file")" &&
-      [[ "$resolved" == "$name="?* && "$resolved" != *$'\n'* ]]; then
-      printf '%s\n' "$resolved" >>"$values"
-      filled=$((filled + 1))
+    if resolved="$(printf '%s\n' "$line" | OP_SERVICE_ACCOUNT_TOKEN="$token" op inject 2>"$err_file")"; then
+      if [[ "$resolved" == "$name="?* && "$resolved" != *$'\n'* ]]; then
+        printf '%s\n' "$resolved" >>"$values"
+        filled=$((filled + 1))
+      else
+        echo "warning: ${name} は空のままにします。1Password の「${item}」の credential が空か、1行の値ではありません。" >&2
+      fi
     elif grep -qE "could not find item|isn't an item|isn't a field|does not have a field" "$err_file"; then
       echo "warning: ${name} は空のままにします。1Password の Automation 保管庫に項目「${item}」（種類は API 認証情報、値はフィールド credential）がありません。" >&2
     else

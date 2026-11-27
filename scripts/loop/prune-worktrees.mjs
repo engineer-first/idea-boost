@@ -86,6 +86,7 @@ const git = (dir, ...argv) => tryRun("git", ["-C", dir, ...argv], 60_000);
 // setup は example の SESSION_SECRET 行を乱数に、.env.tpl にある名前の行を 1Password の値に差し替えて書くので、
 // それらの行を除いてこの worktree の HEAD の example と一致すれば、消しても setup で同じものが作り直せる。
 // 1行でも手で足した・変えたものは「その worktree にしか無い設定」として残す。
+// .env.tpl にある名前の行は手で書き換えていても無視する（mini では setup が 1Password の値で作り直すため）。
 const GENERATED_FROM = {
   ".env.local": ".env.example",
   "workers/.dev.vars": "workers/.dev.vars.example",

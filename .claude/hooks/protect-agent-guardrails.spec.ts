@@ -102,6 +102,24 @@ describe("protect-agent-guardrails hook", () => {
     expect(result.stderr).toContain("op://");
   });
 
+  it("denies a plain value in .env.tpl even when followed by many references", () => {
+    const result = runHook({
+      file_path: "/repo/.env.tpl",
+      content: `GOOGLE_CLIENT_SECRET=raw-secret\n${"A=op://Automation/idea-boost-A/credential\n".repeat(2000)}`,
+    });
+
+    expect(result.status).toBe(2);
+  });
+
+  it("denies .env.tpl references outside the Automation idea-boost items", () => {
+    const result = runHook({
+      file_path: "/repo/.env.tpl",
+      content: "GOOGLE_CLIENT_SECRET=op://GOCSPX-raw-value\n",
+    });
+
+    expect(result.status).toBe(2);
+  });
+
   it("denies disabling TypeScript strict mode", () => {
     const result = runHook({
       file_path: "/repo/tsconfig.json",
