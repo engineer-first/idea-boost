@@ -394,6 +394,31 @@ describe("RoomBoardCanvas", () => {
     expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-1", 15);
   });
 
+  it("複数の付箋を選択しているときも文字サイズ操作を表示し、全付箋の文字サイズを一括変更する", () => {
+    const onNoteFontSizeChange = vi.fn();
+    setup({
+      phase: buildPhaseStep(2),
+      permissions: getBoardPermissions(buildPhaseStep(2)),
+      notes: [
+        buildNote({ id: "note-1", fontSize: 14 }),
+        buildNote({ id: "note-2", fontSize: 18 }),
+        buildNote({ id: "note-3", fontSize: 16, excluded: true }),
+      ],
+      selectedNoteId: null,
+      selectedNoteIds: ["note-1", "note-2", "note-3"],
+      onNoteFontSizeChange,
+    });
+
+    const fontControls = screen.getByTestId("note-font-size-controls");
+    expect(fontControls).toBeVisible();
+    expect(fontControls).toHaveTextContent("--px");
+
+    fireEvent.click(screen.getByRole("button", { name: "付箋の文字を大きく" }));
+    expect(onNoteFontSizeChange).toHaveBeenCalledTimes(2);
+    expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-1", 15);
+    expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-2", 19);
+  });
+
   it("付箋を選ぶまで文字サイズ操作を見せず、切断中は無効にする", () => {
     const phase = buildPhaseStep(2);
     const { props, rerender } = setup({
@@ -1612,7 +1637,7 @@ describe("RoomBoardCanvas", () => {
         "--idea-map-note-left-desktop": noteProfiles.desktop.left,
         "--idea-map-note-bottom-desktop": noteProfiles.desktop.bottom,
       });
-      expect(screen.getByTestId("idea-map-drag-ghost")).toHaveStyle({
+      expect(screen.getByTestId("idea-map-drag-ghost")).toHaveInlineStyle({
         "--idea-map-note-left-desktop": ghostProfiles.desktop.left,
         "--idea-map-note-bottom-desktop": ghostProfiles.desktop.bottom,
         transform: "scale(1)",
@@ -1622,7 +1647,7 @@ describe("RoomBoardCanvas", () => {
         screen
           .getByText("固定サイズゴースト")
           .closest("[data-slot='sticky-note']"),
-      ).toHaveStyle({
+      ).toHaveInlineStyle({
         transform: "scale(var(--idea-map-note-scale, 1))",
         transformOrigin: "bottom left",
       });
@@ -1681,14 +1706,14 @@ describe("RoomBoardCanvas", () => {
         const note = screen.getByTestId(
           `idea-value-feasibility-map-note-${id}`,
         );
-        expect(note).toHaveStyle({
+        expect(note).toHaveInlineStyle({
           "--idea-map-note-left-desktop": profiles.desktop.left,
           "--idea-map-note-bottom-desktop": profiles.desktop.bottom,
           transform: `scale(${scale})`,
           transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
         });
         expect(noteLayer).toContainElement(note);
-        expect(within(note).getByTestId("note-card")).toHaveStyle({
+        expect(within(note).getByTestId("note-card")).toHaveInlineStyle({
           transform: "scale(var(--idea-map-note-scale, 1))",
           transformOrigin: "bottom left",
         });
@@ -1704,7 +1729,7 @@ describe("RoomBoardCanvas", () => {
         );
         expect(
           screen.getByTestId(`idea-value-feasibility-map-note-${point.id}`),
-        ).toHaveStyle({
+        ).toHaveInlineStyle({
           "--idea-map-note-left-desktop": profiles.desktop.left,
           "--idea-map-note-bottom-desktop": profiles.desktop.bottom,
           transform: `scale(${getIdeaMapNoteDisplayScale(sizeLevel + 1)})`,
@@ -1750,7 +1775,7 @@ describe("RoomBoardCanvas", () => {
           "idea-value-feasibility-map-note-responsive-map-note",
         ),
       ).getByTestId("note-card"),
-    ).toHaveStyle({
+    ).toHaveInlineStyle({
       transform: "scale(var(--idea-map-note-scale, 1))",
       transformOrigin: "bottom left",
     });
@@ -1776,7 +1801,7 @@ describe("RoomBoardCanvas", () => {
       const mappedNote = screen.getByTestId(
         `idea-value-feasibility-map-note-${id}`,
       );
-      expect(mappedNote).toHaveStyle({
+      expect(mappedNote).toHaveInlineStyle({
         // clampの複合式はjsdomで未対応。範囲補正の式は純関数のspecで検証する。
         transform: "scale(1)",
         transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
@@ -1818,7 +1843,7 @@ describe("RoomBoardCanvas", () => {
       .closest<HTMLElement>("[data-slot='sticky-note']");
     if (!ghost) throw new Error("ドラッグゴーストがありません");
 
-    expect(ghost).toHaveStyle({
+    expect(ghost).toHaveInlineStyle({
       transform: "scale(var(--idea-map-note-scale, 1))",
       transformOrigin: "bottom left",
     });

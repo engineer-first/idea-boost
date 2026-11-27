@@ -7,7 +7,7 @@ import styles from "./sharing-announcement.module.css";
 
 export type SharingAnnouncementProps = {
   member: ProtocolMember;
-  /** 発表者が自分のとき、主色の淡い面で強調し「あなたのターンです」と示す。 */
+  /** 発表者が自分のとき、主色の淡い面で強調し「あなたの順番です」と示す。 */
   isSelf?: boolean;
 };
 

@@ -13,17 +13,31 @@ import { NOTE_FONT_SIZE_RANGE } from "@/contracts/board";
 
 export type NoteFontSizeControlsProps = {
   fontSize: number | null;
+  hasSelection?: boolean;
+  canDecrease?: boolean;
+  canIncrease?: boolean;
   disabled: boolean;
   onChange: (fontSize: number) => void;
+  onStep?: (delta: number) => void;
 };
 
 export function NoteFontSizeControls({
   fontSize,
+  hasSelection: hasSelectionProp,
+  canDecrease: canDecreaseProp,
+  canIncrease: canIncreaseProp,
   disabled,
   onChange,
+  onStep,
 }: NoteFontSizeControlsProps) {
   const t = useTranslations("app.boardNoteFontSize");
-  const hasSelection = fontSize !== null;
+  const hasSelection = hasSelectionProp ?? fontSize !== null;
+  const canDecrease =
+    canDecreaseProp ??
+    (fontSize !== null && fontSize > NOTE_FONT_SIZE_RANGE.min);
+  const canIncrease =
+    canIncreaseProp ??
+    (fontSize !== null && fontSize < NOTE_FONT_SIZE_RANGE.max);
   return (
     <TooltipProvider>
       <fieldset
@@ -35,12 +49,13 @@ export function NoteFontSizeControls({
         <FontSizeButton
           label={t("decreaseLabel")}
           hint={t("decreaseHint")}
-          disabled={
-            disabled || !hasSelection || fontSize <= NOTE_FONT_SIZE_RANGE.min
-          }
+          disabled={disabled || !hasSelection || !canDecrease}
           onClick={() => {
-            if (fontSize !== null)
+            if (onStep) {
+              onStep(-NOTE_FONT_SIZE_RANGE.step);
+            } else if (fontSize !== null) {
               onChange(fontSize - NOTE_FONT_SIZE_RANGE.step);
+            }
           }}
         >
           <span aria-hidden="true" className="text-xs font-bold">
@@ -56,12 +71,13 @@ export function NoteFontSizeControls({
         <FontSizeButton
           label={t("increaseLabel")}
           hint={t("increaseHint")}
-          disabled={
-            disabled || !hasSelection || fontSize >= NOTE_FONT_SIZE_RANGE.max
-          }
+          disabled={disabled || !hasSelection || !canIncrease}
           onClick={() => {
-            if (fontSize !== null)
+            if (onStep) {
+              onStep(NOTE_FONT_SIZE_RANGE.step);
+            } else if (fontSize !== null) {
               onChange(fontSize + NOTE_FONT_SIZE_RANGE.step);
+            }
           }}
         >
           <span aria-hidden="true" className="text-sm font-bold">

@@ -918,7 +918,7 @@ describe("RoomBoardHeader", () => {
       });
 
       expect(screen.queryByRole("dialog")).toBeNull();
-      expect(dialog).toHaveStyle({ animation: "none", opacity: "0" });
+      expect(dialog).toHaveInlineStyle({ animation: "none", opacity: "0" });
     } finally {
       vi.useRealTimers();
     }
@@ -1840,7 +1840,7 @@ describe("共有の進行欄", () => {
       />,
     );
     expect(
-      screen.getByText(`${sharing.order[1].name}さんのターンです`),
+      screen.getByText(`${sharing.order[1].name}さんの順番です`),
     ).toBeInTheDocument();
     expect(screen.getByRole("timer")).toHaveTextContent("03:00");
     expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
@@ -1862,10 +1862,10 @@ describe("共有の進行欄", () => {
       />,
     );
     expect(screen.getByTestId("sharing-current-presenter")).toHaveTextContent(
-      `${active.order[1].name}さんのターンです`,
+      `${active.order[1].name}さんの順番です`,
     );
   });
-  it("自分の番なら発表者の表示を「あなたのターンです」にする", () => {
+  it("自分の番なら発表者の表示を「あなたの順番です」にする", () => {
     const active = { ...sharing, status: "active" as const, currentIndex: 0 };
     render(
       <RoomBoardHeader
@@ -1881,7 +1881,7 @@ describe("共有の進行欄", () => {
       />,
     );
     const banner = screen.getByTestId("sharing-current-presenter");
-    expect(banner).toHaveTextContent("あなたのターンです");
+    expect(banner).toHaveTextContent("あなたの順番です");
     expect(banner).toHaveAttribute("data-self", "true");
   });
   it.each([
@@ -2224,21 +2224,32 @@ it("復元可能な戻り先がある参加者に戻る操作を提供する", (
 
 it("参加者はルームメニューで現在名と変更入口を確認でき、完了後は変更できない", () => {
   const onRenameRoom = vi.fn();
-  const props = setupProps({ roomName: "J05", onRenameRoom });
+  const props = setupProps({
+    roomName: "J05",
+    onRenameRoom,
+    onEditSelf: vi.fn(),
+  });
   const { rerender } = render(<RoomBoardHeader {...props} />);
   openRoomMenu();
+  const roomNameText = within(
+    screen.getByRole("dialog", { name: "ルームメニュー" }),
+  ).getByText("J05");
+  expect(roomNameText).toBeInTheDocument();
+  // 行全体をボタンにしても、今のテーマ名が読み上げに残る。
   expect(
-    within(screen.getByRole("dialog", { name: "ルームメニュー" })).getByText(
-      "J05",
-    ),
-  ).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "テーマを変更" }));
+    screen.getByRole("button", { name: "テーマ：J05" }),
+  ).toHaveAccessibleDescription("テーマを変更");
+  // テーマのテキスト自体をクリックしても変更モーダルを開ける。
+  fireEvent.click(roomNameText);
   expect(onRenameRoom).toHaveBeenCalledOnce();
+  openRoomMenu();
+  const selfButton = screen.getByRole("button", { name: /表示名を変更/ });
+  expect(selfButton).toHaveClass("py-2");
+  expect(selfButton).not.toHaveClass("border-b");
+  expect(selfButton).not.toHaveClass("pb-3");
   rerender(<RoomBoardHeader {...props} outcomePublished />);
   openRoomMenu();
-  expect(
-    screen.queryByRole("button", { name: "テーマを変更" }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByTitle("テーマを変更")).not.toBeInTheDocument();
 });
 
 describe("全員のチェック", () => {

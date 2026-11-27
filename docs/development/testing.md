@@ -89,6 +89,8 @@
 コマンドの正本は [package.json](../../package.json)。変更範囲に必要な検証を実行する。
 
 - unit / DOM: `npm run test`（[vitest.config.mts](../../vitest.config.mts)、jsdom）
+  jsdom の `toHaveStyle` は computed style を見る。`var()` を含む式や、文書から外した要素の inline style を確かめるときは
+  `toHaveInlineStyle`（[vitest.setup.ts](../../vitest.setup.ts)）を使う。
 - Worker / RoomDO: `npm run test:workers`（[vitest.workers.config.mts](../../vitest.workers.config.mts)、`@cloudflare/vitest-plugin`）
 - browser: Storybook を起動または build して配信し、`npm run test:browser`
   （[vitest.browser.config.mts](../../vitest.browser.config.mts)、`tests/browser/`）。

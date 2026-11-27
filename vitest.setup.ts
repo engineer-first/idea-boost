@@ -1,9 +1,60 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
 import { server } from "./app/mocks/node";
 import appMessages from "./messages/ja/app.json";
 import landingMessages from "./messages/ja/landing.json";
+
+declare module "vitest" {
+  // 型引数はvitestの宣言と同じ形にそろえる（そろえないと宣言を合成できない）。
+  interface Matchers<
+    R extends void | Promise<void> = void | Promise<void>,
+    T = unknown,
+  > {
+    /**
+     * 要素のinline styleに書かれた値そのものを確かめる。
+     * `toHaveStyle` はcomputed styleを見るため、`var()` を含む式は解決後の値になり、
+     * 文書から外れた要素では空になる。Reactが渡した式を確かめるときはこちらを使う。
+     */
+    toHaveInlineStyle(styles: Record<string, string>): R;
+  }
+}
+
+const toCssProperty = (name: string) =>
+  name.startsWith("--")
+    ? name
+    : name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+
+expect.extend({
+  toHaveInlineStyle(received: unknown, styles: Record<string, string>) {
+    if (!(received instanceof HTMLElement || received instanceof SVGElement)) {
+      // .not でも黙って通さないよう、結果を返さずに落とす。
+      throw new TypeError("toHaveInlineStyle には要素を渡してください");
+    }
+    // 期待値も同じCSS実装に通し、キーワードの順序などの書き方の差を吸収する。
+    const normalizer = document.createElement("div");
+    const expected: Record<string, string> = {};
+    const actual: Record<string, string> = {};
+    for (const [name, value] of Object.entries(styles)) {
+      const property = toCssProperty(name);
+      normalizer.style.setProperty(property, value);
+      expected[property] = normalizer.style.getPropertyValue(property);
+      // 解釈できない期待値は空になり、未設定の要素と空どうしで一致してしまう。
+      if (value !== "" && expected[property] === "")
+        throw new TypeError(
+          `toHaveInlineStyle: ${property} の期待値 "${value}" をCSSとして解釈できません`,
+        );
+      actual[property] = received.style.getPropertyValue(property);
+    }
+    return {
+      pass: this.equals(actual, expected),
+      message: () =>
+        `inline style が${this.isNot ? "一致しています" : "一致しません"}`,
+      actual,
+      expected,
+    };
+  },
+});
 
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());

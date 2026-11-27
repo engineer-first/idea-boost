@@ -112,7 +112,7 @@ describe("NoteGroupCard", () => {
     expect(heading.closest(".cursor-pointer")).toBeNull();
   });
 
-  it("50文字の名前を2行で省略し、枠の上側で全文を確認できる", async () => {
+  it("50文字の名前を2行で省略し、ホバーしても不要なツールチップを出さない", async () => {
     const user = userEvent.setup();
     const longName = "あ".repeat(50);
     setup({ name: longName, group: { ...baseGroup, name: longName } });
@@ -129,7 +129,9 @@ describe("NoteGroupCard", () => {
     );
 
     await user.hover(heading);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(longName);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    fireEvent.focus(heading);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
   it.each(["click", "Enter", " "] as const)(

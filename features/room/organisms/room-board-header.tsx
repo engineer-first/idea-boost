@@ -1230,20 +1230,13 @@ export function RoomBoardHeader({
                   feedbackOpening.current = false;
                 }}
               >
-                <div className="mb-1 flex items-start gap-1 px-2">
-                  <p className="min-w-0 break-all text-base leading-7">
-                    <span className="text-muted-foreground">{t("theme")}</span>
-                    <span className="font-medium">
-                      {roomName ?? t("unsetTheme")}
-                    </span>
-                  </p>
+                <div className="mb-1">
                   {!outcomePublished && onRenameRoom ? (
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
-                      className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
-                      aria-label={t("changeTheme")}
+                      className="h-auto min-h-10 w-full items-center justify-between gap-2 px-2 py-2 text-left font-normal"
+                      // aria-label は付けない。付けると今のテーマ名が読み上げから消える。
                       title={t("changeTheme")}
                       disabled={isDisconnected || isLeaving || roomNameDisabled}
                       onClick={() => {
@@ -1251,52 +1244,78 @@ export function RoomBoardHeader({
                         onRenameRoom();
                       }}
                     >
-                      <Pencil className="size-3.5" aria-hidden="true" />
+                      <span className="min-w-0 flex-1 break-all whitespace-normal text-base leading-6">
+                        <span className="text-muted-foreground">
+                          {t("theme")}
+                        </span>
+                        <span className="font-medium">
+                          {roomName ?? t("unsetTheme")}
+                        </span>
+                      </span>
+                      <Pencil
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     </Button>
-                  ) : null}
+                  ) : (
+                    <p className="min-w-0 break-all px-2 py-2 text-base leading-6">
+                      <span className="text-muted-foreground">
+                        {t("theme")}
+                      </span>
+                      <span className="font-medium">
+                        {roomName ?? t("unsetTheme")}
+                      </span>
+                    </p>
+                  )}
                 </div>
                 {currentMember ? (
-                  <MemberSelection
-                    name={
-                      onEditSelf
-                        ? t("renameMember", { name: currentMember.name })
-                        : currentMember.name
-                    }
-                    onSelect={
-                      !outcomePublished && onEditSelf
-                        ? () => {
-                            setRoomMenuOpen(false);
-                            onEditSelf();
-                          }
-                        : undefined
-                    }
-                    disabled={isDisconnected || isLeaving}
-                    className="mb-1 flex w-full min-w-0 items-center gap-2 border-b border-border px-2 pt-1 pb-3 text-left"
-                  >
-                    <MemberAvatar
-                      name={currentMember.name}
-                      avatarId={currentMember.avatarId}
-                      color={currentMember.color}
-                      size={32}
-                      isMe
-                      isConnected={
-                        progress.progressRevision > 0
-                          ? progress.connectedUserIds.includes(
-                              currentMember.userId,
-                            )
+                  <>
+                    <MemberSelection
+                      name={
+                        onEditSelf
+                          ? t("renameMember", { name: currentMember.name })
+                          : currentMember.name
+                      }
+                      onSelect={
+                        !outcomePublished && onEditSelf
+                          ? () => {
+                              setRoomMenuOpen(false);
+                              onEditSelf();
+                            }
                           : undefined
                       }
-                    />
-                    <span className="min-w-0 flex-1 truncate text-base font-medium">
-                      {currentMember.name}
-                    </span>
-                    {onEditSelf && !outcomePublished ? (
-                      <Pencil
-                        className="size-3 shrink-0 text-muted-foreground"
-                        aria-hidden
+                      disabled={isDisconnected || isLeaving}
+                      className="flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-2 text-left"
+                    >
+                      <MemberAvatar
+                        name={currentMember.name}
+                        avatarId={currentMember.avatarId}
+                        color={currentMember.color}
+                        size={32}
+                        isMe
+                        isConnected={
+                          progress.progressRevision > 0
+                            ? progress.connectedUserIds.includes(
+                                currentMember.userId,
+                              )
+                            : undefined
+                        }
                       />
-                    ) : null}
-                  </MemberSelection>
+                      <span className="min-w-0 flex-1 truncate text-base font-medium">
+                        {currentMember.name}
+                      </span>
+                      {onEditSelf && !outcomePublished ? (
+                        <Pencil
+                          className="size-3 shrink-0 text-muted-foreground"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </MemberSelection>
+                    <div
+                      aria-hidden="true"
+                      className="my-1 border-b border-border"
+                    />
+                  </>
                 ) : null}
 
                 <div className="flex flex-col gap-1">

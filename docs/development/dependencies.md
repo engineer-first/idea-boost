@@ -12,7 +12,7 @@ npm 11.20は依存パッケージのinstall scriptを既定で実行せず、`al
 
 完全固定は更新のたびに設定変更が必要になり、`lts` だけでは将来のLTSメジャー切替で `engines.node` と検証対象から外れる。このため26系の範囲指定を採用する。ローカルに古い26系がある場合は `mise upgrade node` で更新し、`mise exec -- node --version` で最低条件以上を確認する。将来のLTSメジャー移行は依存のengine・peer条件とCIを確認する別の変更として扱う。[miseの版指定](https://mise.jdx.dev/lang/node.html#choosing-a-version)と[NodeのLTS方針](https://nodejs.org/en/about/previous-releases)も参照。
 
-jsdom 30.1.3のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する26系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、PR・pushで動く `ci.yml`・`browser.yml`・`chromatic.yml` は `jdx/mise-action@v5` の `cache_max_age_days: 1` でtool cacheを毎日作り直す。毎回GitHubのリリースからダウンロードすると配布側の一時障害（HTTP 5xx）でジョブが落ちるため、修正版への追従を最大1日遅らせる代わりにダウンロードを減らす。デプロイ・リリース記録・`pull_request_target` / `workflow_run` のworkflowは、低信頼の実行が書いたcacheを取り込まないようcacheを使わない。tblsを使わないジョブは `install_args: node` でNodeだけを入れる。この方針は `.github/scripts/node-runtime-workflow.spec.ts` で検査する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)と[mise-actionのcache設定](https://github.com/jdx/mise-action#cache-configuration)も参照。
+jsdom 31.0.1のNode要件は `^22.22.2 || ^24.15.0 || >=26.0.0`、Vitest 5.0.5は `^22.12.0 || ^24.0.0 || >=26.0.0`、Wrangler 4.151.1は22以上であり、採用する26系は条件内。各CI runの実解決版はmiseのセットアップログで確認する。miseは条件に合う導入済みの版を優先するため、PR・pushで動く `ci.yml`・`browser.yml`・`chromatic.yml` は `jdx/mise-action@v5` の `cache_max_age_days: 1` でtool cacheを毎日作り直す。毎回GitHubのリリースからダウンロードすると配布側の一時障害（HTTP 5xx）でジョブが落ちるため、修正版への追従を最大1日遅らせる代わりにダウンロードを減らす。デプロイ・リリース記録・`pull_request_target` / `workflow_run` のworkflowは、低信頼の実行が書いたcacheを取り込まないようcacheを使わない。tblsを使わないジョブは `install_args: node` でNodeだけを入れる。この方針は `.github/scripts/node-runtime-workflow.spec.ts` で検査する。[miseの更新仕様](https://mise.jdx.dev/dev-tools/#upgrade-tools)と[mise-actionのcache設定](https://github.com/jdx/mise-action#cache-configuration)も参照。
 
 Node.jsはビルドと検証のホスト。公開先はworkerdであり、Nodeのバージョン指定でWorkersの互換性を保証したことにはしない。App/APIの `compatibility_date: 2026-06-01` と `nodejs_compat` を維持し、Workerテストとコンパイル済みPreviewでサービスバインディング・D1・RoomDOを検査する。[OpenNextの前提](https://opennext.js.org/cloudflare/get-started)は互換日付2024-09-23以降と `nodejs_compat`。
 
@@ -31,7 +31,7 @@ Node.jsはビルドと検証のホスト。公開先はworkerdであり、Node�
 | `overrides` の固定版 | Dashboard で承認した時だけPRを作る。lockfile にある別の版と比べるため、メジャーをまたぐ更新もパッチと誤判定されることがある。削除・更新は下の「限定override」の条件で判断する                       |
 | 脆弱性の修正         | Dependabotのアラートを元にRenovateが予定外でもPRを作る。Dependabot security updatesは二重PRを避けるため無効のまま                                                                                   |
 
-依存更新PRには `dependencies` ラベルが付く。CIが失敗したPRは取り込まれずopenのまま残るため、open PRの一覧で気づける。Renovateのマージはdevelopへのマージ通知（Discord）から外す。developへの取り込みと本番公開は別で、本番公開は既存のリリース手順で人が行う。
+依存更新PRには `dependencies` ラベルが付く。CIが失敗したPRと、自動マージしない0.x・メジャーのPRは、1時間動きが無ければbuildループが拾い、下の「エージェントによるレビュー」の手順でマージまで進める（[ループ開発の「人の判断待ちにしない PR」](../loop/README.md#人の判断待ちにしない-pr)）。Renovateのマージはdevelopへのマージ通知（Discord）から外す。developへの取り込みと本番公開は別で、本番公開は既存のリリース手順で人が行う。
 
 1.0以上のパッチとマイナーは、GitHubのauto-mergeで必須チェックの成功を待って取り込む。マイナーは当初「代表E2Eを整えた後に広げる」としていたが、developへの取り込みは本番公開と別であり、公開前に確かめる場があるため先に広げた。導入時の最初のまとめPR #1000 では、`overrides` の誤判定・OpenNextの設定変更・optional peerの不足で必須チェックが失敗し、取り込まれずに止まった。自動マージが失敗のまま取り込んだ場合は、`automerge` を `false` に戻して原因を調べる。
 
@@ -45,14 +45,16 @@ Node.jsはビルドと検証のホスト。公開先はworkerdであり、Node�
 2. 必要なら同じブランチで設定・コード・テストを直す。関係する部品のPRは1つにまとめてよい
 3. 必須チェックと、変更範囲に応じた検証（[検証](#検証)）が成功してからマージする。`workflow_run`・`pull_request_target`・Pagesのworkflowはdefault branchの定義で動き、PRのCIでは確かめられない。マージ後の最初の実行で確認する
 
-次の場合はマージせず、理由と再評価の条件をPRまたは関係Issueに残して人へ報告する。
+次の場合はマージせず、理由と再評価の条件をPRまたは関係Issueに残して人へ報告する。PRには `needs-human`（権限が無い）か `blocked`（それ以外）を付け、ループが同じPRで起き続けないようにする。これに当たらないPRを、理由を書いただけで開いたまま残さない。
 
 - 通るようにするには、テストを広く書き換える・検査を緩める必要がある
 - 開発端末やCIのツールチェーン（npm本体・Node・ランタイム）が変わり、チーム全員の手元に影響する
 - 限定override・関係Issue（例: TypeScriptの #738）の条件を満たしていない
 - 本番のデータ・認証・課金など、CIとPreviewでは確かめられない経路に影響する
 
-2026-11-22にDashboardの承認待ちを処理し、GitHub Actions（#1071）と jest-dom・string-width（#1072）を取り込んだ。次の3つは止めて残している。jsdom 31は、新しいCSS実装で `var()` を含むショートハンドがcomputed styleに出ず、付箋の配置などのunit 24件が失敗する。npm 12は、取り込むと開発端末とCIのnpm本体の入れ方が変わる。TypeScript 7は #738 の条件を満たしていない。
+2026-11-22にDashboardの承認待ちを処理し、GitHub Actions（#1071）と jest-dom・string-width（#1072）を取り込んだ。次の2つは止めて残している。npm 12は、取り込むと開発端末とCIのnpm本体の入れ方が変わる。TypeScript 7は #738 の条件を満たしていない。
+
+jsdom 31（#1076）は2026-11-22に「上流の修正待ち」として残したが、2026-11-27に取り込んだ。unit 24件の失敗は不具合ではなく、新しいCSS実装がcomputed styleを仕様どおりに返すようになったことによる（`var()` は解決後の値になり、文書から外れた要素では空になる）。製品コードは変えず、Reactが渡した式を確かめるテストを `toHaveInlineStyle`（[vitest.setup.ts](../../vitest.setup.ts)）へ移し、computed styleを読むロジックのテストでは要素を文書へつないだ。「上流待ち」で残す前に、失敗が上流の不具合か、こちらのテストの前提かを切り分ける。
 
 ## 限定override
 

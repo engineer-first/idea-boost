@@ -73,7 +73,17 @@ export function MoveHistoryControls({
             locale === "en"
               ? t(direction === "undo" ? "undoDescription" : "redoDescription")
               : action.label;
-          const description = `${name} (${shortcut}). ${actionDescription}. ${pending ? t("pending") : reason}`;
+          const description =
+            locale === "en"
+              ? `${name} (${shortcut}). ${actionDescription}. ${pending ? t("pending") : reason}`
+              : `${name}（${shortcut}）。${actionDescription}。${pending ? t("pending") : reason}`;
+          const shortcutLabel =
+            locale === "en"
+              ? `${name} (${shortcut})`
+              : `${name}（${shortcut}）`;
+          const tooltipText = reason
+            ? `${shortcutLabel} — ${reason}`
+            : shortcutLabel;
           return (
             <Tooltip key={direction}>
               <TooltipTrigger asChild>
@@ -98,7 +108,7 @@ export function MoveHistoryControls({
                 </fieldset>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-64">
-                {description}
+                {tooltipText}
               </TooltipContent>
               <span id={`${id}-${direction}`} className="sr-only">
                 {description}

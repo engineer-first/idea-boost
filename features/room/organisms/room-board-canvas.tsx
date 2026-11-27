@@ -465,7 +465,7 @@ export function RoomBoardCanvas({
     ? `${styles.personalWorkspacePanel} ${styles.additionalWritingPanel} ${writingExpanded ? styles.writingExpanded : ""} fixed inset-x-3 bottom-3 z-[39] flex min-h-0 justify-center sm:inset-x-4 lg:inset-x-5`
     : isPersonalNoteEntryPhase
       ? `${styles.personalWorkspacePanel} fixed inset-x-3 bottom-3 z-[39] flex min-h-0 justify-center sm:inset-x-4 sm:bottom-4 lg:inset-x-5 lg:bottom-5`
-      : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[var(--board-timer-row-bottom,4.5rem)] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-start max-[639px]:top-[var(--board-timer-row-bottom,10rem)] max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
+      : `pointer-events-none absolute right-3 ${phase.kind === "step" && phase.step === 2 ? "bottom-[5.25rem] lg:bottom-3" : "bottom-[5.25rem]"} top-[var(--board-timer-row-bottom,4.5rem)] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-start max-[639px]:top-[var(--board-timer-row-bottom,10rem)] max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   // 採用の当たり判定は付箋の上に重なるので、付箋側の除外ボタンへホバーを伝える。
   const [adoptionHoverNoteId, setAdoptionHoverNoteId] = useState<string | null>(
@@ -487,8 +487,32 @@ export function RoomBoardCanvas({
   const decideHintNoteId = isAdoptMode
     ? (keyboardDecideHintNoteId ?? adoptionHoverNoteId)
     : null;
-  const selectedNote = [...notes, ...privateNotes].find(
-    (note) => note.id === selectedNoteId,
+  const allNotes = [...notes, ...privateNotes];
+  const selectedNotes = selectionIds.flatMap((id) => {
+    const found = allNotes.find((note) => note.id === id);
+    return found ? [found] : [];
+  });
+  const editableSelectedNotes = selectedNotes.filter(
+    (note) =>
+      !note.excluded &&
+      !(
+        phase.kind === "step" &&
+        phase.step === 1 &&
+        note.visibility === "shared"
+      ),
+  );
+  const selectedUniformFontSize =
+    editableSelectedNotes.length > 0 &&
+    editableSelectedNotes.every(
+      (note) => note.fontSize === editableSelectedNotes[0].fontSize,
+    )
+      ? editableSelectedNotes[0].fontSize
+      : null;
+  const canDecreaseSelectedFontSize = editableSelectedNotes.some(
+    (note) => note.fontSize > 12,
+  );
+  const canIncreaseSelectedFontSize = editableSelectedNotes.some(
+    (note) => note.fontSize < 24,
   );
   const mapNoteGeometry = getIdeaMapNoteGeometry(
     ideaMapSizeLevel,
@@ -1119,23 +1143,31 @@ export function RoomBoardCanvas({
             // 対象の付箋を選ぶまでは押せない操作を見せない。場所は保ち、
             // 選んだときに横軸の端やズーム操作が動かないようにする。
             style={
-              selectedNote === undefined ? { visibility: "hidden" } : undefined
+              selectedNotes.length === 0 ? { visibility: "hidden" } : undefined
             }
           >
             {permissions.canEditNote ? (
               <NoteFontSizeControls
-                fontSize={selectedNote?.fontSize ?? null}
-                disabled={
-                  isDisconnected ||
-                  selectedNote === undefined ||
-                  selectedNote.excluded ||
-                  (phase.kind === "step" &&
-                    phase.step === 1 &&
-                    selectedNote.visibility === "shared")
-                }
+                fontSize={selectedUniformFontSize}
+                hasSelection={editableSelectedNotes.length > 0}
+                canDecrease={canDecreaseSelectedFontSize}
+                canIncrease={canIncreaseSelectedFontSize}
+                disabled={isDisconnected || editableSelectedNotes.length === 0}
                 onChange={(fontSize) => {
-                  if (selectedNote)
-                    onNoteFontSizeChange(selectedNote.id, fontSize);
+                  for (const note of editableSelectedNotes) {
+                    onNoteFontSizeChange(note.id, fontSize);
+                  }
+                }}
+                onStep={(delta) => {
+                  for (const note of editableSelectedNotes) {
+                    const nextSize = Math.min(
+                      24,
+                      Math.max(12, note.fontSize + delta),
+                    );
+                    if (nextSize !== note.fontSize) {
+                      onNoteFontSizeChange(note.id, nextSize);
+                    }
+                  }
                 }}
               />
             ) : null}

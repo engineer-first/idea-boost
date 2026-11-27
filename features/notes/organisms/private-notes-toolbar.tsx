@@ -909,7 +909,7 @@ export function PrivateNotesToolbar({
                 "w-[min(15rem,calc(100vw-1.5rem))]",
                 !canCreateNote && notes.length === 0
                   ? "h-auto"
-                  : "h-[min(48rem,calc(100vh-6rem))]",
+                  : "h-[calc(100vh-6rem)]",
               )
             : "h-auto w-[min(15rem,calc(100vw-1.5rem))]",
         className,

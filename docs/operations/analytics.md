@@ -6,7 +6,7 @@
 ## 有効にする手順
 
 1. PostHog Cloud でプロジェクトを作り、プロジェクトキー（`phc_...`）を控える。US / EU のどちらに置くかを決める。プロジェクト設定で IP アドレスを保存しない設定（Discard client IP data）を有効にする。
-2. [保存とプライバシー](../../app/privacy/privacy-view.tsx)に、送る情報・送り先・目的を書く（下の「送る情報」をもとにする）。
+2. [保存とプライバシー](../../app/privacy/privacy-view.tsx)に、送る情報・送り先・目的を書く（下の「送る情報」をもとにする。記載済み。US / EU を決めたら送信先の地域を書き足し、下の表を変えたときはページも合わせる）。
 3. GitHub の Actions variables に `NEXT_PUBLIC_POSTHOG_KEY` を入れる。EU に置くときは `NEXT_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com` も入れる（既定は US）。
 4. 次の本番公開（Deploy の `build:cf`）から有効になる。ブラウザの開発者ツールで `i.posthog.com` への送信と、送られた URL に招待コード・ルーム ID が無いことを確かめる。
 
