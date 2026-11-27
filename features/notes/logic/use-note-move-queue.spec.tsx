@@ -14,6 +14,8 @@ const ids = [
   "33333333-3333-4333-8333-333333333333",
   "44444444-4444-4444-8444-444444444444",
   "55555555-5555-4555-8555-555555555555",
+  "66666666-6666-4666-8666-666666666666",
+  "77777777-7777-4777-8777-777777777777",
 ];
 const snapshot: Extract<ServerMessage, { type: "snapshot" }> = {
   type: "snapshot",
@@ -245,7 +247,7 @@ describe("保存待ち中の連続移動", () => {
     ).toHaveLength(2);
     expect(h.result.current.movePending).toBe(false);
   });
-  it.each(["rejected", "unknown"] as const)(
+  it.each(["unknown"] as const)(
     "先の結果が%sなら未送信分を保存しない",
     (status) => {
       const h = setup();
@@ -263,7 +265,7 @@ describe("保存待ち中の連続移動", () => {
       expect(h.result.current.moveFeedback).not.toBeNull();
     },
   );
-  it.each(["cancel", "snapshot", "phase", "peer", "disconnect", "pause"])(
+  it.each(["cancel", "snapshot", "phase", "disconnect", "pause"])(
     "%sで未送信分を破棄し、遅延成功で再開しない",
     (reason) => {
       const h = setup();
@@ -287,21 +289,171 @@ describe("保存待ち中の連続移動", () => {
           phase: { kind: "step", phase: 1, step: 3 },
           phaseRevision: 1,
         });
-      if (reason === "peer")
-        h.apply({
-          type: "notes:moved",
-          operationId: ids[2],
-          notes: [buildNote({ id: N, x: 300, y: 100, positionRevision: 2 })],
-          groups: [],
-          groupRevision: 0,
-        });
       h.accept(0, 100, 150);
       expect(
         h.send.mock.calls.filter(([m]) => m.type === "note:move:start"),
       ).toHaveLength(1);
-      if (reason === "peer") expect(h.x()).toBe(300);
     },
   );
+  it("相手の確定で版が進んでも、離し終えた1枚の移動は最新の版で保存する", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    h.start();
+    h.end(220);
+    h.apply(peerMoved(300, 2));
+    expect(h.x()).toBe(220);
+    h.accept(0, 100, 150);
+    expect(h.send.mock.calls.at(-2)?.[0]).toMatchObject({
+      type: "note:move:start",
+      operationId: ids[1],
+      targets: [{ noteId: N, positionRevision: 2 }],
+    });
+    expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:commit",
+      operationId: ids[1],
+      delta: { x: -80, y: 0 },
+    });
+    expect(h.result.current.moveFeedback).toBeNull();
+  });
+});
+function peerMoved(
+  x: number,
+  positionRevision: number,
+): Extract<ServerMessage, { type: "notes:moved" }> {
+  return {
+    type: "notes:moved",
+    operationId: "99999999-9999-4999-8999-999999999999",
+    notes: [buildNote({ id: N, x, y: 100, positionRevision })],
+    groups: [],
+    groupRevision: 0,
+  };
+}
+const sent = (h: ReturnType<typeof setup>, type: ClientMessage["type"]) =>
+  h.send.mock.calls.map(([m]) => m).filter((m) => m.type === type);
+describe("相手が動かし終えた直後の同じ付箋の移動", () => {
+  it("掴んでいる途中に相手の確定が届いても、戻さず最新の版で掴み直す", () => {
+    const h = setup();
+    h.start();
+    act(() => h.result.current.moveNote(N, 220, 100));
+    h.apply(peerMoved(300, 1));
+    expect(h.x()).toBe(220);
+    expect(h.result.current.draggingNoteId).toBe(N);
+    expect(h.result.current.moveFeedback).toBeNull();
+    expect(sent(h, "note:move:cancel")).toMatchObject([
+      { operationId: ids[0] },
+    ]);
+    expect(sent(h, "note:move:start").at(-1)).toMatchObject({
+      operationId: ids[1],
+      targets: [{ noteId: N, positionRevision: 1 }],
+    });
+    h.end(240);
+    expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:commit",
+      operationId: ids[1],
+      delta: { x: -60, y: 0 },
+    });
+  });
+  it("古い版で断られたら、離した位置を保ったまま最新の版で送り直す", () => {
+    const h = setup();
+    h.start();
+    h.end(220);
+    h.apply(peerMoved(300, 1));
+    expect(h.x()).toBe(220);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "rejected",
+      reason: "移動対象の権限・位置・分類が変更されています。",
+    });
+    expect(h.x()).toBe(220);
+    expect(h.result.current.moveFeedback).toBeNull();
+    expect(h.send.mock.calls.at(-2)?.[0]).toMatchObject({
+      type: "note:move:start",
+      operationId: ids[1],
+      targets: [{ noteId: N, positionRevision: 1 }],
+    });
+    expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:commit",
+      operationId: ids[1],
+      delta: { x: -80, y: 0 },
+    });
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[1],
+      status: "accepted",
+    });
+    expect(h.result.current.movePending).toBe(false);
+  });
+  it("相手がまだ掴んでいて断られたら、相手の確定を待って送り直す", () => {
+    const h = setup();
+    h.start();
+    h.end(220);
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "rejected",
+    });
+    // 断られる前に送ったcommitへのunknownが後から届いても、待っている移動は消さない。
+    h.apply({
+      type: "note:move:result",
+      operationId: ids[0],
+      status: "unknown",
+    });
+    expect(h.x()).toBe(220);
+    expect(h.result.current.moveFeedback).toBeNull();
+    expect(sent(h, "note:move:start")).toHaveLength(1);
+    h.apply(peerMoved(300, 1));
+    expect(h.send.mock.calls.at(-2)?.[0]).toMatchObject({
+      type: "note:move:start",
+      operationId: ids[1],
+      targets: [{ noteId: N, positionRevision: 1 }],
+    });
+    expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:commit",
+      operationId: ids[1],
+      delta: { x: -80, y: 0 },
+    });
+  });
+  it("送り直しても断られ続けたら、待っていた移動も保存せず元の位置へ戻して知らせる", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    h.start();
+    h.end(220);
+    for (const index of [0, 2, 3]) {
+      h.apply({
+        type: "note:move:result",
+        operationId: ids[index],
+        status: "rejected",
+      });
+      act(() => vi.advanceTimersByTime(2_000));
+    }
+    expect(sent(h, "note:move:start")).toHaveLength(3);
+    expect(h.x()).toBe(100);
+    expect(h.result.current.movePending).toBe(false);
+    expect(h.result.current.moveFeedback).not.toBeNull();
+  });
+  it("保存待ちの後ろの複数枚の移動は、相手の確定で版が進んだら捨て、遅れた成功でも再開しない", () => {
+    const h = setup();
+    h.start();
+    h.end(150);
+    act(() => h.result.current.startNoteDrag(M, [N, M]));
+    h.end(430, M);
+    h.apply(peerMoved(300, 2));
+    h.accept(0, 100, 150);
+    expect(sent(h, "note:move:start")).toHaveLength(1);
+    expect(h.result.current.moveFeedback).not.toBeNull();
+  });
+  it("複数枚の移動は、相手の確定で版が進んだら取り消して知らせる", () => {
+    const h = setup();
+    act(() => h.result.current.startNoteDrag(N, [N, M]));
+    act(() => h.result.current.moveNote(N, 220, 100));
+    h.apply(peerMoved(300, 1));
+    expect(h.x()).toBe(300);
+    expect(h.result.current.draggingNoteId).toBeNull();
+    expect(h.result.current.moveFeedback).not.toBeNull();
+  });
 });
 
 const P = "66666666-6666-4666-8666-666666666666";

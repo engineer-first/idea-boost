@@ -328,6 +328,18 @@ function classify(member: Member, since: number): [string, string] {
         frame.message.type === "note:move:result" &&
         frame.message.status === status,
     );
+  // 断られた後に最新の版で送り直して保存できた回は、最後の確定の結果で決める。
+  const lastCommit = sent("note:move:commit").at(-1);
+  if (
+    lastCommit &&
+    received.some(
+      (frame) =>
+        frame.message.type === "note:move:result" &&
+        frame.message.operationId === lastCommit.message.operationId &&
+        frame.message.status === "accepted",
+    )
+  )
+    return ["accepted", "保存は成功した"];
   const rejected = result("rejected");
   if (rejected)
     return ["server-rejected", rejected.message.reason ?? "（理由の文面なし）"];

@@ -27,6 +27,9 @@ type Operation = {
   status: "preview" | "pending";
   // 共有の応答待ちの付箋を動かした操作。対象の版が決まる共有の確定まで RoomDO へ送らない。
   waitingShare?: true;
+  // 古い版で断られ、送り直しを待っている。サーバーはこのidを知らない。
+  blocked?: boolean;
+  retries?: number;
 };
 type Capability = {
   enabled: boolean;
@@ -76,6 +79,35 @@ function advanceVersions(
         : note;
     }),
   }));
+}
+
+// 1枚の移動は、相手の確定で版が進んでも本人が離す位置を保ったまま最新の版へ載せ替える。
+// 複数枚は相対位置が崩れるため載せ替えない。
+const MOVE_RETRY_LIMIT = 2;
+function rebase(operation: Operation, latest: ProtocolNote): Operation {
+  const [note] = operation.before;
+  return {
+    ...operation,
+    before: [latest],
+    delta: {
+      x: note.x + operation.delta.x - latest.x,
+      y: note.y + operation.delta.y - latest.y,
+    },
+  };
+}
+function rebaseable(
+  operation: Operation,
+  latest: ProtocolNote | undefined,
+): latest is ProtocolNote {
+  const [note] = operation.before;
+  return (
+    operation.before.length === 1 &&
+    !operation.waitingShare &&
+    latest !== undefined &&
+    latest.id === note.id &&
+    latest.visibility === "shared" &&
+    (latest.visibilityRevision ?? 0) === (note.visibilityRevision ?? 0)
+  );
 }
 
 export type MoveFeedback = { operationId: string; message: string };
@@ -170,6 +202,40 @@ export function useNoteMove({
     },
     [previewSender, send, sendStart],
   );
+  // 先頭を新しいidで送り直す。古いidの遅れた結果は先頭と一致しないので無視される。
+  const restart = useCallback(
+    (queue: Operation[], cancelPrevious: boolean) => {
+      const [head, ...rest] = queue;
+      if (!head) return;
+      // blockedのidはサーバーへ送っていないので、そのまま使う。
+      const next: Operation = {
+        ...head,
+        id: head.blocked ? head.id : createId(),
+        blocked: false,
+      };
+      previewSender.cancel();
+      publish([next, ...rest], true);
+      if (cancelPrevious)
+        send({ type: "note:move:cancel", operationId: head.id });
+      launch(next);
+    },
+    [createId, launch, previewSender, publish, send],
+  );
+  const retryRef = useRef(() => {});
+  retryRef.current = () => {
+    const [head, ...rest] = operationsRef.current;
+    if (!head?.blocked) return;
+    const latest = getNotes().find((note) => note.id === head.before[0]?.id);
+    if (rebaseable(head, latest)) {
+      restart([rebase(head, latest), ...rest], false);
+      return;
+    }
+    publish([], true);
+    setFeedback({
+      operationId: head.id,
+      message: "移動を確認できませんでした。もう一度操作してください。",
+    });
+  };
   const cancel = useCallback(
     (noteId?: string) => {
       const queue = operationsRef.current;
@@ -191,7 +257,7 @@ export function useNoteMove({
         publish(queue.slice(0, -1), true);
         return;
       }
-      if (head.waitingShare) {
+      if (head.waitingShare || head.blocked) {
         // RoomDO へ何も送っていないので、本人の表示から外すだけでよい。
         publish([], true);
         return;
@@ -210,7 +276,8 @@ export function useNoteMove({
     const timer = setInterval(() => {
       const current = operationsRef.current[0];
       if (!current || current.waitingShare) return;
-      if (current.status === "pending")
+      if (current.blocked) retryRef.current();
+      else if (current.status === "pending")
         send({ type: "note:move:status", operationId: current.id });
       else
         send({
@@ -224,7 +291,11 @@ export function useNoteMove({
       previewSender.cancel();
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       const current = operationsRef.current[0];
-      if (current?.status === "preview" && !current.waitingShare)
+      if (
+        current?.status === "preview" &&
+        !current.waitingShare &&
+        !current.blocked
+      )
         send({ type: "note:move:cancel", operationId: current.id });
     };
   }, [send, previewSender]);
@@ -316,7 +387,8 @@ export function useNoteMove({
       };
       const next = { ...current, delta };
       publish([...queue.slice(0, -1), next]);
-      if (queue.length === 1 && !next.waitingShare) previewSender(next);
+      if (queue.length === 1 && !next.waitingShare && !next.blocked)
+        previewSender(next);
     },
     [previewSender, publish],
   );
@@ -337,7 +409,7 @@ export function useNoteMove({
         status: "pending",
       };
       publish([...queue.slice(0, -1), next], true);
-      if (queue.length === 1 && !next.waitingShare)
+      if (queue.length === 1 && !next.waitingShare && !next.blocked)
         send({
           type: "note:move:commit",
           operationId: current.id,
@@ -488,12 +560,15 @@ export function useNoteMove({
           : message.type === "notes:moved" && !ownBatch
             ? message.notes
             : [];
-      const conflict = operationsRef.current.find(
-        (operation, index) =>
-          !(index === 0 && operation.status === "pending") &&
-          // 共有の応答待ちの付箋はまだ非共有で届く（本文の保存の通知など）。競合と数えない。
-          !operation.waitingShare &&
-          operation.before.some(
+      const latestOf = (operation: Operation) =>
+        message.type === "note:deleted"
+          ? undefined
+          : changedNotes.find((note) => note.id === operation.before[0]?.id);
+      const conflicting = (operation: Operation, index: number) =>
+        !(index === 0 && operation.status === "pending" && !operation.blocked) &&
+        // 共有の応答待ちの付箋はまだ非共有で届く（本文の保存の通知など）。競合と数えない。
+        !operation.waitingShare &&
+        operation.before.some(
             (note) =>
               (message.type === "note:deleted" && message.noteId === note.id) ||
               changedNotes.some(
@@ -505,9 +580,27 @@ export function useNoteMove({
                     (changed.visibilityRevision ?? 0) !==
                       (note.visibilityRevision ?? 0)),
               ),
-          ),
-      );
-      if (conflict) {
+        );
+      const queue = operationsRef.current;
+      const conflict = queue.find(conflicting);
+      if (
+        conflict &&
+        queue.every(
+          (operation, index) =>
+            !conflicting(operation, index) ||
+            rebaseable(operation, latestOf(operation)),
+        )
+      ) {
+        const rebased = queue.map((operation, index) => {
+          const latest = latestOf(operation);
+          return conflicting(operation, index) && latest
+            ? rebase(operation, latest)
+            : operation;
+        });
+        const [first] = queue;
+        if (first && conflicting(first, 0)) restart(rebased, !first.blocked);
+        else publish(rebased, true);
+      } else if (conflict) {
         cancel();
         setFeedback({
           operationId: conflict.id,
@@ -540,6 +633,36 @@ export function useNoteMove({
       if (message.status === "active") return;
 
       previewSender.cancel();
+      const latest = getNotes().find(
+        (note) => note.id === current.before[0]?.id,
+      );
+      const retries = (current.retries ?? 0) + 1;
+      if (
+        message.status === "rejected" &&
+        retries <= MOVE_RETRY_LIMIT &&
+        rebaseable(current, latest)
+      ) {
+        const stale = (operation: Operation) =>
+          operation.before[0]?.id === latest.id &&
+          (operation.before[0]?.positionRevision ?? 0) !==
+            (latest.positionRevision ?? 0) &&
+          rebaseable(operation, latest);
+        const rest = operationsRef.current
+          .slice(1)
+          .map((operation) =>
+            stale(operation) ? rebase(operation, latest) : operation,
+          );
+        if (stale(current))
+          restart([{ ...rebase(current, latest), retries }, ...rest], false);
+        // 相手が掴んでいる間は、相手の確定か2秒後の照会で送り直す。
+        // 断られたidへ先に送ったpreview・commitのunknownと取り違えないよう、新しいidで待つ。
+        else
+          publish(
+            [{ ...current, id: createId(), blocked: true, retries }, ...rest],
+            true,
+          );
+        return;
+      }
       if (message.status === "accepted" && message.receipt) {
         const saved = message.receipt;
         capability.current.groupRevision = Math.max(
@@ -590,8 +713,11 @@ export function useNoteMove({
     },
     [
       cancel,
+      createId,
+      getNotes,
       launch,
       publish,
+      restart,
       updateNotes,
       previewSender,
       peerMoves.applyMessage,
