@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   set: vi.fn(),
   delete: vi.fn(),
   google: vi.fn(),
+  redirectIssue: vi.fn(),
 }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ set: mocks.set, delete: mocks.delete }),
@@ -21,6 +22,7 @@ vi.mock("next/headers", () => ({
 vi.mock("@/lib/session/current-user", () => ({ getCurrentUser: mocks.user }));
 vi.mock("./google-authorization", () => ({
   startGoogleAuthorization: mocks.google,
+  localGoogleRedirectIssue: mocks.redirectIssue,
 }));
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => {
@@ -29,6 +31,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { startGoogleAccountLink } from "./account-link-actions";
+import { accountLinkResultPath } from "./account-link-redirects";
 
 const principal = "11111111-1111-4111-8111-111111111111";
 const secret = "test-secret-at-least-thirty-two-characters";
@@ -184,5 +187,23 @@ describe("Google連携の開始", () => {
     );
     const intent = decodeJwt(mocks.set.mock.calls[0][1]);
     expect(intent.next).toBe("/");
+  });
+});
+
+describe("開発時の戻り先の確認", () => {
+  it("戻り先がずれていれば、Cookieを書かずにGoogleへ送らず、連携できない結果へ戻す", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.redirectIssue.mockResolvedValueOnce("戻り先が別のworktreeになります");
+    await expect(startGoogleAccountLink(next)).rejects.toThrow(
+      `redirect:${accountLinkResultPath(next, "unavailable")}`,
+    );
+    expect(mocks.set).not.toHaveBeenCalled();
+    expect(mocks.delete).not.toHaveBeenCalled();
+    expect(mocks.google).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      "戻り先が別のworktreeになります",
+    );
   });
 });

@@ -2,6 +2,7 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { fileURLToPath } from "node:url";
+import { nextDevEnv } from "./next-dev-site-url.mts";
 import {
   registerShutdownSignals,
   stopProcesses,
@@ -83,7 +84,11 @@ async function supervise(options: ServerOptions): Promise<void> {
   // 子孫もこの監視プロセスのグループに所属させ、親だけの終了にしない。
   const server = spawn(process.execPath, options.args, {
     stdio: "inherit",
-    env: { ...process.env, IDEA_BOOST_DEV_MANAGED: "1" },
+    env: {
+      ...process.env,
+      ...nextDevEnv(options.args, process.env),
+      IDEA_BOOST_DEV_MANAGED: "1",
+    },
   });
   let code = 1;
   try {
@@ -158,7 +163,11 @@ async function main(): Promise<void> {
   const isSupervisor = argv[0] === "--supervise";
   const options = parseOptions(isSupervisor ? argv.slice(1) : argv);
   if (isSupervisor) await supervise(options);
-  else await launch(options);
+  else {
+    // ポートの誤りは監視プロセスを起動する前に知らせる。
+    nextDevEnv(options.args, process.env);
+    await launch(options);
+  }
 }
 
 main().catch((error: unknown) => {

@@ -22,7 +22,10 @@ import { getCurrentUser } from "@/lib/session/current-user";
 import { DEV_PASSWORD, findDevUser } from "@/lib/session/dev-users";
 import { isDevAuthEnabled, isGoogleAuthConfigured } from "@/lib/session/env";
 import { establishSession } from "@/lib/session/establish";
-import { startGoogleAuthorization } from "./google-authorization";
+import {
+  localGoogleRedirectIssue,
+  startGoogleAuthorization,
+} from "./google-authorization";
 import { getLoginPath, sanitizeNextPath } from "./redirects";
 
 function loginError(message: string, next?: string): never {
@@ -74,6 +77,8 @@ export async function signInWithGoogle(next: string): Promise<void> {
   if (!isGoogleAuthConfigured()) {
     loginError("Google ログインの環境変数を設定してください。", next);
   }
+  const redirectIssue = await localGoogleRedirectIssue();
+  if (redirectIssue) loginError(redirectIssue, next);
 
   const store = await cookies();
   store.delete(ACCOUNT_LINK_INTENT_COOKIE);

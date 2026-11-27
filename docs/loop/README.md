@@ -58,11 +58,11 @@ R3 は、人の本人確認・支払い・判断が要るもの。値を人が�
 - 読めないとき（終了コード 3）は、標準エラーの理由を添えて `needs-human` にする。項目が無いなら Automation 保管庫に置いてほしい項目名を、トークンが無い・切れたならサービスアカウントの作り直しを頼む。
 - worktree の `.env.local`・`workers/.dev.vars` に入れる値は [.env.tpl](../../.env.tpl) に `op://` の参照だけを書く。`scripts/setup-worktree.sh`（中身は `scripts/worktree-env.sh`）がサービスアカウントで 1 行ずつ `op inject` し、example の同じ名前の行を差し替える。項目が無い・読めないときは空のまま作り、置いてほしい項目名を標準エラーに出す。トークンか op が無い環境（メンバーの PC・CI）は 1Password を使わない。作り直すには両方のファイルを消して再実行する。
 
-| 名前                        | 用途                                                                                                                                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CLOUDFLARE_API_TOKEN_LOOP` | ideaboost アカウントの D1 編集・Workers スクリプト読み取り・アカウント設定読み取り・ideaboost.dev の DNS 編集                                          |
-| `GOOGLE_CLIENT_ID`          | ローカル開発の Google ログイン（`.env.tpl` から `.env.local` へ）。リダイレクト URI に `http://localhost:3000/auth/callback` を許す OAuth クライアント |
-| `GOOGLE_CLIENT_SECRET`      | 同じ OAuth クライアントのシークレット（`.env.tpl` から `.env.local` へ）                                                                               |
+| 名前                        | 用途                                                                                                                                                                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CLOUDFLARE_API_TOKEN_LOOP` | ideaboost アカウントの D1 編集・Workers スクリプト読み取り・アカウント設定読み取り・ideaboost.dev の DNS 編集                                                                                                                                    |
+| `GOOGLE_CLIENT_ID`          | ローカル開発の Google ログイン（`.env.tpl` から `.env.local` へ）。リダイレクト URI に `http://localhost:3000/auth/callback`〜`3009` の10個を許す OAuth クライアント（[戻り先](../development/dev-server-lifecycle.md#google-ログインの戻り先)） |
+| `GOOGLE_CLIENT_SECRET`      | 同じ OAuth クライアントのシークレット（`.env.tpl` から `.env.local` へ）                                                                                                                                                                         |
 
 ### 人に頼むとき
 
