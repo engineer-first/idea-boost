@@ -76,6 +76,7 @@ ADRはチームで共有する記録なので、Referencesにはチームの誰�
 | [0031](0031-loop-development.md)                 | エージェントのループで改善から本番公開までを回し続ける                                             |
 | [0032](0032-vote-sticker-label-by-phase.md)      | 3票のシールは課題・問いでは「いいね」、アイデアでは「需要ありそう」と呼ぶ                          |
 | [0033](0033-note-move-never-fails.md)            | 共有付箋の移動は本人の操作を優先し、失敗を数えて減らし続ける                                       |
+| [0034](0034-loop-work-queue-on-issues.md)        | ループの作業の待ち行列は GitHub Issue に置き、beads へは移さない                                   |
 
 ## 検証
 
