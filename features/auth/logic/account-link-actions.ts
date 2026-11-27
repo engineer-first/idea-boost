@@ -13,7 +13,10 @@ import { getCurrentUser } from "@/lib/session/current-user";
 import { getSessionSecret, isGoogleAuthConfigured } from "@/lib/session/env";
 import { signToken } from "@/lib/session/token";
 import { accountLinkResultPath } from "./account-link-redirects";
-import { startGoogleAuthorization } from "./google-authorization";
+import {
+  localGoogleRedirectIssue,
+  startGoogleAuthorization,
+} from "./google-authorization";
 import { sanitizeNextPath } from "./redirects";
 
 const AccountLinkNextSchema = z.string().max(2048);
@@ -33,6 +36,12 @@ export async function startGoogleAccountLink(next: string): Promise<void> {
   if (user.kind === "account") redirect(safeNext);
   if (!isGoogleAuthConfigured())
     redirect(accountLinkResultPath(safeNext, "unavailable"));
+  const redirectIssue = await localGoogleRedirectIssue();
+  if (redirectIssue) {
+    // 開発時だけ。理由は開発サーバーの端末に出し、画面は連携できない結果にする。
+    console.error(redirectIssue);
+    redirect(accountLinkResultPath(safeNext, "unavailable"));
+  }
   const state = crypto.randomUUID();
   const nonce = crypto.randomUUID();
   const token = await signToken(

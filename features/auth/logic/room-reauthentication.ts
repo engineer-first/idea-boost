@@ -23,7 +23,10 @@ import {
   verifyRoomEntry,
 } from "@/lib/session/room-entry";
 import { signToken, verifyToken } from "@/lib/session/token";
-import { startGoogleAuthorization } from "./google-authorization";
+import {
+  localGoogleRedirectIssue,
+  startGoogleAuthorization,
+} from "./google-authorization";
 
 export async function startRoomReauthentication(
   operation: RoomEntryOperation,
@@ -44,6 +47,12 @@ export async function startRoomReauthentication(
     );
   }
   if (!isGoogleAuthConfigured()) redirect("/auth/resume?error=unavailable");
+  const redirectIssue = await localGoogleRedirectIssue();
+  if (redirectIssue) {
+    // 開発時だけ。理由は開発サーバーの端末に出し、画面は再開できない結果にする。
+    console.error(redirectIssue);
+    redirect("/auth/resume?error=unavailable");
+  }
   const state = crypto.randomUUID();
   const nonce = crypto.randomUUID();
   const token = await signToken(

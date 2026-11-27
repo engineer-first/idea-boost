@@ -2,8 +2,21 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { OAUTH_STATE_COOKIE } from "@/lib/session/cookie";
 import { getBaseUrl, getGoogleClientId } from "@/lib/session/env";
-import { localGoogleRedirectIssue } from "./local-google-redirect";
-import { getLoginPath, sanitizeNextPath } from "./redirects";
+import { describeLocalGoogleRedirectIssue } from "./local-google-redirect";
+import { sanitizeNextPath } from "./redirects";
+
+/**
+ * 開発時だけ、Google の戻り先（NEXT_PUBLIC_SITE_URL）が、いま開いている worktree の
+ * サーバーとずれていれば理由を返す。並行 worktree で別ポートのサーバーへ戻るのを防ぐ。
+ * 呼び出し元は Cookie を書き換える前に呼び、理由を自分の画面で伝える。
+ */
+export async function localGoogleRedirectIssue(): Promise<string | null> {
+  if (process.env.NODE_ENV !== "development") return null;
+  return describeLocalGoogleRedirectIssue(
+    getBaseUrl(),
+    (await headers()).get("host"),
+  );
+}
 
 export async function startGoogleAuthorization(
   next: string,
@@ -11,19 +24,10 @@ export async function startGoogleAuthorization(
   nonce: string,
   purpose?: "account_link",
 ): Promise<void> {
+  // 呼び出し元が先に確認して理由を伝える。ここは確認を忘れた呼び出し元の安全網。
+  const issue = await localGoogleRedirectIssue();
+  if (issue) throw new Error(issue);
   const redirectUri = `${getBaseUrl()}/auth/callback`;
-  if (process.env.NODE_ENV === "development") {
-    // 並行 worktree で、Google から別のポートのサーバーへ戻るのを開始前に止め、理由をログイン画面に出す。
-    const issue = localGoogleRedirectIssue(
-      redirectUri,
-      (await headers()).get("host"),
-    );
-    if (issue) {
-      const base = getLoginPath(next);
-      const separator = base.includes("?") ? "&" : "?";
-      redirect(`${base}${separator}error=${encodeURIComponent(issue)}`);
-    }
-  }
   const cookieStore = await cookies();
   cookieStore.set(
     OAUTH_STATE_COOKIE,

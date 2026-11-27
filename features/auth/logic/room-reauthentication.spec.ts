@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   user: vi.fn(),
   api: vi.fn(),
   google: vi.fn(),
+  redirectIssue: vi.fn(),
 }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -27,6 +28,7 @@ vi.mock("@/lib/session/current-user", () => ({ getCurrentUser: mocks.user }));
 vi.mock("@/lib/api-client", () => ({ apiFetch: mocks.api }));
 vi.mock("./google-authorization", () => ({
   startGoogleAuthorization: mocks.google,
+  localGoogleRedirectIssue: mocks.redirectIssue,
 }));
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => {
@@ -143,5 +145,21 @@ describe("同じタブの再ログイン", () => {
     );
     expect((await consumeRoomResume(tabId)).ok).toBe(false);
     expect(mocks.api).not.toHaveBeenCalled();
+  });
+});
+
+describe("開発時の戻り先の確認", () => {
+  it("戻り先がずれていれば、再開Cookieを触らずにGoogleへ送らず、使えない結果へ戻す", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await grant();
+    mocks.redirectIssue.mockResolvedValue("戻り先が別のworktreeになります");
+    await expect(startRoomReauthentication(operation, tabId)).rejects.toThrow(
+      "redirect:/auth/resume?error=unavailable",
+    );
+    expect(mocks.store.has(ROOM_RESUME_COOKIE)).toBe(true);
+    expect(mocks.google).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      "戻り先が別のworktreeになります",
+    );
   });
 });

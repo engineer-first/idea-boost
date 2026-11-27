@@ -13,6 +13,12 @@ describe("nextDevEnv", () => {
     ["-p3004", [next, "dev", "-p3004"], {}, "3004"],
     ["PORT=3005", [next, "dev"], { PORT: "3005" }, "3005"],
     [
+      "ディレクトリ指定と--port",
+      [next, "dev", "./", "--port", "3008"],
+      {},
+      "3008",
+    ],
+    [
       "引数とPORTの両方は引数",
       [next, "dev", "-p", "3006"],
       { PORT: "3007" },
@@ -27,6 +33,13 @@ describe("nextDevEnv", () => {
       });
     },
   );
+
+  it("--experimental-httpsで起動したらhttpsのURLにする", () => {
+    expect(
+      nextDevEnv([next, "dev", "--experimental-https", "-p", "3001"], {})
+        .NEXT_PUBLIC_SITE_URL,
+    ).toBe("https://localhost:3001");
+  });
 
   it("環境ファイルやシェルのNEXT_PUBLIC_SITE_URLより起動ポートを優先する", () => {
     expect(

@@ -6,8 +6,8 @@ export const LOCAL_GOOGLE_PORT_MAX = 3009;
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-/** 止める理由を返す。問題なければ null。localhost 以外の SITE_URL は対象外。 */
-export function localGoogleRedirectIssue(
+/** 止める理由を返す。問題なければ null。ループバック（localhost・127.0.0.1・[::1]）以外の SITE_URL は対象外。 */
+export function describeLocalGoogleRedirectIssue(
   baseUrl: string,
   requestHost: string | null,
 ): string | null {

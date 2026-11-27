@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { localGoogleRedirectIssue } from "./local-google-redirect";
+import { describeLocalGoogleRedirectIssue } from "./local-google-redirect";
 
-describe("localGoogleRedirectIssue", () => {
+describe("describeLocalGoogleRedirectIssue", () => {
   it.each(["3000", "3009"])(
     "localhost:%sで開いてSITE_URLも同じなら止めない",
     (port) => {
       expect(
-        localGoogleRedirectIssue(
+        describeLocalGoogleRedirectIssue(
           `http://localhost:${port}`,
           `localhost:${port}`,
         ),
@@ -17,7 +17,7 @@ describe("localGoogleRedirectIssue", () => {
   it.each(["2999", "3010", "3147"])(
     "ポート%sは登録範囲外として、範囲と起動し直す方法を返す",
     (port) => {
-      const issue = localGoogleRedirectIssue(
+      const issue = describeLocalGoogleRedirectIssue(
         `http://localhost:${port}`,
         `localhost:${port}`,
       );
@@ -28,7 +28,7 @@ describe("localGoogleRedirectIssue", () => {
   );
 
   it("SITE_URLのポートと開いているポートが違えば、戻り先が別worktreeになると返す", () => {
-    const issue = localGoogleRedirectIssue(
+    const issue = describeLocalGoogleRedirectIssue(
       "http://localhost:3000",
       "localhost:3001",
     );
@@ -39,13 +39,19 @@ describe("localGoogleRedirectIssue", () => {
 
   it("127.0.0.1で開くとCookieがlocalhostへ戻らないため、localhostで開き直すよう返す", () => {
     expect(
-      localGoogleRedirectIssue("http://localhost:3000", "127.0.0.1:3000"),
+      describeLocalGoogleRedirectIssue(
+        "http://localhost:3000",
+        "127.0.0.1:3000",
+      ),
     ).toContain("http://localhost:3000");
   });
 
   it("localhost以外のSITE_URLは対象にしない", () => {
     expect(
-      localGoogleRedirectIssue("https://ideaboost.dev", "ideaboost.dev"),
+      describeLocalGoogleRedirectIssue(
+        "https://ideaboost.dev",
+        "ideaboost.dev",
+      ),
     ).toBeNull();
   });
 });

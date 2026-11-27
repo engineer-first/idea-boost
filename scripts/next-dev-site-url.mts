@@ -30,8 +30,9 @@ export function nextDevEnv(
   const port = Number(value);
   if (!/^\d+$/.test(value) || port < 1 || port > 65_535)
     throw new Error(`ポート ${value} は 1〜65535 の整数にしてください。`);
+  const scheme = args.includes("--experimental-https") ? "https" : "http";
   return {
     PORT: String(port),
-    NEXT_PUBLIC_SITE_URL: `http://localhost:${port}`,
+    NEXT_PUBLIC_SITE_URL: `${scheme}://localhost:${port}`,
   };
 }

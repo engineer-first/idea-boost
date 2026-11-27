@@ -23,7 +23,10 @@ vi.mock("@/lib/session/env", () => ({
   getGoogleClientId: () => "client",
 }));
 
-import { startGoogleAuthorization } from "./google-authorization";
+import {
+  localGoogleRedirectIssue,
+  startGoogleAuthorization,
+} from "./google-authorization";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -51,18 +54,16 @@ describe("Google認証の用途Cookie", () => {
 });
 
 describe("ローカル開発のGoogle認証開始", () => {
-  it("開いているポートとSITE_URLのポートが違えば、Cookieを書かずに理由付きでログイン画面へ戻す", async () => {
+  it("開いているポートとSITE_URLのポートが違えば、理由を返し、開始してもCookieを書かずに止める", async () => {
     vi.stubEnv("NODE_ENV", "development");
     mocks.baseUrl = "http://localhost:3000";
     mocks.host = "localhost:3001";
+    expect(await localGoogleRedirectIssue()).toContain("worktree");
     await expect(
       startGoogleAuthorization("/rooms", "state", "nonce"),
-    ).rejects.toThrow("遷移");
+    ).rejects.toThrow("worktree");
     expect(mocks.set).not.toHaveBeenCalled();
-    const url = new URL(mocks.redirect.mock.calls[0][0], "http://x");
-    expect(url.pathname).toBe("/login");
-    expect(url.searchParams.get("next")).toBe("/rooms");
-    expect(url.searchParams.get("error")).toContain("worktree");
+    expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
   it("登録範囲内のポートで、SITE_URLと同じURLで開けばGoogleへ送る", async () => {
@@ -76,6 +77,19 @@ describe("ローカル開発のGoogle認証開始", () => {
     expect(url.origin).toBe("https://accounts.google.com");
     expect(url.searchParams.get("redirect_uri")).toBe(
       "http://localhost:3001/auth/callback",
+    );
+  });
+
+  it("本番ではHostとSITE_URLが違っても止めずにGoogleへ送る", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    mocks.baseUrl = "https://ideaboost.dev";
+    mocks.host = "other.example";
+    expect(await localGoogleRedirectIssue()).toBeNull();
+    await expect(
+      startGoogleAuthorization("/rooms", "state", "nonce"),
+    ).rejects.toThrow("遷移");
+    expect(new URL(mocks.redirect.mock.calls[0][0]).origin).toBe(
+      "https://accounts.google.com",
     );
   });
 });

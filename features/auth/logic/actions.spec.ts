@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   googleConfigured: false,
   deleteCookie: vi.fn(),
   google: vi.fn(),
+  redirectIssue: vi.fn(),
   establish: vi.fn(),
   redirect: vi.fn(),
   clearSession: vi.fn(async () => {}),
@@ -17,6 +18,7 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("./google-authorization", () => ({
   startGoogleAuthorization: mocks.google,
+  localGoogleRedirectIssue: mocks.redirectIssue,
 }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/session/env", () => ({
@@ -157,4 +159,15 @@ it("通常のGoogleログイン開始時に連携intent Cookieを消してから
   expect(mocks.deleteCookie.mock.invocationCallOrder[deletion]).toBeLessThan(
     mocks.google.mock.invocationCallOrder[0],
   );
+});
+
+it("開発時に戻り先がずれていれば、Cookieを消さずにGoogleへ送らず、理由をログイン画面に出す", async () => {
+  vi.stubEnv("PREVIEW_ENABLED", undefined);
+  mocks.googleConfigured = true;
+  mocks.redirectIssue.mockResolvedValue("戻り先が別のworktreeになります");
+  await expect(signInWithGoogle("/rooms")).rejects.toThrow(
+    `redirect:/login?next=%2Frooms&error=${encodeURIComponent("戻り先が別のworktreeになります")}`,
+  );
+  expect(mocks.deleteCookie).not.toHaveBeenCalled();
+  expect(mocks.google).not.toHaveBeenCalled();
 });
