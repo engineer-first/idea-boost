@@ -302,7 +302,6 @@ export function HmwHintCharacter({
           variant="outline"
           size="sm"
           className={styles.teaser}
-          data-nudge={showNudge}
           data-testid="hmw-hint-nudge"
           aria-haspopup="dialog"
           aria-expanded={false}

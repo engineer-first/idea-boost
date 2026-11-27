@@ -44,7 +44,8 @@
     transform 240ms;
 }
 
-.character[data-engaged="true"] .characterHalo {
+/* 動きを減らす設定で明滅を止めても、誘いの間は光を見せる。 */
+.character:is([data-engaged="true"], [data-nudge="true"]) .characterHalo {
   opacity: 1;
   transform: scale(1.1);
 }
@@ -72,7 +73,7 @@
 .teaser {
   margin-bottom: 16px;
   border-color: var(--ib-color-line-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--card);
   font-size: 14px;
   font-weight: 700;

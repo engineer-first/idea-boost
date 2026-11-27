@@ -92,7 +92,7 @@ for (const { width, height } of byViewport(
     );
     const trigger = page.getByRole("button", { name: "問いのヒントを開く" });
     await page.getByTestId("private-notes-workspace").waitFor();
-    // キャラクターと吹き出しは2-1の間は常に表示する。
+    // キャラクターと小さな入口は2-1の間は常に表示する。
     expect(await trigger.count()).toBe(1);
     await page.getByTestId("hmw-hint-nudge").waitFor();
     await page.evaluate(() => document.fonts.ready);
@@ -106,7 +106,7 @@ for (const { width, height } of byViewport(
       // PC・iPad では入口を付箋欄の左の空き列に重ね、付箋欄を画面の下まで使う。
       expect(
         (workspace?.y ?? 0) + (workspace?.height ?? 0),
-      ).toBeGreaterThanOrEqual(height - 24);
+      ).toBeGreaterThanOrEqual(height - 24); // 付箋欄の下の余白（lg:bottom-5）だけを許す。
       await expectCloudClearOfNotes(page.getByTestId("hmw-hint-hud"));
       const input = await page
         .getByTestId("private-notes-toolbar")
@@ -231,6 +231,22 @@ for (const width of widths(1280)) {
     expect(await nudge.count()).toBe(1);
   });
 }
+
+test("動きを減らす設定でも、誘いの間はキャラクターの後ろの光を止めて見せる", async () => {
+  page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    reducedMotion: "reduce",
+  });
+  await page.goto(
+    `${origin}/iframe.html?id=hmw-hmwhintcharacter--nudge&viewMode=story`,
+  );
+  const trigger = page.getByRole("button", { name: "問いのヒントを開く" });
+  await trigger.waitFor();
+  const halo = trigger.locator("span").first();
+  await expect
+    .poll(() => halo.evaluate((element) => getComputedStyle(element).opacity))
+    .toBe("1");
+});
 
 test("フェードなしで常に表示し、書き出し後も消えない", async () => {
   page = await browser.newPage({
