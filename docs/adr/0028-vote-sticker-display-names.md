@@ -1,6 +1,5 @@
 ---
 id: "0028"
-status: Accepted
 date: "2026-11-12"
 ---
 
@@ -68,4 +67,4 @@ Issueでは、次の名前の組み合わせを比べた。
 - [Issue #987](https://github.com/engineer-first/idea-boost/issues/987)：内部の種別名を改名する範囲の見直し。`workers/room-do-migrations/`、`contracts/room-protocol.ts`、`app/design-tokens.css`の現状を照合した（2026-11-18確認）。
 - [NN/g: Dot Voting](https://www.nngroup.com/articles/dot-voting/)：色ごとに基準を持たせる投票で、投票前に色の意味をはっきりさせることを勧めている（Issue #966の調査で確認）。
 - 実装の確認：`features/dot-vote/logic/dot-vote.ts`、`contracts/room-protocol.ts` の `DotVoteKindSchema`（2026-11-12確認）。
-- 状態の根拠：2026-11-25に、オーナーが内部名の3範囲をすべて改名しない判断を含めて本ADRをAcceptedとした（[Issue #1124](https://github.com/engineer-first/idea-boost/issues/1124)）。`date` は画面の名前を決めた日。
+- 判断の根拠：2026-11-25に、オーナーが内部名の3範囲をすべて改名しない判断を含めて本ADRの方針を採用した（[Issue #1124](https://github.com/engineer-first/idea-boost/issues/1124)）。`date` は画面の名前を決めた日。

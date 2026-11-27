@@ -1,6 +1,5 @@
 ---
 id: "0029"
-status: Accepted
 date: "2026-11-18"
 ---
 

@@ -1,6 +1,5 @@
 ---
 id: "000"
-status: Proposed | Accepted | Deprecated | Superseded by ADR XXX
 date: "YYYY-MM-DD"
 ---
 
