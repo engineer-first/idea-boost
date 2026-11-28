@@ -1009,7 +1009,7 @@ export function PrivateNotesToolbar({
             role="status"
             // 強調の有無で高さを変えず、ドラッグ中の一覧の位置を保つ。
             className={cn(
-              "-mx-2 rounded-md px-2 py-1 text-xs",
+              "-mx-2 rounded-md px-2 py-1 text-xs [word-break:auto-phrase]",
               sharingHintEmphasized
                 ? "bg-warning-soft font-bold text-warning"
                 : "text-muted-foreground",

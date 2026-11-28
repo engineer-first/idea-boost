@@ -340,6 +340,34 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
+  it.each([
+    ["1-2・2-2", buildPhaseStep(2)],
+    ["3-2", buildPhaseStep(2, 3)],
+  ])(
+    "%s で自分の番にマイ付箋を出し終えたら、欄の案内を「できた！」へ向ける",
+    (_label, phase) => {
+      const props = {
+        phase,
+        permissions: getBoardPermissions(phase),
+        privateNotes: [buildNote({ id: "private-1", visibility: "private" })],
+        canPublishPrivateNote: true,
+      };
+      const { props: rendered, rerender } = setup(props);
+      const toolbar = openPrivateNotesToolbar();
+      expect(within(toolbar).getByRole("status")).toHaveTextContent(
+        "あなたの番です",
+      );
+
+      rerender(<RoomBoardCanvas {...rendered} privateNotes={[]} />);
+
+      const status = within(toolbar).getByRole("status");
+      expect(status).toHaveTextContent(
+        "全部出せました。説明が終わったら「できた！」を押してください。",
+      );
+      expect(status).not.toHaveTextContent("ドラッグして共有できます");
+    },
+  );
+
   it("全員の発表が終わったら、マイ付箋の欄で番を待つ案内を出さない", () => {
     setup({
       phase: buildPhaseStep(2),

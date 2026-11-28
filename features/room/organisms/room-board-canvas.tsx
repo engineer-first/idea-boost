@@ -540,15 +540,18 @@ export function RoomBoardCanvas({
     : privateNotePublishBlocked
       ? publishBlockedHint
       : canvasMessages("waitingYourTurn");
+  // 自分の番で運ぶ付箋が残っていなければ、ドラッグではなく「できた！」へ目を向ける。
+  const ownTurnHint = (shareHint: string) =>
+    privateNotes.length === 0 ? canvasMessages("sharedAllNotes") : shareHint;
   const privateNotesSharingHint = isSavingBeforeShare
     ? canvasMessages("savingBeforeShare")
     : isPhaseStep(phase, 3, 2)
       ? canPublishPrivateNote
-        ? canvasMessages("shareOnMap")
+        ? ownTurnHint(canvasMessages("shareOnMap"))
         : waitingTurnHint
       : phase.kind === "step" && phase.step === 2
         ? canPublishPrivateNote
-          ? canvasMessages("shareOnBoard")
+          ? ownTurnHint(canvasMessages("shareOnBoard"))
           : waitingTurnHint
         : undefined;
   const presenterFrameColor =
