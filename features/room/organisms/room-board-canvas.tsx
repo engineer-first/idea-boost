@@ -519,6 +519,32 @@ export function RoomBoardCanvas({
     setAdoptionKeyboardFocusNoteId(null);
   }, [isAdoptMode]);
 
+  // 採用の当たり判定は確定すると消えるので、キーボードで採用した人のフォーカスが
+  // body に落ちる。確定が届いたら、採用した付箋の「確定を取り消す」はんこ
+  // （取り消せないときは付箋そのもの）へ移し、次の Tab の起点を盤面に残す。
+  const pendingAdoptionFocusNoteIdRef = useRef<string | null>(null);
+  const decidedNoteId = decision?.noteId ?? null;
+  useEffect(() => {
+    const pendingNoteId = pendingAdoptionFocusNoteIdRef.current;
+    if (pendingNoteId === null || decidedNoteId === null) return;
+    pendingAdoptionFocusNoteIdRef.current = null;
+    if (decidedNoteId !== pendingNoteId) return;
+    const active = document.activeElement;
+    if (active !== null && active !== document.body && active.isConnected)
+      return;
+    const decidedNote = document.querySelector<HTMLElement>(
+      `[data-slot="sticky-note"][data-decided][data-note-id="${CSS.escape(decidedNoteId)}"]`,
+    );
+    const nextFocus =
+      decidedNote?.querySelector<HTMLElement>(
+        ".sticky-note-stamp-action:not([disabled])",
+      ) ??
+      decidedNote?.querySelector<HTMLElement>(
+        '[data-canvas-note-surface="true"]',
+      );
+    nextFocus?.focus({ preventScroll: true });
+  }, [decidedNoteId]);
+
   function publishAdoptionFocus(): void {
     onAdoptionFocusChange(
       adoptionKeyboardNoteIdRef.current ?? adoptionPointerNoteIdRef.current,
@@ -846,6 +872,8 @@ export function RoomBoardCanvas({
               if (suppressAdoptionClickRef.current && event.detail !== 0)
                 return;
               adoptionDragRef.current = null;
+              pendingAdoptionFocusNoteIdRef.current =
+                document.activeElement === event.currentTarget ? note.id : null;
               onAdoptNote(note.id);
             }}
           />

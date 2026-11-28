@@ -2200,3 +2200,105 @@ it("追加執筆の共有グループは所属と名前を表示し、名前編�
   fireEvent.doubleClick(screen.getByTestId("group-name-display"));
   expect(screen.queryByTestId("group-name-input")).not.toBeInTheDocument();
 });
+
+describe("採用した後のフォーカス", () => {
+  it.each([
+    ["1-5", buildPhaseStep(5), "付箋"],
+    ["2-4", buildPhaseStep(4, 2), "問い"],
+    ["3-5", buildPhaseStep(5, 3), "アイデア"],
+  ] as const)(
+    "%s で Enter で採用すると、採用した付箋のはんこへフォーカスが移る",
+    (_label, phase, target) => {
+      const notes = [
+        buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+        buildNote({ id: "note-2", content: "候補B", visibility: "shared" }),
+      ];
+      const { props, rerender } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        isAdoptMode: true,
+        notes,
+        onDecisionClear: vi.fn(),
+      });
+      const adopt = screen.getByRole("button", {
+        name: `採用する${target}: 候補B`,
+      });
+      adopt.focus();
+      fireEvent.click(adopt, { detail: 0 });
+      expect(props.onAdoptNote).toHaveBeenCalledWith("note-2");
+
+      rerender(
+        <RoomBoardCanvas
+          {...props}
+          isAdoptMode={false}
+          decision={buildDecision({ phase: phase.phase, noteId: "note-2" })}
+        />,
+      );
+
+      const decided = screen
+        .getAllByTestId("note-card")
+        .find((note) => note.dataset.noteId === "note-2");
+      expect(document.activeElement).not.toBe(document.body);
+      expect(document.activeElement).toBe(
+        within(decided as HTMLElement).getByRole("button", {
+          name: "決定のはんこ（確定を取り消す）",
+        }),
+      );
+    },
+  );
+
+  it("取り消せない採用では、採用した付箋そのものへフォーカスが移る", () => {
+    const phase = buildPhaseStep(5);
+    const { props, rerender } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isAdoptMode: true,
+      notes: [
+        buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+      ],
+    });
+    const adopt = screen.getByRole("button", { name: "採用する付箋: 候補A" });
+    adopt.focus();
+    fireEvent.click(adopt, { detail: 0 });
+
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        isAdoptMode={false}
+        decision={buildDecision({ noteId: "note-1" })}
+      />,
+    );
+
+    const decided = screen.getByTestId("note-card");
+    expect(document.activeElement).not.toBe(document.body);
+    expect(decided.contains(document.activeElement)).toBe(true);
+  });
+
+  it("採用を待つ間にほかの操作へ移ったら、フォーカスを奪わない", () => {
+    const phase = buildPhaseStep(5);
+    const { props, rerender } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isAdoptMode: true,
+      notes: [
+        buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+      ],
+      onDecisionClear: vi.fn(),
+    });
+    const adopt = screen.getByRole("button", { name: "採用する付箋: 候補A" });
+    adopt.focus();
+    fireEvent.click(adopt, { detail: 0 });
+    const zoomIn = screen.getByRole("button", { name: "キャンバスを拡大" });
+    zoomIn.focus();
+
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        isAdoptMode={false}
+        decision={buildDecision({ noteId: "note-1" })}
+      />,
+    );
+
+    expect(document.activeElement).toBe(zoomIn);
+  });
+});
