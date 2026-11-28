@@ -167,6 +167,10 @@ export function useCanvasCamera({
   const hasFitIdeaMapRef = useRef(false);
   // 最後に2軸マップへ合わせたカメラ。今のカメラと同じなら、まだ自分で動かしていない。
   const ideaMapFitCameraRef = useRef<CanvasCamera | null>(null);
+  // 最後に2軸マップへ合わせたときの表示領域の大きさ。今の大きさと違えば合わせ直す。
+  const ideaMapFitSizeRef = useRef<{ width: number; height: number } | null>(
+    null,
+  );
   const ideaMapSizeLevelRef = useRef(ideaMapSizeLevel);
   ideaMapSizeLevelRef.current = ideaMapSizeLevel;
   const spacePressedRef = useRef(false);
@@ -350,7 +354,10 @@ export function useCanvasCamera({
           : getDefaultCanvasCamera(size);
       if (!next) return false;
       hasFitRef.current = true;
-      if (fitViewport) ideaMapFitCameraRef.current = next;
+      if (fitViewport) {
+        ideaMapFitCameraRef.current = next;
+        ideaMapFitSizeRef.current = size;
+      }
       setCameraImmediately(next);
       onZoomChangeRef.current?.(next.zoom);
       return true;
@@ -617,6 +624,7 @@ export function useCanvasCamera({
       );
       if (next) {
         ideaMapFitCameraRef.current = next;
+        ideaMapFitSizeRef.current = size;
         setCameraImmediately(next);
         hasFitIdeaMapRef.current = true;
       }
@@ -678,6 +686,7 @@ export function useCanvasCamera({
       );
       if (!next) return;
       ideaMapFitCameraRef.current = next;
+      ideaMapFitSizeRef.current = size;
       setCameraImmediately(next);
       onZoomChangeRef.current?.(next.zoom);
     });
@@ -689,6 +698,72 @@ export function useCanvasCamera({
     ideaMapSizeLevel,
     ideaMapFitKey,
     ideaMapRefitKey,
+    setCameraImmediately,
+    viewportRef,
+  ]);
+
+  // 窓を狭める・iPad を回すなどで表示領域の大きさが変わったら、
+  // まだ自分で動かしていない場合に限り全体表示へ合わせ直す。
+  // 最後に合わせたときの大きさと比べるので、3-1の書き足し中に変わった分も、
+  // 戻ったときに合わせ直す。
+  useEffect(() => {
+    if (
+      temporaryView ||
+      !isViewportEnabled ||
+      !fitViewport ||
+      typeof window === "undefined" ||
+      typeof ResizeObserver === "undefined"
+    )
+      return;
+    const element = viewportRef.current;
+    if (!element) return;
+    let frame: number | null = null;
+    const refit = () => {
+      frame = null;
+      if (
+        !hasFitIdeaMapRef.current ||
+        ideaMapFitCameraRef.current !== cameraRef.current ||
+        panRef.current ||
+        gestureBlockedRef.current
+      )
+        return;
+      const size = viewportSize(element);
+      if (!size) return;
+      const next = fitIdeaMapCamera(
+        size,
+        ideaMapSizeLevelRef.current,
+        getFitInsetsRef.current?.(element),
+      );
+      if (!next) return;
+      ideaMapFitCameraRef.current = next;
+      ideaMapFitSizeRef.current = size;
+      setCameraImmediately(next);
+      onZoomChangeRef.current?.(next.zoom);
+    };
+    const scheduleRefit = () => {
+      const size = viewportSize(element);
+      const fitSize = ideaMapFitSizeRef.current;
+      if (
+        !size ||
+        !fitSize ||
+        (fitSize.width === size.width && fitSize.height === size.height)
+      )
+        return;
+      // 周りの操作欄の配置が新しい大きさへ落ち着いた次の描画で測る。
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(refit);
+    };
+    const observer = new ResizeObserver(scheduleRefit);
+    observer.observe(element);
+    scheduleRefit();
+    return () => {
+      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  }, [
+    temporaryView,
+    isViewportEnabled,
+    fitViewport,
     setCameraImmediately,
     viewportRef,
   ]);

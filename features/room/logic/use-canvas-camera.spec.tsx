@@ -620,6 +620,146 @@ it("動かさずに3-1の書き足しへ入り、その間に広さが変わっ�
   );
 });
 
+// jsdomにないResizeObserverを、表示領域の大きさの変化を手で知らせられる形で用意する。
+function stubViewportResizeObserver() {
+  const callbacks = new Set<() => void>();
+  class TestResizeObserver {
+    private readonly notify: () => void;
+    constructor(callback: ResizeObserverCallback) {
+      this.notify = () => callback([], this as unknown as ResizeObserver);
+    }
+    observe(): void {
+      callbacks.add(this.notify);
+    }
+    unobserve(): void {}
+    disconnect(): void {
+      callbacks.delete(this.notify);
+    }
+  }
+  vi.stubGlobal("ResizeObserver", TestResizeObserver);
+  return () => {
+    for (const callback of callbacks) callback();
+  };
+}
+
+it("表示領域の大きさが変わったら、まだ動かしていなければ2軸マップを全体表示し直す", async () => {
+  const resize = stubViewportResizeObserver();
+  try {
+    const viewport = document.createElement("div");
+    let size = { width: 1289, height: 948 };
+    viewport.getBoundingClientRect = () =>
+      new DOMRect(0, 0, size.width, size.height);
+    const onZoomChange = vi.fn();
+    const { result } = renderHook(() =>
+      useCanvasCamera({
+        viewportRef: { current: viewport },
+        notes: [],
+        fitViewport: true,
+        ideaMapFitKey: "3-4",
+        ideaMapSizeLevel: 3,
+        ideaMapSizeInitialized: true,
+        onZoomChange,
+        getFitInsets: () => ({ top: 0, right: 0, bottom: 120, left: 0 }),
+      }),
+    );
+    const fitFor = (width: number, height: number) =>
+      fitCanvasCamera(
+        getIdeaMapWorldLayout(3).bounds,
+        { width, height },
+        IDEA_MAP_FIT_PADDING,
+        { top: 0, right: 0, bottom: 120, left: 0 },
+      );
+    expect(result.current.camera).toEqual(fitFor(1289, 948));
+
+    size = { width: 1280, height: 800 };
+    act(() => resize());
+    await waitFor(() =>
+      expect(result.current.camera).toEqual(fitFor(1280, 800)),
+    );
+    expect(onZoomChange).toHaveBeenLastCalledWith(fitFor(1280, 800)?.zoom);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it("自分でカメラを動かした後は、表示領域の大きさが変わってもカメラを変えない", async () => {
+  const resize = stubViewportResizeObserver();
+  try {
+    const onZoomChange = vi.fn();
+    const viewport = document.createElement("div");
+    let size = { width: 1289, height: 948 };
+    viewport.getBoundingClientRect = () =>
+      new DOMRect(0, 0, size.width, size.height);
+    const { result } = renderHook(() =>
+      useCanvasCamera({
+        viewportRef: { current: viewport },
+        notes: [],
+        fitViewport: true,
+        ideaMapFitKey: "3-4",
+        onZoomChange,
+      }),
+    );
+    const fitted = result.current.camera;
+    act(() => result.current.zoomIn());
+    await waitFor(() => expect(result.current.camera).not.toEqual(fitted));
+    const personalCamera = result.current.camera;
+
+    size = { width: 1280, height: 800 };
+    onZoomChange.mockClear();
+    act(() => resize());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(result.current.camera).toEqual(personalCamera);
+    expect(onZoomChange).not.toHaveBeenCalled();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it("全体表示のまま3-1の書き足しへ入り、その間に大きさが変わったら、戻ったときに全体表示し直す", async () => {
+  const resize = stubViewportResizeObserver();
+  try {
+    const viewport = document.createElement("div");
+    let size = { width: 1289, height: 948 };
+    viewport.getBoundingClientRect = () =>
+      new DOMRect(0, 0, size.width, size.height);
+    const { result, rerender } = renderHook(
+      ({ ideaMapFitKey, temporaryView }) =>
+        useCanvasCamera({
+          viewportRef: { current: viewport },
+          notes: [],
+          fitViewport: true,
+          ideaMapFitKey,
+          temporaryView,
+          ideaMapSizeLevel: 3,
+          ideaMapSizeInitialized: true,
+        }),
+      {
+        initialProps: {
+          ideaMapFitKey: "3-3" as string | undefined,
+          temporaryView: false,
+        },
+      },
+    );
+    const fitFor = (width: number, height: number) =>
+      fitCanvasCamera(
+        getIdeaMapWorldLayout(3).bounds,
+        { width, height },
+        IDEA_MAP_FIT_PADDING,
+      );
+    expect(result.current.camera).toEqual(fitFor(1289, 948));
+
+    rerender({ ideaMapFitKey: undefined, temporaryView: true });
+    size = { width: 1280, height: 800 };
+    act(() => resize());
+    rerender({ ideaMapFitKey: "3-3", temporaryView: false });
+    await waitFor(() =>
+      expect(result.current.camera).toEqual(fitFor(1280, 800)),
+    );
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it("2軸マップでもホイールでパンでき、全体表示は周りの操作欄を避ける", () => {
   const viewport = document.createElement("div");
   viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 800);
