@@ -35,7 +35,7 @@ PRではそれに対応する検証方法・実際の結果・未確認を示し
 
 ## 全体像とDBの変更を示す
 
-- 図の要否・3つの型（やり取りの時間順／状態と条件／データの流れ）・用語（「役割（仕組み）」・関数名禁止）・見やすさ・折りたたみの基準は [仕組みの図の書き方](../../../docs/loop/writing.md#仕組みの図の書き方) に従う。実 PR の見本は [仕組みの図の見本とDB変更の具体例](references/diagrams.md) を参照する。
+- 図の要否・3つの型・見やすさのガードは [仕組みの図の書き方](../../../docs/loop/writing.md#仕組みの図の書き方)、箱の形・色・役割（仕組み）名のカタログと見本は [図のカタログと見本](references/diagrams.md) に従う。図は一発で出し、Playwright 等での描画検査・撮影はしない。
 - DB変更では図の3種類に加えて「DBの変更」を書く。対象がD1かDOか、スキーマの差分・既存データへの影響・migration・適用や復旧時の注意点を示す。関係の変更はER図、カラム・制約・索引の変更は表が適する。
 - DB資料はStorybookの`Schema/SchemaDiagram`・`Schema/SchemaDetails`などの生成済み資料も利用する。D1とDOをDBの外部キーで結んだ図を作らない。migrationや生成物の扱いは[開発規約のMigration](../../../docs/development/conventions.md#migration)に従う。
 

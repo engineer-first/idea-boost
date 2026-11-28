@@ -1,10 +1,50 @@
-# 仕組みの図の見本とDB変更の具体例
+# 仕組みの図のカタログ・見本・DB変更
 
-図を載せる PR で使う見本集。要否の基準・3つの型・役割名の対応表・見やすさのガードの正本は [仕組みの図の書き方](../../../../docs/loop/writing.md#仕組みの図の書き方)、現在の責務は [構成概要](../../../../docs/architecture/overview.md) を参照する。
+要否・3つの型・見やすさのガードは [仕組みの図の書き方](../../../../docs/loop/writing.md#仕組みの図の書き方)、現在の責務は [構成概要](../../../../docs/architecture/overview.md) を参照する。図は下のカタログから選んで一発で出し、Playwright 等での描画検査・撮影はしない。
 
-- 関数名・ファイル名・イベント名・型名・コンポーネント名は図に入れない。
-- アーキテクチャ用語（DO・D1・Workers・KV など）は **「役割（仕組み）」** の形で書き、その PR で何の役割を担うかが分かるようにする（例：`ルームの共有状態（DO）`、`完了したルームの保存先（D1）`）。
-- 短い 1 図は開いたまま置き、変更前／変更後の 2 図並べや縦に長い図だけ `<details>` で閉じる。
+## 部品と言葉のカタログ
+
+### 箱の種類と Mermaid の書き方
+
+`flowchart` は次の部品と `classDef` だけを組み合わせる。`sequenceDiagram` は `classDef` を使わず、`participant` に下の役割（仕組み）名だけを使い、`Note` で補足する。
+
+| 箱の種類                   | 形（`flowchart`）              | `classDef` | 使いどころ                                                          |
+| -------------------------- | ------------------------------ | ---------- | ------------------------------------------------------------------- |
+| 画面・表示                 | `id["..."]`（枠は `subgraph`） | `screen`   | 人の画面、表示・操作の状態                                          |
+| 共有状態・入口             | `id(["..."])`                  | `state`    | ルームの共有状態（DO）、参加状況の管理（DO）、API の入口（Workers） |
+| 保存先・記録               | `id[("...")]`                  | `store`    | D1、KV、Workers Logs                                                |
+| 外部サービス               | `id[["..."]]`                  | `external` | 利用分析（外部）など学外へ出る境界                                  |
+| 判断の分かれ道             | `id{"..."}`                    | `decision` | 条件分岐・誤検知防止・認可の確認                                    |
+| 今回追加・変更（上書き）   | 元の形のまま                   | `changed`  | 今回の PR で足した／変えた箱                                        |
+| 送らない・対象外（上書き） | 元の形のまま＋点線矢印 `-.->`  | `muted`    | 記録しない・外部へ送らない経路                                      |
+
+使ったクラスだけ図の末尾へ貼る（ライト／ダーク両方で読めるよう `fill`・`stroke`・`color` を組で書く）。
+
+```text
+classDef screen fill:#fff,stroke:#64748b,color:#0f172a
+classDef state fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+classDef store fill:#ecfdf5,stroke:#059669,color:#065f46
+classDef external fill:#f1f5f9,stroke:#475569,color:#1e293b
+classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f
+classDef changed fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+classDef muted fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3,color:#4b5563
+```
+
+### 役割（仕組み）名の一覧
+
+関数名・ファイル名・イベント名・型名・コンポーネント名は図に入れない。画面の文言や進行の呼び方は [用語集](../../../../docs/glossary.md) に合わせる。
+
+| 図に書かない（コード上の名前）                           | 図で使う呼び方（役割（仕組み））                                                                                         | 使いどころ                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `Browser`・`use-note-move`・`RoomBoardCanvas` など       | **本人の画面**／**操作した人の画面**／**発表者の画面**／**聞く人の画面**／**ほかの参加者の画面**                         | 誰が操作し、誰の画面が変わるかを示す             |
+| `RoomDO`・`workers/room/*`                               | **ルームの共有状態（DO）**                                                                                               | 1 ルームの進行・付箋・接続・認可の真実を持つ場所 |
+| `AccountDO`                                              | **参加状況の管理（DO）**                                                                                                 | 同時参加制限や別ルームへの切り替えが論点のとき   |
+| `D1`                                                     | **完了したルームの保存先（D1）**／**一覧・履歴の保存先（D1）**                                                           | その PR での役割を前に書く                       |
+| `Workers Logs`                                           | **運用の記録（Workers Logs）**                                                                                           | 本番ログへの出力が論点のとき                     |
+| `KV`                                                     | **キャッシュ・一時保存（KV）**                                                                                           | KV を読み書きする変更のとき                      |
+| `api-worker`・`app-worker`・`contracts/`                 | 原則省く（境界自体が変更点のときだけ **API の入口（Workers）**／**画面サーバー（Workers）**）                            | 中継層が変わらなければ描かない                   |
+| `PostHog` など外部サービス                               | **利用分析（外部）**／**外部サービス名（外部）**                                                                         | データが学外へ出るかどうかを区別する             |
+| `note:move:start`・`visibility: "private"`・`ready` など | **日本語の動作**と[用語集](../../../../docs/glossary.md)の語（例：「付箋の移動を送る」「マイ付箋」「できた！」「除外」） | 実装語を図へ持ち込まない                         |
 
 ## 1. やり取りの図（時間順）：ステップが進む直前に離した付箋を保存する（#1450・R2）
 
@@ -62,10 +102,12 @@ flowchart LR
   Disconn -->|"発表者が再接続"| Normal
   Disconn -->|"「パスする」を押す"| Pass["確認なしでパス送信<br/>（ルームの共有状態（DO）へ）<br/>→ 次の発表者の番へ"]
 
+  classDef screen fill:#fff,stroke:#64748b,color:#0f172a
+  classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f
   classDef changed fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
-  classDef guard fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+  class Self,Pres decision
+  class Normal screen
   class Disconn,Pass changed
-  class Normal guard
 ```
 
 ## 3. データの流れの図：通知で付箋の移動を取り消した理由を本番で数える（#1429・R2）
@@ -82,11 +124,11 @@ flowchart LR
     EvSelf["本人の操作による取り消し<br/>・Escape キー／画面離脱<br/>・相手移動後の掴み直し"]
   end
 
-  EvNotify -->|"決まった6種の理由だけ<br/>（本文・IDは含めない）"| Room["ルームの共有状態（DO）<br/>本人の進行中の移動か確認"]
+  EvNotify -->|"決まった6種の理由だけ<br/>（本文・IDは含めない）"| Room(["ルームの共有状態（DO）<br/>本人の進行中の移動か確認"])
   EvSelf -.->|"理由は送らない"| Skip["記録しない"]
 
   Room -->|"今回追加：理由付きの<br/>取り消しを1行記録"| Logs[("運用の記録<br/>（Workers Logs）")]
-  Room -.->|"外部へ新しい操作データは<br/>送らない"| Ext["利用分析（外部）<br/>※今回は使わない"]
+  Room -.->|"外部へ新しい操作データは<br/>送らない"| Ext[["利用分析（外部）<br/>※今回は使わない"]]
 
   classDef changed fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
   classDef muted fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3,color:#4b5563
