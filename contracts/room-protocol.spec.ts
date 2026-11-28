@@ -692,9 +692,9 @@ describe("ServerMessageSchema", () => {
 
   it("phase:hold は止める予告の noticeId だけを受け入れ、止めた人の userId を送らせない", () => {
     const noticeId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    expect(
-      ClientMessageSchema.parse({ type: "phase:hold", noticeId }),
-    ).toEqual({ type: "phase:hold", noticeId });
+    expect(ClientMessageSchema.parse({ type: "phase:hold", noticeId })).toEqual(
+      { type: "phase:hold", noticeId },
+    );
     expect(
       ClientMessageSchema.safeParse({
         type: "phase:hold",
