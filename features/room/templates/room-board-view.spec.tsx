@@ -4412,6 +4412,25 @@ describe("fit HUDの右の欄（左へ動かした浮動要素）", () => {
       root.remove();
     }
   });
+  it("スマホ縦幅で左半分まで広がる右の欄も、右の占有に数える", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 360, 720);
+    root.append(viewport);
+    const dock = document.createElement("div");
+    dock.dataset.boardFitEdge = "right";
+    dock.style.pointerEvents = "auto";
+    dock.getBoundingClientRect = () => new DOMRect(108, 160, 240, 400);
+    root.append(dock);
+    document.body.append(root);
+    try {
+      // 欄の幅は252pxだが、マップを収める幅を半分は残す。
+      expect(getBoardFitInsets(viewport).right).toBe(180);
+    } finally {
+      root.remove();
+    }
+  });
 });
 
 describe("fit HUDの占有上限", () => {

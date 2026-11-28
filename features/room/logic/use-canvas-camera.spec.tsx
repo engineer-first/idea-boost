@@ -544,6 +544,38 @@ it("2軸マップのステップが変わると、自分で動かした後でも
   await waitFor(() => expect(result.current.camera).toEqual(fitted));
 });
 
+it("3-1の書き足しから同じステップへ戻ると、書き足し前の拡大・位置を全体表示で上書きしない", async () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+  const viewportRef = { current: viewport };
+  const { result, rerender } = renderHook(
+    ({ ideaMapFitKey, temporaryView }) =>
+      useCanvasCamera({
+        viewportRef,
+        notes: [],
+        fitViewport: true,
+        ideaMapFitKey,
+        temporaryView,
+      }),
+    {
+      initialProps: {
+        ideaMapFitKey: "3-3" as string | undefined,
+        temporaryView: false,
+      },
+    },
+  );
+  const fitted = result.current.camera;
+  act(() => result.current.zoomIn());
+  await waitFor(() => expect(result.current.camera).not.toEqual(fitted));
+  const personalCamera = result.current.camera;
+
+  // 書き足し中（3-1）は2軸マップのステップではない。
+  rerender({ ideaMapFitKey: undefined, temporaryView: true });
+  rerender({ ideaMapFitKey: "3-3", temporaryView: false });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(result.current.camera).toEqual(personalCamera);
+});
+
 it("2軸マップでもホイールでパンでき、全体表示は周りの操作欄を避ける", () => {
   const viewport = document.createElement("div");
   viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 800);

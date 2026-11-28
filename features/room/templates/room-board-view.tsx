@@ -150,10 +150,10 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
         top = Math.max(top, visibleBottom - area.top);
       else if (group.dataset.boardFitEdge === "right") {
         // 動かせる浮動要素（タイマー）を左へ寄せたときは、右の欄として数えない。
-        if (left < area.left + area.width / 2) continue;
+        // 右端で判定し、狭い画面で左半分まで広がる右の欄（マイ付箋）は数える。
+        if (right < area.left + area.width / 2) continue;
         rightInset = Math.max(rightInset, area.right - left);
-      }
-      else bottom = Math.max(bottom, area.bottom - visibleTop);
+      } else bottom = Math.max(bottom, area.bottom - visibleTop);
     }
   }
   for (const toast of document.querySelectorAll<HTMLElement>(

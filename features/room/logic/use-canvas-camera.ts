@@ -635,6 +635,9 @@ export function useCanvasCamera({
     refitKey: ideaMapRefitKey,
   });
   useEffect(() => {
+    // 3-1の書き足し中は覚えているステップを変えず、戻ったときに書き足し前と比べる。
+    // 同じステップへ戻ったなら、保存から戻したカメラを全体表示で上書きしない。
+    if (temporaryView) return;
     const previous = ideaMapRefitRef.current;
     if (
       previous.sizeLevel === ideaMapSizeLevel &&
@@ -648,7 +651,6 @@ export function useCanvasCamera({
       refitKey: ideaMapRefitKey,
     };
     if (
-      temporaryView ||
       !isViewportEnabled ||
       !fitViewport ||
       !hasFitIdeaMapRef.current ||

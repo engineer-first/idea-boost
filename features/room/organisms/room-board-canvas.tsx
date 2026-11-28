@@ -387,16 +387,15 @@ export function RoomBoardCanvas({
           : "targetIdea"
       : "targetNote";
   const adoptionTargetLabel = adoptionMessages(adoptionTargetKey);
-  // 3-2から固定2軸マップで共有・配置し、投票・決定まで同じ表示を引き継ぐ。
-  // 配置済みの付箋がある3-1再訪時は従来どおり閲覧のみできる。
+  // 3-2からボード上の2軸マップで共有・配置し、投票・決定まで同じマップを引き継ぐ。
+  // 配置済みの付箋がある3-1の書き足しでも、同じマップを後ろに見せる。
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" &&
     phase.phase === 3 &&
     (phase.step >= 2 || notes.length > 0);
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
-  // 3-2〜3-5のマップはボードのカメラに載せる。固定の画面に置くのは、
-  // 3-1の書き足しで後ろに見せるマップだけ。
+  // マップはボード上の決まった位置に置き、ほかのステップと同じカメラで拡大・移動する。
   const ideaMapWorldPlane = getIdeaMapWorldLayout(ideaMapSizeLevel).plane;
   // マップの広さはズームと同じく「どこまで見えるか」の操作なので、左下のズームの隣に置く。
   // 3-1の書き足し中は3-2/3-3にならないので、広さ操作は常にボードの操作欄に置く。

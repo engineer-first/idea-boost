@@ -390,55 +390,52 @@ test.each([
 test.each([
   { phase: "3-2", open: openWorkspace },
   { phase: "3-3", open: openMapOnly },
-])(
-  "$phaseでは上部情報パネルと2軸マップの間隔を保つ",
-  async ({ open }) => {
-    const page = await browser.newPage({
-      viewport: { width: 1440, height: 1000 },
-    });
-    try {
-      await open(page);
-      const context = await readBounds(page, "board-context-hud");
-      const plane = await readBounds(page, "idea-value-feasibility-map-plane");
-      const valueAxis = await readBounds(
-        page,
-        "idea-value-feasibility-map-y-axis-label",
-      );
-      const feasibilityAxis = await readBounds(
-        page,
-        "idea-value-feasibility-map-x-axis-label",
-      );
+])("$phaseでは上部情報パネルと2軸マップの間隔を保つ", async ({ open }) => {
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 1000 },
+  });
+  try {
+    await open(page);
+    const context = await readBounds(page, "board-context-hud");
+    const plane = await readBounds(page, "idea-value-feasibility-map-plane");
+    const valueAxis = await readBounds(
+      page,
+      "idea-value-feasibility-map-y-axis-label",
+    );
+    const feasibilityAxis = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-axis-label",
+    );
 
-      // 上の情報は決定事項と中央のステップバーのうち下にあるほう。どちらとも重ねない。
-      const trail = await readBounds(page, "phase-step-trail");
-      const aboveBottom = Math.max(
-        context.y + context.height,
-        trail.y + trail.height,
-      );
-      expect(plane.y - aboveBottom).toBeGreaterThanOrEqual(8);
-      const valueLine = await readBounds(
-        page,
-        "idea-value-feasibility-map-y-scale-bar",
-      );
-      // マップの下端だけを伸ばし、縦軸のデザイン・配置基準は維持する。
-      expect(valueAxis.y + valueAxis.height / 2).toBeCloseTo(
-        valueLine.y + valueLine.height / 2,
-        1,
-      );
-      const feasibilityLine = await readBounds(
-        page,
-        "idea-value-feasibility-map-x-scale-bar",
-      );
-      expect(feasibilityAxis.y).toBeGreaterThan(plane.y + plane.height);
-      expect(feasibilityAxis.y + feasibilityAxis.height / 2).toBeCloseTo(
-        feasibilityLine.y + feasibilityLine.height / 2,
-        0,
-      );
-    } finally {
-      await page.close();
-    }
-  },
-);
+    // 上の情報は決定事項と中央のステップバーのうち下にあるほう。どちらとも重ねない。
+    const trail = await readBounds(page, "phase-step-trail");
+    const aboveBottom = Math.max(
+      context.y + context.height,
+      trail.y + trail.height,
+    );
+    expect(plane.y - aboveBottom).toBeGreaterThanOrEqual(8);
+    const valueLine = await readBounds(
+      page,
+      "idea-value-feasibility-map-y-scale-bar",
+    );
+    // マップの下端だけを伸ばし、縦軸のデザイン・配置基準は維持する。
+    expect(valueAxis.y + valueAxis.height / 2).toBeCloseTo(
+      valueLine.y + valueLine.height / 2,
+      1,
+    );
+    const feasibilityLine = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-scale-bar",
+    );
+    expect(feasibilityAxis.y).toBeGreaterThan(plane.y + plane.height);
+    expect(feasibilityAxis.y + feasibilityAxis.height / 2).toBeCloseTo(
+      feasibilityLine.y + feasibilityLine.height / 2,
+      0,
+    );
+  } finally {
+    await page.close();
+  }
+});
 
 test("個人付箋をスクロールし、参照情報を開いてもマップが動かない", async () => {
   const page = await browser.newPage({
@@ -859,6 +856,46 @@ test.each([
       expect(timer.x - (map.x + map.width)).toBeGreaterThanOrEqual(8);
       await page.screenshot({
         path: `${output}/map-only-timer-${width}.png`,
+      });
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test.each([
+  { width: 1280, height: 800 },
+  { width: 390, height: 720 },
+])(
+  "3-4（$width×$height）の全体表示では、マップ面と横軸の行を下の投票パレットと重ねない",
+  async (viewport) => {
+    const page = await browser.newPage({ viewport });
+    try {
+      await openVotingMap(page);
+      const plane = page.getByTestId("idea-value-feasibility-map-plane");
+      await waitForLayoutAnimations(plane);
+      const palette = await readBounds(page, "vote-palette-hud");
+      const map = await readBounds(page, "idea-value-feasibility-map-plane");
+      const axisRow = await readBounds(
+        page,
+        "idea-value-feasibility-map-x-axis-row",
+      );
+      const axisName = await readBounds(
+        page,
+        "idea-value-feasibility-map-x-axis-label",
+      );
+      for (const [name, box] of [
+        ["マップ面", map],
+        ["横軸の行", axisRow],
+        ["横軸の名前", axisName],
+      ] as const) {
+        expect(
+          box.y + box.height,
+          `${name}は投票パレットより上に収める`,
+        ).toBeLessThanOrEqual(palette.y);
+      }
+      await page.screenshot({
+        path: `${output}/voting-palette-${viewport.width}.png`,
       });
     } finally {
       await page.close();

@@ -108,7 +108,6 @@ describe("2軸マップはボードの上に置く", () => {
       expect(canvas.style.transform).toBe(
         "translate3d(30px, -20px, 0px) scale(0.5)",
       );
-      expect(screen.queryByTestId("idea-map-viewport")).toBeNull();
       const map = screen.getByTestId("idea-value-feasibility-map");
       expect(canvas).toContainElement(map);
       const { plane } = getIdeaMapWorldLayout(4);
