@@ -4,7 +4,7 @@
 読むのはオーナーとメンバーで、1件を1分で判断できることを目指す。オーナーが見たいのは「どう変えるか」が困りごとの解決として正しいか、前提から変えるべきか、の2つ（2026-11-28 のオーナーの声。#1436 は見出しは良かったが、画面の「欄」がどこか分からず、変えた後の姿も無かった）。
 
 - Issue の扱い（Type・状態・ラベル）は [Issue運用](../team/issues.md) と [README](README.md)、Why の考え方は [Issue記述ルール](../team/issue-writing.md) に従う。ここの「何が問題か」が Issue記述ルールの Why に当たる。
-- PR の作り方は [write-pr](../../.agents/skills/write-pr/SKILL.md) に従い、UI・文言・振る舞いを変えるループの PR だけ本文の見出しをここの形にする。
+- PR の作り方は [write-pr](../../.agents/skills/write-pr/SKILL.md) に従い、**画面で見える変化（UI・文言・操作への反応）がある**ループの PR だけ本文の見出しをここの形にする。
 
 ## Issue の本文
 
@@ -41,15 +41,16 @@ Risk: R0〜R2（理由と主なファイル）。1周で作れる大きさか。
 - **欠陥は直すところまで。** 「どう変えるか」には欠陥を直す最小の形（崩れを収める、元の形に戻す）を書き、それを受け入れ条件として末尾に置く。新しい文言・配置が要る先は提案に分ける（[README のループが決めてよいこと](README.md#ループが決めてよいこと)）。
 - **提案の末尾**には「作ってほしければ `loop:ready` を、要らなければ not planned で閉じてください」と書く。
 - **画面が無い問題**（CI・性能・データの不整合など）は「変える前の画面」に、代わりに見せられるもの（ログの抜粋・数字の表）を置くか「画面に出ない」と1行書く。「変えた時の画面イメージ」も同じ。
-- 既存の Issue を提案に替えるとき（build・replan）は、同じ4見出しでコメントを書く。
+- 既存の Issue を提案に替えるとき（build・replan）は、同じ4見出しでコメントを書く。ローカルを起動しない replan は、元の Issue の画像を引くか、「変える前の画面」に「未撮影（replan は画面を開かない）」と書く。人が `loop:ready` を付けたら、build が着手前に撮って Issue に足す。
+- replan が大きな Issue から切り出す作業の Issue は、提案でも欠陥でもないので [create-work-issue](../../.agents/skills/create-work-issue/SKILL.md) の形のままでよい。
 - 公開リポジトリなので、画像にもローカルの架空データだけを写す。本番のデータ・個人情報・秘密を写さない。
 
 ## PR の本文
 
-UI・文言・振る舞いを変えるループの PR は、本文を次の形にする。依存更新・CI・テスト追加・文書など画面の変わらない PR は、[write-pr](../../.agents/skills/write-pr/SKILL.md) の形のままでよい。
+画面で見える変化（UI・文言・操作への反応）があるループの PR は、本文を次の形にする。依存更新・CI・テスト追加・文書・画面に出ない同期や境界の直しなど、画面が変わらない PR は [write-pr](../../.agents/skills/write-pr/SKILL.md) の形のままでよい。
 
 ```markdown
-Closes #N（Issue 全体を終えない PR は Refs #N）
+Closes #N（Issue 全体を終えない PR は Refs #N。Issue が無ければ、見つけた記録へのリンク）
 
 ## 何が問題か
 
@@ -81,7 +82,7 @@ Risk: R0〜R2。理由、戻し方、巡回で見てほしい所。
 Loop: <build|polish|mend>
 ```
 
-- 元の Issue へのリンク（`Closes #N` か `Refs #N`）を必ず本文の先頭に置く。polish で欠陥を複数直した PR は、欠陥ごとに「何が問題か」〜「変えた後の画面」を繰り返し、`Risk` は最後に1つ。
+- 元の Issue へのリンク（`Closes #N` か `Refs #N`）を必ず本文の先頭に置く。Issue の無い polish は polish log の記録のコメント、mend は失敗した run と原因の PR へのリンクで代える。polish で欠陥を複数直した PR は、欠陥ごとに「何が問題か」〜「変えた後の画面」を繰り返し、`Risk` は最後に1つ。
 - 変える前と後は、画面幅・データ・ステップ・役割をそろえ、同じ所を同じ色の枠で囲む。変える前は develop の別 worktree か、変更を入れる前に撮る。
 - 画像は本文に埋め込む（コメントに分けない）。write-pr の「画面資料はコメントへ」はループの PR には当てはめない。
 
@@ -103,6 +104,7 @@ Loop: <build|polish|mend>
   const top = Math.max(2, r.top - 4);
   const right = Math.min(innerWidth - 2, r.left + r.width + 4);
   const bottom = Math.min(innerHeight - 2, r.top + r.height + 4);
+  if (right <= left || bottom <= top) throw new Error("mark is outside the viewport");
   const box = document.createElement("div");
   box.dataset.loopMark = "";
   Object.assign(box.style, {
@@ -135,7 +137,7 @@ Loop: <build|polish|mend>
 上から順に、作れるものを選ぶ。
 
 1. **ローカルの画面を書き換えて撮る。** 文言の差し替え・要素を隠す・並べ替えくらいなら、ページの JavaScript で DOM を直接書き換え（`el.textContent = "…"`、`el.style.display = "none"` など）、変える前と同じ条件・同じ枠で撮る。コードは変えない。
-2. **HTML のモックを撮る。** 新しい部品や配置は、作業用ディレクトリ（リポジトリの外）に HTML を1枚書き、`npx playwright screenshot --viewport-size=1280,800 file:///<パス>/mock.html after-a.png` で撮る。[DESIGN.md](../../DESIGN.md) の色と文字に寄せ、変える所だけを描けばよい。
+2. **HTML のモックを撮る。** 新しい部品や配置は、作業用ディレクトリ（リポジトリの外）に HTML を1枚書き、リポジトリのルートで `npx playwright screenshot --viewport-size=1280,800 file:///<パス>/mock.html <作業用ディレクトリ>/after-a.png` を実行して撮る（リポジトリの Playwright とブラウザを使う）。[DESIGN.md](../../DESIGN.md) の色と文字に寄せ、変える所だけを描けばよい。
 3. **作れない理由を書く。** 動き・タイミング・複数人の同期など静止画で示せないものは、作れない理由と、代わりに言葉で示す画面の変化を1〜2行で書く。
 
 案A・案B があるときは、案ごとに1枚ずつ作る。前提を疑う別案のイメージは無くてよい。
@@ -152,8 +154,8 @@ Loop: <build|polish|mend>
 
 `--attach` は一部の画像だけ失敗しても Issue・PR を作り、終了コードを 0 以外にする。失敗したら、作られた本文を読んでから次のとおりにする。
 
-- **1回だけやり直す。** 欠けた画像を `gh issue edit` / `gh pr edit`（本文に埋める）で足す。同じ Issue・PR を作り直さない。
-- **提案の Issue**：やり直しても画像が付かなければ、Issue を閉じずに本文の画像の所へ「画像の添付に失敗（<エラーの1行>）。<画面幅・ステップ・役割・操作> で見られます」と書き、周回の log に Issue 番号を残す。次に同じ場面を歩いた周回が `gh issue edit` で画像を足す。
+- **1回だけやり直す。** 欠けた画像の所にローカルの参照を残した本文ファイルを `--body-file` で渡し、`gh issue edit` / `gh pr edit` に欠けた画像だけを `--attach` する（`--attach` だけだと画像は本文の末尾に付く）。同じ Issue・PR を作り直さない。
+- **提案の Issue**：やり直しても画像が付かなければ、Issue を閉じずに本文の画像の所へ「画像の添付に失敗（<エラーの1行>）。<画面幅・ステップ・役割・操作> で見られます」と書き、周回の log に Issue 番号を残す。patrol が次の巡回で `gh issue list --state open --search "画像の添付に失敗"` で探し、撮って足す。
 - **欠陥の Issue**：画像が無くても起票し、「何が問題か」の再現手順を、画面を見なくても同じ所に辿り着ける細かさで書く。後から足すのは提案と同じ。
 - **PR**：UI の PR は変える前と後の画像がそろうまで auto-merge を予約しない（[マージの決まり](README.md#マージの決まり)）。理由を PR にコメントし、次の build が[止まっている PR](prompts/build.md#止まっている-pr-を流すとき)として拾って足す。
 - 画像をリポジトリにコミットして代わりにしない。`gh` が古くて `--attach` が無いときは、`mise` などで `gh` を更新してからやり直す。

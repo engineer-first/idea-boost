@@ -167,7 +167,7 @@ replan が `loop:ready` に整える材料。上ほど優先する。どの種�
 
 - 必須チェック（lint / test / browser / build / smoke）がすべて成功（auto-merge が待つ）。チェックを skip・削除する変更、検査の設定を緩める変更を含まない。予約の前に、変更に近い Vitest・`typecheck`・変更ファイルの `biome check` を手元で通す（CI で落ちた PR の 2026-11-25〜27 の主な理由は lint と型）。
 - 作った context とは別のサブエージェントによる `code-review`（R2 は加えて `authz-security-reviewer`、UI は `ui-review`）で、直すべき指摘が 0。指摘は直してから再レビューする。
-- PR 本文は [write-pr](../../.agents/skills/write-pr/SKILL.md) の形で、Why・設計判断（Issue に書かれていない細部をどう決めたか）・確認結果を書く。UI・文言・振る舞いの変更は [Issue と PR の書き方](writing.md#pr-の本文)の形（何が問題か／どう変えたか／変える前の画面／変えた後の画面／確認結果／Risk）にし、元の Issue へのリンクと、変える前と後の画像を本文に置く。
+- PR 本文は [write-pr](../../.agents/skills/write-pr/SKILL.md) の形で、Why・設計判断（Issue に書かれていない細部をどう決めたか）・確認結果を書く。画面で見える変化（UI・文言・操作への反応）がある PR は [PR の本文](writing.md#pr-の本文)の形にし、元の Issue へのリンクと、変える前と後の画像を本文に置く。
 - 付箋の移動に関わるコードを変えた PR は、[計測](#付箋の移動を数える)の数字を本文に書き、どの場面も下限を下回っていない。
 - develop の最新に rebase 済みで、ほかのループ PR と同じファイルを奪い合っていない。
 
