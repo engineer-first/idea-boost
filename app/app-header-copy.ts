@@ -1,1 +1,1 @@
-export const aboutMenuLabel = "IdeaBoostについて";
+export const aboutMenuLabel = "Idea Boostについて";

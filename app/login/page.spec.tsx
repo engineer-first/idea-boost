@@ -58,10 +58,9 @@ it.each([
     !next || next === "/" || next.startsWith("https:")
       ? "/about"
       : `/about?next=${encodeURIComponent(next)}`;
-  expect(screen.getByRole("link", { name: "IdeaBoostとは？" })).toHaveAttribute(
-    "href",
-    expected,
-  );
+  expect(
+    screen.getByRole("link", { name: "Idea Boostとは？" }),
+  ).toHaveAttribute("href", expected);
 });
 
 it.each([

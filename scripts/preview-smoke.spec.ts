@@ -50,7 +50,7 @@ vi.mock("miniflare", () => ({
             );
           if (path === "/en")
             return new Response('<main lang="en">Start for free</main>');
-          if (path === "/login") return new Response("IdeaBoostとは？");
+          if (path === "/login") return new Response("Idea Boostとは？");
           return init?.headers
             ? new Response("確認するステップを選ぶ")
             : new Response(null, { status: 401 });

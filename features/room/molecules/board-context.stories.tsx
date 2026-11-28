@@ -68,6 +68,19 @@ export const IdeaVoting: Story = {
   args: { phase: buildPhaseStep(4, 3), initialDisclosureId: null },
 };
 
+// iPad 横のように帯の幅が狭く、本文の1文字と「…」も入らないときは、
+// 見出しだけを1行に出し、本文の一部を見せない。
+export const IdeaVotingNarrow: Story = {
+  args: { phase: buildPhaseStep(4, 3), initialDisclosureId: null },
+  decorators: [
+    (Story) => (
+      <div className="w-full max-w-[300px]">
+        <Story />
+      </div>
+    ),
+  ],
+};
+
 export const IdeaResult: Story = {
   args: { phase: buildPhaseStep(5, 3), initialDisclosureId: null },
 };

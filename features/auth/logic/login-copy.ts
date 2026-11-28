@@ -1,4 +1,4 @@
-export const loginAboutLabel = "IdeaBoostとは？";
+export const loginAboutLabel = "Idea Boostとは？";
 export const googleStartLabel = "Googleではじめる";
 export const guestStartLabel = "ゲストではじめる";
 export const loginChoiceDivider = "または";

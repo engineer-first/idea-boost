@@ -207,7 +207,7 @@ export async function smokePreviewBundle(
       redirect: "manual",
     });
     assert.equal(login.status, 200);
-    assert.match(await login.text(), /IdeaBoostとは？/);
+    assert.match(await login.text(), /Idea Boostとは？/);
     const otherDb = await mf.getD1Database("DB", "preview-pr-13");
     assert.equal(
       (

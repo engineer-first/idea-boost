@@ -208,11 +208,19 @@ export function BoardContext({
                     className="size-3.5 shrink-0 text-muted-foreground"
                   />
                 ) : null}
-                <span className="flex min-w-0 flex-1 items-center gap-1">
+                <span
+                  className={
+                    usesIdeaMapViewport
+                      ? // 本文が1文字と「…」も入らない幅では、文字の一部だけを見せず、
+                        // 本文を次の行へ送って高さ1行の外へ隠す。
+                        "flex h-5 min-w-0 flex-1 flex-wrap items-center gap-x-1 overflow-hidden"
+                      : "flex min-w-0 flex-1 items-center gap-1"
+                  }
+                >
                   <span className="shrink-0">{disclosure.label}</span>
                   {usesIdeaMapViewport ? (
                     <span
-                      className="min-w-0 truncate font-normal text-muted-foreground"
+                      className="min-w-[2em] flex-1 basis-0 truncate font-normal text-muted-foreground"
                       title={disclosure.content ?? undefined}
                     >
                       {disclosure.content}
