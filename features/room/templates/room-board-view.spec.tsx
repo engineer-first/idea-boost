@@ -4401,6 +4401,7 @@ describe("fit HUDの右の欄（左へ動かした浮動要素）", () => {
     root.append(viewport);
     const timer = document.createElement("fieldset");
     timer.dataset.boardFitEdge = "right";
+    timer.dataset.boardFitMovable = "true";
     timer.style.pointerEvents = "auto";
     // タイマーを左上へ動かした状態。
     timer.getBoundingClientRect = () => new DOMRect(40, 80, 80, 80);
@@ -4412,6 +4413,26 @@ describe("fit HUDの右の欄（左へ動かした浮動要素）", () => {
       root.remove();
     }
   });
+  it("動かせる浮動要素を画面の中央をまたぐ位置へ動かしたときも、右の占有に数えない", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 800);
+    root.append(viewport);
+    const timer = document.createElement("fieldset");
+    timer.dataset.boardFitEdge = "right";
+    timer.dataset.boardFitMovable = "true";
+    timer.style.pointerEvents = "auto";
+    timer.getBoundingClientRect = () => new DOMRect(600, 20, 80, 80);
+    root.append(timer);
+    document.body.append(root);
+    try {
+      expect(getBoardFitInsets(viewport).right).toBe(0);
+    } finally {
+      root.remove();
+    }
+  });
+
   it("スマホ縦幅で左半分まで広がる右の欄も、右の占有に数える", () => {
     const root = document.createElement("div");
     root.dataset.testid = "room-board-view-root";

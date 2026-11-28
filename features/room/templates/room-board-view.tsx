@@ -149,9 +149,13 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
       if (group.dataset.boardFitEdge === "top")
         top = Math.max(top, visibleBottom - area.top);
       else if (group.dataset.boardFitEdge === "right") {
-        // 動かせる浮動要素（タイマー）を左へ寄せたときは、右の欄として数えない。
-        // 右端で判定し、狭い画面で左半分まで広がる右の欄（マイ付箋）は数える。
-        if (right < area.left + area.width / 2) continue;
+        // 動かせる浮動要素（タイマー）は、右の端に置いているときだけ右の欄として数える。
+        // 常設の右の欄（マイ付箋）は、狭い画面で左半分まで広がっても数える。
+        if (
+          element.dataset.boardFitMovable === "true" &&
+          left < area.left + area.width / 2
+        )
+          continue;
         rightInset = Math.max(rightInset, area.right - left);
       } else bottom = Math.max(bottom, area.bottom - visibleTop);
     }

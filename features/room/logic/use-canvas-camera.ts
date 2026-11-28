@@ -432,6 +432,7 @@ export function useCanvasCamera({
     hasFit: boolean;
     hasDefaulted: boolean;
     hasFitIdeaMap: boolean;
+    wasIdeaMapFit: boolean;
   } | null>(null);
   useLayoutEffect(() => {
     if (temporaryView) {
@@ -441,6 +442,7 @@ export function useCanvasCamera({
           hasFit: hasFitRef.current,
           hasDefaulted: hasDefaultedRef.current,
           hasFitIdeaMap: hasFitIdeaMapRef.current,
+          wasIdeaMapFit: ideaMapFitCameraRef.current === cameraRef.current,
         };
       return;
     }
@@ -455,6 +457,8 @@ export function useCanvasCamera({
     hasDefaultedRef.current = saved.hasDefaulted;
     hasFitIdeaMapRef.current = saved.hasFitIdeaMap;
     setCameraImmediately(saved.camera);
+    // 全体表示のまま書き足しへ入ったなら、戻した後も「まだ動かしていない」として扱う。
+    if (saved.wasIdeaMapFit) ideaMapFitCameraRef.current = cameraRef.current;
   }, [
     temporaryView,
     endPan,

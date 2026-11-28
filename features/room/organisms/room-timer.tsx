@@ -115,6 +115,7 @@ export function RoomTimer({
       data-dragging={dragging}
       data-board-native-control
       data-board-fit-edge={fitEdge}
+      data-board-fit-movable={fitEdge ? "true" : undefined}
       aria-label={t("instructions")}
       {...floating}
       onBlurCapture={(event) => {

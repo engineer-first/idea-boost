@@ -42,7 +42,7 @@ export const ZoomedOut: Story = {
   args: { cameraZoom: 0.3 },
 };
 
-export const Widest: Story = {
-  name: "価値 × 実現のしやすさ / いちばん広いマップ",
+export const Widened: Story = {
+  name: "価値 × 実現のしやすさ / 広げたマップ（4段階）",
   args: { sizeLevel: 4, cameraZoom: 0.3 },
 };

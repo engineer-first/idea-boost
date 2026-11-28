@@ -2532,6 +2532,10 @@ describe("2軸マップのステップのタイマー", () => {
         "data-board-fit-edge",
         "right",
       );
+      expect(screen.getByTestId("timer-floating")).toHaveAttribute(
+        "data-board-fit-movable",
+        "true",
+      );
     },
   );
 

@@ -576,6 +576,50 @@ it("3-1の書き足しから同じステップへ戻ると、書き足し前の�
   expect(result.current.camera).toEqual(personalCamera);
 });
 
+it("動かさずに3-1の書き足しへ入り、その間に広さが変わったら、戻ったときに全体表示し直す", async () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+  const viewportRef = { current: viewport };
+  const { result, rerender } = renderHook(
+    ({ ideaMapFitKey, temporaryView, ideaMapSizeLevel }) =>
+      useCanvasCamera({
+        viewportRef,
+        notes: [],
+        fitViewport: true,
+        ideaMapFitKey,
+        temporaryView,
+        ideaMapSizeLevel,
+      }),
+    {
+      initialProps: {
+        ideaMapFitKey: "3-3" as string | undefined,
+        temporaryView: false,
+        ideaMapSizeLevel: 0,
+      },
+    },
+  );
+  rerender({
+    ideaMapFitKey: undefined,
+    temporaryView: true,
+    ideaMapSizeLevel: 0,
+  });
+  rerender({
+    ideaMapFitKey: undefined,
+    temporaryView: true,
+    ideaMapSizeLevel: 3,
+  });
+  rerender({ ideaMapFitKey: "3-3", temporaryView: false, ideaMapSizeLevel: 3 });
+  await waitFor(() =>
+    expect(result.current.camera).toEqual(
+      fitCanvasCamera(
+        getIdeaMapWorldLayout(3).bounds,
+        { width: 500, height: 400 },
+        IDEA_MAP_FIT_PADDING,
+      ),
+    ),
+  );
+});
+
 it("2軸マップでもホイールでパンでき、全体表示は周りの操作欄を避ける", () => {
   const viewport = document.createElement("div");
   viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 800);
