@@ -118,7 +118,7 @@ test.each(
         .getByRole("button", { name: "Hana Sato：表示名を変更" })
         .waitFor();
       await page
-        .getByRole("button", { name: "Hana Sato", exact: true })
+        .getByRole("button", { name: "Hana Sato：ルームから外す", exact: true })
         .click();
       const confirm = page.getByRole("alertdialog");
       await confirm.waitFor();

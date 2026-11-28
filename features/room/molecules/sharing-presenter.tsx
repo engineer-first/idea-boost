@@ -213,6 +213,7 @@ export function SharingPresenter({
                     ? headerMessages("renameMember", { name: member.name })
                     : member.name
                 }
+                action={member.userId === currentUserId ? undefined : "remove"}
                 className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
                 disabled={selectionDisabled}
                 onSelect={
@@ -290,6 +291,7 @@ export function SharingPresenter({
                     ? headerMessages("renameMember", { name: member.name })
                     : member.name
                 }
+                action={member.userId === currentUserId ? undefined : "remove"}
                 className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
                 disabled={selectionDisabled}
                 onSelect={

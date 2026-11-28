@@ -3796,7 +3796,9 @@ describe("ボードの参加者退出", () => {
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: /参加者/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Other" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Other：ルームから外す" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "ルームから外す" }));
     const operation = JSON.parse(socket.sent.at(-1) ?? "");
     expect(operation).toMatchObject({

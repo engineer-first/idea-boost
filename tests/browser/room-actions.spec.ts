@@ -101,7 +101,7 @@ test("ロビーの退出を取り消すと退出ボタンへ戻り、参加者�
     .toBe(true);
   expect(
     await page
-      .getByRole("button", { name: "Hana Sato", exact: true })
+      .getByRole("button", { name: "Hana Sato：ルームから外す", exact: true })
       .isVisible(),
   ).toBe(true);
 });

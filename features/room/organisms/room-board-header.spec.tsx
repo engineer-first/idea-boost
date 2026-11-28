@@ -2182,6 +2182,19 @@ it("成果公開後は本人の編集案内と鉛筆を消し、編集を実行�
   expect(onEditSelf).not.toHaveBeenCalled();
 });
 
+it("参加者一覧のほかの人の行は、押すとルームから外す確認へ進むことが名前で分かる", () => {
+  const onSelectMember = vi.fn();
+  const members = buildMembers(2, ME);
+  const other = members.find((member) => member.userId !== ME);
+  if (!other) throw new Error("ほかの参加者がいない");
+  render(<RoomBoardHeader {...setupProps({ members, onSelectMember })} />);
+  fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: `${other.name}：ルームから外す` }),
+  );
+  expect(onSelectMember).toHaveBeenCalledExactlyOnceWith(other.userId);
+});
+
 it("右上のルームメニューからフィードバックを開き、常設入口へ復帰先を渡す", () => {
   const onOpenFeedback = vi.fn();
   setup({ onOpenFeedback });

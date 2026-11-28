@@ -130,7 +130,7 @@ test.each(widths(390, 1280))(
       }
       await members.click();
       await page
-        .getByRole("button", { name: "Hana Sato", exact: true })
+        .getByRole("button", { name: "Hana Sato：ルームから外す", exact: true })
         .waitFor();
     } finally {
       await page.close();

@@ -1256,6 +1256,7 @@
     "unnamed": "No name set",
     "participants": "Participants",
     "editName": "{name}: change display name",
+    "removeFromRoom": "{name}: remove from room",
     "others": "{count} more",
     "otherMembers": "Other participants"
   },
