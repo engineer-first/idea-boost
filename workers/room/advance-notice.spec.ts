@@ -16,7 +16,8 @@ import {
   runInRoomDO,
   startTimerForTest,
 } from "../test-helpers";
-import { getPhase } from "./phase";
+import { RoomBroadcaster } from "./broadcast";
+import { getPhase, getPhaseRevision, phaseHandlers } from "./phase";
 import { getTimerState, saveTimerState } from "./timer";
 
 const host = {
@@ -239,6 +240,122 @@ describe("次のステップへ進む前の予告", () => {
       a.close();
       b.close();
     }
+  });
+
+  it("取り消し済みの古い noticeId の phase:hold では、次に出た別の予告を止められない", async () => {
+    const roomId = await setup();
+    const [a, b] = await connectBoth(roomId);
+    try {
+      await sendNext(a, roomId);
+      const first = await untilType(b, "phase:notice");
+      const hold = JSON.stringify({
+        type: "phase:hold",
+        noticeId: first.notice?.noticeId,
+      });
+      b.ws.send(hold);
+      await untilType(b, "phase:notice");
+      await sendNext(a, roomId);
+      expect((await untilType(b, "phase:notice")).notice).not.toBeNull();
+      b.ws.send(hold);
+      expect(await untilType(b, "error")).toMatchObject({ code: "forbidden" });
+      expect(await noticeRows(roomId)).toHaveLength(1);
+    } finally {
+      a.close();
+      b.close();
+    }
+  });
+
+  it("在籍していない人の phase:hold は予告を取り消さない", async () => {
+    const roomId = await setup();
+    const [a, b] = await connectBoth(roomId);
+    try {
+      await sendNext(a, roomId);
+      const started = await untilType(b, "phase:notice");
+      // 接続は残ったまま、在籍だけが無くなった状態。
+      await runInRoomDO(roomId, (_room, state) => {
+        state.storage.sql.exec(
+          "DELETE FROM members WHERE user_id = ?1",
+          member.sub,
+        );
+      });
+      b.ws.send(
+        JSON.stringify({
+          type: "phase:hold",
+          noticeId: started.notice?.noticeId,
+        }),
+      );
+      expect(await untilType(b, "error")).toMatchObject({ code: "forbidden" });
+      expect(await noticeRows(roomId)).toHaveLength(1);
+    } finally {
+      a.close();
+      b.close();
+    }
+  });
+
+  it("確定前の再検査で送信者の操作権が失われていた phase:next は、予告を作らない", async () => {
+    const roomId = await setup();
+    const rows = await runInRoomDO(roomId, async (_room, state) => {
+      const sql = state.storage.sql;
+      const broadcaster = new RoomBroadcaster(state);
+      broadcaster.connectedUserIds = () => [host.sub, member.sub];
+      // 失効した接続を閉じる処理は、接続の検査（room-do.spec.ts）で確かめる。
+      broadcaster.authorize = () => false;
+      await phaseHandlers["phase:next"](
+        {
+          sql,
+          storage: state.storage,
+          userId: host.sub,
+          ws: new WebSocketPair()[0],
+          reply: () => {},
+          broadcaster,
+          refreshSnapshots: () => {},
+          // 前段の await の間にセッションが期限を過ぎた状態。
+          authorizeMutation: () => false,
+        },
+        {
+          type: "phase:next",
+          expectedPhase: getPhase(sql),
+          expectedRevision: getPhaseRevision(sql),
+        },
+      );
+      return sql.exec("SELECT * FROM advance_notice").toArray();
+    });
+    expect(rows).toEqual([]);
+  });
+
+  it("押した人がルームから外れたら、その人の予告を取り消す", async () => {
+    const roomId = await setup();
+    const [a, b] = await connectBoth(roomId);
+    try {
+      await sendNext(a, roomId);
+      await untilType(b, "phase:notice");
+      await env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)).leave(host.sub);
+      expect(await untilType(b, "phase:notice")).toMatchObject({
+        notice: null,
+        reason: "withdrawn",
+      });
+      expect(await noticeRows(roomId)).toEqual([]);
+    } finally {
+      a.close();
+      b.close();
+    }
+  });
+
+  it("予告の時間が過ぎた時に接続中の人がいなければ、工程を進めずに予告を消す", async () => {
+    const roomId = await setup();
+    const phase = await runInRoomDO(roomId, async (room, state) => {
+      const sql = state.storage.sql;
+      // 切断の通知が届かないまま全員の接続が無効になった状態。
+      sql.exec(
+        "INSERT INTO advance_notice(id,notice_id,phase_revision,cause,initiator_user_id,ends_at,duration_ms) VALUES(1,?,(SELECT phase_revision FROM room_state WHERE id=1),'member',?,0,5000)",
+        crypto.randomUUID(),
+        host.sub,
+      );
+      await room.alarm();
+      return getPhase(sql);
+    });
+    expect(phase).toEqual(step(1, 1));
+    expect(await noticeRows(roomId)).toEqual([]);
   });
 
   it("予告中の2回目の phase:next は終了時刻を延ばさない", async () => {

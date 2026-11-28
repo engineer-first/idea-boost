@@ -41,6 +41,7 @@ import {
   replyForbidden,
   runAuthorizedMutationTransaction,
 } from "./handler-context";
+import { isMember } from "./members";
 import {
   deleteNote,
   excludeNotesForBulkOperation,
@@ -621,6 +622,12 @@ export async function reconcileAdvanceNotice(
       await cancelAdvanceNotice(ctx);
     else if (notice.trigger === "timer" && timer.status !== "ended")
       await cancelAdvanceNotice(ctx, "extended");
+    // 押した人がルームから外れたら、その人の要求は取り下げたものとして扱う。
+    else if (
+      notice.initiatorUserId !== null &&
+      !isMember(ctx.sql, notice.initiatorUserId)
+    )
+      await cancelAdvanceNotice(ctx, "withdrawn");
     else if (blocked) await cancelAdvanceNotice(ctx, "unmet");
     else return false;
   }
@@ -649,6 +656,11 @@ export async function completeDueAdvanceNotice(
   const notice = getAdvanceNotice(ctx.sql);
   if (!notice || notice.endsAt > now) return false;
   const phase = getPhase(ctx.sql);
+  // 切断の通知が届かないまま誰もいなくなったルームは進めない（reconcile と同じ決まり）。
+  if (listConnectedMemberIds(ctx.sql, ctx.broadcaster).length === 0) {
+    await cancelAdvanceNotice(ctx);
+    return false;
+  }
   if (
     notice.phaseRevision !== getPhaseRevision(ctx.sql) ||
     getAdvanceBlock(ctx, phase) !== null
@@ -892,6 +904,11 @@ export const phaseHandlers: MessageHandlers<
     if (getAdvanceNotice(ctx.sql)) return;
     if (listConnectedMemberIds(ctx.sql, ctx.broadcaster).length <= 1) {
       await commitAdvance(ctx, current, message.expectedRevision);
+      return;
+    }
+    // 前段の非同期待機の間に期限・在籍が失われた要求では、予告を始めない。
+    if (ctx.authorizeMutation?.() === false) {
+      ctx.broadcaster.authorize(ctx.ws);
       return;
     }
     await startAdvanceNotice(ctx, "member", ctx.userId);
