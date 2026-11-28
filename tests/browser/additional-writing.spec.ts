@@ -368,7 +368,7 @@ test("共有から縮小で戻り、右端のボタンで開閉しても入力�
   expect(await page.getByTestId("timer-floating").count()).toBe(0);
   expect(await nextStep.textContent()).toContain("次のステップへ");
   expect(
-    await page.getByRole("button", { name: "できた！", exact: true }).count(),
+    await page.getByRole("button", { name: "次の人へ", exact: true }).count(),
   ).toBe(0);
   await addWriting.waitFor({ state: "visible" });
   await page.getByRole("button", { name: "手のひらツール" }).click();

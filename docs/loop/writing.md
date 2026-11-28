@@ -136,7 +136,7 @@ Loop: <build|polish|mend>
 | `KV`                                                     | **キャッシュ・一時保存（KV）**                                                                             | KV を読み書きする変更のとき                      |
 | `api-worker`・`app-worker`・`contracts/`                 | 原則省く（境界自体が変更点のときだけ **API の入口（Workers）**／**画面サーバー（Workers）**）              | 中継層が変わらなければ描かない                   |
 | `PostHog` など外部サービス                               | **利用分析（外部）**／**外部サービス名（外部）**                                                           | データが学外へ出るかどうかを区別する             |
-| `note:move:start`・`visibility: "private"`・`ready` など | **日本語の動作**と[用語集](../glossary.md)の語（例：「付箋の移動を送る」「マイ付箋」「できた！」「除外」） | 実装語を図へ持ち込まない                         |
+| `note:move:start`・`visibility: "private"`・`ready` など | **日本語の動作**と[用語集](../glossary.md)の語（例：「付箋の移動を送る」「マイ付箋」「まって！」「除外」） | 実装語を図へ持ち込まない                         |
 
 ### 見やすさのガード
 
@@ -158,29 +158,43 @@ Loop: <build|polish|mend>
 ```js
 ((target, label) => {
   const el = typeof target === "string" ? document.querySelector(target) : null;
-  if (typeof target === "string" && !el) throw new Error(`not found: ${target}`);
+  if (typeof target === "string" && !el)
+    throw new Error(`not found: ${target}`);
   el?.scrollIntoView({ block: "center" });
   const r = el ? el.getBoundingClientRect() : target;
   const left = Math.max(2, r.left - 4);
   const top = Math.max(2, r.top - 4);
   const right = Math.min(innerWidth - 2, r.left + r.width + 4);
   const bottom = Math.min(innerHeight - 2, r.top + r.height + 4);
-  if (right <= left || bottom <= top) throw new Error("mark is outside the viewport");
+  if (right <= left || bottom <= top)
+    throw new Error("mark is outside the viewport");
   const box = document.createElement("div");
   box.dataset.loopMark = "";
   Object.assign(box.style, {
-    position: "fixed", left: `${left}px`, top: `${top}px`,
-    width: `${right - left}px`, height: `${bottom - top}px`, boxSizing: "border-box",
-    border: "4px solid #e11d48", borderRadius: "8px",
-    pointerEvents: "none", zIndex: "2147483647",
+    position: "fixed",
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${right - left}px`,
+    height: `${bottom - top}px`,
+    boxSizing: "border-box",
+    border: "4px solid #e11d48",
+    borderRadius: "8px",
+    pointerEvents: "none",
+    zIndex: "2147483647",
   });
   if (label) {
     const tag = document.createElement("span");
     tag.textContent = label;
     Object.assign(tag.style, {
-      position: "absolute", left: "-4px", top: top >= 30 ? "-30px" : "0",
-      padding: "3px 10px", background: "#e11d48", color: "#fff",
-      font: "bold 15px sans-serif", borderRadius: "4px", whiteSpace: "nowrap",
+      position: "absolute",
+      left: "-4px",
+      top: top >= 30 ? "-30px" : "0",
+      padding: "3px 10px",
+      background: "#e11d48",
+      color: "#fff",
+      font: "bold 15px sans-serif",
+      borderRadius: "4px",
+      whiteSpace: "nowrap",
     });
     box.append(tag);
   }

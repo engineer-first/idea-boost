@@ -299,11 +299,7 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
       });
       await login(actor, "owner@example.test");
       await login(peer, "member@example.test");
-      const roomConnection = actor.waitForEvent("websocket", (ws) =>
-        ws.url().includes("/api/rooms/"),
-      );
       await prepare(actor, peer, "1-3");
-      const timerSocketUrl = (await roomConnection).url();
       const note = actor
         .getByTestId("board-canvas")
         .getByTestId("note-card")
@@ -320,34 +316,15 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
           path: `${evidence}/unnamed-1-3.png`,
           animations: "disabled",
         });
-      // 工程進行前に、共有タイマーの終了を実RoomDOへ反映する。
-      await actor.evaluate(
-        (url) =>
-          new Promise<void>((resolve, reject) => {
-            const socket = new WebSocket(url);
-            socket.onopen = () =>
-              socket.send(JSON.stringify({ type: "timer:stop" }));
-            socket.onerror = () =>
-              reject(new Error("タイマーの検証接続に失敗しました"));
-            socket.onmessage = (event) => {
-              const message = JSON.parse(event.data);
-              if (
-                message.type === "timer:updated" &&
-                message.timer.status === "ended"
-              ) {
-                socket.close();
-                resolve();
-              }
-            };
-          }),
-        timerSocketUrl,
-      );
+      // 2人が接続しているので、押すと5秒の予告を経て進む。
       await actor
-        .getByRole("button", { name: "次へ進む", exact: true })
+        .getByRole("button", { name: "次のステップへ", exact: true })
         .click();
       for (const page of [actor, peer])
         await expect
-          .poll(() => page.getByTestId("board-location-step").textContent())
+          .poll(() => page.getByTestId("board-location-step").textContent(), {
+            timeout: 15_000,
+          })
           .toBe("投票");
       for (const page of [actor, peer])
         await expect

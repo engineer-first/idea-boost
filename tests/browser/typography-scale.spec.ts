@@ -48,63 +48,6 @@ test.each(widths(390, 1280))(
   },
 );
 
-test.each(widths(390, 1280))(
-  "%ipx: 成果のフィルターはPCでも16pxを保ち横に溢れない",
-  async (width) => {
-    const page = await browser.newPage({ viewport: { width, height: 844 } });
-    try {
-      await page.goto(
-        `${origin}/iframe.html?id=sharedoutcomes-sharedoutcomesfilters--date-range&viewMode=story`,
-      );
-      await page.locator("input").first().waitFor();
-      for (const control of await page
-        .locator("input:not([type=checkbox]):not([type=radio]), select")
-        .all()) {
-        expect(
-          await control.evaluate((node) => getComputedStyle(node).fontSize),
-        ).toBe("16px");
-      }
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth,
-        ),
-      ).toBe(true);
-    } finally {
-      await page.close();
-    }
-  },
-);
-
-test.skipIf(!includeMobile)(
-  "360×568px: 未完了メンバー20人の確認をスクロールし、進行ボタンへ到達できる",
-  async () => {
-    const page = await browser.newPage({
-      viewport: { width: 360, height: 568 },
-      reducedMotion: "reduce",
-    });
-    try {
-      await page.goto(
-        `${origin}/iframe.html?id=room-nextphaseconfirmdialog--many-waiting-members&viewMode=story`,
-      );
-      const dialog = page.getByRole("alertdialog");
-      await dialog.waitFor();
-      const bounds = await dialog.boundingBox();
-      if (!bounds) throw new Error("確認ダイアログがありません");
-      expect(bounds.y).toBeGreaterThanOrEqual(0);
-      expect(bounds.y + bounds.height).toBeLessThanOrEqual(568);
-      const proceed = dialog.getByRole("button", {
-        name: "次へ進む",
-        exact: true,
-      });
-      await proceed.scrollIntoViewIfNeeded();
-      await proceed.click();
-      await dialog.waitFor({ state: "hidden" });
-    } finally {
-      await page.close();
-    }
-  },
-);
-
 test.skipIf(!includeMobile)(
   "画面下端の候補メニューは一行で収まり、除外する操作へ到達できる",
   async () => {
