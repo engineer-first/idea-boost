@@ -71,9 +71,7 @@ async function viewTransform(): Promise<string> {
     .getByTestId("board-scroller")
     .evaluate((element) =>
       Array.from(
-        element.querySelectorAll<HTMLElement>(
-          '[data-testid="board-canvas"], [data-testid="idea-map-viewport"]',
-        ),
+        element.querySelectorAll<HTMLElement>('[data-testid="board-canvas"]'),
         (layer) => layer.style.transform,
       ).join("|"),
     );
@@ -475,6 +473,16 @@ test("3-3から追加執筆へ戻っても2軸マップの配置と表示倍率�
   const note = page
     .getByTestId("board-scroller")
     .locator('[data-note-id="reference-one"]');
+  // 拡大は数フレームかけて動くので、止まってから位置を記録する。
+  let settled = "";
+  await expect
+    .poll(async () => {
+      const current = await viewTransform();
+      const stable = current === settled;
+      settled = current;
+      return stable;
+    })
+    .toBe(true);
   const before = await note.boundingBox();
   await page.getByRole("button", { name: /^\d-1に戻って書き足す$/ }).click();
   await page

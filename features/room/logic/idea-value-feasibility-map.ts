@@ -32,6 +32,72 @@ export function getIdeaValueFeasibilityMapDimensions(level: number): {
   return getIdeaMapDimensions(level);
 }
 
+// ボード上のマップ面は、広さの段階0で1000×563。PC 幅で以前の固定マップと
+// 付箋とマップの比率が同じになる大きさにし、段階ごとにマップ面だけを広げる。
+export const IDEA_MAP_WORLD_SCALE = 0.625;
+// マップ面の左に置く縦軸の欄と、下に置く横軸の欄（ボード上の px）。
+export const IDEA_MAP_WORLD_Y_AXIS_WIDTH = 72;
+export const IDEA_MAP_WORLD_X_AXIS_HEIGHT = 64;
+
+export type IdeaMapWorldRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type IdeaMapWorldLayout = {
+  // 付箋を置くマップ面。中心をボードの原点に固定する。
+  plane: IdeaMapWorldRect;
+  // 全体表示で画面に収める範囲。軸と軸の名前を含む。
+  bounds: IdeaMapWorldRect;
+};
+
+export function getIdeaMapWorldLayout(sizeLevel: number): IdeaMapWorldLayout {
+  const dimensions = getIdeaMapDimensions(sizeLevel);
+  const width = Math.round(dimensions.width * IDEA_MAP_WORLD_SCALE);
+  const height = Math.round(dimensions.height * IDEA_MAP_WORLD_SCALE);
+  const plane = { x: -width / 2, y: -height / 2, width, height };
+  return {
+    plane,
+    bounds: {
+      x: plane.x - IDEA_MAP_WORLD_Y_AXIS_WIDTH,
+      y: plane.y,
+      width: width + IDEA_MAP_WORLD_Y_AXIS_WIDTH,
+      height: height + IDEA_MAP_WORLD_X_AXIS_HEIGHT,
+    },
+  };
+}
+
+/**
+ * ボード上のマップ面に置く付箋の左上（マップ面の左上からの px）。
+ * 評価値を付箋の中心とし、付箋全体がマップ面に収まるよう端で止める。
+ */
+export function getIdeaMapWorldNotePosition(
+  point: IdeaValueFeasibilityPoint,
+  noteHeight: number,
+  plane: { width: number; height: number },
+): { left: number; top: number } {
+  const height = Math.min(
+    IDEA_MAP_VIEWPORT_NOTE_HEIGHT_LIMIT,
+    Math.max(0, noteHeight),
+  );
+  const feasibility = clampIdeaValueFeasibilityMapCoordinate(point.feasibility);
+  const value = clampIdeaValueFeasibilityMapCoordinate(point.value);
+  const clamp = (position: number, max: number) =>
+    Math.min(Math.max(position, 0), Math.max(0, max));
+  return {
+    left: clamp(
+      (feasibility / 100) * plane.width - NOTE_WIDTH / 2,
+      plane.width - NOTE_WIDTH,
+    ),
+    top: clamp(
+      plane.height - (value / 100) * plane.height - height / 2,
+      plane.height - height,
+    ),
+  };
+}
+
 export function getIdeaMapAxisLabelFontSize(sizeLevel: number): number {
   const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
   const mapScale = dimensions.width / IDEA_MAP_BASE_DIMENSIONS.width;
@@ -62,6 +128,8 @@ export function getIdeaMapNoteDisplayMetrics(
   note: { content: string; fontSize: number },
   sizeLevel: number,
   responsiveScale = 1,
+  // 広さによる倍率。ボード上のマップでは付箋の大きさを変えないので 1 を渡す。
+  sizeScale = getIdeaMapNoteDisplayScale(sizeLevel),
 ): IdeaMapNoteDisplayMetrics {
   const safeResponsiveScale =
     Number.isFinite(responsiveScale) && responsiveScale > 0
@@ -71,7 +139,7 @@ export function getIdeaMapNoteDisplayMetrics(
     IDEA_MAP_VIEWPORT_NOTE_HEIGHT_LIMIT,
     getNoteHeight(note.content, note.fontSize),
   );
-  const scale = getIdeaMapNoteDisplayScale(sizeLevel);
+  const scale = sizeScale;
   const visibleScale = scale * safeResponsiveScale;
   return {
     displayHeight: noteHeight * visibleScale,
@@ -138,12 +206,6 @@ export type IdeaMapViewportNotePositionOptions = {
   responsiveScale?: number;
   transformOriginX?: number;
   transformOriginY?: number;
-};
-
-export type IdeaMapViewportNoteResponsivePositions = {
-  compact: IdeaValueFeasibilityMapPosition;
-  desktop: IdeaValueFeasibilityMapPosition;
-  tablet: IdeaValueFeasibilityMapPosition;
 };
 
 export function clampIdeaValueFeasibilityMapCoordinate(
@@ -272,33 +334,6 @@ function getContainedNotePositionFromCenter(
     visibleSize / 2 + transformOffset,
   );
   return `clamp(${min}, ${center}, ${max})`;
-}
-
-export function getIdeaMapViewportNoteResponsivePositions(
-  point: IdeaValueFeasibilityPoint,
-  noteHeight: number,
-  displayScale: number,
-): IdeaMapViewportNoteResponsivePositions {
-  return {
-    compact: getIdeaMapViewportNotePosition(point, noteHeight, {
-      displayScale,
-      responsiveScale: 0.6,
-      transformOriginX: 0.3,
-      transformOriginY: 0.7,
-    }),
-    tablet: getIdeaMapViewportNotePosition(point, noteHeight, {
-      displayScale,
-      responsiveScale: 0.75,
-      transformOriginX: 0.375,
-      transformOriginY: 0.625,
-    }),
-    desktop: getIdeaMapViewportNotePosition(point, noteHeight, {
-      displayScale,
-      responsiveScale: 1,
-      transformOriginX: 0.5,
-      transformOriginY: 0.5,
-    }),
-  };
 }
 
 /**

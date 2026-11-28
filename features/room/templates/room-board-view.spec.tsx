@@ -570,10 +570,7 @@ describe("2軸評価画面の周辺操作", () => {
     expect(screen.getByTestId("board-tools-hud")).toContainElement(
       screen.getByTestId("canvas-zoom-controls"),
     );
-    expect(screen.getByTestId("idea-map-viewport")).toHaveAttribute(
-      "data-map-expanded",
-      "true",
-    );
+    expect(screen.getByTestId("board-tools-hud")).toContainElement(mapSizeHud);
     expect(screen.getByTestId("board-context-column")).toContainElement(
       screen.getByTestId("board-reference-hmw"),
     );
@@ -582,7 +579,6 @@ describe("2軸評価画面の周辺操作", () => {
     );
     expect(screen.queryByTestId("board-help-panel")).not.toBeInTheDocument();
     expect(screen.queryByTestId("board-help-slot")).not.toBeInTheDocument();
-    expect(screen.getByTestId("idea-map-workspace-rail")).toBeInTheDocument();
     expect(
       screen.queryByTestId("private-notes-toolbar"),
     ).not.toBeInTheDocument();
@@ -1048,9 +1044,16 @@ describe("マイ付箋の追加ショートカット", () => {
       ).not.toBeInTheDocument();
       expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
       // 右端の縦長ドックは下端バーではない。fit の下端占有に数えない。
-      expect(screen.getByTestId("private-notes-dock")).not.toHaveAttribute(
-        "data-board-fit-edge",
-      );
+      // ボード上の2軸マップ（3-2）だけは、全体表示でドックの下へマップを入れない。
+      if (phase === 3)
+        expect(screen.getByTestId("private-notes-dock")).toHaveAttribute(
+          "data-board-fit-edge",
+          "right",
+        );
+      else
+        expect(screen.getByTestId("private-notes-dock")).not.toHaveAttribute(
+          "data-board-fit-edge",
+        );
 
       rerender(<TestBoardView {...props} />);
       expect(screen.getByTestId("private-notes-workspace")).toBeInTheDocument();
@@ -4354,6 +4357,97 @@ describe("fit HUDの押せない表示", () => {
     document.body.append(root);
     try {
       expect(getBoardFitInsets(viewport).top).toBe(152);
+    } finally {
+      root.remove();
+    }
+  });
+});
+
+describe("fit HUDの右の欄", () => {
+  it("右に置いた欄は、画面の右端から欄の左端までを右の占有に数える", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 800);
+    root.append(viewport);
+    const wrapper = document.createElement("div");
+    wrapper.dataset.boardFitEdge = "right";
+    wrapper.style.pointerEvents = "none";
+    const dock = document.createElement("div");
+    dock.style.pointerEvents = "auto";
+    dock.getBoundingClientRect = () => new DOMRect(1044, 160, 224, 600);
+    wrapper.append(dock);
+    root.append(wrapper);
+    document.body.append(root);
+    try {
+      expect(getBoardFitInsets(viewport)).toEqual({
+        top: 0,
+        right: 236,
+        bottom: 0,
+        left: 0,
+      });
+    } finally {
+      root.remove();
+    }
+  });
+});
+
+describe("fit HUDの右の欄（左へ動かした浮動要素）", () => {
+  it("右の欄の要素でも、画面の左半分にあるものは右の占有に数えない", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 800);
+    root.append(viewport);
+    const timer = document.createElement("fieldset");
+    timer.dataset.boardFitEdge = "right";
+    timer.dataset.boardFitMovable = "true";
+    timer.style.pointerEvents = "auto";
+    // タイマーを左上へ動かした状態。
+    timer.getBoundingClientRect = () => new DOMRect(40, 80, 80, 80);
+    root.append(timer);
+    document.body.append(root);
+    try {
+      expect(getBoardFitInsets(viewport).right).toBe(0);
+    } finally {
+      root.remove();
+    }
+  });
+  it("動かせる浮動要素を画面の中央をまたぐ位置へ動かしたときも、右の占有に数えない", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 800);
+    root.append(viewport);
+    const timer = document.createElement("fieldset");
+    timer.dataset.boardFitEdge = "right";
+    timer.dataset.boardFitMovable = "true";
+    timer.style.pointerEvents = "auto";
+    timer.getBoundingClientRect = () => new DOMRect(600, 20, 80, 80);
+    root.append(timer);
+    document.body.append(root);
+    try {
+      expect(getBoardFitInsets(viewport).right).toBe(0);
+    } finally {
+      root.remove();
+    }
+  });
+
+  it("スマホ縦幅で左半分まで広がる右の欄も、右の占有に数える", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 360, 720);
+    root.append(viewport);
+    const dock = document.createElement("div");
+    dock.dataset.boardFitEdge = "right";
+    dock.style.pointerEvents = "auto";
+    dock.getBoundingClientRect = () => new DOMRect(108, 160, 240, 400);
+    root.append(dock);
+    document.body.append(root);
+    try {
+      // 欄の幅は252pxだが、マップを収める幅を半分は残す。
+      expect(getBoardFitInsets(viewport).right).toBe(180);
     } finally {
       root.remove();
     }

@@ -19,6 +19,8 @@ export type RoomTimerProps = {
   onExtend?: () => void;
   now?: () => number;
   initialDurationMs?: number;
+  /** 全体表示でボードの右の欄として避けさせる（2軸マップのステップ）。 */
+  fitEdge?: "right";
 };
 
 const systemNow = (): number => Date.now();
@@ -32,6 +34,7 @@ export function RoomTimer({
   onExtend,
   now: getNow = systemNow,
   initialDurationMs = TIMER_DEFAULT_DURATION_MS,
+  fitEdge,
 }: RoomTimerProps) {
   const locale = useLocale();
   const t = useTranslations("app.boardTimer");
@@ -111,6 +114,8 @@ export function RoomTimer({
       data-urgency={display.urgency}
       data-dragging={dragging}
       data-board-native-control
+      data-board-fit-edge={fitEdge}
+      data-board-fit-movable={fitEdge ? "true" : undefined}
       aria-label={t("instructions")}
       {...floating}
       onBlurCapture={(event) => {

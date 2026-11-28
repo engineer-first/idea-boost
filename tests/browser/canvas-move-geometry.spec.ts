@@ -38,7 +38,7 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
         .click();
     await page.waitForFunction(() =>
       document
-        .querySelector<HTMLElement>('[data-testid="idea-map-viewport"]')
+        .querySelector<HTMLElement>('[data-testid="board-canvas"]')
         ?.style.transform.includes("scale(0.209715"),
     );
     const note = page
@@ -49,9 +49,7 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
       .boundingBox();
     if (!box) throw new Error("fixture note missing");
     const before = await centers(page);
-    const camera = await page
-      .getByTestId("idea-map-viewport")
-      .getAttribute("style");
+    const camera = await page.getByTestId("board-canvas").getAttribute("style");
     const dragStart = {
       x: box.x + box.width * 0.05,
       y: box.y + box.height * 0.1,
@@ -63,9 +61,9 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
       .poll(async () => (await centers(page))[1].x - before[1].x)
       .toBeGreaterThan(10);
     const preview = await centers(page);
-    expect(
-      await page.getByTestId("idea-map-viewport").getAttribute("style"),
-    ).toBe(camera);
+    expect(await page.getByTestId("board-canvas").getAttribute("style")).toBe(
+      camera,
+    );
     for (const [index, center] of preview.entries()) {
       expect(center.x - before[index].x).toBeCloseTo(
         preview[0].x - before[0].x,

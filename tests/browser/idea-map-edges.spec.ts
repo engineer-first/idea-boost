@@ -29,7 +29,7 @@ test.each(widths(390, 900))(
       await page.goto(
         `${origin}/iframe.html?id=room-roomboardview--idea-map-decision-edges&viewMode=story`,
       );
-      await page.getByTestId("idea-map-viewport-plane").waitFor();
+      await page.getByTestId("idea-value-feasibility-map-plane").waitFor();
       await page.evaluate(() => document.fonts.ready);
       const wrapper = page.getByTestId(
         "idea-value-feasibility-map-note-map-edge-movable",
@@ -37,7 +37,7 @@ test.each(widths(390, 900))(
       const note = wrapper.getByTestId("note-card");
       const before = await note.boundingBox();
       if (!before) throw new Error("移動する付箋がありません");
-      const plane = await bounds(page, "idea-map-viewport-plane");
+      const plane = await bounds(page, "idea-value-feasibility-map-plane");
       await page.mouse.move(
         before.x + before.width / 2,
         before.y + before.height / 2,
@@ -85,14 +85,14 @@ test.each(
           await page.goto(
             `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story&args=ideaMapSizeLevel:${level}`,
           );
-          await page.getByTestId("idea-map-viewport-plane").waitFor();
+          await page.getByTestId("idea-value-feasibility-map-plane").waitFor();
           await page.evaluate(() => document.fonts.ready);
           await page.keyboard.press("Escape");
           if (phase === "3-2")
             expect(
               await page.getByRole("textbox", { name: "付箋を書く" }).count(),
             ).toBe(0);
-          const plane = await bounds(page, "idea-map-viewport-plane");
+          const plane = await bounds(page, "idea-value-feasibility-map-plane");
           const note = page
             .getByTestId("idea-value-feasibility-map-note-map-edge-movable")
             .getByTestId("note-card");
@@ -131,34 +131,61 @@ test.each(
           const preview = await note.boundingBox();
           await page.mouse.up();
           await expect.poll(() => note.boundingBox()).toEqual(preview);
-          expect(await bounds(page, "idea-map-viewport-plane")).toEqual(plane);
+          expect(
+            await bounds(page, "idea-value-feasibility-map-plane"),
+          ).toEqual(plane);
           if (level === 4 && corner === "bottom-right" && phase !== "3-5") {
             const edge = await note.boundingBox();
             if (!edge) throw new Error("端に置いた付箋がありません");
+            // 付箋の大きさは変えず、保存した評価値（付箋の中心）の位置へ置き直す。
+            // マップが広がった分だけ端から離れるが、マップの中の相対位置は保つ。
+            const relative = (
+              rect: { x: number; y: number; width: number; height: number },
+              area: { x: number; y: number; width: number; height: number },
+            ) => ({
+              x: (rect.x + rect.width / 2 - area.x) / area.width,
+              y: (rect.y + rect.height / 2 - area.y) / area.height,
+            });
+            const edgePlane = await bounds(
+              page,
+              "idea-value-feasibility-map-plane",
+            );
+            const before = relative(edge, edgePlane);
             await page
               .getByRole("button", { name: "マップを広くする", exact: true })
               .click();
             await expect
-              .poll(async () => (await note.boundingBox())?.width ?? Infinity)
-              .toBeLessThan(edge.width);
-            await expect
               .poll(async () => {
-                const smaller = await note.boundingBox();
-                if (!smaller) return Infinity;
+                const moved = await note.boundingBox();
+                const wider = await page
+                  .getByTestId("idea-value-feasibility-map-plane")
+                  .boundingBox();
+                if (!moved || !wider || wider.width === edgePlane.width)
+                  return Number.POSITIVE_INFINITY;
+                const after = relative(moved, wider);
                 return Math.max(
-                  Math.abs(
-                    smaller.x + smaller.width / 2 - edge.x - edge.width / 2,
-                  ),
-                  Math.abs(
-                    smaller.y + smaller.height / 2 - edge.y - edge.height / 2,
-                  ),
+                  Math.abs(after.x - before.x),
+                  Math.abs(after.y - before.y),
                 );
               })
-              .toBeLessThan(0.5);
+              .toBeLessThan(0.01);
             await page
               .getByRole("button", { name: "マップを狭くする", exact: true })
               .click();
-            await expect.poll(() => note.boundingBox()).toEqual(edge);
+            // 元の広さへ戻すと、付箋はまたマップの右下の隅に収まる。
+            await expect
+              .poll(async () => {
+                const back = await note.boundingBox();
+                const narrower = await page
+                  .getByTestId("idea-value-feasibility-map-plane")
+                  .boundingBox();
+                if (!back || !narrower) return Number.POSITIVE_INFINITY;
+                return Math.max(
+                  Math.abs(back.x + back.width - narrower.x - narrower.width),
+                  Math.abs(back.y + back.height - narrower.y - narrower.height),
+                );
+              })
+              .toBeLessThan(0.5);
           }
           await page.screenshot({
             path: `${output}/${phase}-${width}-${level}-${corner}.png`,
@@ -180,8 +207,8 @@ test("3-4では四隅の付箋を同じ座標で表示し、投票中の移動�
       await page.goto(
         `${origin}/iframe.html?id=room-roomboardview--idea-map-voting-edges&viewMode=story&args=ideaMapSizeLevel:${level}`,
       );
-      await page.getByTestId("idea-map-viewport-plane").waitFor();
-      const plane = await bounds(page, "idea-map-viewport-plane");
+      await page.getByTestId("idea-value-feasibility-map-plane").waitFor();
+      const plane = await bounds(page, "idea-value-feasibility-map-plane");
       for (let index = 0; index < 4; index++) {
         const note = page
           .getByTestId(`idea-value-feasibility-map-note-map-edge-${index}`)

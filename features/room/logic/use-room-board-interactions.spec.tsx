@@ -9,7 +9,9 @@ import {
   buildNote,
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
-import { getIdeaMapNoteDisplayScale } from "./idea-value-feasibility-map";
+import { fitCanvasCamera } from "./canvas-camera";
+import { getIdeaMapWorldLayout } from "./idea-value-feasibility-map";
+import { IDEA_MAP_FIT_PADDING } from "./use-canvas-camera";
 import { useRoomBoardInteractions } from "./use-room-board-interactions";
 
 function setup({
@@ -112,6 +114,16 @@ function setup({
 function attachToDocument(element: HTMLElement) {
   document.body.append(element);
   onTestFinished(() => element.remove());
+}
+
+// ボード上のマップ面。画面上の矩形と、ボードの拡大率から求まる元の幅を持つ。
+function mapPlane(rect: DOMRect, zoom: number): HTMLDivElement {
+  const plane = document.createElement("div");
+  plane.style.setProperty("--idea-map-note-scale", "1");
+  Object.defineProperty(plane, "clientWidth", { value: rect.width / zoom });
+  plane.getBoundingClientRect = () => rect;
+  attachToDocument(plane);
+  return plane;
 }
 
 describe("useRoomBoardInteractions cursor input", () => {
@@ -416,7 +428,7 @@ describe("useRoomBoardInteractions cursor input", () => {
   });
 
   it.each([2, 3, 5])(
-    "3-%iの縮小表示付箋を上端・右端まで動かすと外側の辺を枠に合わせる",
+    "3-%iの縮小して見ている付箋を上端・右端まで動かすと外側の辺を枠に合わせる",
     (step) => {
       const { result, onNoteDragEnd, onNoteDragMove, viewport } = setup({
         phase: buildPhaseStep(step, 3),
@@ -425,13 +437,8 @@ describe("useRoomBoardInteractions cursor input", () => {
         draggingNoteId: "shared-1",
         ideaMapSizeLevel: 2,
       });
-      const plane = document.createElement("div");
-      plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
-      plane.style.setProperty(
-        "--idea-map-note-scale",
-        String(100 / (NOTE_WIDTH * getIdeaMapNoteDisplayScale(2))),
-      );
-      attachToDocument(plane);
+      // ボード上のマップを0.5倍で見ている。付箋は200×150の半分に見える。
+      const plane = mapPlane(new DOMRect(100, 100, 400, 200), 0.5);
       result.current.ideaMapPlaneRef.current = plane;
 
       act(() =>
@@ -471,22 +478,18 @@ describe("useRoomBoardInteractions cursor input", () => {
   );
 
   it.each([0.6, 0.75])(
-    "採用ボタンからのドラッグも表示倍率%sでマップ端へ配置する",
-    (responsiveScale) => {
+    "採用ボタンからのドラッグも拡大率%sでマップ端へ配置する",
+    (zoom) => {
       const { result, onNoteDragEnd, viewport } = setup({
         phase: buildPhaseStep(5, 3),
         withSharedDrag: true,
         sharedNotePosition: { x: 40, y: 40 },
         ideaMapSizeLevel: 2,
       });
-      const scale = getIdeaMapNoteDisplayScale(2);
-      const width = NOTE_WIDTH * scale;
+      const width = NOTE_WIDTH * zoom;
       const height =
-        getNoteHeight(buildNote().content, buildNote().fontSize) * scale;
-      const plane = document.createElement("div");
-      plane.style.setProperty("--idea-map-note-scale", String(responsiveScale));
-      attachToDocument(plane);
-      plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
+        getNoteHeight(buildNote().content, buildNote().fontSize) * zoom;
+      const plane = mapPlane(new DOMRect(100, 100, 400, 200), zoom);
       result.current.ideaMapPlaneRef.current = plane;
       act(() =>
         result.current.onNoteDragStart("shared-1", {
@@ -508,14 +511,14 @@ describe("useRoomBoardInteractions cursor input", () => {
       );
       expect(onNoteDragEnd).toHaveBeenCalledWith(
         "shared-1",
-        expect.closeTo(100 - ((width * responsiveScale) / 2 / 400) * 100),
-        expect.closeTo(100 - ((height * responsiveScale) / 2 / 200) * 100),
+        expect.closeTo(100 - (width / 2 / 400) * 100),
+        expect.closeTo(100 - (height / 2 / 200) * 100),
       );
     },
   );
 
   it.each([3, 4, 5])(
-    "3-%iの固定マップ表示中はカメラの全体表示操作を無効にする",
+    "3-%iの全体表示は、ボード上のマップ全体に合わせる",
     (step) => {
       const { result, viewport } = setup({
         phase: buildPhaseStep(step, 3),
@@ -523,11 +526,16 @@ describe("useRoomBoardInteractions cursor input", () => {
         ideaMapSizeInitialized: true,
       });
       result.current.boardScrollerRef.current = viewport;
-      const camera = result.current.camera;
 
-      act(() => expect(result.current.onFitToNotes()).toBe(false));
+      act(() => expect(result.current.onFitToNotes()).toBe(true));
 
-      expect(result.current.camera).toEqual(camera);
+      expect(result.current.camera).toEqual(
+        fitCanvasCamera(
+          getIdeaMapWorldLayout(1).bounds,
+          { width: 800, height: 600 },
+          IDEA_MAP_FIT_PADDING,
+        ),
+      );
     },
   );
 
@@ -558,7 +566,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(onNoteDragStart).not.toHaveBeenCalled();
   });
 
-  it("3-2のマイ付箋はトレイ外で現在のマップ倍率に切り替わり、掴んだ位置を保つ", () => {
+  it("3-2のマイ付箋はトレイ外でマップの見えている大きさに切り替わり、掴んだ位置を保つ", () => {
     const note = buildNote({
       id: "private-map-preview",
       content: "マップへ置く案",
@@ -581,13 +589,14 @@ describe("useRoomBoardInteractions cursor input", () => {
       }),
       ideaMapSizeLevel: 2,
     });
-    const mapPositionArea = document.createElement("div");
-    mapPositionArea.style.setProperty("--idea-map-note-scale", "0.75");
-    attachToDocument(mapPositionArea);
-    mapPositionArea.getBoundingClientRect = () => new DOMRect(0, 0, 600, 500);
-    document.body.append(mapPositionArea);
+    const mapPositionArea = mapPlane(new DOMRect(0, 0, 600, 500), 0.75);
     result.current.ideaMapPlaneRef.current = mapPositionArea;
     toolbar.getBoundingClientRect = () => new DOMRect(600, 100, 200, 500);
+    act(() => {
+      result.current.onFitToNotes();
+    });
+    const zoom = result.current.camera.zoom;
+    expect(zoom).toBeLessThan(1);
 
     const noteCard = document.createElement("button");
     noteCard.getBoundingClientRect = () => new DOMRect(600, 200, 200, 150);
@@ -614,7 +623,7 @@ describe("useRoomBoardInteractions cursor input", () => {
 
       const preview = result.current.dragPreview;
       if (!preview) throw new Error("マイ付箋のドラッグプレビューがありません");
-      const scale = getIdeaMapNoteDisplayScale(2) * 0.75;
+      const scale = zoom;
       const displayedHeight =
         getNoteHeight(note.content, note.fontSize) * scale;
       expect(preview.width).toBeCloseTo(NOTE_WIDTH * scale);
@@ -649,10 +658,7 @@ describe("useRoomBoardInteractions cursor input", () => {
       }),
       ideaMapSizeLevel: 2,
     });
-    const plane = document.createElement("div");
-    plane.style.setProperty("--idea-map-note-scale", "0.75");
-    attachToDocument(plane);
-    plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
+    const plane = mapPlane(new DOMRect(100, 100, 400, 200), 0.75);
     result.current.ideaMapPlaneRef.current = plane;
     toolbar.getBoundingClientRect = () => new DOMRect(600, 100, 200, 500);
 
@@ -676,7 +682,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     );
 
     const [publishedId, x, y] = onPrivateNotePublish.mock.calls[0];
-    const scale = getIdeaMapNoteDisplayScale(2) * 0.75;
+    const scale = 0.75;
     expect(publishedId).toBe(note.id);
     expect(x).toBeCloseTo(100 - ((NOTE_WIDTH * scale) / 2 / 400) * 100);
     expect(y).toBeCloseTo(

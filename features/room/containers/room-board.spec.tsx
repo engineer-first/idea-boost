@@ -840,7 +840,9 @@ it.each([1, 2, 3] as const)(
       value: () => new DOMRect(0, 0, 500, 400),
     });
     if (phase === 3) {
-      const mapPositionArea = screen.getByTestId("idea-map-viewport-plane");
+      const mapPositionArea = screen.getByTestId(
+        "idea-value-feasibility-map-plane",
+      );
       Object.defineProperty(mapPositionArea, "getBoundingClientRect", {
         value: () => new DOMRect(0, 0, 400, 400),
       });
@@ -1235,7 +1237,9 @@ describe("サーバーメッセージ → 画面反映", () => {
       ideaMapSizeInitialized: true,
     });
 
-    expect(screen.getByTestId("idea-map-layout")).toBeInTheDocument();
+    expect(screen.getByTestId("board-canvas")).toContainElement(
+      screen.getByTestId("idea-value-feasibility-map"),
+    );
     const map = screen.getByTestId("idea-value-feasibility-map-plane");
     expect(map).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
@@ -3538,18 +3542,14 @@ describe("Step 3-1（アイデア個人執筆）", () => {
 });
 
 describe("Step 3-2〜3-5（2軸マッピング）", () => {
-  it("Step 3-3は固定マップを表示し、MyNotes非表示でもマップ領域を維持する", () => {
+  it("Step 3-3はボード上にマップを表示し、マイ付箋を出さない", () => {
     const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
       phase: buildPhaseStep(3, 3),
     });
     const plane = screen.getByTestId("idea-value-feasibility-map-plane");
     const world = screen.getByTestId("board-canvas");
     expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
-    expect(screen.getByTestId("idea-map-workspace-rail")).toBeInTheDocument();
-    expect(plane).toContainElement(
-      screen.getByTestId("idea-map-viewport-plane"),
-    );
-    expect(world).toHaveStyle({ transform: "none" });
+    expect(world).toContainElement(plane);
     expect(
       socket.sent
         .map((raw) => JSON.parse(raw))
@@ -3579,7 +3579,9 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
           height: 600,
         }),
       });
-      const positionArea = screen.getByTestId("idea-map-viewport-plane");
+      const positionArea = screen.getByTestId(
+        "idea-value-feasibility-map-plane",
+      );
       Object.defineProperty(positionArea, "getBoundingClientRect", {
         value: () => ({
           left: 100,
@@ -3594,9 +3596,6 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       const mappedNote = within(plane).getByTestId(
         "idea-value-feasibility-map-note-cccccccc-cccc-4ccc-8ccc-cccccccccccc",
       );
-      expect(mappedNote).toHaveStyle({
-        transform: "scale(1)",
-      });
       const note = within(mappedNote).getByTestId("note-card");
 
       const surface = within(note).getByRole("button", { name: "付箋" });
@@ -3654,7 +3653,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
         height: 600,
       }),
     });
-    const positionArea = screen.getByTestId("idea-map-viewport-plane");
+    const positionArea = screen.getByTestId("idea-value-feasibility-map-plane");
     Object.defineProperty(positionArea, "getBoundingClientRect", {
       value: () => ({
         left: 100,

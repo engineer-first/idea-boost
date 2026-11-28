@@ -10,15 +10,10 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  getNoteHeight,
-  IDEA_MAP_BASE_DIMENSIONS,
-  NOTE_WIDTH,
-} from "@/contracts/board";
+import { getNoteHeight, NOTE_WIDTH } from "@/contracts/board";
 import type { Note } from "@/features/notes";
 import {
   CANVAS_FIT_PADDING,
-  type CanvasBounds,
   type CanvasCamera,
   type CanvasFitInsets,
   type CanvasPoint,
@@ -30,7 +25,7 @@ import {
   screenToWorld,
   zoomAtScreenPoint,
 } from "./canvas-camera";
-import { getIdeaValueFeasibilityMapDimensions } from "./idea-value-feasibility-map";
+import { getIdeaMapWorldLayout } from "./idea-value-feasibility-map";
 
 type CanvasPan = {
   pointerId: number;
@@ -50,8 +45,6 @@ type UseCanvasCameraArgs = {
   onManualPanStart?: () => void;
   // ユーザー自身によるズーム変更後の倍率を通知する。
   onZoomChange?: (zoom: number) => void;
-  // 固定2軸マップ表示中はボードの視野を動かさない。
-  navigationDisabled?: boolean;
   // 追加執筆中の閲覧は既存の共有画面のカメラと分け、終了時に元へ戻す。
   temporaryView?: boolean;
   // 閲覧中のボードは選択ツールでも背景ドラッグで移動する。
@@ -63,6 +56,10 @@ type UseCanvasCameraArgs = {
   getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
+  // 2軸マップのステップ。変わったら、自分で動かした後でも全体表示に合わせ直す。
+  ideaMapFitKey?: string;
+  // 周りの案内が入れ替わる合図（発表の順番など）。まだ動かしていなければ合わせ直す。
+  ideaMapRefitKey?: string;
 };
 
 function viewportSize(element: HTMLDivElement): {
@@ -101,79 +98,23 @@ function notesBounds(notes: Note[]) {
   };
 }
 
-// マップの百分率座標を通常ボードのpx座標として扱わず、描画済みの付箋を
-// 本人のカメラのワールド座標へ戻す。共有状態にはブラウザの計測を保存しない。
-function renderedNotesBounds(
-  viewport: HTMLDivElement,
-  camera: CanvasCamera,
-): CanvasBounds | null {
-  const viewportRect = viewport.getBoundingClientRect();
-  const rectangles = Array.from(
-    viewport.querySelectorAll<HTMLDivElement>("[data-testid='note-card']"),
-    (element) => element.getBoundingClientRect(),
-  ).filter((rect) => rect.width > 0 && rect.height > 0);
-  if (rectangles.length === 0) return null;
-  const topLeft = screenToWorld(
-    {
-      x: Math.min(...rectangles.map((rect) => rect.left)) - viewportRect.left,
-      y: Math.min(...rectangles.map((rect) => rect.top)) - viewportRect.top,
-    },
-    camera,
-  );
-  const bottomRight = screenToWorld(
-    {
-      x: Math.max(...rectangles.map((rect) => rect.right)) - viewportRect.left,
-      y: Math.max(...rectangles.map((rect) => rect.bottom)) - viewportRect.top,
-    },
-    camera,
-  );
-  return {
-    ...topLeft,
-    width: bottomRight.x - topLeft.x,
-    height: bottomRight.y - topLeft.y,
-  };
-}
+// 2軸マップの全体表示で、軸の外側に残す余白。周りの操作欄は insets で避ける。
+export const IDEA_MAP_FIT_PADDING = 24;
 
+// 2軸マップはボード上の決まった位置にあるので、画面の大きさに関係なく
+// 軸まで含めたマップ全体を、周りの操作欄を除いた範囲へ収める。
 function fitIdeaMapCamera(
   viewport: {
     width: number;
     height: number;
   },
   sizeLevel: number,
-  noteBounds: CanvasBounds | null = null,
   insets?: CanvasFitInsets,
 ): CanvasCamera | null {
-  const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
-  const mapBounds: CanvasBounds = {
-    x: (viewport.width - IDEA_MAP_BASE_DIMENSIONS.width) / 2,
-    y:
-      viewport.height / 2 +
-      IDEA_MAP_BASE_DIMENSIONS.height / 2 -
-      dimensions.height,
-    width: dimensions.width,
-    height: dimensions.height,
-  };
-  if (!noteBounds)
-    return fitCanvasCamera(mapBounds, viewport, undefined, insets);
-  const x = Math.min(mapBounds.x, noteBounds.x);
-  const y = Math.min(mapBounds.y, noteBounds.y);
   return fitCanvasCamera(
-    {
-      x,
-      y,
-      width:
-        Math.max(
-          mapBounds.x + mapBounds.width,
-          noteBounds.x + noteBounds.width,
-        ) - x,
-      height:
-        Math.max(
-          mapBounds.y + mapBounds.height,
-          noteBounds.y + noteBounds.height,
-        ) - y,
-    },
+    getIdeaMapWorldLayout(sizeLevel).bounds,
     viewport,
-    undefined,
+    IDEA_MAP_FIT_PADDING,
     insets,
   );
 }
@@ -183,7 +124,6 @@ export function useCanvasCamera({
   onZoomChange,
   viewportRef,
   notes,
-  navigationDisabled = false,
   temporaryView = false,
   panOnBackground = false,
   selectedNoteIds,
@@ -192,6 +132,8 @@ export function useCanvasCamera({
   getFitInsets,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = true,
+  ideaMapFitKey,
+  ideaMapRefitKey,
 }: UseCanvasCameraArgs) {
   const baseZoom = fitViewport ? 1 : DEFAULT_CANVAS_ZOOM;
   const [camera, setCamera] = useState<CanvasCamera>({
@@ -223,6 +165,8 @@ export function useCanvasCamera({
   const hasDefaultedRef = useRef(false);
   const hasFitRef = useRef(false);
   const hasFitIdeaMapRef = useRef(false);
+  // 最後に2軸マップへ合わせたカメラ。今のカメラと同じなら、まだ自分で動かしていない。
+  const ideaMapFitCameraRef = useRef<CanvasCamera | null>(null);
   const ideaMapSizeLevelRef = useRef(ideaMapSizeLevel);
   ideaMapSizeLevelRef.current = ideaMapSizeLevel;
   const spacePressedRef = useRef(false);
@@ -296,7 +240,7 @@ export function useCanvasCamera({
   const followWorldCenter = useCallback(
     (center: CanvasPoint, requestedZoom: number) => {
       const element = viewportRef.current;
-      if (!element || navigationDisabled || panRef.current) return;
+      if (!element || panRef.current) return;
 
       const size = viewportSize(element);
       if (!size) return;
@@ -363,7 +307,7 @@ export function useCanvasCamera({
 
       followFrameRef.current = window.requestAnimationFrame(animate);
     },
-    [baseZoom, cancelScheduledCamera, navigationDisabled, viewportRef],
+    [baseZoom, cancelScheduledCamera, viewportRef],
   );
 
   const getViewportPoint = useCallback(
@@ -387,24 +331,13 @@ export function useCanvasCamera({
   const fitToNotes = useCallback(
     (insets?: CanvasFitInsets): boolean => {
       const element = viewportRef.current;
-      if (
-        !element ||
-        navigationDisabled ||
-        gestureBlockedRef.current ||
-        panRef.current
-      )
-        return false;
+      if (!element || gestureBlockedRef.current || panRef.current) return false;
       const size = viewportSize(element);
       if (!size) return false;
       const safeInsets = insets ?? getFitInsetsRef.current?.(element);
       const bounds = fitViewport ? null : notesBounds(notesRef.current);
       const next = fitViewport
-        ? fitIdeaMapCamera(
-            size,
-            ideaMapSizeLevelRef.current,
-            renderedNotesBounds(element, cameraRef.current),
-            safeInsets,
-          )
+        ? fitIdeaMapCamera(size, ideaMapSizeLevelRef.current, safeInsets)
         : bounds
           ? fitCanvasCamera(
               bounds,
@@ -417,17 +350,12 @@ export function useCanvasCamera({
           : getDefaultCanvasCamera(size);
       if (!next) return false;
       hasFitRef.current = true;
+      if (fitViewport) ideaMapFitCameraRef.current = next;
       setCameraImmediately(next);
       onZoomChangeRef.current?.(next.zoom);
       return true;
     },
-    [
-      baseZoom,
-      fitViewport,
-      navigationDisabled,
-      setCameraImmediately,
-      viewportRef,
-    ],
+    [baseZoom, fitViewport, setCameraImmediately, viewportRef],
   );
 
   const fitToSelection = useCallback((): boolean => {
@@ -461,7 +389,6 @@ export function useCanvasCamera({
       const element = viewportRef.current;
       if (
         !element ||
-        navigationDisabled ||
         !Number.isFinite(requestedZoom) ||
         gestureBlockedRef.current ||
         panRef.current
@@ -486,13 +413,7 @@ export function useCanvasCamera({
       scheduleCamera(next);
       onZoomChangeRef.current?.(next.zoom);
     },
-    [
-      baseZoom,
-      cancelFollowAnimation,
-      navigationDisabled,
-      scheduleCamera,
-      viewportRef,
-    ],
+    [baseZoom, cancelFollowAnimation, scheduleCamera, viewportRef],
   );
 
   const endPan = useCallback(() => {
@@ -506,17 +427,12 @@ export function useCanvasCamera({
     }
   }, [viewportRef]);
 
-  useEffect(() => {
-    if (!navigationDisabled) return;
-    spacePressedRef.current = false;
-    endPan();
-  }, [endPan, navigationDisabled]);
-
   const savedViewRef = useRef<{
     camera: CanvasCamera;
     hasFit: boolean;
     hasDefaulted: boolean;
     hasFitIdeaMap: boolean;
+    wasIdeaMapFit: boolean;
   } | null>(null);
   useLayoutEffect(() => {
     if (temporaryView) {
@@ -526,6 +442,7 @@ export function useCanvasCamera({
           hasFit: hasFitRef.current,
           hasDefaulted: hasDefaultedRef.current,
           hasFitIdeaMap: hasFitIdeaMapRef.current,
+          wasIdeaMapFit: ideaMapFitCameraRef.current === cameraRef.current,
         };
       return;
     }
@@ -540,6 +457,8 @@ export function useCanvasCamera({
     hasDefaultedRef.current = saved.hasDefaulted;
     hasFitIdeaMapRef.current = saved.hasFitIdeaMap;
     setCameraImmediately(saved.camera);
+    // 全体表示のまま書き足しへ入ったなら、戻した後も「まだ動かしていない」として扱う。
+    if (saved.wasIdeaMapFit) ideaMapFitCameraRef.current = cameraRef.current;
   }, [
     temporaryView,
     endPan,
@@ -554,7 +473,6 @@ export function useCanvasCamera({
       if (!panRef.current) suppressClickRef.current = false;
       if (
         panRef.current ||
-        navigationDisabled ||
         gestureBlockedRef.current ||
         isEditableTarget(target) ||
         target.closest("[data-board-native-control]")
@@ -596,7 +514,7 @@ export function useCanvasCamera({
       suppressClickRef.current = true;
       setIsPanning(true);
     },
-    [cancelFollowAnimation, navigationDisabled, panOnBackground],
+    [cancelFollowAnimation, panOnBackground],
   );
 
   const handlePointerMove = useCallback(
@@ -628,7 +546,6 @@ export function useCanvasCamera({
   const handleWheel = useCallback(
     (event: WheelEvent) => {
       if (
-        navigationDisabled ||
         gestureBlockedRef.current ||
         panRef.current ||
         isEditableTarget(event.target)
@@ -674,7 +591,6 @@ export function useCanvasCamera({
     [
       cancelFollowAnimation,
       getViewportPoint,
-      navigationDisabled,
       scheduleCamera,
       zoomTo,
       viewportRef,
@@ -684,7 +600,6 @@ export function useCanvasCamera({
   useEffect(() => {
     if (
       temporaryView ||
-      navigationDisabled ||
       !isViewportEnabled ||
       !fitViewport ||
       !ideaMapSizeInitialized ||
@@ -698,10 +613,10 @@ export function useCanvasCamera({
       const next = fitIdeaMapCamera(
         size,
         ideaMapSizeLevelRef.current,
-        renderedNotesBounds(element, cameraRef.current),
         getFitInsetsRef.current?.(element),
       );
       if (next) {
+        ideaMapFitCameraRef.current = next;
         setCameraImmediately(next);
         hasFitIdeaMapRef.current = true;
       }
@@ -710,8 +625,70 @@ export function useCanvasCamera({
     temporaryView,
     fitViewport,
     ideaMapSizeInitialized,
-    navigationDisabled,
     isViewportEnabled,
+    setCameraImmediately,
+    viewportRef,
+  ]);
+
+  // 広さ・周りの案内・ステップが変わったときに全体表示へ合わせ直す。
+  // ステップが変わったときは周りの操作欄（マイ付箋の欄・投票の欄など）が入れ替わるので
+  // 自分で動かした後でも合わせ直し、広さや案内だけが変わったときは、まだ動かしていない場合に限る。
+  const ideaMapRefitRef = useRef({
+    sizeLevel: ideaMapSizeLevel,
+    fitKey: ideaMapFitKey,
+    refitKey: ideaMapRefitKey,
+  });
+  useEffect(() => {
+    // 3-1の書き足し中は覚えているステップを変えず、戻ったときに書き足し前と比べる。
+    // 同じステップへ戻ったなら、保存から戻したカメラを全体表示で上書きしない。
+    if (temporaryView) return;
+    const previous = ideaMapRefitRef.current;
+    if (
+      previous.sizeLevel === ideaMapSizeLevel &&
+      previous.fitKey === ideaMapFitKey &&
+      previous.refitKey === ideaMapRefitKey
+    )
+      return;
+    ideaMapRefitRef.current = {
+      sizeLevel: ideaMapSizeLevel,
+      fitKey: ideaMapFitKey,
+      refitKey: ideaMapRefitKey,
+    };
+    if (
+      !isViewportEnabled ||
+      !fitViewport ||
+      !hasFitIdeaMapRef.current ||
+      typeof window === "undefined"
+    )
+      return;
+    if (previous.fitKey !== ideaMapFitKey)
+      ideaMapFitCameraRef.current = cameraRef.current;
+    if (ideaMapFitCameraRef.current !== cameraRef.current) return;
+    // 描画と周りの操作欄の配置が終わった次の描画で測る。
+    const frame = window.requestAnimationFrame(() => {
+      if (ideaMapFitCameraRef.current !== cameraRef.current) return;
+      const element = viewportRef.current;
+      const size = element ? viewportSize(element) : null;
+      if (!element || !size || panRef.current || gestureBlockedRef.current)
+        return;
+      const next = fitIdeaMapCamera(
+        size,
+        ideaMapSizeLevel,
+        getFitInsetsRef.current?.(element),
+      );
+      if (!next) return;
+      ideaMapFitCameraRef.current = next;
+      setCameraImmediately(next);
+      onZoomChangeRef.current?.(next.zoom);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    temporaryView,
+    isViewportEnabled,
+    fitViewport,
+    ideaMapSizeLevel,
+    ideaMapFitKey,
+    ideaMapRefitKey,
     setCameraImmediately,
     viewportRef,
   ]);
@@ -729,7 +706,6 @@ export function useCanvasCamera({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
-        navigationDisabled ||
         event.isComposing ||
         event.keyCode === 229 ||
         isEditableTarget(event.target) ||
@@ -866,20 +842,13 @@ export function useCanvasCamera({
     fitToSelection,
     fitViewport,
     isViewportEnabled,
-    navigationDisabled,
     scheduleCamera,
     viewportRef,
     zoomTo,
   ]);
 
   useEffect(() => {
-    if (
-      temporaryView ||
-      !isViewportEnabled ||
-      fitViewport ||
-      navigationDisabled
-    )
-      return;
+    if (temporaryView || !isViewportEnabled || fitViewport) return;
     const element = viewportRef.current;
     if (!element) return;
     const size = viewportSize(element);
@@ -909,7 +878,6 @@ export function useCanvasCamera({
     baseZoom,
     fitViewport,
     isViewportEnabled,
-    navigationDisabled,
     notes,
     setCameraImmediately,
     viewportRef,
