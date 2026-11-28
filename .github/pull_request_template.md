@@ -1,7 +1,8 @@
 ## Why
 
 <!-- 誰がどの操作・状況で困るか、その影響と今回変える理由を2〜4文で書く。
-番号付き実装ブランチでは、PR作成時に対応Issueのclosing referenceが自動追記される。 -->
+番号付き実装ブランチでは、PR作成時に対応Issueのclosing referenceが自動追記される。
+ループのUI・文言・振る舞いのPRは docs/loop/writing.md の「PR の本文」の見出しで書く。 -->
 
 ## 実装内容
 
