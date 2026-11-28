@@ -115,3 +115,22 @@ describe("PRごとのCIで待つ検査", () => {
     ).toBe(true);
   });
 });
+
+describe("CIのテストのログ", () => {
+  it("unit・worker 系・browser のテストは失敗したものだけをログに出す", () => {
+    // 通ったファイルの一覧や通ったテストの console を流すと、1ジョブで数百行になり、
+    // 失敗を調べるエージェントが長いログを読み込む。注釈（github-actions）は残す。
+    const steps = [
+      ...ci.jobs.unit.steps.filter((s) => s.name === "Run unit tests"),
+      ...ci.jobs.workers.steps.filter((s) => s.run?.startsWith("npm run test")),
+      ...browser.jobs.shard.steps.filter(
+        (s) => s.name === "Check board layout in Chromium",
+      ),
+    ];
+    expect(steps).toHaveLength(5);
+    for (const step of steps) {
+      expect(step.run).toContain("--reporter=minimal");
+      expect(step.run).toContain("--reporter=github-actions");
+    }
+  });
+});

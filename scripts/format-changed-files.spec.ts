@@ -29,7 +29,7 @@ function fixture(): string {
   // 対象選択だけを観測する。実際のBiome/remark整形はformat-file.spec.tsで検証する。
   writeFileSync(
     join(root, "scripts/format-file.sh"),
-    'printf "%s\\0" "$1" >> .git/format-calls\n[[ "$1" != "bad.json" ]]\n',
+    'printf "%s\\0" "$@" >> .git/format-calls\necho call >> .git/format-call-count\n',
   );
   writeFileSync(join(root, ".git/format-calls"), "");
   writeFileSync(join(root, ".gitignore"), "ignored.md\n");
@@ -97,10 +97,14 @@ describe("Codex整形対象の検出", () => {
     expect(run(root)).toEqual([]);
   });
 
-  it("一つの整形失敗後も残りを処理する", () => {
+  it("変更中のファイルをまとめて1回で整形に渡す", () => {
     const root = fixture();
-    writeFileSync(join(root, "bad.json"), "bad\n");
-    writeFileSync(join(root, "good.md"), "good\n");
-    expect(run(root).sort()).toEqual(["bad.json", "good.md"]);
+    writeFileSync(join(root, "a.ts"), "a\n");
+    writeFileSync(join(root, "b.json"), "b\n");
+    writeFileSync(join(root, "c.md"), "c\n");
+    expect(run(root).sort()).toEqual(["a.ts", "b.json", "c.md"]);
+    expect(
+      readFileSync(join(root, ".git/format-call-count"), "utf8").trim(),
+    ).toBe("call");
   });
 });
