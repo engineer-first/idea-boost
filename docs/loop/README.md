@@ -8,6 +8,7 @@
 | この README                                          | なぜループか、原則、ループの一覧、マージと公開の決まり、チームとの約束（正本）                        |
 | [completion.json](completion.json)                   | 完成台帳。壊れていたら困る約束と、その確かめ方                                                        |
 | [ux-rubric.md](ux-rubric.md)                         | 利用者の旅、所見の重大度、分かりやすさの原則                                                          |
+| [writing.md](writing.md)                             | ループが書く Issue と PR の本文の形、画面の撮り方（枠・モック）、画像の添付                           |
 | [note-move-reliability.md](note-move-reliability.md) | 付箋の移動の失敗を数える方法、原因の台帳、下限（[note-move-baseline.json](note-move-baseline.json)）  |
 | [prompts/](prompts/)                                 | 各ループが毎回読む指示書（1周＝1ファイルを読んで1仕事）                                               |
 | [scripts/loop/](../../scripts/loop/)                 | 起こすかどうかの判定（precheck）、build が流す1件と着手（`next build`・`claim`）、worktree の後片付け |
@@ -102,8 +103,7 @@ R3 は、人の本人確認・支払い・判断が要るもの。値を人が�
 オーナーが1件1分で選べる形にする。
 
 - 1提案＝1 Issue。ラベルは `loop:proposal` だけで、`loop:ready` は付けない。Type は `Task`、Project の状態は `未整理` のまま
-- タイトルは変えた後の状態（「〜を〜にする」）。本文は3つだけ：**何が問題か**（旅・場面・誰がどこで迷うか、1〜3文）、**どう変えるか**（1案。好みが割れそうなら2案まで、違いを1行ずつ）、**変える前の画面**（ローカルの架空データのスクリーンショットを `github-media` skill で添付）。末尾にリスク段階と、1周で作れる大きさか
-- 本文の最後に「作ってほしければ `loop:ready` を、要らなければ not planned で閉じてください」と書く
+- タイトルは変えた後の状態（「〜を〜にする」）。本文は [Issue と PR の書き方](writing.md#issue-の本文)の4見出し：**何が問題か**・**どう変えるか**・**変える前の画面**（問題の箇所を枠で囲む）・**変えた時の画面イメージ**。末尾にリスク段階と1周で作れる大きさか、最後に「作ってほしければ `loop:ready` を、要らなければ not planned で閉じてください」
 - 先に重複を探す（`gh issue list --label loop:proposal --state all --search "<語>"`）。閉じた提案と同じものは出し直さない。open の提案に同じ場面の新しい根拠があれば、コメントで足す
 - 1回に出すのは patrol・polish・replan がそれぞれ2件まで。open の `loop:proposal` が10件あるあいだは新しく出さず、各 log に一覧だけ書く（人が読む量の上限）。既存の `loop:ready` を提案に替える分（build・replan）は、新しい提案ではないので上限に数えない
 - **`loop:proposal` に `loop:ready` を付けるのは人だけ。** ループはオーナーと同じアカウントで動き、ラベルの付け手では見分けられないので、ループは提案の Issue に `loop:ready` を付けない。人が `loop:ready` を付けた提案は、build が本文の案のとおりに作る
@@ -167,7 +167,7 @@ replan が `loop:ready` に整える材料。上ほど優先する。どの種�
 
 - 必須チェック（lint / test / browser / build / smoke）がすべて成功（auto-merge が待つ）。チェックを skip・削除する変更、検査の設定を緩める変更を含まない。予約の前に、変更に近い Vitest・`typecheck`・変更ファイルの `biome check` を手元で通す（CI で落ちた PR の 2026-11-25〜27 の主な理由は lint と型）。
 - 作った context とは別のサブエージェントによる `code-review`（R2 は加えて `authz-security-reviewer`、UI は `ui-review`）で、直すべき指摘が 0。指摘は直してから再レビューする。
-- PR 本文は [write-pr](../../.agents/skills/write-pr/SKILL.md) の形で、Why・設計判断（Issue に書かれていない細部をどう決めたか）・確認結果を書く。UI の変更は変更前後の画面を添える。
+- PR 本文は [write-pr](../../.agents/skills/write-pr/SKILL.md) の形で、Why・設計判断（Issue に書かれていない細部をどう決めたか）・確認結果を書く。画面で見える変化（UI・文言・操作への反応）がある PR は [PR の本文](writing.md#pr-の本文)の形にし、元の Issue へのリンクと、変える前と後の画像を本文に置く。
 - 付箋の移動に関わるコードを変えた PR は、[計測](#付箋の移動を数える)の数字を本文に書き、どの場面も下限を下回っていない。
 - develop の最新に rebase 済みで、ほかのループ PR と同じファイルを奪い合っていない。
 

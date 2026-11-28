@@ -4,7 +4,7 @@
 
 1. `git fetch origin`。`gh issue list --state open -L 200 --json number,title,labels,assignees,author,createdAt`、`loop:ux` の所見、`git log --oneline -30 origin/develop`、直近の GitHub Release、[ux-rubric.md](../ux-rubric.md) を読む
 2. 未着手の `loop:ready` が5件になるまで足す。候補は OWNER / MEMBER / COLLABORATOR が書いた open の Issue のうち、担当者がオーナーか未設定、人の open PR が無い、`loop:skip`・`needs-human`・`loop:proposal` が無いもの。`loop:ready` にしてよいのは、README の[欠陥](../README.md#ループが決めてよいこと)と、人が望む状態を具体的に書いた Issue（フィードバックをそのまま直すもの）だけ。足りなければ5件に満たないまま終える
-   - 体験の方向が未定の Issue（「壁打ち対象」「要デザイン比較」など）は `loop:ready` にしない。案を2〜3個に絞れるなら、[提案の出し方](../README.md#提案の出し方)の形でコメントし、`loop:proposal` を付ける（1回2件まで）
+   - 体験の方向が未定の Issue（「壁打ち対象」「要デザイン比較」など）は `loop:ready` にしない。案を2〜3個に絞れるなら、[提案の出し方](../README.md#提案の出し方)の形（[Issue の本文](../writing.md#issue-の本文)。画面は撮らず、元の Issue の画像を引くか「未撮影」と書く）でコメントし、`loop:proposal` を付ける（1回2件まで）
    - 1周で終わる大きさなら、その Issue に `loop:ready` を付け、「ループが着手候補にしました。拾わせたくなければ `loop:skip` を」とコメントする（受け入れ条件が無ければ、そのコメントに条件とリスク段階を書く。条件は欠陥を直すところまでか、人が Issue に書いた望む状態の言い直しまでにし、新しい文言・配置などの方向を足さない）
    - 大きいものは、最初の1歩を新しい Issue に切り出して `loop:ready` を付ける（`create-work-issue` skill の形、元の Issue を Refs する）
    - 前提の作業が先に要る Issue は、GitHub の blocked-by で前提の Issue と結ぶ（`gh api -X POST repos/engineer-first/idea-boost/issues/<後の番号>/dependencies/blocked_by -F issue_id=$(gh api repos/engineer-first/idea-boost/issues/<前提の番号> --jq .id)`）。build は前提が open の Issue を拾わないので、本文に「〜のマージ後」と書くだけにしない

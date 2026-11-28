@@ -15,12 +15,13 @@
 - 0 で把握した変更に[付箋の移動に関わるコード](../README.md#付箋の移動を数える)が含まれていたら、旅を歩く前に `npm run dev:verify` を立てて `npm run probe:note-move` を回す（手順は [移動の台帳](../note-move-reliability.md#測り方)）。下回った場面はその場面だけもう1回測る
 - 決めた旅を、PC 幅（1280×800）と ux-rubric.md の人数で歩く。変わった画面は iPad 横・スマホ縦の入口でも開いて崩れを見る
 - ux-rubric.md の「人の目が落としがちなところ」を、変わった画面と持ち回りの旅で当てに行く。ふつうの量・正しい順の操作だけで合格にしない
-- 迷った・止まった瞬間は必ずスクリーンショットを撮る。axe で critical/serious を数える
+- 迷った・止まった瞬間は必ずスクリーンショットを撮り、問題の箇所を枠で囲む（[画面の撮り方](../writing.md#画面の撮り方)）。axe で critical/serious を数える
 - 終わったら起動したサーバーを止める（docs/development/dev-server-lifecycle.md）
 
 ## 2. 所見にする
 
 - 先に重複を探す（`gh issue list --label loop:ux --state all --search "<語>"`）。同じなら既存 Issue に「<SHA> で再現」とコメントする
+- 所見も提案も、本文は [Issue の本文](../writing.md#issue-の本文)の形で書き、画像を `--attach` で本文に埋める。open の Issue に「画像の添付に失敗」があれば、歩いた旅で撮って足す
 - S1/S2（欠陥）は ux-rubric.md の書き方で 1所見＝1 Issue。ラベル `loop:ux` と `loop:ready`、S1 は `P0` も。Type を付け、本文の末尾に受け入れ条件とリスク段階を書く（build がそのまま拾える形）。受け入れ条件は欠陥を直すところまでにし、新しい文言・配置を決めない
 - 欠陥ではない「迷う・分かりにくい・こうしたほうが良い」は、README の[提案の出し方](../README.md#提案の出し方)で `loop:proposal` の Issue にする（1回2件まで）。`loop:ready` は付けない
 - 前回の所見が直っていたら、その Issue に「<SHA> で解消を確認」とコメントし、まだ open なら閉じる
