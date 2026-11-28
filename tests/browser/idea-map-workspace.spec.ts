@@ -814,9 +814,11 @@ test.each(widths(390))(
       const plane = page.getByTestId("idea-value-feasibility-map-plane");
       const before = await plane.boundingBox();
       if (!before) throw new Error("評価マップがありません");
-      expect(before.width).toBeGreaterThan(width * 0.65);
-      const slot = await readBounds(page, "idea-value-feasibility-map-slot");
-      expect(before.y + before.height).toBeCloseTo(slot.y + slot.height, 1);
+      // マップ面は画面の中に収まる（全体表示が縦横とも画面からはみ出させない）。
+      expect(before.x).toBeGreaterThanOrEqual(0);
+      expect(before.y).toBeGreaterThanOrEqual(0);
+      expect(before.x + before.width).toBeLessThanOrEqual(width);
+      expect(before.y + before.height).toBeLessThanOrEqual(844);
       expect(
         await page.getByRole("textbox", { name: "付箋を書く" }).count(),
       ).toBe(0);

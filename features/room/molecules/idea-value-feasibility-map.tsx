@@ -10,15 +10,16 @@ import {
 
 const MAP_GRID_STYLE = {
   backgroundImage:
-    "linear-gradient(to right, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px)",
+    "linear-gradient(to right, color-mix(in oklab, var(--ib-color-muted) 18%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, var(--ib-color-muted) 18%, transparent) 1px, transparent 1px)",
   backgroundSize: "10% 10%",
 } satisfies CSSProperties;
 
 const AXIS_ARROW_PATH = "M -6 -6 L 0 0 L -6 6";
 const AXIS_COLORS = {
-  low: "color-mix(in srgb, var(--muted-foreground) 55%, var(--background))",
-  middle: "color-mix(in srgb, var(--muted-foreground) 80%, var(--background))",
-  high: "color-mix(in srgb, var(--primary) 85%, var(--background))",
+  low: "color-mix(in oklab, var(--ib-color-muted) 55%, var(--ib-color-surface))",
+  middle:
+    "color-mix(in oklab, var(--ib-color-muted) 80%, var(--ib-color-surface))",
+  high: "color-mix(in oklab, var(--ib-color-primary) 85%, var(--ib-color-surface))",
 };
 
 function AxisStroke({
