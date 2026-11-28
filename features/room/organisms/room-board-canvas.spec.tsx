@@ -340,6 +340,55 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
+  it.each([
+    ["1-2・2-2", buildPhaseStep(2)],
+    ["3-2", buildPhaseStep(2, 3)],
+  ])(
+    "%s で自分の番にマイ付箋を出し終えたら、欄の案内を「できた！」へ向ける",
+    (_label, phase) => {
+      const props = {
+        phase,
+        permissions: getBoardPermissions(phase),
+        privateNotes: [buildNote({ id: "private-1", visibility: "private" })],
+        canPublishPrivateNote: true,
+      };
+      const { props: rendered, rerender } = setup(props);
+      const toolbar = openPrivateNotesToolbar();
+      expect(within(toolbar).getByRole("status")).toHaveTextContent(
+        "あなたの番です",
+      );
+
+      // 最後の1枚を一覧の外へ運んでいる間は、まだ出し終えていない。
+      rerender(
+        <RoomBoardCanvas
+          {...rendered}
+          privateNotes={[]}
+          dragPreview={{
+            note: props.privateNotes[0],
+            left: 640,
+            top: 180,
+            width: 192,
+            height: 144,
+          }}
+        />,
+      );
+      expect(within(toolbar).getByRole("status")).toHaveTextContent(
+        "あなたの番です",
+      );
+
+      rerender(
+        <RoomBoardCanvas {...rendered} privateNotes={[]} dragPreview={null} />,
+      );
+
+      const status = within(toolbar).getByRole("status");
+      expect(status).toHaveTextContent(
+        "説明が終わったら「できた！」を押してください。",
+      );
+      expect(status).not.toHaveTextContent("全部出せました");
+      expect(status).not.toHaveTextContent("ドラッグして共有できます");
+    },
+  );
+
   it("全員の発表が終わったら、マイ付箋の欄で番を待つ案内を出さない", () => {
     setup({
       phase: buildPhaseStep(2),

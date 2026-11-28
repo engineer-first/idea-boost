@@ -1223,6 +1223,18 @@ export const PrivateGuidanceSharing: Story = {
     expandPrivateNotesRequest: 1,
   },
 };
+// 自分の番にマイ付箋を出し終えた後の欄の案内（「できた！」へ向ける一文）。
+export const PrivateGuidanceSharingAllShared: Story = {
+  ...PrivateGuidanceSharing,
+  args: {
+    ...PrivateGuidanceSharing.args,
+    notes: guidanceNotes.map((note) => ({
+      ...note,
+      visibility: "shared" as const,
+    })),
+    privateNotes: [],
+  },
+};
 export const PrivateGuidanceDisconnected: Story = {
   ...PrivateGuidanceSharing,
   args: { ...PrivateGuidanceSharing.args, isDisconnected: true },
