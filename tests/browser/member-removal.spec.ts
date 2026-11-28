@@ -135,11 +135,11 @@ test("共有中も他の参加者を外せて、自分自身は除外対象に�
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
   await open("participant");
   await page.getByRole("button", { name: "参加者 2人" }).click();
-  expect(
-    await page
-      .getByRole("button", { name: "Hana Sato：ルームから外す", exact: true })
-      .count(),
-  ).toBe(0);
+  // 自分の行は、外す操作の名前でも、名前だけのボタンでも出ない。
+  for (const name of ["Hana Sato：ルームから外す", "Hana Sato"])
+    expect(await page.getByRole("button", { name, exact: true }).count()).toBe(
+      0,
+    );
   await page
     .getByRole("button", { name: "Yuki Tanaka：ルームから外す", exact: true })
     .click();
