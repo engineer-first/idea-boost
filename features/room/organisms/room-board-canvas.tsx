@@ -861,7 +861,12 @@ export function RoomBoardCanvas({
               if (suppressAdoptionClickRef.current && event.detail !== 0)
                 return;
               adoptionDragRef.current = null;
-              if (event.currentTarget === document.activeElement)
+              // マウスで押したボタンにもフォーカスが入るブラウザがあるため、
+              // キーボードで押したとき（detail が 0）だけ付箋へ戻す。
+              if (
+                event.detail === 0 &&
+                event.currentTarget === document.activeElement
+              )
                 adoptedFocusFrameRef.current =
                   event.currentTarget.parentElement;
               onAdoptNote(note.id);
