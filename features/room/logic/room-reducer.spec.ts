@@ -8,6 +8,7 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import {
   applyAdoptionFocusServerMessage,
+  applyAdvanceNoticeServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
   applyIdeaMapServerMessage,
@@ -16,6 +17,7 @@ import {
   applyPhaseServerMessage,
   applyTimerServerMessage,
   applyVotingCompletionServerMessage,
+  INITIAL_ADVANCE_NOTICE,
 } from "./room-reducer";
 
 const A: ProtocolMember = {
@@ -321,42 +323,93 @@ describe("applyPhaseServerMessage", () => {
 });
 
 describe("applyPhaseProgressServerMessage", () => {
-  const readyInStep = {
-    phaseRevision: 3,
+  const current = {
     progressRevision: 7,
     connectedUserIds: [A.userId, B.userId],
-    readyUserIds: [A.userId, B.userId],
+  };
+  const fromServer = {
+    phaseRevision: 4,
+    progressRevision: 8,
+    connectedUserIds: [A.userId],
+    readyUserIds: [A.userId],
     notReadyUserIds: [],
     canAdvance: true,
     allReady: true,
   };
 
-  it("ステップが進んだら、接続中の全員を未完了として待ち人数を出せる状態にする", () => {
+  it("phase:progress は接続中の参加者と更新番号だけを取り込む", () => {
     expect(
-      applyPhaseProgressServerMessage(readyInStep, {
+      applyPhaseProgressServerMessage(current, {
+        type: "phase:progress",
+        progress: fromServer,
+      }),
+    ).toEqual({ progressRevision: 8, connectedUserIds: [A.userId] });
+  });
+
+  it("ステップが進んでも接続中の参加者を保つ", () => {
+    expect(
+      applyPhaseProgressServerMessage(current, {
         type: "phase:updated",
         phaseRevision: 4,
         phase: buildPhaseStep(2, 1),
       }),
-    ).toEqual({
-      phaseRevision: 4,
-      progressRevision: 7,
-      connectedUserIds: [A.userId, B.userId],
-      readyUserIds: [],
-      notReadyUserIds: [A.userId, B.userId],
-      canAdvance: false,
-      allReady: false,
-    });
+    ).toBe(current);
+  });
+});
+
+describe("applyAdvanceNoticeServerMessage", () => {
+  const notice = {
+    noticeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    phaseRevision: 3,
+    trigger: "member" as const,
+    initiatorUserId: A.userId,
+    endsAt: 105_000,
+    durationMs: 5000,
+  };
+  const showing = { notice, serverOffsetMs: 0 };
+
+  it("phase:notice で予告を持ち、サーバー時刻との差を覚える", () => {
+    expect(
+      applyAdvanceNoticeServerMessage(
+        INITIAL_ADVANCE_NOTICE,
+        { type: "phase:notice", notice, serverNow: 100_000 },
+        99_400,
+      ),
+    ).toEqual({ notice, serverOffsetMs: 600 });
   });
 
-  it("phase:progress はサーバーの進み具合へ置き換える", () => {
-    const progress = { ...readyInStep, phaseRevision: 4, progressRevision: 8 };
+  it("notice が null の phase:notice で予告を消す", () => {
     expect(
-      applyPhaseProgressServerMessage(readyInStep, {
-        type: "phase:progress",
-        progress,
-      }),
-    ).toEqual(progress);
+      applyAdvanceNoticeServerMessage(
+        showing,
+        { type: "phase:notice", notice: null, reason: "held", serverNow: 1 },
+        1,
+      ).notice,
+    ).toBeNull();
+  });
+
+  it("ステップが進んだら予告を消す", () => {
+    expect(
+      applyAdvanceNoticeServerMessage(
+        showing,
+        {
+          type: "phase:updated",
+          phaseRevision: 4,
+          phase: buildPhaseStep(2, 1),
+        },
+        1,
+      ).notice,
+    ).toBeNull();
+  });
+
+  it("関係のないメッセージでは予告を保つ", () => {
+    expect(
+      applyAdvanceNoticeServerMessage(
+        showing,
+        { type: "timer:updated", timer: { status: "idle" }, serverNow: 5 },
+        1,
+      ),
+    ).toBe(showing);
   });
 });
 

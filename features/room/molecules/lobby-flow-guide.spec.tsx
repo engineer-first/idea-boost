@@ -43,15 +43,15 @@ it("全体の流れのステップ名とやることは、進行の定義と同�
 });
 
 it.each([
-  ["ja", "「できた！」", "「次のステップへ」"],
-  ["en", "“Done!”", "“Next step”"],
+  ["ja", "「まって！」", "「次のステップへ」"],
+  ["en", "“Wait!”", "“Next step”"],
 ] as const)(
   "押すボタンの名前を、表示言語 %s の引用符で読み上げる",
-  (locale, ready, next) => {
+  (locale, hold, next) => {
     language.value = locale;
     render(<LobbyFlowGuide />);
     const guide = screen.getByTestId("lobby-flow-guide");
-    expect(guide).toHaveTextContent(ready);
+    expect(guide).toHaveTextContent(hold);
     expect(guide).toHaveTextContent(next);
     if (locale === "en") expect(guide.textContent).not.toMatch(/[「」]/);
   },

@@ -14,7 +14,9 @@ import type {
 } from "@/contracts/room-protocol";
 import { roomNotify } from "./room-notify";
 import {
+  type AdvanceNoticeClientState,
   applyAdoptionFocusServerMessage,
+  applyAdvanceNoticeServerMessage,
   applyAuthorNamesServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
@@ -29,6 +31,7 @@ import {
   type Carryover,
   type Decision,
   type IdeaMapClientState,
+  INITIAL_ADVANCE_NOTICE,
   INITIAL_IDEA_MAP_STATE,
   INITIAL_PHASE_PROGRESS,
   type Member,
@@ -55,6 +58,8 @@ export type UseRoomStateResult = {
   timerUpdateVersion: number;
   completedVoterIds: string[];
   progress: PhaseProgressState;
+  // 進行中の予告と、残り時間の表示に使うサーバー時刻との差。
+  advanceNotice: AdvanceNoticeClientState;
   applyMessage: (message: ServerMessage, receivedAt?: number) => void;
 };
 
@@ -91,6 +96,9 @@ export function useRoomState(options: {
   const [completedVoterIds, setCompletedVoterIds] = useState<string[]>([]);
   const [progress, setProgress] = useState<PhaseProgressState>(
     INITIAL_PHASE_PROGRESS,
+  );
+  const [advanceNotice, setAdvanceNotice] = useState<AdvanceNoticeClientState>(
+    INITIAL_ADVANCE_NOTICE,
   );
   const [timerState, setTimerState] = useState<TimerClientState>({
     timer: { status: "idle" },
@@ -158,6 +166,16 @@ export function useRoomState(options: {
       setProgress((current) =>
         applyPhaseProgressServerMessage(current, message),
       );
+      setAdvanceNotice((current) =>
+        applyAdvanceNoticeServerMessage(current, message, receivedAt),
+      );
+      // 予告が進行以外で消えた理由を知らせる。誰が止めたかは届かない。
+      if (message.type === "phase:notice" && message.notice === null) {
+        if (message.reason === "held") roomNotify.advanceNoticeHeld(t);
+        else if (message.reason === "withdrawn")
+          roomNotify.advanceNoticeWithdrawn(t);
+        else if (message.reason === "unmet") roomNotify.advanceNoticeUnmet(t);
+      }
       setTimerState((current) =>
         applyTimerServerMessage(current, message, receivedAt),
       );
@@ -184,6 +202,7 @@ export function useRoomState(options: {
     timerUpdateVersion: timerState.timerUpdateVersion,
     completedVoterIds,
     progress,
+    advanceNotice,
     applyMessage,
   };
 }

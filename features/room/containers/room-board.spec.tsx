@@ -61,6 +61,9 @@ const notifyMocks = vi.hoisted(() => ({
   memberLeft: vi.fn(),
   roomDisbanded: vi.fn(),
   error: vi.fn(),
+  advanceNoticeHeld: vi.fn(),
+  advanceNoticeWithdrawn: vi.fn(),
+  advanceNoticeUnmet: vi.fn(),
 }));
 
 vi.mock("@/lib/notify", () => ({
@@ -76,6 +79,9 @@ vi.mock("../logic/room-notify", () => ({
     roomDisbanded: notifyMocks.roomDisbanded,
     roomLeft: vi.fn(),
     roomDisbandedBySelf: vi.fn(),
+    advanceNoticeHeld: notifyMocks.advanceNoticeHeld,
+    advanceNoticeWithdrawn: notifyMocks.advanceNoticeWithdrawn,
+    advanceNoticeUnmet: notifyMocks.advanceNoticeUnmet,
   },
 }));
 
@@ -208,9 +214,6 @@ function expectSent(socket: FakeWebSocket, expected: object): void {
 
 function advancePhase(): void {
   fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-  const dialog = screen.queryByRole("alertdialog");
-  if (dialog)
-    fireEvent.click(within(dialog).getByRole("button", { name: "次へ進む" }));
 }
 
 function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
@@ -1835,7 +1838,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     ).toHaveStyle({ zIndex: "10" });
   });
 
-  it("最後のマイ付箋を置く位置で共有し、確定応答後にできた！を強調する", () => {
+  it("最後のマイ付箋を置く位置で共有し、確定応答後に「次の人へ」を強調する", () => {
     const privateNote = protocolNote({
       visibility: "private",
       content: "公開前のメモ",
@@ -1844,7 +1847,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(2, 1),
       shareProtocolVersion: 1,
     });
-    const done = screen.getByRole("button", { name: "できた！" });
+    const done = screen.getByRole("button", { name: "次の人へ" });
     expect(done).not.toHaveAttribute("data-sharing-completion-cue");
     const canvas = screen.getByTestId("board-canvas");
     const scroller = canvas.parentElement;
@@ -3290,7 +3293,7 @@ it.each([false, true])(
 );
 
 describe("保存待ちを伴わない工程進行", () => {
-  it("進行送信中は二重送信を防ぎ、次工程はタイマー開始を待つ", () => {
+  it("進行送信中は二重送信を防ぎ、工程が進んだら送信中を解除する", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(1),
       timer: { status: "ended", durationMs: 300000 },
@@ -3324,8 +3327,113 @@ describe("保存待ちを伴わない工程進行", () => {
     ).toBeVisible();
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
-    ).toHaveAttribute("aria-disabled", "true");
+    ).toBeEnabled();
     expect(screen.getByTestId("room-timer")).toBeEnabled();
+  });
+
+  const NOTICE = {
+    noticeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    phaseRevision: 0,
+    trigger: "member" as const,
+    initiatorUserId: "22222222-2222-4222-8222-222222222222",
+    endsAt: Date.now() + 5000,
+    durationMs: 5000,
+  };
+
+  it("「次のステップへ」への返事として予告が届いたら、送信中を解除して予告の帯を出す", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(1),
+    });
+    advancePhase();
+    expectSent(socket, { type: "phase:next", expectedRevision: 0 });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:notice",
+        notice: { ...NOTICE, initiatorUserId: USER_ID },
+        serverNow: Date.now(),
+      }),
+    );
+    const band = screen.getByRole("status", { name: "次のステップへ進む予告" });
+    expect(band).toHaveTextContent("あなたが進めます");
+    // 予告の間は押せない。予告が消えれば、送信中のまま残らずに押せる。
+    expect(
+      screen.getByRole("button", { name: "次のステップへ" }),
+    ).toBeDisabled();
+    fireEvent.click(within(band).getByRole("button", { name: "やめる" }));
+    expectSent(socket, { type: "phase:hold", noticeId: NOTICE.noticeId });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:notice",
+        notice: null,
+        reason: "withdrawn",
+        serverNow: Date.now(),
+      }),
+    );
+    expect(
+      screen.queryByRole("status", { name: "次のステップへ進む予告" }),
+    ).not.toBeInTheDocument();
+    const next = screen.getByRole("button", { name: "次のステップへ" });
+    expect(next).toBeEnabled();
+    // 自分でやめただけなので、次へは光らせない。
+    expect(next).not.toHaveAttribute("data-emphasized");
+  });
+
+  it("ほかの人の予告を「まって！」で止めると phase:hold を送り、止まった後は自分の「次のステップへ」を光らせる", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(1),
+    });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:notice",
+        notice: NOTICE,
+        serverNow: Date.now(),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "まって！" }));
+    const holds = socket.sent
+      .map((raw) => JSON.parse(raw))
+      .filter((message) => message.type === "phase:hold");
+    // 止めた人の userId は送らない（サーバーが接続から決める）。
+    expect(holds).toEqual([{ type: "phase:hold", noticeId: NOTICE.noticeId }]);
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:notice",
+        notice: null,
+        reason: "held",
+        serverNow: Date.now(),
+      }),
+    );
+    expect(
+      screen.queryByRole("status", { name: "次のステップへ進む予告" }),
+    ).not.toBeInTheDocument();
+    // 止まったことだけを知らせる。誰が止めたかは届かないので出せない。
+    expect(notifyMocks.advanceNoticeHeld).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole("button", { name: "次のステップへ" }),
+    ).toHaveAttribute("data-emphasized", "true");
+  });
+
+  it("予告の後に工程が進んだら、帯を消す", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(1),
+    });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:notice",
+        notice: NOTICE,
+        serverNow: Date.now(),
+      }),
+    );
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+        phaseRevision: 1,
+      }),
+    );
+    expect(
+      screen.queryByRole("status", { name: "次のステップへ進む予告" }),
+    ).not.toBeInTheDocument();
   });
 
   it.each(["phase:save-requested", "snapshot"] as const)(
@@ -4020,7 +4128,7 @@ it.each([401, 404])(
     if (status === 401) {
       expect(screen.getByText("接続が切れました")).toBeVisible();
       expect(document.querySelector('a[href^="/login"]')).toBeNull();
-      expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
     }
     fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
     expect(screen.getByRole("textbox", { name: "未反映の文章 1" })).toHaveValue(
@@ -4059,7 +4167,7 @@ it.each(["blur", "compositionEnd", "change"] as const)(
     expect(document.querySelector('a[href^="/login"]')).toBeNull();
     expect(navigationMocks.replace).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "できた！" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
     // 回収UIへフォーカスを移すと、盤面に残ったtextareaの遅延blurが届く。
     const staleEditor = screen.getByDisplayValue("最初の付箋");
     if (lateEvent === "blur") fireEvent.blur(staleEditor);

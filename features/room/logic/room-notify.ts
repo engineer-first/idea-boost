@@ -52,6 +52,29 @@ export const roomNotify = {
       { id: "canvas-fit-unavailable", duration: 4000, closeButton: true },
     );
   },
+  // 予告が止まったことだけを短く伝える。誰が止めたかは出さない（ADR 0037）。
+  advanceNoticeHeld(t?: Translate): void {
+    toast(message(t, "advanceNoticeHeld", "「まって！」が押されました"), {
+      id: "advance-notice-ended",
+      duration: 4000,
+    });
+  },
+  advanceNoticeWithdrawn(t?: Translate): void {
+    toast(message(t, "advanceNoticeWithdrawn", "進むのをやめました"), {
+      id: "advance-notice-ended",
+      duration: 4000,
+    });
+  },
+  advanceNoticeUnmet(t?: Translate): void {
+    toast(
+      message(
+        t,
+        "advanceNoticeUnmet",
+        "進める条件を満たさなくなったので、進むのをやめました",
+      ),
+      { id: "advance-notice-ended", duration: 4000 },
+    );
+  },
   memberJoined(name: string, t?: Translate): void {
     toast(message(t, "memberJoined", `${name} さんが参加しました`, { name }));
   },

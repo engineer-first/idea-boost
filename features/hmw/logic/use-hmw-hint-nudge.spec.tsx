@@ -55,7 +55,7 @@ describe("問いヒントの呼びかけ", () => {
     expect(result.current.showNudge).toBe(true);
   });
 
-  it("表示後に切断・「できた！」を押して止めた呼びかけは、作業へ戻っても再表示しない", () => {
+  it("表示後に切断などで止めた呼びかけは、作業へ戻っても再表示しない", () => {
     const { result, rerender } = renderHook(
       ({ enabled }) =>
         useHmwHintNudge({ scope: "reconnect", enabled, noteCount: 0 }),

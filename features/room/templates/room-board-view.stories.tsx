@@ -3,11 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import type {
-  Decision,
-  PhaseProgress,
-  TimerState,
-} from "@/contracts/room-protocol";
+import type { Decision, TimerState } from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -17,6 +13,7 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { useFeedback } from "@/features/feedback";
+import type { PhaseProgressState } from "../logic/room-reducer";
 import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import { useCanvasCamera } from "../logic/use-canvas-camera";
@@ -102,14 +99,9 @@ const INTERACTIONS: RoomBoardInteractions = {
 };
 
 const STORY_MEMBERS = buildMembers(3, ME);
-const STORY_PROGRESS: PhaseProgress = {
-  phaseRevision: 1,
+const STORY_PROGRESS: PhaseProgressState = {
   progressRevision: 1,
   connectedUserIds: STORY_MEMBERS.map(({ userId }) => userId),
-  readyUserIds: STORY_MEMBERS.map(({ userId }) => userId),
-  notReadyUserIds: [],
-  canAdvance: true,
-  allReady: true,
 };
 
 const meta = {
@@ -186,7 +178,6 @@ const meta = {
     onLeave: fn(),
     isLeaving: false,
     onNextPhase: fn(),
-    onToggleReady: fn(),
     onTimerStart: fn(),
     onTimerPause: fn(),
     onTimerResume: fn(),
@@ -1940,5 +1931,151 @@ export const AdditionalWritingGroups: Story = {
         noteIds: ["reference-one", "reference-two"],
       },
     ],
+  },
+};
+
+// 予告の帯。story では残り時間が 0 になったら数え直し、いつ開いても帯を確かめられるようにする。
+const NOTICE_INITIATOR_ID = "22222222-2222-4222-8222-222222222222";
+const NOTICE_MEMBERS = [
+  { userId: ME, name: "わたし", color: "yellow" as const },
+  { userId: NOTICE_INITIATOR_ID, name: "あおい", color: "green" as const },
+  {
+    userId: "33333333-3333-4333-8333-333333333333",
+    name: "はると",
+    color: "blue" as const,
+  },
+];
+
+function AdvanceNoticePreview({
+  trigger,
+  initiatorUserId,
+  durationMs,
+  ...args
+}: RoomBoardViewProps & {
+  trigger: "member" | "votes" | "timer";
+  initiatorUserId: string | null;
+  durationMs: number;
+}) {
+  const [endsAt, setEndsAt] = useState(() => Date.now() + durationMs);
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setEndsAt(Date.now() + durationMs),
+      Math.max(0, endsAt - Date.now()) + 600,
+    );
+    return () => clearTimeout(timer);
+  }, [durationMs, endsAt]);
+  return (
+    <RoomBoardView
+      {...args}
+      advanceNotice={{
+        notice: {
+          noticeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          phaseRevision: args.phaseRevision ?? 0,
+          trigger,
+          initiatorUserId,
+          endsAt,
+          durationMs,
+        },
+        serverOffsetMs: 0,
+      }}
+    />
+  );
+}
+
+function advanceNoticeStory(
+  name: string,
+  trigger: "member" | "votes" | "timer",
+  initiatorUserId: string | null,
+  args: Partial<RoomBoardViewProps> = {},
+): Story {
+  return {
+    name,
+    args: {
+      phase: buildPhaseStep(3),
+      phaseRevision: 3,
+      members: NOTICE_MEMBERS,
+      progress: {
+        progressRevision: 1,
+        connectedUserIds: NOTICE_MEMBERS.map(({ userId }) => userId),
+      },
+      onHoldAdvanceNotice: fn(),
+      ...args,
+    } as Story["args"],
+    render: (storyArgs) => (
+      <AdvanceNoticePreview
+        {...storyArgs}
+        trigger={trigger}
+        initiatorUserId={initiatorUserId}
+        durationMs={trigger === "timer" ? 10_000 : 5000}
+      />
+    ),
+  };
+}
+
+// ほかの人が「次のステップへ」を押した。全員の画面の中央に帯が出て、「まって！」で止められる。
+export const AdvanceNoticeByMember: Story = {
+  ...advanceNoticeStory(
+    "予告 / ほかの人が進める",
+    "member",
+    NOTICE_INITIATOR_ID,
+  ),
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const band = await canvas.findByRole("status", {
+      name: "次のステップへ進む予告",
+    });
+    await expect(band).toHaveTextContent("あおいさんが進めます");
+    await expect(band).toHaveTextContent("1-4 投票");
+    await expect(
+      canvas.getByRole("button", { name: "次のステップへ" }),
+    ).toBeDisabled();
+    await userEvent.click(
+      within(band).getByRole("button", { name: "まって！" }),
+    );
+    await expect(args.onHoldAdvanceNotice).toHaveBeenCalledOnce();
+  },
+};
+
+// 自分が押した。「やめる」で取り消せる。
+export const AdvanceNoticeBySelf: Story = advanceNoticeStory(
+  "予告 / 自分が進める",
+  "member",
+  ME,
+);
+
+// 全員が票を使い切った。誰も押していないので名前は出ない。
+export const AdvanceNoticeVotesComplete: Story = advanceNoticeStory(
+  "予告 / 全員の投票がそろった",
+  "votes",
+  null,
+  {
+    phase: buildPhaseStep(4),
+    completedVoterIds: NOTICE_MEMBERS.map(({ userId }) => userId),
+  },
+);
+
+// 時間切れ。10秒数え、「＋1分」で1回だけ延ばせる。
+export const AdvanceNoticeTimeUp: Story = advanceNoticeStory(
+  "予告 / 時間切れ",
+  "timer",
+  null,
+  { timer: { status: "ended", durationMs: 240_000 } },
+);
+
+// 延長を使った後の時間切れ。止めるボタンは無い。
+export const AdvanceNoticeTimeUpAfterExtension: Story = advanceNoticeStory(
+  "予告 / 延長後の時間切れ",
+  "timer",
+  null,
+  { timer: { status: "ended", durationMs: 60_000, extensionUsed: true } },
+);
+
+// 自分が「まって！」で止めた後。準備ができたら自分で押すよう、次へを光らせる。
+export const NextEmphasizedAfterHold: Story = {
+  name: "予告を止めた後",
+  args: {
+    phase: buildPhaseStep(3),
+    members: NOTICE_MEMBERS,
+    nextEmphasized: true,
   },
 };

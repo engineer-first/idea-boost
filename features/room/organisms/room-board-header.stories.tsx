@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import type { PhaseProgress } from "@/contracts/room-protocol";
 import {
   buildMembers,
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
+import type { PhaseProgressState } from "../logic/room-reducer";
 import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { RoomBoardHeader } from "./room-board-header";
 import { buildPausedTimer } from "./room-timer.fixture";
@@ -23,16 +23,10 @@ const HUD_MEMBERS = buildMembers(12, ME);
 
 function completedProgress(
   members: readonly { userId: string }[],
-): PhaseProgress {
-  const ids = members.map(({ userId }) => userId);
+): PhaseProgressState {
   return {
-    phaseRevision: 1,
     progressRevision: 1,
-    connectedUserIds: ids,
-    readyUserIds: ids,
-    notReadyUserIds: [],
-    canAdvance: true,
-    allReady: true,
+    connectedUserIds: members.map(({ userId }) => userId),
   };
 }
 
@@ -69,7 +63,6 @@ const meta = {
 
     onLeaveClick: fn(),
     onNextPhase: fn(),
-    onToggleReady: fn(),
     onTimerStart: fn(),
     onTimerPause: fn(),
     onTimerResume: fn(),
@@ -121,55 +114,38 @@ type Story = StoryObj<typeof meta>;
 
 export const Host: Story = {};
 
+// いつでも押せるステップ（個人・整理・2軸評価）。「次のステップへ」は光らせず、
+// 横に次のステップを小さく出す。
 export const ProgressControls: Story = {
   args: {
     phase: buildPhaseStep(3),
-    members: buildMembers(1, ME),
+    members: VOTING_MEMBERS,
+    progress: completedProgress(VOTING_MEMBERS),
     timer: {
       status: "running",
       endsAt: Date.now() + 600_000,
       durationMs: 600_000,
     },
   },
-  render: function Render(args) {
-    const [ready, setReady] = useState(false);
-    const progress = completedProgress(args.members);
-    return (
-      <RoomBoardHeader
-        {...args}
-        progress={
-          ready
-            ? progress
-            : {
-                ...progress,
-                readyUserIds: [],
-                notReadyUserIds: [ME],
-                canAdvance: false,
-                allReady: false,
-              }
-        }
-        onToggleReady={setReady}
-      />
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "次のステップへ" }),
+    ).toBeEnabled();
+    await expect(canvas.getByTestId("next-step-hint")).toHaveTextContent(
+      "次は 1-4 投票",
     );
   },
 };
 
-// 本人が「できた！」を押した後。呼び方は変えず、淡い緑の面と緑で塗ったチェックの丸で押し済みを示す。
-export const ReadyChecked: Story = {
-  args: {
-    phase: buildPhaseStep(3),
-    members: VOTING_MEMBERS,
-    progress: completedProgress(VOTING_MEMBERS),
-  },
+// 予告の間は「次のステップへ」をもう一度押せない。
+export const AdvanceNoticeActive: Story = {
+  args: { ...ProgressControls.args, advanceNoticeActive: true },
 };
 
-// 押し済みのまま切断したとき。押せない間は面を外して破線で示す。
-export const ReadyCheckedDisconnected: Story = {
-  args: {
-    ...ReadyChecked.args,
-    isDisconnected: true,
-    connectionStatus: "closed",
-  },
+// 自分が「まって！」で止めた後。準備ができたら自分で押すよう、次へを光らせる。
+export const NextEmphasizedAfterHold: Story = {
+  args: { ...ProgressControls.args, nextEmphasized: true },
 };
 
 // 参加者視点（招待情報とフェーズ移行が出ない）。
@@ -480,31 +456,6 @@ export const FinalCompletionConfirmation: Story = {
     ).toBeVisible();
   },
 };
-// 採用後、ほかの参加者の「できた！」を待つ間は、あと何人で完了かを示す。
-export const FinalCompletionWaitingMembers: Story = {
-  args: {
-    ...FinalDecisionPending.args,
-    members: VOTING_MEMBERS,
-    timer: {
-      status: "running",
-      durationMs: 300_000,
-      endsAt: Date.now() + 300_000,
-    },
-    progress: {
-      ...completedProgress(VOTING_MEMBERS),
-      readyUserIds: [ME],
-      notReadyUserIds: VOTING_MEMBERS.filter(({ userId }) => userId !== ME).map(
-        ({ userId }) => userId,
-      ),
-      allReady: false,
-    },
-  },
-  play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByRole("button", { name: "あと2人で完了" }),
-    ).toBeDisabled();
-  },
-};
 export const FinalCompletionDisconnected: Story = {
   args: {
     ...FinalDecisionPending.args,
@@ -522,15 +473,7 @@ export const TimeUpProgress: Story = {
   args: {
     members: buildMembers(5, ME),
     timer: { status: "ended", durationMs: 300_000 },
-    progress: {
-      phaseRevision: 0,
-      progressRevision: 0,
-      connectedUserIds: buildMembers(5, ME).map((m) => m.userId),
-      readyUserIds: [],
-      notReadyUserIds: buildMembers(5, ME).map((m) => m.userId),
-      canAdvance: false,
-      allReady: false,
-    },
+    progress: completedProgress(buildMembers(5, ME)),
   },
   render: function Render(args) {
     const [count, setCount] = useState(0);

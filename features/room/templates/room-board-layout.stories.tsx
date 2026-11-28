@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { startTransition, useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import type { PhaseProgress } from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -12,6 +11,7 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import { HMW_EXAMPLES } from "@/features/hmw";
 import { NoteDraftRecovery } from "@/features/notes";
+import type { PhaseProgressState } from "../logic/room-reducer";
 import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
@@ -35,18 +35,12 @@ const VOTED_NOTES = buildNotes(3).map((note) => ({
   },
 }));
 
-function allReadyProgress(
+function connectedProgress(
   members: ReadonlyArray<{ userId: string }>,
-): PhaseProgress {
-  const userIds = members.map(({ userId }) => userId);
+): PhaseProgressState {
   return {
-    phaseRevision: 1,
     progressRevision: 1,
-    connectedUserIds: userIds,
-    readyUserIds: userIds,
-    notReadyUserIds: [],
-    canAdvance: true,
-    allReady: true,
+    connectedUserIds: members.map(({ userId }) => userId),
   };
 }
 
@@ -110,11 +104,7 @@ function handoffStory(phase: 1 | 2 | 3): Story {
   };
 }
 
-function step(
-  phase: 1 | 2 | 3,
-  value: number,
-  options: { hasNotReadyMember?: boolean } = {},
-): Story {
+function step(phase: 1 | 2 | 3, value: number): Story {
   const members = buildMembers(12, boardMeta.args.currentUserId);
   return {
     name: `${phase}-${value}`,
@@ -144,14 +134,7 @@ function step(
           : null,
       decidedHmw: phase === 3 ? LONG_QUESTION : null,
       members,
-      progress: options.hasNotReadyMember
-        ? {
-            ...allReadyProgress(members),
-            readyUserIds: members.slice(0, -1).map(({ userId }) => userId),
-            notReadyUserIds: members.slice(-1).map(({ userId }) => userId),
-            allReady: false,
-          }
-        : allReadyProgress(members),
+      progress: connectedProgress(members),
       interactions: {
         ...boardMeta.args.interactions,
         // 背景キャンバスの付箋は args.notes と一致させ、個人作業へ meta 既定の付箋を漏らさない。
@@ -175,10 +158,6 @@ export const FirstVisitOnboarding: Story = {
 export const Phase1Step1ToStep2: Story = handoffStory(1);
 export const Phase1Step2: Story = step(1, 2);
 export const Phase1Step3: Story = step(1, 3);
-export const Phase1Step3WithNotReadyMember: Story = {
-  ...step(1, 3, { hasNotReadyMember: true }),
-  name: "1-3 未完了メンバーあり",
-};
 export const Phase1Step4: Story = step(1, 4);
 export const Phase1Step5: Story = step(1, 5);
 export const Phase2Step1: Story = step(2, 1);
@@ -188,11 +167,7 @@ export const Phase2Step1FewNotes: Story = {
   args: {
     ...Phase2Step1.args,
     progress: {
-      ...allReadyProgress(Phase2Step1.args?.members ?? []),
-      readyUserIds: [],
-      notReadyUserIds: [boardMeta.args.currentUserId],
-      canAdvance: false,
-      allReady: false,
+      ...connectedProgress(Phase2Step1.args?.members ?? []),
     },
     interactions: {
       ...boardMeta.args.interactions,
@@ -246,10 +221,6 @@ export const Phase3Step2: Story = {
   },
 };
 export const Phase3Step3: Story = step(3, 3);
-export const Phase3Step3WithNotReadyMember: Story = {
-  ...step(3, 3, { hasNotReadyMember: true }),
-  name: "3-3 未完了メンバーあり",
-};
 export const Phase3Step4: Story = step(3, 4);
 export const Phase3Step5: Story = step(3, 5);
 export const ReferenceAndNotes: Story = {
@@ -406,7 +377,7 @@ export const SharingPresenterDisconnected: Story = {
     ...SharingActive.args,
     onSharingAdvance: fn(),
     progress: {
-      ...allReadyProgress(SharingActive.args?.members ?? []),
+      ...connectedProgress(SharingActive.args?.members ?? []),
       connectedUserIds: (SharingActive.args?.members ?? [])
         .map(({ userId }) => userId)
         .filter((userId) => userId !== buildSharingState().order[1]?.userId),

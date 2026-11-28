@@ -1,0 +1,169 @@
+/* 画面の中央を横切る帯。上下の線は「いま目を向けてほしいもの」の注目色。 */
+.band {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ib-spacing-xl);
+  width: 100%;
+  padding: var(--ib-spacing-lg) max(var(--ib-spacing-xl), calc(50% - 400px));
+  border-block: 3px solid var(--ib-color-state-focus);
+  background: var(--ib-color-surface);
+  color: var(--ib-color-ink);
+  box-shadow: var(--elevation-tool);
+  animation: band-appear 160ms ease-out;
+}
+
+@keyframes band-appear {
+  from {
+    opacity: 0;
+    transform: scaleY(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+/* 残り時間の輪。減っていく面を注目色で示し、数字は「大」と同じ強さにする。 */
+.count {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--ib-rounded-full);
+  background: conic-gradient(
+    var(--ib-color-state-focus) calc(var(--left-ratio, 0) * 100%),
+    var(--ib-color-surface-muted) 0
+  );
+}
+
+.count > span {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--ib-rounded-full);
+  background: var(--ib-color-surface);
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.text {
+  min-width: 0;
+}
+
+.text > p {
+  margin: 0;
+}
+
+.who,
+.enough,
+.lead {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ib-color-muted);
+}
+
+.lead {
+  margin-top: var(--ib-spacing-xs);
+  font-weight: 700;
+}
+
+.step {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.todo {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.stop {
+  min-width: 148px;
+  height: 76px;
+  padding-inline: var(--ib-spacing-xl);
+  border: 2px solid var(--ib-color-ink);
+  border-radius: var(--ib-rounded-lg);
+  background: var(--ib-color-surface);
+  color: var(--ib-color-ink);
+  font-size: 24px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.stop:hover:not(:disabled) {
+  background: var(--ib-color-surface-muted);
+}
+
+.stop:focus-visible {
+  outline: 3px solid var(--ib-color-primary);
+  outline-offset: 2px;
+}
+
+.stop:disabled {
+  border-style: dashed;
+  border-color: var(--ib-color-line-strong);
+  color: var(--ib-color-muted);
+  cursor: default;
+}
+
+.none {
+  max-width: 12em;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ib-color-muted);
+}
+
+/* 狭い画面では、止めるボタンを下段に全幅で置く。 */
+@media (max-width: 639px) {
+  .band {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--ib-spacing-md);
+    padding: var(--ib-spacing-md) var(--ib-spacing-lg);
+  }
+
+  .count {
+    width: 60px;
+    height: 60px;
+  }
+
+  .count > span {
+    width: 46px;
+    height: 46px;
+    font-size: 22px;
+  }
+
+  .step {
+    font-size: 28px;
+  }
+
+  .stop,
+  .none {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+  }
+
+  .stop {
+    height: 60px;
+  }
+}
+
+/* 動きを減らす設定では輪を動かさず、数字だけを変える。 */
+@media (prefers-reduced-motion: reduce) {
+  .band {
+    animation: none;
+  }
+
+  .count {
+    background: var(--ib-color-surface-muted);
+  }
+}

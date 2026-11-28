@@ -19,10 +19,11 @@ describe("getFacilitationGuide", () => {
     [3, 4],
     [3, 5],
   ] as const)(
-    "フェーズ%i・ステップ%i の案内は、完了の操作をボタンと同じ「できた！」で呼び、「準備OK」と呼ばない",
+    "フェーズ%i・ステップ%i の案内は、廃止した「できた！」「準備OK」を出さない",
     (phase, step) => {
       const guide = getFacilitationGuide(buildPhaseStep(step, phase));
       expect(JSON.stringify(guide)).not.toContain("準備OK");
+      expect(JSON.stringify(guide)).not.toContain("できた！");
     },
   );
 
@@ -168,17 +169,16 @@ it.each([1, 2, 3] as const)(
     expect(guide?.steps?.join(" ")).toContain("自分の番だけ");
     expect(guide?.hostTimerGuide).toContain("自動で始まります");
     expect(guide?.hostMessage).toContain("発表者本人");
-    expect(guide?.hostMessage).toContain("できた！");
+    expect(guide?.hostMessage).toContain("次の人へ");
     expect(guide?.hostTimerGuide).not.toContain("一時停止");
     expect(guide?.steps?.join(" ")).not.toContain("話し合って決める");
   },
 );
 
 it.each([buildPhaseStep(2, 1), buildPhaseStep(2, 2), buildPhaseStep(2, 3)])(
-  "%o の発表の流れは画面のボタン名「できた！」で交代を示す",
+  "%o の発表の流れは画面のボタン名「次の人へ」で交代を示す",
   (phase) => {
     const items = getFacilitationGuide(phase)?.visualExample?.items ?? [];
-    expect(items).not.toContain("次の人へ");
-    expect(items.join(" ")).toContain("できた！");
+    expect(items.join(" ")).toContain("「次の人へ」");
   },
 );

@@ -46,11 +46,11 @@ const SHARE_SLIDES: readonly StepGuideSlide[] = [
   {
     title: "自分の番が来たら発表して、次の人へ交代しよう。",
     description:
-      "発表する順番は画面上部で確認できます。自分の番が来たら、マイ付箋をボードへドラッグして内容を説明しましょう。発表が終わったら「できた！」を押して次の人へ交代します。",
+      "発表する順番は画面上部で確認できます。自分の番が来たら、マイ付箋をボードへドラッグして内容を説明しましょう。発表が終わったら「次の人へ」を押して交代します。",
     // 撮影済みの動画は交代ボタンの名前が今の画面と違うため、撮り直すまで図で案内する。
     illustration: "share",
     illustrationAlt:
-      "前の人の発表を待ち、自分の番に付箋を共有して発表し、「できた！」で次の人へ交代する流れ",
+      "前の人の発表を待ち、自分の番に付箋を共有して発表し、「次の人へ」で交代する流れ",
   },
 ];
 
@@ -182,7 +182,8 @@ type AutoStepGuideKey = keyof typeof STEP_GUIDES;
 // 判断の理由は docs/adr/0029-step-guide-seen-per-user.md を参照する。
 const STEP_GUIDE_REVISIONS: Readonly<Record<AutoStepGuideKey, number>> = {
   "1-1": 1,
-  "1-2": 1,
+  // 2: 交代のボタン名が「できた！」から「次の人へ」に変わった。
+  "1-2": 2,
   "1-3": 1,
   "1-4": 1,
   "1-5": 1,
@@ -251,7 +252,7 @@ export const STEP_GUIDE_DIAGRAM_COPY = {
   drag: "ドラッグ →",
   share: "② ボードへ出して説明",
   afterExplanation: "③ 説明が終わったら",
-  handOffButton: "できた！",
+  handOffButton: "次の人へ",
   subjectiveCriterion: DOT_VOTE_CRITERIA.subjective,
   objectiveCriterion: DOT_VOTE_CRITERIA.objective,
   palette: "パレット（シールの置き場）",
