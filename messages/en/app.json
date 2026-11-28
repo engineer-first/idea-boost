@@ -1060,7 +1060,7 @@
     "savingBeforeShare": "Confirming that the note text has been saved before sharing…",
     "shareOnMap": "It is your turn. Drag a sticky note onto the value and feasibility map to share it.",
     "shareOnBoard": "It is your turn. Drag a sticky note onto the board to share it.",
-    "sharedAllNotes": "All your notes are out. When you finish explaining, press \"Done!\".",
+    "sharedAllNotes": "When you finish explaining, select “Done!”.",
     "adoptNoteLabel": "Select {target} to adopt: {content}",
     "noContent": "No content",
     "notePlaceholder": "Write a note…",

@@ -826,7 +826,7 @@
     "savingBeforeShare": "本文の保存を確認してから共有します…",
     "shareOnMap": "あなたの番です。付箋を2軸マップへドラッグして共有できます。",
     "shareOnBoard": "あなたの番です。付箋をボードへドラッグして共有できます。",
-    "sharedAllNotes": "全部出せました。説明が終わったら「できた！」を押してください。",
+    "sharedAllNotes": "説明が終わったら「できた！」を押してください。",
     "adoptNoteLabel": "採用する{target}: {content}",
     "noContent": "内容なし",
     "notePlaceholder": "メモを入力...",

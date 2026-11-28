@@ -358,12 +358,33 @@ describe("RoomBoardCanvas", () => {
         "あなたの番です",
       );
 
-      rerender(<RoomBoardCanvas {...rendered} privateNotes={[]} />);
+      // 最後の1枚を一覧の外へ運んでいる間は、まだ出し終えていない。
+      rerender(
+        <RoomBoardCanvas
+          {...rendered}
+          privateNotes={[]}
+          dragPreview={{
+            note: props.privateNotes[0],
+            left: 640,
+            top: 180,
+            width: 192,
+            height: 144,
+          }}
+        />,
+      );
+      expect(within(toolbar).getByRole("status")).toHaveTextContent(
+        "あなたの番です",
+      );
+
+      rerender(
+        <RoomBoardCanvas {...rendered} privateNotes={[]} dragPreview={null} />,
+      );
 
       const status = within(toolbar).getByRole("status");
       expect(status).toHaveTextContent(
-        "全部出せました。説明が終わったら「できた！」を押してください。",
+        "説明が終わったら「できた！」を押してください。",
       );
+      expect(status).not.toHaveTextContent("全部出せました");
       expect(status).not.toHaveTextContent("ドラッグして共有できます");
     },
   );
