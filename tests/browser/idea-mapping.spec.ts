@@ -75,38 +75,44 @@ test.each(widths(390, 1440))(
     const initialNoteBounds = await note.boundingBox();
     if (!initialMapBounds || !initialNoteBounds)
       throw new Error("2軸マップまたは付箋が見つかりません");
-    const initialCenter = {
-      x: initialNoteBounds.x + initialNoteBounds.width / 2,
-      y: initialNoteBounds.y + initialNoteBounds.height / 2,
-    };
-    const camera = await page.getByTestId("board-canvas").getAttribute("style");
+    // マップを広げても付箋の大きさは変えない。マップ全体が見えるよう表示を合わせ直すので、
+    // 付箋は小さく見え、マップの中の相対位置（評価値）は変わらない。
+    const relativeCenter = (
+      note: { x: number; y: number; width: number; height: number },
+      plane: { x: number; y: number; width: number; height: number },
+    ) => ({
+      x: (note.x + note.width / 2 - plane.x) / plane.width,
+      y: (note.y + note.height / 2 - plane.y) / plane.height,
+    });
+    const initialRelative = relativeCenter(initialNoteBounds, initialMapBounds);
     await page.getByRole("button", { name: "マップを広くする" }).click();
+    // 広げたマップが画面に入りきらなくなる幅だけ、表示を縮めて付箋が小さく見える。
     await expect
-      .poll(async () => (await note.boundingBox())?.width ?? 0)
-      .toBeLessThan(initialNoteBounds.width - 1);
-    const smallerNoteBounds = await note.boundingBox();
-    if (!smallerNoteBounds) throw new Error("縮小後の付箋が見つかりません");
-    expect(await map.boundingBox()).toEqual(initialMapBounds);
-    expect(smallerNoteBounds.x + smallerNoteBounds.width / 2).toBeCloseTo(
-      initialCenter.x,
-      0,
+      .poll(async () => (await map.boundingBox())?.width ?? 0)
+      .not.toBe(initialMapBounds.width);
+    expect((await note.boundingBox())?.width ?? Infinity).toBeLessThanOrEqual(
+      initialNoteBounds.width,
     );
-    expect(smallerNoteBounds.y + smallerNoteBounds.height / 2).toBeCloseTo(
-      initialCenter.y,
-      0,
-    );
-    expect(await page.getByTestId("board-canvas").getAttribute("style")).toBe(
-      camera,
-    );
+    await expect
+      .poll(async () => {
+        const noteBounds = await note.boundingBox();
+        const mapBounds = await map.boundingBox();
+        if (!noteBounds || !mapBounds) return Number.POSITIVE_INFINITY;
+        const relative = relativeCenter(noteBounds, mapBounds);
+        return Math.max(
+          Math.abs(relative.x - initialRelative.x),
+          Math.abs(relative.y - initialRelative.y),
+        );
+      })
+      .toBeLessThan(0.01);
     await page.getByRole("button", { name: "マップを狭くする" }).focus();
     await page.keyboard.press("Enter");
     await expect
       .poll(async () => (await note.boundingBox())?.width ?? 0)
       .toBeCloseTo(initialNoteBounds.width, 0);
-    expect(await map.boundingBox()).toEqual(initialMapBounds);
-    expect(await page.getByTestId("board-canvas").getAttribute("style")).toBe(
-      camera,
-    );
+    await expect
+      .poll(async () => (await map.boundingBox())?.width ?? 0)
+      .toBeCloseTo(initialMapBounds.width, 0);
   },
 );
 

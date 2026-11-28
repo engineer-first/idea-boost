@@ -226,9 +226,14 @@ export function useRoomBoardInteractions({
       phase.kind === "step" &&
       phase.phase === 3 &&
       (phase.step >= 2 || notes.length > 0),
-    navigationDisabled:
-      usesIdeaMapViewport ||
-      (isAdditionalWriting && phase.kind === "step" && phase.phase === 3),
+    ideaMapFitKey:
+      usesIdeaMapViewport && phase.kind === "step"
+        ? `${phase.phase}-${phase.step}`
+        : undefined,
+    // 発表の順番が変わると上の案内が入れ替わるので、まだ動かしていなければ合わせ直す。
+    ideaMapRefitKey: usesIdeaMapViewport
+      ? `${sharing?.status ?? "none"}:${sharing?.currentIndex ?? "none"}`
+      : undefined,
     temporaryView: isAdditionalWriting,
     panOnBackground: isAdditionalWriting,
     ideaMapSizeLevel,
@@ -324,10 +329,12 @@ export function useRoomBoardInteractions({
           : 1;
       const mapZoom =
         plane.clientWidth > 0 ? rect.width / plane.clientWidth : 1;
+      // ボード上のマップでは付箋の大きさを広さで変えない。拡大率は mapZoom に含まれる。
       const metrics = getIdeaMapNoteDisplayMetrics(
         drag.note,
         ideaMapSizeLevel,
         responsiveScale,
+        1,
       );
       const noteWidth = metrics.displayWidth * mapZoom;
       const noteHeight = metrics.displayHeight * mapZoom;
@@ -455,18 +462,9 @@ export function useRoomBoardInteractions({
             !isPointerOverToolbar &&
             typeof window !== "undefined"
           ) {
-            const responsiveScaleValue = ideaMapPlaneRef.current
-              ? window
-                  .getComputedStyle(ideaMapPlaneRef.current)
-                  .getPropertyValue("--idea-map-note-scale")
-              : "";
-            const parsedResponsiveScale =
-              Number.parseFloat(responsiveScaleValue);
+            // マップ上で見える大きさ（ボードの拡大率）で運ぶ。
             const responsiveScale =
-              Number.isFinite(parsedResponsiveScale) &&
-              parsedResponsiveScale > 0
-                ? parsedResponsiveScale
-                : 1;
+              Number.isFinite(camera.zoom) && camera.zoom > 0 ? camera.zoom : 1;
             const {
               displayHeight,
               unscaledHeight,
@@ -476,6 +474,7 @@ export function useRoomBoardInteractions({
               drag.note,
               ideaMapSizeLevel,
               responsiveScale,
+              1,
             );
             const horizontalGrabRatio = drag.previewWidth
               ? drag.previewOffsetX / drag.previewWidth

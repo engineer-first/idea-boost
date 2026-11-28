@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildMembers,
@@ -2408,34 +2408,6 @@ it("完了受信待ちに操作エラーを受けたら、遅れた完了で確�
   }
 });
 
-it("3-3から追加執筆の3-1へ移っても、マップ位置を保ったまま共通の配置を更新し続ける", () => {
-  const props = setupProps({ phase: buildPhaseStep(3, 3) });
-  const { rerender } = render(
-    <div data-testid="room-board-view-root">
-      <RoomBoardHeader {...props} />
-    </div>,
-  );
-  const board = screen.getByTestId("room-board-view-root");
-  const header = screen.getByTestId("board-header-row");
-  const mapTop = board.style.getPropertyValue("--board-map-top");
-  expect(mapTop).not.toBe("");
-  expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
-  rerender(
-    <div data-testid="room-board-view-root">
-      <RoomBoardHeader
-        {...props}
-        phase={buildPhaseStep(1, 3)}
-        isAdditionalWriting
-      />
-    </div>,
-  );
-  expect(board.style.getPropertyValue("--board-map-top")).toBe(mapTop);
-  expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
-  header.style.removeProperty("--board-location-height");
-  fireEvent.resize(window);
-  expect(header.style.getPropertyValue("--board-location-height")).not.toBe("");
-});
-
 describe("今のフェーズのステップの並び", () => {
   it("開く操作なしに、済んだステップを完了・今のステップを現在として並べる", () => {
     setup({ phase: buildPhaseStep(2, 1) });
@@ -2469,25 +2441,6 @@ describe("今のフェーズのステップの並び", () => {
     expect(within(trail).getAllByRole("img", { name: "完了" })).toHaveLength(2);
     expect(items[2].getAttribute("aria-current")).toBe("step");
   });
-});
-
-it("2軸マップのステップでは、テーマの折り返しで現在地の欄が伸びたらマップ位置を測り直す", () => {
-  const observed: Element[] = [];
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe(element: Element): void {
-        observed.push(element);
-      }
-      unobserve(): void {}
-      disconnect(): void {}
-    },
-  );
-  onTestFinished(() => {
-    vi.unstubAllGlobals();
-  });
-  setup({ phase: buildPhaseStep(2, 3), roomName: "J05" });
-  expect(observed).toContain(screen.getByTestId("board-context-hud"));
 });
 
 describe("発表者の接続が切れたときの中央の表示（#1431）", () => {
@@ -2566,6 +2519,26 @@ describe("発表者の接続が切れたときの中央の表示（#1431）", ()
     );
     expect(screen.getByTestId("sharing-current-presenter")).toHaveTextContent(
       `${presenter.name}さんの順番です`,
+    );
+  });
+});
+
+describe("2軸マップのステップのタイマー", () => {
+  it.each([2, 3, 4, 5])(
+    "3-%iでは全体表示がタイマーを右の欄として避ける",
+    (step) => {
+      setup({ phase: buildPhaseStep(step, 3) });
+      expect(screen.getByTestId("timer-floating")).toHaveAttribute(
+        "data-board-fit-edge",
+        "right",
+      );
+    },
+  );
+
+  it("2軸マップ以外のステップでは、全体表示の範囲にタイマーを数えない", () => {
+    setup({ phase: buildPhaseStep(3, 1) });
+    expect(screen.getByTestId("timer-floating")).not.toHaveAttribute(
+      "data-board-fit-edge",
     );
   });
 });

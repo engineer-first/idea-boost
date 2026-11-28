@@ -7,6 +7,8 @@ import {
   getIdeaMapNotePointFromClientPosition,
   getIdeaMapViewportNotePointFromClientPosition,
   getIdeaMapViewportNotePosition,
+  getIdeaMapWorldLayout,
+  getIdeaMapWorldNotePosition,
   getIdeaValueFeasibilityMapDimensions,
   getIdeaValueFeasibilityMapNotePosition,
   getIdeaValueFeasibilityMapPointFromClientPosition,
@@ -301,4 +303,43 @@ it("極端長文があっても短い付箋の移動域を残し、有限な入�
       geometry,
     ),
   ).not.toBe(null);
+});
+
+describe("ボード上の2軸マップ", () => {
+  it("広さの段階でマップ面だけが中心を保って広がる", () => {
+    const small = getIdeaMapWorldLayout(0);
+    const large = getIdeaMapWorldLayout(4);
+    expect(small.plane).toEqual({
+      x: -500,
+      y: -281.5,
+      width: 1000,
+      height: 563,
+    });
+    expect(large.plane.width).toBe(Math.round(1600 * 1.1 ** 4 * 0.625));
+    expect(large.plane.x + large.plane.width / 2).toBe(0);
+    expect(large.plane.y + large.plane.height / 2).toBe(0);
+  });
+
+  it("全体表示の範囲は縦軸と横軸の欄まで含む", () => {
+    const { plane, bounds } = getIdeaMapWorldLayout(0);
+    expect(bounds.x).toBeLessThan(plane.x - 40);
+    expect(bounds.y).toBe(plane.y);
+    expect(bounds.x + bounds.width).toBe(plane.x + plane.width);
+    expect(bounds.y + bounds.height).toBeGreaterThan(
+      plane.y + plane.height + 40,
+    );
+  });
+
+  it("付箋は大きさを変えず、評価値を中心にしてマップ面の内側へ置く", () => {
+    const plane = { width: 1000, height: 563 };
+    expect(
+      getIdeaMapWorldNotePosition({ feasibility: 50, value: 50 }, 150, plane),
+    ).toEqual({ left: 400, top: 206.5 });
+    expect(
+      getIdeaMapWorldNotePosition({ feasibility: 100, value: 100 }, 150, plane),
+    ).toEqual({ left: 800, top: 0 });
+    expect(
+      getIdeaMapWorldNotePosition({ feasibility: 0, value: 0 }, 400, plane),
+    ).toEqual({ left: 0, top: 563 - 220 });
+  });
 });

@@ -2,47 +2,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PointerEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildNotes } from "@/contracts/room-protocol.fixture";
-import { useCanvasCamera } from "./use-canvas-camera";
+import { fitCanvasCamera } from "./canvas-camera";
+import { getIdeaMapWorldLayout } from "./idea-value-feasibility-map";
+import { IDEA_MAP_FIT_PADDING, useCanvasCamera } from "./use-canvas-camera";
 
 describe("useCanvasCamera", () => {
-  it("固定マップ表示中はパン・ズーム・自動フィットを行わない", () => {
-    const viewport = document.createElement("div");
-    const { result } = renderHook(() =>
-      useCanvasCamera({
-        viewportRef: { current: viewport },
-        notes: buildNotes(1),
-        fitViewport: true,
-        navigationDisabled: true,
-      }),
-    );
-    const initialCamera = result.current.cameraRef.current;
-    const preventDefault = vi.fn();
-    const event = {
-      target: viewport,
-      currentTarget: viewport,
-      button: 0,
-      buttons: 1,
-      pointerId: 1,
-      pointerType: "touch",
-      clientX: 10,
-      clientY: 20,
-      preventDefault,
-      stopPropagation: vi.fn(),
-    } as unknown as PointerEvent<HTMLDivElement>;
-
-    act(() => result.current.handlePointerDown(event));
-    act(() => result.current.handlePointerMove({ ...event, clientX: 80 }));
-    act(() =>
-      result.current.handleWheel(new WheelEvent("wheel", { deltaY: 80 })),
-    );
-    act(() => result.current.zoomIn());
-
-    expect(result.current.cameraRef.current).toEqual(initialCamera);
-    expect(result.current.isPanning).toBe(false);
-    expect(result.current.fitToNotes()).toBe(false);
-    expect(preventDefault).not.toHaveBeenCalled();
-  });
-
   it("通常ボードはカメラ倍率0.75を表示倍率100%とし、倍率指定・リセットで視野の中心を保つ", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
@@ -374,7 +338,7 @@ describe("useCanvasCamera", () => {
   });
 });
 
-it("マップでは付箋座標ではなく1600×900の平面全体を初期表示する", () => {
+it("ボード上の2軸マップは付箋座標ではなく、軸まで含めたマップ全体を初期表示する", () => {
   const viewport = document.createElement("div");
   viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 800);
   const viewportRef = { current: viewport };
@@ -385,9 +349,10 @@ it("マップでは付箋座標ではなく1600×900の平面全体を初期表�
       fitViewport: true,
     }),
   );
-  expect(result.current.camera.zoom).toBeCloseTo(0.545);
-  expect(result.current.camera.x).toBeCloseTo(227.5);
-  expect(result.current.camera.y).toBeCloseTo(182);
+  const { bounds } = getIdeaMapWorldLayout(0);
+  expect(result.current.camera).toEqual(
+    fitCanvasCamera(bounds, { width: 1000, height: 800 }, IDEA_MAP_FIT_PADDING),
+  );
 });
 
 it("通常のカメラ付きマップでは初期表示と全体フィットで周辺UIの余白を確保する", () => {
@@ -402,9 +367,12 @@ it("通常のカメラ付きマップでは初期表示と全体フィットで�
     }),
   );
 
-  expect(result.current.camera.zoom).toBeCloseTo((900 - 350 - 100 - 128) / 900);
+  const { bounds } = getIdeaMapWorldLayout(0);
+  const expectedZoom =
+    (900 - 350 - 100 - IDEA_MAP_FIT_PADDING * 2) / bounds.height;
+  expect(result.current.camera.zoom).toBeCloseTo(expectedZoom);
   act(() => result.current.fitToNotes());
-  expect(result.current.camera.zoom).toBeCloseTo((900 - 350 - 100 - 128) / 900);
+  expect(result.current.camera.zoom).toBeCloseTo(expectedZoom);
 });
 
 it("初期表示後にユーザーが付箋を動かした場合、最初の共有付箋でカメラを自動移動しない", () => {
@@ -468,17 +436,16 @@ it("初期化されたサイズ段階の実寸で2軸マップを全体表示す
     }),
   );
 
-  const expectedZoom = 372 / 1936;
-  expect(result.current.camera.zoom).toBeCloseTo(expectedZoom);
-  expect(result.current.camera.x).toBeCloseTo(
-    (500 - 1936 * expectedZoom) / 2 + 550 * expectedZoom,
-  );
-  expect(result.current.camera.y).toBeCloseTo(
-    (400 - 1089 * expectedZoom) / 2 + 439 * expectedZoom,
+  expect(result.current.camera).toEqual(
+    fitCanvasCamera(
+      getIdeaMapWorldLayout(2).bounds,
+      { width: 500, height: 400 },
+      IDEA_MAP_FIT_PADDING,
+    ),
   );
 });
 
-it("リモートのサイズ変更で個人カメラを保ち、手動fitは最新サイズを使う", () => {
+it("広さが変わったとき、全体表示のままなら合わせ直し、自分で動かした後は個人カメラを保つ", async () => {
   const viewport = document.createElement("div");
   viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
   const viewportRef = { current: viewport };
@@ -493,13 +460,117 @@ it("リモートのサイズ変更で個人カメラを保ち、手動fitは最�
       }),
     { initialProps: { ideaMapSizeLevel: 0 } },
   );
-  const personalCamera = result.current.camera;
+  const fitFor = (level: number) =>
+    fitCanvasCamera(
+      getIdeaMapWorldLayout(level).bounds,
+      { width: 500, height: 400 },
+      IDEA_MAP_FIT_PADDING,
+    );
 
   rerender({ ideaMapSizeLevel: 3 });
+  await waitFor(() => expect(result.current.camera).toEqual(fitFor(3)));
+
+  act(() => result.current.zoomIn());
+  await waitFor(() =>
+    expect(result.current.camera.zoom).toBeCloseTo(fitFor(3).zoom * 1.25),
+  );
+  const personalCamera = result.current.camera;
+  rerender({ ideaMapSizeLevel: 5 });
+  await new Promise((resolve) => setTimeout(resolve, 50));
   expect(result.current.camera).toEqual(personalCamera);
 
   act(() => result.current.fitToNotes());
-  expect(result.current.camera.zoom).toBeCloseTo(372 / 2130);
+  expect(result.current.camera).toEqual(fitFor(5));
+});
+
+it("発表の順番が変わって上の案内が入れ替わったら、まだ動かしていなければ合わせ直す", async () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 800);
+  let top = 0;
+  const { result, rerender } = renderHook(
+    ({ ideaMapRefitKey }) =>
+      useCanvasCamera({
+        viewportRef: { current: viewport },
+        notes: [],
+        fitViewport: true,
+        getFitInsets: () => ({ top, right: 0, bottom: 0, left: 0 }),
+        ideaMapRefitKey,
+      }),
+    { initialProps: { ideaMapRefitKey: "ready" } },
+  );
+  const fitWithTop = (value: number) =>
+    fitCanvasCamera(
+      getIdeaMapWorldLayout(0).bounds,
+      { width: 1280, height: 800 },
+      IDEA_MAP_FIT_PADDING,
+      { top: value, right: 0, bottom: 0, left: 0 },
+    );
+  expect(result.current.camera).toEqual(fitWithTop(0));
+
+  top = 220;
+  rerender({ ideaMapRefitKey: "active:0" });
+  await waitFor(() => expect(result.current.camera).toEqual(fitWithTop(220)));
+
+  act(() => result.current.zoomIn());
+  await waitFor(() =>
+    expect(result.current.camera).not.toEqual(fitWithTop(220)),
+  );
+  const personalCamera = result.current.camera;
+  top = 0;
+  rerender({ ideaMapRefitKey: "active:1" });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(result.current.camera).toEqual(personalCamera);
+});
+
+it("2軸マップのステップが変わると、自分で動かした後でも全体表示に合わせ直す", async () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+  const viewportRef = { current: viewport };
+  const { result, rerender } = renderHook(
+    ({ ideaMapFitKey }) =>
+      useCanvasCamera({
+        viewportRef,
+        notes: [],
+        fitViewport: true,
+        ideaMapFitKey,
+      }),
+    { initialProps: { ideaMapFitKey: "3-2" } },
+  );
+  const fitted = result.current.camera;
+  act(() => result.current.zoomIn());
+  await waitFor(() => expect(result.current.camera).not.toEqual(fitted));
+
+  rerender({ ideaMapFitKey: "3-3" });
+  await waitFor(() => expect(result.current.camera).toEqual(fitted));
+});
+
+it("2軸マップでもホイールでパンでき、全体表示は周りの操作欄を避ける", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 800);
+  const insets = { top: 120, right: 240, bottom: 90, left: 0 };
+  const { result } = renderHook(() =>
+    useCanvasCamera({
+      viewportRef: { current: viewport },
+      notes: [],
+      fitViewport: true,
+      getFitInsets: () => insets,
+    }),
+  );
+  expect(result.current.camera).toEqual(
+    fitCanvasCamera(
+      getIdeaMapWorldLayout(0).bounds,
+      { width: 1280, height: 800 },
+      IDEA_MAP_FIT_PADDING,
+      insets,
+    ),
+  );
+  const before = result.current.cameraRef.current;
+  act(() =>
+    result.current.handleWheel(
+      new WheelEvent("wheel", { deltaX: 0, deltaY: 40, cancelable: true }),
+    ),
+  );
+  expect(result.current.cameraRef.current.y).toBe(before.y - 40);
 });
 
 it("付箋全体表示は長文で伸びた実高まで画面内へ収める", () => {

@@ -27,8 +27,13 @@ import {
 import { canPublishNoteInTurn } from "@/contracts/sharing";
 import { useRoomNotes } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
+import { fitCanvasCamera } from "../logic/canvas-camera";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
-import { useCanvasCamera } from "../logic/use-canvas-camera";
+import { getIdeaMapWorldLayout } from "../logic/idea-value-feasibility-map";
+import {
+  IDEA_MAP_FIT_PADDING,
+  useCanvasCamera,
+} from "../logic/use-canvas-camera";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardCanvas } from "./room-board-canvas";
 import { buildMovePerformanceNotes } from "./room-board-canvas.fixture";
@@ -290,6 +295,7 @@ export const IdeaMapDraggingGhost: Story = {
   args: {
     phase: STEP_3_2,
     permissions: getBoardPermissions(STEP_3_2),
+    camera: ideaMapStoryCamera(0),
     dragGhost: {
       note: buildNote({
         id: "idea-map-ghost",
@@ -550,6 +556,8 @@ export const TwoClientSharedIdeaAdoptionFocus: Story = {
   args: {
     phase: STEP_3_5,
     permissions: getBoardPermissions(STEP_3_5),
+    // 2つのクライアントを横に並べるので、半分の幅の枠にマップを収める。
+    camera: ideaMapStoryCamera(0, { width: 600, height: 440 }),
     notes: [
       buildNote({ id: "note-1", content: "共有中のアイデア", x: 50, y: 50 }),
     ],
@@ -620,6 +628,7 @@ export const Step3SharingBoard: Story = {
   args: {
     phase: STEP_3_2,
     permissions: getBoardPermissions(STEP_3_2),
+    camera: ideaMapStoryCamera(0),
     privateNotes: [
       buildNote({
         id: "private-sharing-idea",
@@ -649,6 +658,7 @@ export const Step3IdeaMap: Story = {
   args: {
     phase: buildPhaseStep(3, 3),
     permissions: getBoardPermissions(buildPhaseStep(3, 3)),
+    camera: ideaMapStoryCamera(1),
     notes: [
       buildNote({
         id: "idea-map-a",
@@ -681,9 +691,21 @@ const ideaMapViewportArgs = {
     buildNote({ id: "map-left", content: "アイデア A", x: 25, y: 25 }),
     buildNote({ id: "map-right", content: "アイデア B", x: 75, y: 75 }),
   ],
+  camera: ideaMapStoryCamera(0),
 };
 
-const IDEA_MAP_CAMERA = { x: 312, y: 172, zoom: 0.5 };
+// マップはボードの原点を中心に置く。固定カメラのStoryは、枠いっぱいに収めたカメラで見せる。
+function ideaMapStoryCamera(
+  sizeLevel: number,
+  viewport = { width: 1248, height: 688 },
+) {
+  return fitCanvasCamera(
+    getIdeaMapWorldLayout(sizeLevel).bounds,
+    viewport,
+    IDEA_MAP_FIT_PADDING,
+  );
+}
+const IDEA_MAP_CAMERA = ideaMapStoryCamera(4);
 const IDEA_MAP_VIEWPORT = [
   (Story: ComponentType) => (
     <div className="flex h-[720px] w-[1280px] p-4">
@@ -799,14 +821,14 @@ export const ParticipantIdeaMap: Story = {
 export const IdeaMapZoom50: Story = {
   args: {
     ...ideaMapViewportArgs,
-    camera: { x: 0, y: 0, zoom: 0.5 },
+    camera: { ...ideaMapStoryCamera(0), zoom: 0.5 },
   },
 };
 
 export const IdeaMapZoom200: Story = {
   args: {
     ...ideaMapViewportArgs,
-    camera: { x: -400, y: -300, zoom: 2 },
+    camera: { ...ideaMapStoryCamera(0), zoom: 2 },
   },
 };
 
@@ -885,6 +907,7 @@ export const InteractiveIdeaMapReading: Story = {
     ],
     phase: STEP_3_2,
     permissions: getBoardPermissions(STEP_3_2),
+    camera: ideaMapStoryCamera(0),
   },
 };
 
@@ -992,14 +1015,15 @@ export const MapAdoptionAfterRepeatedOperations: Story = {
     phase: buildPhaseStep(5, 3),
     permissions: getBoardPermissions(buildPhaseStep(5, 3)),
     notes: adoptionLayeringNotes(true),
+    camera: ideaMapStoryCamera(0, { width: 1280, height: 690 }),
   },
 };
 
 export const IdeaMapInitialAxes: Story = {
-  name: "2軸マップ / 初期82%の軸ラベル",
+  name: "2軸マップ / 全体表示の軸ラベル",
   args: {
     ...ideaMapViewportArgs,
-    camera: { x: 128, y: 40, zoom: 0.82 },
+    camera: ideaMapStoryCamera(0, { width: 1408, height: 968 }),
   },
   decorators: [
     (Story) => (
@@ -1417,6 +1441,8 @@ function TransactionMovePreview({ args }: { args: RoomBoardCanvasStoryProps }) {
         onNotePointerCaptureLost={interactions.onPointerCaptureLost}
         notes={roomNotes.notes}
         selectedNoteId={selectedIds[0] ?? null}
+        // 画面と同じく選択中の全付箋を渡し、一緒に動く付箋を遅らせない。
+        selectedNoteIds={selectedIds}
         draggingNoteId={roomNotes.draggingNoteId}
         onNoteDragStart={interactions.onNoteDragStart}
       />
@@ -1446,6 +1472,7 @@ export const TransactionMove100MapNotes: Story = {
     ),
     phase: STEP_3_2,
     permissions: getBoardPermissions(STEP_3_2),
+    camera: ideaMapStoryCamera(0),
   },
   render: (args) => <TransactionMovePreview args={args} />,
 };
