@@ -1,4 +1,35 @@
+import type { RoomPhase } from "@/contracts/phase";
 import { buildNote } from "@/contracts/room-protocol.fixture";
+import { type CanvasCamera, fitCanvasCamera } from "../logic/canvas-camera";
+import {
+  getIdeaMapWorldLayout,
+  isIdeaMapViewportStep,
+} from "../logic/idea-value-feasibility-map";
+import { IDEA_MAP_FIT_PADDING } from "../logic/use-canvas-camera";
+
+const DEFAULT_STORY_CAMERA: CanvasCamera = { x: 0, y: 0, zoom: 1 };
+
+/**
+ * 2軸マップはボードの原点を中心に置く。固定カメラ（原点・100%）のStoryでは、
+ * 画面にマップ全体を収めたカメラへ置き換える。それ以外のカメラはそのまま使う。
+ */
+export function storyBoardCamera(
+  camera: CanvasCamera,
+  phase: RoomPhase,
+  ideaMapSizeLevel = 0,
+): CanvasCamera {
+  const isDefault =
+    camera.x === DEFAULT_STORY_CAMERA.x &&
+    camera.y === DEFAULT_STORY_CAMERA.y &&
+    camera.zoom === DEFAULT_STORY_CAMERA.zoom;
+  if (!isDefault || !isIdeaMapViewportStep(phase)) return camera;
+  if (typeof window === "undefined") return camera;
+  return fitCanvasCamera(
+    getIdeaMapWorldLayout(ideaMapSizeLevel).bounds,
+    { width: window.innerWidth, height: window.innerHeight },
+    IDEA_MAP_FIT_PADDING,
+  );
+}
 
 export const ADDITIONAL_WRITING_USER = "11111111-1111-4111-8111-111111111111";
 export const ADDITIONAL_WRITING_PRIVATE_NOTES = Array.from(

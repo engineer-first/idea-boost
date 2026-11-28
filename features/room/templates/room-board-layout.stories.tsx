@@ -15,6 +15,7 @@ import type { PhaseProgressState } from "../logic/room-reducer";
 import { stepGuideSeenStorageKey } from "../logic/step-guide-seen";
 import { useBoardHelp } from "../logic/use-board-help";
 import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
+import { storyBoardCamera } from "./room-board-view.fixture";
 import boardMeta, { MoveHistoryAvailable } from "./room-board-view.stories";
 
 const LONG_ISSUE =
@@ -443,7 +444,11 @@ export const MapControls: Story = {
       <RoomBoardView
         {...args}
         help={help}
-        interactions={{ ...args.interactions, notes: args.notes }}
+        interactions={{
+          ...args.interactions,
+          notes: args.notes,
+          camera: storyBoardCamera(args.interactions.camera, args.phase, level),
+        }}
         ideaMapSizeLevel={level}
         onIdeaMapResize={setLevel}
       />

@@ -30,6 +30,7 @@ import {
 import {
   ADDITIONAL_WRITING_PRIVATE_NOTES,
   additionalWritingSharedNotes,
+  storyBoardCamera,
 } from "./room-board-view.fixture";
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -113,7 +114,15 @@ const meta = {
       <RoomBoardView
         {...args}
         help={help}
-        interactions={{ ...args.interactions, notes: args.notes }}
+        interactions={{
+          ...args.interactions,
+          notes: args.notes,
+          camera: storyBoardCamera(
+            args.interactions.camera,
+            args.phase,
+            args.ideaMapSizeLevel,
+          ),
+        }}
       />
     );
   },

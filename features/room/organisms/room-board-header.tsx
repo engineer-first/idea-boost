@@ -87,8 +87,6 @@ import { TimerSoundControl } from "../molecules/timer-sound-control";
 import styles from "./room-board-header.module.css";
 import { RoomTimer } from "./room-timer";
 
-const IDEA_MAP_CONTEXT_GAP = 18;
-const IDEA_MAP_STEP_TRAIL_GAP = 10;
 function getRecommendedTimerDurationMs(phase: RoomPhase): number {
   return (getFacilitationGuide(phase)?.durationMinutes ?? 3) * 60_000;
 }
@@ -106,7 +104,6 @@ export type RoomBoardHeaderProps = {
   inviteUrl: string;
   phase: RoomPhase;
   phaseRevision?: number;
-  isAdditionalWriting?: boolean;
   rollbackTarget?: RoomPhase | null;
   onRollbackPhase?: () => void;
   sharing?: SharingState | null;
@@ -170,7 +167,6 @@ export function RoomBoardHeader({
   inviteUrl,
   phase,
   phaseRevision = 0,
-  isAdditionalWriting = false,
   rollbackTarget = null,
   onRollbackPhase,
   sharing = null,
@@ -218,10 +214,7 @@ export function RoomBoardHeader({
   const controlsAreaRef = useRef<HTMLDivElement>(null);
   const isIdeaMapWorkspaceStep =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
-  const additionalWritingMap = isAdditionalWriting && isPhaseStep(phase, 3, 1);
-  const usesIdeaMapViewport =
-    isIdeaMapViewportStep(phase) || additionalWritingMap;
-  const mapLayoutBeforeWritingRef = useRef<Record<string, string> | null>(null);
+  const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
   useEffect(() => {
     const area = controlsAreaRef.current;
     const header = area?.closest<HTMLElement>(
@@ -231,12 +224,6 @@ export function RoomBoardHeader({
       '[data-testid="room-board-view-root"]',
     );
     if (!area || !header) return;
-    // 追加執筆の3-1は書き足し前のマップ位置を保ち、共通の配置だけを更新する。
-    const keptMapLayout =
-      additionalWritingMap && board ? mapLayoutBeforeWritingRef.current : null;
-    if (keptMapLayout && board)
-      for (const [property, value] of Object.entries(keptMapLayout))
-        board.style.setProperty(property, value);
     function updateBoardLayoutOffsets(): void {
       const notice =
         connectionStatus === "open"
@@ -245,92 +232,6 @@ export function RoomBoardHeader({
               '[data-testid="board-connection-status"]',
             );
       if (!header) return;
-      // 復元したマップ位置は再計算で上書きも削除もしない。
-      if (usesIdeaMapViewport && board && !keptMapLayout) {
-        const boardTop = board.getBoundingClientRect().top;
-        const location = header.querySelector<HTMLElement>(
-          '[data-testid="board-location-card"]',
-        );
-        const helpToggle = isIdeaMapWorkspaceStep
-          ? header
-              .querySelector<HTMLElement>('[data-testid="board-help-panel"]')
-              ?.querySelector<HTMLElement>("[data-help-toggle]")
-          : null;
-        const contextColumn = header.querySelector<HTMLElement>(
-          '[data-testid="board-context-column"]',
-        );
-        const locationBottom =
-          location?.getBoundingClientRect().bottom ?? boardTop;
-        const controlsBottom = area?.getBoundingClientRect().bottom ?? boardTop;
-        // 3-2/3-3ではヒントを描画しないが、マップ位置は従来の閉じたヒント行
-        // を含む位置で固定する。行自体はDOMに残さず、既存のモバイルgrid寸法から算出する。
-        const helpRowBottom =
-          helpToggle?.getBoundingClientRect().bottom ??
-          (window.innerWidth <= 639
-            ? (contextColumn?.getBoundingClientRect().top ?? boardTop) +
-              (location?.parentElement?.getBoundingClientRect().height ?? 80) +
-              50 +
-              8 +
-              36
-            : boardTop);
-        const mapTop =
-          window.innerWidth >= 900
-            ? Math.max(controlsBottom, locationBottom) - boardTop + 50
-            : window.innerWidth <= 639
-              ? Math.max(locationBottom, controlsBottom, helpRowBottom) -
-                boardTop +
-                25
-              : Math.max(locationBottom, controlsBottom) - boardTop + 24;
-        // 狭幅の投票完了表示用余白は周辺UIに残し、マップ位置には足さない。
-        const votingStatusPadding =
-          !isIdeaMapWorkspaceStep && window.innerWidth <= 900 && area
-            ? Number.parseFloat(getComputedStyle(area).paddingBottom) || 0
-            : 0;
-        board.style.setProperty(
-          "--board-map-top",
-          `${mapTop - votingStatusPadding}px`,
-        );
-        if (window.innerWidth >= 900) {
-          const context = header.querySelector<HTMLElement>(
-            '[data-testid="board-context-hud"]',
-          );
-          const mapPlane = board.querySelector<HTMLElement>(
-            '[data-testid="idea-value-feasibility-map-plane"]',
-          );
-          if (context && mapPlane) {
-            const currentShift =
-              Number.parseFloat(
-                board.style.getPropertyValue("--board-map-shift-y"),
-              ) || 0;
-            // 広い画面は左上の現在地カードを出さず決定事項が上がるため、
-            // 中央のステップバーの下端より上にはマップを上げない。
-            const stepTrail = header.querySelector<HTMLElement>(
-              '[data-testid="phase-step-trail"]',
-            );
-            const targetTop = Math.max(
-              context.getBoundingClientRect().bottom + IDEA_MAP_CONTEXT_GAP,
-              (stepTrail?.getBoundingClientRect().bottom ?? 0) +
-                IDEA_MAP_STEP_TRAIL_GAP,
-            );
-            const correction = targetTop - mapPlane.getBoundingClientRect().top;
-            board.style.setProperty(
-              "--board-map-shift-y",
-              `${currentShift + correction}px`,
-            );
-          }
-        } else {
-          board.style.removeProperty("--board-map-shift-y");
-        }
-        const noticeBottom =
-          notice && board
-            ? notice.getBoundingClientRect().bottom - boardTop + 8
-            : 72;
-        board.style.setProperty("--board-map-tray-top", `${noticeBottom}px`);
-      } else if (!keptMapLayout) {
-        board?.style.removeProperty("--board-map-top");
-        board?.style.removeProperty("--board-map-shift-y");
-        board?.style.removeProperty("--board-map-tray-top");
-      }
       const bottom = notice
         ? notice.getBoundingClientRect().bottom -
           header.getBoundingClientRect().top +
@@ -369,14 +270,6 @@ export function RoomBoardHeader({
         ? null
         : new ResizeObserver(updateBoardLayoutOffsets);
     observer?.observe(area);
-    if (usesIdeaMapViewport) {
-      observer?.observe(header);
-      // テーマの折り返しなどで現在地の欄だけが伸びても、マップを参照欄の下へ測り直す。
-      const contextHud = header.querySelector<HTMLElement>(
-        '[data-testid="board-context-hud"]',
-      );
-      if (contextHud) observer?.observe(contextHud);
-    }
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
@@ -389,28 +282,8 @@ export function RoomBoardHeader({
       header.style.removeProperty("--board-location-top");
       header.style.removeProperty("--board-location-height");
       board?.style.removeProperty("--board-connection-notice-bottom");
-      if (usesIdeaMapViewport && !additionalWritingMap && board) {
-        mapLayoutBeforeWritingRef.current = Object.fromEntries(
-          [
-            "--board-map-top",
-            "--board-map-shift-y",
-            "--board-map-tray-top",
-          ].map((property) => [
-            property,
-            board.style.getPropertyValue(property),
-          ]),
-        );
-      }
-      board?.style.removeProperty("--board-map-top");
-      board?.style.removeProperty("--board-map-shift-y");
-      board?.style.removeProperty("--board-map-tray-top");
     };
-  }, [
-    connectionStatus,
-    isIdeaMapWorkspaceStep,
-    usesIdeaMapViewport,
-    additionalWritingMap,
-  ]);
+  }, [connectionStatus]);
   const activeSharing =
     phase.kind === "step" && phase.step === 2 ? sharing : null;
   const transitioning = activeSharing?.startsAt != null;
@@ -1351,6 +1224,8 @@ export function RoomBoardHeader({
           {!outcomePublished && phase.kind === "step" && !canCompleteSharing ? (
             <RoomTimer
               timer={timer}
+              // 2軸マップはボードの上にあり、全体表示で右上のタイマーの下へ入れない。
+              fitEdge={usesIdeaMapViewport ? "right" : undefined}
               serverOffsetMs={timerServerOffsetMs}
               disabled={
                 isDisconnected ||

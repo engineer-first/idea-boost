@@ -1,160 +1,296 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { CSSProperties, ReactNode, Ref } from "react";
-import { IDEA_MAP_BASE_DIMENSIONS } from "@/contracts/board";
+import { type CSSProperties, type ReactNode, type Ref, useId } from "react";
 import {
-  getIdeaMapAxisLabelFontSize,
-  getIdeaValueFeasibilityMapDimensions,
-  IDEA_MAP_AXIS_SIZE,
-  IDEA_MAP_GRID_GAP,
+  getIdeaMapWorldLayout,
+  IDEA_MAP_WORLD_X_AXIS_HEIGHT,
+  IDEA_MAP_WORLD_Y_AXIS_WIDTH,
 } from "../logic/idea-value-feasibility-map";
 
 const MAP_GRID_STYLE = {
   backgroundImage:
-    "linear-gradient(to right, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px)",
+    "linear-gradient(to right, color-mix(in oklab, var(--ib-color-muted) 18%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, var(--ib-color-muted) 18%, transparent) 1px, transparent 1px)",
   backgroundSize: "10% 10%",
 } satisfies CSSProperties;
 
-const AXIS_LABEL_X_OFFSET_TOP = 24;
-const AXIS_LABEL_X_ROW_BASE_HEIGHT = IDEA_MAP_AXIS_SIZE;
+const AXIS_ARROW_PATH = "M -6 -6 L 0 0 L -6 6";
+const AXIS_COLORS = {
+  low: "color-mix(in oklab, var(--ib-color-muted) 55%, var(--ib-color-surface))",
+  middle:
+    "color-mix(in oklab, var(--ib-color-muted) 80%, var(--ib-color-surface))",
+  high: "color-mix(in oklab, var(--ib-color-primary) 85%, var(--ib-color-surface))",
+};
 
-// アイデア整理用の連続的な2軸平面。将来の子要素を absolute 配置できるよう、
-// 平面そのものを relative に保つ。子要素は0〜100の連続座標で配置する。
+function AxisStroke({
+  axis,
+  className,
+  style,
+}: {
+  axis: "x" | "y";
+  className: string;
+  style?: CSSProperties;
+}) {
+  const gradientId = useId();
+  const vertical = axis === "y";
+  const low = {
+    x: vertical ? "50%" : "0%",
+    y: vertical ? "100%" : "50%",
+  };
+  const high = {
+    x: vertical ? "50%" : "100%",
+    y: vertical ? "0%" : "50%",
+  };
+
+  return (
+    <svg
+      aria-hidden="true"
+      className={`block overflow-visible ${className}`}
+      style={style}
+      fill="none"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      data-testid={`idea-value-feasibility-map-${axis}-scale-bar`}
+    >
+      <defs>
+        <linearGradient
+          id={gradientId}
+          gradientUnits="userSpaceOnUse"
+          x1={low.x}
+          y1={low.y}
+          x2={high.x}
+          y2={high.y}
+        >
+          <stop offset="0%" stopColor={AXIS_COLORS.low} />
+          <stop offset="50%" stopColor={AXIS_COLORS.middle} />
+          <stop offset="100%" stopColor={AXIS_COLORS.high} />
+        </linearGradient>
+      </defs>
+      <line
+        x1={low.x}
+        y1={low.y}
+        x2={high.x}
+        y2={high.y}
+        stroke={`url(#${gradientId})`}
+      />
+      {/* 線の端点を矢印の先端にも使い、レスポンシブでも線が突き抜けないようにする。 */}
+      <svg
+        aria-hidden="true"
+        x={low.x}
+        y={low.y}
+        width={1}
+        height={1}
+        overflow="visible"
+      >
+        <path
+          d={AXIS_ARROW_PATH}
+          transform={`rotate(${vertical ? 90 : 180})`}
+          stroke={AXIS_COLORS.low}
+          data-testid={`idea-value-feasibility-map-${axis}-low-arrow`}
+        />
+      </svg>
+      <svg
+        aria-hidden="true"
+        x={high.x}
+        y={high.y}
+        width={1}
+        height={1}
+        overflow="visible"
+      >
+        <path
+          d={AXIS_ARROW_PATH}
+          transform={vertical ? "rotate(-90)" : undefined}
+          stroke={AXIS_COLORS.high}
+          data-testid={`idea-value-feasibility-map-${axis}-high-arrow`}
+        />
+      </svg>
+    </svg>
+  );
+}
+
+// 縮小して全体を見ても軸が読めるよう、画面上の最小の文字の大きさを保つ。
+const AXIS_NAME_FONT_SIZE = 24;
+const AXIS_NAME_MIN_SCREEN_FONT_SIZE = 16;
+const AXIS_END_FONT_SIZE = 16;
+const AXIS_END_MIN_SCREEN_FONT_SIZE = 12;
+const AXIS_LINE_HEIGHT = 1.25;
+// 軸の言葉と矢印の間。縮小しても画面上でこの間を保つ。
+const AXIS_GAP = 12;
+const AXIS_MIN_SCREEN_GAP = 10;
+const X_AXIS_ROW_HEIGHT = 32;
+const Y_AXIS_TRACK_INSET = 36;
+
+function screenSafeFontSize(
+  worldSize: number,
+  minScreenSize: number,
+  cameraZoom: number,
+): number {
+  const zoom = Number.isFinite(cameraZoom) && cameraZoom > 0 ? cameraZoom : 1;
+  return Math.max(worldSize, minScreenSize / zoom);
+}
+
 export type IdeaValueFeasibilityMapProps = {
   children?: ReactNode;
   overlay?: ReactNode;
   planeRef?: Ref<HTMLDivElement>;
   sizeLevel?: number;
+  cameraZoom?: number;
 };
 
+/**
+ * ボード上の決まった位置に置く2軸マップ。ボードのカメラで一緒に拡大・移動する。
+ * 付箋は0〜100の評価値で、マップ面の中に置く。
+ */
 export function IdeaValueFeasibilityMap({
   children,
   overlay,
   planeRef,
   sizeLevel = 0,
+  cameraZoom = 1,
 }: IdeaValueFeasibilityMapProps) {
   const t = useTranslations("app.boardMap");
-  const labels = {
-    ariaLabel: t("ariaLabel"),
-    title: t("title"),
-    value: t("value"),
-    feasibility: t("feasibility"),
-    low: t("low"),
-    high: t("high"),
-    feasibilityLow: t("feasibilityLow"),
-    feasibilityHigh: t("feasibilityHigh"),
-    valueScaleAriaLabel: t("valueScaleAriaLabel"),
-    feasibilityScaleAriaLabel: t("feasibilityScaleAriaLabel"),
-  };
-  const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
-  const axisLabelFontSize = getIdeaMapAxisLabelFontSize(sizeLevel);
-  const axisLabelStyle = {
-    fontSize: axisLabelFontSize,
-    lineHeight: `${axisLabelFontSize}px`,
+  const { plane } = getIdeaMapWorldLayout(sizeLevel);
+  const axisNameStyle = {
+    fontSize: screenSafeFontSize(
+      AXIS_NAME_FONT_SIZE,
+      AXIS_NAME_MIN_SCREEN_FONT_SIZE,
+      cameraZoom,
+    ),
+    lineHeight: AXIS_LINE_HEIGHT,
   } satisfies CSSProperties;
-  const axisLabelXRowExpansion = Math.max(
-    0,
-    AXIS_LABEL_X_OFFSET_TOP +
-      axisLabelFontSize +
-      2 -
-      AXIS_LABEL_X_ROW_BASE_HEIGHT,
+  const axisEndStyle = {
+    fontSize: screenSafeFontSize(
+      AXIS_END_FONT_SIZE,
+      AXIS_END_MIN_SCREEN_FONT_SIZE,
+      cameraZoom,
+    ),
+    lineHeight: AXIS_LINE_HEIGHT,
+  } satisfies CSSProperties;
+  const gap = screenSafeFontSize(AXIS_GAP, AXIS_MIN_SCREEN_GAP, cameraZoom);
+  const xAxisRowHeight = Math.max(
+    X_AXIS_ROW_HEIGHT,
+    axisNameStyle.fontSize * AXIS_LINE_HEIGHT,
   );
-  // 下段と外枠を同じ分だけ伸ばし、軸ラベルを収めつつマップ面の寸法・位置を保つ。
-  const sectionHeight = dimensions.height + axisLabelXRowExpansion;
-  const axisLabelXRowHeight =
-    AXIS_LABEL_X_ROW_BASE_HEIGHT + axisLabelXRowExpansion;
+  // 縦軸の線は「高」「低」の下と上から始め、縮小して文字が大きくなっても重ねない。
+  const yAxisTrackInset = Math.max(
+    Y_AXIS_TRACK_INSET,
+    axisEndStyle.fontSize * AXIS_LINE_HEIGHT + gap,
+  );
 
   return (
     <section
-      aria-label={labels.ariaLabel}
-      className="pointer-events-none absolute z-10 grid grid-cols-[4rem_minmax(0,1fr)] gap-3 select-none"
+      aria-label={t("ariaLabel")}
+      className="pointer-events-none absolute z-10 grid select-none"
       data-testid="idea-value-feasibility-map"
       style={{
-        width: dimensions.width,
-        height: sectionHeight,
-        left: `calc(50% - ${IDEA_MAP_BASE_DIMENSIONS.width / 2}px)`,
-        bottom: `calc(50% - ${IDEA_MAP_BASE_DIMENSIONS.height / 2}px - ${axisLabelXRowExpansion}px)`,
-        gridTemplateColumns: `${IDEA_MAP_AXIS_SIZE}px minmax(0, 1fr)`,
-        gap: IDEA_MAP_GRID_GAP,
-        gridTemplateRows: `minmax(0, 1fr) ${axisLabelXRowHeight}px`,
+        left: plane.x - IDEA_MAP_WORLD_Y_AXIS_WIDTH,
+        top: plane.y,
+        width: plane.width + IDEA_MAP_WORLD_Y_AXIS_WIDTH,
+        height: plane.height + IDEA_MAP_WORLD_X_AXIS_HEIGHT,
+        gridTemplateColumns: `${IDEA_MAP_WORLD_Y_AXIS_WIDTH}px ${plane.width}px`,
+        gridTemplateRows: `${plane.height}px ${IDEA_MAP_WORLD_X_AXIS_HEIGHT}px`,
       }}
     >
-      <span className="sr-only absolute">{labels.title}</span>
+      <span className="sr-only">{t("title")}</span>
       <fieldset
-        aria-label={labels.valueScaleAriaLabel}
-        className="relative col-start-1 row-start-1 m-0 min-h-0 w-16 min-w-0 border-0 p-0 text-muted-foreground"
+        aria-label={t("valueScaleAriaLabel")}
+        className="relative col-start-1 row-start-1 m-0 min-h-0 border-0 p-0 pr-3 text-muted-foreground"
       >
-        <span className="absolute right-2 top-1 text-xs font-medium">
-          {labels.high}
-        </span>
-        <div
-          aria-hidden="true"
-          className="absolute bottom-7 right-3 top-7 w-1 rounded-full bg-linear-to-t from-muted-foreground/20 via-muted-foreground/45 to-primary/75"
-          data-testid="idea-value-feasibility-map-y-scale-bar"
-        >
-          <ArrowUp className="absolute -top-2 left-1/2 size-4 -translate-x-1/2 text-primary" />
-        </div>
         <span
-          className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full border border-border bg-background/95 px-0 py-2 font-semibold tracking-wide text-foreground [writing-mode:vertical-rl]"
-          data-testid="idea-value-feasibility-map-y-axis-label"
-          style={axisLabelStyle}
+          className="absolute top-0 left-[calc(50%-6px)] -translate-x-1/2 font-medium"
+          style={axisEndStyle}
         >
-          {labels.value}
+          {t("high")}
         </span>
-        <span className="absolute bottom-1 right-2 text-xs font-medium">
-          {labels.low}
+        <AxisStroke
+          axis="y"
+          className="absolute left-[calc(50%-6px)] w-4 -translate-x-1/2"
+          style={{
+            top: yAxisTrackInset,
+            height: `calc(100% - ${2 * yAxisTrackInset}px)`,
+          }}
+        />
+        <span
+          className="absolute top-1/2 left-[calc(50%-6px)] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-background px-2 py-2 font-bold tracking-wide text-foreground"
+          data-testid="idea-value-feasibility-map-y-axis-label"
+          style={{ ...axisNameStyle, writingMode: "vertical-rl" }}
+        >
+          {t("value")}
+        </span>
+        <span
+          className="absolute bottom-0 left-[calc(50%-6px)] -translate-x-1/2 font-medium"
+          style={axisEndStyle}
+        >
+          {t("low")}
         </span>
       </fieldset>
 
       <div
         ref={planeRef}
-        className="isolate pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-lg border border-border bg-primary-soft/90 "
+        className="pointer-events-auto relative col-start-2 row-start-1 rounded-lg bg-primary-soft [--idea-map-note-scale:1]"
         data-canvas-background="true"
         data-coordinate-range="0-100"
         data-testid="idea-value-feasibility-map-plane"
+        style={{ width: plane.width, height: plane.height }}
       >
+        {/* 枠線は飾りとして重ね、付箋が端まで動ける範囲とマップ面の大きさをそろえる。 */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          data-canvas-background="true"
+          className="pointer-events-none absolute inset-0 rounded-[inherit] border border-border"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-[inherit]"
           data-testid="idea-value-feasibility-map-plane-grid"
           style={MAP_GRID_STYLE}
         />
-        {children}
-      </div>
-      {overlay ? (
-        <div className="pointer-events-none relative z-20 col-start-2 row-start-1 min-h-0 min-w-0">
-          {overlay}
-        </div>
-      ) : null}
-
-      <fieldset
-        aria-label={labels.feasibilityScaleAriaLabel}
-        className="relative z-10 col-start-2 row-start-2 m-0 h-full min-w-0 border-0 p-0 text-muted-foreground"
-      >
-        <span className="absolute left-1 top-1 text-xs font-medium">
-          {labels.feasibilityLow}
-        </span>
         <div
           aria-hidden="true"
-          className="absolute left-4 right-4 top-4 h-1 rounded-full bg-linear-to-r from-muted-foreground/20 via-muted-foreground/45 to-primary/75"
-          data-testid="idea-value-feasibility-map-x-scale-bar"
+          className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-line-strong"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-line-strong"
+        />
+        {children}
+        {overlay ? (
+          <div className="pointer-events-none absolute inset-0 z-[2147483647]">
+            {overlay}
+          </div>
+        ) : null}
+      </div>
+
+      <fieldset
+        aria-label={t("feasibilityScaleAriaLabel")}
+        className="relative col-start-2 row-start-2 m-0 min-w-0 border-0 p-0 text-muted-foreground"
+      >
+        <div
+          className="absolute inset-x-0 top-3 flex items-center whitespace-nowrap font-medium"
+          data-testid="idea-value-feasibility-map-x-axis-row"
+          style={{ ...axisEndStyle, gap, height: xAxisRowHeight }}
         >
-          <ArrowLeft className="absolute left-0 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-muted-foreground" />
-          <ArrowRight className="absolute right-0 top-1/2 size-4 translate-x-1/2 -translate-y-1/2 text-primary" />
+          <span
+            className="shrink-0"
+            data-testid="idea-value-feasibility-map-x-low-label"
+          >
+            {t("feasibilityLow")}
+          </span>
+          <span
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-background px-2 font-bold tracking-wide text-foreground"
+            data-testid="idea-value-feasibility-map-x-axis-label"
+            style={axisNameStyle}
+          >
+            {t("feasibility")}
+          </span>
+          <AxisStroke axis="x" className="h-4 min-w-0 flex-1" />
+          <span
+            className="shrink-0"
+            data-testid="idea-value-feasibility-map-x-high-label"
+          >
+            {t("feasibilityHigh")}
+          </span>
         </div>
-        <span
-          className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-background/95 px-2.5 py-0 font-semibold tracking-wide text-foreground "
-          data-testid="idea-value-feasibility-map-x-axis-label"
-          style={{ ...axisLabelStyle, top: AXIS_LABEL_X_OFFSET_TOP }}
-        >
-          {labels.feasibility}
-        </span>
-        <span className="absolute right-1 top-1 text-xs font-medium">
-          {labels.feasibilityHigh}
-        </span>
       </fieldset>
     </section>
   );

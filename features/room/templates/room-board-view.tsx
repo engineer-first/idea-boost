@@ -97,6 +97,7 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
   const root = viewport.closest('[data-testid="room-board-view-root"]');
   const area = viewport.getBoundingClientRect();
   let top = 0;
+  let rightInset = 0;
   let bottom = 0;
   for (const group of root?.querySelectorAll<HTMLElement>(
     "[data-board-fit-edge]",
@@ -148,7 +149,16 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
       if (right <= left || visibleBottom <= visibleTop) continue;
       if (group.dataset.boardFitEdge === "top")
         top = Math.max(top, visibleBottom - area.top);
-      else bottom = Math.max(bottom, area.bottom - visibleTop);
+      else if (group.dataset.boardFitEdge === "right") {
+        // 動かせる浮動要素（タイマー）は、右の端に置いているときだけ右の欄として数える。
+        // 常設の右の欄（マイ付箋）は、狭い画面で左半分まで広がっても数える。
+        if (
+          element.dataset.boardFitMovable === "true" &&
+          left < area.left + area.width / 2
+        )
+          continue;
+        rightInset = Math.max(rightInset, area.right - left);
+      } else bottom = Math.max(bottom, area.bottom - visibleTop);
     }
   }
   for (const toast of document.querySelectorAll<HTMLElement>(
@@ -173,7 +183,13 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
     top = Math.floor(top * scale);
     bottom = Math.floor(bottom * scale);
   }
-  return { top, right: 0, bottom, left: 0 };
+  // 狭い画面で右の欄が幅の大半を占めても、マップを収める幅を半分は残す。
+  return {
+    top,
+    right: Math.min(rightInset, Math.floor(area.width / 2)),
+    bottom,
+    left: 0,
+  };
 }
 
 export type RoomBoardViewProps = {
@@ -2210,7 +2226,6 @@ export function RoomBoardView({
           inviteUrl={inviteUrl}
           phase={phase}
           phaseRevision={phaseRevision}
-          isAdditionalWriting={isAdditionalWriting}
           rollbackTarget={rollbackTarget}
           onRollbackPhase={onRollbackPhase}
           sharing={sharing}
@@ -2326,21 +2341,16 @@ export function RoomBoardView({
           boardInteractionBlocked={boardInteractionBlocked}
           ideaMapSizeLevel={ideaMapSizeLevel}
           ideaMapSizeInitialized={ideaMapSizeInitialized}
-          ideaMapWorkspaceControls={
-            isIdeaMapWorkspaceStep
-              ? {
-                  phaseLoop: phaseLoopControls,
-                  mapSize: (
-                    <IdeaMapSizeControls
-                      sizeLevel={ideaMapSizeLevel}
-                      initialized={ideaMapSizeInitialized}
-                      isDisconnected={isDisconnected}
-                      isDragging={ideaMapIsDragging || isNoteDragging}
-                      onResize={onIdeaMapResize}
-                    />
-                  ),
-                }
-              : undefined
+          ideaMapSizeControls={
+            isIdeaMapWorkspaceStep ? (
+              <IdeaMapSizeControls
+                sizeLevel={ideaMapSizeLevel}
+                initialized={ideaMapSizeInitialized}
+                isDisconnected={isDisconnected}
+                isDragging={ideaMapIsDragging || isNoteDragging}
+                onResize={onIdeaMapResize}
+              />
+            ) : undefined
           }
           ideaMapIsDragging={ideaMapIsDragging || isNoteDragging}
           onIdeaMapResize={onIdeaMapResize}

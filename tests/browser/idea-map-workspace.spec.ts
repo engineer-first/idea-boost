@@ -1,10 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Locator, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import {
-  getIdeaMapDimensions,
-  IDEA_MAP_BASE_DIMENSIONS,
-} from "../../contracts/board";
 import { byViewport, includeMobile, widths } from "./viewports";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
@@ -24,7 +20,7 @@ async function openWorkspace(page: Page): Promise<void> {
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--idea-map-workspace&viewMode=story`,
   );
-  await page.getByTestId("idea-map-viewport-plane").waitFor();
+  await page.getByTestId("idea-value-feasibility-map-plane").waitFor();
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -32,7 +28,7 @@ async function openMapOnly(page: Page): Promise<void> {
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--idea-map-only&viewMode=story`,
   );
-  await page.getByTestId("idea-map-viewport-plane").waitFor();
+  await page.getByTestId("idea-value-feasibility-map-plane").waitFor();
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -237,41 +233,6 @@ test("3-5の固定マップで投票結果を表示し、採用する付箋を�
   }
 });
 
-test.each([
-  "room-roomboardview--idea-map-voting",
-  "room-roomboardview--idea-map-result",
-])(
-  "PC幅の%sで、マップ右端に広がった面の操作を基準幅の帯が奪わない",
-  async (storyId) => {
-    const page = await browser.newPage({
-      viewport: { width: 1280, height: 800 },
-    });
-    try {
-      await openStory(page, storyId);
-      const plane = await readBounds(page, "idea-value-feasibility-map-plane");
-      const rail = await readBounds(page, "idea-map-workspace-rail");
-      expect(plane.x + plane.width).toBeGreaterThan(rail.x + rail.width / 2);
-      const hit = await page.evaluate(
-        ({ x, y }) => {
-          const target = document.elementFromPoint(x, y);
-          return {
-            onRail: !!target?.closest(
-              '[data-testid="idea-map-workspace-rail"]',
-            ),
-            inPlane: !!target?.closest(
-              '[data-testid="idea-value-feasibility-map-plane"]',
-            ),
-          };
-        },
-        { x: rail.x + rail.width / 2, y: plane.y + plane.height / 2 },
-      );
-      expect(hit).toEqual({ onRail: false, inPlane: true });
-    } finally {
-      await page.close();
-    }
-  },
-);
-
 test.each(
   byViewport(
     { phase: "3-2", width: 1280, height: 720, open: openWorkspace },
@@ -380,9 +341,8 @@ test.each([
         .boundingBox();
       if (!high || !low) throw new Error("縦軸の目盛りがありません");
 
-      expect(plane.height).toBeGreaterThanOrEqual(viewport.height * 0.55);
-      const slot = await readBounds(page, "idea-value-feasibility-map-slot");
-      expect(plane.y + plane.height).toBeCloseTo(slot.y + slot.height, 1);
+      // マップはボードの上にあり、全体表示で周りの欄を避けて画面に収める。
+      expect(plane.y + plane.height).toBeLessThanOrEqual(viewport.height);
       expect(low.y - high.y).toBeGreaterThan(plane.height * 0.7);
       expect(plane.y).toBeGreaterThan(controls.y + controls.height);
       expect(
@@ -430,131 +390,52 @@ test.each([
 test.each([
   { phase: "3-2", open: openWorkspace },
   { phase: "3-3", open: openMapOnly },
-])(
-  "$phaseでは上部情報パネルと2軸マップの間隔を保つ",
-  async ({ phase, open }) => {
-    const page = await browser.newPage({
-      viewport: { width: 1440, height: 1000 },
-    });
-    try {
-      await open(page);
-      const context = await readBounds(page, "board-context-hud");
-      const plane = await readBounds(page, "idea-value-feasibility-map-plane");
-      const valueAxis = await readBounds(
-        page,
-        "idea-value-feasibility-map-y-axis-label",
-      );
-      const feasibilityAxis = await readBounds(
-        page,
-        "idea-value-feasibility-map-x-axis-label",
-      );
-
-      // 上の情報は決定事項と中央のステップバーのうち下にあるほう。どちらとも重ねない。
-      const trail = await readBounds(page, "phase-step-trail");
-      const aboveBottom = Math.max(
-        context.y + context.height,
-        trail.y + trail.height,
-      );
-      expect(plane.y - (context.y + context.height)).toBeGreaterThanOrEqual(16);
-      expect(plane.y - aboveBottom).toBeGreaterThanOrEqual(8);
-      expect(plane.y - aboveBottom).toBeLessThanOrEqual(24);
-      // 3-3はマイ付箋の欄の幅224pxからタイマーの分80pxを除いた144pxだけ広がる。
-      expect(plane.width).toBeCloseTo(phase === "3-2" ? 1124 : 1268, 1);
-      expect(plane.height).toBeCloseTo(639.09375, 1);
-      const valueLine = await readBounds(
-        page,
-        "idea-value-feasibility-map-y-scale-bar",
-      );
-      // マップの下端だけを伸ばし、縦軸のデザイン・配置基準は維持する。
-      expect(valueAxis.y + valueAxis.height / 2).toBeCloseTo(
-        valueLine.y + valueLine.height / 2,
-        1,
-      );
-      const feasibilityLine = await readBounds(
-        page,
-        "idea-value-feasibility-map-x-scale-bar",
-      );
-      expect(feasibilityAxis.y).toBeGreaterThan(plane.y + plane.height);
-      expect(feasibilityAxis.y + feasibilityAxis.height / 2).toBeCloseTo(
-        feasibilityLine.y + feasibilityLine.height / 2,
-        0,
-      );
-    } finally {
-      await page.close();
-    }
-  },
-);
-
-test.each([
-  {
-    phase: "3-2",
-    open: openWorkspace,
+])("$phaseでは上部情報パネルと2軸マップの間隔を保つ", async ({ open }) => {
+  const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
-    retryCenterRatio: 0.31,
-  },
-  {
-    phase: "3-3",
-    open: openMapOnly,
-    viewport: { width: 1440, height: 1000 },
-    retryCenterRatio: 0.31,
-  },
-  {
-    phase: "3-2 narrow",
-    open: openWorkspace,
-    viewport: { width: 900, height: 720 },
-    retryCenterRatio: null,
-  },
-  {
-    phase: "3-2 compact",
-    open: openWorkspace,
-    viewport: { width: 640, height: 900 },
-    retryCenterRatio: null,
-  },
-])(
-  "$phaseでは下部操作をマップ内に配置し、同じ高さで重ねない",
-  async ({ open, viewport, retryCenterRatio }) => {
-    const page = await browser.newPage({ viewport });
-    try {
-      await open(page);
-      const plane = await readBounds(page, "idea-value-feasibility-map-plane");
-      const retry = await readBounds(page, "phase-loop-hud");
-      const mapSize = await readBounds(page, "idea-map-size-controls-hud");
-      const planeBottom = plane.y + plane.height;
-      const mapSizeBottom = mapSize.y + mapSize.height;
-      const retryCenterX = retry.x + retry.width / 2;
+  });
+  try {
+    await open(page);
+    const context = await readBounds(page, "board-context-hud");
+    const plane = await readBounds(page, "idea-value-feasibility-map-plane");
+    const valueAxis = await readBounds(
+      page,
+      "idea-value-feasibility-map-y-axis-label",
+    );
+    const feasibilityAxis = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-axis-label",
+    );
 
-      expect(mapSize.y).toBeGreaterThanOrEqual(plane.y);
-      expect(mapSize.x).toBeGreaterThanOrEqual(plane.x);
-      expect(mapSize.x + mapSize.width).toBeLessThanOrEqual(
-        plane.x + plane.width,
-      );
-      const controls = await readBounds(page, "idea-map-workspace-controls");
-      const controlsBottom = controls.y + controls.height;
-      // 下端を伸ばしても、操作UIは元の枠内の余白と表示位置を維持する。
-      expect(controlsBottom - mapSizeBottom).toBeGreaterThanOrEqual(16);
-      expect(controlsBottom - mapSizeBottom).toBeLessThanOrEqual(24);
-      expect(planeBottom).toBeGreaterThanOrEqual(controlsBottom);
-      expect(retry.y + retry.height).toBeCloseTo(mapSizeBottom, 0);
-      expect(retry.x).toBeGreaterThanOrEqual(plane.x);
-      expect(retry.x + retry.width).toBeLessThanOrEqual(plane.x + plane.width);
-
-      const overlaps =
-        retry.x < mapSize.x + mapSize.width &&
-        retry.x + retry.width > mapSize.x &&
-        retry.y < mapSizeBottom &&
-        retry.y + retry.height > mapSize.y;
-      expect(overlaps, "下部操作UI同士を重ねない").toBe(false);
-
-      if (retryCenterRatio !== null) {
-        expect(
-          Math.abs(retryCenterX - plane.x - plane.width * retryCenterRatio),
-        ).toBeLessThanOrEqual(12);
-      }
-    } finally {
-      await page.close();
-    }
-  },
-);
+    // 上の情報は決定事項と中央のステップバーのうち下にあるほう。どちらとも重ねない。
+    const trail = await readBounds(page, "phase-step-trail");
+    const aboveBottom = Math.max(
+      context.y + context.height,
+      trail.y + trail.height,
+    );
+    expect(plane.y - aboveBottom).toBeGreaterThanOrEqual(8);
+    const valueLine = await readBounds(
+      page,
+      "idea-value-feasibility-map-y-scale-bar",
+    );
+    // マップの下端だけを伸ばし、縦軸のデザイン・配置基準は維持する。
+    expect(valueAxis.y + valueAxis.height / 2).toBeCloseTo(
+      valueLine.y + valueLine.height / 2,
+      1,
+    );
+    const feasibilityLine = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-scale-bar",
+    );
+    expect(feasibilityAxis.y).toBeGreaterThan(plane.y + plane.height);
+    expect(feasibilityAxis.y + feasibilityAxis.height / 2).toBeCloseTo(
+      feasibilityLine.y + feasibilityLine.height / 2,
+      0,
+    );
+  } finally {
+    await page.close();
+  }
+});
 
 test("個人付箋をスクロールし、参照情報を開いてもマップが動かない", async () => {
   const page = await browser.newPage({
@@ -591,211 +472,6 @@ test("個人付箋をスクロールし、参照情報を開いてもマップ�
     expect(await plane.boundingBox()).toEqual(before);
 
     expect(await page.getByTestId("step-guide").count()).toBe(0);
-  } finally {
-    await page.close();
-  }
-});
-
-test.each([
-  { phase: "3-2", open: openWorkspace },
-  { phase: "3-3", open: openMapOnly },
-])("$phaseでマップの広さを変えても付箋の中心座標を保つ", async ({ open }) => {
-  const page = await browser.newPage({
-    viewport: { width: 1280, height: 720 },
-  });
-  try {
-    await open(page);
-    const plane = page.getByTestId("idea-value-feasibility-map-plane");
-    const grid = page.getByTestId("idea-value-feasibility-map-plane-grid");
-    const notes = ["map-workspace-shared-1", "map-workspace-shared-2"].map(
-      (id) => page.getByTestId(`idea-value-feasibility-map-note-${id}`),
-    );
-    const noteCards = notes.map((note) => note.getByTestId("note-card"));
-    const noteLayer = page.getByTestId("idea-map-note-layer");
-    const initialPlane = await plane.boundingBox();
-    const initialGrid = await grid.boundingBox();
-    const initialAxis = await page
-      .getByTestId("idea-value-feasibility-map-x-axis-label")
-      .boundingBox();
-    const initialNotes = await Promise.all(
-      noteCards.map((note) => note.boundingBox()),
-    );
-    if (
-      !initialPlane ||
-      !initialGrid ||
-      !initialAxis ||
-      initialNotes.some((note) => note === null)
-    )
-      throw new Error("マップか付箋がありません");
-    const firstInitialNote = initialNotes[0];
-    if (!firstInitialNote) throw new Error("比較する付箋がありません");
-    const logicalPositions = await Promise.all(
-      notes.map((note) =>
-        note.evaluate((element) => ({
-          left: (element as HTMLElement).style.left,
-          bottom: (element as HTMLElement).style.bottom,
-        })),
-      ),
-    );
-    const centers = (
-      boxes: Array<NonNullable<(typeof initialNotes)[number]>>,
-    ) =>
-      boxes.map((box) => ({
-        x: box.x + box.width / 2,
-        y: box.y + box.height / 2,
-      }));
-    const initialCenters = centers(
-      initialNotes as Array<NonNullable<(typeof initialNotes)[number]>>,
-    );
-    const zoomControls = await page
-      .getByTestId("canvas-zoom-controls")
-      .textContent();
-
-    const expectNoteScale = async (
-      note: (typeof notes)[number],
-      sizeLevel: number,
-    ) => {
-      await expect
-        .poll(() =>
-          note.evaluate((element) =>
-            Number(
-              (element as HTMLElement).style.transform.match(
-                /scale\(([^)]+)/,
-              )?.[1],
-            ),
-          ),
-        )
-        .toBeCloseTo(
-          IDEA_MAP_BASE_DIMENSIONS.width /
-            getIdeaMapDimensions(sizeLevel).width,
-          5,
-        );
-    };
-    await page.getByRole("button", { name: "マップを広くする" }).click();
-    await expectNoteScale(notes[0], 5);
-    const expectCentersUnchanged = async (
-      expectedCenters: ReturnType<typeof centers>,
-    ) => {
-      await expect
-        .poll(async () => {
-          const boxes = await Promise.all(
-            noteCards.map((note) => note.boundingBox()),
-          );
-          if (boxes.some((box) => box === null)) return Infinity;
-          const currentCenters = centers(
-            boxes as Array<NonNullable<(typeof initialNotes)[number]>>,
-          );
-          return Math.max(
-            ...currentCenters.map((center, index) =>
-              Math.hypot(
-                center.x - expectedCenters[index].x,
-                center.y - expectedCenters[index].y,
-              ),
-            ),
-          );
-        })
-        .toBeLessThan(1);
-    };
-    const expectNotesSmallerThan = async (previousWidth: number) => {
-      await expect
-        .poll(async () => (await noteCards[0].boundingBox())?.width ?? Infinity)
-        .toBeLessThan(previousWidth);
-    };
-    await expectNotesSmallerThan(firstInitialNote.width);
-    await expectCentersUnchanged(initialCenters);
-    expect(await plane.boundingBox()).toEqual(initialPlane);
-    expect(await grid.boundingBox()).toEqual(initialGrid);
-    const scaledAxis = await page
-      .getByTestId("idea-value-feasibility-map-x-axis-label")
-      .boundingBox();
-    if (!scaledAxis || !initialAxis)
-      throw new Error("広さ変更前後の横軸ラベルが表示されていません");
-    expect(
-      Math.abs(
-        scaledAxis.x +
-          scaledAxis.width / 2 -
-          (initialAxis.x + initialAxis.width / 2),
-      ),
-    ).toBeLessThan(1);
-    expect(
-      await noteLayer.evaluate(
-        (element) => (element as HTMLElement).style.transform,
-      ),
-    ).toBe("");
-    expect(
-      await Promise.all(
-        notes.map((note) =>
-          note.evaluate((element) => ({
-            left: (element as HTMLElement).style.left,
-            bottom: (element as HTMLElement).style.bottom,
-          })),
-        ),
-      ),
-    ).toEqual(logicalPositions);
-    expect(await page.getByTestId("canvas-zoom-controls").textContent()).toBe(
-      zoomControls,
-    );
-
-    await page.getByRole("button", { name: "マップを広くする" }).click();
-    await expectNoteScale(notes[0], 6);
-    await expectNotesSmallerThan(firstInitialNote.width * 0.91);
-    await expectCentersUnchanged(initialCenters);
-    await page.getByRole("button", { name: "マップを狭くする" }).click();
-    await expectNoteScale(notes[0], 5);
-    await expectCentersUnchanged(initialCenters);
-    await page.getByRole("button", { name: "マップを狭くする" }).click();
-    await expectNoteScale(notes[0], 4);
-    await expectCentersUnchanged(initialCenters);
-
-    await page.getByRole("button", { name: "マップを広くする" }).click();
-    await expectNoteScale(notes[0], 5);
-    await expectCentersUnchanged(initialCenters);
-
-    const note = notes[0];
-    const readLogicalPosition = async () =>
-      note.evaluate((element) => {
-        const data = (element as HTMLElement).dataset;
-        return {
-          left: Number(data.mapX),
-          bottom: Number(data.mapY),
-        };
-      });
-    const dragHandle = note.getByRole("button", {
-      name: "付箋",
-      exact: true,
-    });
-    const dragBounds = await dragHandle.boundingBox();
-    const positionArea = await page
-      .getByTestId("idea-map-viewport-plane")
-      .boundingBox();
-    if (!dragBounds || !positionArea)
-      throw new Error("倍率変更後の付箋を移動できません");
-    const beforeDrag = await readLogicalPosition();
-    const pointerX = dragBounds.x + Math.min(20, dragBounds.width / 2);
-    const pointerY = dragBounds.y + Math.min(20, dragBounds.height / 2);
-    const pointerDeltaX = positionArea.width * 0.1;
-    await page.mouse.move(pointerX, pointerY);
-    await page.mouse.down();
-    await page.mouse.move(pointerX + pointerDeltaX, pointerY, {
-      steps: 8,
-    });
-    await page.mouse.up();
-    const expectedLeft =
-      beforeDrag.left + (pointerDeltaX / positionArea.width) * 100;
-    await expect
-      .poll(async () => (await readLogicalPosition()).left)
-      .toBeGreaterThan(expectedLeft - 0.25);
-    const movedLogicalPosition = await readLogicalPosition();
-    expect(movedLogicalPosition.left).toBeLessThan(expectedLeft + 0.25);
-
-    await page.getByRole("button", { name: "マップを狭くする" }).click();
-    await expectNoteScale(note, 4);
-    await expect
-      .poll(async () => (await noteCards[0].boundingBox())?.width ?? 0)
-      .toBeGreaterThan(0);
-    expect(await plane.boundingBox()).toEqual(initialPlane);
-    expect(await grid.boundingBox()).toEqual(initialGrid);
-    expect(await readLogicalPosition()).toEqual(movedLogicalPosition);
   } finally {
     await page.close();
   }
@@ -912,450 +588,6 @@ test.each(
     }
   },
 );
-
-test.each(
-  byViewport(
-    { width: 1280, height: 720 },
-    { width: 1440, height: 800 },
-    { width: 900, height: 720 },
-    { width: 390, height: 720 },
-  ),
-)(
-  "3-2と3-3で横軸端点を操作UIと重ねない（$width×$height）",
-  async ({ width, height }) => {
-    const sharingPage = await browser.newPage({ viewport: { width, height } });
-    const mapOnlyPage = await browser.newPage({ viewport: { width, height } });
-    const runtimeErrors: string[] = [];
-    for (const page of [sharingPage, mapOnlyPage]) {
-      page.on("pageerror", (error) => runtimeErrors.push(error.message));
-      page.on("console", (message) => {
-        if (
-          message.type() === "error" &&
-          message.text().includes("Maximum update depth")
-        ) {
-          runtimeErrors.push(message.text());
-        }
-      });
-    }
-    try {
-      const readEndpoint = async (page: Page) => {
-        const scale = page.getByRole("group", {
-          name: "実現のしやすさ: 左ほどしにくく、右ほどしやすい",
-        });
-        const low = await scale
-          .getByText("しにくい", { exact: true })
-          .boundingBox();
-        const arrowElement = page.getByTestId(
-          "idea-value-feasibility-map-x-low-arrow",
-        );
-        const arrow = await arrowElement.boundingBox();
-        const scaleBounds = await scale.boundingBox();
-        const axisTitle = await page
-          .getByTestId("idea-value-feasibility-map-x-axis-label")
-          .boundingBox();
-        const high = await scale
-          .getByText("しやすい", { exact: true })
-          .boundingBox();
-        const horizontalTrack = await scale
-          .getByTestId("idea-value-feasibility-map-x-scale-bar")
-          .boundingBox();
-        const mapPlane = await page
-          .getByTestId("idea-value-feasibility-map-plane")
-          .boundingBox();
-        if (
-          !low ||
-          !arrow ||
-          !scaleBounds ||
-          !axisTitle ||
-          !high ||
-          !horizontalTrack ||
-          !mapPlane
-        )
-          throw new Error("横軸の左端が表示されていません");
-        const groupedEndpoint = await page
-          .getByTestId("idea-map-x-low-endpoint")
-          .count();
-        const groupBounds = groupedEndpoint
-          ? await page.getByTestId("idea-map-x-low-endpoint").boundingBox()
-          : null;
-        const arrowAfterLabelGap = arrow.x - (low.x + low.width);
-        const verticalCenterGap = Math.abs(
-          low.y + low.height / 2 - (arrow.y + arrow.height / 2),
-        );
-        const controlsLocator = page.getByTestId("note-font-size-controls");
-        // 付箋を選ぶまでは非表示だが、場所は保つので配置を測る。
-        const controls = (await controlsLocator.count())
-          ? await controlsLocator.evaluate((element) =>
-              element.getBoundingClientRect().toJSON(),
-            )
-          : null;
-        const zoomControls = await page
-          .getByTestId("canvas-zoom-hud")
-          .boundingBox();
-        const planeBottom = mapPlane.y + mapPlane.height;
-        return {
-          arrowAfterLabelGap,
-          verticalCenterGap,
-          groupedEndpoint,
-          scaleBounds,
-          endpoint: {
-            left: groupBounds?.x ?? Math.min(low.x, arrow.x),
-            right: groupBounds
-              ? groupBounds.x + groupBounds.width
-              : Math.max(low.x + low.width, arrow.x + arrow.width),
-            top: groupBounds?.y ?? Math.min(low.y, arrow.y),
-            bottom: groupBounds
-              ? groupBounds.y + groupBounds.height
-              : Math.max(low.y + low.height, arrow.y + arrow.height),
-          },
-          label: low,
-          arrow,
-          axisTitle,
-          high,
-          horizontalTrack,
-          mapPlane,
-          axisFromPlaneBottom: scaleBounds.y - planeBottom,
-          titleFromPlaneBottom: axisTitle.y - planeBottom,
-          highFromPlaneBottom: high.y - planeBottom,
-          controls,
-          zoomControls,
-        };
-      };
-
-      await openWorkspace(sharingPage);
-      await openMapOnly(mapOnlyPage);
-      const sharing = await readEndpoint(sharingPage);
-      const mapOnly = await readEndpoint(mapOnlyPage);
-      const controls = sharing.controls;
-      const zoomControls = sharing.zoomControls;
-      if (!controls || !zoomControls)
-        throw new Error("左下の操作UIが表示されていません");
-
-      expect(sharing.groupedEndpoint).toBe(1);
-      expect(
-        sharing.arrowAfterLabelGap,
-        "3-2では「低」の右に左向き矢印を表示する",
-      ).toBeGreaterThanOrEqual(8);
-      expect(sharing.arrowAfterLabelGap).toBeLessThanOrEqual(16);
-      expect(sharing.verticalCenterGap).toBeLessThanOrEqual(4);
-      expect(mapOnly.groupedEndpoint).toBe(1);
-
-      for (const [phase, geometry] of [
-        ["3-2", sharing],
-        ["3-3", mapOnly],
-      ] as const) {
-        for (const [name, bounds, gap] of [
-          ["文字サイズUI", geometry.controls, 24],
-          ["ズームUI", geometry.zoomControls, 16],
-        ] as const) {
-          if (
-            bounds &&
-            geometry.endpoint.top < bounds.y + bounds.height &&
-            geometry.endpoint.bottom > bounds.y
-          )
-            expect(
-              geometry.endpoint.left,
-              `${phase}では重なる${name}の右に余白を確保する`,
-            ).toBeGreaterThanOrEqual(bounds.x + bounds.width + gap);
-        }
-        expect(
-          geometry.endpoint.left,
-          `${phase}では軸の左端がマップの左側に残る`,
-        ).toBeLessThan(geometry.mapPlane.x + geometry.mapPlane.width / 2);
-      }
-      const connectionGap = await sharingPage
-        .getByTestId("idea-value-feasibility-map-x-scale-bar")
-        .evaluate((element) => {
-          const line = element.querySelector("line");
-          const arrow = element.querySelector(
-            '[data-testid="idea-value-feasibility-map-x-low-arrow"]',
-          );
-          if (
-            !(line instanceof SVGLineElement) ||
-            !(arrow instanceof SVGPathElement)
-          )
-            throw new Error("軸線と左矢印が同じSVGにありません");
-          const lineMatrix = line.getScreenCTM();
-          const arrowMatrix = arrow.getScreenCTM();
-          if (!lineMatrix || !arrowMatrix)
-            throw new Error("軸線が表示されていません");
-          const lineStart = new DOMPoint(
-            line.x1.baseVal.value,
-            line.y1.baseVal.value,
-          ).matrixTransform(lineMatrix);
-          const arrowTip = arrow
-            .getPointAtLength(arrow.getTotalLength() / 2)
-            .matrixTransform(arrowMatrix);
-          return Math.hypot(lineStart.x - arrowTip.x, lineStart.y - arrowTip.y);
-        });
-      expect(connectionGap, "矢印の先端を軸線の始点に接続する").toBeLessThan(
-        0.1,
-      );
-      expect(
-        mapOnly.arrowAfterLabelGap,
-        "3-3でも「低」は矢印の外側に表示する",
-      ).toBeGreaterThanOrEqual(8);
-      expect(
-        await sharingPage
-          .getByTestId("idea-map-x-low-endpoint")
-          .evaluate((group) => {
-            const label = group.querySelector(
-              '[data-testid="idea-value-feasibility-map-x-low-label"]',
-            );
-            const arrow = group.querySelector(
-              '[data-testid="idea-value-feasibility-map-x-low-arrow"]',
-            );
-            return (
-              !!label &&
-              !!arrow &&
-              !!(
-                label.compareDocumentPosition(arrow) &
-                Node.DOCUMENT_POSITION_FOLLOWING
-              )
-            );
-          }),
-        "DOMでも「低」の後に矢印を配置する",
-      ).toBe(true);
-      expect(
-        sharing.axisFromPlaneBottom - mapOnly.axisFromPlaneBottom,
-      ).toBeCloseTo(0, 1);
-      expect(sharing.endpoint.left - sharing.mapPlane.x).toBeCloseTo(
-        mapOnly.endpoint.left - mapOnly.mapPlane.x,
-        1,
-      );
-      if (width >= 768) {
-        expect(sharing.axisTitle.y + sharing.axisTitle.height / 2).toBeCloseTo(
-          sharing.arrow.y + sharing.arrow.height / 2,
-          1,
-        );
-      } else {
-        expect(
-          sharing.titleFromPlaneBottom - mapOnly.titleFromPlaneBottom,
-        ).toBeCloseTo(0, 1);
-      }
-      expect(sharing.mapPlane.x).toBe(mapOnly.mapPlane.x);
-      // 900px以上は右上のタイマーの分（80px）を広げずに残す。
-      expect(mapOnly.mapPlane.width - sharing.mapPlane.width).toBe(
-        width >= 900 ? 144 : width >= 640 ? 224 : 0,
-      );
-      expect(sharing.mapPlane.height).toBe(mapOnly.mapPlane.height);
-      if (width >= 900) expect(sharing.mapPlane.y).toBe(mapOnly.mapPlane.y);
-      expect(runtimeErrors).toEqual([]);
-      await sharingPage.screenshot({
-        path: `${output}/low-endpoint-sharing-${width}x${height}.png`,
-      });
-      await mapOnlyPage.screenshot({
-        path: `${output}/low-endpoint-map-only-${width}x${height}.png`,
-      });
-    } finally {
-      await Promise.all([sharingPage.close(), mapOnlyPage.close()]);
-    }
-  },
-);
-
-test.each([{ width: 1440, height: 900 }])(
-  "3-2の横軸左端は初回・リロード・タイマー変更・工程遷移で一致する（$width×$height）",
-  async (viewport) => {
-    const page = await browser.newPage({ viewport });
-    try {
-      const readLayout = async () => {
-        await page.getByTestId("idea-map-x-low-endpoint").waitFor();
-        await page.evaluate(() => document.fonts.ready);
-        await page.evaluate(
-          () =>
-            new Promise<void>((resolve) => {
-              requestAnimationFrame(() =>
-                requestAnimationFrame(() => resolve()),
-              );
-            }),
-        );
-        // 工程切替はwidthを360ms補間する。2フレームの描画完了だけでは
-        // 最終寸法にならないため、有限のCSS遷移が終わってから同時に読む。
-        await waitForLayoutAnimations(page.getByTestId("room-board-view-root"));
-        return page.evaluate(
-          (testIds) => {
-            const layout: Record<
-              string,
-              { x: number; y: number; width: number; height: number }
-            > = {};
-            for (const testId of testIds) {
-              const element = document.querySelector(
-                `[data-testid="${testId}"]`,
-              );
-              // 文字サイズUIは付箋を選ぶまで visibility:hidden で場所だけ保つ。
-              if (
-                !element?.checkVisibility({
-                  checkVisibilityCSS: testId !== "note-font-size-controls",
-                })
-              )
-                throw new Error(`${testId} が表示されていません`);
-              const { x, y, width, height } = element.getBoundingClientRect();
-              layout[testId] = { x, y, width, height };
-            }
-            return layout;
-          },
-          [
-            "idea-map-x-low-endpoint",
-            "idea-value-feasibility-map-x-low-label",
-            "idea-value-feasibility-map-x-low-arrow",
-            "idea-value-feasibility-map-plane",
-            "idea-value-feasibility-map-x-axis-label",
-            "idea-value-feasibility-map-y-axis-label",
-            "idea-value-feasibility-map-note-map-workspace-placed",
-            "note-font-size-controls",
-            "canvas-zoom-hud",
-          ],
-        );
-      };
-      const expectSameLayout = (
-        actual: Awaited<ReturnType<typeof readLayout>>,
-        expected: Awaited<ReturnType<typeof readLayout>>,
-      ) => {
-        for (const [testId, reference] of Object.entries(expected)) {
-          if (testId === "idea-value-feasibility-map-x-axis-label") {
-            for (const axis of ["x", "y"] as const)
-              expect(
-                Math.abs(
-                  actual[testId][axis] +
-                    actual[testId][axis === "x" ? "width" : "height"] / 2 -
-                    reference[axis] -
-                    reference[axis === "x" ? "width" : "height"] / 2,
-                ),
-                `${testId}.${axis}の中心`,
-              ).toBeLessThanOrEqual(0.5);
-            continue;
-          }
-          for (const dimension of ["x", "y", "width", "height"] as const)
-            expect(
-              Math.abs(actual[testId][dimension] - reference[dimension]),
-              `${testId}.${dimension}`,
-            ).toBeLessThanOrEqual(0.5);
-        }
-      };
-
-      await openWorkspace(page);
-      const initial = await readLayout();
-      await page.screenshot({
-        path: `${output}/endpoint-initial-${viewport.width}.png`,
-      });
-      await page.reload();
-      expectSameLayout(await readLayout(), initial);
-      await page.screenshot({
-        path: `${output}/endpoint-reloaded-${viewport.width}.png`,
-      });
-
-      await openStory(page, "room-roomboardview--idea-map-phase-transitions");
-      const phase = page.getByRole("combobox", {
-        name: "検証用の工程切り替え",
-      });
-      await phase.selectOption("2");
-      expectSameLayout(await readLayout(), initial);
-
-      const timer = page.getByTestId("room-timer");
-      await timer.press("Alt+ArrowLeft");
-      expectSameLayout(await readLayout(), initial);
-      await timer.press("Alt+ArrowRight");
-      expectSameLayout(await readLayout(), initial);
-
-      // ラベルを左へ戻しても、ズーム操作を妨げない。
-      await page
-        .getByRole("button", { name: "キャンバスを拡大", exact: true })
-        .click();
-      expect(
-        await page
-          .getByRole("button", { name: "ズームを100%に戻す", exact: true })
-          .textContent(),
-      ).toBe("125%");
-      await page
-        .getByRole("button", { name: "付箋全体を表示", exact: true })
-        .click();
-      expectSameLayout(await readLayout(), initial);
-      await phase.selectOption("3");
-      expect(await page.getByTestId("idea-map-x-low-endpoint").count()).toBe(1);
-      await phase.selectOption("2");
-      expectSameLayout(await readLayout(), initial);
-      await page.screenshot({
-        path: `${output}/endpoint-transitioned-${viewport.width}.png`,
-      });
-
-      await page.setViewportSize({
-        width: viewport.width - 100,
-        height: viewport.height,
-      });
-      await readLayout();
-      await page.setViewportSize(viewport);
-      expectSameLayout(await readLayout(), initial);
-    } finally {
-      await page.close();
-    }
-  },
-);
-
-test("中間幅でも通常位置の中心と評価値を保ち、端の付箋を枠内に収める", async () => {
-  const page = await browser.newPage({
-    viewport: { width: 800, height: 900 },
-  });
-  try {
-    await openWorkspace(page);
-    const plane = page.getByTestId("idea-value-feasibility-map-plane");
-    const note = page.getByTestId(
-      "idea-value-feasibility-map-note-map-workspace-placed",
-    );
-    const edge = page.getByTestId(
-      "idea-value-feasibility-map-note-map-workspace-shared-1",
-    );
-    const edgePosition = await edge.evaluate((element) => ({
-      x: (element as HTMLElement).dataset.mapX,
-      y: (element as HTMLElement).dataset.mapY,
-    }));
-    const noteCard = note.getByTestId("note-card");
-    const initialPlane = await plane.boundingBox();
-    const initialNote = await noteCard.boundingBox();
-    if (!initialPlane || !initialNote)
-      throw new Error("マップか付箋がありません");
-
-    await page.getByRole("button", { name: "マップを広くする" }).click();
-    await expect
-      .poll(async () => (await noteCard.boundingBox())?.width ?? Infinity)
-      .toBeLessThan(initialNote.width);
-    const resizedNote = await noteCard.boundingBox();
-    if (!resizedNote) throw new Error("広さ変更後の付箋がありません");
-    expect(
-      Math.hypot(
-        resizedNote.x +
-          resizedNote.width / 2 -
-          initialNote.x -
-          initialNote.width / 2,
-        resizedNote.y +
-          resizedNote.height / 2 -
-          initialNote.y -
-          initialNote.height / 2,
-      ),
-    ).toBeLessThan(1);
-    expect(await plane.boundingBox()).toEqual(initialPlane);
-    const area = await readBounds(page, "idea-map-viewport-plane");
-    await expect
-      .poll(async () => {
-        const rect = await edge.getByTestId("note-card").boundingBox();
-        if (!rect) return Infinity;
-        return Math.max(
-          area.x - rect.x,
-          area.y - rect.y,
-          rect.x + rect.width - area.x - area.width,
-          rect.y + rect.height - area.y - area.height,
-        );
-      })
-      .toBeLessThanOrEqual(0.1);
-    expect(
-      await edge.evaluate((element) => ({
-        x: (element as HTMLElement).dataset.mapX,
-        y: (element as HTMLElement).dataset.mapY,
-      })),
-    ).toEqual(edgePosition);
-  } finally {
-    await page.close();
-  }
-});
 
 test("上部は共通HUDを使い、決定事項を横並びにしてもマップ位置を保つ", async () => {
   const viewport = { width: 1280, height: 720 };
@@ -1524,109 +756,6 @@ test.each(
   },
 );
 
-test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベルと重ねない", async () => {
-  const viewport = { width: 1280, height: 720 };
-  const page = await browser.newPage({ viewport });
-  try {
-    await openStory(page, "room-roomboardview--step-1-2-sharing");
-    const sharedAnchors = {
-      location: await readBounds(page, "board-location-slot"),
-      controls: await readBounds(page, "board-control-hud"),
-      tools: await readBounds(page, "board-tools-hud"),
-      privateNotes: await readBounds(page, "private-notes-dock"),
-    };
-
-    await openWorkspace(page);
-    const workspaceAnchors = {
-      location: await readBounds(page, "board-location-slot"),
-      controls: await readBounds(page, "board-control-hud"),
-      tools: await readBounds(page, "board-tools-hud"),
-      privateNotes: await readBounds(page, "private-notes-dock"),
-      phaseLoop: await readBounds(page, "phase-loop-hud"),
-      mapSize: await readBounds(page, "idea-map-size-controls-hud"),
-    };
-    for (const key of ["location"] as const) {
-      expect
-        .soft(workspaceAnchors[key], `${key}の位置を共通HUDに揃える`)
-        .toEqual(sharedAnchors[key]);
-    }
-    expect(workspaceAnchors.controls.y).toBe(sharedAnchors.controls.y);
-    expect(workspaceAnchors.controls.x + workspaceAnchors.controls.width).toBe(
-      sharedAnchors.controls.x + sharedAnchors.controls.width,
-    );
-    expect(workspaceAnchors.tools.x).toBe(sharedAnchors.tools.x);
-    expect(workspaceAnchors.tools.y + workspaceAnchors.tools.height).toBe(
-      sharedAnchors.tools.y + sharedAnchors.tools.height,
-    );
-
-    const plane = await readBounds(page, "idea-value-feasibility-map-plane");
-    expect.soft(plane).toEqual({
-      x: 77.40625,
-      y: 130,
-      width: 961.1875,
-      height: 534,
-    });
-
-    const question = await readBounds(page, "board-reference-hmw");
-    const issue = await readBounds(page, "board-reference-issue");
-    expect.soft(question.x).toBe(sharedAnchors.location.x);
-    expect.soft(issue.x).toBeGreaterThanOrEqual(question.x + question.width);
-    expect.soft(issue.y).toBe(question.y);
-    expect.soft(issue.height).toBe(question.height);
-    expect(await page.getByTestId("board-help-panel").count()).toBe(0);
-
-    const rail = await readBounds(page, "idea-map-workspace-rail");
-    expect(workspaceAnchors.privateNotes.x).toBeCloseTo(rail.x, 0);
-    expect(workspaceAnchors.privateNotes.width).toBeCloseTo(rail.width, 0);
-    expect(rail.x).toBeGreaterThanOrEqual(plane.x + plane.width);
-    const axis = await readBounds(
-      page,
-      "idea-value-feasibility-map-x-axis-label",
-    );
-    const valueScale = page.getByRole("group", { name: "価値: 低から高" });
-    const lowValue = await valueScale
-      .getByText("低", { exact: true })
-      .boundingBox();
-    if (!lowValue) throw new Error("縦軸の低ラベルがありません");
-    const phaseLoop = workspaceAnchors.phaseLoop;
-    expect(
-      phaseLoop.x,
-      "再度付箋を書く操作は縦軸の低ラベルより右に置く",
-    ).toBeGreaterThanOrEqual(lowValue.x + lowValue.width + 12);
-    const controls = [phaseLoop, workspaceAnchors.mapSize];
-    for (const control of controls) {
-      const overlaps =
-        axis.x < control.x + control.width &&
-        axis.x + axis.width > control.x &&
-        axis.y < control.y + control.height &&
-        axis.y + axis.height > control.y;
-      expect(overlaps, "軸ラベルと下部操作UIを重ねない").toBe(false);
-    }
-    const phaseOverlapsTools =
-      workspaceAnchors.phaseLoop.x <
-        workspaceAnchors.tools.x + workspaceAnchors.tools.width &&
-      workspaceAnchors.phaseLoop.x + workspaceAnchors.phaseLoop.width >
-        workspaceAnchors.tools.x &&
-      workspaceAnchors.phaseLoop.y <
-        workspaceAnchors.tools.y + workspaceAnchors.tools.height &&
-      workspaceAnchors.phaseLoop.y + workspaceAnchors.phaseLoop.height >
-        workspaceAnchors.tools.y;
-    expect(phaseOverlapsTools, "マップ操作が左下ツールバーを妨げない").toBe(
-      false,
-    );
-    const overlapsLowValue =
-      lowValue.x < phaseLoop.x + phaseLoop.width &&
-      lowValue.x + lowValue.width > phaseLoop.x &&
-      lowValue.y < phaseLoop.y + phaseLoop.height &&
-      lowValue.y + lowValue.height > phaseLoop.y;
-    expect(overlapsLowValue, "再度付箋を書く操作を縦軸の目盛りに重ねない").toBe(
-      false,
-    );
-  } finally {
-    await page.close();
-  }
-});
-
 test("3-2でマイ付箋をマップへ共有でき、画面幅を変えても評価座標を保持する", async () => {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 720 },
@@ -1638,7 +767,7 @@ test("3-2でマイ付箋をマップへ共有でき、画面幅を変えても�
       .getByTestId("private-notes-toolbar")
       .locator(`[data-note-id="${id}"]`);
     const area = await page
-      .getByTestId("idea-map-viewport-plane")
+      .getByTestId("idea-value-feasibility-map-plane")
       .boundingBox();
     const start = await source
       .getByRole("button", { name: "付箋", exact: true })
@@ -1685,9 +814,11 @@ test.each(widths(390))(
       const plane = page.getByTestId("idea-value-feasibility-map-plane");
       const before = await plane.boundingBox();
       if (!before) throw new Error("評価マップがありません");
-      expect(before.width).toBeGreaterThan(width * 0.65);
-      const slot = await readBounds(page, "idea-value-feasibility-map-slot");
-      expect(before.y + before.height).toBeCloseTo(slot.y + slot.height, 1);
+      // マップ面は画面の中に収まる（全体表示が縦横とも画面からはみ出させない）。
+      expect(before.x).toBeGreaterThanOrEqual(0);
+      expect(before.y).toBeGreaterThanOrEqual(0);
+      expect(before.x + before.width).toBeLessThanOrEqual(width);
+      expect(before.y + before.height).toBeLessThanOrEqual(844);
       expect(
         await page.getByRole("textbox", { name: "付箋を書く" }).count(),
       ).toBe(0);
@@ -1699,103 +830,6 @@ test.each(widths(390))(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBe(width);
       await page.screenshot({ path: `${output}/workspace-${width}.png` });
-    } finally {
-      await page.close();
-    }
-  },
-);
-
-test.each(
-  byViewport(
-    { width: 1280, reducedMotion: "no-preference" as const },
-    { width: 1280, reducedMotion: "reduce" as const },
-    { width: 390, reducedMotion: "no-preference" as const },
-    { width: 390, reducedMotion: "reduce" as const },
-  ),
-)(
-  "$width px / $reducedMotion: 工程切り替えで右側だけを広げ、座標・高さ・付箋サイズを保つ",
-  async ({ width, reducedMotion }) => {
-    const page = await browser.newPage({
-      viewport: { width, height: 844 },
-      reducedMotion,
-    });
-    try {
-      await openStory(page, "room-roomboardview--idea-map-phase-transitions");
-      const phase = page.getByRole("combobox", {
-        name: "検証用の工程切り替え",
-      });
-      await phase.selectOption("2");
-      const plane = page.getByTestId("idea-value-feasibility-map-plane");
-      const map2 = await readBounds(page, "idea-value-feasibility-map-plane");
-      const note = page.getByTestId(
-        "idea-value-feasibility-map-note-map-workspace-placed",
-      );
-      const card = note.getByTestId("note-card");
-      const before = await card.boundingBox();
-      if (!before) throw new Error("配置済み付箋がありません");
-      // 同じDOMが工程をまたいで残ることも確認する。
-      const original = await note.elementHandle();
-      for (const step of ["3", "4", "5", "2"]) {
-        const expanded = step !== "2" && width >= 640;
-        const expansion = width >= 900 ? 144 : 224;
-        const expectedWidth = map2.width + (expanded ? expansion : 0);
-        await phase.selectOption(step);
-        await page.evaluate(
-          () =>
-            new Promise<void>((resolve) =>
-              requestAnimationFrame(() =>
-                requestAnimationFrame(() => resolve()),
-              ),
-            ),
-        );
-        await expect
-          .poll(async () => (await plane.boundingBox())?.width)
-          .toBeCloseTo(expectedWidth, 1);
-        const current = await readBounds(
-          page,
-          "idea-value-feasibility-map-plane",
-        );
-        expect(current.x).toBeCloseTo(map2.x, 1);
-        // 狭い画面の上端は工程ごとのヘッダーの高さに追従する。
-        if (width >= 640) expect(current.y).toBeCloseTo(map2.y, 1);
-        expect(current.height).toBeCloseTo(map2.height, 1);
-        expect(current.x + current.width).toBeLessThanOrEqual(width);
-        // 900px以上は右上のタイマーの分を空け、その手前まで広げる。
-        if (expanded)
-          expect(width - current.x - current.width).toBeLessThan(
-            width >= 900 ? 24 + 80 : 24,
-          );
-        expect(
-          await note.evaluate(
-            (element, previous) => element === previous,
-            original,
-          ),
-        ).toBe(true);
-        expect(await note.getAttribute("data-map-x")).toBe("70");
-        expect(await note.getAttribute("data-map-y")).toBe("75");
-        const after = await card.boundingBox();
-        if (!after) throw new Error("工程切り替え後の付箋がありません");
-        expect(after.width).toBeCloseTo(before.width, 1);
-        expect(after.height).toBeCloseTo(before.height, 1);
-        expect(after.y - current.y).toBeCloseTo(before.y - map2.y, 1);
-        expect(after.x - before.x).toBeCloseTo(
-          expanded ? expansion * 0.7 : 0,
-          1,
-        );
-        expect(await page.getByTestId("private-notes-toolbar").count()).toBe(
-          step === "2" ? 1 : 0,
-        );
-      }
-      await phase.selectOption("3");
-      await expect
-        .poll(async () => (await plane.boundingBox())?.width)
-        .toBeCloseTo(
-          map2.width + (width >= 900 ? 144 : width >= 640 ? 224 : 0),
-          1,
-        );
-      await page.screenshot({
-        path: `${output}/expanded-right-${width}-${reducedMotion}.png`,
-      });
     } finally {
       await page.close();
     }
@@ -1824,6 +858,46 @@ test.each([
       expect(timer.x - (map.x + map.width)).toBeGreaterThanOrEqual(8);
       await page.screenshot({
         path: `${output}/map-only-timer-${width}.png`,
+      });
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test.each([
+  { width: 1280, height: 800 },
+  { width: 390, height: 720 },
+])(
+  "3-4（$width×$height）の全体表示では、マップ面と横軸の行を下の投票パレットと重ねない",
+  async (viewport) => {
+    const page = await browser.newPage({ viewport });
+    try {
+      await openVotingMap(page);
+      const plane = page.getByTestId("idea-value-feasibility-map-plane");
+      await waitForLayoutAnimations(plane);
+      const palette = await readBounds(page, "vote-palette-hud");
+      const map = await readBounds(page, "idea-value-feasibility-map-plane");
+      const axisRow = await readBounds(
+        page,
+        "idea-value-feasibility-map-x-axis-row",
+      );
+      const axisName = await readBounds(
+        page,
+        "idea-value-feasibility-map-x-axis-label",
+      );
+      for (const [name, box] of [
+        ["マップ面", map],
+        ["横軸の行", axisRow],
+        ["横軸の名前", axisName],
+      ] as const) {
+        expect(
+          box.y + box.height,
+          `${name}は投票パレットより上に収める`,
+        ).toBeLessThanOrEqual(palette.y);
+      }
+      await page.screenshot({
+        path: `${output}/voting-palette-${viewport.width}.png`,
       });
     } finally {
       await page.close();
