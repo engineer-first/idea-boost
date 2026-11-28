@@ -35,8 +35,8 @@ function createScratchDir() {
   return dir;
 }
 
-function runScript(filePath: string) {
-  return spawnSync("bash", [scriptPath, filePath], {
+function runScript(...filePaths: string[]) {
+  return spawnSync("bash", [scriptPath, ...filePaths], {
     cwd: projectDir,
     encoding: "utf8",
   });
@@ -146,6 +146,35 @@ describe("scripts/format-file.sh", () => {
 
     expect(result.status).toBe(0);
     expect(readFileSync(file, "utf8")).toContain("- item one");
+  });
+
+  it("formats several files of different kinds in one call", () => {
+    const dir = createScratchDir();
+    const md = join(dir, "note.md");
+    const ts = join(dir, "value.ts");
+    const skipped = join(dir, "AGENTS.md");
+    writeFileSync(md, "* item one\n");
+    writeFileSync(ts, "export const value = {a:1}\n");
+    writeFileSync(skipped, "* keep\n");
+
+    const result = runScript(md, ts, skipped);
+
+    expect(result.status).toBe(0);
+    expect(readFileSync(md, "utf8")).toContain("- item one");
+    expect(readFileSync(ts, "utf8")).toBe("export const value = { a: 1 };\n");
+    expect(readFileSync(skipped, "utf8")).toBe("* keep\n");
+  });
+
+  it("still formats the other files when one of them is broken", () => {
+    const dir = createScratchDir();
+    const broken = join(dir, "broken.json");
+    const ts = join(dir, "value.ts");
+    writeFileSync(broken, "{bad\n");
+    writeFileSync(ts, "export const value = {a:1}\n");
+
+    runScript(broken, ts);
+
+    expect(readFileSync(ts, "utf8")).toBe("export const value = { a: 1 };\n");
   });
 
   it("exits non-zero when called without a file argument", () => {

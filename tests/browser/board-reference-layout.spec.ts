@@ -15,6 +15,8 @@ afterAll(async () => {
 async function open(page: Page, id: string, testId: string) {
   await page.goto(`${origin}/iframe.html?id=${id}&viewMode=story`);
   await page.getByTestId(testId).first().waitFor();
+  // 行数や位置は Web フォントの読み込み前後で変わるため、読み込み後に測る。
+  await page.evaluate(() => document.fonts.ready);
 }
 async function box(page: Page, testId: string) {
   const r = await page.getByTestId(testId).boundingBox();

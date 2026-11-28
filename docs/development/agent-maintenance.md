@@ -21,6 +21,7 @@
 Codexのhookは、stage済み・未stage・未追跡の対象ファイルの作業ツリーを整形する。
 indexの自動更新はしないため、stage後に整形された差分は確認してからstageし直す。
 `.mts` / `.cts` も対象で、ファイル自体がsymlinkならスキップする。
+対象はまとめて `scripts/format-file.sh` へ渡し、Biome・remark をファイル数によらず1回ずつ起動する。
 対象の選択と実際の整形は `scripts/format-changed-files.spec.ts` と
 `scripts/format-file.spec.ts`、下位ディレクトリからの呼出しは
 `scripts/codex-hooks.spec.ts` で検証する。
@@ -28,6 +29,10 @@ indexの自動更新はしないため、stage後に整形された差分は確�
 構造検査はhookの発火やモデルの判断品質を保証しない。hookを利用しない環境でも
 手動のlint・テストとCIを実行する。Codexには毎ターン全テストを走らせるStop hookを追加しない。
 Claudeの既存hooksは [.claude/settings.json](../../.claude/settings.json) で別途管理する。
+ClaudeのStop hook（[verify-on-stop.sh](../../.claude/hooks/verify-on-stop.sh)）は、未コミットのTypeScriptの変更があるときに
+`typecheck` と、変えたファイルに関係するテストだけ（`vitest related`）を回す。`workers/`・`contracts/` を変えたら
+関係するworkerテストも回し、テスト設定・`package.json`・tsconfigを変えたときとTypeScriptのファイルを消したときは全テストを回す。
+失敗時は型エラーの行か失敗したテストだけを最大80行返し、長いログを読み込ませない。全件の保証はCIで行う。
 プロジェクト層とhook定義の信頼、実行時のcwdについては
 [Codex公式Hooks](https://learn.chatgpt.com/docs/hooks) を参照する。
 

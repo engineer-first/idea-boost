@@ -97,7 +97,7 @@ jobs:
 
       - name: Check board layout in Chromium
         if: steps.scope.outputs.browser == 'true'
-        run: npm run test:browser -- --shard=${{ matrix.shard }}/3
+        run: npm run test:browser -- --shard=${{ matrix.shard }}/3 --reporter=minimal --reporter=github-actions
         env:
           BROWSER_MOBILE: ${{ steps.scope.outputs.mobile == 'true' && '1' || '' }}
 

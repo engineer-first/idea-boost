@@ -17,11 +17,14 @@ while IFS= read -r -d '' file; do
   done
   [[ "$duplicate" == true ]] && continue
   seen+=("$file")
-  # 構文エラー等があっても残りを整形する。lintの成否は通常の検査で判断する。
-  bash "$PROJECT_DIR/scripts/format-file.sh" "$file" || true
 done < <(
   git diff --name-only -z --diff-filter=ACMR -- "${patterns[@]}"
   git diff --cached --name-only -z --diff-filter=ACMR -- "${patterns[@]}"
   git ls-files --others --exclude-standard -z -- "${patterns[@]}"
 )
+# 整形は1回にまとめて渡し、Biome・remark の起動をファイル数によらず1回ずつにする。
+# 構文エラー等があっても残りを整形する。lintの成否は通常の検査で判断する。
+if [[ ${#seen[@]} -gt 0 ]]; then
+  bash "$PROJECT_DIR/scripts/format-file.sh" "${seen[@]}" || true
+fi
 exit 0

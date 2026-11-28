@@ -109,8 +109,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 失敗したテストだけをログに出し、エージェントが長いログを読み込まないようにする。
       - name: Run unit tests
-        run: npm run test -- --shard=${{ matrix.shard }}/2
+        run: npm run test -- --shard=${{ matrix.shard }}/2 --reporter=minimal --reporter=github-actions
 
   workers:
     runs-on: ubuntu-latest
@@ -148,15 +149,15 @@ jobs:
 
       - name: Run worker tests (Durable Objects / D1)
         if: steps.scope.outputs.workers == 'true'
-        run: npm run test:workers
+        run: npm run test:workers -- --reporter=minimal --reporter=github-actions
 
       - name: Run Preview authentication and sample worker tests
         if: steps.scope.outputs.workers == 'true'
-        run: npm run test:preview
+        run: npm run test:preview -- --reporter=minimal --reporter=github-actions
 
       - name: Run local verification worker tests
         if: steps.scope.outputs.workers == 'true'
-        run: npm run test:verification
+        run: npm run test:verification -- --reporter=minimal --reporter=github-actions
 
   # 必須チェック test。名前を変えずに、分割した unit と worker 系の結果をまとめて報告する。
   # 分割が落ちても飛んでも必ず走り、成功以外を失敗にする（skipped で失敗を隠さない）。
