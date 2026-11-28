@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -104,22 +103,10 @@ def demo_section(demo):
     return "\n".join(parts)
 
 
-def pbi_sections():
-    guide = Path(__file__).resolve().parents[4] / "docs/team/issue-writing.md"
-    match = re.search(
-        r"<!-- issue-writing-contract:start -->\s*```json\s*([\s\S]*?)```",
-        guide.read_text(encoding="utf-8"),
-    )
-    if not match:
-        raise ValueError("Issue writing contract is missing")
-    return json.loads(match[1])["types"]["PBI"]["sections"]
-
-
 def pbi_body(spec):
     pbi = spec["pbi"]
-    why = pbi_sections()[0]
     parts = [pbi["story"]]
-    parts.extend([f"## {why}", pbi.get("why") or "未確認：背景を確認して追記する。"])
+    parts.extend(["## Why", pbi.get("why") or "未確認：背景を確認して追記する。"])
     if pbi.get("acceptance") or spec.get("demo_overview") or spec.get("demo_goals"):
         parts.append("## ユーザーに提供する体験")
         if pbi.get("acceptance"):
