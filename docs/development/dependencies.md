@@ -63,11 +63,25 @@ jsdom 31（#1076）は2026-11-22に「上流の修正待ち」として残した
 
 `@node-minify/core → glob`（10.5.0）は2026-11-27に外した（#739）。OpenNext AWS 4.2.0が使うcore 10.5.0はglobに依存しなくなり、適用先が無くなった。外す前後でlockfileの解決結果とauditは変わらない。
 
-OpenNext 1.20.12のpeer条件はNext `>=15.5.28 <16 || >=16.4.1`、Wrangler `^4.148.0`。採用版Next 16.4.2/Wrangler 4.151.1は条件内。Cloudflare Vitest plugin 1.4.4はVitest `^4.1.0 || ^5.0.0`を要求するため、5.0.5を使う。TypeScriptは5.9.3を採用し、Node型も実行基準の26系を使う。Storybook内部の `vite-tsconfig-paths → tsconfck 3.1.6` はTypeScript `^5.0.0` のoptional peerを持ち、6.0.3では `npm ci` と `npm ls --depth=0` が成功しても `npm ls --all` がinvalidで失敗する。MSW 3の `>=5.9.x` も満たす5.9.3へ揃え、peer条件の書換え・検査の省略で通さない。`vite-tsconfig-paths` の最新安定版6.1.1にもtsconfckが残るため、この推移依存だけを別メジャーへ強制更新しない。tsconfckを除去する7系はalphaのため、対応する安定Storybookへ移行して全階層のpeer・型・buildを確認できたらTypeScript 6以降を再評価する。[StorybookのVite 8分岐](https://github.com/storybookjs/storybook/blob/v10.6.2/code/lib/vite-plugin-storybook-nextjs/src/index.ts#L60-L82)では旧pluginを使わないが、今回は未使用という理由だけで不整合を残さない。
+OpenNext 1.20.12のpeer条件はNext `>=15.5.28 <16 || >=16.4.1`、Wrangler `^4.148.0`。採用版Next 16.4.2/Wrangler 4.151.1は条件内。Cloudflare Vitest plugin 1.4.4はVitest `^4.1.0 || ^5.0.0`を要求するため、5.0.5を使う。TypeScriptは `typescript` に5.9.3、型検査用の `@typescript/native` に7.0.2を併用し（下の「TypeScript 7の併用」）、Node型も実行基準の26系を使う。Storybook内部の `vite-tsconfig-paths → tsconfck 3.1.6` はTypeScript `^5.0.0` のoptional peerを持ち、6.0.3では `npm ci` と `npm ls --depth=0` が成功しても `npm ls --all` がinvalidで失敗する。MSW 3の `>=5.9.x` も満たす5.9.3へ揃え、peer条件の書換え・検査の省略で通さない。`vite-tsconfig-paths` の最新安定版6.1.1にもtsconfckが残るため、この推移依存だけを別メジャーへ強制更新しない。tsconfckを除去する7系はalphaのため、対応する安定Storybookへ移行して全階層のpeer・型・buildを確認できたらTypeScript 6以降を再評価する。[StorybookのVite 8分岐](https://github.com/storybookjs/storybook/blob/v10.6.2/code/lib/vite-plugin-storybook-nextjs/src/index.ts#L60-L82)では旧pluginを使わないが、今回は未使用という理由だけで不整合を残さない。
 
 Biome 2.6からMarkdownも整形・lint対象になったが、Markdownはこれまでどおり `npm run format:md`（remark）に任せ、`biome.json` の `markdown` で無効にする。2つの整形が同じファイルを別の形へ書き換え合うのを避けるため。YAML・CSSはBiomeの整形に揃える。
 
 `diff` はアプリから直接使わないが、devDependenciesに `^9.0.0` を置く。OpenNext 1.20.16 と同梱の `@opennextjs/aws` 4.1.15 は `diff ^9.0.0` を optional peer に持ち、shadcn・Storybook が使う diff 8 がルートに置かれると `npm ls --all` がinvalidで失敗するため。peer条件の書換え・検査の省略では通さない。shadcnとStorybookがdiff 9へ移るか、OpenNextがこのpeerを外したら削除する。
+
+## TypeScript 7の併用
+
+2026-11-28から型検査（`npm run typecheck`）だけをTypeScript 7（Go製のネイティブ版）で回す（#738）。TypeScript 7はJSのCompiler APIを持たず、`typescript` を7にするには上のtsconfckのpeerを書き換えるしかないため、[公式の併用方法](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)にならって2つを分ける。
+
+| パッケージ                                      | 版    | 使う所                                                                                                                                                                                           |
+| ----------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@typescript/native`（`npm:typescript@^7.0.2`） | 7.0.2 | `npm run typecheck`（app・workers・scripts の3つの tsconfig）、`npm run tsc -- <引数>`、Stopフックの型検査、CIのlintジョブ                                                                       |
+| `typescript`                                    | 5.9.3 | Compiler APIを読む部品（Storybook内部のtsconfck・MSW・Storybookのdocgen）、`next build` の型検査（Nextは `typescript/package.json` の `tsc` を実行する）、エディタのtsserverとNextのTSプラグイン |
+
+- 2つとも `tsc` という実行ファイルを持つ。`node_modules/.bin/tsc` がどちらを指すかに頼らず、scriptsでは `node node_modules/@typescript/native/bin/tsc` を直接呼ぶ。
+- 型検査の時間（M4・Node 26.13.1、3回の中央値）：`npm run typecheck` は初回 9.9s→2.4s、2回目 5.2s→1.4s。アプリの tsconfig は初回 6.5s→1.3s。3つの tsconfig とも診断は変わらない（エラー0、故意に入れた型エラーは3つとも検出）。
+- エディタはNextのTSプラグインが動く5.9.3のtsserverのまま。TypeScript 7の言語サーバーはプラグインに対応していない。
+- 撤去条件：Storybookの安定版が11になり、tsconfckのpeerがTypeScript 7を許したら、`typescript` も7へ上げて `@typescript/native` を外す（#738）。
 
 ## Miniflareの版
 
