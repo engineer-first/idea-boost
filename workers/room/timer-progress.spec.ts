@@ -5,6 +5,7 @@ import {
   connectRoomAs,
   createRoomAs,
   joinRoomAs,
+  nextPhaseUpdated,
   runInRoomDO,
 } from "../test-helpers";
 import { RoomBroadcaster } from "./broadcast";
@@ -187,29 +188,31 @@ describe("タイマーと完了条件に応じた進行", () => {
       ).toBe(0);
     });
   });
-  it("延長した1分が終了すると次の工程へ進み、再度のalarmでは二重に進まない", async () => {
+  it("延長した1分が終了すると予告を経て次の工程へ進み、再度のalarmでは二重に進まない", async () => {
     const roomId = await setup();
-    await runInRoomDO(roomId, async (instance, state) => {
-      saveTimerState(state.storage.sql, {
-        status: "running",
-        endsAt: Date.now() - 1,
-        durationMs: 60_000,
-        extensionUsed: true,
+    const socket = await connectRoomAs(host, roomId);
+    try {
+      await socket.next();
+      await runInRoomDO(roomId, async (instance, state) => {
+        const sql = state.storage.sql;
+        saveTimerState(sql, {
+          status: "running",
+          endsAt: Date.now() - 1,
+          durationMs: 60_000,
+          extensionUsed: true,
+        });
+        await instance.alarm();
+        expect(getPhase(sql)).toEqual({ kind: "step", phase: 1, step: 1 });
+        sql.exec("UPDATE advance_notice SET ends_at = 0");
+        await instance.alarm();
+        expect(getPhase(sql)).toEqual({ kind: "step", phase: 1, step: 2 });
+        expect(getTimerState(sql)).toEqual({ status: "idle" });
+        await instance.alarm();
+        expect(getPhase(sql)).toEqual({ kind: "step", phase: 1, step: 2 });
       });
-      await instance.alarm();
-      expect(getPhase(state.storage.sql)).toEqual({
-        kind: "step",
-        phase: 1,
-        step: 2,
-      });
-      expect(getTimerState(state.storage.sql)).toEqual({ status: "idle" });
-      await instance.alarm();
-      expect(getPhase(state.storage.sql)).toEqual({
-        kind: "step",
-        phase: 1,
-        step: 2,
-      });
-    });
+    } finally {
+      socket.close();
+    }
   });
   it.each([0, 1])(
     "発表者%dの延長終了で交代し、最後なら共有画面に留まる",
@@ -307,7 +310,7 @@ describe("タイマーと完了条件に応じた進行", () => {
     },
   );
 
-  it("延長終了時に投票未完了なら待ち、最後の投票が届いたら全員を結果へ進める", async () => {
+  it("延長終了時に投票未完了なら待ち、最後の投票が届いたら予告を経て全員を結果へ進める", async () => {
     const roomId = await setup();
     const noteId = crypto.randomUUID();
     await runInRoomDO(roomId, async (instance, state) => {
@@ -373,20 +376,18 @@ describe("タイマーと完了条件に応じた進行", () => {
       b.ws.send(
         JSON.stringify({ type: "note:vote", noteId, kind: "objective" }),
       );
-      for (const socket of [a, b]) {
-        let message = await socket.next();
-        while (message.type !== "phase:updated") {
-          if (message.type === "error") throw new Error(message.message);
-          message = await socket.next();
-        }
-        expect(message.phase).toEqual({ kind: "step", phase: 1, step: 5 });
-      }
+      for (const socket of [a, b])
+        expect((await nextPhaseUpdated(socket)).phase).toEqual({
+          kind: "step",
+          phase: 1,
+          step: 5,
+        });
     } finally {
       a.close();
       b.close();
     }
   });
-  it("延長終了時に採用未決定なら待ち、採用すると次のフェーズへ自動進行する", async () => {
+  it("延長終了時に採用未決定なら待ち、採用すると予告を経て次のフェーズへ進む", async () => {
     const roomId = await setup();
     const noteId = crypto.randomUUID();
     await runInRoomDO(roomId, async (instance, state) => {
@@ -413,34 +414,14 @@ describe("タイマーと完了条件に応じた進行", () => {
     try {
       await a.next();
       a.ws.send(JSON.stringify({ type: "note:decide", noteId }));
-      let message = await a.next();
-      while (message.type !== "phase:updated") {
-        if (message.type === "error") throw new Error(message.message);
-        message = await a.next();
-      }
-      expect(message.phase).toEqual({ kind: "step", phase: 2, step: 1 });
+      expect((await nextPhaseUpdated(a)).phase).toEqual({
+        kind: "step",
+        phase: 2,
+        step: 1,
+      });
     } finally {
       a.close();
     }
-  });
-  it("最初の時間切れでは自動で工程を進めず、延長を選べる", async () => {
-    const roomId = await setup();
-    await runInRoomDO(roomId, async (instance, state) => {
-      saveTimerState(state.storage.sql, {
-        status: "running",
-        endsAt: Date.now() - 1,
-        durationMs: 300_000,
-      });
-      await instance.alarm();
-      expect(getPhase(state.storage.sql)).toEqual({
-        kind: "step",
-        phase: 1,
-        step: 1,
-      });
-      expect(getTimerState(state.storage.sql)).toMatchObject({
-        status: "ended",
-      });
-    });
   });
   it("延長中に早期進行して戻ると、残り時間と延長済みを保って計時を再開する", async () => {
     const roomId = await setup();
@@ -479,7 +460,7 @@ describe("タイマーと完了条件に応じた進行", () => {
     });
   });
   it.each([1, 2] as const)(
-    "工程1-%dを延長終了後の進行から戻すと1分を再計時し、共有完了後は手動進行を待つ",
+    "工程1-%dを延長終了後の進行から戻すと1分を再計時し、接続中の人がいない間の時間切れでは工程を保つ",
     async (step) => {
       const roomId = await setup(step);
       await runInRoomDO(roomId, async (instance, state) => {
@@ -511,12 +492,13 @@ describe("タイマーと完了条件に応じた進行", () => {
           broadcaster: new RoomBroadcaster(state),
           refreshSnapshots: () => {},
         };
-        if (step === 2)
-          await phaseHandlers["phase:next"](ctx, {
-            type: "phase:next",
-            expectedPhase: getPhase(sql),
-            expectedRevision: getPhaseRevision(sql),
-          });
+        // 接続中の人がいないので、時間切れの alarm では進まない。明示して進める。
+        expect(getPhase(sql)).toMatchObject({ step });
+        await phaseHandlers["phase:next"](ctx, {
+          type: "phase:next",
+          expectedPhase: getPhase(sql),
+          expectedRevision: getPhaseRevision(sql),
+        });
         const nextPhase = getPhase(sql);
         expect(nextPhase).toEqual({ kind: "step", phase: 1, step: step + 1 });
         const restoredAt = Date.now();
@@ -543,9 +525,7 @@ describe("タイマーと完了条件に応じた進行", () => {
           });
         sql.exec("UPDATE timer_state SET ends_at=? WHERE id=1", Date.now() - 1);
         await instance.alarm();
-        expect(getPhase(sql)).toEqual(
-          step === 2 ? { kind: "step", phase: 1, step: 2 } : nextPhase,
-        );
+        expect(getPhase(sql)).toEqual({ kind: "step", phase: 1, step });
       });
     },
   );
@@ -610,100 +590,6 @@ describe("タイマーと完了条件に応じた進行", () => {
     expect(result.replies).toContainEqual(
       expect.objectContaining({ type: "error", code: "forbidden" }),
     );
-  });
-  it("稼働中でも接続中の全員がチェック済みなら次へ進める", async () => {
-    const roomId = await setup();
-    const result = await runInRoomDO(roomId, async (_, state) => {
-      const sql = state.storage.sql;
-      const broadcaster = new RoomBroadcaster(state);
-      broadcaster.connectedUserIds = () => [host.sub, member.sub];
-      const ctx: HandlerCtx = {
-        sql,
-        storage: state.storage,
-        userId: member.sub,
-        ws: new WebSocketPair()[0],
-        reply: () => {},
-        broadcaster,
-        refreshSnapshots: () => {},
-      };
-      saveTimerState(sql, {
-        status: "running",
-        durationMs: 300_000,
-        endsAt: Date.now() + 300_000,
-      });
-      const revision = getPhaseRevision(sql);
-      for (const userId of [host.sub, member.sub]) {
-        sql.exec(
-          "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?3)",
-          revision,
-          userId,
-          Date.now(),
-        );
-      }
-      await phaseHandlers["phase:next"](ctx, {
-        type: "phase:next",
-        expectedPhase: getPhase(sql),
-        expectedRevision: revision,
-      });
-      return getPhase(sql);
-    });
-    expect(result).toEqual({ kind: "step", phase: 1, step: 2 });
-  });
-
-  it("未開始のタイマーでは全員のチェックがなければ次へ進めない", async () => {
-    const roomId = await setup();
-    const result = await runInRoomDO(roomId, async (_, state) => {
-      const sql = state.storage.sql;
-      const broadcaster = new RoomBroadcaster(state);
-      broadcaster.connectedUserIds = () => [host.sub, member.sub];
-      const ctx: HandlerCtx = {
-        sql,
-        storage: state.storage,
-        userId: member.sub,
-        ws: new WebSocketPair()[0],
-        reply: () => {},
-        broadcaster,
-        refreshSnapshots: () => {},
-      };
-      saveTimerState(sql, { status: "idle" });
-      await phaseHandlers["phase:next"](ctx, {
-        type: "phase:next",
-        expectedPhase: getPhase(sql),
-        expectedRevision: getPhaseRevision(sql),
-      });
-      return getPhase(sql);
-    });
-    expect(result).toEqual({ kind: "step", phase: 1, step: 1 });
-  });
-
-  it("採用決定のステップでも各参加者が完了をチェックできる", async () => {
-    const roomId = await setup();
-    const result = await runInRoomDO(roomId, (_, state) => {
-      const sql = state.storage.sql;
-      savePhase(sql, { kind: "step", phase: 1, step: 5 });
-      const ctx: HandlerCtx = {
-        sql,
-        storage: state.storage,
-        userId: member.sub,
-        ws: new WebSocketPair()[0],
-        reply: () => {},
-        broadcaster: new RoomBroadcaster(state),
-        refreshSnapshots: () => {},
-      };
-      phaseHandlers["phase:ready"](ctx, {
-        type: "phase:ready",
-        ready: true,
-        expectedPhase: getPhase(sql),
-        expectedRevision: getPhaseRevision(sql),
-      });
-      return sql
-        .exec(
-          "SELECT user_id FROM phase_progress_ready WHERE user_id = ?1",
-          member.sub,
-        )
-        .toArray();
-    });
-    expect(result).toHaveLength(1);
   });
 
   it("共有中は時間切れまで発表者を交代できない", async () => {
@@ -783,42 +669,9 @@ describe("タイマーと完了条件に応じた進行", () => {
       expect.objectContaining({ type: "error", code: "forbidden" }),
     );
   });
-  it("稼働中の次ステップへの要求を拒否し、工程を保つ", async () => {
-    const roomId = await setup();
-    const result = await runInRoomDO(roomId, async (_, state) => {
-      const replies: ServerMessage[] = [];
-      const ctx: HandlerCtx = {
-        sql: state.storage.sql,
-        storage: state.storage,
-        userId: member.sub,
-        ws: new WebSocketPair()[0],
-        reply: (message) => replies.push(message),
-        broadcaster: new RoomBroadcaster(state),
-        refreshSnapshots: () => {},
-      };
-      saveTimerState(ctx.sql, {
-        status: "running",
-        durationMs: 300_000,
-        endsAt: Date.now() + 300_000,
-      });
-      await phaseHandlers["phase:next"](ctx, {
-        type: "phase:next",
-        expectedPhase: getPhase(ctx.sql),
-        expectedRevision: getPhaseRevision(ctx.sql),
-      });
-      return { phase: getPhase(ctx.sql), replies };
-    });
-    expect(result.phase).toEqual({ kind: "step", phase: 1, step: 1 });
-    expect(result.replies).toContainEqual(
-      expect.objectContaining({
-        type: "error",
-        message: expect.stringContaining("タイマー"),
-      }),
-    );
-  });
 
-  it.each(["ended"] as const)(
-    "%sでは完了チェックを要求せず参加者が明示して次へ進める",
+  it.each(["ended", "running"] as const)(
+    "タイマーが%sでも、接続中の人がいなければ phase:next で予告なしに次へ進む",
     async (status) => {
       const roomId = await setup();
       const phase = await runInRoomDO(roomId, async (_, state) => {
@@ -831,7 +684,12 @@ describe("タイマーと完了条件に応じた進行", () => {
           broadcaster: new RoomBroadcaster(state),
           refreshSnapshots: () => {},
         };
-        saveTimerState(ctx.sql, { status, durationMs: 300_000 });
+        saveTimerState(
+          ctx.sql,
+          status === "ended"
+            ? { status, durationMs: 300_000 }
+            : { status, durationMs: 300_000, endsAt: Date.now() + 300_000 },
+        );
         await phaseHandlers["phase:next"](ctx, {
           type: "phase:next",
           expectedPhase: getPhase(ctx.sql),
@@ -1018,46 +876,6 @@ it.each([
   expect(result.replies).toContainEqual(
     expect.objectContaining({ type: "error", code: "forbidden" }),
   );
-});
-
-it("延長が確定直前に割り込んだ場合は次の工程へ進めない", async () => {
-  const roomId = await setup();
-  const result = await runInRoomDO(roomId, async (_, state) => {
-    const sql = state.storage.sql;
-    saveTimerState(sql, {
-      status: "ended",
-      durationMs: 300000,
-    });
-    let resumed = false;
-    const ctx: HandlerCtx = {
-      sql,
-      storage: state.storage,
-      userId: member.sub,
-      ws: new WebSocketPair()[0],
-      reply: () => {},
-      broadcaster: new RoomBroadcaster(state),
-      refreshSnapshots: () => {},
-      authorizeMutation: () => {
-        if (!resumed) {
-          resumed = true;
-          saveTimerState(sql, {
-            status: "running",
-            endsAt: Date.now() + 100000,
-            durationMs: 300000,
-          });
-        }
-        return true;
-      },
-    };
-    await phaseHandlers["phase:next"](ctx, {
-      type: "phase:next",
-      expectedPhase: getPhase(sql),
-      expectedRevision: getPhaseRevision(sql),
-    });
-    return { phase: getPhase(sql), timer: getTimerState(sql) };
-  });
-  expect(result.phase).toEqual({ kind: "step", phase: 1, step: 1 });
-  expect(result.timer.status).toBe("running");
 });
 
 it("時間切れで次の工程へ進んだ後は遅れた延長でタイマーを上書きしない", async () => {

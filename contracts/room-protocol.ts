@@ -56,6 +56,9 @@ export const PhaseProgressSchema = z.object({
   phaseRevision: z.int().nonnegative(),
   progressRevision: z.int().nonnegative(),
   connectedUserIds: z.array(z.guid()),
+  // 完了の表明（「できた！」）は廃止した（ADR 0037）。以下の4つは、開いたままの
+  // 旧クライアントが snapshot を解釈できるように形だけ残す。RoomDO は接続中の
+  // 全員を完了済みとして返し、新しいクライアントは読まない。
   readyUserIds: z.array(z.guid()),
   notReadyUserIds: z.array(z.guid()),
   canAdvance: z.boolean(),
@@ -260,6 +263,37 @@ export const TimerStateSchema = z.discriminatedUnion("status", [
   }),
 ]);
 export type TimerState = z.infer<typeof TimerStateSchema>;
+
+// 次のステップへ進む前に全員へ出す予告。残り時間と取り消しの真実は RoomDO が持つ。
+export const ADVANCE_NOTICE_MS = 5_000;
+// 時間切れの予告は「＋1分」を選ぶ時間を取るため長くする。
+export const ADVANCE_NOTICE_TIMEOUT_MS = 10_000;
+
+export const AdvanceNoticeSchema = z.object({
+  noticeId: z.guid(),
+  phaseRevision: z.int().nonnegative(),
+  // member: 参加者が「次のステップへ」を押した / votes: 全員が票を使い切った /
+  // timer: 時間切れ。
+  trigger: z.enum(["member", "votes", "timer"]),
+  // 押した人。member のときだけ入る。止めた人は配らない。
+  initiatorUserId: z.guid().nullable(),
+  endsAt: TimerMillisecondsSchema,
+  durationMs: TimerMillisecondsSchema,
+});
+export type AdvanceNotice = z.infer<typeof AdvanceNoticeSchema>;
+
+// 予告が進行以外で消えた理由。held: 誰かが「まって！」を押した /
+// withdrawn: 押した本人がやめた / extended: 「＋1分」で延長した /
+// unmet: 工程固有の条件を満たさなくなった。誰が止めたかは含めない。
+export const AdvanceNoticeEndReasonSchema = z.enum([
+  "held",
+  "withdrawn",
+  "extended",
+  "unmet",
+]);
+export type AdvanceNoticeEndReason = z.infer<
+  typeof AdvanceNoticeEndReasonSchema
+>;
 
 // メンバー一覧スナップショットの単位。
 export const MemberSchema = z.object({
@@ -674,14 +708,23 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     expectedHostRevision: z.int().nonnegative().optional(),
     operationId: OptimisticOperationIdSchema,
   }),
-  // 課題整理の次ステップへ。完了条件を満たした参加者が進める。
+  // 次のステップへ。工程固有の条件を満たしていれば参加者の誰でも送れる。
+  // 接続中の参加者が2人以上なら RoomDO は予告を始め、止められなければ進める。
   z.strictObject({
     type: z.literal("phase:next"),
     expectedHostRevision: z.int().nonnegative().optional(),
     expectedPhase: RoomPhaseSchema,
     expectedRevision: z.int().nonnegative(),
+    // 旧クライアントの入力互換のみ。RoomDO は読まない。
     confirmedProgressRevision: z.int().nonnegative().optional(),
   }),
+  // 予告を取り消す（「まって！」・押した本人の「やめる」）。止めた人は
+  // 認証済みソケットから RoomDO が導出し、ほかの参加者へは配らない。
+  z.strictObject({
+    type: z.literal("phase:hold"),
+    noticeId: z.guid(),
+  }),
+  // 旧クライアントの入力互換のみ。RoomDO は受け取っても状態を変えない。
   z.object({
     type: z.literal("phase:ready"),
     expectedPhase: RoomPhaseSchema,
@@ -845,6 +888,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     // 投票先・票種別ごとの残数・カーソル位置は含めない。
     completedVoterIds: z.array(z.guid()),
     progress: PhaseProgressSchema.optional(),
+    // 進行中の予告。再接続した人にも残り時間を同じに見せる。
+    advanceNotice: AdvanceNoticeSchema.nullable().optional(),
     timer: TimerStateSchema,
     serverNow: TimerMillisecondsSchema,
   }),
@@ -1005,6 +1050,14 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     isAdditionalWriting: z.boolean().optional(),
     rollbackTarget: RoomPhaseSchema.nullable().optional(),
     rollbackRevision: z.int().nonnegative().optional(),
+  }),
+  // 予告の開始（notice あり）と、進行以外での終了（notice: null と理由）。
+  // 進んだときは phase:updated だけを配り、クライアントは工程の更新で予告を消す。
+  z.strictObject({
+    type: z.literal("phase:notice"),
+    notice: AdvanceNoticeSchema.nullable(),
+    reason: AdvanceNoticeEndReasonSchema.optional(),
+    serverNow: TimerMillisecondsSchema,
   }),
   z.strictObject({
     type: z.literal("phase:save-requested"),

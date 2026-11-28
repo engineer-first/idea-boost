@@ -80,6 +80,7 @@ import {
 } from "../room-do-migrations";
 import { filterVisible, projectNoteForViewer } from "../visibility";
 import { adoptionFocusHandlers } from "./adoption-focus-handlers";
+import { getAdvanceNotice } from "./advance-notice";
 import { syncRoomAlarm } from "./alarms";
 import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
 import {
@@ -119,6 +120,7 @@ import {
 import { noteHandlers } from "./note-handlers";
 import { broadcastNoteUpdated, findNote, listNotes } from "./notes";
 import {
+  completeDueAdvanceNotice,
   completeExpiredPhaseTransition,
   getBoardMutationForbiddenMessage,
   getPendingPhaseTransition,
@@ -127,6 +129,7 @@ import {
   isBoardMutation,
   isTimerExemptPersonalNoteMutation,
   phaseHandlers,
+  reconcileAdvanceNotice,
   savePhase,
 } from "./phase";
 import { getRollbackTarget, rollbackHandlers } from "./phase-rollback";
@@ -135,7 +138,6 @@ import {
   broadcastProgress,
   bumpProgressRevision,
   getProgressState,
-  isManualProgressStep,
   syncProgressConnectedUsers,
 } from "./progress";
 import {
@@ -868,7 +870,8 @@ export class RoomDO extends DurableObject {
   private async flushLeave(): Promise<void> {
     this.syncIdleDeadline();
     await this.completed.flush();
-    await this.advanceAfterExtendedTimer();
+    await this.advanceSharingAfterExtendedTimer();
+    await this.reconcileAdvanceNotice();
     await syncRoomAlarm(this.ctx.storage, this.sql);
   }
 
@@ -1273,6 +1276,8 @@ export class RoomDO extends DurableObject {
         },
         server,
       );
+    // 時間切れのまま誰もいなかったルームでは、戻ってきた人に予告を出す。
+    await this.reconcileAdvanceNotice();
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -1453,7 +1458,8 @@ export class RoomDO extends DurableObject {
         getPhase(this.sql),
         getPhaseRevision(this.sql),
       );
-    await this.advanceAfterExtendedTimer();
+    await this.advanceSharingAfterExtendedTimer();
+    await this.reconcileAdvanceNotice();
   }
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
@@ -1490,6 +1496,7 @@ export class RoomDO extends DurableObject {
       // 導入前の完了では fixCompletion を通っていないため、残った進行予約も止める。
       this.ctx.storage.transactionSync(() => {
         this.sql.exec("DELETE FROM pending_phase_transition");
+        this.sql.exec("DELETE FROM advance_notice");
         this.sql.exec("DELETE FROM sharing_state");
         this.sql.exec(
           "UPDATE timer_state SET status='idle',ends_at=NULL,remaining_ms=NULL,duration_ms=NULL WHERE id=1",
@@ -1504,68 +1511,82 @@ export class RoomDO extends DurableObject {
       storage: this.ctx.storage,
       broadcaster: this.broadcaster,
     });
-    await handleTimerAlarm(this.sql, this.broadcaster);
-    await this.advanceAfterExtendedTimer();
-    await this.flushSharedOutcome();
-    await syncRoomAlarm(this.ctx.storage, this.sql);
-  }
-
-  private async advanceAfterExtendedTimer(): Promise<boolean> {
-    const timer = getTimerState(this.sql);
-    const phase = getPhase(this.sql);
-    if (
-      isRoomClosed(this.sql) ||
-      phase.kind !== "step" ||
-      timer.status !== "ended" ||
-      !timer.extensionUsed
-    )
-      return false;
-
-    const phaseRevision = getPhaseRevision(this.sql);
-    const sharing = phase.step === 2 ? getSharingState(this.sql) : null;
-    const sharingRevision = sharing?.revision;
-    // 期限到来はRoomDOの内部操作として、通常進行と同じ確定前検査を通す。
-    const ctx: HandlerCtx = {
+    // 予告の時間が過ぎていれば工程を進める。進んだ工程ではタイマーは idle に戻る。
+    const internalCtx: HandlerCtx = {
       ...this.createHandlerCtx({} as WebSocket, ""),
       authorizeMutation: undefined,
       reply: () => {},
     };
-    if (sharing?.status === "active" && sharing.currentIndex !== null) {
-      const presenter = sharing.order[sharing.currentIndex];
-      if (presenter)
-        await sharingHandlers["sharing:advance"](
-          { ...ctx, userId: presenter.userId },
-          {
-            type: "sharing:advance",
-            revision: sharing.revision,
-            outcome: "done",
-          },
-        );
-    }
-    const currentTimer = getTimerState(this.sql);
-    if (
-      phase.step !== 2 &&
-      getPhaseRevision(this.sql) === phaseRevision &&
-      currentTimer.status === "ended" &&
-      currentTimer.extensionUsed
-    )
-      await phaseHandlers["phase:next"](ctx, {
-        type: "phase:next",
-        expectedPhase: phase,
-        expectedRevision: phaseRevision,
-      });
+    if (await completeDueAdvanceNotice(internalCtx)) await this.recordAdvance();
+    await handleTimerAlarm(this.sql, this.broadcaster);
+    await this.advanceSharingAfterExtendedTimer();
+    await this.reconcileAdvanceNotice();
+    await this.flushSharedOutcome();
+    await syncRoomAlarm(this.ctx.storage, this.sql);
+  }
 
-    const progressed =
-      getPhaseRevision(this.sql) !== phaseRevision ||
-      (phase.step === 2 &&
-        getSharingState(this.sql)?.revision !== sharingRevision);
-    if (!progressed) return false;
+  // 予告を今の共有状態に合わせる（phase.ts）。クライアントの要求ではない内部操作
+  // として呼ぶので、期限・在籍の再検査（authorizeMutation）は付けない。
+  private async reconcileAdvanceNotice(
+    options: { votesJustCompleted?: boolean } = {},
+  ): Promise<boolean> {
+    if (isRoomClosed(this.sql)) return false;
+    const advanced = await reconcileAdvanceNotice(
+      {
+        ...this.createHandlerCtx({} as WebSocket, ""),
+        authorizeMutation: undefined,
+        reply: () => {},
+      },
+      options,
+    );
+    if (advanced) await this.recordAdvance();
+    return advanced;
+  }
+
+  // 工程が進んだ後の、共有の活動の記録と成果の保全。
+  private async recordAdvance(): Promise<void> {
     await this.outcomes.recordSharedActivity();
     try {
       await this.preserveSharedOutcome();
     } catch {
       /* 工程の履歴は遷移と同じtransactionで保全済み。 */
     }
+  }
+
+  // 共有で延長した1分が終わったら、発表者を交代する。工程は進めない
+  // （共有以外の工程の時間切れは、予告を経て進む）。
+  private async advanceSharingAfterExtendedTimer(): Promise<boolean> {
+    const timer = getTimerState(this.sql);
+    const phase = getPhase(this.sql);
+    if (
+      isRoomClosed(this.sql) ||
+      phase.kind !== "step" ||
+      phase.step !== 2 ||
+      timer.status !== "ended" ||
+      !timer.extensionUsed
+    )
+      return false;
+
+    const sharing = getSharingState(this.sql);
+    if (sharing?.status !== "active" || sharing.currentIndex === null)
+      return false;
+    const presenter = sharing.order[sharing.currentIndex];
+    if (!presenter) return false;
+    // 期限到来はRoomDOの内部操作として、通常の交代と同じ検査を通す。
+    await sharingHandlers["sharing:advance"](
+      {
+        ...this.createHandlerCtx({} as WebSocket, presenter.userId),
+        authorizeMutation: undefined,
+        reply: () => {},
+      },
+      {
+        type: "sharing:advance",
+        revision: sharing.revision,
+        outcome: "done",
+      },
+    );
+    if (getSharingState(this.sql)?.revision === sharing.revision) return false;
+    await this.recordAdvance();
     return true;
   }
 
@@ -1798,23 +1819,6 @@ export class RoomDO extends DurableObject {
         ctx.reply({ type: "outcome:published", published: true });
         return;
       }
-      if (
-        getTimerState(this.sql).status !== "ended" &&
-        !getProgressState(
-          this.sql,
-          this.broadcaster,
-          phase,
-          getPhaseRevision(this.sql),
-        ).allReady
-      ) {
-        ctx.reply({
-          type: "error",
-          code: "forbidden",
-          message:
-            "全員のチェックかタイマーの終了を待ってから成果を表示してください。",
-        });
-        return;
-      }
       try {
         await this.preserveSharedOutcome(true, Date.now(), true);
       } catch {
@@ -1881,33 +1885,6 @@ export class RoomDO extends DurableObject {
           votingProgressBefore
       );
     })();
-    const clearsReady =
-      !rejected &&
-      (message.type === "note:create" ||
-        message.type === "note:delete" ||
-        message.type === "note:update-content" ||
-        message.type === "note:update-font-size" ||
-        message.type.startsWith("note:vote"));
-    if (clearsReady) {
-      const currentProgressPhase = getPhase(this.sql);
-      const currentProgressRevision = getPhaseRevision(this.sql);
-      if (
-        isManualProgressStep(currentProgressPhase) &&
-        this.sql.exec(
-          "DELETE FROM phase_progress_ready WHERE phase_revision = ?1 AND user_id = ?2",
-          currentProgressRevision,
-          attachment.userId,
-        ).rowsWritten > 0
-      ) {
-        bumpProgressRevision(this.sql);
-        broadcastProgress(
-          this.sql,
-          this.broadcaster,
-          currentProgressPhase,
-          currentProgressRevision,
-        );
-      }
-    }
     if (!rejected && message.type.startsWith("note:vote")) {
       const currentProgressPhase = getPhase(this.sql);
       if (
@@ -1930,7 +1907,15 @@ export class RoomDO extends DurableObject {
       message.type.startsWith("note:drag:")
     )
       await syncRoomAlarm(this.ctx.storage, this.sql);
-    if (!rejected && (await this.advanceAfterExtendedTimer())) return;
+    if (!rejected && (await this.advanceSharingAfterExtendedTimer())) return;
+    // 票の出し入れ・採用の取り消し・延長などで、予告の前提が変わっていれば合わせる。
+    // 工程が進んだ後の記録は reconcile 側で済ませる。
+    if (
+      await this.reconcileAdvanceNotice({
+        votesJustCompleted: votingProgressChanged,
+      })
+    )
+      return;
     const after = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
       : null;
@@ -2074,6 +2059,7 @@ export class RoomDO extends DurableObject {
         phase,
         getPhaseRevision(this.sql),
       ),
+      advanceNotice: getAdvanceNotice(this.sql),
       timer: getTimerState(this.sql),
       serverNow: Date.now(),
     });

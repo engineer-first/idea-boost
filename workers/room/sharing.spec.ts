@@ -58,28 +58,7 @@ async function setup() {
   await member.next();
   roomIdBySocket.set(owner, roomId);
   roomIdBySocket.set(member, roomId);
-  await markReady(roomId);
   return { roomId, inviteCode, owner, member, stub };
-}
-async function markReady(roomId: string) {
-  await runInRoomDO(roomId, (_, state) => {
-    const revision = Number(
-      state.storage.sql
-        .exec("SELECT phase_revision FROM room_state WHERE id=1")
-        .one().phase_revision,
-    );
-    for (const userId of [host.sub, guest.sub]) {
-      state.storage.sql.exec(
-        "INSERT INTO phase_progress_ready (phase_revision, user_id, ready, updated_at) VALUES (?1, ?2, 1, ?3)",
-        revision,
-        userId,
-        Date.now(),
-      );
-    }
-    state.storage.sql.exec(
-      "UPDATE room_state SET progress_revision = progress_revision + 1 WHERE id=1",
-    );
-  });
 }
 describe("一人ずつの共有", () => {
   it("発表順の抽選に作成者も含める", async () => {
@@ -519,7 +498,6 @@ describe("共有の遷移と同期", () => {
     });
     for (const phase of [2, 3] as const) {
       await stub.setPhase({ kind: "step", phase, step: 1 }, host.sub);
-      await markReady(roomId);
       const reset = await enterSharing(owner, roomId);
       expect(reset.order).toEqual(joined.order);
       expect(reset).toMatchObject({
@@ -759,7 +737,6 @@ it.each([1, 2, 3] as const)(
   async (phase) => {
     const { owner, member, roomId, stub } = await setup();
     await stub.setPhase({ kind: "step", phase, step: 1 }, host.sub);
-    await markReady(roomId);
     const ready = await prepareLegacySharing(owner, roomId);
     owner.ws.send(
       JSON.stringify({
@@ -780,7 +757,6 @@ it.each([1, 2, 3] as const)(
     );
     await owner.next();
     await until(owner, "phase:updated");
-    await markReady(roomId);
     await runInRoomDO(roomId, async (_, state) => {
       const row = state.storage.sql
         .exec(
@@ -842,7 +818,6 @@ it.each([1, 2, 3] as const)(
   async (phase) => {
     const { owner, member, roomId, stub } = await setup();
     await stub.setPhase({ kind: "step", phase, step: 1 }, host.sub);
-    await markReady(roomId);
     const request = {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),

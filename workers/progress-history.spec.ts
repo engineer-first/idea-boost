@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  arrangeMembersReady,
   arrangeSharingComplete,
   connectRoomAs,
   createRoomAs,
@@ -68,11 +67,6 @@ import { sessionCookieFor } from "./test-helpers";
 
 function context(state: DurableObjectState) {
   // 履歴の原子性を検証するため、手動作業は完了申告済みから始める。
-  state.storage.sql.exec(
-    "INSERT INTO phase_progress_ready(phase_revision,user_id,ready,updated_at) VALUES((SELECT phase_revision FROM room_state WHERE id=1),?,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
-    owner.sub,
-    Date.now(),
-  );
   return {
     sql: state.storage.sql,
     storage: state.storage,
@@ -474,7 +468,6 @@ it("盤面outboxの書込だけ失敗した場合は欠落で進行し、WSで�
   });
   const socket = await connectRoomAs(owner, room.roomId);
   const initial = await socket.next();
-  await arrangeMembersReady(room.roomId, [owner.sub]);
   if (initial.type !== "snapshot") throw new Error("snapshot required");
   socket.ws.send(
     JSON.stringify({
@@ -634,7 +627,6 @@ it("同一ルームのWSで開始から14ステップ完了まで訪問順の13�
       break;
     }
     await endTimerForTest(room.roomId);
-    await arrangeMembersReady(room.roomId, [owner.sub]);
     if (current.phase.kind === "step" && current.phase.step === 2)
       await arrangeSharingComplete(room.roomId);
     socket.ws.send(

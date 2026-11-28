@@ -13,15 +13,14 @@ import {
 import { buildLobbyPhase, buildPhaseStep } from "../../contracts/phase.fixture";
 import { NOTE_COLOR_PALETTE } from "../../contracts/room-protocol";
 import {
-  arrangeMembersReady,
   arrangeSharingComplete,
   arrangeSharingPresenter,
   currentPhaseExpectation,
-  currentProgressConfirmation,
   endTimerForTest,
   initializeTestRoom,
   listMemberIds,
   runInRoomDO,
+  settleAdvanceNoticeForTest,
   startTimerForTest,
 } from "../test-helpers";
 import type { SocketAttachment } from "./broadcast";
@@ -75,19 +74,7 @@ async function preparedPhaseExpectation(roomName: string) {
     expectation.expectedPhase.step === 2
   )
     await arrangeSharingComplete(roomName);
-  await endTimerForTest(roomName);
-  await arrangeMembersReady(roomName, [USER_A, USER_B]);
-  return { ...expectation, ...(await currentProgressConfirmation(roomName)) };
-}
-
-async function markReady(roomName: string, userId: string): Promise<void> {
-  await runInRoomDO(roomName, (_room, state) =>
-    state.storage.sql.exec(
-      "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
-      userId,
-      Date.now(),
-    ),
-  );
+  return expectation;
 }
 
 async function connectDirectly(
@@ -142,6 +129,16 @@ function queueFor(ws: WebSocket): MessageQueue {
     const message = JSON.parse(String(event.data)) as Record<string, unknown>;
 
     if (message.type === "note:content-saved") return;
+    // 予告は advance-notice.spec.ts で検証する。ここでは時間が過ぎた後から見る。
+    const roomName = roomNameBySocket.get(ws);
+    if (
+      roomName &&
+      settleAdvanceNoticeForTest(
+        roomName,
+        message as { type: string; notice?: { trigger?: string } | null },
+      )
+    )
+      return;
     if (message.type === "phase:progress") {
       queue.messages.push(message);
       return;
@@ -650,7 +647,6 @@ describe("RoomDO WebSocket の深層防御", () => {
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
     const ws = await connectDirectly(roomId, USER_B, USER_B);
-    await markReady(roomId, USER_B);
     ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -2322,7 +2318,6 @@ describe("RoomDO phase:next", () => {
     });
 
     const host = await connectDirectly(roomName, USER_A, USER_A);
-    await markReady(roomName, USER_A);
     const transition = nextJson(host);
     host.send(
       JSON.stringify({
@@ -2352,7 +2347,6 @@ describe("RoomDO phase:next", () => {
     });
 
     const host = await connectDirectly(roomName, USER_A, USER_A);
-    await markReady(roomName, USER_A);
     const transition = nextJson(host);
     host.send(
       JSON.stringify({
@@ -2415,8 +2409,6 @@ describe("RoomDO phase:next", () => {
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     await arrangeSharingComplete(roomName);
-    await markReady(roomName, USER_A);
-    await markReady(roomName, USER_B);
     await endTimerForTest(roomName);
     const hostTransition = nextJson(host);
     const memberTransition = nextJson(member);
@@ -2553,8 +2545,6 @@ describe("RoomDO phase:next", () => {
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     await arrangeSharingComplete(roomName);
-    await markReady(roomName, USER_A);
-    await markReady(roomName, USER_B);
     const hostTransition = nextJson(host);
     const memberTransition = nextJson(member);
     host.send(
@@ -2670,8 +2660,6 @@ describe("RoomDO phase:next", () => {
     await startTimerForTest(roomName);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
-    await markReady(roomName, USER_A);
-    await markReady(roomName, USER_B);
     await endTimerForTest(roomName);
     const hostTransition = nextJson(host);
     const memberTransition = nextJson(member);
@@ -2794,8 +2782,6 @@ describe("RoomDO phase:next", () => {
     await startTimerForTest(roomName);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
-    await markReady(roomName, USER_A);
-    await markReady(roomName, USER_B);
     const hostDragging = nextJson(host);
     const memberStart = nextJson(member);
     member.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
@@ -2882,7 +2868,6 @@ describe("RoomDO phase:next", () => {
 
     const transitioned = nextJson(host);
     const advanced = nextJson(host);
-    await markReady(roomName, USER_A);
     await endTimerForTest(roomName);
     host.send(
       JSON.stringify({
@@ -3001,8 +2986,6 @@ describe("RoomDO phase:next", () => {
     await startTimerForTest(roomName);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
-    await markReady(roomName, USER_A);
-    await markReady(roomName, USER_B);
     const hostDragging = nextJson(host);
     const memberStart = nextJson(member);
     member.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
@@ -3382,7 +3365,6 @@ describe("RoomDO phase:next", () => {
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
-    await markReady(roomName, USER_A);
     ws.send(JSON.stringify({ type: "timer:start", durationMs: 60_000 }));
     expect(await nextJson(ws)).toMatchObject({
       type: "timer:updated",
@@ -3423,7 +3405,6 @@ describe("RoomDO phase:next", () => {
     await stub.setPhase(buildPhaseStep(2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
-    await markReady(roomName, USER_A);
     ws.send(JSON.stringify({ type: "timer:start", durationMs: 60_000 }));
     await nextJson(ws);
 
@@ -4794,13 +4775,6 @@ describe("RoomDO phase:next", () => {
 
     // snapshot を捨てる
     await nextJson(ws);
-    await runInRoomDO("room-phase-host", (_room, state) =>
-      state.storage.sql.exec(
-        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?)",
-        USER_A,
-        Date.now(),
-      ),
-    );
 
     ws.send(
       JSON.stringify({
@@ -4852,13 +4826,6 @@ describe("RoomDO phase:next", () => {
     await new Promise<MessageEvent>((resolve) => {
       ws.addEventListener("message", resolve, { once: true });
     });
-    await runInRoomDO("room-phase-member", (_room, state) =>
-      state.storage.sql.exec(
-        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?)",
-        USER_B,
-        Date.now(),
-      ),
-    );
 
     ws.send(
       JSON.stringify({
@@ -4925,15 +4892,6 @@ describe("RoomDO phase:next", () => {
 
     // snapshot を受け取る
     await Promise.all([nextJson(host), nextJson(member)]);
-    await runInRoomDO("room-phase-broadcast", (_room, state) => {
-      for (const userId of [USER_A, USER_B]) {
-        state.storage.sql.exec(
-          "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?)",
-          userId,
-          Date.now(),
-        );
-      }
-    });
 
     // 共有へ入ると順番を含む snapshot を全員へ届ける
     const collectOne = (ws: WebSocket) => nextJson(ws);
@@ -7177,32 +7135,6 @@ describe("RoomDO Step 3-1 の境界ゲート", () => {
 });
 
 describe("RoomDO タイマー終了", () => {
-  it("最終成果は採用後でも全員未チェックの計時中には公開できない", async () => {
-    const roomName = "room-outcome-waits-for-ready-or-expiry";
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host", { roomId: roomName });
-    await stub.setPhase(buildPhaseStep(5, 3), USER_A);
-    await runInRoomDO(roomName, (_instance, state) => {
-      state.storage.sql.exec(
-        "INSERT INTO decisions (phase,note_id,note_content,decided_by,decided_at) VALUES (3,?1,'採用案',?2,?3)",
-        crypto.randomUUID(),
-        USER_A,
-        new Date().toISOString(),
-      );
-      saveTimerState(state.storage.sql, {
-        status: "running",
-        durationMs: 300_000,
-        endsAt: Date.now() + 300_000,
-      });
-    });
-    const ws = await connectDirectly(roomName, USER_A, USER_A);
-    ws.send(JSON.stringify({ type: "outcome:publish" }));
-    expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    ws.close();
-  });
   it("参加者は実行中のタイマーを停止できない", async () => {
     const roomName = "room-timer-ended-and-host-only";
     const stub = roomStub(roomName);
@@ -7952,7 +7884,6 @@ describe("new move group privacy WS", () => {
     const writing = await nextJsonOfType(owner, "phase:updated");
     const roomName = roomNameBySocket.get(owner);
     if (!roomName) throw new Error("テスト用ルームがありません。");
-    await arrangeMembersReady(roomName, [USER_A, USER_B, C]);
     owner.send(
       JSON.stringify({
         type: "phase:next",
@@ -8077,7 +8008,6 @@ describe("new move group privacy WS", () => {
         [],
       ),
     );
-    await arrangeMembersReady(name, [USER_A, USER_B, C]);
     await endTimerForTest(name);
     owner.send(
       JSON.stringify({

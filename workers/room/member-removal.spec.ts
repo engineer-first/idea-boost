@@ -7,7 +7,6 @@ import {
 } from "../../contracts/room-protocol";
 import worker from "../api-worker";
 import {
-  arrangeMembersReady,
   arrangeSharingPresenter,
   connectRoomAs,
   createRoomAs,
@@ -321,7 +320,6 @@ describe("参加者によるメンバー除外", () => {
   it("即時進行後にメンバーを除外できる", async () => {
     const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
-    await arrangeMembersReady(roomId, [A.sub, B.sub]);
     send(a, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),

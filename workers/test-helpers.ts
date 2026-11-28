@@ -147,9 +147,25 @@ export type RoomSocket = {
   close(): void;
 };
 
+// 予告（phase:notice）は advance-notice.spec.ts で検証する。ほかのシナリオでは
+// 既定で予告を受信列に入れず、誰かが押した・投票がそろった予告は残り時間を待たずに
+// 時間が過ぎたことにする。時間切れの予告は勝手に進めない（時間切れ後の操作を
+// 検証するシナリオを進めてしまわないため）。予告を検証するときは
+// notices: "deliver" を渡す。
+export function settleAdvanceNoticeForTest(
+  roomId: string,
+  message: { type: string; notice?: { trigger?: string } | null },
+): boolean {
+  if (message.type !== "phase:notice") return false;
+  if (message.notice && message.notice.trigger !== "timer")
+    void elapseAdvanceNoticeForTest(roomId).catch(() => {});
+  return true;
+}
+
 export async function connectRoomAs(
   user: TestUser,
   roomId: string,
+  options: { notices?: "settle" | "deliver" } = {},
 ): Promise<RoomSocket> {
   const res = await exports.default.fetch(
     `https://api.test/api/rooms/${roomId}/ws`,
@@ -173,6 +189,11 @@ export async function connectRoomAs(
     if (!message) {
       throw new Error(`サーバーメッセージを解釈できません: ${event.data}`);
     }
+    if (
+      options.notices !== "deliver" &&
+      settleAdvanceNoticeForTest(roomId, message)
+    )
+      return;
     const waiter = waiters.shift();
     if (waiter) {
       waiter(message);
@@ -278,21 +299,6 @@ import { issueCreationId } from "../contracts/room-creation";
 
 const TEST_CREATION_ISSUED = issueCreationId();
 
-// 進行条件そのものを検証しないシナリオ用。完了申告済みの作業を用意する。
-export async function arrangeMembersReady(
-  roomId: string,
-  userIds: readonly string[],
-): Promise<void> {
-  await runInRoomDO(roomId, (_room, state) => {
-    for (const userId of userIds)
-      state.storage.sql.exec(
-        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
-        userId,
-        Date.now(),
-      );
-  });
-}
-
 // 発表の交代は sharing.spec.ts で検証し、他の契約では一巡済みから始める。
 export async function arrangeSharingComplete(roomId: string): Promise<void> {
   await runInRoomDO(roomId, (_room, state) => {
@@ -312,14 +318,24 @@ export async function arrangeSharingComplete(roomId: string): Promise<void> {
   });
 }
 
-export function currentProgressConfirmation(
+// 予告の残り時間を待たずに、時間が過ぎた後の alarm を実行する。
+// 予告が無ければ何も進まない（止められた・出なかったことの検証にも使う）。
+export async function elapseAdvanceNoticeForTest(
   roomId: string,
-): Promise<{ confirmedProgressRevision: number }> {
-  return runInRoomDO(roomId, (_room, state) => ({
-    confirmedProgressRevision: Number(
-      state.storage.sql
-        .exec("SELECT progress_revision FROM room_state WHERE id=1")
-        .one().progress_revision,
-    ),
-  }));
+): Promise<void> {
+  await runInRoomDO(roomId, async (room, state) => {
+    state.storage.sql.exec("UPDATE advance_notice SET ends_at = ?1", 0);
+    await room.alarm();
+  });
+}
+
+// 工程が進むところまで読み進める。予告は connectRoomAs の既定で時間が過ぎたことになる。
+export async function nextPhaseUpdated(
+  socket: RoomSocket,
+): Promise<Extract<ServerMessage, { type: "phase:updated" }>> {
+  for (;;) {
+    const message = await socket.next();
+    if (message.type === "error") throw new Error(message.message);
+    if (message.type === "phase:updated") return message;
+  }
 }

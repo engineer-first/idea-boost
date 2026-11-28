@@ -22,6 +22,8 @@ const MEMBER_AVATAR_DUPLICATES_MIGRATION_ID = "20261104095400";
 const ALL_MIGRATION_IDS = ROOM_DO_MIGRATIONS.map((m) => m.id);
 
 const ALL_TABLES = [
+  "advance_notice",
+  "advance_notice_votes_hold",
   "completed_room",
   "decisions",
   "group_history_versions",

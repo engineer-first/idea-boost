@@ -6,7 +6,6 @@ import {
 } from "../../contracts/phase";
 import type { ServerMessage } from "../../contracts/room-protocol";
 import {
-  arrangeMembersReady,
   arrangeSharingComplete,
   connectRoomAs,
   createRoomAs,
@@ -431,7 +430,6 @@ for (const phase of [1, 2, 3] as const) {
       });
       if (current.kind === "step" && current.step === 2)
         await arrangeSharingComplete(room.roomId);
-      await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
       send(room.a, transition("phase:next", current));
       if (current.kind === "step" && current.step === 2) {
         for (const socket of [room.a, room.b])
@@ -490,7 +488,6 @@ it("重複・競合の前進とABA遷移を拒否する", async () => {
   expect(await until(room.a, "phase:updated")).toMatchObject({
     type: "phase:updated",
   });
-  await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
   send(
     room.a,
     transition("phase:next", { kind: "step", phase: 1, step: 1 }, 4),
@@ -621,11 +618,6 @@ it.each([1, 2, 3] as const)(
       phase,
       step: RESULT_STEP_BY_PHASE[phase],
     };
-    const voting: RoomPhase = {
-      kind: "step",
-      phase,
-      step: VOTING_STEP_BY_PHASE[phase],
-    };
     const room = await setup(result);
     await startTimerForTest(room.roomId);
     const secondHost = await connectRoomAs(host, room.roomId);
@@ -657,6 +649,13 @@ it.each([1, 2, 3] as const)(
           });
         }
       }
+      // 全員が票を使い切ると、予告を経て結果へ進む（このファイルでは予告の時間を待たない）。
+      for (const socket of [room.a, room.b, secondHost])
+        expect(await until(socket, "phase:updated")).toMatchObject({
+          type: "phase:updated",
+          phase: result,
+          phaseRevision: revision + 2,
+        });
       send(secondHost, transition("phase:revote", result, 2));
       expect(await until(secondHost, "error")).toMatchObject({
         type: "error",
@@ -671,18 +670,6 @@ it.each([1, 2, 3] as const)(
               .one().count,
         ),
       ).toBe(8);
-      await endTimerForTest(room.roomId);
-      send(room.a, transition("phase:next", voting, revision + 1));
-      expect(await until(room.a, "phase:updated")).toMatchObject({
-        type: "phase:updated",
-        phase: result,
-      });
-      expect(await until(room.b, "phase:updated")).toMatchObject({
-        type: "phase:updated",
-      });
-      expect(await until(secondHost, "phase:updated")).toMatchObject({
-        type: "phase:updated",
-      });
       const reconnect = await connectRoomAs(host, room.roomId);
       const snapshot = await reconnect.next();
       expect(
@@ -733,7 +720,6 @@ it.each([
         rollbackTarget: type === "phase:next" ? current : null,
       });
     }
-    await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
     if (type === "phase:revote") {
       await runInRoomDO(room.roomId, (_room, state) => {
         for (const user of [host, member])
@@ -787,7 +773,6 @@ it.each(["グループ A", "学び合い"])(
           );
         });
       }
-      await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
       send(room.a, transition("phase:next", current));
       for (const socket of [room.a, room.b]) {
         expect(await until(socket, "snapshot")).toMatchObject({

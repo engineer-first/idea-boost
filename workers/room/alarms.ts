@@ -86,6 +86,11 @@ export async function syncRoomAlarm(
     .toArray()[0];
   if (timer?.status === "running" && typeof timer.ends_at === "number")
     deadlines.push(timer.ends_at);
+  const notice = sql
+    .exec("SELECT ends_at FROM advance_notice WHERE id = 1")
+    .toArray()[0];
+  if (!isRoomClosed(sql) && typeof notice?.ends_at === "number")
+    deadlines.push(notice.ends_at);
   if (deadlines.length === 0) await storage.deleteAlarm();
   else await storage.setAlarm(Math.max(1, Math.min(...deadlines)));
 }
