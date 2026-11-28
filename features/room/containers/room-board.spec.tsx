@@ -1552,7 +1552,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       "data-excluded",
       "true",
     );
-    expect(screen.getByRole("button", { name: "除外を戻す" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^除外を戻す/ })).toBeDisabled();
     expect(
       screen.queryByRole("button", { name: /採用する付箋:/ }),
     ).not.toBeInTheDocument();
@@ -1568,7 +1568,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
     for (const mock of Object.values(notifyMocks))
       expect(mock).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "除外を戻す" }));
+    fireEvent.click(screen.getByRole("button", { name: /^除外を戻す/ }));
     expect(socket.sent.map((item) => JSON.parse(item))).toContainEqual(
       expect.objectContaining({ type: "note:restore", noteId: NOTE_ID }),
     );
@@ -1579,7 +1579,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "除外する" }));
+    fireEvent.click(screen.getByRole("button", { name: /^除外する/ }));
     const message = socket.sent
       .map((item) => JSON.parse(item))
       .find((item) => item.type === "note:exclude");
@@ -1612,7 +1612,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     });
 
     expect(screen.getByText("除外済み")).toBeVisible();
-    expect(screen.getByRole("button", { name: "除外を戻す" })).toBeVisible();
+    expect(screen.getByRole("button", { name: /^除外を戻す/ })).toBeVisible();
   });
 
   it.each(["phase-transition", "manual"] as const)(
@@ -1638,7 +1638,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       for (const mock of Object.values(notifyMocks))
         expect(mock).not.toHaveBeenCalled();
       expect(screen.getByText("除外済み")).toBeVisible();
-      expect(screen.getByRole("button", { name: "除外を戻す" })).toBeVisible();
+      expect(screen.getByRole("button", { name: /^除外を戻す/ })).toBeVisible();
     },
   );
 

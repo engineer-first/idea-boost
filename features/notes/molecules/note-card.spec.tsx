@@ -44,7 +44,7 @@ function getCard() {
 
 // 選択・ドラッグ・キー操作を受けるサーフェス（カードに重ねた透明なbutton）。
 function getNoteSurface() {
-  return screen.getByRole("button", { name: /付箋/ });
+  return screen.getByRole("button", { name: /^(除外済みの)?付箋/ });
 }
 
 // pointerdown → pointerup を同じ座標で行う「移動なしのクリック」。
@@ -100,7 +100,7 @@ describe("NoteCard", () => {
     vi.useFakeTimers();
     try {
       const { props, view } = setup({ canExcludeNote: true });
-      const exclude = () => screen.getByRole("button", { name: "除外する" });
+      const exclude = () => screen.getByRole("button", { name: /^除外する/ });
       view.rerender(<NoteCard {...props} isAdoptionTargetHovered />);
       fireEvent.pointerEnter(exclude());
       // ボタンの上にいる間に除外できなくなる（タイマー停止・他者の確定など）。
@@ -119,7 +119,7 @@ describe("NoteCard", () => {
 
   it("DOM移動でblurが届かなくても別付箋へのfocusで古い一時表示を残さない", () => {
     const { props, view } = setup({ isSelected: true, canExcludeNote: true });
-    const action = screen.getByRole("button", { name: "除外する" });
+    const action = screen.getByRole("button", { name: /^除外する/ });
     fireEvent.focus(getNoteSurface());
     view.rerender(<NoteCard {...props} isSelected={false} />);
     const other = document.createElement("button");
@@ -242,7 +242,7 @@ describe("NoteCard", () => {
       canExcludeNote: true,
     } as never);
 
-    const action = screen.getByRole("button", { name: "除外する" });
+    const action = screen.getByRole("button", { name: /^除外する/ });
 
     expect(getCard()).not.toContainElement(action);
     expect(action).toHaveTextContent("除外");
@@ -276,7 +276,7 @@ describe("NoteCard", () => {
       isSelected: true,
     } as never);
 
-    const action = screen.getByRole("button", { name: "除外する" });
+    const action = screen.getByRole("button", { name: /^除外する/ });
 
     expect(action).toBeDisabled();
     expect(action).toHaveAttribute("aria-busy", "true");
@@ -291,10 +291,62 @@ describe("NoteCard", () => {
   it("隠れている処理中の候補操作は、見えないままクリックを奪わない", () => {
     setup({ canExcludeNote: true, candidatePending: true } as never);
 
-    const action = screen.getByRole("button", { name: "除外する" });
+    const action = screen.getByRole("button", { name: /^除外する/ });
 
     expect(action).toHaveClass("pointer-events-none");
     expect(action).not.toHaveClass("disabled:pointer-events-auto");
+  });
+
+  it("付箋ごとの除外ボタンは、読み上げの名前に本文を添えて区別できる", () => {
+    setup({
+      note: buildNote({ id: "note-a", content: "宿題を後回しにする" }),
+      canExcludeNote: true,
+    });
+    setup({
+      note: buildNote({ id: "note-b", content: "朝起きられない" }),
+      canExcludeNote: true,
+    });
+
+    expect(
+      screen.getByRole("button", { name: "除外する: 宿題を後回しにする" }),
+    ).toHaveTextContent("除外");
+    expect(
+      screen.getByRole("button", { name: "除外する: 朝起きられない" }),
+    ).toHaveTextContent("除外");
+  });
+
+  it("除外ボタンの名前は、長い本文を先頭だけにし、空の本文は内容なしと読む", () => {
+    setup({
+      note: buildNote({
+        id: "note-long",
+        content: "一行目の本文がとても長くて読み上げが冗長になる\n二行目",
+      }),
+      canExcludeNote: true,
+    });
+    setup({
+      note: buildNote({ id: "note-empty", content: "" }),
+      canExcludeNote: true,
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: "除外する: 一行目の本文がとても長くて読み上げが冗…",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "除外する: 内容なし" }),
+    ).toBeInTheDocument();
+  });
+
+  it("除外を戻すボタンも、読み上げの名前に本文を添える", () => {
+    setup({
+      note: buildNote({ excluded: true, content: "朝起きられない" }),
+      canRestoreNote: true,
+    } as never);
+
+    expect(
+      screen.getByRole("button", { name: "除外を戻す: 朝起きられない" }),
+    ).toHaveTextContent("戻す");
   });
 
   it("除外を戻す操作は危険の色を使わない", () => {
@@ -303,7 +355,7 @@ describe("NoteCard", () => {
       canRestoreNote: true,
     } as never);
 
-    const action = screen.getByRole("button", { name: "除外を戻す" });
+    const action = screen.getByRole("button", { name: /^除外を戻す/ });
 
     expect(action).toHaveAttribute("data-slot", "button");
     expect(action).toHaveClass("rounded-lg", "bg-background");
@@ -314,7 +366,7 @@ describe("NoteCard", () => {
     setup({ canExcludeNote: true } as never);
     const card = getCard();
     const surface = getNoteSurface();
-    const action = screen.getByRole("button", { name: "除外する" });
+    const action = screen.getByRole("button", { name: /^除外する/ });
     Object.defineProperty(window, "innerWidth", {
       configurable: true,
       value: 1024,
@@ -363,7 +415,7 @@ describe("NoteCard", () => {
     try {
       setup({ canExcludeNote: true } as never);
       const surface = getNoteSurface();
-      const action = screen.getByRole("button", { name: "除外する" });
+      const action = screen.getByRole("button", { name: /^除外する/ });
 
       fireEvent.pointerEnter(surface);
       act(() => vi.advanceTimersByTime(150));
@@ -421,7 +473,7 @@ describe("NoteCard", () => {
   it("タッチ端末では付箋をタップした後だけ候補操作と対象表示を出す", () => {
     setup({ canExcludeNote: true } as never);
     const surface = getNoteSurface();
-    const action = screen.getByRole("button", { name: "除外する" });
+    const action = screen.getByRole("button", { name: /^除外する/ });
     const targetCorners = screen.getAllByTestId("candidate-target-corner");
 
     expect(action).toHaveClass("opacity-0");
@@ -489,7 +541,7 @@ describe("NoteCard", () => {
   it("タッチドラッグの完了後には候補操作を表示しない", () => {
     setup({ canExcludeNote: true, canMoveNote: true } as never);
     const surface = getNoteSurface();
-    const action = screen.getByRole("button", { name: "除外する" });
+    const action = screen.getByRole("button", { name: /^除外する/ });
 
     fireEvent.pointerDown(surface, {
       clientX: 10,
@@ -546,7 +598,7 @@ describe("NoteCard", () => {
   it("候補操作の先に要素がない場合はTabの既定動作を妨げない", () => {
     setup({ canExcludeNote: true } as never);
     const surface = getNoteSurface();
-    const action = screen.getByRole("button", { name: "除外する" });
+    const action = screen.getByRole("button", { name: /^除外する/ });
 
     surface.focus();
     fireEvent.keyDown(surface, { key: "Tab" });
@@ -624,7 +676,7 @@ describe("NoteCard", () => {
     const onExclude = vi.fn();
     setup({ canExcludeNote: true, onExclude } as never);
 
-    fireEvent.click(screen.getByRole("button", { name: "除外する" }));
+    fireEvent.click(screen.getByRole("button", { name: /^除外する/ }));
 
     expect(onExclude).toHaveBeenCalledWith("note-1");
   });
@@ -637,7 +689,7 @@ describe("NoteCard", () => {
       canMoveNote: false,
       canRestoreNote: true,
     } as never);
-    const restore = screen.getByRole("button", { name: "除外を戻す" });
+    const restore = screen.getByRole("button", { name: /^除外を戻す/ });
 
     fireEvent.pointerDown(getNoteSurface(), {
       pointerId: 7,
@@ -676,7 +728,7 @@ describe("NoteCard", () => {
 
     expect(getCard()).toHaveClass("opacity-90");
     expect(screen.getByText("除外済み")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "除外を戻す" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^除外を戻す/ })).toBeNull();
   });
 
   it("ホバーとフォーカスで候補外付箋の復帰操作を表示する", () => {
@@ -690,7 +742,7 @@ describe("NoteCard", () => {
         canRestoreNote: true,
       } as never);
       const surface = getNoteSurface();
-      const restore = screen.getByRole("button", { name: "除外を戻す" });
+      const restore = screen.getByRole("button", { name: /^除外を戻す/ });
 
       fireEvent.pointerEnter(surface);
       act(() => vi.advanceTimersByTime(150));
@@ -713,7 +765,7 @@ describe("NoteCard", () => {
       canRestoreNote: false,
     } as never);
 
-    expect(screen.queryByRole("button", { name: "除外を戻す" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^除外を戻す/ })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "除外を戻す" })).toBeNull();
   });
   it("付箋の本文を表示する", () => {
@@ -1032,7 +1084,7 @@ describe("NoteCard", () => {
         screen.getAllByTestId("dot-vote-sticker-image-objective"),
       ).toHaveLength(24);
       expect(screen.getByTestId("note-vote-results")).toHaveClass("pr-2");
-      expect(screen.getByRole("button", { name: "除外する" })).toHaveStyle({
+      expect(screen.getByRole("button", { name: /^除外する/ })).toHaveStyle({
         width: "80px",
         height: "44px",
       });
@@ -1896,13 +1948,13 @@ it("選択した付箋の候補操作はホバーとフォーカスが外れて�
   const surface = getNoteSurface();
   fireEvent.focus(surface);
   fireEvent.blur(surface);
-  expect(screen.getByRole("button", { name: "除外する" })).toHaveClass(
+  expect(screen.getByRole("button", { name: /^除外する/ })).toHaveClass(
     "opacity-100",
   );
 });
 it("候補ボタンを押した付箋を先に選択する", () => {
   const { props } = setup({ canExcludeNote: true, onExclude: vi.fn() });
-  fireEvent.click(screen.getByRole("button", { name: "除外する" }));
+  fireEvent.click(screen.getByRole("button", { name: /^除外する/ }));
   expect(props.onSelect).toHaveBeenCalledWith(props.note.id);
 });
 
@@ -1980,7 +2032,7 @@ describe("#522 focus・pointerの境界", () => {
     expect(props.onDelete).not.toHaveBeenCalled();
     expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
     expect(
-      screen.queryByRole("button", { name: "除外する" }),
+      screen.queryByRole("button", { name: /^除外する/ }),
     ).not.toBeInTheDocument();
   });
   it("AT-003: 禁止dragを編集clickへ落とさない", () => {

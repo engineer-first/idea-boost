@@ -362,7 +362,7 @@ describe("RoomBoardCanvas", () => {
       selectedNoteId: "note-1",
       onNoteExclude: vi.fn(),
     });
-    const action = screen.getAllByRole("button", { name: "除外する" })[0];
+    const action = screen.getAllByRole("button", { name: /^除外する/ })[0];
     expect(action).toHaveClass("opacity-100");
     rerender(<RoomBoardCanvas {...props} localDraggingNoteId="note-1" />);
     expect(action).toHaveClass("opacity-0");

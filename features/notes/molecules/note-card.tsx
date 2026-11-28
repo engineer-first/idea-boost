@@ -165,6 +165,17 @@ const TABBABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
+const NOTE_LABEL_CONTENT_MAX_CHARS = 20;
+
+// 読み上げの名前に添える本文。改行と連続する空白を1つにまとめ、長ければ先頭だけにする。
+function summarizeNoteContentForLabel(content: string): string | null {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  if (normalized === "") return null;
+  const chars = Array.from(normalized);
+  if (chars.length <= NOTE_LABEL_CONTENT_MAX_CHARS) return normalized;
+  return `${chars.slice(0, NOTE_LABEL_CONTENT_MAX_CHARS - 1).join("")}…`;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), Math.max(min, max));
 }
@@ -316,6 +327,12 @@ export function NoteCard({
     !isMultiSelected && (note.excluded ? canRestoreNote : canExcludeNote);
   const candidateActionLabel = t(
     note.excluded ? "restoreAction" : "excludeAction",
+  );
+  // 浮遊ボタンは付箋の数だけ支援技術に並ぶため、名前に本文の先頭を添えて区別する。
+  // メニューは開いた付箋の1つだけなので、見える文言のままにする。
+  const candidateActionButtonLabel = t(
+    note.excluded ? "restoreActionFor" : "excludeActionFor",
+    { content: summarizeNoteContentForLabel(note.content) ?? t("noContent") },
   );
   const candidateActionText = t(note.excluded ? "restore" : "exclude");
   const isCandidateActionVisible =
@@ -981,7 +998,7 @@ export function NoteCard({
               type="button"
               variant="outline"
               size="lg"
-              aria-label={candidateActionLabel}
+              aria-label={candidateActionButtonLabel}
               data-candidate-action="true"
               data-candidate-action-note-id={note.id}
               data-placement={candidateOverlayLayout.action.placement}

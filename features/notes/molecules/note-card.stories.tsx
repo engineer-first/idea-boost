@@ -206,7 +206,7 @@ export const ExcludedForHost: Story = {
     const page = within(canvasElement.ownerDocument.body);
     const card = canvas.getByTestId("note-card");
     const surface = canvas.getByRole("button", { name: "除外済みの付箋" });
-    const restore = page.getByRole("button", { name: "除外を戻す" });
+    const restore = page.getByRole("button", { name: /^除外を戻す/ });
 
     await userEvent.hover(surface);
     await waitFor(() => expect(restore).toBeVisible());
@@ -349,7 +349,7 @@ export const ExcludedForParticipant: Story = {
     await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
     await expect(canvas.getByText("除外済み", { exact: true })).toBeVisible();
     await expect(
-      page.queryByRole("button", { name: "除外を戻す" }),
+      page.queryByRole("button", { name: /^除外を戻す/ }),
     ).not.toBeInTheDocument();
   },
 };
@@ -480,7 +480,7 @@ export const ResultWithCandidateAction: Story = {
     await waitFor(() =>
       expect(
         within(canvasElement.ownerDocument.body).getByRole("button", {
-          name: "除外する",
+          name: /^除外する/,
         }),
       ).toBeVisible(),
     );
@@ -522,7 +522,7 @@ export const ResultExcludedForHost: Story = {
     await waitFor(() =>
       expect(
         within(canvasElement.ownerDocument.body).getByRole("button", {
-          name: "除外を戻す",
+          name: /^除外を戻す/,
         }),
       ).toBeVisible(),
     );
