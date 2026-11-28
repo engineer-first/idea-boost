@@ -37,7 +37,7 @@
 ## 4. PR を出してマージする
 
 - ブランチ名 `loop/build-<Issue番号>`。commit 本文の末尾に `Loop: build`・`Risk: R0|R1|R2`・`Closes #N`
-- `write-pr` skill で本文を作り、`gh pr create --base develop --label loop --body-file <本文>`。画面で見える変化がある PR は [PR の本文](../writing.md#pr-の本文)の形にし、変える前と後の画像を `--attach` で本文に埋めて、表示されることを確かめる（[画像の添付](../writing.md#画像の添付)）。提案の Issue の「変える前の画面」が「未撮影」なら、着手前に撮って Issue に足す
+- [PR の本文](../writing.md#pr-の本文)の形で本文を作り、`gh pr create --base develop --label loop --body-file <本文>`（手順の詳細は `write-pr` skill）。画面の変化の有無にかかわらずすべてこの形にし、末尾に `Risk` と `Loop: build` を書く。R2 すべてと複数人連動・条件分岐・タイミング競合がある R1 には [仕組みの図](../writing.md#仕組みの図の書き方) を入れる。画面が変わる PR は変える前と後の画像を `--attach` で本文に埋めて表示されることを確かめ（[画像の添付](../writing.md#画像の添付)）、画面が変わらない PR は画面の節を省く。提案の Issue の「変える前の画面」が「未撮影」なら、着手前に撮って Issue に足す
 - 別 context のレビュー：Agent ツールで `code-review` 相当のサブエージェント（UI は `ui-conventions-reviewer`、R2 は加えて `authz-security-reviewer`）に PR の差分を渡す。直すべき指摘は直して push し、指摘が 0 になるまで繰り返す
 - 必須チェックの完了は待たない。レビューの間に落ちていれば `ci-triage` skill で直して push する
 - README の「マージの決まり」を必須チェック以外すべて満たしたら `gh pr merge <PR> --squash --auto --delete-branch` で auto-merge を予約し、`gh pr view <PR> --json state,autoMergeRequest` で予約できたこと（必須チェックがすでに通っていればマージ済み）を確かめて周回を終える。必須チェックが通れば GitHub がマージし、落ちたら次の build が[止まっている PR](#止まっている-pr-を流すとき)として拾う。満たせなければ予約せず draft に戻し、理由をコメントする
