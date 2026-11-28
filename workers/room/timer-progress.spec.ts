@@ -4,6 +4,7 @@ import type { ServerMessage } from "../../contracts/room-protocol";
 import {
   connectRoomAs,
   createRoomAs,
+  elapseAdvanceNoticeOnceStartedForTest,
   joinRoomAs,
   nextPhaseUpdated,
   runInRoomDO,
@@ -414,6 +415,8 @@ describe("タイマーと完了条件に応じた進行", () => {
     try {
       await a.next();
       a.ws.send(JSON.stringify({ type: "note:decide", noteId }));
+      // 採用で条件がそろうと、延長後の時間切れの予告（止められない10秒）が出る。
+      await elapseAdvanceNoticeOnceStartedForTest(roomId);
       expect((await nextPhaseUpdated(a)).phase).toEqual({
         kind: "step",
         phase: 2,

@@ -1932,7 +1932,6 @@ describe("RoomDO 候補外付箋", () => {
       type: "error",
       code: "forbidden",
     });
-    await endTimerForTest(roomName);
     ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -2409,7 +2408,6 @@ describe("RoomDO phase:next", () => {
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     await arrangeSharingComplete(roomName);
-    await endTimerForTest(roomName);
     const hostTransition = nextJson(host);
     const memberTransition = nextJson(member);
     host.send(
@@ -2660,7 +2658,6 @@ describe("RoomDO phase:next", () => {
     await startTimerForTest(roomName);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
-    await endTimerForTest(roomName);
     const hostTransition = nextJson(host);
     const memberTransition = nextJson(member);
     host.send(
@@ -2868,7 +2865,6 @@ describe("RoomDO phase:next", () => {
 
     const transitioned = nextJson(host);
     const advanced = nextJson(host);
-    await endTimerForTest(roomName);
     host.send(
       JSON.stringify({
         type: "phase:next",
@@ -3153,7 +3149,6 @@ describe("RoomDO phase:next", () => {
     async (phase, votingStep, resultStep, incomplete) => {
       const roomName = `room-auto-exclude-${phase}-${incomplete}`;
       await prepareCompletedVotingTransition(roomName, phase, votingStep);
-      await endTimerForTest(roomName);
       if (incomplete) {
         await runInRoomDO(roomName, (_instance, state) => {
           state.storage.sql.exec(
@@ -3269,7 +3264,6 @@ describe("RoomDO phase:next", () => {
         USER_B,
       );
     });
-    await endTimerForTest(roomName);
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     ws.send(
@@ -3292,7 +3286,6 @@ describe("RoomDO phase:next", () => {
     async (incomplete) => {
       const roomName = `room-auto-exclude-all-zero-skip-${incomplete}`;
       await prepareCompletedVotingTransition(roomName, 1, 4);
-      await endTimerForTest(roomName);
       await runInRoomDO(roomName, (_instance, state) => {
         state.storage.sql.exec(
           "UPDATE notes SET excluded = 1 WHERE id = ?1",
@@ -3621,7 +3614,6 @@ describe("RoomDO phase:next", () => {
       }
     });
 
-    await endTimerForTest(roomName);
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(
       JSON.stringify({
@@ -4113,7 +4105,6 @@ describe("RoomDO phase:next", () => {
           new Date().toISOString(),
         );
     });
-    await endTimerForTest(roomName);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     const hostPublished = nextJson(host);
@@ -6150,7 +6141,6 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "note:decide", noteId: DECIDED_NOTE_ID }));
     await nextJson(ws); // decision:updated
-    await endTimerForTest(roomName);
     ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -6197,7 +6187,6 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "note:decide", noteId: DECIDED_NOTE_ID }));
     await nextJson(ws); // decision:updated
-    await endTimerForTest(roomName);
 
     ws.send(
       JSON.stringify({
@@ -8008,7 +7997,6 @@ describe("new move group privacy WS", () => {
         [],
       ),
     );
-    await endTimerForTest(name);
     owner.send(
       JSON.stringify({
         type: "phase:next",

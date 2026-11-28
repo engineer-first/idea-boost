@@ -339,3 +339,21 @@ export async function nextPhaseUpdated(
     if (message.type === "phase:updated") return message;
   }
 }
+
+// 時間切れの予告は既定では勝手に進めない。時間切れから進むところまでを検証する
+// シナリオでは、予告が出るのを待ってから、残り時間を待たずに時間が過ぎたことにする。
+export async function elapseAdvanceNoticeOnceStartedForTest(
+  roomId: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const started = await runInRoomDO(
+      roomId,
+      (_room, state) =>
+        state.storage.sql.exec("SELECT 1 FROM advance_notice").toArray()
+          .length > 0,
+    );
+    if (started) return elapseAdvanceNoticeForTest(roomId);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("予告が始まりませんでした。");
+}
