@@ -73,37 +73,7 @@ GitHubの[Issue Forms](../../.github/ISSUE_TEMPLATE/01-pbi.yml)、空Issue、CLI
 
 GUIはIssue Typeの設定と各欄への入力を支援します。CLI / APIや外部AIがテンプレートやAGENTSを自動で読む保証はないため、ガイドのURLか本文を渡し、作成後にType・タイトル・本文を確認します。
 
-### 入口を問わない作成後検査
-
-[Issue Writing](../../.github/workflows/issue-writing.yml)はdefault branchへのマージ後、Issueの作成・編集・再オープン・Type変更で最新本文を検査します。PBI・Taskはタイトルと `Why` 見出しの有無・重複・空欄を確認し、PBIだけは見出しなしの冒頭ストーリーと、その次にWhyがあることも確認します。Taskへストーリーは要求しません。How・具体仕様・作業完了条件・ユーザーに提供する体験・箇条書きの有無は、この形式検査の判定対象に含めません。各欄の内容は、読み手が判断するための情報として担当者と具体化します。フォームの `###` と通常の `##` は同等です。コード例やコメントだけではWhyの記入になりません。Bug・相談はこの構造検査の対象外で、Type未設定には分類だけを案内します。
-
-不足はBot自身のコメント1件で案内し、再検査では同じコメントを更新、同じ結果は再投稿せず、解消後は解消済みにします。本文・タイトル・Type・親子関係・Project状態・Milestoneを変更せず、起票・着手をブロックしません。検査中の本文変更では古い結果の投稿を保留し、APIエラーはActions失敗として記録します。
-
-GitHub Actionsが無効、イベント未着、`GITHUB_TOKEN`による作成・編集などで動かない場合は、Actions → Issue Writing → Run workflowから番号を指定できます。新しい認証設定は不要です。過去Issueの一括検査・書換えは行いません。
-
-形式合格はWhyの真偽や十分さ、着手・完了を保証しません。チームは問題と体験が短く伝わるかを判断し、必要な確認を担当者と進めます。
-
-### 機械検査の契約
-
-責務と粒度は本文、機械検査で確認する形式は以下を正本とし、フォーム・スクリプトとの整合をテストします。
-
-<!-- issue-writing-contract:start -->
-
-```json
-{
-  "version": 1,
-  "guidePath": "docs/team/issue-writing.md",
-  "types": {
-    "PBI": {
-      "sections": ["Why"],
-      "storyPattern": "^.+として、?.+たい。なぜなら、?.+からだ。$"
-    },
-    "Task": { "sections": ["Why"] }
-  }
-}
-```
-
-<!-- issue-writing-contract:end -->
+形式は自動では検査しません。Whyと提供したい体験が短く伝わるかは、チームと担当者が読んで判断します。
 
 ## 分野ごとの良い例・悪い例
 
