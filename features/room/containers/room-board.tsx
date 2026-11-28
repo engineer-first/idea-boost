@@ -767,17 +767,24 @@ export function RoomBoard({
     let frameId: number | null = null;
     let observer: ResizeObserver | null = null;
     let disposed = false;
+    let publishedSize: { width: number; height: number } | null = null;
 
-    const publishView = (): boolean => {
-      if (disposed) return true;
+    const publishView = (): void => {
+      if (disposed) return;
 
       const rect = viewport.getBoundingClientRect();
 
       // 表示領域がまだレイアウトされていない場合は、
       // サイズが決まったあとで再試行する。
-      if (rect.width <= 0 || rect.height <= 0) {
-        return false;
-      }
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      // 同じ大きさのままの通知では、同じ視点を送り直さない。
+      if (
+        publishedSize?.width === rect.width &&
+        publishedSize.height === rect.height
+      )
+        return;
+      publishedSize = { width: rect.width, height: rect.height };
 
       const insets = getBoardFitInsets(viewport);
 
@@ -794,30 +801,17 @@ export function RoomBoard({
         centerY: clampCanvasCoordinate(center.y),
         zoom: boardInteractions.camera.zoom,
       });
-
-      return true;
-    };
-
-    const disconnectObserver = () => {
-      observer?.disconnect();
-      observer = null;
     };
 
     // 発表者の切り替え直後ではなく、レイアウトが反映された
     // 次のフレームで表示領域を測定する。
     frameId = window.requestAnimationFrame(() => {
       frameId = null;
+      publishView();
 
-      if (publishView()) return;
-
-      // まだサイズが取得できなかった場合は、表示領域の
-      // サイズが確定するまで待ち、確定したら一度だけ送信する。
-      observer = new ResizeObserver(() => {
-        if (publishView()) {
-          disconnectObserver();
-        }
-      });
-
+      // サイズが未確定なら確定したとき、画面を回す・窓を広げるなどで
+      // 大きさが変わったときも、スクロールを待たずに視点を送り直す。
+      observer = new ResizeObserver(publishView);
       observer.observe(viewport);
     });
 
@@ -828,7 +822,8 @@ export function RoomBoard({
         window.cancelAnimationFrame(frameId);
       }
 
-      disconnectObserver();
+      observer?.disconnect();
+      observer = null;
     };
   }, [
     isCurrentUserPresenter,

@@ -355,10 +355,14 @@ function openPrivateNotesToolbar() {
   return toolbar;
 }
 
-it("発表者の表示領域サイズが未確定ならResizeObserverで確定後に視点を送信する", async () => {
-  const observers: TestResizeObserver[] = [];
+// jsdomにないResizeObserverをテスト用に用意する。
+function stubResizeObserver() {
+  const observers: Array<{
+    target: Element | null;
+    disconnected: boolean;
+    notify: () => void;
+  }> = [];
 
-  // jsdomにないResizeObserverをテスト用に用意する。
   class TestResizeObserver {
     target: Element | null = null;
     disconnected = false;
@@ -384,15 +388,36 @@ it("発表者の表示領域サイズが未確定ならResizeObserverで確定�
 
   vi.stubGlobal("ResizeObserver", TestResizeObserver);
 
+  const activeOn = (target: Element) =>
+    observers.filter(
+      (observer) => observer.target === target && !observer.disconnected,
+    );
+
+  return {
+    activeOn,
+    notifyAll: (target: Element) => {
+      for (const observer of activeOn(target)) observer.notify();
+    },
+  };
+}
+
+function sentViewUpdates(socket: FakeWebSocket) {
+  return socket.sent
+    .map((raw) => JSON.parse(raw))
+    .filter((message) => message.type === "view:update");
+}
+
+const presenterFollowMembers = [
+  { userId: USER_ID, name: "ホスト", color: "yellow" as const },
+  { userId: OTHER_USER_ID, name: "参加者", color: "blue" as const },
+];
+
+it("発表者の表示領域サイズが未確定ならResizeObserverで確定後に視点を送信する", async () => {
+  const resize = stubResizeObserver();
+
   const { view, socket } = connectWithSnapshot(
     [],
-    {
-      phase: buildPhaseStep(2, 1),
-      members: [
-        { userId: USER_ID, name: "ホスト", color: "yellow" },
-        { userId: OTHER_USER_ID, name: "参加者", color: "blue" },
-      ],
-    },
+    { phase: buildPhaseStep(2, 1), members: presenterFollowMembers },
     () => {
       // レイアウト前の状態を再現する。
       screen.getByTestId("board-scroller").getBoundingClientRect = () =>
@@ -405,39 +430,94 @@ it("発表者の表示領域サイズが未確定ならResizeObserverで確定�
 
     // 表示領域のサイズが0なので、ResizeObserverが登録されるのを待つ。
     await waitFor(() => {
-      expect(
-        observers.some(
-          (observer) => observer.target === viewport && !observer.disconnected,
-        ),
-      ).toBe(true);
+      expect(resize.activeOn(viewport).length).toBeGreaterThan(0);
     });
 
-    const observer = observers.find(
-      (candidate) => candidate.target === viewport && !candidate.disconnected,
-    );
-
-    if (!observer) {
-      throw new Error("ResizeObserverが登録されていません。");
-    }
-
     // サイズが未確定の間は、発表者ビューを送信しない。
-    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
-      expect.objectContaining({ type: "view:update" }),
-    );
+    expect(sentViewUpdates(socket)).toHaveLength(0);
 
-    // レイアウトが確定した状態に変更する。
+    // レイアウトが確定した状態に変更し、ResizeObserverの通知を発火する。
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
-
-    // ResizeObserverの通知を発火する。
-    act(() => observer.notify());
+    act(() => resize.notifyAll(viewport));
 
     // 表示領域の確定後にview:updateが送られる。
     await waitFor(() => {
-      expectSent(socket, { type: "view:update" });
+      expect(sentViewUpdates(socket)).toHaveLength(1);
     });
+  } finally {
+    view.unmount();
+    vi.unstubAllGlobals();
+  }
+});
 
-    // 一度送信したらResizeObserverを解除する。
-    expect(observer.disconnected).toBe(true);
+it("発表者の表示領域の大きさが変わったら、スクロールしなくても視点を送り直す", async () => {
+  const resize = stubResizeObserver();
+
+  const { view, socket } = connectWithSnapshot(
+    [],
+    { phase: buildPhaseStep(2, 1), members: presenterFollowMembers },
+    () => {
+      screen.getByTestId("board-scroller").getBoundingClientRect = () =>
+        new DOMRect(0, 0, 1180, 820);
+    },
+  );
+
+  try {
+    const viewport = screen.getByTestId("board-scroller");
+
+    await waitFor(() => {
+      expect(sentViewUpdates(socket)).toHaveLength(1);
+    });
+    const [first] = sentViewUpdates(socket);
+
+    // 大きさが変わらない通知では、同じ視点を送り直さない。
+    act(() => resize.notifyAll(viewport));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(sentViewUpdates(socket)).toHaveLength(1);
+
+    // iPad を縦に回したように、表示領域の大きさを変える。
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 820, 1180);
+    act(() => resize.notifyAll(viewport));
+
+    await waitFor(() => {
+      expect(sentViewUpdates(socket)).toHaveLength(2);
+    });
+    const second = sentViewUpdates(socket)[1];
+    expect(second.view).not.toEqual(first.view);
+  } finally {
+    view.unmount();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("発表者でない人の表示領域の大きさが変わっても、視点を送らない", async () => {
+  const resize = stubResizeObserver();
+
+  const { view, socket } = connectWithSnapshot(
+    [],
+    {
+      phase: buildPhaseStep(2, 1),
+      members: presenterFollowMembers,
+      sharing: buildSharingState({
+        order: sharingOrder,
+        status: "active",
+        currentIndex: 1,
+        durationMs: 360000,
+      }),
+    },
+    () => {
+      screen.getByTestId("board-scroller").getBoundingClientRect = () =>
+        new DOMRect(0, 0, 1280, 800);
+    },
+  );
+
+  try {
+    const viewport = screen.getByTestId("board-scroller");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 360, 740);
+    act(() => resize.notifyAll(viewport));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    expect(sentViewUpdates(socket)).toHaveLength(0);
   } finally {
     view.unmount();
     vi.unstubAllGlobals();
