@@ -1247,7 +1247,7 @@ export const PrivateGuidanceSharing: Story = {
     expandPrivateNotesRequest: 1,
   },
 };
-// 自分の番にマイ付箋を出し終えた後の欄の案内（「できた！」へ向ける一文）。
+// 自分の番にマイ付箋を出し終えた後の欄の案内（「次の人へ」へ向ける一文）。
 export const PrivateGuidanceSharingAllShared: Story = {
   ...PrivateGuidanceSharing,
   args: {

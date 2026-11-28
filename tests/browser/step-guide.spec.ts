@@ -112,7 +112,7 @@ test.each(widths(390, 1280))(
       await page.evaluate(() => document.fonts.ready);
       for (const target of [
         members,
-        page.getByRole("button", { name: "できた！", exact: true }),
+        page.getByRole("button", { name: "次のステップへ", exact: true }),
         stepGuideOpener(page, width),
       ]) {
         await target.scrollIntoViewIfNeeded();

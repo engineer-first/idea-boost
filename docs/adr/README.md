@@ -79,6 +79,7 @@ ADRはチームで共有する記録なので、Referencesにはチームの誰�
 | [0034](0034-loop-work-queue-on-issues.md)                    | ループの作業の待ち行列は GitHub Issue に置き、beads へは移さない                                   |
 | [0035](0035-loop-asks-humans-for-what-only-humans-can-do.md) | ループは人にしかできない作業だけを人に頼み、頼んだことを確実に届ける                               |
 | [0036](0036-loop-auto-merge-parallel-ci.md)                  | ループは必須チェックを待たずに auto-merge を予約し、PR の必須チェックは分割して並列に回す          |
+| [0037](0037-advance-notice-instead-of-ready.md)              | 完了の表明をやめ、誰でも進められる予告つきの進行にする                                             |
 
 ## 検証
 

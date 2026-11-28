@@ -60,15 +60,19 @@ import {
   MemberSelection,
   NOTE_COLOR_NAMES,
 } from "@/features/room-members";
+import { getNextStepPhase } from "../logic/advance-notice";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
 import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
-import type { Member, PhaseProgressState } from "../logic/room-reducer";
+import {
+  INITIAL_PHASE_PROGRESS,
+  type Member,
+  type PhaseProgressState,
+} from "../logic/room-reducer";
 import { getStepGuideReferenceSlides } from "../logic/step-guide-copy";
-import { useCompletionCue } from "../logic/use-completion-cue";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import { BoardContext } from "../molecules/board-context";
-import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
+import { NextStepButton } from "../molecules/next-step-button";
 import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
 import { PhaseStepTrail } from "../molecules/phase-step-trail";
 import { RestartWritingConfirmDialog } from "../molecules/restart-writing-confirm-dialog";
@@ -117,8 +121,10 @@ export type RoomBoardHeaderProps = {
   currentUserId: string;
   completedVoterIds?: ReadonlyArray<string>;
   progress?: PhaseProgressState;
-  onToggleReady?: ((ready: boolean) => boolean) | ((ready: boolean) => void);
-  completionResetVersion?: number;
+  // 進行中の予告があるか。予告の間は「次のステップへ」をもう一度押せない。
+  advanceNoticeActive?: boolean;
+  // 自分が「まって！」で予告を止めた後。準備ができたら自分で押すよう、次へを光らせる。
+  nextEmphasized?: boolean;
   isNextPhasePending: boolean;
   onEditSelf?: () => void;
   roomName?: string | null;
@@ -140,7 +146,7 @@ export type RoomBoardHeaderProps = {
   onShowOutcome?: () => void;
   onPublishOutcome: () => void;
   onLeaveClick: () => void;
-  onNextPhase: (confirmedProgressRevision?: number) => void;
+  onNextPhase: () => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -176,17 +182,9 @@ export function RoomBoardHeader({
   members,
   currentUserId,
   completedVoterIds = [],
-  progress = {
-    phaseRevision: 0,
-    progressRevision: 0,
-    connectedUserIds: [],
-    readyUserIds: [],
-    notReadyUserIds: [],
-    canAdvance: false,
-    allReady: false,
-  },
-  onToggleReady,
-  completionResetVersion = 0,
+  progress = INITIAL_PHASE_PROGRESS,
+  advanceNoticeActive = false,
+  nextEmphasized = false,
   isNextPhasePending,
   onSelectMember,
   onEditSelf,
@@ -210,6 +208,8 @@ export function RoomBoardHeader({
   onTimerExtend,
 }: RoomBoardHeaderProps) {
   const t = useTranslations("app.boardHeader");
+  const locationMessages = useTranslations("app.boardLocation");
+  const advanceNoticeMessages = useTranslations("app.boardAdvanceNotice");
   const locale = useLocale() === "en" ? "en" : "ja";
   const controlsAreaRef = useRef<HTMLDivElement>(null);
   const isIdeaMapWorkspaceStep =
@@ -312,7 +312,6 @@ export function RoomBoardHeader({
   const roomActionDisabled =
     isDisconnected || isNextPhasePending || isRemovingMember || isLeaving;
   const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
-  const readyButtonRef = useRef<HTMLButtonElement>(null);
   const roomMenuContentRef = useRef<HTMLDivElement>(null);
   const inviteContentRef = useRef<HTMLDivElement>(null);
   const feedbackOpening = useRef(false);
@@ -349,9 +348,6 @@ export function RoomBoardHeader({
         completedVoterIds.includes(userId),
       ));
   const isManualProgressStep = phase.kind === "step";
-  const isCurrentUserReady =
-    activeSharing === null && progress.readyUserIds.includes(currentUserId);
-  const canProceedByTimeOrReady = progress.allReady || timer.status === "ended";
   const sharingCompletionDisabled =
     activeSharing !== null &&
     (activeSharing.status !== "active" ||
@@ -359,41 +355,20 @@ export function RoomBoardHeader({
       presenter?.userId !== currentUserId ||
       !onSharingAdvance);
   const canPublishOutcome =
-    canProceedByTimeOrReady &&
     hasFinalDecision &&
     !isDisconnected &&
     !isRemovingMember &&
     !isNextPhasePending;
-  // 採用後に完了を待っている間は、1-5・2-4 の「次へ」と同じく何を待っているかを示す。
+  // 押せない間は、1-5・2-4 の「次へ」と同じく何を待っているかを示す。
   const finalCompletionWaitingLabel = isDisconnected
     ? t("completionWaitingReconnect")
     : !hasFinalDecision
       ? t("completionWaitingAdoption")
-      : !canProceedByTimeOrReady && progress.notReadyUserIds.length > 0
-        ? t("completionWaitingMembers", {
-            count: progress.notReadyUserIds.length,
-          })
-        : null;
-  const completionCue = useCompletionCue({
-    scope: `${inviteCode}:${currentUserId}:${JSON.stringify(phase)}:${phaseRevision}:${completionResetVersion}`,
-    disabled:
-      isDisconnected ||
-      isNextPhasePending ||
-      isRemovingMember ||
-      isLeaving ||
-      outcomePublished,
-    ready: isCurrentUserReady,
-    canAdvance: progress.canAdvance,
-    onReady: onToggleReady,
-  });
+      : null;
   const votesRemaining =
-    isCurrentVotingStep &&
-    !isCurrentUserReady &&
-    !completedVoterIds.includes(currentUserId);
-  // 押した直後の演出中（completionCue.busy）は押し済みの塗りを保ち、本当に押せない間だけ破線で示す。
-  const readyButtonUnavailable =
-    roomActionDisabled || sharingCompletionDisabled || votesRemaining;
-  const readyButtonDisabled = readyButtonUnavailable || completionCue.busy;
+    isCurrentVotingStep && !completedVoterIds.includes(currentUserId);
+  // 共有で発表者が交代する「次の人へ」。発表者本人だけが押せる。
+  const handOffDisabled = roomActionDisabled || sharingCompletionDisabled;
   const sharingTurnKey =
     activeSharing?.status === "active"
       ? `${inviteCode}:${currentUserId}:${phaseRevision}:${activeSharing.revision}`
@@ -410,7 +385,7 @@ export function RoomBoardHeader({
   const showSharingCompletionCue =
     hasNoUnsharedNotes &&
     sharingTurnKey !== null &&
-    !readyButtonDisabled &&
+    !handOffDisabled &&
     dismissedSharingTurnKey !== sharingTurnKey;
   // 狭幅でも本人を省略しない。順番は操作中の状態で変えない。
   const hudMembers = isManualProgressStep
@@ -420,23 +395,42 @@ export function RoomBoardHeader({
           Number(a.userId === currentUserId),
       )
     : members;
-  const notReadyNames = members
-    .filter((member) => progress.notReadyUserIds.includes(member.userId))
-    .map((member) => member.name);
-  const notReadyMembers = members.filter((member) =>
-    progress.notReadyUserIds.includes(member.userId),
-  );
-  const requireProgressConfirmation = !progress.allReady;
   const showVotingCompletion =
     isCurrentVotingStep &&
     members.length > 0 &&
     progress.connectedUserIds.length > 0 &&
     votingAllComplete &&
     !isDisconnected;
-  const completedMemberIds = progress.readyUserIds;
-  const completionLabel = t(
-    isCurrentVotingStep ? "votingComplete" : "workComplete",
-  );
+  // 参加者の並びに出す完了の印は、投票で票を使い切った人だけ。
+  const completedMemberIds = isCurrentVotingStep ? completedVoterIds : [];
+  const completionLabel = t("votingComplete");
+  const nextStep = getNextStepPhase(phase);
+  const nextStepLabel = nextStep
+    ? advanceNoticeMessages("nextStep", {
+        number: `${nextStep.phase}-${nextStep.step}`,
+        name: locationMessages(
+          `stepNames.${nextStep.phase}-${nextStep.step}` as Parameters<
+            typeof locationMessages
+          >[0],
+        ),
+      })
+    : undefined;
+  const nextStepDisabled =
+    isDisconnected ||
+    isNextPhasePending ||
+    isNextPhaseBlocked ||
+    !votingAllComplete ||
+    (activeSharing !== null && !canCompleteSharing) ||
+    isRemovingMember ||
+    (canCompleteSharing && isLeaving) ||
+    advanceNoticeActive;
+  // いつでも押せるステップでは光らせない。条件（投票・採用・共有の一巡）がそろった
+  // ステップと、自分が予告を止めた後だけ目を向ける。
+  const nextStepEmphasized =
+    nextEmphasized ||
+    isCurrentVotingStep ||
+    isResultStep(phase) ||
+    canCompleteSharing;
   const timerSoundControls = useRoomTimerSounds({
     timer,
     serverOffsetMs: timerServerOffsetMs,
@@ -642,19 +636,9 @@ export function RoomBoardHeader({
           <fieldset
             className={`board-hud pointer-events-auto relative flex ${canCompleteSharing ? "min-h-14 flex-wrap" : "h-14"} min-w-0 max-w-full shrink-0 items-center justify-end gap-1 rounded-xl border border-border bg-background p-1.5 shadow-tool max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2`}
             aria-label={t("roomControls")}
-            data-completion-cue={completionCue.stage}
             data-testid="board-control-hud"
             data-board-fit-edge="top"
           >
-            {isManualProgressStep ? (
-              <span className="sr-only" aria-live="polite">
-                {completionCue.stage === "waiting"
-                  ? t("readyUpdating")
-                  : isCurrentUserReady
-                    ? t("readyForNext")
-                    : t("working")}
-              </span>
-            ) : null}
             {canRestartWriting && onRestartWriting && phase.kind === "step" ? (
               <RestartWritingConfirmDialog
                 key={`${phase.phase}:${phaseRevision}:${connectionStatus}`}
@@ -665,52 +649,29 @@ export function RoomBoardHeader({
                 onConfirm={onRestartWriting}
               />
             ) : null}
-            {!canCompleteSharing &&
-            isManualProgressStep &&
-            (onToggleReady || activeSharing) ? (
+            {activeSharing && !canCompleteSharing ? (
               <Button
                 type="button"
-                variant={isCurrentUserReady ? "secondary" : "outline"}
-                ref={readyButtonRef}
-                className={`text-sm h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.readyButton}`}
+                variant="outline"
+                className={`text-sm h-10 w-[132px] max-[900px]:w-[116px] shrink-0 px-2 ${styles.handOffButton}`}
                 data-sharing-completion-cue={
                   showSharingCompletionCue || undefined
                 }
-                disabled={readyButtonDisabled}
-                data-unavailable={readyButtonUnavailable || undefined}
-                aria-busy={completionCue.stage === "waiting"}
-                aria-pressed={activeSharing ? undefined : isCurrentUserReady}
-                aria-label={
-                  activeSharing
-                    ? t("ready")
-                    : isCurrentUserReady
-                      ? t("undoReady")
-                      : t("ready")
-                }
+                disabled={handOffDisabled}
+                data-unavailable={handOffDisabled || undefined}
                 title={
-                  activeSharing
-                    ? isLastPresenter
-                      ? t("finishPresentation")
-                      : t("passToNext")
-                    : isCurrentUserReady
-                      ? t("alreadyReady")
-                      : votesRemaining
-                        ? t("useAllVotes")
-                        : t("readyDescription")
+                  isLastPresenter ? t("finishPresentation") : t("passToNext")
                 }
                 onClick={() => {
-                  if (activeSharing) {
-                    if (showSharingCompletionCue)
-                      setDismissedSharingTurnKey(sharingTurnKey);
-                    onSharingAdvance?.("done");
-                  } else if (isCurrentUserReady) onToggleReady?.(false);
-                  else completionCue.request(null);
+                  if (showSharingCompletionCue)
+                    setDismissedSharingTurnKey(sharingTurnKey);
+                  onSharingAdvance?.("done");
                 }}
               >
                 <span className={styles.completionMark} aria-hidden="true">
                   <Check className="size-3.5" strokeWidth={2.5} />
                 </span>
-                <span>{t("ready")}</span>
+                <span>{t("handOff")}</span>
               </Button>
             ) : showVotingCompletion ? (
               <span
@@ -772,15 +733,7 @@ export function RoomBoardHeader({
                       {hudMembers.slice(0, 10).map((member, index) => (
                         <span
                           key={member.userId}
-                          data-cue-self={
-                            member.userId === currentUserId || undefined
-                          }
-                          data-cue-waiting={
-                            (progress.notReadyUserIds.includes(member.userId) &&
-                              member.userId !== currentUserId) ||
-                            undefined
-                          }
-                          className={`${styles.avatarCue} relative ${
+                          className={`relative ${
                             index >= 3
                               ? "hidden xl:inline-flex"
                               : index >= 1
@@ -795,13 +748,9 @@ export function RoomBoardHeader({
                             color={member.color}
                             size={28}
                             isMe={member.userId === currentUserId}
-                            isVotingComplete={
-                              completedMemberIds.includes(member.userId) &&
-                              !(
-                                member.userId === currentUserId &&
-                                completionCue.hideSelfCheck
-                              )
-                            }
+                            isVotingComplete={completedMemberIds.includes(
+                              member.userId,
+                            )}
                             completionLabel={completionLabel}
                             isConnected={
                               progress.progressRevision > 0
@@ -815,28 +764,7 @@ export function RoomBoardHeader({
                       ))}
                       <span
                         data-testid="member-overflow-indicator"
-                        data-waiting-small={
-                          hudMembers
-                            .slice(1)
-                            .some((m) =>
-                              progress.notReadyUserIds.includes(m.userId),
-                            ) || undefined
-                        }
-                        data-waiting-medium={
-                          hudMembers
-                            .slice(3)
-                            .some((m) =>
-                              progress.notReadyUserIds.includes(m.userId),
-                            ) || undefined
-                        }
-                        data-waiting-large={
-                          hudMembers
-                            .slice(10)
-                            .some((m) =>
-                              progress.notReadyUserIds.includes(m.userId),
-                            ) || undefined
-                        }
-                        className={`${styles.overflowCue} relative z-20 -ml-1 size-7 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold tabular-nums text-foreground ${
+                        className={`relative z-20 -ml-1 size-7 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold tabular-nums text-foreground ${
                           members.length > 10
                             ? "inline-flex"
                             : members.length > 3
@@ -1019,8 +947,7 @@ export function RoomBoardHeader({
                           isDisconnected ||
                           isRemovingMember ||
                           isNextPhasePending ||
-                          !hasFinalDecision ||
-                          !canProceedByTimeOrReady
+                          !hasFinalDecision
                         }
                         onClick={onPublishOutcome}
                       >
@@ -1032,7 +959,7 @@ export function RoomBoardHeader({
               )
             ) : phase.kind === "step" &&
               (!activeSharing || canCompleteSharing) ? (
-              <NextPhaseConfirmDialog
+              <NextStepButton
                 key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
                 waiting={
                   isDisconnected
@@ -1041,56 +968,14 @@ export function RoomBoardHeader({
                       ? { kind: "decision" }
                       : votesRemaining
                         ? { kind: "votes" }
-                        : !canProceedByTimeOrReady
-                          ? {
-                              kind: "members",
-                              remaining: progress.notReadyUserIds.length,
-                              total: progress.connectedUserIds.length,
-                            }
+                        : !votingAllComplete
+                          ? { kind: "votesOthers" }
                           : undefined
                 }
-                disabled={
-                  isDisconnected ||
-                  isNextPhasePending ||
-                  isNextPhaseBlocked ||
-                  !votingAllComplete ||
-                  (activeSharing !== null && !canCompleteSharing) ||
-                  !canProceedByTimeOrReady ||
-                  isRemovingMember ||
-                  (canCompleteSharing && isLeaving)
-                }
-                onPendingPress={
-                  // 人数待ちだけが理由のときに限り、押されたら「できた！」か未完了の人を示す。
-                  isManualProgressStep &&
-                  onToggleReady &&
-                  !canCompleteSharing &&
-                  activeSharing === null &&
-                  !canProceedByTimeOrReady &&
-                  !isDisconnected &&
-                  !isNextPhasePending &&
-                  !isNextPhaseBlocked &&
-                  votingAllComplete &&
-                  !isRemovingMember &&
-                  !isLeaving
-                    ? () => {
-                        if (!isCurrentUserReady)
-                          readyButtonRef.current?.focus();
-                        completionCue.nudge();
-                      }
-                    : undefined
-                }
-                requireConfirmation={
-                  canCompleteSharing ? false : requireProgressConfirmation
-                }
-                notReadyNames={notReadyNames}
-                notReadyMembers={notReadyMembers}
-                onConfirm={() => {
-                  if (canCompleteSharing) onNextPhase();
-                  else
-                    onNextPhase(
-                      progress.allReady ? undefined : progress.progressRevision,
-                    );
-                }}
+                disabled={nextStepDisabled}
+                emphasized={nextStepEmphasized}
+                nextStepLabel={nextStepLabel}
+                onPress={onNextPhase}
               />
             ) : null}
 

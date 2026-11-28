@@ -28,7 +28,6 @@ import {
   connectRoomAs,
   createRoomAs,
   currentPhaseExpectation,
-  currentProgressConfirmation,
   endTimerForTest,
   joinRoomAs,
   type RoomSocket,
@@ -1585,7 +1584,6 @@ describe("note:vote（課題ドット投票）", () => {
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
-      ...(await currentProgressConfirmation(roomId)),
     });
 
     const ownerSnapshot = await expectType(owner, "snapshot");
@@ -1652,7 +1650,6 @@ describe("note:vote（課題ドット投票）", () => {
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
-      ...(await currentProgressConfirmation(roomId)),
     });
     const ownerResult = await expectType(owner, "snapshot");
     const memberResult = await expectType(reconnected, "snapshot");
@@ -1732,7 +1729,6 @@ describe("note:vote（課題ドット投票）", () => {
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
-      ...(await currentProgressConfirmation(roomId)),
     });
     const resultSnapshot = await expectType(owner, "snapshot");
     expect(resultSnapshot.completedVoterIds).toEqual([]);

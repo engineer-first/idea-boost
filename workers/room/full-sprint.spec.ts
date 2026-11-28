@@ -16,6 +16,7 @@ import {
 import {
   connectRoomAs,
   createRoomAs,
+  elapseAdvanceNoticeForTest,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
@@ -46,6 +47,7 @@ type SnapshotMessage = Extract<ServerMessage, { type: "snapshot" }>;
 class RoomClient {
   readonly user: TestUser;
   readonly socket: RoomSocket;
+  readonly roomId: string;
   // テストが読み進めたメッセージ。読んでいない受信分は含まない。
   readonly seen: ServerMessage[] = [];
   // 読み進めたかに関係なく、この接続が受信したすべての本文。配信漏れの確認に使う。
@@ -60,9 +62,10 @@ class RoomClient {
 
   private readonly progressWaiters: Array<() => void> = [];
 
-  private constructor(user: TestUser, socket: RoomSocket) {
+  private constructor(user: TestUser, socket: RoomSocket, roomId: string) {
     this.user = user;
     this.socket = socket;
+    this.roomId = roomId;
     socket.ws.addEventListener("message", (event) => {
       this.received.push(String(event.data));
       const parsed = parseServerMessage(event.data);
@@ -78,8 +81,9 @@ class RoomClient {
     user: TestUser,
     roomId: string,
   ): Promise<{ client: RoomClient; initialSnapshot: SnapshotMessage }> {
-    const socket = await connectRoomAs(user, roomId);
-    const client = new RoomClient(user, socket);
+    // 予告を含めて利用者の進み方を通すので、予告も受信列に入れる。
+    const socket = await connectRoomAs(user, roomId, { notices: "deliver" });
+    const client = new RoomClient(user, socket, roomId);
     // 初回も5秒で打ち切る。失敗時は呼び出し元へ client を返せないため、ここで閉じる。
     try {
       const first = await client.next();
@@ -164,7 +168,12 @@ class RoomClient {
       timer = setTimeout(
         () =>
           reject(
-            new Error(`${this.user.name} に5秒以内にメッセージが届きません`),
+            new Error(
+              `${this.user.name} に5秒以内にメッセージが届きません (工程: ${JSON.stringify(this.phase)}、直前の受信: ${this.seen
+                .slice(-6)
+                .map((m) => m.type)
+                .join(", ")})`,
+            ),
           ),
         5000,
       );
@@ -472,7 +481,8 @@ async function waitForPhaseChange(
   return snapshots;
 }
 
-async function markBothReadyAndAdvance(
+// 「次のステップへ」を1人が押す → 全員に予告が出る → 誰も止めずに時間が過ぎる。
+async function advanceThroughNotice(
   first: RoomClient,
   second: RoomClient,
   expectedNextPhase: RoomPhase,
@@ -485,48 +495,57 @@ async function markBothReadyAndAdvance(
   const expectedRevision = first.phaseRevision;
 
   first.send({
-    type: "phase:ready",
+    type: "phase:next",
     expectedPhase,
     expectedRevision,
-    ready: true,
   });
-  await first.waitForProgress(
-    (p) =>
-      p.readyUserIds.includes(first.user.sub) &&
-      p.phaseRevision === expectedRevision,
+  const notices = await Promise.all(
+    [first, second].map((client) =>
+      client.waitFor("phase:notice", (m) => m.notice !== null),
+    ),
   );
+  for (const { notice } of notices)
+    expect(notice).toMatchObject({
+      trigger: "member",
+      initiatorUserId: first.user.sub,
+      phaseRevision: expectedRevision,
+    });
+  // 予告の間は工程を進めない。
+  expect(first.phase).toEqual(expectedPhase);
+  expect(first.phaseRevision).toBe(expectedRevision);
+  return finishNotice(first, second, expectedNextPhase, options);
+}
 
-  // 片方だけの準備完了では次へ進めないこと（タイマー動作中）。
-  first.send({
-    type: "phase:next",
-    expectedPhase,
-    expectedRevision,
-  });
-  expect(await first.waitFor("error")).toMatchObject({
-    type: "error",
-    code: "forbidden",
-  });
-
-  second.send({
-    type: "phase:ready",
-    expectedPhase,
-    expectedRevision,
-    ready: true,
-  });
-  await Promise.all([
-    first.waitForProgress(
-      (p) => p.allReady && p.phaseRevision === expectedRevision,
+// 全員が票を使い切ると、誰も押さなくても予告が出る。止めずに時間が過ぎると進む。
+async function advanceAfterVotesNotice(
+  first: RoomClient,
+  second: RoomClient,
+  expectedNextPhase: RoomPhase,
+  options?: { expectSnapshot?: boolean },
+): Promise<{
+  firstSnapshot?: SnapshotMessage;
+  secondSnapshot?: SnapshotMessage;
+}> {
+  const notices = await Promise.all(
+    [first, second].map((client) =>
+      client.waitFor("phase:notice", (m) => m.notice !== null),
     ),
-    second.waitForProgress(
-      (p) => p.allReady && p.phaseRevision === expectedRevision,
-    ),
-  ]);
+  );
+  for (const { notice } of notices)
+    expect(notice).toMatchObject({ trigger: "votes", initiatorUserId: null });
+  return finishNotice(first, second, expectedNextPhase, options);
+}
 
-  first.send({
-    type: "phase:next",
-    expectedPhase,
-    expectedRevision,
-  });
+async function finishNotice(
+  first: RoomClient,
+  second: RoomClient,
+  expectedNextPhase: RoomPhase,
+  options?: { expectSnapshot?: boolean },
+): Promise<{
+  firstSnapshot?: SnapshotMessage;
+  secondSnapshot?: SnapshotMessage;
+}> {
+  await elapseAdvanceNoticeForTest(first.roomId);
 
   if (options?.expectSnapshot) {
     const [firstSnapshot, secondSnapshot] = await waitForPhaseChange(
@@ -806,7 +825,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     expect(memberClient.notes.has(p1MemberNote.id)).toBe(true);
 
     // 1-1 → 1-2。共有の前なので、移行時の snapshot にも相手の本文を含めない。
-    await markBothReadyAndAdvance(
+    await advanceThroughNotice(
       hostClient,
       memberClient,
       { kind: "step", phase: 1, step: 2 },
@@ -841,16 +860,12 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     });
 
     // 共有一巡後、1-2 → 1-3 へ進む。
-    hostClient.send({
-      type: "phase:next",
-      expectedPhase: hostClient.phase,
-      expectedRevision: hostClient.phaseRevision,
-    });
-    await waitForPhaseChange([hostClient, memberClient], {
-      kind: "step",
-      phase: 1,
-      step: 3,
-    });
+    await advanceThroughNotice(
+      hostClient,
+      memberClient,
+      { kind: "step", phase: 1, step: 3 },
+      { expectSnapshot: true },
+    );
 
     // ------------------------------------------------------------
     // #717: 1-3 から 1-2 へ戻して再び 1-3 へ進めること
@@ -877,8 +892,8 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     expect(rolledBackHost.sharing?.status).toBe("complete");
     expect(rolledBackMember.sharing?.status).toBe("complete");
 
-    // 戻した後も、両者がチェックすれば未完了扱いにならず 1-3 へ進める（#717）。
-    await markBothReadyAndAdvance(
+    // 戻した後も、共有の一巡を保ったまま 1-3 へ進める（#717）。
+    await advanceThroughNotice(
       hostClient,
       memberClient,
       { kind: "step", phase: 1, step: 3 },
@@ -898,7 +913,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     );
 
     // 1-3 → 1-4
-    await markBothReadyAndAdvance(
+    await advanceThroughNotice(
       hostClient,
       memberClient,
       { kind: "step", phase: 1, step: 4 },
@@ -910,20 +925,9 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     // ------------------------------------------------------------
     await startStepTimer(hostClient, memberClient, 180_000);
 
-    // 投票完了前は phase:ready(true) も phase:next も拒否されること（#438）。
-    // 投票完了前は準備完了自体が拒否されるため、phase:next は投票未完了の状態で拒否される。
+    // 投票完了前の phase:next は拒否されること（#438）。
     const phaseBeforeVote = hostClient.phase;
     const revisionBeforeVote = hostClient.phaseRevision;
-    hostClient.send({
-      type: "phase:ready",
-      expectedPhase: phaseBeforeVote,
-      expectedRevision: revisionBeforeVote,
-      ready: true,
-    });
-    expect(await hostClient.waitFor("error")).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
     hostClient.send({
       type: "phase:next",
       expectedPhase: phaseBeforeVote,
@@ -948,8 +952,37 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       p1MemberNote.id,
     ]);
 
+    // 全員の投票がそろうと予告が出る。「まって！」で止めると工程は進まず、
+    // 止めた人の userId は誰にも配られない。その後は誰かが押して進める。
+    const votesNotices = await Promise.all(
+      [hostClient, memberClient].map((client) =>
+        client.waitFor("phase:notice", (m) => m.notice !== null),
+      ),
+    );
+    expect(votesNotices[0].notice).toMatchObject({
+      trigger: "votes",
+      initiatorUserId: null,
+    });
+    const hostReceivedBeforeHold = hostClient.received.length;
+    memberClient.send({
+      type: "phase:hold",
+      noticeId: votesNotices[1].notice?.noticeId ?? "",
+    });
+    for (const client of [hostClient, memberClient])
+      expect(
+        await client.waitFor("phase:notice", (m) => m.notice === null),
+      ).toMatchObject({ reason: "held" });
+    expect(
+      hostClient.received
+        .slice(hostReceivedBeforeHold)
+        .filter((body) => body.includes('"phase:notice"'))
+        .join("\n"),
+    ).not.toContain(member.sub);
+    await elapseAdvanceNoticeForTest(roomId);
+    expect(hostClient.phase).toEqual(phaseBeforeVote);
+
     // 1-4 → 1-5（0票の p1HostNote2 が自動除外されること: #657）
-    const { firstSnapshot: p1ResultSnapshot } = await markBothReadyAndAdvance(
+    const { firstSnapshot: p1ResultSnapshot } = await advanceThroughNotice(
       hostClient,
       memberClient,
       { kind: "step", phase: 1, step: 5 },
@@ -981,22 +1014,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     // ------------------------------------------------------------
     await startStepTimer(hostClient, memberClient, 600_000);
 
-    // 決定確定前は両者準備完了しても 2-1 へ進めないこと。
-    hostClient.send({
-      type: "phase:ready",
-      expectedPhase: hostClient.phase,
-      expectedRevision: hostClient.phaseRevision,
-      ready: true,
-    });
-    memberClient.send({
-      type: "phase:ready",
-      expectedPhase: memberClient.phase,
-      expectedRevision: memberClient.phaseRevision,
-      ready: true,
-    });
-    await hostClient.waitForProgress(
-      (p) => p.allReady && p.phaseRevision === hostClient.phaseRevision,
-    );
+    // 決定確定前は 2-1 へ進めないこと。
     hostClient.send({
       type: "phase:next",
       expectedPhase: hostClient.phase,
@@ -1020,17 +1038,14 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       ),
     ]);
 
-    // 1-5 → 2-1（既に両者 ready なのでそのまま次フェーズへ進める: #423）
-    hostClient.send({
-      type: "phase:next",
-      expectedPhase: hostClient.phase,
-      expectedRevision: hostClient.phaseRevision,
-    });
-    const [p2StartHost] = await waitForPhaseChange([hostClient, memberClient], {
-      kind: "step",
-      phase: 2,
-      step: 1,
-    });
+    // 1-5 → 2-1（採用が決まれば、誰でも押して次フェーズへ進める: #423）
+    const { firstSnapshot: p2StartHost } = await advanceThroughNotice(
+      hostClient,
+      memberClient,
+      { kind: "step", phase: 2, step: 1 },
+      { expectSnapshot: true },
+    );
+    if (!p2StartHost) throw new Error("2-1 の snapshot がありません");
     expect(p2StartHost.carryovers).toEqual([
       expect.objectContaining({
         phase: 1,
@@ -1064,7 +1079,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     expect(memberReceived21).not.toContain("問いB：");
 
     // 2-1 → 2-2。共有の前なので、移行時の snapshot にも相手の本文を含めない。
-    await markBothReadyAndAdvance(
+    await advanceThroughNotice(
       hostClient,
       memberClient,
       { kind: "step", phase: 2, step: 2 },
@@ -1100,16 +1115,12 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     });
 
     // 2-2 → 2-3
-    hostClient.send({
-      type: "phase:next",
-      expectedPhase: hostClient.phase,
-      expectedRevision: hostClient.phaseRevision,
-    });
-    await waitForPhaseChange([hostClient, memberClient], {
-      kind: "step",
-      phase: 2,
-      step: 3,
-    });
+    await advanceThroughNotice(
+      hostClient,
+      memberClient,
+      { kind: "step", phase: 2, step: 3 },
+      { expectSnapshot: true },
+    );
 
     // ------------------------------------------------------------
     // 2-3（問い投票）
@@ -1137,7 +1148,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     ]);
 
     // 2-3 → 2-4
-    const { firstSnapshot: p2ResultSnapshot } = await markBothReadyAndAdvance(
+    const { firstSnapshot: p2ResultSnapshot } = await advanceAfterVotesNotice(
       hostClient,
       memberClient,
       { kind: "step", phase: 2, step: 4 },
@@ -1173,7 +1184,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     );
 
     // 2-4 → 3-1
-    const { firstSnapshot: p3StartSnapshot } = await markBothReadyAndAdvance(
+    const { firstSnapshot: p3StartSnapshot } = await advanceThroughNotice(
       memberClient,
       hostClient,
       { kind: "step", phase: 3, step: 1 },
@@ -1204,7 +1215,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     );
 
     // 3-1 → 3-2。共有の前なので、移行時の snapshot にも相手の本文を含めない。
-    await markBothReadyAndAdvance(
+    await advanceThroughNotice(
       hostClient,
       memberClient,
       { kind: "step", phase: 3, step: 2 },
@@ -1239,16 +1250,12 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     });
 
     // 3-2 → 3-3
-    hostClient.send({
-      type: "phase:next",
-      expectedPhase: hostClient.phase,
-      expectedRevision: hostClient.phaseRevision,
-    });
-    await waitForPhaseChange([hostClient, memberClient], {
-      kind: "step",
-      phase: 3,
-      step: 3,
-    });
+    await advanceThroughNotice(
+      hostClient,
+      memberClient,
+      { kind: "step", phase: 3, step: 3 },
+      { expectSnapshot: true },
+    );
 
     // ------------------------------------------------------------
     // 3-3（価値×実現のしやすさで評価）
@@ -1263,7 +1270,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     );
 
     // 3-3 → 3-4
-    await markBothReadyAndAdvance(
+    await advanceThroughNotice(
       hostClient,
       memberClient,
       { kind: "step", phase: 3, step: 4 },
@@ -1287,7 +1294,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
     ]);
 
     // 3-4 → 3-5
-    const { firstSnapshot: p3ResultSnapshot } = await markBothReadyAndAdvance(
+    const { firstSnapshot: p3ResultSnapshot } = await advanceAfterVotesNotice(
       hostClient,
       memberClient,
       { kind: "step", phase: 3, step: 5 },
@@ -1321,23 +1328,7 @@ describe("2人・全14工程のRoomDO完走統合テスト", () => {
       ),
     );
 
-    // 両者の準備完了で成果を公開する。
-    hostClient.send({
-      type: "phase:ready",
-      expectedPhase: hostClient.phase,
-      expectedRevision: hostClient.phaseRevision,
-      ready: true,
-    });
-    memberClient.send({
-      type: "phase:ready",
-      expectedPhase: memberClient.phase,
-      expectedRevision: memberClient.phaseRevision,
-      ready: true,
-    });
-    await hostClient.waitForProgress(
-      (p) => p.allReady && p.phaseRevision === hostClient.phaseRevision,
-    );
-
+    // 採用が決まれば、タイマーの動作中でも参加者の誰でも成果を公開できる。
     memberClient.send({ type: "outcome:publish" });
     await Promise.all([
       hostClient.waitFor("outcome:published"),

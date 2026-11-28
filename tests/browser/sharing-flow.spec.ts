@@ -30,7 +30,7 @@ describe("共有HUD", () => {
       if (!hud) throw new Error("操作HUDがありません");
       expect(timer.y).toBeGreaterThanOrEqual(hud.y + hud.height + 11);
       const next = await page
-        .getByRole("button", { name: "できた！", exact: true })
+        .getByRole("button", { name: "次の人へ", exact: true })
         .boundingBox();
       if (!next) throw new Error("進行ボタンがない");
       expect(next.x + next.width).toBeLessThan(width);
@@ -107,7 +107,7 @@ describe("共有HUD", () => {
     expect(await page.getByRole("timer").textContent()).toBe("03:00");
     expect(
       await page
-        .getByRole("button", { name: "できた！", exact: true })
+        .getByRole("button", { name: "次の人へ", exact: true })
         .isDisabled(),
     ).toBe(true);
     await page.close();

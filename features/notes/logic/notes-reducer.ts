@@ -106,6 +106,7 @@ export function applyServerMessage(
     case "reaction:received":
     case "member_vote_status":
     case "phase:progress":
+    case "phase:notice":
     case "member:renamed":
     case "member:avatar-updated":
     case "member:removed":

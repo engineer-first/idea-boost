@@ -73,6 +73,7 @@ import type { RoomBoardInteractions } from "../logic/use-room-board-interactions
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
 import { useTimerAlert } from "../logic/use-timer-alert";
+import { AdvanceNoticeBand } from "../molecules/advance-notice-band";
 import { BoardCharacter } from "../molecules/board-character";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -242,8 +243,12 @@ export type RoomBoardViewProps = {
   // 全票を使い切ったメンバーの userId。投票先は含まない。
   completedVoterIds?: ReadonlyArray<string>;
   progress?: import("../logic/room-reducer").PhaseProgressState;
-  onToggleReady?: ((ready: boolean) => boolean) | ((ready: boolean) => void);
-  completionResetVersion?: number;
+  // 次のステップへ進む前の予告と、残り時間の表示に使うサーバー時刻との差。
+  advanceNotice?: import("../logic/room-reducer").AdvanceNoticeClientState;
+  // 予告を取り消す（「まって！」・押した本人の「やめる」）。
+  onHoldAdvanceNotice?: () => void;
+  // 自分が「まって！」で止めた後。準備ができたら自分で押すよう、次へを光らせる。
+  nextEmphasized?: boolean;
   isNextPhasePending: boolean;
   isPrivateNotesHandoffPending?: boolean;
   hasNoUnsharedNotes?: boolean;
@@ -312,8 +317,8 @@ export type RoomBoardViewProps = {
   onLeave: () => void;
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
   isLeaving: boolean;
-  // 次フェーズへ。完了条件を満たした参加者が操作する。
-  onNextPhase: (confirmedProgressRevision?: number) => void;
+  // 次のステップへ。工程固有の条件を満たしていれば、参加者の誰でも操作する。
+  onNextPhase: () => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -380,17 +385,10 @@ export function RoomBoardView({
   loginReturnHref,
   currentUserId,
   completedVoterIds = [],
-  progress = {
-    phaseRevision: 0,
-    progressRevision: 0,
-    connectedUserIds: [],
-    readyUserIds: [],
-    notReadyUserIds: [],
-    canAdvance: false,
-    allReady: false,
-  },
-  onToggleReady,
-  completionResetVersion = 0,
+  progress,
+  advanceNotice,
+  onHoldAdvanceNotice,
+  nextEmphasized = false,
   isNextPhasePending,
   isPrivateNotesHandoffPending = false,
   hasNoUnsharedNotes,
@@ -1512,7 +1510,7 @@ export function RoomBoardView({
   const [hmwHintAvailableHeight, setHmwHintAvailableHeight] =
     useState<number>();
   const hmwHintNudge = useHmwHintNudge({
-    scope: `${inviteCode}:${currentUserId}:${phaseRevision}:${completionResetVersion}`,
+    scope: `${inviteCode}:${currentUserId}:${phaseRevision}`,
     enabled:
       isHmwWriting &&
       !isDisconnected &&
@@ -1520,7 +1518,6 @@ export function RoomBoardView({
       !isNextPhasePending &&
       !isLeaving &&
       !isRemovingMember &&
-      !progress.readyUserIds.includes(currentUserId) &&
       !outcomePublished &&
       Boolean(hmwDecidedIssue?.trim()),
     noteCount: toolbarNotes.filter(
@@ -1529,6 +1526,21 @@ export function RoomBoardView({
         (draftValue?.(note.id) ?? note.content).trim(),
     ).length,
   });
+
+  // 古い工程の予告は出さない（進んだ・戻った直後に届いた遅れた状態を見せない）。
+  const shownAdvanceNotice =
+    advanceNotice?.notice &&
+    phase.kind === "step" &&
+    !outcomePublished &&
+    advanceNotice.notice.phaseRevision === phaseRevision
+      ? advanceNotice.notice
+      : null;
+  const advanceNoticeCause =
+    shownAdvanceNotice?.trigger === "member"
+      ? shownAdvanceNotice.initiatorUserId === currentUserId
+        ? "self"
+        : "member"
+      : (shownAdvanceNotice?.trigger ?? "member");
 
   const hasMoveHistory = moveHistory !== undefined;
   const isIdeaMapWorkspaceStep =
@@ -2232,8 +2244,8 @@ export function RoomBoardView({
           currentUserId={currentUserId}
           completedVoterIds={completedVoterIds}
           progress={progress}
-          onToggleReady={onToggleReady}
-          completionResetVersion={completionResetVersion}
+          advanceNoticeActive={shownAdvanceNotice !== null}
+          nextEmphasized={nextEmphasized}
           isNextPhasePending={isNextPhasePending}
           isNextPhaseBlocked={isNextPhaseBlocked}
           hasCurrentDecision={
@@ -2454,7 +2466,7 @@ export function RoomBoardView({
             data-board-fit-edge="bottom"
           >
             <HmwHintCharacter
-              key={`${inviteCode}:${currentUserId}:${phaseRevision}:${completionResetVersion}:${hmwDecidedIssue}:${hmwHintNudge.cycle}`}
+              key={`${inviteCode}:${currentUserId}:${phaseRevision}:${hmwDecidedIssue}:${hmwHintNudge.cycle}`}
               decidedIssue={hmwDecidedIssue}
               showNudge={hmwHintNudge.showNudge}
               hasBeenShown={hmwHintNudge.hasBeenShown}
@@ -2487,6 +2499,46 @@ export function RoomBoardView({
                 setExpandPrivateNotesRequest((request) => request + 1);
               }}
             />
+          </div>
+        ) : null}
+        {shownAdvanceNotice && phase.kind === "step" ? (
+          // 後ろの盤面は薄暗くするが、予告の間も操作できるよう、暗い面は操作を受け取らない。
+          <div
+            className="pointer-events-none absolute inset-0 z-[45] flex items-center bg-foreground/15"
+            data-testid="advance-notice-overlay"
+          >
+            <div className="pointer-events-auto w-full">
+              <AdvanceNoticeBand
+                key={shownAdvanceNotice.noticeId}
+                cause={advanceNoticeCause}
+                initiatorName={
+                  members.find(
+                    (member) =>
+                      member.userId === shownAdvanceNotice.initiatorUserId,
+                  )?.name
+                }
+                phase={phase}
+                endsAt={shownAdvanceNotice.endsAt}
+                durationMs={shownAdvanceNotice.durationMs}
+                serverOffsetMs={advanceNotice?.serverOffsetMs ?? 0}
+                stop={
+                  shownAdvanceNotice.trigger === "timer"
+                    ? timer.status === "ended" && !timer.extensionUsed
+                      ? {
+                          kind: "extend",
+                          onStop: onTimerExtend,
+                          disabled: isDisconnected,
+                        }
+                      : null
+                    : {
+                        kind:
+                          advanceNoticeCause === "self" ? "withdraw" : "hold",
+                        onStop: () => onHoldAdvanceNotice?.(),
+                        disabled: isDisconnected || !onHoldAdvanceNotice,
+                      }
+                }
+              />
+            </div>
           </div>
         ) : null}
         {isVotingStep(phase) ? (

@@ -123,7 +123,10 @@ export function RoomBoard({
     values?: Record<string, string | number>,
   ) => string;
   const completionNavigationStarted = useRef(false);
-  const [completionResetVersion, setCompletionResetVersion] = useState(0);
+  // 自分が「まって！」で止めた工程。準備ができたら自分で押すよう、次へを光らせる。
+  const [heldPhaseRevision, setHeldPhaseRevision] = useState<number | null>(
+    null,
+  );
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isPrivateNotesHandoffPending, setIsPrivateNotesHandoffPending] =
     useState(false);
@@ -454,16 +457,6 @@ export function RoomBoard({
       if (message.operationId !== undefined) {
         return;
       }
-      setCompletionResetVersion((version) => version + 1);
-      if (message.code === "phase-confirmation-required") {
-        setIsNextPhasePending(false);
-        notify.error(
-          locale === "en"
-            ? notifications("phaseConfirmationRequired")
-            : message.message,
-        );
-        return;
-      }
       console.warn(`ルーム操作エラー (${message.code}): ${message.message}`);
       notify.error(
         locale === "en"
@@ -474,7 +467,12 @@ export function RoomBoard({
       return;
     }
 
-    if (message.type === "phase:updated" || message.type === "snapshot") {
+    // 「次のステップへ」への返事は、予告の開始（phase:notice）か工程の更新で届く。
+    if (
+      message.type === "phase:updated" ||
+      message.type === "snapshot" ||
+      message.type === "phase:notice"
+    ) {
       setIsNextPhasePending(false);
     }
 
@@ -501,52 +499,43 @@ export function RoomBoard({
     sharingReactionMessageRef.current?.applyMessage(message, receivedAt);
   }
 
-  const handleNextPhase = useCallback(
-    (confirmedProgressRevision?: number) => {
-      if (
-        connectionStatus !== "open" ||
-        memberRemoval.isPending() ||
-        isNextPhasePending
-      )
-        return;
-      setIsNextPhasePending(true);
-      const sent = send({
-        type: "phase:next",
-        expectedPhase: roomState.phase,
-        expectedRevision: roomState.phaseRevision,
-        confirmedProgressRevision,
-      });
-      if (sent === false) setIsNextPhasePending(false);
-    },
-    [
-      connectionStatus,
-      memberRemoval.isPending,
-      isNextPhasePending,
-      send,
-      roomState.phase,
-      roomState.phaseRevision,
-    ],
-  );
+  const handleNextPhase = useCallback(() => {
+    if (
+      connectionStatus !== "open" ||
+      memberRemoval.isPending() ||
+      isNextPhasePending
+    )
+      return;
+    setIsNextPhasePending(true);
+    const sent = send({
+      type: "phase:next",
+      expectedPhase: roomState.phase,
+      expectedRevision: roomState.phaseRevision,
+    });
+    if (sent === false) setIsNextPhasePending(false);
+  }, [
+    connectionStatus,
+    memberRemoval.isPending,
+    isNextPhasePending,
+    send,
+    roomState.phase,
+    roomState.phaseRevision,
+  ]);
 
-  const handleToggleReady = useCallback(
-    (ready: boolean) => {
-      if (connectionStatus !== "open" || roomState.outcomePublished)
-        return false;
-      return send({
-        type: "phase:ready",
-        expectedPhase: roomState.phase,
-        expectedRevision: roomState.phaseRevision,
-        ready,
-      });
-    },
-    [
-      connectionStatus,
-      roomState.outcomePublished,
-      roomState.phase,
-      roomState.phaseRevision,
-      send,
-    ],
-  );
+  // 予告を取り消す。誰が止めたかはサーバーが配らないので、自分で止めたことは手元で覚える。
+  const currentAdvanceNotice = roomState.advanceNotice.notice;
+  const handleHoldAdvanceNotice = useCallback(() => {
+    if (connectionStatus !== "open" || !currentAdvanceNotice) return;
+    const sent = send({
+      type: "phase:hold",
+      noticeId: currentAdvanceNotice.noticeId,
+    });
+    if (
+      sent !== false &&
+      currentAdvanceNotice.initiatorUserId !== currentUserId
+    )
+      setHeldPhaseRevision(currentAdvanceNotice.phaseRevision);
+  }, [connectionStatus, currentAdvanceNotice, currentUserId, send]);
 
   const handleRollbackPhase = useCallback(() => {
     if (
@@ -964,8 +953,9 @@ export function RoomBoard({
         currentUserId={currentUserId}
         completedVoterIds={roomState.completedVoterIds}
         progress={roomState.progress}
-        onToggleReady={handleToggleReady}
-        completionResetVersion={completionResetVersion}
+        advanceNotice={roomState.advanceNotice}
+        onHoldAdvanceNotice={handleHoldAdvanceNotice}
+        nextEmphasized={heldPhaseRevision === roomState.phaseRevision}
         isNextPhasePending={isNextPhasePending}
         // ドラッグ表示を適用する前の付箋を使い、共有の確定を待ってから案内する。
         hasNoUnsharedNotes={

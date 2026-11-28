@@ -12,7 +12,7 @@ afterAll(async () => {
 });
 
 test.each(widths(1280, 390))(
-  "幅%dの共有は完了だけで交代し、最後の人の完了で次工程へ進む",
+  "幅%dの共有は「次の人へ」だけで交代し、最後の人が押すと次工程へ進める",
   async (width) => {
     const page = await browser.newPage({
       viewport: { width, height: 800 },
@@ -23,7 +23,7 @@ test.each(widths(1280, 390))(
         `${origin}/iframe.html?id=room-roomboardheader--sharing-completion&viewMode=story`,
       );
       const complete = page.getByRole("button", {
-        name: "できた！",
+        name: "次の人へ",
         exact: true,
       });
       await complete.waitFor();
@@ -33,7 +33,7 @@ test.each(widths(1280, 390))(
       const first = await presenter.textContent();
       expect(
         await page
-          .getByRole("button", { name: /次の人へ|共有を終える|次のステップへ/ })
+          .getByRole("button", { name: /共有を終える|次のステップへ/ })
           .count(),
       ).toBe(0);
       await complete.click();
@@ -53,7 +53,7 @@ test.each(widths(1280, 390))(
 );
 
 test.each(widths(1280, 390))(
-  "幅%dで進行待ちの次へは押しても進まず「できた！」を示し、完了をチェックすると押せるようになり、取り消すと戻る",
+  "幅%dで「次のステップへ」は確認なしで押せ、横の次のステップ名ごと操作欄に収まる",
   async (width) => {
     const page = await browser.newPage({
       viewport: { width, height: 800 },
@@ -64,30 +64,23 @@ test.each(widths(1280, 390))(
         `${origin}/iframe.html?id=room-roomboardheader--progress-controls&viewMode=story`,
       );
       const next = page.getByRole("button", {
-        name: /^(次のステップへ|あと\d+人で次へ)$/,
-      });
-      await next.waitFor();
-      expect(await next.getAttribute("aria-disabled")).toBe("true");
-      const complete = page.getByRole("button", {
-        name: "できた！",
+        name: "次のステップへ",
         exact: true,
       });
-      // aria-disabled のボタンは Playwright が押せないと判定するため、実際の押下と同じ座標クリックで確かめる。
-      await next.click({ force: true });
-      await expect
-        .poll(() => complete.evaluate((el) => el === document.activeElement))
-        .toBe(true);
-      await complete.click();
-      await expect.poll(() => next.getAttribute("aria-disabled")).toBe(null);
-      const checked = page.getByRole("button", { name: "できた！を取り消す" });
-      expect(await checked.getAttribute("aria-pressed")).toBe("true");
+      await next.waitFor();
+      expect(await next.isEnabled()).toBe(true);
       const hud = await page.getByTestId("board-control-hud").boundingBox();
       if (!hud) throw new Error("HUDが表示されません");
       expect(hud.x).toBeGreaterThanOrEqual(0);
       expect(hud.x + hud.width).toBeLessThanOrEqual(width);
-      await checked.click();
-      await expect.poll(() => next.getAttribute("aria-disabled")).toBe("true");
-      expect(await complete.getAttribute("aria-pressed")).toBe("false");
+      // 次のステップ名は操作欄からはみ出さず、ボタンと重ならない。
+      const hint = await page.getByTestId("next-step-hint").boundingBox();
+      const button = await next.boundingBox();
+      if (!hint || !button) throw new Error("次のステップの表示がありません");
+      expect(hint.x).toBeGreaterThanOrEqual(hud.x);
+      expect(hint.x + hint.width).toBeLessThanOrEqual(button.x + 1);
+      await next.click();
+      expect(await page.getByRole("alertdialog").count()).toBe(0);
     } finally {
       await page.close();
     }

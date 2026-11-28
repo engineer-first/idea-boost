@@ -483,7 +483,7 @@ export function RoomBoardCanvas({
     : privateNotePublishBlocked
       ? publishBlockedHint
       : canvasMessages("waitingYourTurn");
-  // 自分の番で運ぶ付箋が残っていなければ、ドラッグではなく「できた！」へ目を向ける。
+  // 自分の番で運ぶ付箋が残っていなければ、ドラッグではなく「次の人へ」へ目を向ける。
   // 最後の1枚を一覧の外へ運んでいる間は一覧から外れるが、まだ出し終えていない。
   const ownTurnHint = (shareHint: string) =>
     privateNotes.length === 0 && !dragPreview

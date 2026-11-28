@@ -143,13 +143,8 @@ describe("2-1のキャラクターによる問いのヒント", () => {
       hmwDecidedIssue: "睡眠不足で眠たい",
       timer: { status: "running", endsAt: 180_000, durationMs: 180_000 },
       progress: {
-        phaseRevision: 0,
         progressRevision: 1,
         connectedUserIds: [ME],
-        readyUserIds: [],
-        notReadyUserIds: [ME],
-        canAdvance: false,
-        allReady: false,
       },
     });
     expect(screen.queryByTestId("board-character")).not.toBeInTheDocument();
@@ -284,10 +279,6 @@ function setup(
       phaseRevision: 0,
       progressRevision: 1,
       connectedUserIds: [ME, "22222222-2222-4222-8222-222222222222"],
-      readyUserIds: [ME, "22222222-2222-4222-8222-222222222222"],
-      notReadyUserIds: [],
-      canAdvance: true,
-      allReady: true,
     },
     onNextPhase: vi.fn(),
     onTimerStart: vi.fn(),
@@ -3442,28 +3433,27 @@ describe("RoomBoardView", () => {
     });
   });
 
-  describe("確定フェーズのメンバー完了表示", () => {
+  describe("決定のステップの進行", () => {
     it.each([
       [1, 5],
       [2, 4],
       [3, 5],
     ] as const)(
-      "%i-%iで完了チェックを保ち、採用の確定・取消に応じて進行を切り替える（ホスト=%s）",
+      "%i-%iでは参加者に完了の印を出さず、採用の確定・取消に応じて進行を切り替える",
       (phase, step) => {
         const members = buildMembers(3, ME);
         const { props, rerender } = setup({
           phase: buildPhaseStep(step, phase),
-          timer: { status: "ended", durationMs: 300_000 },
+          timer: {
+            status: "running",
+            durationMs: 300_000,
+            endsAt: Date.now() + 300_000,
+          },
           notes: [buildNote({ id: "note-1" })],
           members,
           progress: {
-            phaseRevision: 0,
             progressRevision: 1,
             connectedUserIds: members.map(({ userId }) => userId),
-            readyUserIds: members.map(({ userId }) => userId),
-            notReadyUserIds: [],
-            canAdvance: true,
-            allReady: true,
           },
 
           decision: null,
@@ -3476,19 +3466,10 @@ describe("RoomBoardView", () => {
             : decided
               ? "次のステップへ"
               : "採用すると次へ";
-        const assertCompletion = (complete: boolean, decided: boolean) => {
+        const assertProgress = (decided: boolean) => {
           expect(
-            within(
-              screen.getByRole("button", { name: "参加者 3人" }),
-            ).queryAllByTestId("member-voting-complete"),
-          ).toHaveLength(complete ? members.length : 0);
-          for (const member of members) {
-            expect(
-              screen.getAllByRole("img", {
-                name: member.name + (complete ? "（作業完了）" : ""),
-              }).length,
-            ).toBeGreaterThan(0);
-          }
+            screen.queryAllByTestId("member-voting-complete"),
+          ).toHaveLength(0);
           if (decided)
             expect(
               screen.getByRole("button", { name: actionName(true) }),
@@ -3499,18 +3480,144 @@ describe("RoomBoardView", () => {
             ).toBeDisabled();
         };
         fireEvent.click(screen.getByRole("button", { name: "参加者 3人" }));
-        assertCompletion(true, false);
+        assertProgress(false);
         rerender(
           <TestBoardView
             {...props}
             decision={buildDecision({ phase, noteId: "note-1" })}
           />,
         );
-        assertCompletion(true, true);
+        assertProgress(true);
         rerender(<TestBoardView {...props} decision={null} />);
-        assertCompletion(true, false);
+        assertProgress(false);
       },
     );
+  });
+
+  describe("次のステップへ進む前の予告", () => {
+    const notice = {
+      noticeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      phaseRevision: 3,
+      trigger: "member" as const,
+      initiatorUserId: "22222222-2222-4222-8222-222222222222",
+      endsAt: Date.now() + 5000,
+      durationMs: 5000,
+    };
+    const members = [
+      { userId: ME, name: "わたし", color: "yellow" as const },
+      {
+        userId: "22222222-2222-4222-8222-222222222222",
+        name: "あおい",
+        color: "green" as const,
+      },
+    ];
+
+    it("ほかの人が押した予告は、押した人の名前と次のステップを出し、「まって！」で取り消しを求める", () => {
+      const onHoldAdvanceNotice = vi.fn();
+      setup({
+        phase: buildPhaseStep(1),
+        phaseRevision: 3,
+        members,
+        advanceNotice: { notice, serverOffsetMs: 0 },
+        onHoldAdvanceNotice,
+      });
+      const band = screen.getByRole("status", {
+        name: "次のステップへ進む予告",
+      });
+      expect(band).toHaveTextContent("あおいさんが進めます");
+      expect(band).toHaveTextContent("1-2 共有");
+      fireEvent.click(within(band).getByRole("button", { name: "まって！" }));
+      expect(onHoldAdvanceNotice).toHaveBeenCalledOnce();
+    });
+
+    it("予告の間は「次のステップへ」を押せない", () => {
+      setup({
+        phase: buildPhaseStep(1),
+        phaseRevision: 3,
+        members,
+        advanceNotice: { notice, serverOffsetMs: 0 },
+      });
+      expect(
+        screen.getByRole("button", { name: "次のステップへ" }),
+      ).toBeDisabled();
+    });
+
+    it("自分が押した予告は「あなたが進めます」と出し、止めるボタンを「やめる」にする", () => {
+      setup({
+        phase: buildPhaseStep(1),
+        phaseRevision: 3,
+        members,
+        advanceNotice: {
+          notice: { ...notice, initiatorUserId: ME },
+          serverOffsetMs: 0,
+        },
+        onHoldAdvanceNotice: vi.fn(),
+      });
+      const band = screen.getByRole("status", {
+        name: "次のステップへ進む予告",
+      });
+      expect(band).toHaveTextContent("あなたが進めます");
+      expect(
+        within(band).getByRole("button", { name: "やめる" }),
+      ).toBeEnabled();
+    });
+
+    it("時間切れの予告は「＋1分」で延長を求め、延長済みなら止めるボタンを出さない", () => {
+      const timerNotice = {
+        ...notice,
+        trigger: "timer" as const,
+        initiatorUserId: null,
+        durationMs: 10_000,
+      };
+      const { props, rerender } = setup({
+        phase: buildPhaseStep(1),
+        phaseRevision: 3,
+        members,
+        timer: { status: "ended", durationMs: 300_000 },
+        advanceNotice: { notice: timerNotice, serverOffsetMs: 0 },
+      });
+      const band = screen.getByRole("status", {
+        name: "次のステップへ進む予告",
+      });
+      expect(band).toHaveTextContent("時間になりました");
+      fireEvent.click(within(band).getByRole("button", { name: "＋1分" }));
+      expect(props.onTimerExtend).toHaveBeenCalledOnce();
+      rerender(
+        <TestBoardView
+          {...props}
+          timer={{ status: "ended", durationMs: 60_000, extensionUsed: true }}
+        />,
+      );
+      expect(
+        within(
+          screen.getByRole("status", { name: "次のステップへ進む予告" }),
+        ).queryByRole("button"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("工程の更新番号が違う予告は出さない", () => {
+      setup({
+        phase: buildPhaseStep(2),
+        phaseRevision: 4,
+        members,
+        advanceNotice: { notice, serverOffsetMs: 0 },
+      });
+      expect(
+        screen.queryByRole("status", { name: "次のステップへ進む予告" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("予告の間も、後ろのボードは操作を受け取れる", () => {
+      setup({
+        phase: buildPhaseStep(1),
+        phaseRevision: 3,
+        members,
+        advanceNotice: { notice, serverOffsetMs: 0 },
+      });
+      expect(screen.getByTestId("advance-notice-overlay")).toHaveClass(
+        "pointer-events-none",
+      );
+    });
   });
 
   describe("ステップ移行", () => {

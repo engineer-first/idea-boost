@@ -468,13 +468,13 @@ test.each(widths(1280, 900, 640, 390))(
   },
 );
 
-test("最後の発表者のできた後に上部から次の操作を選べる", async () => {
+test("最後の発表者が「次の人へ」を押した後に上部から次の操作を選べる", async () => {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 720 },
   });
   try {
     await story(page, "room-roomboardview--sharing-last-presenter");
-    await page.getByRole("button", { name: "できた！", exact: true }).click();
+    await page.getByRole("button", { name: "次の人へ", exact: true }).click();
     const controls = page.getByTestId("board-control-hud");
     await controls
       .getByRole("button", { name: /^\d-1に戻って書き足す$/ })

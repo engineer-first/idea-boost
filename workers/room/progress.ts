@@ -3,43 +3,22 @@ import type { PhaseProgress } from "../../contracts/room-protocol";
 import type { RoomBroadcaster } from "./broadcast";
 import { isMember } from "./members";
 
-export function hasUnanimousReady(
-  readyCount: number,
-  connectedCount: number,
-): boolean {
-  return connectedCount > 0 && readyCount === connectedCount;
+export function listConnectedMemberIds(
+  sql: SqlStorage,
+  broadcaster: RoomBroadcaster,
+): string[] {
+  return broadcaster.connectedUserIds((userId) => isMember(sql, userId));
 }
 
-export function isManualProgressStep(phase: Phase): boolean {
-  return phase.kind === "step";
-}
-
+// 接続中の参加者の一覧と、その更新番号。完了の表明は廃止したので（ADR 0037）、
+// 旧クライアント向けの4つのフィールドは「接続中の全員が完了済み」で埋める。
 export function getProgressState(
   sql: SqlStorage,
   broadcaster: RoomBroadcaster,
-  phase: Phase,
+  _phase: Phase,
   phaseRevision: number,
 ): PhaseProgress {
-  const connectedUserIds = broadcaster.connectedUserIds((userId) =>
-    isMember(sql, userId),
-  );
-  const connected = new Set(connectedUserIds);
-  const readyUserIds = isManualProgressStep(phase)
-    ? (
-        sql
-          .exec(
-            "SELECT user_id FROM phase_progress_ready WHERE phase_revision = ?1 AND ready = 1 ORDER BY user_id",
-            phaseRevision,
-          )
-          .toArray() as Array<{ user_id: string }>
-      )
-        .map(({ user_id }) => user_id)
-        .filter((userId) => connected.has(userId))
-    : [];
-  const ready = new Set(readyUserIds);
-  const notReadyUserIds = connectedUserIds.filter(
-    (userId) => !ready.has(userId),
-  );
+  const connectedUserIds = listConnectedMemberIds(sql, broadcaster);
   const progressRevision = Number(
     sql.exec("SELECT progress_revision FROM room_state WHERE id = 1").one()
       .progress_revision,
@@ -48,10 +27,10 @@ export function getProgressState(
     phaseRevision,
     progressRevision,
     connectedUserIds,
-    readyUserIds,
-    notReadyUserIds,
-    canAdvance: hasUnanimousReady(readyUserIds.length, connectedUserIds.length),
-    allReady: hasUnanimousReady(readyUserIds.length, connectedUserIds.length),
+    readyUserIds: connectedUserIds,
+    notReadyUserIds: [],
+    canAdvance: connectedUserIds.length > 0,
+    allReady: connectedUserIds.length > 0,
   };
 }
 
@@ -88,22 +67,6 @@ export function syncProgressConnectedUsers(
     JSON.stringify(connectedUserIds),
   );
   return true;
-}
-
-export function clearProgressReady(sql: SqlStorage): void {
-  sql.exec("DELETE FROM phase_progress_ready");
-  bumpProgressRevision(sql);
-}
-
-export function clearCurrentProgressReady(
-  sql: SqlStorage,
-  phaseRevision: number,
-): void {
-  sql.exec(
-    "DELETE FROM phase_progress_ready WHERE phase_revision = ?1",
-    phaseRevision,
-  );
-  bumpProgressRevision(sql);
 }
 
 export function broadcastProgress(

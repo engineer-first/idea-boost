@@ -67,7 +67,6 @@ describe("直前ステップへの復元", () => {
   it("即時進行後の古い更新番号による復元は拒否する", async () => {
     const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, host.sub);
-    await markReady(roomId);
     const expected = await currentPhaseExpectation(roomId);
     a.ws.send(JSON.stringify({ type: "phase:next", ...expected }));
     await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
@@ -122,7 +121,6 @@ describe("直前ステップへの復元", () => {
       });
       state.storage.sql.exec("DELETE FROM phase_rollback_checkpoints");
     });
-    await markReady(roomId);
     await endTimerForTest(roomId);
     a.ws.send(
       JSON.stringify({
@@ -243,14 +241,6 @@ async function next(roomId: string, a: RoomSocket, b: RoomSocket) {
         );
       }
     }
-    for (const userId of [host.sub, member.sub]) {
-      state.storage.sql.exec(
-        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
-        expected.expectedRevision,
-        userId,
-        Date.now(),
-      );
-    }
   });
   a.ws.send(
     JSON.stringify({
@@ -259,19 +249,6 @@ async function next(roomId: string, a: RoomSocket, b: RoomSocket) {
     }),
   );
   await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
-}
-async function markReady(roomId: string, userIds = [host.sub, member.sub]) {
-  const { expectedRevision } = await currentPhaseExpectation(roomId);
-  await runInRoomDO(roomId, (_room, state) => {
-    for (const userId of userIds) {
-      state.storage.sql.exec(
-        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
-        expectedRevision,
-        userId,
-        Date.now(),
-      );
-    }
-  });
 }
 async function rollback(
   roomId: string,
@@ -376,7 +353,6 @@ describe("復元の競合と連続進行", () => {
         "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
       );
     });
-    await markReady(roomId);
     await endTimerForTest(roomId);
     a.ws.send(
       JSON.stringify({

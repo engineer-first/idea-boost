@@ -9,6 +9,7 @@
 
 import type { RoomPhase } from "@/contracts/phase";
 import type {
+  AdvanceNotice,
   PhaseProgress,
   Carryover as ProtocolCarryover,
   Decision as ProtocolDecision,
@@ -19,36 +20,64 @@ import type {
 } from "@/contracts/room-protocol";
 
 export type Member = ProtocolMember;
-export type PhaseProgressState = PhaseProgress;
+// 接続中の参加者と、その一覧の更新番号。完了の表明は廃止したので（ADR 0037）、
+// サーバーが旧クライアント向けに残している完了のフィールドは取り込まない。
+export type PhaseProgressState = Pick<
+  PhaseProgress,
+  "progressRevision" | "connectedUserIds"
+>;
 
 export const INITIAL_PHASE_PROGRESS: PhaseProgressState = {
-  phaseRevision: 0,
   progressRevision: 0,
   connectedUserIds: [],
-  readyUserIds: [],
-  notReadyUserIds: [],
-  canAdvance: false,
-  allReady: false,
 };
+
+function toProgressState(progress: PhaseProgress): PhaseProgressState {
+  return {
+    progressRevision: progress.progressRevision,
+    connectedUserIds: progress.connectedUserIds,
+  };
+}
 
 export function applyPhaseProgressServerMessage(
   state: PhaseProgressState,
   message: ServerMessage,
 ): PhaseProgressState {
-  if (message.type === "snapshot") return message.progress ?? state;
-  if (message.type === "phase:progress") return message.progress;
-  // 進んだ直後はサーバーが進み具合を配り直さない。新しいステップでは
-  // まだ誰も「できた！」を押していないので、接続中の全員を未完了として
-  // 次へボタンに待ち人数を出す（#1152）。
-  if (message.type === "phase:updated")
-    return {
-      ...state,
-      phaseRevision: message.phaseRevision,
-      readyUserIds: [],
-      notReadyUserIds: state.connectedUserIds,
-      canAdvance: false,
-      allReady: false,
-    };
+  if (message.type === "snapshot")
+    return message.progress ? toProgressState(message.progress) : state;
+  if (message.type === "phase:progress")
+    return toProgressState(message.progress);
+  return state;
+}
+
+// 次のステップへ進む前の予告。残り時間の真実は RoomDO にあり、ここでは配られた
+// 終了時刻と、表示に使うサーバー時刻との差だけを持つ。
+export type AdvanceNoticeClientState = {
+  notice: AdvanceNotice | null;
+  serverOffsetMs: number;
+};
+
+export const INITIAL_ADVANCE_NOTICE: AdvanceNoticeClientState = {
+  notice: null,
+  serverOffsetMs: 0,
+};
+
+export function applyAdvanceNoticeServerMessage(
+  state: AdvanceNoticeClientState,
+  message: ServerMessage,
+  receivedAt: number,
+): AdvanceNoticeClientState {
+  if (message.type === "snapshot" || message.type === "phase:notice") {
+    const notice =
+      message.type === "snapshot"
+        ? (message.advanceNotice ?? null)
+        : message.notice;
+    if (notice === null && state.notice === null) return state;
+    return { notice, serverOffsetMs: message.serverNow - receivedAt };
+  }
+  // 進んだときサーバーは phase:updated だけを配る。工程が変われば予告は終わり。
+  if (message.type === "phase:updated" && state.notice !== null)
+    return { ...state, notice: null };
   return state;
 }
 export type Decision = ProtocolDecision;
@@ -120,6 +149,7 @@ export function applyMemberServerMessage(
     }
     case "member_vote_status":
     case "phase:progress":
+    case "phase:notice":
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
@@ -232,6 +262,7 @@ export function applyVotingCompletionServerMessage(
     case "member:avatar-updated":
     case "member:removed":
     case "phase:progress":
+    case "phase:notice":
     case "room:renamed":
     case "error":
       return completedVoterIds;
@@ -317,6 +348,7 @@ export function applyDecisionServerMessage(
     case "member:avatar-updated":
     case "member:removed":
     case "phase:progress":
+    case "phase:notice":
     case "room:renamed":
     case "error":
       return decision;
@@ -416,6 +448,7 @@ export function applyPhaseServerMessage(
     case "member:avatar-updated":
     case "member:removed":
     case "phase:progress":
+    case "phase:notice":
     case "room:renamed":
     case "error":
       return phase;

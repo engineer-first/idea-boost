@@ -384,7 +384,7 @@ test("最終採用済みは全員へ成果を示しループ操作を消す", as
   });
 });
 
-test("時間切れ後は未チェックの参加者を確認して次へ進む", async () => {
+test("時間切れ後も「次のステップへ」はキーボードで押せ、確認を挟まずに進行を求める", async () => {
   await openStory("room-roomboardheader--time-up-progress");
   const next = page.getByRole("button", {
     name: "次のステップへ",
@@ -392,12 +392,8 @@ test("時間切れ後は未チェックの参加者を確認して次へ進む",
   });
   await expectReachable(next);
   await next.press("Enter");
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "次へ進む", exact: true })
-    .press("Enter");
   expect(await page.getByTestId("phase-next-count").textContent()).toBe("1");
-  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+  expect(await page.getByRole("alertdialog").count()).toBe(0);
 });
 
 test("課題の確定後は取消と、時間切れ後の次フェーズ進行ができる", async () => {

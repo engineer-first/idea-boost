@@ -44,7 +44,7 @@ classDef muted fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3,color:#4b5563
 | `KV`                                                     | **キャッシュ・一時保存（KV）**                                                                                           | KV を読み書きする変更のとき                      |
 | `api-worker`・`app-worker`・`contracts/`                 | 原則省く（境界自体が変更点のときだけ **API の入口（Workers）**／**画面サーバー（Workers）**）                            | 中継層が変わらなければ描かない                   |
 | `PostHog` など外部サービス                               | **利用分析（外部）**／**外部サービス名（外部）**                                                                         | データが学外へ出るかどうかを区別する             |
-| `note:move:start`・`visibility: "private"`・`ready` など | **日本語の動作**と[用語集](../../../../docs/glossary.md)の語（例：「付箋の移動を送る」「マイ付箋」「できた！」「除外」） | 実装語を図へ持ち込まない                         |
+| `note:move:start`・`visibility: "private"`・`ready` など | **日本語の動作**と[用語集](../../../../docs/glossary.md)の語（例：「付箋の移動を送る」「マイ付箋」「まって！」「除外」） | 実装語を図へ持ち込まない                         |
 
 ## 1. やり取りの図（時間順）：ステップが進む直前に離した付箋を保存する（#1450・R2）
 

@@ -690,6 +690,66 @@ describe("ServerMessageSchema", () => {
     });
   });
 
+  it("phase:hold は止める予告の noticeId だけを受け入れ、止めた人の userId を送らせない", () => {
+    const noticeId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    expect(ClientMessageSchema.parse({ type: "phase:hold", noticeId })).toEqual(
+      { type: "phase:hold", noticeId },
+    );
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "phase:hold",
+        noticeId,
+        userId: "11111111-1111-4111-8111-111111111111",
+      }).success,
+    ).toBe(false);
+    expect(ClientMessageSchema.safeParse({ type: "phase:hold" }).success).toBe(
+      false,
+    );
+  });
+
+  it("phase:notice は予告の中身と取り消しの理由を運び、止めた人の userId を受け付けない", () => {
+    const notice = {
+      noticeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      phaseRevision: 3,
+      trigger: "member",
+      initiatorUserId: "11111111-1111-4111-8111-111111111111",
+      endsAt: 5000,
+      durationMs: 5000,
+    };
+    expect(
+      ServerMessageSchema.parse({ type: "phase:notice", notice, serverNow: 0 }),
+    ).toEqual({ type: "phase:notice", notice, serverNow: 0 });
+    expect(
+      ServerMessageSchema.parse({
+        type: "phase:notice",
+        notice: null,
+        reason: "held",
+        serverNow: 0,
+      }),
+    ).toEqual({
+      type: "phase:notice",
+      notice: null,
+      reason: "held",
+      serverNow: 0,
+    });
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "phase:notice",
+        notice: null,
+        reason: "held",
+        heldByUserId: "11111111-1111-4111-8111-111111111111",
+        serverNow: 0,
+      }).success,
+    ).toBe(false);
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "phase:notice",
+        notice: { ...notice, trigger: "force" },
+        serverNow: 0,
+      }).success,
+    ).toBe(false);
+  });
+
   it("phase:next は強制進行フラグを受け付けない", () => {
     expect(
       ClientMessageSchema.safeParse({

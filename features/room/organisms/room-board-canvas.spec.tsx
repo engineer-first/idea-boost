@@ -245,7 +245,7 @@ describe("RoomBoardCanvas", () => {
     ["1-2・2-2", buildPhaseStep(2)],
     ["3-2", buildPhaseStep(2, 3)],
   ])(
-    "%s で自分の番にマイ付箋を出し終えたら、欄の案内を「できた！」へ向ける",
+    "%s で自分の番にマイ付箋を出し終えたら、欄の案内を「次の人へ」へ向ける",
     (_label, phase) => {
       const props = {
         phase,
@@ -283,7 +283,7 @@ describe("RoomBoardCanvas", () => {
 
       const status = within(toolbar).getByRole("status");
       expect(status).toHaveTextContent(
-        "説明が終わったら「できた！」を押してください。",
+        "説明が終わったら「次の人へ」を押してください。",
       );
       expect(status).not.toHaveTextContent("全部出せました");
       expect(status).not.toHaveTextContent("ドラッグして共有できます");

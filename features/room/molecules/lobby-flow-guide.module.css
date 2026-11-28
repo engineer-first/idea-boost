@@ -62,7 +62,7 @@
 }
 /* 実際のボタンに近い形の見本。押せないので影や手の形は付けず、
    塗りの主ボタンは画面に「スタート」1つだけにするため、淡い面で示す。 */
-.readySample,
+.holdSample,
 .nextSample {
   display: inline-flex;
   flex-shrink: 0;
@@ -77,19 +77,10 @@
   cursor: default;
   user-select: none;
 }
-.readySample {
+.holdSample {
   border: 1px solid var(--ib-color-line-strong);
   background: var(--ib-color-surface);
   color: var(--ib-color-ink);
-}
-.readyMark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--ib-rounded-full);
-  background: var(--ib-color-surface-muted);
 }
 .nextSample {
   border: 1px solid

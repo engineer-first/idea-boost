@@ -1,4 +1,3 @@
-import { Check } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useId } from "react";
 import { getLobbyFlowOverview } from "../logic/lobby-flow";
@@ -52,17 +51,14 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
               2
             </span>
             <span className={styles.howToText}>
-              {t("whenDone")}
+              {t("anyone")}
               {/* 押せない見本。実際のボタンと同じ形で、どれを押すかを伝える。 */}
-              <span className={styles.readySample}>
-                <span aria-hidden="true" className={styles.readyMark}>
-                  <Check className="size-3.5" strokeWidth={2.5} />
-                </span>
+              <span className={styles.nextSample}>
                 <span className="sr-only">{quoteOpen}</span>
-                {t("ready")}
+                {t("next")}
                 <span className="sr-only">{quoteClose}</span>
               </span>
-              {t("press")}
+              {t("anyoneAfter")}
             </span>
           </li>
           <li>
@@ -70,12 +66,13 @@ export function LobbyFlowGuide({ className }: LobbyFlowGuideProps) {
               3
             </span>
             <span className={styles.howToText}>
-              {t("allReady")}
-              <span className={styles.nextSample}>
+              {t("notice")}
+              <span className={styles.holdSample}>
                 <span className="sr-only">{quoteOpen}</span>
-                {t("next")}
+                {t("hold")}
                 <span className="sr-only">{quoteClose}</span>
               </span>
+              {t("noticeAfter")}
             </span>
           </li>
         </ol>

@@ -121,7 +121,7 @@ describe("StepOneOnboardingSlide", () => {
     expect(dialog).not.toHaveTextContent("需要ありそう");
     expect(dialog).toHaveTextContent("自分以外の人にも価値がありそう");
   });
-  it("1-2の操作スライドは古いボタンが映る動画でなく、「できた！」で交代する図を表示する", async () => {
+  it("1-2の操作スライドは古いボタンが映る動画でなく、「次の人へ」で交代する図を表示する", async () => {
     render(
       <StepOneOnboardingSlide phaseKey="1-2" userId="share-diagram" isReady />,
     );
@@ -131,9 +131,9 @@ describe("StepOneOnboardingSlide", () => {
     expect(dialog.querySelector("video")).toBeNull();
     expect(
       within(dialog).getByRole("region", {
-        name: "前の人の発表を待ち、自分の番に付箋を共有して発表し、「できた！」で次の人へ交代する流れ",
+        name: "前の人の発表を待ち、自分の番に付箋を共有して発表し、「次の人へ」で交代する流れ",
       }),
-    ).toHaveTextContent("できた！");
+    ).toHaveTextContent("次の人へ");
   });
   it.each(["1-3", "1-4", "1-5", "3-3"])(
     "%sの操作スライドは実操作動画を音なしで繰り返し再生する",

@@ -137,8 +137,8 @@ describe("RoomLobbyView", () => {
     const guide = screen.getByRole("region", { name: "進み方と全体の流れ" });
     const howTo = within(guide).getByRole("list", { name: "進み方" });
     expect(within(howTo).getAllByRole("listitem")).toHaveLength(3);
-    expect(howTo).toHaveTextContent("できた！");
     expect(howTo).toHaveTextContent("次のステップへ");
+    expect(howTo).toHaveTextContent("まって！");
     expect(guide).toHaveTextContent("約80分");
     const flow = within(guide).getByRole("list", { name: "全体の流れ" });
     const phases = within(flow).getAllByRole("listitem", {
