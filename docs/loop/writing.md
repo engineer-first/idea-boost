@@ -142,7 +142,7 @@ Loop: <build|polish|mend>
 
 ## 画像の添付
 
-画像は `gh` の `--attach` で添付する。`gh` 2.99.0 以降の `gh issue create/edit/comment` と `gh pr create/edit/comment` が対応し、ループの手元の `gh` 2.106.0 で Issue と PR への添付を確かめた（2026-11-28）。手順の詳細は `github-media` skill。
+画像は `gh` の `--attach` で添付する。`gh` 2.99.0 以降の `gh issue create/edit/comment` と `gh pr create/edit/comment` が対応し、ループの手元の `gh` 2.106.0 で、PR の本文への添付を #1461 で、Issue の本文への添付を #1436 で確かめた（2026-11-28）。手順の詳細は `github-media` skill。
 
 - 本文は一時ファイル（リポジトリの外）に書き、画像はそのファイルからの相対パスで `![…](./before.png)` と参照する。`gh issue create --body-file body.md --attach ./before.png --attach ./after-a.png` のように渡すと、`gh` がアップロードして参照をアップロード先の URL に置き換える。本文で参照していない画像は末尾に足されるので、添付するものはすべて本文で参照する。
 - 既存の本文に足すときは、直前に最新の本文を取得し、追記を残したまま `gh issue edit` / `gh pr edit` に `--body-file` と `--attach` を渡す。
