@@ -1383,7 +1383,7 @@ describe("決定ステップの採用モードの既定", () => {
     fireEvent.pointerEnter(
       screen.getByRole("button", { name: "採用する付箋: 候補A" }),
     );
-    const exclude = screen.getByRole("button", { name: "除外する" });
+    const exclude = screen.getByRole("button", { name: /^除外する/ });
     expect(exclude).not.toHaveClass("opacity-0");
     fireEvent.click(exclude);
     expect(onNoteExclude).toHaveBeenCalledWith("note-1");
@@ -1400,7 +1400,7 @@ describe("決定ステップの採用モードの既定", () => {
         name: "採用する付箋: 候補A",
       });
       fireEvent.pointerEnter(target);
-      const exclude = screen.getByRole("button", { name: "除外する" });
+      const exclude = screen.getByRole("button", { name: /^除外する/ });
       // 実ブラウザでは離脱と進入が同じイベント処理の中で続き、描画はその後になる。
       act(() => {
         fireEvent.pointerOut(target, { relatedTarget: exclude });
@@ -4417,7 +4417,9 @@ describe("付箋上の投票結果", () => {
       expect(
         screen.getByRole("img", { name: objectiveName }),
       ).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: /比較する候補/ }));
+      fireEvent.click(
+        screen.getByRole("button", { name: /^採用する.*比較する候補/ }),
+      );
       expect(props.onNoteDecide).toHaveBeenCalledOnce();
     },
   );
