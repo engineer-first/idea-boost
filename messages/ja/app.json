@@ -3,7 +3,7 @@
     "sloganFirst": "アイデア出しをスマートに、",
     "sloganSecond": "スムーズに。",
     "invitedNotice": "ルームに招待されています。はじめると、そのまま参加できます。",
-    "about": "IdeaBoostとは？",
+    "about": "Idea Boostとは？",
     "errorPrefix": "エラー",
     "retry": "もう一度お試しください。",
     "authSetup": "認証の環境設定が必要です。.env.local を確認してください。",
@@ -94,7 +94,7 @@
   "menu": {
     "aria": "ユーザーメニュー",
     "editDisplayName": "表示名を変更",
-    "about": "IdeaBoostについて",
+    "about": "Idea Boostについて",
     "guestSignOut": "このブラウザから本人情報を消す",
     "logout": "ログアウト"
   },

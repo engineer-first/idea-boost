@@ -248,14 +248,14 @@ it.each(
         screen.getByRole("button", { name: "表示名を変更" }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("link", { name: "IdeaBoostについて" }),
+        screen.getByRole("link", { name: "Idea Boostについて" }),
       ).toHaveAttribute("href", "/about");
     } else {
       expect(
         screen.queryByRole("button", { name: "表示名を変更" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("link", { name: "IdeaBoostについて" }),
+        screen.queryByRole("link", { name: "Idea Boostについて" }),
       ).not.toBeInTheDocument();
     }
     const menu = within(screen.getByRole("dialog"));
@@ -312,7 +312,7 @@ it("ホームのユーザーメニューから説明ページを開ける", asyn
   await renderHeader(<AppHeader userName="はな" />);
   fireEvent.click(screen.getByRole("button", { name: "ユーザーメニュー" }));
   expect(
-    await screen.findByRole("link", { name: "IdeaBoostについて" }),
+    await screen.findByRole("link", { name: "Idea Boostについて" }),
   ).toHaveAttribute("href", "/about");
 });
 

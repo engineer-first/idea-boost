@@ -1357,6 +1357,30 @@ describe("決定ステップの採用モードの既定", () => {
     expect(onNoteDecide).toHaveBeenCalledWith("note-1");
   });
 
+  it("キーボードで採用すると、フォーカスを採用した付箋に残す", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      notes: [
+        buildNote({ id: "note-1", content: "候補A" }),
+        buildNote({ id: "note-2", content: "候補B", x: 400 }),
+      ],
+    });
+    const target = screen.getByRole("button", {
+      name: "採用する付箋: 候補B",
+    });
+    target.focus();
+    fireEvent.click(target);
+
+    expect(
+      screen.queryByRole("button", { name: "採用する付箋: 候補B" }),
+    ).not.toBeInTheDocument();
+    const focused = document.activeElement;
+    expect(focused).toHaveAttribute("data-canvas-note-surface", "true");
+    expect(
+      focused?.closest('[data-testid="board-note-note-2"]'),
+    ).not.toBeNull();
+  });
+
   it("確定を取り消すと、そのまま別の付箋を採用できる", () => {
     const notes = [
       buildNote({ id: "note-1", content: "候補A" }),

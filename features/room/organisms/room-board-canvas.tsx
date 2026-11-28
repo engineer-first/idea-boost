@@ -563,6 +563,21 @@ export function RoomBoardCanvas({
     didDrag: boolean;
   } | null>(null);
   const suppressAdoptionClickRef = useRef(false);
+  // キーボードで採用すると当たり判定のボタンが消え、フォーカスが body へ落ちる。
+  // 採用した付箋の枠を覚えておき、描画後にその付箋のサーフェスへ戻す。
+  const adoptedFocusFrameRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    const frame = adoptedFocusFrameRef.current;
+    if (!frame) return;
+    adoptedFocusFrameRef.current = null;
+    if (!frame.isConnected || frame.querySelector("[data-adopt-target]"))
+      return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
+    frame
+      .querySelector<HTMLElement>("[data-canvas-note-surface]")
+      ?.focus({ preventScroll: true });
+  });
   function finishAdoptionPointer(
     event: ReactPointerEvent,
     cancelled = false,
@@ -846,6 +861,9 @@ export function RoomBoardCanvas({
               if (suppressAdoptionClickRef.current && event.detail !== 0)
                 return;
               adoptionDragRef.current = null;
+              if (event.currentTarget === document.activeElement)
+                adoptedFocusFrameRef.current =
+                  event.currentTarget.parentElement;
               onAdoptNote(note.id);
             }}
           />
