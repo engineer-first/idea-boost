@@ -4,12 +4,15 @@ import { cn } from "@/lib/utils";
 
 export function MemberSelection({
   name,
+  action,
   children,
   className,
   disabled = false,
   onSelect,
 }: {
   name: string;
+  /** 押すと名前の人に何をするか。読み上げ名に添えて、押す前に分かるようにする。 */
+  action?: "remove";
   children: ReactNode;
   className?: string;
   disabled?: boolean;
@@ -17,10 +20,15 @@ export function MemberSelection({
 }) {
   const t = useTranslations("app.members");
   if (!onSelect) return <div className={className}>{children}</div>;
+  const displayName = name || t("unnamed");
   return (
     <button
       type="button"
-      aria-label={name || t("unnamed")}
+      aria-label={
+        action === "remove"
+          ? t("removeFromRoom", { name: displayName })
+          : displayName
+      }
       aria-haspopup="dialog"
       disabled={disabled}
       onClick={(event) => {

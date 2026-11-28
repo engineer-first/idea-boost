@@ -31,7 +31,7 @@ async function open(mode = "success", lobby = false) {
     `${origin}/iframe.html?id=room-${lobby ? "roomconnectionflow" : "activeroomflow"}--${mode}&viewMode=story`,
   );
   await page
-    .getByRole("button", { name: "Hana Sato", exact: true })
+    .getByRole("button", { name: "Hana Sato：ルームから外す", exact: true })
     .waitFor({ state: lobby ? "visible" : "hidden" });
   if (!lobby) await page.getByRole("timer").getByText("02:18").waitFor();
 }
@@ -41,7 +41,7 @@ async function select(lobby = false) {
       .getByRole("button", { name: /参加者 2人|発表者と全体の順番を確認/ })
       .click();
   await page
-    .getByRole("button", { name: "Hana Sato", exact: true })
+    .getByRole("button", { name: "Hana Sato：ルームから外す", exact: true })
     .press("Enter");
   await page
     .getByRole("alertdialog", { name: "この参加者をルームから外しますか？" })
@@ -101,7 +101,9 @@ test("ロビーでも確認・拒否・再試行を通して退出できる", as
     .click();
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
   expect(
-    await page.getByRole("button", { name: "Hana Sato", exact: true }).count(),
+    await page
+      .getByRole("button", { name: "Hana Sato：ルームから外す", exact: true })
+      .count(),
   ).toBe(0);
 });
 test("処理中は二重操作できずtimeout後に再試行できる", async () => {
@@ -133,10 +135,14 @@ test("共有中も他の参加者を外せて、自分自身は除外対象に�
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
   await open("participant");
   await page.getByRole("button", { name: "参加者 2人" }).click();
-  expect(
-    await page.getByRole("button", { name: "Hana Sato", exact: true }).count(),
-  ).toBe(0);
-  await page.getByRole("button", { name: "Yuki Tanaka", exact: true }).click();
+  // 自分の行は、外す操作の名前でも、名前だけのボタンでも出ない。
+  for (const name of ["Hana Sato：ルームから外す", "Hana Sato"])
+    expect(await page.getByRole("button", { name, exact: true }).count()).toBe(
+      0,
+    );
+  await page
+    .getByRole("button", { name: "Yuki Tanaka：ルームから外す", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "ルームから外す", exact: true })
     .click();

@@ -31,3 +31,5 @@ type Story = StoryObj<typeof meta>;
 export const Selectable: Story = {};
 export const Disabled: Story = { args: { disabled: true } };
 export const DisplayOnly: Story = { args: { onSelect: undefined } };
+/** 押すとルームから外す確認を開く行。読み上げは「Hana Sato：ルームから外す」。 */
+export const Removable: Story = { args: { action: "remove" } };

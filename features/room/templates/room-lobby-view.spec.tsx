@@ -327,7 +327,9 @@ it("20人全員を表示し、参加者の除外を取消すと選んだ参加�
   expect(screen.queryByTestId("room-members-overflow")).not.toBeInTheDocument();
   for (const member of members)
     expect(screen.getByText(member.name)).toBeVisible();
-  const target = screen.getByRole("button", { name: members[19].name });
+  const target = screen.getByRole("button", {
+    name: `${members[19].name}：ルームから外す`,
+  });
   await user.click(target);
   expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "キャンセル" }));

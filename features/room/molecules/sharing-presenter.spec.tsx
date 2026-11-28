@@ -60,9 +60,13 @@ it("共有順に含まれない途中参加者も選べ、退出者は選べな�
     screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
   );
   expect(
-    screen.queryByRole("button", { name: sharing.order[1].name }),
+    screen.queryByRole("button", {
+      name: `${sharing.order[1].name}：ルームから外す`,
+    }),
   ).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "途中参加" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "途中参加：ルームから外す" }),
+  );
   expect(onSelectMember).toHaveBeenCalledExactlyOnceWith(late.userId);
 });
 
@@ -150,7 +154,9 @@ describe("今の発表者のパス", () => {
 
   it("発表中の行そのものを押すとルームから外す確認へ進む", () => {
     const { onSelectMember, onPassPresenter } = renderPresenter();
-    fireEvent.click(screen.getByRole("button", { name: presenter.name }));
+    fireEvent.click(
+      screen.getByRole("button", { name: `${presenter.name}：ルームから外す` }),
+    );
     expect(onSelectMember).toHaveBeenCalledExactlyOnceWith(presenter.userId);
     expect(onPassPresenter).not.toHaveBeenCalled();
   });

@@ -172,6 +172,7 @@ export function LobbyMembers({
               ) : (
                 <MemberSelection
                   name={member.name}
+                  action="remove"
                   className={styles.peer}
                   disabled={disabled}
                   onSelect={
